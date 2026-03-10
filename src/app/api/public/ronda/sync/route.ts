@@ -6,6 +6,8 @@ import { isWithinGeoRadius, speedKmh } from "@/lib/rondas/geo-utils";
 import { detectCheckpointAnomalies } from "@/lib/rondas/anomaly-detection";
 import { calculateRondaTrustScore } from "@/lib/rondas/trust-score-v2";
 import { toAlertSeverityFromAnomalies } from "@/lib/rondas/trust-score";
+import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
+import { notifyCriticalAlertsBatch } from "@/lib/rondas/alert-notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,12 +24,17 @@ export async function POST(request: NextRequest) {
 
     for (const round of parsed.data.rounds) {
       try {
+        const roundAlerts: Array<{ tipo: string; severidad: string; mensaje: string }> = [];
+        let roundTenantId = "";
         await prisma.$transaction(async (tx) => {
           const template = await tx.opsRondaTemplate.findFirst({
             where: { id: round.templateId },
             include: { checkpoints: { orderBy: { orderIndex: "asc" } } },
           });
           if (!template) throw new Error(`Template ${round.templateId} not found`);
+          roundTenantId = template.tenantId;
+
+          const turnoId = await getActiveTurnoId(template.tenantId);
 
           const ejecucion = await tx.opsRondaEjecucion.create({
             data: {
@@ -117,18 +124,22 @@ export async function POST(request: NextRequest) {
             });
 
             if (anomalies.length > 0) {
+              const alertSeveridad = toAlertSeverityFromAnomalies(anomalies);
+              const alertMensaje = `[Sync] Anomalía en checkpoint ${checkpoint.name}: ${anomalies.join(", ")}`;
               await tx.opsAlertaRonda.create({
                 data: {
                   tenantId: template.tenantId,
                   ejecucionId: ejecucion.id,
                   installationId: round.installationId,
                   guardiaId: round.guardiaId,
+                  turnoId,
                   tipo: anomalies[0],
-                  severidad: toAlertSeverityFromAnomalies(anomalies),
-                  mensaje: `[Sync] Anomalía en checkpoint ${checkpoint.name}: ${anomalies.join(", ")}`,
+                  severidad: alertSeveridad,
+                  mensaje: alertMensaje,
                   data: { anomalies, checkpointId: m.checkpointId, offline: true } as never,
                 },
               });
+              roundAlerts.push({ tipo: anomalies[0], severidad: alertSeveridad, mensaje: alertMensaje });
             }
           }
 
@@ -161,6 +172,13 @@ export async function POST(request: NextRequest) {
             },
           });
         });
+
+        // Push + chat notification for critical alerts from this round (fire-and-forget)
+        if (roundAlerts.length > 0 && roundTenantId) {
+          notifyCriticalAlertsBatch(roundTenantId, roundAlerts).catch((err) =>
+            console.error("[SYNC] Alert notification failed:", err),
+          );
+        }
 
         synced++;
       } catch (err) {

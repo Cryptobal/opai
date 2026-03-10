@@ -7,6 +7,8 @@ import { detectCheckpointAnomalies } from "@/lib/rondas/anomaly-detection";
 import { isWithinGeoRadius, speedKmh } from "@/lib/rondas/geo-utils";
 import { computeCheckpointTrustScore, toAlertSeverityFromAnomalies } from "@/lib/rondas/trust-score";
 import { evaluatePostMarkAlerts } from "@/lib/rondas/alert-engine";
+import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
+import { notifyCriticalAlert } from "@/lib/rondas/alert-notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -104,6 +106,8 @@ export async function POST(request: NextRequest) {
       metodoId: "qr_ronda",
     });
 
+    const turnoId = await getActiveTurnoId(execution.tenantId);
+
     const created = await prisma.$transaction(async (tx) => {
       const mark = await tx.opsMarcacionCheckpoint.create({
         data: {
@@ -163,6 +167,7 @@ export async function POST(request: NextRequest) {
             tenantId: execution.tenantId,
             ejecucionId: execution.id,
             installationId,
+            turnoId,
             tipo: anomalies[0],
             severidad: toAlertSeverityFromAnomalies(anomalies),
             mensaje: `Anomalía detectada en checkpoint ${checkpoint.name}: ${anomalies.join(", ")}`,
@@ -178,6 +183,17 @@ export async function POST(request: NextRequest) {
 
       return mark;
     });
+
+    // Push + chat notification for critical anomaly alerts (fire-and-forget)
+    if (anomalies.length) {
+      const severidad = toAlertSeverityFromAnomalies(anomalies);
+      notifyCriticalAlert({
+        tenantId: execution.tenantId,
+        tipo: anomalies[0],
+        severidad,
+        mensaje: `Anomalía detectada en checkpoint ${checkpoint.name}: ${anomalies.join(", ")}`,
+      }).catch((err) => console.error("[MARCAR] Alert notification failed:", err));
+    }
 
     // Evaluate post-mark alerts asynchronously (don't block response)
     if (execution.rondaTemplate) evaluatePostMarkAlerts({

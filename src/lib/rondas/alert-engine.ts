@@ -3,6 +3,8 @@ import { isWithinGeoRadius, speedKmh } from "@/lib/rondas/geo-utils";
 import { getAlertConfig, type AlertConfig } from "@/lib/rondas/ia-config";
 import { formatChileTime } from "./timezone";
 import { getPusherServer } from "@/lib/chat";
+import { getActiveTurnoId } from "./get-active-turno";
+import { notifyCriticalAlertsBatch } from "./alert-notifications";
 
 export async function evaluatePostMarkAlerts(input: {
   tenantId: string;
@@ -43,24 +45,8 @@ export async function evaluatePostMarkAlerts(input: {
 
   const prev = prevMarcaciones[0];
 
-  // 1. GEOFENCE BREACH
-  if (
-    config.routeDeviationEnabled &&
-    input.marcacion.verificationMethod === "GEOFENCE" &&
-    input.marcacion.geoDistanciaM != null &&
-    input.marcacion.geoDistanciaM > input.marcacion.checkpointRadius * config.routeDeviationMultiplier
-  ) {
-    alerts.push({
-      tipo: "breach_geocerca",
-      severidad: "critical",
-      mensaje: `Guardia marcó checkpoint ${input.checkpointName} desde ${Math.round(input.marcacion.geoDistanciaM)}m (límite: ${input.marcacion.checkpointRadius}m)`,
-      data: {
-        distanceM: input.marcacion.geoDistanciaM,
-        radiusM: input.marcacion.checkpointRadius,
-        checkpointId: input.checkpointId,
-      },
-    });
-  }
+  // NOTE: breach_geocerca was removed — geo_fuera_rango (generated inline in marcar routes)
+  // is now the single geofence alert to avoid duplication.
 
   if (prev) {
     const elapsedSec = Math.max(1, (input.marcacion.timestamp.getTime() - prev.timestamp.getTime()) / 1000);
@@ -123,12 +109,14 @@ export async function evaluatePostMarkAlerts(input: {
   }
 
   if (alerts.length > 0) {
+    const turnoId = await getActiveTurnoId(input.tenantId);
     await prisma.opsAlertaRonda.createMany({
       data: alerts.map(a => ({
         tenantId: input.tenantId,
         ejecucionId: input.ejecucionId,
         installationId: input.installationId,
         guardiaId: input.guardiaId,
+        turnoId,
         tipo: a.tipo,
         severidad: a.severidad,
         mensaje: a.mensaje,
@@ -151,6 +139,11 @@ export async function evaluatePostMarkAlerts(input: {
     } catch (pusherErr) {
       console.error("[ALERT_ENGINE] Pusher trigger failed:", pusherErr);
     }
+
+    // Push + chat notifications for critical alerts (fire-and-forget)
+    notifyCriticalAlertsBatch(input.tenantId, alerts).catch((err) =>
+      console.error("[ALERT_ENGINE] Alert notification failed:", err),
+    );
   }
 }
 
@@ -216,6 +209,7 @@ export async function checkPendingRounds(tenantId: string): Promise<{ alertsCrea
   const progMap = new Map<string, any>(activeProgramaciones.map((p: any) => [p.id, p]));
 
   // 3. Create missing alerts in bulk
+  const turnoId = await getActiveTurnoId(tenantId);
   const newAlerts = overdueEjecuciones
     .filter((ej: any) => !alreadyAlerted.has(ej.id) && ej.rondaTemplate)
     .map((ej: any) => {
@@ -224,6 +218,7 @@ export async function checkPendingRounds(tenantId: string): Promise<{ alertsCrea
         tenantId,
         ejecucionId: ej.id,
         installationId: ej.rondaTemplate.installationId,
+        turnoId,
         tipo: "ronda_no_iniciada",
         severidad: "critical",
         mensaje: `Ronda "${ej.rondaTemplate.name}" no iniciada. Programada: ${formatChileTime(ej.scheduledAt)}`,
@@ -253,6 +248,11 @@ export async function checkPendingRounds(tenantId: string): Promise<{ alertsCrea
     } catch (pusherErr) {
       console.error("[ALERT_ENGINE] Pusher trigger failed:", pusherErr);
     }
+
+    // Push + chat notifications for critical alerts (fire-and-forget)
+    notifyCriticalAlertsBatch(tenantId, newAlerts).catch((err) =>
+      console.error("[ALERT_ENGINE] Alert notification failed:", err),
+    );
   }
 
   return { alertsCreated: newAlerts.length };

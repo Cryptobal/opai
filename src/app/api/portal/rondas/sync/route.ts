@@ -6,6 +6,8 @@ import { detectCheckpointAnomalies } from "@/lib/rondas/anomaly-detection";
 import { isWithinGeoRadius, speedKmh } from "@/lib/rondas/geo-utils";
 import { computeCheckpointTrustScore, toAlertSeverityFromAnomalies } from "@/lib/rondas/trust-score";
 import { evaluatePostMarkAlerts } from "@/lib/rondas/alert-engine";
+import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
+import { notifyCriticalAlert } from "@/lib/rondas/alert-notifications";
 
 // ---------------------------------------------------------------------------
 // Inline validation — individual mark payload (same shape as /marcar body)
@@ -194,6 +196,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
   });
 
   // 9. Transaction: create mark, update execution, create alerts
+  const turnoId = await getActiveTurnoId(execution.tenantId);
   await prisma.$transaction(async (tx) => {
     await tx.opsMarcacionCheckpoint.create({
       data: {
@@ -259,6 +262,7 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
           tenantId: execution.tenantId,
           ejecucionId: execution.id,
           installationId,
+          turnoId,
           tipo: anomalies[0],
           severidad: toAlertSeverityFromAnomalies(anomalies),
           mensaje: `Anomalia detectada en checkpoint ${checkpoint.name}: ${anomalies.join(", ")} (offline sync)`,
@@ -272,6 +276,20 @@ async function processOneMark(mark: MarkPayload): Promise<void> {
       });
     }
   });
+
+  // Push + chat notification for critical anomaly alerts (fire-and-forget)
+  if (anomalies.length) {
+    const installationId =
+      execution.rondaTemplate?.installationId ?? execution.installationId ?? null;
+    if (installationId) {
+      notifyCriticalAlert({
+        tenantId: execution.tenantId,
+        tipo: anomalies[0],
+        severidad: toAlertSeverityFromAnomalies(anomalies),
+        mensaje: `Anomalia detectada en checkpoint ${checkpoint.name}: ${anomalies.join(", ")} (offline sync)`,
+      }).catch((err) => console.error("[SYNC] Alert notification failed:", err));
+    }
+  }
 
   // Post-mark alerts (order compliance, missed windows, etc.) — fire-and-forget
   evaluatePostMarkAlerts({
