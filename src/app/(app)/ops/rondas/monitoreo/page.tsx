@@ -19,15 +19,25 @@ export default async function RondasMonitoreoPage() {
   const sixHoursFromNow = new Date(now.getTime() + 6 * 60 * 60 * 1000);
 
   // Use active turno start time as lower bound; fallback to 12h window
-  const activeTurno = await prisma.opsMonitoreoTurno.findFirst({
-    where: { tenantId, status: "active" },
-    select: { startedAt: true },
-  });
-  const lookbackStart = activeTurno?.startedAt
-    ?? new Date(now.getTime() - 12 * 60 * 60 * 1000);
+  let lookbackStart = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+  try {
+    const activeTurno = await prisma.opsMonitoreoTurno.findFirst({
+      where: { tenantId, status: "active" },
+      select: { startedAt: true },
+    });
+    if (activeTurno?.startedAt) lookbackStart = activeTurno.startedAt;
+  } catch (err) {
+    console.error("[RONDAS_ERROR] Failed to fetch active turno:", err);
+  }
 
-  const [activeRows, upcomingRows, installations, alerts] = await Promise.all([
-    prisma.opsRondaEjecucion.findMany({
+  // Each query wrapped individually so a single failure doesn't crash the page
+  let activeRows: Awaited<ReturnType<typeof prisma.opsRondaEjecucion.findMany>> = [];
+  let upcomingRows: Awaited<ReturnType<typeof prisma.opsRondaEjecucion.findMany>> = [];
+  let installations: { id: string; name: string; lat: number | null; lng: number | null }[] = [];
+  let alertCount = 0;
+
+  try {
+    activeRows = await prisma.opsRondaEjecucion.findMany({
       where: { tenantId, status: "en_curso" },
       include: {
         rondaTemplate: {
@@ -45,9 +55,13 @@ export default async function RondasMonitoreoPage() {
       },
       orderBy: { scheduledAt: "asc" },
       take: 50,
-    }),
-    // Upcoming (next 6h) + missed (pendiente past due or no_realizada in last 12h)
-    prisma.opsRondaEjecucion.findMany({
+    });
+  } catch (err) {
+    console.error("[RONDAS_ERROR] Failed to fetch active rows:", err);
+  }
+
+  try {
+    upcomingRows = await prisma.opsRondaEjecucion.findMany({
       where: {
         tenantId,
         OR: [
@@ -68,16 +82,28 @@ export default async function RondasMonitoreoPage() {
       },
       orderBy: { scheduledAt: "asc" },
       take: 30,
-    }),
-    prisma.crmInstallation.findMany({
+    });
+  } catch (err) {
+    console.error("[RONDAS_ERROR] Failed to fetch upcoming rows:", err);
+  }
+
+  try {
+    installations = await prisma.crmInstallation.findMany({
       where: { tenantId, isActive: true, nocturnoEnabled: true },
       select: { id: true, name: true, lat: true, lng: true },
       orderBy: { name: "asc" },
-    }),
-    prisma.opsAlertaRonda.count({
+    });
+  } catch (err) {
+    console.error("[RONDAS_ERROR] Failed to fetch installations:", err);
+  }
+
+  try {
+    alertCount = await prisma.opsAlertaRonda.count({
       where: { tenantId, resuelta: false, archivedAt: null },
-    }),
-  ]);
+    });
+  } catch (err) {
+    console.error("[RONDAS_ERROR] Failed to fetch alert count:", err);
+  }
 
   return (
     <div className="min-w-0">
@@ -88,7 +114,7 @@ export default async function RondasMonitoreoPage() {
         initialRows={JSON.parse(JSON.stringify(activeRows))}
         upcomingRows={JSON.parse(JSON.stringify(upcomingRows))}
         installations={JSON.parse(JSON.stringify(installations))}
-        alertCount={alerts}
+        alertCount={alertCount}
         userId={session.user.id ?? ""}
         userName={session.user.name ?? ""}
         tenantId={tenantId}

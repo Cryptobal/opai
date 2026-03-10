@@ -237,8 +237,10 @@ export function RondaActiva({
   // ---------------------------------------------------------------------------
   // Derived values
   // ---------------------------------------------------------------------------
-  const completedCount = checkpoints.filter((c) => c.completed).length;
-  const total = checkpoints.length;
+  const completedCount = isAdHoc
+    ? adHocMarkedPoints.length
+    : checkpoints.filter((c) => c.completed).length;
+  const total = isAdHoc ? adHocMarkedPoints.length : checkpoints.length;
 
   const activeCheckpointId =
     checkpoints.find((c) => !c.completed)?.id ?? null;
@@ -394,12 +396,12 @@ export function RondaActiva({
   }, [rondaData.ejecucionId, session.guardiaId, onComplete]);
 
   const handleCompleteClick = useCallback(() => {
-    if (incompleteCheckpoints.length > 0) {
+    if (!isAdHoc && incompleteCheckpoints.length > 0) {
       setShowConfirmModal(true);
     } else {
       handleComplete();
     }
-  }, [incompleteCheckpoints.length, handleComplete]);
+  }, [isAdHoc, incompleteCheckpoints.length, handleComplete]);
 
   const confirmComplete = useCallback(() => {
     setShowConfirmModal(false);
@@ -479,7 +481,7 @@ export function RondaActiva({
 
   return (
     <div
-      className="flex min-h-dvh flex-col overflow-x-hidden"
+      className="flex h-dvh flex-col overflow-x-hidden overflow-y-auto"
       style={{ backgroundColor: "#0a0a0f" }}
     >
       {/* ============ Header ============ */}
@@ -647,7 +649,7 @@ export function RondaActiva({
             </div>
 
             {/* Mini-timeline of completed marcaciones */}
-            {sortedCheckpoints.length === 0 ? (
+            {adHocMarkedPoints.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-4 text-center">
                 <p className="text-sm text-gray-500">Sin puntos registrados aun</p>
                 <p className="mt-1 text-xs text-gray-600">Usa los botones para registrar puntos</p>
@@ -655,12 +657,12 @@ export function RondaActiva({
             ) : (
               <div className="space-y-2">
                 <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Puntos registrados</p>
-                {sortedCheckpoints.filter(c => c.completed).map((cp, i) => (
-                  <div key={cp.id} className="flex items-center gap-3 rounded-lg border border-gray-800 bg-gray-900/40 px-3 py-2">
+                {adHocMarkedPoints.map((pt, i) => (
+                  <div key={pt.id} className="flex items-center gap-3 rounded-lg border border-gray-800 bg-gray-900/40 px-3 py-2">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal-500/20 text-xs font-semibold text-teal-400">
                       {i + 1}
                     </span>
-                    <span className="flex-1 text-sm text-gray-300">{cp.name}</span>
+                    <span className="flex-1 text-sm text-gray-300">{pt.name}</span>
                   </div>
                 ))}
               </div>

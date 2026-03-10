@@ -18,7 +18,7 @@ export function ThemeLogo({ width = 28, height = 28, className }: ThemeLogoProps
     <span className={cn("relative inline-flex shrink-0", className)} style={{ width, height }}>
       {/* Logo azul: visible en light, oculto en dark */}
       <Image
-        src="/Logo%20escudo%20gard%20azul.webp"
+        src="/icons/isotipo-dark.png"
         alt={process.env.NEXT_PUBLIC_COMPANY_NAME || "OPAI"}
         width={width}
         height={height}
@@ -26,7 +26,7 @@ export function ThemeLogo({ width = 28, height = 28, className }: ThemeLogoProps
       />
       {/* Logo blanco: oculto en light, visible en dark */}
       <Image
-        src="/logo%20escudo%20blanco.png"
+        src="/icons/isotipo-white.png"
         alt={process.env.NEXT_PUBLIC_COMPANY_NAME || "OPAI"}
         width={width}
         height={height}

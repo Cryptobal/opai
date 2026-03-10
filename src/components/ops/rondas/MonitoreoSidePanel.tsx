@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { AlertTriangle, MapPin, Check, X, Shield, Radio, Clock, AlertCircle, ChevronRight, Loader2, History, ChevronDown, FileText, Moon, Sun, Search } from "lucide-react";
+import { AlertTriangle, MapPin, Check, X, Shield, Radio, Clock, ChevronRight, Loader2, History, ChevronDown, FileText, Moon, Sun, Search } from "lucide-react";
 import { MonitoreoGuardPanel } from "./MonitoreoGuardPanel";
 import { HistorialGridDialog, type HistorialTurno } from "./HistorialGridDialog";
 import { cn } from "@/lib/utils";
@@ -46,15 +46,6 @@ interface InstallationCard {
   alertCount: number;
 }
 
-/* ─── Upcoming row types ─── */
-interface UpcomingRow {
-  id: string;
-  status: string;
-  scheduledAt: string;
-  rondaTemplate?: { name?: string; installation?: { id: string; name: string } | null } | null;
-  guardia?: { persona: { firstName: string; lastName: string } } | null;
-}
-
 /* ─── Props ─── */
 interface Props {
   // Rondas tab
@@ -62,8 +53,6 @@ interface Props {
   selectedRondaId: string | null;
   onSelectGuard: (id: string | null) => void;
   onAddNote: (ejecucionId: string, guardiaId: string, installationId: string, note: string) => Promise<void>;
-  upcomingData: UpcomingRow[];
-  formatPersonName: (first: string, last: string) => string;
   // Alertas tab
   alertRows: AlertRow[];
   alertsLoading: boolean;
@@ -92,8 +81,6 @@ export function MonitoreoSidePanel({
   selectedRondaId,
   onSelectGuard,
   onAddNote,
-  upcomingData,
-  formatPersonName,
   alertRows,
   alertsLoading,
   resolvingAlertId,
@@ -111,7 +98,6 @@ export function MonitoreoSidePanel({
   initialTab,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? "rondas");
-  const [expandedInstallations, setExpandedInstallations] = useState<Set<string>>(new Set());
 
   const openAlerts = useMemo(() => alertRows.filter((a) => !a.resuelta), [alertRows]);
 
@@ -203,10 +189,6 @@ export function MonitoreoSidePanel({
             selectedRondaId={selectedRondaId}
             onSelectGuard={onSelectGuard}
             onAddNote={onAddNote}
-            upcomingData={upcomingData}
-            formatPersonName={formatPersonName}
-            expandedInstallations={expandedInstallations}
-            setExpandedInstallations={setExpandedInstallations}
           />
         )}
         {activeTab === "alertas" && (
@@ -246,94 +228,12 @@ function RondasTab({
   selectedRondaId,
   onSelectGuard,
   onAddNote,
-  upcomingData,
-  formatPersonName,
-  expandedInstallations,
-  setExpandedInstallations,
 }: {
   guardPanelData: any[];
   selectedRondaId: string | null;
   onSelectGuard: (id: string | null) => void;
   onAddNote: (ejecucionId: string, guardiaId: string, installationId: string, note: string) => Promise<void>;
-  upcomingData: UpcomingRow[];
-  formatPersonName: (first: string, last: string) => string;
-  expandedInstallations: Set<string>;
-  setExpandedInstallations: React.Dispatch<React.SetStateAction<Set<string>>>;
 }) {
-  const now = new Date();
-  const missed = upcomingData.filter((r) => r.status === "no_realizada" || (r.status === "pendiente" && new Date(r.scheduledAt) < now));
-  const upcoming = upcomingData.filter((r) => r.status === "pendiente" && new Date(r.scheduledAt) >= now);
-
-  const groupByInstallation = (rows: UpcomingRow[]) => {
-    const map = new Map<string, { name: string; rows: UpcomingRow[] }>();
-    for (const r of rows) {
-      const instId = r.rondaTemplate?.installation?.id ?? "sin-instalacion";
-      const instName = r.rondaTemplate?.installation?.name ?? "Sin instalación";
-      if (!map.has(instId)) map.set(instId, { name: instName, rows: [] });
-      map.get(instId)!.rows.push(r);
-    }
-    return Array.from(map.entries());
-  };
-
-  const toggleExpand = (key: string) => {
-    setExpandedInstallations((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const renderSection = (title: string, icon: ReactNode, rows: UpcomingRow[], sectionKey: string, isMissedSection: boolean) => {
-    if (rows.length === 0) return null;
-    const groups = groupByInstallation(rows);
-    return (
-      <div className="border-t border-[#1a1f2e]">
-        <div className="px-4 py-2 border-b border-[#1a1f2e] flex items-center gap-2">
-          {icon}
-          <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">{title}</p>
-          <span className={`ml-auto text-[10px] rounded-full px-1.5 py-0.5 font-semibold ${isMissedSection ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400"}`}>
-            {rows.length}
-          </span>
-        </div>
-        {groups.map(([instId, { name, rows: instRows }]) => {
-          const key = `${sectionKey}-${instId}`;
-          const isExpanded = expandedInstallations.has(key);
-          return (
-            <div key={key}>
-              <button
-                onClick={() => toggleExpand(key)}
-                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-zinc-800/50 transition-colors"
-              >
-                <ChevronRight className={`h-3 w-3 text-zinc-500 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-                <span className="text-xs font-medium text-foreground">{name}</span>
-                <span className="ml-auto text-[10px] text-zinc-500">{instRows.length}</span>
-              </button>
-              {isExpanded && (
-                <div className="divide-y divide-[#1e293b]/50">
-                  {instRows.map((r) => (
-                    <div key={r.id} className={`pl-9 pr-4 py-2 ${isMissedSection ? "bg-red-950/5" : ""}`}>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-foreground">{r.rondaTemplate?.name ?? "Ronda"}</span>
-                        <span className="text-[10px] text-zinc-500">
-                          {new Date(r.scheduledAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-                      {r.guardia && (
-                        <p className="text-[11px] text-muted-foreground">
-                          {formatPersonName(r.guardia.persona.firstName, r.guardia.persona.lastName)}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
 
   return (
     <>
@@ -345,25 +245,17 @@ function RondasTab({
           {guardPanelData.length}
         </span>
       </div>
-      <MonitoreoGuardPanel
-        rondas={guardPanelData}
-        onSelectGuard={onSelectGuard}
-        selectedId={selectedRondaId}
-        onAddNote={onAddNote}
-      />
-      {renderSection(
-        "No realizadas",
-        <AlertCircle className="h-3 w-3 text-red-400" />,
-        missed,
-        "missed",
-        true,
-      )}
-      {renderSection(
-        "Próximas",
-        <Clock className="h-3 w-3 text-blue-400" />,
-        upcoming,
-        "upcoming",
-        false,
+      {guardPanelData.length === 0 ? (
+        <div className="px-4 py-6 text-center">
+          <p className="text-xs text-[#64748b]">No hay rondas activas en este momento.</p>
+        </div>
+      ) : (
+        <MonitoreoGuardPanel
+          rondas={guardPanelData}
+          onSelectGuard={onSelectGuard}
+          selectedId={selectedRondaId}
+          onAddNote={onAddNote}
+        />
       )}
     </>
   );

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: 'Portal de rondas — Gard Security',
   manifest: '/portal-rondas-manifest.json',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'OPAI Rondas' },
-  icons: { apple: '/iconos_azul/icon-192x192.png' },
+  icons: { apple: '/icons/apple-touch-icon.png' },
 };
 
 export default function Page() {
@@ -14,7 +14,7 @@ export default function Page() {
     <DescargarPageClient
       appName="OPAI Rondas"
       appDescription="Rondas y marcaciones sin complicaciones"
-      iconSrc="/iconos_azul/icon-192x192.png"
+      iconSrc="/icons/apple-touch-icon.png"
       redirectTo="/portal/rondas"
     />
   );

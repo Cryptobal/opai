@@ -32,7 +32,7 @@ export default async function DashboardPage() {
   const tenantId = session.user.tenantId ?? await getDefaultTenantId();
 
   const presentations = await prisma.presentation.findMany({
-    where: { tenantId },
+    where: { tenantId, archivedAt: null },
     include: {
       views: { orderBy: { viewedAt: 'desc' } },
       template: true,

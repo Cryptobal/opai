@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: 'Portal de clientes — Gard Security',
   manifest: '/manifest-cliente.json',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'OPAI Clientes' },
-  icons: { apple: '/iconos_azul/icon-192x192.png' },
+  icons: { apple: '/icons/apple-touch-icon.png' },
 };
 
 export default function Page() {
@@ -14,7 +14,7 @@ export default function Page() {
     <DescargarPageClient
       appName="OPAI Clientes"
       appDescription="Tu portal de seguridad siempre disponible"
-      iconSrc="/iconos_azul/icon-192x192.png"
+      iconSrc="/icons/apple-touch-icon.png"
       redirectTo="/portal/cliente"
     />
   );

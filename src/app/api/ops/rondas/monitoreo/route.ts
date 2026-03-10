@@ -53,7 +53,7 @@ export async function GET() {
     let controlNocturno = null;
     const activeTurno = await prisma.opsMonitoreoTurno.findFirst({
       where: { tenantId: ctx.tenantId, status: "active" },
-      select: { id: true, controlNocturnoId: true, operatorId: true, operatorName: true },
+      select: { id: true, controlNocturnoId: true, operatorId: true, operatorName: true, startedAt: true },
     });
 
     // Self-heal: if active turno has no CN link, try to find/create one
@@ -168,7 +168,8 @@ export async function GET() {
         },
       });
 
-      // Safety net: if any installation has 0 rondas, regenerate grid slots
+      // Safety net: if any installation has 0 rondas, regenerate grid slots (one-time heal)
+      // Note: guards are only populated on turno start, not during polling
       if (controlNocturno?.instalaciones.some((inst) => inst.rondas.length === 0)) {
         try {
           await generateGridSlots({
@@ -204,7 +205,7 @@ export async function GET() {
       success: true,
       data: active,
       controlNocturno,
-      activeTurno: activeTurno ? { id: activeTurno.id, operatorId: activeTurno.operatorId, operatorName: activeTurno.operatorName } : null,
+      activeTurno: activeTurno ? { id: activeTurno.id, operatorId: activeTurno.operatorId, operatorName: activeTurno.operatorName, startedAt: activeTurno.startedAt } : null,
     });
   } catch (error) {
     console.error("[RONDAS] monitoreo", error);

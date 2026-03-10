@@ -312,7 +312,7 @@ function LoginScreen({ onLogin }: { onLogin: (s: GuardSession) => void }) {
         <PWAInstallBanner
           appName="OPAI Guardias"
           appDescription="Turnos, chat y más desde tu celular"
-          iconSrc="/iconos_azul/icon-192x192.png"
+          iconSrc="/icons/icon-192x192.png"
           variant="inline"
           dismissKey="guardia"
         />

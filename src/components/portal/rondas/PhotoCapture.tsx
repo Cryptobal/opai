@@ -92,7 +92,7 @@ export function PhotoCapture({ onCapture, onClose }: Props) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black" role="dialog" aria-label="Captura de foto">
+    <div className="fixed inset-0 z-[1100] flex flex-col bg-black" role="dialog" aria-label="Captura de foto">
       <div className="flex items-center justify-between px-4 py-3">
         <h2 className="text-lg font-semibold text-white">Foto Evidencia</h2>
         <button onClick={() => { stopCamera(); onClose(); }} className="rounded-lg bg-gray-800 px-4 py-2 text-base text-white">
@@ -103,7 +103,7 @@ export function PhotoCapture({ onCapture, onClose }: Props) {
       {preview ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <img src={preview} alt="Preview" className="min-h-0 flex-1 object-contain" />
-          <div className="flex gap-3 px-4 py-4">
+          <div className="flex gap-3 px-4 py-4" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}>
             <button onClick={retake} className="flex-1 rounded-xl bg-gray-700 py-4 text-lg text-white">
               Repetir
             </button>
@@ -126,7 +126,7 @@ export function PhotoCapture({ onCapture, onClose }: Props) {
                   <p className="text-lg text-white">Iniciando camara...</p>
                 </div>
               )}
-              <div className="absolute inset-x-0 bottom-0 flex justify-center pb-8">
+              <div className="absolute inset-x-0 bottom-0 flex justify-center" style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom, 0px))" }}>
                 <button
                   onClick={capture}
                   aria-label="Tomar foto"

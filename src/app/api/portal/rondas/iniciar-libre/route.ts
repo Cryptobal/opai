@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { getPusherServer } from "@/lib/chat";
 
 const schema = z.object({
   guardiaId: z.string().uuid(),
@@ -68,6 +69,19 @@ export async function POST(request: NextRequest) {
         deviceInfo: deviceInfo as any,
       },
     });
+
+    // Notify monitoreo desktop in real-time
+    try {
+      const pusher = getPusherServer();
+      await pusher.trigger(`monitoreo-${tenantId}`, "ronda-started", {
+        ejecucionId: ejecucion.id,
+        guardiaId,
+        installationId,
+        isAdHoc: true,
+      });
+    } catch (pusherErr) {
+      console.error("[INICIAR_LIBRE] Pusher trigger failed:", pusherErr);
+    }
 
     return NextResponse.json({
       success: true,

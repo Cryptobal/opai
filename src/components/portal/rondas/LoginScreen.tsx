@@ -86,7 +86,7 @@ export function LoginScreen({ onLogin }: Props) {
         <PWAInstallBanner
           appName="OPAI Rondas"
           appDescription="Rondas y marcaciones sin complicaciones"
-          iconSrc="/iconos_azul/icon-192x192.png"
+          iconSrc="/icons/icon-192x192.png"
           variant="inline"
           dismissKey="rondas"
         />

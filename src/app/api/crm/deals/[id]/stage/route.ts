@@ -127,6 +127,56 @@ export async function POST(
         }
       }
 
+      // Archive/unarchive linked presentations when deal closes/reopens
+      const previousStage = await tx.crmPipelineStage.findUnique({
+        where: { id: deal.stageId },
+        select: { isClosedWon: true, isClosedLost: true },
+      });
+      const wasClosed = previousStage?.isClosedWon || previousStage?.isClosedLost;
+      const isClosed = stage.isClosedWon || stage.isClosedLost;
+
+      if (isClosed && !wasClosed) {
+        // Deal just closed → archive linked presentations
+        const linkedQuoteIds = await tx.crmDealQuote.findMany({
+          where: { dealId: deal.id },
+          select: { quoteId: true },
+        });
+        const directQuoteIds = await tx.cpqQuote.findMany({
+          where: { dealId: deal.id },
+          select: { id: true },
+        });
+        const allQuoteIds = [...new Set([
+          ...linkedQuoteIds.map((q) => q.quoteId),
+          ...directQuoteIds.map((q) => q.id),
+        ])];
+        if (allQuoteIds.length > 0) {
+          await tx.presentation.updateMany({
+            where: { quoteId: { in: allQuoteIds }, archivedAt: null },
+            data: { archivedAt: new Date() },
+          });
+        }
+      } else if (!isClosed && wasClosed) {
+        // Deal reopened → unarchive linked presentations
+        const linkedQuoteIds = await tx.crmDealQuote.findMany({
+          where: { dealId: deal.id },
+          select: { quoteId: true },
+        });
+        const directQuoteIds = await tx.cpqQuote.findMany({
+          where: { dealId: deal.id },
+          select: { id: true },
+        });
+        const allQuoteIds = [...new Set([
+          ...linkedQuoteIds.map((q) => q.quoteId),
+          ...directQuoteIds.map((q) => q.id),
+        ])];
+        if (allQuoteIds.length > 0) {
+          await tx.presentation.updateMany({
+            where: { quoteId: { in: allQuoteIds }, archivedAt: { not: null } },
+            data: { archivedAt: null },
+          });
+        }
+      }
+
       // Si el negocio fue ganado, crear notificación de contrato pendiente
       if (nextStatus === "won") {
         await tx.notification.create({

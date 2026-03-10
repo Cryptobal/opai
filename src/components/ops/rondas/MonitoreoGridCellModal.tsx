@@ -67,6 +67,25 @@ export function MonitoreoGridCellModal({
             <div className="text-lg font-semibold text-white">
               Slot {ronda.horaEsperada}
             </div>
+            {(data.guardiaName || data.templateName || data.scheduledAt) && (
+              <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
+                {data.templateName && <span>{data.templateName}</span>}
+                {data.guardiaName && (
+                  <>
+                    {data.templateName && <span>·</span>}
+                    <span className="text-cyan-400/70">{data.guardiaName}</span>
+                  </>
+                )}
+                {data.scheduledAt && (
+                  <>
+                    <span>·</span>
+                    <span className="tabular-nums">
+                      {new Date(data.scheduledAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -79,7 +98,7 @@ export function MonitoreoGridCellModal({
         {/* Context indicator */}
         {ronda.rondaExpected && ronda.autoPopulated && (
           <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-teal-500/10 border border-teal-500/20">
-            <span className="text-xs">\u26A1</span>
+            <span className="text-xs">{"⚡"}</span>
             <span className="text-xs text-teal-400">
               Auto-poblada desde ronda &middot; Trust: {ronda.trustScore ?? "\u2014"}
             </span>
@@ -88,7 +107,7 @@ export function MonitoreoGridCellModal({
 
         {ronda.rondaExpected && !ronda.autoPopulated && ronda.status === "pendiente" && (
           <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <span className="text-xs">\u26A0\uFE0F</span>
+            <span className="text-xs">{"⚠️"}</span>
             <span className="text-xs text-amber-400">
               Ronda esperada &mdash; a&uacute;n no ejecutada
             </span>
@@ -97,7 +116,7 @@ export function MonitoreoGridCellModal({
 
         {!ronda.rondaExpected && (
           <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-slate-700/50 border border-slate-600">
-            <span className="text-xs">\uD83D\uDCDE</span>
+            <span className="text-xs">{"📞"}</span>
             <span className="text-xs text-slate-400">
               Check-in manual (sin ronda programada)
             </span>

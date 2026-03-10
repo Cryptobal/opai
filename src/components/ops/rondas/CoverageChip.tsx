@@ -22,6 +22,7 @@ const STATUS_BAR_COLOR: Record<string, string> = {
   en_camino: "bg-blue-400",
   no_viene: "bg-red-400",
   pendiente: "bg-slate-500",
+  ppc: "bg-amber-500",
 };
 
 function chipName(name: string): string {
@@ -53,6 +54,10 @@ export function CoverageChip({
 
   const isDescubierta = coberturaStatus === "descubierta";
 
+  // Check if all guards are PPC (Por Cubrir) entries
+  const ppcGuards = guardias.filter((g) => g.guardiaNombre === "PPC");
+  const hasPPCOnly = guardias.length > 0 && ppcGuards.length === guardias.length;
+
   if (guardias.length === 0) {
     return (
       <button
@@ -61,6 +66,27 @@ export function CoverageChip({
       >
         <span className="text-slate-600 italic text-[10px]">Sin asignar</span>
         <span className="text-slate-700 group-hover:text-teal-400 ml-auto text-[10px] transition-colors">
+          ›
+        </span>
+      </button>
+    );
+  }
+
+  if (hasPPCOnly) {
+    return (
+      <button
+        onClick={onClick}
+        className="flex items-center gap-1.5 px-1.5 py-1 rounded cursor-pointer w-full bg-amber-500/[0.08] hover:bg-amber-500/[0.15] transition-colors group"
+      >
+        <div className="flex gap-[2px] flex-shrink-0">
+          {ppcGuards.map((_, i) => (
+            <div key={i} className="w-1.5 h-4 rounded-sm bg-amber-500" />
+          ))}
+        </div>
+        <span className="text-[10px] font-medium text-amber-400">
+          PPC ({ppcGuards.length})
+        </span>
+        <span className="text-slate-700 group-hover:text-teal-400 ml-auto text-[10px] transition-colors flex-shrink-0">
           ›
         </span>
       </button>
@@ -78,9 +104,11 @@ export function CoverageChip({
     }
   }
 
-  // Names — first 2 active guards
-  const displayGuards = active.slice(0, 2);
-  const moreCount = active.length - 2;
+  // Names — first 2 active guards (exclude PPC from name display)
+  const realGuards = active.filter((g) => g.guardiaNombre !== "PPC");
+  const ppcCount = active.filter((g) => g.guardiaNombre === "PPC").length;
+  const displayGuards = realGuards.slice(0, 2);
+  const moreCount = realGuards.length - 2;
   const namesStr = displayGuards.map((g) => chipName(g.guardiaNombre)).join(", ");
 
   return (
@@ -117,6 +145,9 @@ export function CoverageChip({
         {namesStr}
         {moreCount > 0 && (
           <span className="text-slate-600"> +{moreCount}</span>
+        )}
+        {ppcCount > 0 && (
+          <span className="text-amber-400/70"> +{ppcCount} PPC</span>
         )}
       </span>
 

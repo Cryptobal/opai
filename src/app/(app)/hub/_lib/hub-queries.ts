@@ -48,28 +48,36 @@ export async function getDocsSignals(
   tenantId: string,
   thirtyDaysAgo: Date,
 ): Promise<DocsSignals> {
+  // Include both 'sent' and 'viewed' statuses — when a client opens a
+  // presentation the track endpoint changes status from 'sent' to 'viewed',
+  // so filtering only by 'sent' would exclude all viewed presentations.
+  const sentOrViewed = { in: ['sent', 'viewed'] };
+
   const [sent30, viewed30, unread30] = await Promise.all([
     prisma.presentation.count({
       where: {
         tenantId,
-        status: 'sent',
+        status: sentOrViewed,
         emailSentAt: { gte: thirtyDaysAgo },
+        archivedAt: null,
       },
     }),
     prisma.presentation.count({
       where: {
         tenantId,
-        status: 'sent',
+        status: sentOrViewed,
         emailSentAt: { gte: thirtyDaysAgo },
         viewCount: { gt: 0 },
+        archivedAt: null,
       },
     }),
     prisma.presentation.count({
       where: {
         tenantId,
-        status: 'sent',
+        status: sentOrViewed,
         emailSentAt: { gte: thirtyDaysAgo },
         viewCount: 0,
+        archivedAt: null,
       },
     }),
   ]);

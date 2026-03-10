@@ -79,7 +79,7 @@ export function DashboardHeader({ presentations, userRole }: DashboardHeaderProp
             {/* Logo + Dashboard */}
             <Link href="/opai/inicio" className="flex items-center gap-2 sm:gap-3">
               <Image 
-                src="/logo escudo blanco.png" 
+                src="/icons/logo-horizontal-white.png" 
                 alt="Gard Security" 
                 width={32} 
                 height={32}

@@ -48,7 +48,7 @@ export function AppNavigation({ userRole, presentations = [] }: AppNavigationPro
           {/* Logo */}
           <Link href="/opai/inicio" className="flex items-center gap-2 sm:gap-3">
             <Image
-              src="/logo escudo blanco.png"
+              src="/icons/logo-horizontal-white.png"
               alt={process.env.NEXT_PUBLIC_COMPANY_NAME || "OPAI"}
               width={32}
               height={32}

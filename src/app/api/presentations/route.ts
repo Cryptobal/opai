@@ -21,11 +21,13 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
+    const includeArchived = searchParams.get('includeArchived') === 'true';
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    const where: { tenantId: string; status?: string } = { tenantId };
+    const where: Record<string, unknown> = { tenantId };
     if (status) where.status = status;
+    if (!includeArchived) where.archivedAt = null;
 
     const [presentations, total] = await Promise.all([
       prisma.presentation.findMany({

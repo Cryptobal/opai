@@ -85,10 +85,10 @@ export function RondasMonitoreoClient({
   const [sendingCoberturaEmail, setSendingCoberturaEmail] = useState<"nocturno" | "diurno" | null>(null);
   const [coberturaSheetTurno, setCoberturaSheetTurno] = useState<"nocturno" | "diurno" | null>(null);
   const [mapCollapsed, setMapCollapsed] = useState(false);
-  const [upcomingData] = useState<UpcomingRow[]>(initialUpcoming);
+  const [upcomingData, setUpcomingData] = useState<UpcomingRow[]>(initialUpcoming);
   const [sidePanelTab, setSidePanelTab] = useState<"rondas" | "alertas" | "instalaciones">("rondas");
   const [controlNocturno, setControlNocturno] = useState<any>(null);
-  const [activeTurno, setActiveTurno] = useState<{ id: string; operatorId: string; operatorName: string | null } | null>(null);
+  const [activeTurno, setActiveTurno] = useState<{ id: string; operatorId: string; operatorName: string | null; startedAt?: string } | null>(null);
   const [cellModal, setCellModal] = useState<CellModalData | null>(null);
   const [guardPanel, setGuardPanel] = useState<{ instalacion: CNInstalacion; turno: "nocturno" | "diurno" } | null>(null);
   const [splitPct, setSplitPct] = useState(45);
@@ -124,6 +124,15 @@ export function RondasMonitoreoClient({
       }
     } catch { /* ignore polling errors */ }
   }, []);
+
+  // Filter out ghost upcoming rondas older than the turno start time
+  useEffect(() => {
+    if (!activeTurno?.startedAt) return;
+    const turnoStart = new Date(activeTurno.startedAt).getTime();
+    setUpcomingData((prev) =>
+      prev.filter((row) => new Date(row.scheduledAt).getTime() >= turnoStart - 60 * 60 * 1000),
+    );
+  }, [activeTurno?.startedAt]);
 
   useEffect(() => {
     // Initial fetch
@@ -782,7 +791,24 @@ export function RondasMonitoreoClient({
                     turnoId={activeTurno?.id ?? null}
                     selectedInstallationId={selectedInstallationId}
                     onSelectInstallation={setSelectedInstallationId}
-                    onCellClick={(data) => setCellModal(data)}
+                    onCellClick={(data) => {
+                      // Enrich with ronda execution info if available
+                      if (data.ronda.ejecucionRondaId) {
+                        const exec = rows.find((r: any) => r.id === data.ronda.ejecucionRondaId);
+                        if (exec) {
+                          setCellModal({
+                            ...data,
+                            guardiaName: exec.guardia
+                              ? formatPersonName(exec.guardia.persona.firstName, exec.guardia.persona.lastName)
+                              : null,
+                            templateName: exec.rondaTemplate?.name ?? null,
+                            scheduledAt: exec.scheduledAt ?? null,
+                          });
+                          return;
+                        }
+                      }
+                      setCellModal(data);
+                    }}
                     onGuardClick={(inst, turno) => setGuardPanel({ instalacion: inst, turno })}
                     onInstallationDetail={setDetailInstallation}
                     isReadOnly={isReadOnly}
@@ -797,8 +823,6 @@ export function RondasMonitoreoClient({
                   selectedRondaId={selectedRondaId}
                   onSelectGuard={setSelectedRondaId}
                   onAddNote={handleAddNote}
-                  upcomingData={upcomingData}
-                  formatPersonName={formatPersonName}
                   alertRows={alertRows}
                   alertsLoading={alertsLoading}
                   resolvingAlertId={resolvingAlertId}

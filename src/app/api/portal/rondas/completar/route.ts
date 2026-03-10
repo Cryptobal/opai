@@ -189,8 +189,8 @@ export async function POST(request: NextRequest) {
         include: { checkpoint: { select: { id: true, name: true } } },
         orderBy: { timestamp: "asc" },
       });
-      checkpointDetails = marcaciones.map((m: any) => ({
-        name: m.checkpoint?.name ?? "Checkpoint",
+      checkpointDetails = marcaciones.map((m: any, i: number) => ({
+        name: m.checkpoint?.name ?? `Punto GPS #${i + 1}`,
         status: m.status ?? "COMPLETED",
         timestamp: m.timestamp?.toISOString(),
         distanceM: m.geoDistanciaM,
@@ -250,9 +250,10 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[Portal Rondas] Completar error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[Portal Rondas] Completar error:", msg, error);
     return NextResponse.json(
-      { success: false, error: "Error interno" },
+      { success: false, error: `Error al completar: ${msg.slice(0, 200)}` },
       { status: 500 },
     );
   }

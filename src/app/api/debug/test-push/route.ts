@@ -51,7 +51,7 @@ export async function POST() {
   const payload = JSON.stringify({
     title: "🔔 Test Push Notification",
     body: `This is a test push sent at ${new Date().toLocaleTimeString("es-CL")}`,
-    icon: "/iconos_azul/icon-192x192.png",
+    icon: "/icons/icon-192x192.png",
     badge: "/iconos_azul/icon-72x72.png",
     tag: "debug-test",
     renotify: true,

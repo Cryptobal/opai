@@ -69,6 +69,10 @@ export interface CellModalData {
   ronda: CNRonda;
   installationName: string;
   installationId: string | null;
+  /** Enriched by parent from active ronda rows */
+  guardiaName?: string | null;
+  templateName?: string | null;
+  scheduledAt?: string | null;
 }
 
 interface MonitoreoGridProps {
@@ -161,13 +165,13 @@ function getCellState(
       return { ...base, bg: "bg-zinc-800/20", border: "border border-dashed border-zinc-700/20", icon: "\u2014", textColor: "text-zinc-600", subtle: true };
     }
     if (ronda.status === "pendiente" && isPastSlot) {
-      return { ...base, bg: "bg-red-500/8 border-red-500/15", border: "border border-solid", icon: "\u26A0", textColor: "text-red-400" };
+      return { ...base, bg: "bg-red-500/10 border-red-500/25", border: "border border-solid", icon: "\u2715", textColor: "text-red-400" };
     }
     if (ronda.status === "pendiente" && isCurrentSlot) {
-      return { ...base, bg: "bg-cyan-500/8 border-cyan-500/20", border: "border border-solid", pulse: true };
+      return { ...base, bg: "bg-cyan-500/10 border-cyan-500/30", border: "border border-solid", textColor: "text-cyan-400", pulse: true };
     }
-    // Future with expected ronda
-    return { ...base, bg: "bg-[#0a0f1c]/60 border-[#1a1f2e]", border: "border border-solid" };
+    // Future with expected ronda — subtle indigo tint (not red)
+    return { ...base, bg: "bg-indigo-500/[0.04] border-indigo-500/10", border: "border border-dashed", textColor: "text-indigo-400/40" };
   }
 
   // CELL WITHOUT EXPECTED RONDA (manual check-in)
@@ -305,12 +309,15 @@ function GridRow({
           );
         }
 
-        const slotHour = parseInt(slot.split(":")[0], 10);
         const isCurrentSlot = i === currentSlotIdx;
         const isPastSlot = (() => {
           if (currentSlotIdx >= 0) return i < currentSlotIdx;
-          if (slotHour >= 20) return currentHour < 20 || currentHour >= slotHour;
-          return currentHour > slotHour || currentHour >= 20;
+          // Current hour not in any slot — determine if before or after shift
+          const firstSlotHour = parseInt(timeSlots[0].split(":")[0], 10);
+          const dist = (currentHour - firstSlotHour + 24) % 24;
+          // Within shift span + 2h buffer → shift ended → all past
+          // Beyond that → shift hasn't started → all future
+          return dist > 0 && dist <= timeSlots.length + 2;
         })();
 
         const state = getCellState(ronda, isCurrentSlot, isPastSlot);
@@ -452,16 +459,12 @@ function GridHeaderBar({
   totalInstalaciones,
   totalSlots,
   summary,
-  showNotes,
-  onToggleNotes,
   isSaving,
   onExportPDF,
 }: {
   totalInstalaciones: number;
   totalSlots: number;
   summary: { completadas: number; omitidas: number; cumplimiento: number };
-  showNotes: boolean;
-  onToggleNotes: () => void;
   isSaving?: boolean;
   onExportPDF?: () => void;
 }) {
@@ -499,14 +502,6 @@ function GridHeaderBar({
             PDF
           </button>
         )}
-        <button
-          onClick={onToggleNotes}
-          className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
-            showNotes ? "bg-cyan-500/15 text-cyan-400" : "text-[#64748b] hover:text-[#94a3b8]"
-          }`}
-        >
-          Notas
-        </button>
       </div>
     </div>
   );
@@ -591,7 +586,6 @@ export default function MonitoreoGrid({
   isReadOnly,
 }: MonitoreoGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
-  const [showNotes, setShowNotes] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExportPDF = () => {
@@ -648,8 +642,6 @@ export default function MonitoreoGrid({
         totalInstalaciones={instalaciones.length}
         totalSlots={timeSlots.length}
         summary={summary}
-        showNotes={showNotes}
-        onToggleNotes={() => setShowNotes(!showNotes)}
         onExportPDF={handleExportPDF}
       />
 
@@ -722,14 +714,12 @@ export default function MonitoreoGrid({
         </table>
       </div>
 
-      {showNotes && (
-        <GridNotesSection
-          controlNocturnoId={controlNocturno.id}
-          generalNotes={controlNocturno.generalNotes}
-          instalaciones={instalaciones}
-          isReadOnly={isReadOnly}
-        />
-      )}
+      <GridNotesSection
+        controlNocturnoId={controlNocturno.id}
+        generalNotes={controlNocturno.generalNotes}
+        instalaciones={instalaciones}
+        isReadOnly={isReadOnly}
+      />
     </div>
   );
 }

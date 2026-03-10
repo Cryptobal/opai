@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "OPAI Guardias",
   },
-  icons: { apple: "/iconos_azul/icon-192x192.png" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export default function PortalGuardiaLayout({ children }: { children: React.ReactNode }) {
