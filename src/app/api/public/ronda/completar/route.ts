@@ -17,7 +17,10 @@ export async function POST(request: NextRequest) {
       include: {
         rondaTemplate: { include: { checkpoints: { orderBy: { orderIndex: "asc" } } } },
         programacion: { select: { toleranciaMinutos: true } },
-        marcaciones: { orderBy: { timestamp: "asc" } },
+        marcaciones: {
+          select: { id: true, checkpointId: true, timestamp: true, status: true },
+          orderBy: { timestamp: "asc" },
+        },
       },
     });
     if (!execution) return NextResponse.json({ success: false, error: "Ejecución no encontrada" }, { status: 404 });
@@ -50,17 +53,10 @@ export async function POST(request: NextRequest) {
     }
 
     const allMarcaciones = [...execution.marcaciones, ...missedData.map(d => ({
-      ...d,
-      anomalias: null,
-      batteryLevel: null,
-      motionData: null,
-      speedFromPrevKmh: null,
-      timeFromPrevSec: null,
-      fotoEvidenciaUrl: null,
-      audioUrl: null,
-      note: null,
-      createdAt: now,
       id: "",
+      checkpointId: d.checkpointId,
+      timestamp: d.timestamp,
+      status: d.status,
     }))];
 
     const completedCount = execution.marcaciones.filter(m => m.status === "COMPLETED" || !m.status || m.status === "COMPLETED").length;

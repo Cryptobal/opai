@@ -32,7 +32,10 @@ export async function POST(request: NextRequest) {
           },
         },
         programacion: { select: { toleranciaMinutos: true } },
-        marcaciones: { orderBy: { timestamp: "asc" } },
+        marcaciones: {
+          select: { id: true, checkpointId: true, timestamp: true, status: true },
+          orderBy: { timestamp: "asc" },
+        },
       },
     });
 
@@ -98,17 +101,10 @@ export async function POST(request: NextRequest) {
     const allMarcaciones = [
       ...execution.marcaciones,
       ...missedData.map((d) => ({
-        ...d,
-        anomalias: null,
-        batteryLevel: null,
-        motionData: null,
-        speedFromPrevKmh: null,
-        timeFromPrevSec: null,
-        fotoEvidenciaUrl: null,
-        audioUrl: null,
-        note: null,
-        createdAt: now,
         id: "",
+        checkpointId: d.checkpointId,
+        timestamp: d.timestamp,
+        status: d.status,
       })),
     ];
 
@@ -186,7 +182,17 @@ export async function POST(request: NextRequest) {
     if (isAdHoc) {
       const marcaciones = await prisma.opsMarcacionCheckpoint.findMany({
         where: { ejecucionId },
-        include: { checkpoint: { select: { id: true, name: true } } },
+        select: {
+          id: true,
+          timestamp: true,
+          status: true,
+          geoDistanciaM: true,
+          geoValidada: true,
+          verificationMethod: true,
+          fotoEvidenciaUrl: true,
+          checkpointId: true,
+          checkpoint: { select: { id: true, name: true } },
+        },
         orderBy: { timestamp: "asc" },
       });
       checkpointDetails = marcaciones.map((m: any, i: number) => ({

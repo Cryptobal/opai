@@ -542,7 +542,7 @@ export function CheckpointMarker({
         }
       `}</style>
 
-      <div className="fixed inset-0 z-50 flex items-end">
+      <div className="fixed inset-0 z-[1100] flex items-end">
         {/* Backdrop */}
         <div className="absolute inset-0 bg-black/50" onClick={onBack} />
 
@@ -557,7 +557,7 @@ export function CheckpointMarker({
           </div>
 
           {/* Content */}
-          <div className="space-y-4 px-4 pb-8">
+          <div className="space-y-4 px-4" style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom, 0px))" }}>
             {/* ---- Checkpoint name ---- */}
             <h2 className="text-lg font-semibold text-white">{checkpoint.name}</h2>
 
