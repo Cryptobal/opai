@@ -680,6 +680,8 @@ export function RondasMonitoreoClient({
 
   const isOperator = activeTurno?.operatorId === userId;
   const isReadOnly = !!activeTurno && !isOperator;
+  const isAdmin = userRole === "owner" || userRole === "admin";
+  const canCloseTurno = isOperator || isAdmin;
 
   return (
     <div className="flex flex-col min-w-0 h-[calc(100vh-64px)]">
@@ -693,10 +695,12 @@ export function RondasMonitoreoClient({
         trustAvg={(() => { const scored = completedData.filter((r: any) => r.trustScore != null && r.trustScore > 0); return scored.length > 0 ? Math.round(scored.reduce((s: number, r: any) => s + r.trustScore, 0) / scored.length) : 0; })()}
         alertCount={currentAlertCount}
         operatorName={userName}
-        onOpenCloseTurno={isReadOnly ? undefined : (id) => setCloseTurnoId(id)}
+        onOpenCloseTurno={canCloseTurno ? (id) => setCloseTurnoId(id) : undefined}
         onToggleAlerts={handleToggleAlerts}
         onTurnoStarted={refreshMonitoreo}
         isReadOnly={isReadOnly}
+        canCloseTurno={canCloseTurno}
+        activeTurnoId={activeTurno?.id}
         orphanCount={orphanCount}
         onCloseOrphans={handleCloseOrphans}
         closingOrphans={closingOrphans}
@@ -711,6 +715,7 @@ export function RondasMonitoreoClient({
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span className="text-[10px] text-[#64748b]">
             Modo observador — <span className="text-emerald-400 font-medium">{activeTurno?.operatorName ?? "Operador"}</span> opera el turno
+            {canCloseTurno && <span className="text-amber-400/70 ml-1">· Puedes cerrar como admin</span>}
           </span>
         </div>
       )}

@@ -34,6 +34,7 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
   const isAdmin = userRole === "owner" || userRole === "admin";
 
   // Fetch cobertura status when modal opens
+  // Try /turno/active first (works for operator), fall back to /monitoreo (works for admin)
   useEffect(() => {
     if (!open || !turnoId) return;
     setLoadingCobertura(true);
@@ -42,7 +43,16 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
       .then((json) => {
         if (json.success && json.data?.emailSentTo) {
           setCoberturaStatus(json.data.emailSentTo as CoberturaStatus);
+          return;
         }
+        // Fallback for admin override — fetch from monitoreo endpoint
+        return fetch("/api/ops/rondas/monitoreo")
+          .then((r2) => r2.json())
+          .then((json2) => {
+            if (json2.activeTurno?.emailSentTo) {
+              setCoberturaStatus(json2.activeTurno.emailSentTo as CoberturaStatus);
+            }
+          });
       })
       .catch(() => {})
       .finally(() => setLoadingCobertura(false));
@@ -97,7 +107,16 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
         .then((json) => {
           if (json.success && json.data?.emailSentTo) {
             setCoberturaStatus(json.data.emailSentTo as CoberturaStatus);
+            return;
           }
+          // Fallback for admin override
+          return fetch("/api/ops/rondas/monitoreo")
+            .then((r2) => r2.json())
+            .then((json2) => {
+              if (json2.activeTurno?.emailSentTo) {
+                setCoberturaStatus(json2.activeTurno.emailSentTo as CoberturaStatus);
+              }
+            });
         })
         .catch(() => {});
     }, 3000);

@@ -22,6 +22,8 @@ interface Props {
   onToggleAlerts?: () => void;
   onTurnoStarted?: () => void;
   isReadOnly?: boolean;
+  canCloseTurno?: boolean;
+  activeTurnoId?: string;
   orphanCount?: number;
   onCloseOrphans?: () => void;
   closingOrphans?: boolean;
@@ -60,6 +62,8 @@ export function MonitoreoTurnoHeader({
   onToggleAlerts,
   onTurnoStarted,
   isReadOnly,
+  canCloseTurno,
+  activeTurnoId,
   orphanCount,
   onCloseOrphans,
   closingOrphans,
@@ -115,8 +119,11 @@ export function MonitoreoTurnoHeader({
     }
   };
 
+  // Effective turno ID: from own fetch or from parent (for admin override)
+  const effectiveTurnoId = turno?.id ?? activeTurnoId;
+
   // ── Sin turno state ──
-  if (!turno) {
+  if (!turno && !effectiveTurnoId) {
     if (isReadOnly) return null;
     return (
       <div className="flex items-center justify-center gap-3 h-14 bg-[#0a0f1c]/95 backdrop-blur border-b border-[#1a1f2e] px-4">
@@ -135,7 +142,7 @@ export function MonitoreoTurnoHeader({
     );
   }
 
-  const startTime = new Date(turno.startedAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+  const startTime = turno ? new Date(turno.startedAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) : null;
   const isSending = !!sendingCoberturaEmail;
 
   return (
@@ -150,10 +157,14 @@ export function MonitoreoTurnoHeader({
           <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-widest">En vivo</span>
         </div>
         <span className="text-[#1a1f2e]">|</span>
-        <span className="text-[11px] text-[#94a3b8]">{startTime}</span>
-        <span className="text-[10px] text-[#475569]">·</span>
-        <span className="text-[13px] font-mono font-semibold text-[#f1f5f9] tabular-nums">{elapsed}</span>
-        <span className="text-[9px] text-[#475569] -ml-1">hrs</span>
+        {startTime && (
+          <>
+            <span className="text-[11px] text-[#94a3b8]">{startTime}</span>
+            <span className="text-[10px] text-[#475569]">·</span>
+            <span className="text-[13px] font-mono font-semibold text-[#f1f5f9] tabular-nums">{elapsed}</span>
+            <span className="text-[9px] text-[#475569] -ml-1">hrs</span>
+          </>
+        )}
         <span className="text-[10px] text-[#64748b] truncate max-w-[120px]">{operatorName}</span>
       </div>
 
@@ -235,12 +246,12 @@ export function MonitoreoTurnoHeader({
             <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 animate-ping" />
           </button>
         )}
-        {!isReadOnly && (
+        {(canCloseTurno || !isReadOnly) && effectiveTurnoId && (
           <Button
             size="sm"
             variant="ghost"
             className="h-8 text-[11px] gap-1 text-red-400/70 hover:text-red-400 hover:bg-red-500/10 ml-1"
-            onClick={() => onOpenCloseTurno?.(turno.id)}
+            onClick={() => onOpenCloseTurno?.(effectiveTurnoId)}
           >
             <Square className="h-3 w-3" /> Cerrar
           </Button>

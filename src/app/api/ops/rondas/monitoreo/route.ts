@@ -64,7 +64,7 @@ export async function GET() {
     // Fetch active turno first (used by recently-completed lookback + CN grid)
     const activeTurno = await prisma.opsMonitoreoTurno.findFirst({
       where: { tenantId: ctx.tenantId, status: "active" },
-      select: { id: true, controlNocturnoId: true, operatorId: true, operatorName: true, startedAt: true },
+      select: { id: true, controlNocturnoId: true, operatorId: true, operatorName: true, startedAt: true, emailSentTo: true },
     });
 
     // Recently completed/incompleta rounds (visible in monitoring for KPIs + history)
@@ -276,7 +276,7 @@ export async function GET() {
       data: active,
       recentlyCompleted,
       controlNocturno,
-      activeTurno: activeTurno ? { id: activeTurno.id, operatorId: activeTurno.operatorId, operatorName: activeTurno.operatorName, startedAt: activeTurno.startedAt } : null,
+      activeTurno: activeTurno ? { id: activeTurno.id, operatorId: activeTurno.operatorId, operatorName: activeTurno.operatorName, startedAt: activeTurno.startedAt, emailSentTo: activeTurno.emailSentTo } : null,
     });
   } catch (error) {
     console.error("[RONDAS] monitoreo", error);

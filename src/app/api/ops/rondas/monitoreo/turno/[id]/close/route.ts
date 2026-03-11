@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { canEdit, canDelete } from "@/lib/permissions";
+import { canEdit, canDelete, hasCapability } from "@/lib/permissions";
 import { monitoreoTurnoCloseSchema } from "@/lib/validations/rondas";
 import { sendMonitorTurnoEmail } from "@/lib/rondas/monitor-email";
 
@@ -25,10 +25,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ success: false, error: "Turno no encontrado o ya cerrado" }, { status: 404 });
     }
 
-    // Only the operator who started the turno can close it
-    if (turno.operatorId !== ctx.userId) {
+    // Only the operator OR admin/owner/users with monitoreo_cerrar_turno capability can close
+    const isOwnTurno = turno.operatorId === ctx.userId;
+    const isAdminRole = ctx.userRole === "owner" || ctx.userRole === "admin";
+    const hasCloseCap = hasCapability(perms, "monitoreo_cerrar_turno");
+    if (!isOwnTurno && !isAdminRole && !hasCloseCap) {
       return NextResponse.json(
-        { success: false, error: "Solo el operador del turno puede cerrarlo" },
+        { success: false, error: "Solo el operador del turno o un admin puede cerrarlo" },
         { status: 403 },
       );
     }
