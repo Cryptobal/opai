@@ -65,6 +65,11 @@ export function RondasConfiguracionClient({
       .sort((a, b) => b.checkpointCount - a.checkpointCount);
   }, [installations, installationStats]);
 
+  const installationsWithoutCheckpoints = useMemo(() => {
+    const withSet = new Set(installationStats.map((s) => s.installationId));
+    return installations.filter((i) => !withSet.has(i.id));
+  }, [installations, installationStats]);
+
   const selectedInstallation = useMemo(
     () => installations.find((i) => i.id === installationId),
     [installations, installationId],
@@ -491,14 +496,17 @@ export function RondasConfiguracionClient({
         </div>
       )}
 
-      {/* No installation selected — show quick access */}
+      {/* No installation selected — show quick access split by checkpoint status */}
       {!installationId && (
-        <div className="space-y-4">
-          {installationsWithCheckpoints.length > 0 && (
-            <>
-              <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">
-                Instalaciones con checkpoints
-              </p>
+        <div className="space-y-6">
+          {/* ── Con checkpoints ── */}
+          <div className="space-y-3">
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">
+              Instalaciones con checkpoints{installationsWithCheckpoints.length > 0 && ` (${installationsWithCheckpoints.length})`}
+            </p>
+            {installationsWithCheckpoints.length === 0 ? (
+              <p className="text-[13px] text-[#94a3b8] py-1">Ninguna instalación tiene checkpoints configurados aún.</p>
+            ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {installationsWithCheckpoints.map((inst) => (
                   <button
@@ -526,18 +534,43 @@ export function RondasConfiguracionClient({
                   </button>
                 ))}
               </div>
-            </>
-          )}
+            )}
+          </div>
 
-          {installationsWithCheckpoints.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-12 h-12 rounded-full bg-[#2dd4bf]/10 flex items-center justify-center mb-4">
-                <MapPin className="w-6 h-6 text-[#2dd4bf]" />
+          {/* ── Sin checkpoints ── */}
+          <div className="space-y-3">
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">
+              Instalaciones sin checkpoints{installationsWithoutCheckpoints.length > 0 && ` (${installationsWithoutCheckpoints.length})`}
+            </p>
+            {installationsWithoutCheckpoints.length === 0 ? (
+              <p className="text-[13px] text-[#94a3b8] py-1">Todas las instalaciones tienen checkpoints configurados. ✓</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {installationsWithoutCheckpoints.map((inst) => (
+                  <button
+                    key={inst.id}
+                    type="button"
+                    onClick={() => {
+                      if (inst.accountId) setClientId(inst.accountId);
+                      setInstallationId(inst.id);
+                    }}
+                    className="flex items-start gap-3 rounded-xl border border-[#1e293b]/60 bg-[#111827]/60 p-4 text-left transition-colors hover:border-[#64748b]/40 hover:bg-white/5"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/5">
+                      <MapPin className="h-5 w-5 text-[#64748b]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-semibold text-[#94a3b8] truncate">{inst.name}</p>
+                      {inst.address && (
+                        <p className="text-[11px] text-[#64748b] truncate">{inst.address}</p>
+                      )}
+                      <p className="mt-1 text-[11px] text-[#64748b]">Sin checkpoints</p>
+                    </div>
+                  </button>
+                ))}
               </div>
-              <p className="text-[15px] font-semibold text-[#f1f5f9] mb-1">Selecciona una instalacion</p>
-              <p className="text-[13px] text-[#94a3b8]">Elige un cliente e instalacion para configurar sus rondas.</p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>
