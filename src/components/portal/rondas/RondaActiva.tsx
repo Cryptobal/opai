@@ -90,7 +90,6 @@ interface Props {
   rondaData: RondaData;
   onComplete: (data: CompletionData) => void;
   onBack: () => void;
-  onReportIncident: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,7 +137,6 @@ export function RondaActiva({
   rondaData,
   onComplete,
   onBack,
-  onReportIncident,
 }: Props) {
   const [checkpoints, setCheckpoints] = useState<ApiCheckpoint[]>(
     rondaData.checkpoints,
@@ -997,21 +995,12 @@ export function RondaActiva({
         className="fixed inset-x-0 bottom-16 z-20 border-t border-gray-800 px-4 pb-4 pt-3"
         style={{ backgroundColor: "#0a0a0f" }}
       >
-        <div className="flex gap-3">
-          {/* Report Incident */}
-          <button
-            onClick={onReportIncident}
-            className="flex-1 rounded-xl border border-red-800/50 bg-red-950/30 py-3.5 text-base font-medium text-red-400 transition-colors hover:bg-red-950/50 active:bg-red-900/40"
-            style={{ minHeight: 52 }}
-          >
-            {"\uD83D\uDEA8"} Reportar Incidente
-          </button>
-
+        <div>
           {/* Complete Ronda */}
           <button
             onClick={handleCompleteClick}
             disabled={completing}
-            className="flex-1 rounded-xl bg-teal-600 py-3.5 text-base font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-40"
+            className="w-full rounded-xl bg-teal-600 py-3.5 text-base font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-40"
             style={{ minHeight: 52 }}
           >
             {completing ? (

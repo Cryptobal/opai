@@ -50,7 +50,6 @@ interface Props {
   session: RondasSession;
   onIniciarRonda: (ejecucionId: string) => void;
   onIniciarRondaLibre: () => void;
-  onReportIncident: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -178,7 +177,7 @@ function classifyPendiente(
 // Component
 // ---------------------------------------------------------------------------
 
-export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onReportIncident }: Props) {
+export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre }: Props) {
   const [rondas, setRondas] = useState<RondaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -516,17 +515,6 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onRepo
           </div>
         )}
 
-        {/* Report incident button */}
-        <div className="mt-8 mb-4">
-          <button
-            onClick={onReportIncident}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-800/50 bg-red-950/30 py-4 text-lg font-semibold text-red-400 transition-colors hover:bg-red-900/40 active:bg-red-900/60"
-            style={{ minHeight: 56 }}
-          >
-            <span className="text-xl">{"\uD83D\uDEA8"}</span>
-            Reportar Incidente
-          </button>
-        </div>
       </main>
     </div>
   );

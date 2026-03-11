@@ -12,7 +12,7 @@ interface PanicoModalProps {
 }
 
 export function PanicoModal({ session, activeEjecucionId, onClose, onPanicSent }: PanicoModalProps) {
-  const [countdown, setCountdown] = useState(3);
+  const [countdown, setCountdown] = useState(5);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +111,7 @@ export function PanicoModal({ session, activeEjecucionId, onClose, onPanicSent }
     );
   }
 
-  const progressPercent = ((3 - countdown) / 3) * 100;
+  const progressPercent = ((5 - countdown) / 5) * 100;
 
   return (
     <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-red-950/95 backdrop-blur-sm">

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Phone, MapPin, Loader2 } from "lucide-react";
+import { AlertTriangle, Phone, MapPin, Loader2, MessageSquare } from "lucide-react";
+import { whatsappUrl } from "@/app/(app)/hub/_lib/hub-utils";
 
 export interface PanicAlertData {
   alertaId: string;
@@ -117,7 +118,18 @@ export function PanicFullscreenModal({ alerts, onAcknowledge }: PanicFullscreenM
                   className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-700 py-3 text-sm font-bold text-white hover:bg-zinc-600"
                 >
                   <Phone className="h-4 w-4" />
-                  LLAMAR GUARDIA
+                  LLAMAR
+                </a>
+              )}
+              {alert.guardiaTelefono && (
+                <a
+                  href={`${whatsappUrl(alert.guardiaTelefono)}?text=${encodeURIComponent("Alerta de panico recibida. Estamos en contacto.")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-700 py-3 text-sm font-bold text-white hover:bg-green-600"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  WHATSAPP
                 </a>
               )}
             </div>

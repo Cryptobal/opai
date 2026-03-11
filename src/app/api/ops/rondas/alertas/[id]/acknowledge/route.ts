@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
+import { getPusherServer } from "@/lib/chat";
 
 export async function PUT(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -22,6 +23,26 @@ export async function PUT(_request: NextRequest, { params }: { params: Promise<{
     }
 
     const updated = await prisma.opsAlertaRonda.findFirst({ where: { id, tenantId: ctx.tenantId } });
+
+    // Trigger Pusher events for real-time feedback
+    if (updated) {
+      try {
+        const pusher = getPusherServer();
+        const channel = `monitoreo-${ctx.tenantId}`;
+        await Promise.all([
+          pusher.trigger(channel, "panico-atendido", {
+            alertaId: updated.id,
+            guardiaId: updated.guardiaId,
+          }),
+          pusher.trigger(channel, "panic-resolved", {
+            alertaId: updated.id,
+          }),
+        ]);
+      } catch (pusherErr) {
+        console.error("[RONDAS] Pusher trigger on acknowledge failed:", pusherErr);
+      }
+    }
+
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error("[RONDAS] PUT acknowledge", error);

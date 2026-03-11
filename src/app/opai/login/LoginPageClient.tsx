@@ -1,17 +1,23 @@
 'use client';
 
-import Image from 'next/image';
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { authenticate } from './actions';
 import { Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
+import { AuthShell } from '@/components/auth/AuthShell';
+import { AuthFormHeader } from '@/components/auth/AuthFormHeader';
+import { AuthTextInput } from '@/components/auth/AuthTextInput';
+import { AuthButton } from '@/components/auth/AuthButton';
+import { UserIcon, LockIcon } from '@/components/auth/icons';
 
 interface LoginPageClientProps {
   callbackUrl?: string;
   error?: string;
   success?: string;
 }
+
+const ACCENT = "#f43f5e";
 
 export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp, success: successProp }: LoginPageClientProps) {
   const [showPassword, setShowPassword] = useState(false);
@@ -21,85 +27,102 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
   const success = successProp ?? searchParams.get('success') ?? undefined;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm space-y-8">
-        <div className="text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/icons/logo-stacked.svg"
-            alt="OPAI"
-            className="mx-auto h-16 w-auto object-contain"
-          />
-          <h1 className="text-2xl font-bold text-foreground mt-3">OPAI</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Iniciar sesión</p>
-        </div>
-        <form action={authenticate} className="space-y-4">
-          <input type="hidden" name="callbackUrl" value={callbackUrl} />
-          {success && (
-            <div className="rounded-lg bg-primary/10 border border-primary/20 px-4 py-3">
-              <p className="text-sm text-primary">
-                {success === 'password-reset' && 'Contraseña actualizada correctamente. Ya puedes iniciar sesión.'}
-                {success === 'account-activated' && 'Cuenta activada correctamente. Ya puedes iniciar sesión.'}
-              </p>
-            </div>
-          )}
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">Email</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
-              placeholder="admin@gard.cl"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="password" className="block text-sm font-medium text-foreground">Contraseña</label>
-              <Link href="/opai/forgot-password" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                ¿Olvidaste tu contraseña?
-              </Link>
-            </div>
-            <div className="relative">
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                required
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-base md:text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-          {error && (
-            <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
-              <p className="text-sm text-red-400">
-                {error === 'CredentialsSignin' ? 'Email o contraseña incorrectos.' : 'Error al iniciar sesión.'}
-              </p>
-            </div>
-          )}
-          <button
-            type="submit"
-            className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    <AuthShell
+      portalId="opai"
+      accent={ACCENT}
+      accentRgb="244, 63, 94"
+      portalName="OPAI"
+      portalSubtitle="Sistema ERP Completo"
+    >
+      <AuthFormHeader title="Acceso al ERP" subtitle="Panel de gesti&oacute;n integral" />
+
+      <form action={authenticate}>
+        <input type="hidden" name="callbackUrl" value={callbackUrl} />
+
+        {success && (
+          <div
+            className="rounded-xl px-4 py-3 mb-4"
+            style={{ background: `${ACCENT}08`, border: `1px solid ${ACCENT}20` }}
           >
-            Entrar
-          </button>
-        </form>
-        <p className="text-center text-xs text-muted-foreground">
-          Powered by{" "}
-          <a href="https://lx3.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">LX3.ai</a>
-        </p>
-      </div>
-    </div>
+            <p className="text-sm" style={{ color: ACCENT }}>
+              {success === 'password-reset' && 'Contrase\u00f1a actualizada correctamente. Ya puedes iniciar sesi\u00f3n.'}
+              {success === 'account-activated' && 'Cuenta activada correctamente. Ya puedes iniciar sesi\u00f3n.'}
+            </p>
+          </div>
+        )}
+
+        <AuthTextInput
+          label="Usuario o correo"
+          accent={ACCENT}
+          icon={<UserIcon />}
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          placeholder="admin@gard.cl"
+        />
+
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-[7px]">
+            <label
+              htmlFor="password"
+              className="block text-xs font-medium text-[#9ca3af]"
+              style={{ letterSpacing: "0.02em", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              Contrase&ntilde;a
+            </label>
+            <Link
+              href="/opai/forgot-password"
+              className="text-xs font-medium cursor-pointer transition-colors"
+              style={{ color: ACCENT }}
+            >
+              Recuperar clave
+            </Link>
+          </div>
+          <div className="relative">
+            <div
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4b5563]"
+            >
+              <LockIcon />
+            </div>
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              required
+              className="w-full rounded-xl bg-white/[0.03] text-[#f9fafb] text-sm outline-none transition-all duration-300"
+              style={{
+                padding: "12px 42px 12px 42px",
+                border: "1px solid rgba(255,255,255,0.08)",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4b5563] hover:text-[#9ca3af] transition-colors"
+              aria-label={showPassword ? 'Ocultar contrase\u00f1a' : 'Mostrar contrase\u00f1a'}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div
+            className="rounded-xl px-4 py-3 mb-4"
+            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
+          >
+            <p className="text-sm text-red-400">
+              {error === 'CredentialsSignin' ? 'Email o contrase\u00f1a incorrectos.' : 'Error al iniciar sesi\u00f3n.'}
+            </p>
+          </div>
+        )}
+
+        <AuthButton accent={ACCENT} label="Ingresar al ERP" type="submit" />
+      </form>
+    </AuthShell>
   );
 }

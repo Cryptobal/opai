@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { LoginScreen } from "./LoginScreen";
@@ -21,6 +21,7 @@ import { PortalPerfil } from "./PortalPerfil";
 import { useDeviceHeartbeat } from "@/hooks/useDeviceHeartbeat";
 import { DEVICE_TOKEN_KEY, safeStorage } from "@/lib/device-constants";
 import { LogoutPinModal } from "@/components/portal/LogoutPinModal";
+import Pusher from "pusher-js";
 
 export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "completada" | "chat" | "perfil";
 
@@ -52,7 +53,7 @@ export function RondasPortalClient() {
   const [isOffline, setIsOffline] = useState(false);
   const [showIncidentModal, setShowIncidentModal] = useState(false);
   const [showPanicoModal, setShowPanicoModal] = useState(false);
-  const [panicBannerActive, setPanicBannerActive] = useState(false);
+  const [panicBanner, setPanicBanner] = useState<"off" | "active" | "acknowledged">("off");
   const [incidentToast, setIncidentToast] = useState(false);
 
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
@@ -88,6 +89,35 @@ export function RondasPortalClient() {
       window.removeEventListener("online", goOnline);
     };
   }, []);
+
+  // Listen for panic-acknowledged feedback from central station
+  const panicDismissRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    const tenantId = deviceInfo?.tenantId;
+    const guardiaId = currentGuard?.id;
+    if (!tenantId || !guardiaId) return;
+
+    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+    });
+    const channel = pusher.subscribe(`monitoreo-${tenantId}`);
+
+    channel.bind("panico-atendido", (data: { alertaId: string; guardiaId: string }) => {
+      if (data.guardiaId === guardiaId) {
+        setPanicBanner("acknowledged");
+        navigator.vibrate?.([200, 100, 200]);
+        if (panicDismissRef.current) clearTimeout(panicDismissRef.current);
+        panicDismissRef.current = setTimeout(() => setPanicBanner("off"), 5000);
+      }
+    });
+
+    return () => {
+      channel.unbind_all();
+      pusher.unsubscribe(`monitoreo-${tenantId}`);
+      pusher.disconnect();
+      if (panicDismissRef.current) clearTimeout(panicDismissRef.current);
+    };
+  }, [deviceInfo?.tenantId, currentGuard?.id]);
 
   function retryPendingIncidents() {
     try {
@@ -506,13 +536,26 @@ export function RondasPortalClient() {
       )}
       {isOffline && <div className="h-10 shrink-0" aria-hidden="true" />}
 
-      {panicBannerActive && (
-        <div className="fixed inset-x-0 top-0 z-[65] flex items-center justify-center gap-2 bg-red-900 px-4 py-2.5 text-center text-sm font-medium text-white shadow-lg">
-          <span className="animate-pulse text-lg">{"\uD83D\uDEA8"}</span>
-          Alerta de panico activa — Central notificada
+      {panicBanner !== "off" && (
+        <div
+          className={`fixed inset-x-0 top-0 z-[65] flex items-center justify-center gap-2 px-4 py-2.5 text-center text-sm font-medium text-white shadow-lg ${
+            panicBanner === "acknowledged" ? "bg-green-800" : "bg-red-900"
+          }`}
+        >
+          {panicBanner === "acknowledged" ? (
+            <>
+              <span className="text-lg">&#x2705;</span>
+              Alerta atendida por central
+            </>
+          ) : (
+            <>
+              <span className="animate-pulse text-lg">{"\uD83D\uDEA8"}</span>
+              Alerta de panico activa — Central notificada
+            </>
+          )}
         </div>
       )}
-      {panicBannerActive && <div className="h-10 shrink-0" aria-hidden="true" />}
+      {panicBanner !== "off" && <div className="h-10 shrink-0" aria-hidden="true" />}
 
       {showGuardSelector && (
         <GuardSelectorHeader
@@ -544,7 +587,6 @@ export function RondasPortalClient() {
             session={session}
             onIniciarRonda={handleIniciarRonda}
             onIniciarRondaLibre={handleIniciarRondaLibre}
-            onReportIncident={() => setShowIncidentModal(true)}
           />
           {loadingRonda && (
             <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60">
@@ -580,7 +622,6 @@ export function RondasPortalClient() {
             setActiveEjecucionId(null);
             setScreen("mis-rondas");
           }}
-          onReportIncident={() => setShowIncidentModal(true)}
         />
       )}
 
@@ -653,7 +694,7 @@ export function RondasPortalClient() {
           onClose={() => setShowPanicoModal(false)}
           onPanicSent={() => {
             setShowPanicoModal(false);
-            setPanicBannerActive(true);
+            setPanicBanner("active");
           }}
         />
       )}

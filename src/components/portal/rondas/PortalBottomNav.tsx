@@ -12,8 +12,8 @@ interface PortalBottomNavProps {
 const tabs: { id: PortalTab; label: string; icon: typeof MapPin }[] = [
   { id: "mis-rondas", label: "Rondas", icon: MapPin },
   { id: "chat", label: "Chat", icon: MessageCircle },
-  { id: "incidente", label: "Incidente", icon: FileWarning },
   { id: "panico", label: "Panico", icon: AlertTriangle },
+  { id: "incidente", label: "Incidente", icon: FileWarning },
   { id: "perfil", label: "Perfil", icon: User },
 ];
 
