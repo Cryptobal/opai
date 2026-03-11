@@ -70,26 +70,28 @@ export async function POST(req: Request) {
     const instNombre = installation?.name ?? "Sin instalación";
     const turnoId = await getActiveTurnoId(tenantId);
 
-    await prisma.opsAlertaRonda.create({
-      data: {
-        tenantId,
-        ejecucionId: ejecucionId || null,
-        installationId: installationId || null,
-        guardiaId,
-        turnoId,
-        tipo: "incidente_guardia",
-        severidad: "warning",
-        mensaje: `Incidente reportado por ${guardiaNombre} (${instNombre}): ${descripcion.slice(0, 200)}${descripcion.length > 200 ? "…" : ""}`,
+    if (installationId) {
+      await prisma.opsAlertaRonda.create({
         data: {
-          incidenteId: incidente.id,
-          tipoOriginal: tipo,
-          descripcion,
-          fotoUrl: fotoUrl ?? null,
-          lat: lat ?? null,
-          lng: lng ?? null,
-        } as never,
-      },
-    });
+          tenantId,
+          ejecucionId: ejecucionId || undefined,
+          installationId,
+          guardiaId,
+          turnoId: turnoId ?? undefined,
+          tipo: "incidente_guardia",
+          severidad: "warning",
+          mensaje: `Incidente reportado por ${guardiaNombre} (${instNombre}): ${descripcion.slice(0, 200)}${descripcion.length > 200 ? "…" : ""}`,
+          data: {
+            incidenteId: incidente.id,
+            tipoOriginal: tipo,
+            descripcion,
+            fotoUrl: fotoUrl ?? null,
+            lat: lat ?? null,
+            lng: lng ?? null,
+          } as never,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
