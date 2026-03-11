@@ -192,8 +192,8 @@ async function populateGuards(
   installationId: string | null,
   tenantId: string,
   cnDate: Date,
-): Promise<void> {
-  if (!installationId) return;
+): Promise<number> {
+  if (!installationId) return 0;
 
   const existing = await prisma.opsControlNocturnoGuardia.findMany({
     where: { controlInstalacionId },
@@ -201,6 +201,9 @@ async function populateGuards(
 
   // Get fresh guard data from sources
   const resolved = await resolveGuardsFromSources(installationId, tenantId, cnDate);
+
+  // Count nocturno guards from resolved plan data — this IS guardiasRequeridos
+  const nocturnoRequired = resolved.filter((g) => g.turno === "nocturno").length;
 
   // Build lookup keys for existing and resolved guards
   // PPC entries use guardiaNombre="PPC" as key since guardiaId is null/empty
@@ -241,6 +244,8 @@ async function populateGuards(
       where: { id: { in: staleGuards.map((g) => g.id) } },
     });
   }
+
+  return nocturnoRequired;
 }
 
 /**
@@ -323,7 +328,13 @@ export async function generateGridSlots(params: GenerateGridParams): Promise<voi
       }
     }
 
-    // ── Pre-populate guards ──
-    await populateGuards(inst.id, inst.installationId, tenantId, cnDate);
+    // ── Pre-populate guards & sync guardiasRequeridos from pauta ──
+    const nocturnoRequired = await populateGuards(inst.id, inst.installationId, tenantId, cnDate);
+    if (inst.guardiasRequeridos !== nocturnoRequired) {
+      await prisma.opsControlNocturnoInstalacion.update({
+        where: { id: inst.id },
+        data: { guardiasRequeridos: nocturnoRequired },
+      });
+    }
   }
 }

@@ -501,13 +501,18 @@ export function RondasMonitoreoClient({
         .filter((r: any) => r.guardia)
         .map((r: any) => formatPersonName(r.guardia.persona.firstName, r.guardia.persona.lastName));
 
+      // Look up actual guardiasRequeridos from CN data
+      const cnInst = controlNocturno?.instalaciones?.find(
+        (ci: any) => ci.installationId === inst.id || ci.installation?.id === inst.id,
+      );
+
       return {
         id: inst.id,
         name: inst.name,
         lat: inst.lat ?? null,
         lng: inst.lng ?? null,
         guardiasPresentes: guardNames.length,
-        guardiasRequeridos: 1,
+        guardiasRequeridos: cnInst?.guardiasRequeridos ?? 1,
         guardiaNames: guardNames,
         activeRondaProgress: activeRonda ? `${activeRonda.checkpointsCompletados}/${activeRonda.checkpointsTotal}` : null,
         activeRondaTrust: activeRonda?.trustScore ?? null,
@@ -515,7 +520,7 @@ export function RondasMonitoreoClient({
         alertCount: instAlerts.length,
       };
     });
-  }, [installations, rows, alertRows]);
+  }, [installations, rows, alertRows, controlNocturno]);
 
   const handleGuardiaUpdate = useCallback((guardiaId: string, data: { status?: string; horaLlegada?: string | null; notes?: string | null; reemplazaDe?: string | null; guardiaNombre?: string; guardiaId?: string | null }) => {
     if (!guardPanel) return;

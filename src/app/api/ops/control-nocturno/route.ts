@@ -149,6 +149,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Sync guardiasRequeridos + rondaExpected from pauta
+    try {
+      const { generateGridSlots } = await import("@/lib/rondas/generate-grid");
+      await generateGridSlots({
+        controlNocturnoId: reporte.id,
+        tenantId: ctx.tenantId,
+        shiftStart: shiftStart || "19:00",
+        shiftEnd: shiftEnd || "08:00",
+      });
+    } catch (err) {
+      console.error("[control-nocturno] generateGridSlots failed:", err);
+    }
+
     await createOpsAuditLog(ctx, "create", "control_nocturno", reporte.id, {
       date,
       centralOperatorName,
