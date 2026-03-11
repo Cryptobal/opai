@@ -40,3 +40,7 @@ OPAI Suite is a multi-tenant SaaS platform for security companies (Next.js 15 Ap
 - **ESLint not in original devDependencies**: If eslint is needed, install `eslint` and `eslint-config-next@15.4.11` (match the Next.js version). Create `.eslintrc.json` with `{"extends": "next/core-web-vitals"}`.
 - **`npm run dev` vs `npm run dev:watch`**: Use `dev:watch` for development. The `dev` script runs `build && start` which fails due to pre-existing lint errors caught by `next build`.
 - **Login credentials (seeded)**: `[REDACTED]` / `GardSecurity2026!` (owner role).
+- **DATABASE_URL must not have `?schema=public`**: Use `postgresql://postgres:postgres@localhost:5432/gard` without any query params. The Prisma multi-schema feature handles schema selection internally.
+- **`npx prisma db seed` env var issue**: The seed command run via `npx prisma db seed` may not inherit `.env.local` properly through the `prisma.config.ts` → child `ts-node` chain. If seeded data doesn't appear in the database, prepend env vars explicitly: `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/gard npx prisma db seed`.
+- **Kill stale Next.js processes before restarting**: The dev server checks if port 3000 is in use and silently binds to 3001/3002. Always kill all `next-server` processes before restarting: check with `netstat -tlnp | grep 300` and kill the PIDs.
+- **Pre-existing hydration errors on /hub**: The `HubHotDealsMobile` component has nested `<a>` tags causing React hydration errors. This is a pre-existing code issue, not an environment problem.
