@@ -12,7 +12,7 @@ interface AuthPinInputProps {
 export function AuthPinInput({ length = 4, accent, value, onChange }: AuthPinInputProps) {
   const [focusedIdx, setFocusedIdx] = useState(0);
   const refs = useRef<(HTMLInputElement | null)[]>([]);
-  const pins = value.padEnd(length, "").split("").slice(0, length);
+  const pins = Array.from({ length }, (_, i) => value[i] || "");
 
   const handleChange = (i: number, val: string) => {
     if (val.length > 1 || (val && !/^\d$/.test(val))) return;
