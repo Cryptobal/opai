@@ -62,6 +62,7 @@ export async function resolveMonthlyAttendance(
   const asistenciaEntries = await prisma.opsAsistenciaDiaria.findMany({
     where: {
       date: { gte: startDate, lte: endDate },
+      deletedAt: null,
       OR: [
         { plannedGuardiaId: guardiaId },
         { actualGuardiaId: guardiaId },

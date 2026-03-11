@@ -17,7 +17,10 @@ interface ComprobanteMarcacion {
   timestamp: Date;
   geoValidada: boolean;
   geoDistanciaM: number | null;
+  gpsStatus: "dentro_rango" | "fuera_rango" | "sin_gps";
   hashIntegridad: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 /**
@@ -42,11 +45,19 @@ export async function sendMarcacionComprobante(data: ComprobanteMarcacion): Prom
     year: "numeric",
     timeZone: "America/Santiago",
   });
-  const geoStatus = data.geoValidada
-    ? `Ubicación validada (${data.geoDistanciaM}m)`
-    : data.geoDistanciaM != null
-    ? `Fuera de rango (${data.geoDistanciaM}m)`
-    : "Sin geolocalización";
+  const geoStatusLabel =
+    data.gpsStatus === "dentro_rango"
+      ? `Ubicación validada (${data.geoDistanciaM}m)`
+      : data.gpsStatus === "fuera_rango"
+      ? `Fuera de rango (${data.geoDistanciaM}m)`
+      : "Sin geolocalización";
+  const geoStatusColor =
+    data.gpsStatus === "dentro_rango" ? "#059669"
+      : data.gpsStatus === "fuera_rango" ? "#d97706"  // amarillo/naranja — es info, no error
+      : "#94a3b8";
+  const gpsCoords = data.lat != null && data.lng != null
+    ? `${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`
+    : null;
 
   const subject = `Comprobante de ${tipoLabel} — ${data.installationName} — ${hora}`;
 
@@ -88,8 +99,12 @@ export async function sendMarcacionComprobante(data: ComprobanteMarcacion): Prom
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #64748b;">Ubicación</td>
-            <td style="padding: 6px 0; color: ${data.geoValidada ? "#059669" : "#dc2626"};">${geoStatus}</td>
-          </tr>
+            <td style="padding: 6px 0; color: ${geoStatusColor};">${geoStatusLabel}</td>
+          </tr>${gpsCoords ? `
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Coordenadas</td>
+            <td style="padding: 6px 0; color: #0f172a; font-family: monospace; font-size: 11px;">${gpsCoords}</td>
+          </tr>` : ""}
         </table>
       </div>
 
@@ -103,7 +118,7 @@ export async function sendMarcacionComprobante(data: ComprobanteMarcacion): Prom
           ${EMAIL_CONFIG.companyName} — Registro conforme a Res. Exenta N°38, DT Chile
         </p>
         <p style="color: #94a3b8; font-size: 10px; margin: 4px 0 0;">
-          Sello de tiempo: ${data.timestamp.toISOString()}
+          Sello de tiempo de la marca: ${data.timestamp.toISOString()}
         </p>
       </div>
     </div>
@@ -229,7 +244,7 @@ export async function sendAvisoMarcaManual(data: AvisoMarcaManual): Promise<void
           ${EMAIL_CONFIG.companyName} — Registro conforme a Res. Exenta N°38, DT Chile
         </p>
         <p style="color: #94a3b8; font-size: 10px; margin: 4px 0 0;">
-          Sello de tiempo: ${new Date().toISOString()}
+          Sello de tiempo de la marca: ${data.fechaMarca} ${data.horaMarca}
         </p>
       </div>
     </div>

@@ -13,6 +13,7 @@ export async function calcularScoreSistemaDigital(
       guardiaId,
       timestamp: { gte: fechaInicio, lte: fechaFin },
       metodoId: { in: ["rut_pin", "qr", "facial"] },
+      deletedAt: null,
     },
   });
 

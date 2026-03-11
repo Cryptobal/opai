@@ -43,6 +43,7 @@ type MarcacionItem = {
   hashIntegridad: string;
   geoValidada: boolean;
   geoDistanciaM: number | null;
+  gpsStatus?: string; // dentro_rango | fuera_rango | sin_gps
   lat: number | null;
   lng: number | null;
   ipAddress: string | null;
@@ -810,26 +811,32 @@ export function OpsPautaDiariaClient({
                                   <>
                                     {primeraEntrada && (
                                       <span
-                                        className="inline-flex items-center gap-0.5 text-emerald-500 text-xs"
-                                        title={`Entrada ${primeraEntrada.timestamp} · Hash: ${primeraEntrada.hashIntegridad.slice(0, 16)}… · Geo: ${primeraEntrada.geoValidada ? `✓ ${primeraEntrada.geoDistanciaM}m` : "sin validar"}`}
+                                        className={`inline-flex items-center gap-0.5 text-xs ${primeraEntrada.gpsStatus === "fuera_rango" ? "text-yellow-500" : "text-emerald-500"}`}
+                                        title={`Entrada ${primeraEntrada.timestamp} · Hash: ${primeraEntrada.hashIntegridad.slice(0, 16)}… · GPS: ${primeraEntrada.gpsStatus === "dentro_rango" ? `✓ ${primeraEntrada.geoDistanciaM}m` : primeraEntrada.gpsStatus === "fuera_rango" ? `⚠ Fuera de rango (${primeraEntrada.geoDistanciaM}m)` : "sin GPS"}`}
                                       >
                                         <Clock className="h-3.5 w-3.5" />
                                         {new Date(primeraEntrada.timestamp).toLocaleTimeString("es-CL", {
                                           hour: "2-digit",
                                           minute: "2-digit",
                                         })}
+                                        {primeraEntrada.gpsStatus === "fuera_rango" && (
+                                          <span className="ml-0.5 text-[9px] bg-yellow-500/20 text-yellow-400 px-1 rounded">GPS</span>
+                                        )}
                                       </span>
                                     )}
                                     {ultimaSalida && (
                                       <span
-                                        className="inline-flex items-center gap-0.5 text-amber-500 text-xs"
-                                        title={`Salida ${ultimaSalida.timestamp} · Hash: ${ultimaSalida.hashIntegridad.slice(0, 16)}… · Geo: ${ultimaSalida.geoValidada ? `✓ ${ultimaSalida.geoDistanciaM}m` : "sin validar"}`}
+                                        className={`inline-flex items-center gap-0.5 text-xs ${ultimaSalida.gpsStatus === "fuera_rango" ? "text-yellow-500" : "text-amber-500"}`}
+                                        title={`Salida ${ultimaSalida.timestamp} · Hash: ${ultimaSalida.hashIntegridad.slice(0, 16)}… · GPS: ${ultimaSalida.gpsStatus === "dentro_rango" ? `✓ ${ultimaSalida.geoDistanciaM}m` : ultimaSalida.gpsStatus === "fuera_rango" ? `⚠ Fuera de rango (${ultimaSalida.geoDistanciaM}m)` : "sin GPS"}`}
                                       >
                                         <MapPin className="h-3.5 w-3.5" />
                                         {new Date(ultimaSalida.timestamp).toLocaleTimeString("es-CL", {
                                           hour: "2-digit",
                                           minute: "2-digit",
                                         })}
+                                        {ultimaSalida.gpsStatus === "fuera_rango" && (
+                                          <span className="ml-0.5 text-[9px] bg-yellow-500/20 text-yellow-400 px-1 rounded">GPS</span>
+                                        )}
                                       </span>
                                     )}
                                   </>
@@ -1018,7 +1025,7 @@ export function OpsPautaDiariaClient({
                     </p>
                     <p>
                       <span className="font-medium">Geo:</span>{" "}
-                      {m.geoValidada ? `Válida (${m.geoDistanciaM}m)` : "Sin validar"}
+                      {m.gpsStatus === "dentro_rango" ? `Dentro de rango (${m.geoDistanciaM}m)` : m.gpsStatus === "fuera_rango" ? <span className="text-yellow-400">Fuera de rango ({m.geoDistanciaM}m)</span> : "Sin GPS"}
                     </p>
                     {m.lat != null && m.lng != null && (
                       <p>

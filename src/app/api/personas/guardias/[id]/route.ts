@@ -158,8 +158,17 @@ export async function PATCH(
           cotizaAFP: body.cotizaAFP !== undefined ? body.cotizaAFP : undefined,
           cotizaAFC: body.cotizaAFC !== undefined ? body.cotizaAFC : undefined,
           cotizaSalud: body.cotizaSalud !== undefined ? body.cotizaSalud : undefined,
+          personalEmail: body.personalEmail !== undefined ? normalizeNullable(body.personalEmail) : undefined,
         },
       });
+
+      // Also save personalEmail on OpsGuardia for direct access
+      if (body.personalEmail !== undefined) {
+        await tx.opsGuardia.update({
+          where: { id },
+          data: { personalEmail: normalizeNullable(body.personalEmail) },
+        });
+      }
 
       const updated = await tx.opsGuardia.update({
         where: { id },

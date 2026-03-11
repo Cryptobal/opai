@@ -84,6 +84,7 @@ export async function GET(req: NextRequest) {
         guardiaId: persona.guardia.id,
         installationId: installation.id,
         timestamp: { gte: desde },
+        deletedAt: null,
       },
       orderBy: { timestamp: "desc" },
       select: {

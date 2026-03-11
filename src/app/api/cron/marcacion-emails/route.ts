@@ -60,6 +60,7 @@ export async function GET() {
               installationId: data.installationId,
               metodoId: "manual",
               timestamp: { gte: todayStart, lt: todayEnd },
+              deletedAt: null,
             },
           });
 

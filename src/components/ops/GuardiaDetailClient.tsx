@@ -118,12 +118,14 @@ type GuardiaDetail = {
     cotizaAFP?: boolean | null;
     cotizaAFC?: boolean | null;
     cotizaSalud?: boolean | null;
+    personalEmail?: string | null;
   };
   hiredAt?: string | null;
   terminatedAt?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   availableExtraShifts?: boolean;
+  personalEmail?: string | null;
   marcacionPin?: string | null;
   marcacionPinVisible?: string | null;
   montoAnticipo?: number;
@@ -252,7 +254,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const [editPersonalOpen, setEditPersonalOpen] = useState(false);
   const [editPersonalSaving, setEditPersonalSaving] = useState(false);
   const [editPersonalForm, setEditPersonalForm] = useState({
-    firstName: "", lastName: "", rut: "", email: "", phoneMobile: "", sex: "", nacionalidad: "",
+    firstName: "", lastName: "", rut: "", email: "", personalEmail: "", phoneMobile: "", sex: "", nacionalidad: "",
     birthDate: "", afp: "", healthSystem: "", isapreName: "", isapreHasExtraPercent: false,
     isapreExtraPercent: "", hasMobilization: false, availableExtraShifts: false, addressFormatted: "",
     commune: "", city: "", region: "", lat: "", lng: "", regimenPrevisional: "", tipoPension: "",
@@ -284,6 +286,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     setEditPersonalForm({
       firstName: guardia.persona.firstName || "", lastName: guardia.persona.lastName || "",
       rut: guardia.persona.rut || "", email: guardia.persona.email || "",
+      personalEmail: guardia.persona.personalEmail || guardia.personalEmail || "",
       phoneMobile: guardia.persona.phoneMobile || "", sex: guardia.persona.sex || "",
       nacionalidad: guardia.persona.nacionalidad || "", birthDate: toDateInput(guardia.persona.birthDate),
       afp: guardia.persona.afp || "", healthSystem: guardia.persona.healthSystem || "",
@@ -310,7 +313,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           firstName: editPersonalForm.firstName.trim() || undefined, lastName: editPersonalForm.lastName.trim() || undefined,
-          rut: editPersonalForm.rut.trim() || undefined, email: editPersonalForm.email.trim() || undefined,
+          rut: editPersonalForm.rut.trim() || undefined, email: editPersonalForm.email.trim() || undefined, personalEmail: editPersonalForm.personalEmail?.trim() || undefined,
           phoneMobile: editPersonalForm.phoneMobile.trim() || undefined, sex: editPersonalForm.sex || undefined,
           nacionalidad: editPersonalForm.nacionalidad || undefined, birthDate: editPersonalForm.birthDate || undefined,
           afp: editPersonalForm.afp || undefined, healthSystem: editPersonalForm.healthSystem || undefined,
@@ -336,6 +339,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           lastName: editPersonalForm.lastName.trim() || prev.persona.lastName,
           rut: editPersonalForm.rut.trim() || prev.persona.rut,
           email: editPersonalForm.email.trim() || prev.persona.email,
+          personalEmail: editPersonalForm.personalEmail?.trim() || prev.persona.personalEmail,
           phoneMobile: editPersonalForm.phoneMobile.trim() || prev.persona.phoneMobile,
           sex: editPersonalForm.sex || prev.persona.sex,
           nacionalidad: editPersonalForm.nacionalidad || prev.persona.nacionalidad,
@@ -779,8 +783,10 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               <Input value={editPersonalForm.lastName} onChange={(e) => setEditPersonalForm((p) => ({ ...p, lastName: e.target.value }))} /></div>
             <div className="space-y-1.5"><Label className="text-xs">RUT</Label>
               <Input value={editPersonalForm.rut} onChange={(e) => setEditPersonalForm((p) => ({ ...p, rut: e.target.value }))} placeholder="12.345.678-9" /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Email</Label>
+            <div className="space-y-1.5"><Label className="text-xs">Email corporativo</Label>
               <Input type="email" value={editPersonalForm.email} onChange={(e) => setEditPersonalForm((p) => ({ ...p, email: e.target.value }))} /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Email personal *<span className="text-[10px] text-muted-foreground ml-1">(Res. N°38)</span></Label>
+              <Input type="email" value={editPersonalForm.personalEmail ?? ""} onChange={(e) => setEditPersonalForm((p) => ({ ...p, personalEmail: e.target.value }))} placeholder="guardia@gmail.com" /></div>
             <div className="space-y-1.5"><Label className="text-xs">Celular</Label>
               <Input value={editPersonalForm.phoneMobile} onChange={(e) => setEditPersonalForm((p) => ({ ...p, phoneMobile: e.target.value }))} placeholder="912345678" /></div>
             <div className="space-y-1.5"><Label className="text-xs">Sexo</Label>

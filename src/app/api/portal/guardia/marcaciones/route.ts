@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     }
 
     const marcaciones = await prisma.opsMarcacion.findMany({
-      where: { guardiaId },
+      where: { guardiaId, deletedAt: null },
       include: {
         installation: { select: { name: true } },
       },

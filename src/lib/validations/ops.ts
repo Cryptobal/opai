@@ -288,6 +288,7 @@ export const updateGuardiaSchema = z.object({
   cotizaAFP: z.boolean().optional().nullable(),
   cotizaAFC: z.boolean().optional().nullable(),
   cotizaSalud: z.boolean().optional().nullable(),
+  personalEmail: z.string().trim().email("Email personal inválido").max(200).optional().nullable().or(z.literal("")),
   availableExtraShifts: z.boolean().optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
   lifecycleStatus: z.enum(GUARDIA_LIFECYCLE_STATUSES).optional(),

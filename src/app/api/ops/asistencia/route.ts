@@ -294,6 +294,7 @@ export async function GET(request: NextRequest) {
               gte: new Date(date.getTime()),
               lt: new Date(date.getTime() + 24 * 60 * 60 * 1000),
             },
+            deletedAt: null,
           },
           select: {
             id: true,
@@ -304,6 +305,7 @@ export async function GET(request: NextRequest) {
             hashIntegridad: true,
             geoValidada: true,
             geoDistanciaM: true,
+            gpsStatus: true,
             lat: true,
             lng: true,
             ipAddress: true,
