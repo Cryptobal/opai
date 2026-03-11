@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Eye, MapPin, Shield } from "lucide-react";
+import { CheckCircle2, MapPin, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPersonName } from "@/lib/personas";
 import { AlertGeofenceMap } from "./alert-geofence-map";
@@ -30,8 +30,7 @@ interface Alerta {
 
 interface Props {
   alerta: Alerta;
-  onAcknowledge?: (id: string) => void;
-  onResolve?: (id: string) => void;
+  onResolve?: (id: string, resolutionNotes?: string) => void;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
 }
@@ -69,9 +68,12 @@ const TIPO_LABELS: Record<string, string> = {
   mismo_punto_repetido: "Punto repetido",
   bateria_baja: "Batería baja",
   bateria_estatica: "Batería estática",
+  incidente_guardia: "Incidente reportado por guardia",
+  ronda_no_realizada: "Ronda no realizada",
+  ronda_libre_timeout: "Ronda libre timeout",
 };
 
-export function AlertaCard({ alerta, onAcknowledge, onResolve, selected, onToggleSelect }: Props) {
+export function AlertaCard({ alerta, onResolve, selected, onToggleSelect }: Props) {
   const sev = SEVERITY_CONFIG[alerta.severidad] ?? SEVERITY_CONFIG.info;
   const guardiaNombre = alerta.ejecucion?.guardia?.persona
     ? formatPersonName(alerta.ejecucion.guardia.persona.firstName, alerta.ejecucion.guardia.persona.lastName)
@@ -93,6 +95,8 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve, selected, onToggl
     geoData?.guardiaLat != null;
 
   const [showMap, setShowMap] = useState(false);
+  const [resolveOpen, setResolveOpen] = useState(false);
+  const [resolveNotes, setResolveNotes] = useState("");
 
   return (
     <div
@@ -162,12 +166,6 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve, selected, onToggl
       </div>
 
       {/* Status line */}
-      {alerta.isAcknowledged && !alerta.resuelta && (
-        <div className="flex items-center gap-1.5 text-[11px] text-emerald-400">
-          <Eye className="h-3 w-3" />
-          Reconocida{alerta.acknowledgedBy ? ` por ${alerta.acknowledgedBy}` : ""}
-        </div>
-      )}
       {alerta.resuelta && (
         <div className="flex items-center gap-1.5 text-[11px] text-[#94a3b8]">
           <CheckCircle2 className="h-3 w-3" />
@@ -196,27 +194,57 @@ export function AlertaCard({ alerta, onAcknowledge, onResolve, selected, onToggl
           {hasGeoMap && (
             <button
               onClick={() => setShowMap((v) => !v)}
+              type="button"
               className="text-[11px] px-2.5 py-1 rounded-lg border border-[#1a1f2e] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-cyan-500/40 transition-colors flex items-center gap-1"
             >
               <MapPin className="h-3 w-3" /> {showMap ? "Ocultar mapa" : "Ver mapa"}
             </button>
           )}
-          {!alerta.resuelta && !alerta.isAcknowledged && onAcknowledge && (
-            <button
-              onClick={() => onAcknowledge(alerta.id)}
-              className="text-[11px] px-2.5 py-1 rounded-lg border border-[#1a1f2e] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-cyan-500/40 transition-colors flex items-center gap-1"
-            >
-              <Eye className="h-3 w-3" /> Reconocer
-            </button>
-          )}
           {!alerta.resuelta && onResolve && (
             <button
-              onClick={() => onResolve(alerta.id)}
+              onClick={() => setResolveOpen(true)}
+              type="button"
               className="text-[11px] px-2.5 py-1 rounded-lg border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 transition-colors flex items-center gap-1"
             >
               <CheckCircle2 className="h-3 w-3" /> Resolver
             </button>
           )}
+        </div>
+      )}
+
+      {/* Modal: comentario + Marcar resuelta */}
+      {resolveOpen && onResolve && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => setResolveOpen(false)}>
+          <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-4 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <p className="text-xs font-semibold text-[#94a3b8] mb-2">Comentario (opcional)</p>
+            <textarea
+              value={resolveNotes}
+              onChange={(e) => setResolveNotes(e.target.value)}
+              placeholder="Ej: Revisado, falsa alarma..."
+              className="w-full min-h-[80px] rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 py-2 placeholder:text-[#64748b] resize-y mb-3"
+              maxLength={1000}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => { setResolveOpen(false); setResolveNotes(""); }}
+                className="text-[11px] px-3 py-1.5 rounded-lg border border-[#1a1f2e] text-[#94a3b8] hover:text-[#f1f5f9]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onResolve(alerta.id, resolveNotes.trim() || undefined);
+                  setResolveOpen(false);
+                  setResolveNotes("");
+                }}
+                className="text-[11px] px-3 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+              >
+                Marcar resuelta
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

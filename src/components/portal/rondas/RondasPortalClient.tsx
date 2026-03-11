@@ -24,7 +24,7 @@ import { LogoutPinModal } from "@/components/portal/LogoutPinModal";
 import { GuardTourOverlay } from "./tour/GuardTourOverlay";
 import Pusher from "pusher-js";
 
-export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "completada" | "chat" | "perfil";
+export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "completada" | "chat" | "perfil" | "incidente";
 
 export interface RondasSession {
   guardiaId: string;
@@ -52,7 +52,6 @@ export function RondasPortalClient() {
   const [completionData, setCompletionData] = useState<CompletionData | null>(null);
   const [loadingRonda, setLoadingRonda] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
-  const [showIncidentModal, setShowIncidentModal] = useState(false);
   const [showPanicoModal, setShowPanicoModal] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [panicBanner, setPanicBanner] = useState<"off" | "active" | "acknowledged">("off");
@@ -330,7 +329,6 @@ export function RondasPortalClient() {
     setActiveRondaData(null);
     setActiveEjecucionId(null);
     setCompletionData(null);
-    setShowIncidentModal(false);
     setAuthMode("pairing");
     setScreen("login");
   };
@@ -512,7 +510,7 @@ export function RondasPortalClient() {
       return;
     }
     if (tab === "incidente") {
-      setShowIncidentModal(true);
+      setScreen("incidente");
       return;
     }
     if (tab === "mis-rondas" && (screen === "ronda-activa" || screen === "completada")) {
@@ -677,18 +675,21 @@ export function RondasPortalClient() {
         <PortalPerfil session={session} onLogout={handleLogout} />
       )}
 
-      {showIncidentModal && session && (
-        <ReportarIncidente
-          session={session}
-          activeEjecucionId={activeEjecucionId ?? undefined}
-          onClose={() => setShowIncidentModal(false)}
-          onSubmitted={() => {
-            setShowIncidentModal(false);
-            setIncidentToast(true);
-            navigator.vibrate?.([100, 50, 100]);
-            setTimeout(() => setIncidentToast(false), 3500);
-          }}
-        />
+      {screen === "incidente" && session && (
+        <div className="flex-1 min-h-0 flex flex-col pb-16">
+          <ReportarIncidente
+            asScreen
+            session={session}
+            activeEjecucionId={activeEjecucionId ?? undefined}
+            onClose={() => setScreen("mis-rondas")}
+            onSubmitted={() => {
+              setScreen("mis-rondas");
+              setIncidentToast(true);
+              navigator.vibrate?.([100, 50, 100]);
+              setTimeout(() => setIncidentToast(false), 3500);
+            }}
+          />
+        </div>
       )}
 
       {/* Incident submitted toast */}

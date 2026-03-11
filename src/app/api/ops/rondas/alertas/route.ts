@@ -27,19 +27,21 @@ export async function GET(request: NextRequest) {
 
     const activeTurnoId = await getActiveTurnoId(ctx.tenantId);
 
+    // Solo mostrar alertas cuando hay monitoreo activo; si no hay turno, lista vacía
+    if (!includeArchived && !activeTurnoId) {
+      return NextResponse.json({ success: true, data: [], requiresActiveTurno: true });
+    }
+
     const where: Prisma.OpsAlertaRondaWhereInput = {
       tenantId: ctx.tenantId,
       ...(onlyOpen ? { resuelta: false } : {}),
       ...(isAcknowledged === "true" ? { isAcknowledged: true } : isAcknowledged === "false" ? { isAcknowledged: false } : {}),
       ...(severidad ? { severidad } : {}),
       ...(tipo ? { tipo } : {}),
-      // Filter by active turno; fallback to last 24h if no turno active
       ...(!includeArchived
         ? {
             archivedAt: null,
-            ...(activeTurnoId
-              ? { turnoId: activeTurnoId }
-              : { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } }),
+            ...(activeTurnoId ? { turnoId: activeTurnoId } : {}),
           }
         : {}),
     };

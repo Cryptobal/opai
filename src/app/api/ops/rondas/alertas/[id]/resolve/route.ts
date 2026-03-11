@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 
-export async function PUT(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const ctx = await requireAuth();
@@ -13,9 +13,24 @@ export async function PUT(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
 
+    let resolutionNotes: string | null = null;
+    try {
+      const body = await request.json().catch(() => ({}));
+      if (typeof body?.resolutionNotes === "string" && body.resolutionNotes.trim()) {
+        resolutionNotes = body.resolutionNotes.trim().slice(0, 1000);
+      }
+    } catch {
+      // ignore
+    }
+
     const result = await prisma.opsAlertaRonda.updateMany({
       where: { id, tenantId: ctx.tenantId },
-      data: { resuelta: true, resueltaPor: ctx.userId, resueltaAt: new Date() },
+      data: {
+        resuelta: true,
+        resueltaPor: ctx.userId,
+        resueltaAt: new Date(),
+        resolutionNotes: resolutionNotes ?? undefined,
+      },
     });
     if (!result.count) {
       return NextResponse.json({ success: false, error: "Alerta no encontrada" }, { status: 404 });

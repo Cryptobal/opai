@@ -12,6 +12,8 @@ interface Props {
   checkpoints?: { id: string; name: string }[];
   onClose: () => void;
   onSubmitted: () => void;
+  /** Cuando true, se renderiza como pantalla (no modal): sin overlay, barra abajo usable */
+  asScreen?: boolean;
 }
 
 const INCIDENT_TYPES = [
@@ -33,6 +35,7 @@ export function ReportarIncidente({
   checkpoints,
   onClose,
   onSubmitted,
+  asScreen = false,
 }: Props) {
   const [tipo, setTipo] = useState<IncidentType | null>(null);
   const [descripcion, setDescripcion] = useState("");
@@ -181,17 +184,21 @@ export function ReportarIncidente({
     );
   }
 
+  const rootClassName = asScreen
+    ? "flex-1 flex flex-col min-h-0 bg-[#0A0F1C]"
+    : "fixed inset-0 z-[60] flex flex-col bg-black/90";
+
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black/90">
+    <div className={rootClassName}>
       {/* Sticky header */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+      <div className="flex shrink-0 items-center justify-between px-5 pt-5 pb-3">
         <h2 className="text-xl font-bold text-white">
           {"\u{1F6A8}"} Reportar Incidente
         </h2>
         <button
           onClick={onClose}
           className="rounded-lg bg-zinc-800 p-2 text-gray-400 hover:bg-zinc-700 hover:text-white"
-          aria-label="Cerrar"
+          aria-label={asScreen ? "Volver" : "Cerrar"}
         >
           <svg
             className="h-5 w-5"
@@ -209,7 +216,7 @@ export function ReportarIncidente({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5">
         <div className="mx-auto w-full max-w-md space-y-5">
 
         {/* Incident type grid */}

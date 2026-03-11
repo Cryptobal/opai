@@ -22,6 +22,14 @@ interface InstallationSummary {
   trustAvg: number;
 }
 
+export interface IncidenteGuardiaEmail {
+  guardia: string;
+  instalacion: string;
+  tipo: string;
+  descripcion: string;
+  fecha: string;
+}
+
 interface MonitorEmailData {
   turnoId: string;
   tenantId: string;
@@ -44,6 +52,7 @@ interface MonitorEmailData {
   criticalAlertDetails?: CriticalAlertDetail[];
   warningAlerts?: number;
   installationSummaries?: InstallationSummary[];
+  incidentesDelGuardia?: IncidenteGuardiaEmail[];
 }
 
 function escapeHtml(str: string): string {
@@ -124,6 +133,41 @@ function buildResumenEjecutivo(data: MonitorEmailData): string {
   }
 
   return lines.join("\n");
+}
+
+function buildIncidentesSection(incidentes: IncidenteGuardiaEmail[]): string {
+  if (!incidentes || incidentes.length === 0) return "";
+
+  const rows = incidentes.map((inc) =>
+    `<tr>
+      <td style="padding:6px 8px;font-size:12px;color:#334155;border-bottom:1px solid #e2e8f0">${escapeHtml(inc.guardia)}</td>
+      <td style="padding:6px 8px;font-size:12px;color:#334155;border-bottom:1px solid #e2e8f0">${escapeHtml(inc.instalacion)}</td>
+      <td style="padding:6px 8px;font-size:12px;color:#64748b;border-bottom:1px solid #e2e8f0">${escapeHtml(inc.tipo)}</td>
+      <td style="padding:6px 8px;font-size:12px;color:#334155;border-bottom:1px solid #e2e8f0">${escapeHtml(inc.descripcion)}</td>
+      <td style="padding:6px 8px;font-size:11px;color:#64748b;border-bottom:1px solid #e2e8f0">${escapeHtml(inc.fecha)}</td>
+    </tr>`,
+  ).join("\n");
+
+  return `
+        <tr>
+          <td style="padding:0 32px 16px">
+            <div style="background:#fefce8;border:1px solid #fef08a;border-radius:6px;padding:12px 16px">
+              <p style="margin:0 0 8px;font-size:11px;color:#854d0e;font-weight:600;text-transform:uppercase">Incidentes reportados por guardias</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="font-size:12px">
+                <thead>
+                  <tr style="background:#fef9c3">
+                    <th style="padding:6px 8px;text-align:left;font-size:11px;color:#713f12">Guardia</th>
+                    <th style="padding:6px 8px;text-align:left;font-size:11px;color:#713f12">Instalación</th>
+                    <th style="padding:6px 8px;text-align:left;font-size:11px;color:#713f12">Tipo</th>
+                    <th style="padding:6px 8px;text-align:left;font-size:11px;color:#713f12">Descripción</th>
+                    <th style="padding:6px 8px;text-align:left;font-size:11px;color:#713f12">Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          </td>
+        </tr>`;
 }
 
 function buildInstallationDetail(summaries: InstallationSummary[]): string {
@@ -237,12 +281,13 @@ function buildHtml(data: MonitorEmailData): string {
             </div>
           </td>
         </tr>` : ""}
+        ${buildIncidentesSection(data.incidentesDelGuardia ?? [])}
         ${buildInstallationDetail(data.installationSummaries ?? [])}
-        <!-- Detail summary -->
+        <!-- Resumen numérico (sin listado completo de alertas) -->
         <tr>
           <td style="padding:0 32px 16px">
             <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #22c55e;border-radius:6px;padding:12px 16px">
-              <p style="margin:0 0 4px;font-size:11px;color:#15803d;font-weight:600;text-transform:uppercase">Detalle Completo</p>
+              <p style="margin:0 0 4px;font-size:11px;color:#15803d;font-weight:600;text-transform:uppercase">Resumen</p>
               <p style="margin:0;font-size:13px;color:#14532d;line-height:1.5;white-space:pre-wrap">${escapeHtml(data.aiSummary)}</p>
             </div>
           </td>

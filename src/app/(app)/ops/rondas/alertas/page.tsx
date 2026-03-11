@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
 import { PageHeader } from "@/components/opai";
 import { RondasAlertasClient } from "@/components/ops/rondas";
 import { RondasSubnav } from "@/components/ops/RondasSubnav";
@@ -15,24 +16,27 @@ export default async function RondasAlertasPage() {
   if (!canView(perms, "ops", "rondas")) redirect("/hub");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const activeTurnoId = await getActiveTurnoId(tenantId);
 
   const [rows, installations] = await Promise.all([
-    prisma.opsAlertaRonda.findMany({
-      where: { tenantId, archivedAt: null },
-      include: {
-        installation: { select: { id: true, name: true } },
-        ejecucion: {
-          select: {
-            id: true,
-            status: true,
-            rondaTemplate: { select: { name: true } },
-            guardia: { select: { persona: { select: { firstName: true, lastName: true } } } },
+    activeTurnoId
+      ? prisma.opsAlertaRonda.findMany({
+          where: { tenantId, archivedAt: null, turnoId: activeTurnoId },
+          include: {
+            installation: { select: { id: true, name: true } },
+            ejecucion: {
+              select: {
+                id: true,
+                status: true,
+                rondaTemplate: { select: { name: true } },
+                guardia: { select: { persona: { select: { firstName: true, lastName: true } } } },
+              },
+            },
           },
-        },
-      },
-      orderBy: [{ resuelta: "asc" }, { createdAt: "desc" }],
-      take: 500,
-    }),
+          orderBy: [{ resuelta: "asc" }, { createdAt: "desc" }],
+          take: 500,
+        })
+      : [],
     prisma.crmInstallation.findMany({
       where: { tenantId, isActive: true },
       select: { id: true, name: true },
@@ -48,9 +52,10 @@ export default async function RondasAlertasPage() {
       />
       <RondasSubnav />
       <RondasAlertasClient
-      initialRows={JSON.parse(JSON.stringify(rows))}
-      installations={JSON.parse(JSON.stringify(installations))}
-    />
+        initialRows={JSON.parse(JSON.stringify(rows))}
+        installations={JSON.parse(JSON.stringify(installations))}
+        requiresActiveTurno={!activeTurnoId}
+      />
     </div>
   );
 }

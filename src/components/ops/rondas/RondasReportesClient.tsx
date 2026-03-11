@@ -102,6 +102,9 @@ export function RondasReportesClient({
   const [guardiaFilterId, setGuardiaFilterId] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  const [panicAlertsState, setPanicAlertsState] = useState<PanicAlert[]>(panicAlerts ?? []);
+  const [resolvingPanicId, setResolvingPanicId] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState("instalacion");
   const [daysRange, setDaysRange] = useState(30);
   const [page, setPage] = useState(0);
@@ -109,6 +112,30 @@ export function RondasReportesClient({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
   const [mapRow, setMapRow] = useState<ReporteRow | null>(null);
+
+  const handleResolvePanic = useCallback(async (id: string) => {
+    setResolvingPanicId(id);
+    try {
+      const res = await fetch(`/api/ops/rondas/alertas/${id}/resolve`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setPanicAlertsState((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, resuelta: true } : a)),
+        );
+        toast.success("Alerta de pánico marcada como resuelta");
+      } else {
+        toast.error(json.error ?? "Error");
+      }
+    } catch {
+      toast.error("Error al marcar como resuelta");
+    } finally {
+      setResolvingPanicId(null);
+    }
+  }, []);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
@@ -257,20 +284,21 @@ export function RondasReportesClient({
 
   return (
     <div className="space-y-4">
-      {/* Panic alerts banner */}
-      {panicAlerts && panicAlerts.length > 0 && (
+      {panicAlertsState.length > 0 && (
         <div className="rounded-xl border border-red-500/30 bg-red-950/20 p-4">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle className="h-5 w-5 text-red-400" />
             <h3 className="text-sm font-bold text-red-400">
-              Alertas de Pánico ({panicAlerts.length})
+              Alertas de Pánico ({panicAlertsState.length})
             </h3>
           </div>
           <div className="space-y-2">
-            {panicAlerts.map((alert) => (
+            {panicAlertsState.map((alert) => (
               <div
                 key={alert.id}
-                className="flex items-center justify-between rounded-lg bg-red-950/30 border border-red-500/20 px-3 py-2"
+                className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+                  alert.resuelta ? "bg-[#111827] border-[#1a1f2e] opacity-70" : "bg-red-950/30 border-red-500/20"
+                }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div>
@@ -283,7 +311,12 @@ export function RondasReportesClient({
                     {new Date(alert.createdAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short" })}{" "}
                     {new Date(alert.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                   </span>
-                  {alert.isAcknowledged ? (
+                  {alert.resuelta ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-400">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Resuelta
+                    </span>
+                  ) : alert.isAcknowledged ? (
                     <span className="inline-flex items-center gap-1 text-emerald-400">
                       <CheckCircle2 className="h-3 w-3" />
                       {alert.responseTimeMin != null ? `${alert.responseTimeMin} min` : "Atendida"}
@@ -293,6 +326,17 @@ export function RondasReportesClient({
                       <Clock className="h-3 w-3" />
                       Sin atender
                     </span>
+                  )}
+                  {!alert.resuelta && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px] border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                      disabled={resolvingPanicId === alert.id}
+                      onClick={() => handleResolvePanic(alert.id)}
+                    >
+                      {resolvingPanicId === alert.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Marcar resuelta"}
+                    </Button>
                   )}
                 </div>
               </div>

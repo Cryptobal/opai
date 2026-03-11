@@ -26,10 +26,12 @@ export function PortalBottomNav({ activeScreen, onNavigate }: PortalBottomNavPro
       {tabs.map((tab) => {
         const isPanico = tab.id === "panico";
         const isIncidente = tab.id === "incidente";
-        const isActive = !isPanico && !isIncidente && (
-          tab.id === activeScreen ||
-          (tab.id === "mis-rondas" && (activeScreen === "ronda-activa" || activeScreen === "completada"))
-        );
+        const isActive =
+          (tab.id === "incidente" && activeScreen === "incidente") ||
+          (!isPanico && !isIncidente && (
+            tab.id === activeScreen ||
+            (tab.id === "mis-rondas" && (activeScreen === "ronda-activa" || activeScreen === "completada"))
+          ));
 
         if (isPanico) {
           return (
@@ -50,11 +52,13 @@ export function PortalBottomNav({ activeScreen, onNavigate }: PortalBottomNavPro
             <button
               key={tab.id}
               onClick={() => onNavigate("incidente")}
-              className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-amber-950/80 px-3 py-1.5 transition-colors active:bg-amber-900"
+              className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-3 py-1.5 transition-colors ${
+                isActive ? "bg-amber-900/80 text-amber-300" : "bg-amber-950/80 text-amber-400 active:bg-amber-900"
+              }`}
               aria-label="Reportar incidente"
             >
-              <tab.icon className="h-5 w-5 text-amber-400" />
-              <span className="text-[9px] font-medium text-amber-400">{tab.label}</span>
+              <tab.icon className="h-5 w-5" />
+              <span className="text-[9px] font-medium">{tab.label}</span>
             </button>
           );
         }

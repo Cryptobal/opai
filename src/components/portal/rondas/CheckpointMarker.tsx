@@ -565,16 +565,21 @@ export function CheckpointMarker({
         `}</style>
 
         <div className="fixed inset-0 z-[1100] flex flex-col bg-zinc-950">
-          {/* Top: GPS visual indicator */}
-          <div className="flex-1 relative flex items-center justify-center">
-            {/* Cancel button */}
+          {/* Barra fija arriba: Cancelar visible debajo de la zona del nombre */}
+          <div
+            className="shrink-0 flex items-center px-4 pb-3 bg-zinc-950 border-b border-zinc-800"
+            style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+          >
             <button
               onClick={onBack}
-              className="absolute top-4 left-4 z-10 rounded-lg bg-zinc-800/80 px-3 py-2 text-sm text-gray-300 backdrop-blur-sm"
+              className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-medium text-gray-200 active:bg-zinc-700"
             >
               Cancelar
             </button>
+          </div>
 
+          {/* GPS visual indicator */}
+          <div className="flex-1 relative flex items-center justify-center min-h-0">
             <div className="text-center">
               <div className="relative mx-auto h-24 w-24">
                 {gpsStatus === "success" && (

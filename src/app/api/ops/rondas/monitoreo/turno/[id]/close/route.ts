@@ -38,7 +38,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const now = new Date();
 
-    const [roundsData, alertsData] = await Promise.all([
+    const [roundsData, alertsData, incidentesData] = await Promise.all([
       prisma.opsRondaEjecucion.findMany({
         where: {
           tenantId: ctx.tenantId,
@@ -58,6 +58,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           resuelta: true, resolutionNotes: true, resueltaAt: true,
           installation: { select: { name: true } },
         },
+      }),
+      prisma.opsRondaIncidente.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          createdAt: { gte: turno.startedAt, lte: now },
+        },
+        select: {
+          id: true,
+          tipo: true,
+          descripcion: true,
+          createdAt: true,
+          installation: { select: { name: true } },
+          guardia: { select: { persona: { select: { firstName: true, lastName: true } } } },
+        },
+        orderBy: { createdAt: "asc" },
       }),
     ]);
 
@@ -81,29 +96,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       `Alertas generadas: ${alertsData.length} (${criticalAlerts} críticas, ${resolvedAlerts.length} resueltas, ${unresolvedAlerts.length} pendientes)`,
     ];
 
-    if (resolvedAlerts.length > 0) {
-      summaryLines.push(``, `--- Alertas resueltas ---`);
-      for (const a of resolvedAlerts) {
-        const instName = a.installation?.name ?? "Sin instalación";
-        summaryLines.push(`• [${a.severidad.toUpperCase()}] ${instName}: ${a.mensaje}`);
-        if (a.resolutionNotes) {
-          summaryLines.push(`  → Resolución: ${a.resolutionNotes}`);
-        }
-      }
-    }
-
-    if (unresolvedAlerts.length > 0) {
-      summaryLines.push(``, `--- Alertas pendientes ---`);
-      for (const a of unresolvedAlerts) {
-        const instName = a.installation?.name ?? "Sin instalación";
-        summaryLines.push(`• [${a.severidad.toUpperCase()}] ${instName}: ${a.mensaje}`);
-      }
-    }
-
     if (parsed.data.operatorComments) {
       summaryLines.push(``, `Comentarios del operador: ${parsed.data.operatorComments}`);
     }
     const aiSummary = summaryLines.join("\n");
+
+    const incidentesParaEmail = incidentesData.map((inc) => ({
+      guardia: inc.guardia?.persona
+        ? `${inc.guardia.persona.firstName ?? ""} ${inc.guardia.persona.lastName ?? ""}`.trim()
+        : "—",
+      instalacion: inc.installation?.name ?? "—",
+      tipo: inc.tipo,
+      descripcion: inc.descripcion,
+      fecha: inc.createdAt.toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }),
+    }));
 
     // Archive all unresolved alerts associated with this turno
     await prisma.opsAlertaRonda.updateMany({
@@ -224,6 +230,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         criticalAlertDetails,
         warningAlerts,
         installationSummaries,
+        incidentesDelGuardia: incidentesParaEmail,
       },
       parsed.data.emailRecipients ?? undefined,
     ).catch((err) => console.error("[RONDAS] Email send failed:", err));
