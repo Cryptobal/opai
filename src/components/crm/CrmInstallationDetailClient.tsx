@@ -1354,6 +1354,20 @@ function StaffingSection({
                     <span>{item.shiftStart} - {item.shiftEnd}</span>
                     <span>Dotación: {item.requiredGuards}</span>
                   </div>
+                  {(() => {
+                    const wd = (item as any).weekdays as string[] | undefined;
+                    if (!wd || wd.length === 0) return null;
+                    const ALL = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+                    let label: string;
+                    if (wd.length === 7) label = "Lun-Dom";
+                    else if (wd.length === 5 && ALL.slice(0, 5).every((d) => wd.includes(d))) label = "Lun-Vie";
+                    else if (wd.length === 6 && ALL.slice(0, 6).every((d) => wd.includes(d))) label = "Lun-Sáb";
+                    else if (wd.length === 2 && wd.includes("Sáb") && wd.includes("Dom")) label = "Sáb-Dom";
+                    else label = wd.join(", ");
+                    return (
+                      <p className="text-[10px] text-muted-foreground">Días: {label}</p>
+                    );
+                  })()}
                   <div className="flex items-center justify-between">
                     <div className="text-xs">
                       <span className="text-muted-foreground">Base: </span>
@@ -1388,6 +1402,7 @@ function StaffingSection({
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Puesto</th>
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Rol</th>
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Horario</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Días</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Dotación</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Sueldo base</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Líquido est.</th>
@@ -1421,6 +1436,18 @@ function StaffingSection({
                             );
                           })()}
                         </div>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground text-xs">
+                        {(() => {
+                          const wd = (item as any).weekdays as string[] | undefined;
+                          if (!wd || wd.length === 0) return "—";
+                          const ALL = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+                          if (wd.length === 7) return "Lun-Dom";
+                          if (wd.length === 5 && ALL.slice(0, 5).every((d) => wd.includes(d))) return "Lun-Vie";
+                          if (wd.length === 6 && ALL.slice(0, 6).every((d) => wd.includes(d))) return "Lun-Sáb";
+                          if (wd.length === 2 && wd.includes("Sáb") && wd.includes("Dom")) return "Sáb-Dom";
+                          return wd.join(", ");
+                        })()}
                       </td>
                       <td className="px-3 py-2 text-right">{item.requiredGuards}</td>
                       <td className="px-3 py-2 text-right">{salary > 0 ? `$${salary.toLocaleString("es-CL")}` : "—"}</td>
@@ -1932,11 +1959,11 @@ export function CrmInstallationDetailClient({
         />
         <DetailField
           label="Fecha inicio"
-          value={installation.startDate ? new Intl.DateTimeFormat("es-CL").format(new Date(installation.startDate)) : undefined}
+          value={installation.startDate ? new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(installation.startDate)) : undefined}
         />
         <DetailField
           label="Fecha término"
-          value={installation.endDate ? new Intl.DateTimeFormat("es-CL").format(new Date(installation.endDate)) : undefined}
+          value={installation.endDate ? new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(installation.endDate)) : undefined}
         />
         {installation.notes && (
           <DetailField
