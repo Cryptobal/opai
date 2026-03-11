@@ -44,6 +44,15 @@ export const PORTAL_CONFIG = {
     accentRgb: "245, 158, 11",
     href: "/portal/acceso",
   },
+  marcacion: {
+    id: "marcacion",
+    label: "Marcacion",
+    name: "Marcacion",
+    subtitle: "Control de asistencia",
+    accent: "#10b981",
+    accentRgb: "16, 185, 129",
+    href: "/portal/marcacion",
+  },
   opai: {
     id: "opai",
     label: "OPAI ERP",
