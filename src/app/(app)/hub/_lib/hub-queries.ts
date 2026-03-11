@@ -38,6 +38,10 @@ import type {
   NotificationType,
   TicketMetrics,
   SupervisionMetrics,
+  ClosingHubData,
+  ClosingHotDeal,
+  ClosingStaleDeal,
+  ClosingPendingLead,
 } from './hub-types';
 
 /* ------------------------------------------------------------------ */
@@ -91,7 +95,356 @@ export async function getDocsSignals(
 }
 
 /* ------------------------------------------------------------------ */
-/* Commercial / CRM metrics (existing)                                */
+/* Hub de Cierre — consolidated closing hub data                      */
+/* ------------------------------------------------------------------ */
+
+const MS_PER_DAY = 86_400_000;
+const MS_PER_MINUTE = 60_000;
+
+function computeHeatScore(totalViews: number, lastViewedAt: Date | null, now: Date): number {
+  if (totalViews === 0 || !lastViewedAt) return 0;
+  const viewScore = Math.min(totalViews * 12, 100);
+  const minutesSince = (now.getTime() - lastViewedAt.getTime()) / MS_PER_MINUTE;
+  const recencyScore = Math.max(0, 100 - minutesSince / 30);
+  return Math.round(viewScore * 0.4 + recencyScore * 0.6);
+}
+
+function computeViewTrend(lastViewedAt: Date | null, now: Date): 'up' | 'down' | 'flat' {
+  if (!lastViewedAt) return 'flat';
+  const daysSince = (now.getTime() - lastViewedAt.getTime()) / MS_PER_DAY;
+  if (daysSince <= 3) return 'up';
+  if (daysSince > 14) return 'down';
+  return 'flat';
+}
+
+export async function getClosingHubData(
+  tenantId: string,
+  thirtyDaysAgo: Date,
+  now: Date,
+): Promise<ClosingHubData> {
+  const sevenDaysAgo = new Date(now.getTime() - 7 * MS_PER_DAY);
+
+  // Batch 1: parallel queries
+  const [
+    openDeals,
+    pendingLeadsRaw,
+    openLeadsCount,
+    newLeads30,
+    leadsConverted30,
+    proposalsSent30,
+    wonDealRows,
+    docsSignals,
+    followUpsOverdueCount,
+    ufValue,
+  ] = await Promise.all([
+    // All open deals with relations
+    prisma.crmDeal.findMany({
+      where: { tenantId, status: 'open' },
+      select: {
+        id: true,
+        title: true,
+        amount: true,
+        totalPuestos: true,
+        proposalSentAt: true,
+        stageId: true,
+        activeQuotationId: true,
+        createdAt: true,
+        account: { select: { name: true } },
+        primaryContact: {
+          select: { firstName: true, lastName: true, email: true, phone: true },
+        },
+        stage: {
+          select: { name: true, color: true, order: true, isClosedWon: true, isClosedLost: true },
+        },
+        quotes: { select: { quoteId: true } },
+        followUpLogs: {
+          where: { status: 'pending' },
+          select: { id: true },
+          take: 1,
+        },
+      },
+    }),
+    // Pending leads
+    prisma.crmLead.findMany({
+      where: { tenantId, status: 'pending' },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        companyName: true,
+        source: true,
+        createdAt: true,
+      },
+    }),
+    // KPI counts
+    prisma.crmLead.count({
+      where: { tenantId, status: { in: ['pending', 'open', 'active'] } },
+    }),
+    prisma.crmLead.count({
+      where: { tenantId, createdAt: { gte: thirtyDaysAgo } },
+    }),
+    prisma.crmLead.count({
+      where: { tenantId, createdAt: { gte: thirtyDaysAgo }, convertedDealId: { not: null } },
+    }),
+    prisma.crmDeal.count({
+      where: { tenantId, proposalSentAt: { gte: thirtyDaysAgo } },
+    }),
+    // Won deals in 30d (via stage history)
+    prisma.crmDealStageHistory.findMany({
+      where: {
+        tenantId,
+        changedAt: { gte: thirtyDaysAgo },
+        toStage: { is: { isClosedWon: true } },
+        deal: { is: { proposalSentAt: { not: null } } },
+      },
+      select: { dealId: true },
+      distinct: ['dealId'],
+    }),
+    // Docs signals for viewRate
+    getDocsSignals(tenantId, thirtyDaysAgo),
+    // Follow-ups overdue
+    prisma.crmFollowUpLog.count({
+      where: { tenantId, status: 'pending', scheduledAt: { lte: now } },
+    }),
+    // UF value for amount conversion
+    getUfValue(),
+  ]);
+
+  // Batch 2: depends on open deals
+  const allQuoteIds = collectLinkedQuoteIds(openDeals);
+  const openDealIds = openDeals.map((d) => d.id);
+
+  const [presentations, stageHistoryRows, negotiatingQuotes] = await Promise.all([
+    // Presentations linked to open deals' quotes
+    allQuoteIds.length > 0
+      ? prisma.presentation.findMany({
+          where: { tenantId, quoteId: { in: allQuoteIds }, archivedAt: null },
+          select: { quoteId: true, viewCount: true, lastViewedAt: true, uniqueId: true },
+        })
+      : [],
+    // Latest stage change per deal for daysInCurrentStage
+    openDealIds.length > 0
+      ? prisma.crmDealStageHistory.findMany({
+          where: { dealId: { in: openDealIds } },
+          orderBy: { changedAt: 'desc' },
+          distinct: ['dealId'],
+          select: { dealId: true, changedAt: true },
+        })
+      : [],
+    // Quotes for amount resolution
+    allQuoteIds.length > 0
+      ? prisma.cpqQuote.findMany({
+          where: { tenantId, id: { in: allQuoteIds } },
+          select: {
+            id: true,
+            code: true,
+            status: true,
+            currency: true,
+            monthlyCost: true,
+            totalGuards: true,
+            createdAt: true,
+            updatedAt: true,
+            parameters: { select: { salePriceMonthly: true } },
+          },
+        })
+      : [],
+  ]);
+
+  // Build maps
+  const stageChangedAtByDeal = new Map(stageHistoryRows.map((r) => [r.dealId, r.changedAt]));
+  const quoteById = new Map(negotiatingQuotes.map((q) => [q.id, q]));
+
+  // Group presentations by quoteId
+  const viewsByQuoteId = new Map<string, { totalViews: number; lastViewedAt: Date | null; uniqueId: string }>();
+  for (const p of presentations) {
+    if (!p.quoteId) continue;
+    const existing = viewsByQuoteId.get(p.quoteId);
+    if (existing) {
+      existing.totalViews += p.viewCount;
+      if (p.lastViewedAt && (!existing.lastViewedAt || p.lastViewedAt > existing.lastViewedAt)) {
+        existing.lastViewedAt = p.lastViewedAt;
+        existing.uniqueId = p.uniqueId; // keep most recently viewed
+      }
+    } else {
+      viewsByQuoteId.set(p.quoteId, {
+        totalViews: p.viewCount,
+        lastViewedAt: p.lastViewedAt,
+        uniqueId: p.uniqueId,
+      });
+    }
+  }
+
+  // Aggregate views per deal
+  function getDealViews(deal: typeof openDeals[number]) {
+    let totalViews = 0;
+    let lastViewedAt: Date | null = null;
+    let proposalUniqueId: string | null = null;
+    for (const link of deal.quotes) {
+      const views = viewsByQuoteId.get(link.quoteId);
+      if (!views) continue;
+      totalViews += views.totalViews;
+      if (!proposalUniqueId) proposalUniqueId = views.uniqueId;
+      if (views.lastViewedAt && (!lastViewedAt || views.lastViewedAt > lastViewedAt)) {
+        lastViewedAt = views.lastViewedAt;
+        proposalUniqueId = views.uniqueId;
+      }
+    }
+    return { totalViews, lastViewedAt, proposalUniqueId };
+  }
+
+  // Compute negotiation summaries for KPIs
+  const summaries = openDeals
+    .map((d) => resolveDealActiveQuotationSummary(d, quoteById, ufValue))
+    .filter(Boolean) as NonNullable<ReturnType<typeof resolveDealActiveQuotationSummary>>[];
+
+  const guardsInNegotiation = summaries.reduce((acc, s) => acc + s.totalGuards, 0);
+  const amountNegotiatingClp = summaries.reduce((acc, s) => acc + s.amountClp, 0);
+  const amountNegotiatingUf = summaries.reduce((acc, s) => acc + s.amountUf, 0);
+
+  const closedWon30 = wonDealRows.length;
+
+  // Resolve per-deal amount from active quotation (falls back to deal.amount)
+  function getDealAmount(deal: typeof openDeals[number]): number {
+    const summary = resolveDealActiveQuotationSummary(deal, quoteById, ufValue);
+    return summary ? summary.amountClp : Number(deal.amount);
+  }
+
+  // Build hot deals: open deals with at least 1 presentation
+  const hotDealCandidates: ClosingHotDeal[] = [];
+  for (const deal of openDeals) {
+    const hasPresentation = deal.quotes.some((q) => viewsByQuoteId.has(q.quoteId));
+    if (!hasPresentation && !deal.proposalSentAt) continue;
+
+    const { totalViews, lastViewedAt, proposalUniqueId } = getDealViews(deal);
+    const contactName = [deal.primaryContact?.lastName, deal.primaryContact?.firstName]
+      .filter(Boolean).join(' ') || 'Sin contacto';
+    const stageChanged = stageChangedAtByDeal.get(deal.id);
+    const stageEnteredAt = stageChanged ?? deal.createdAt;
+    const daysInCurrentStage = Math.floor((now.getTime() - stageEnteredAt.getTime()) / MS_PER_DAY);
+
+    hotDealCandidates.push({
+      id: deal.id,
+      companyName: deal.account?.name ?? 'Sin empresa',
+      dealTitle: deal.title,
+      contactName,
+      contactPhone: deal.primaryContact?.phone ?? null,
+      contactEmail: deal.primaryContact?.email ?? null,
+      stageName: deal.stage.name,
+      stageColor: deal.stage.color,
+      stageOrder: deal.stage.order,
+      amount: getDealAmount(deal),
+      totalPuestos: deal.totalPuestos,
+      totalViews,
+      lastViewedAt,
+      viewTrend: computeViewTrend(lastViewedAt, now),
+      heatScore: computeHeatScore(totalViews, lastViewedAt, now),
+      daysInCurrentStage,
+      proposalSentAt: deal.proposalSentAt,
+      proposalLink: proposalUniqueId ? `/p/${proposalUniqueId}` : null,
+    });
+  }
+  hotDealCandidates.sort((a, b) => b.heatScore - a.heatScore || (
+    (b.lastViewedAt?.getTime() ?? 0) - (a.lastViewedAt?.getTime() ?? 0)
+  ));
+  const hotDeals = hotDealCandidates.slice(0, 10);
+
+  // Build stale deals (only proposals sent within last 90 days)
+  const staleDealCandidates: ClosingStaleDeal[] = [];
+  for (const deal of openDeals) {
+    if (!deal.proposalSentAt) continue;
+    const { totalViews, lastViewedAt } = getDealViews(deal);
+    const daysSinceProposal = Math.floor(
+      (now.getTime() - deal.proposalSentAt.getTime()) / MS_PER_DAY,
+    );
+    if (daysSinceProposal > 90) continue;
+    const contactName = [deal.primaryContact?.lastName, deal.primaryContact?.firstName]
+      .filter(Boolean).join(' ') || 'Sin contacto';
+
+    if (daysSinceProposal > 7 && totalViews === 0) {
+      staleDealCandidates.push({
+        id: deal.id,
+        companyName: deal.account?.name ?? 'Sin empresa',
+        dealTitle: deal.title,
+        contactName,
+        stageName: deal.stage.name,
+        stageColor: deal.stage.color,
+        amount: getDealAmount(deal),
+        issue: `Sin vistas hace ${daysSinceProposal} días`,
+        issueType: 'no_views',
+        daysSinceLastView: null,
+      });
+    } else if (deal.followUpLogs.length === 0) {
+      const daysSinceView = lastViewedAt
+        ? Math.floor((now.getTime() - lastViewedAt.getTime()) / MS_PER_DAY)
+        : null;
+      staleDealCandidates.push({
+        id: deal.id,
+        companyName: deal.account?.name ?? 'Sin empresa',
+        dealTitle: deal.title,
+        contactName,
+        stageName: deal.stage.name,
+        stageColor: deal.stage.color,
+        amount: getDealAmount(deal),
+        issue: 'Sin seguimiento programado',
+        issueType: 'no_followup',
+        daysSinceLastView: daysSinceView,
+      });
+    }
+  }
+  staleDealCandidates.sort((a, b) => {
+    if (a.issueType === 'no_views' && b.issueType !== 'no_views') return -1;
+    if (b.issueType === 'no_views' && a.issueType !== 'no_views') return 1;
+    return 0;
+  });
+  const staleDeals = staleDealCandidates.slice(0, 5);
+
+  // Pending leads
+  const pendingLeads: ClosingPendingLead[] = pendingLeadsRaw.map((l) => ({
+    id: l.id,
+    companyName: l.companyName,
+    contactName: [l.lastName, l.firstName].filter(Boolean).join(' ') || 'Sin nombre',
+    source: l.source,
+    createdAt: l.createdAt,
+  }));
+
+  // Self-healing follow-ups (same pattern as getCommercialMetrics)
+  if (followUpsOverdueCount > 0) {
+    triggerFollowUpProcessing();
+  }
+
+  return {
+    kpis: {
+      openLeadsCount,
+      newLeads30,
+      dealsNegotiatingCount: openDeals.length,
+      amountNegotiatingClp,
+      amountNegotiatingUf,
+      guardsInNegotiation,
+      closedWon30,
+      closeRate30: toPercent(closedWon30, proposalsSent30),
+      proposalViewRate30: docsSignals.viewRate30,
+      proposalsSent30: docsSignals.sent30,
+      proposalsViewed30: docsSignals.viewed30,
+      followUpsOverdueCount,
+    },
+    hotDeals,
+    staleDeals,
+    pendingLeads,
+    funnel: {
+      leadsCreated: newLeads30,
+      leadsConverted: leadsConverted30,
+      proposalsSent: proposalsSent30,
+      dealsWon: closedWon30,
+      leadToDealRate: toPercent(leadsConverted30, newLeads30),
+      proposalToWonRate: toPercent(closedWon30, proposalsSent30),
+    },
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Commercial / CRM metrics — @deprecated (kept for backward compat)  */
 /* ------------------------------------------------------------------ */
 
 export async function getCommercialMetrics(

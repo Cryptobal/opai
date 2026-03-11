@@ -95,6 +95,24 @@ export function getGreeting(): string {
 }
 
 /* ------------------------------------------------------------------ */
+/* Phone normalization for WhatsApp / tel: links                      */
+/* ------------------------------------------------------------------ */
+
+/** Strip non-digits, ensure Chilean country code. Returns digits only (e.g. "56912345678"). */
+export function normalizeChileanPhone(raw: string): string {
+  let n = raw.replace(/[\s\-().+]/g, '');
+  if (/^569\d{8}$/.test(n)) return n;
+  if (/^56\d{9}$/.test(n)) return n;
+  if (/^9\d{8}$/.test(n)) return '56' + n;
+  return n;
+}
+
+/** Returns a wa.me URL for the given phone number. */
+export function whatsappUrl(phone: string): string {
+  return `https://wa.me/${normalizeChileanPhone(phone)}`;
+}
+
+/* ------------------------------------------------------------------ */
 /* Activity grouping (client-safe — no Prisma imports)                */
 /* ------------------------------------------------------------------ */
 

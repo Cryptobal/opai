@@ -50,7 +50,7 @@ export function HubCollapsibleSection({
             transition={{ duration: 0.3, ease: 'easeInOut' }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border p-4 space-y-4">
+            <div className="border-t border-border px-4 py-3 space-y-3">
               {children}
             </div>
           </motion.div>

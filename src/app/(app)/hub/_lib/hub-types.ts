@@ -338,3 +338,86 @@ export interface SupervisionMetrics {
   installationsSinVisita: number;
   recentVisits: SupervisionRecentVisit[];
 }
+
+/* ------------------------------------------------------------------ */
+/* Hub de Cierre (closing hub redesign)                                */
+/* ------------------------------------------------------------------ */
+
+export interface ClosingHubKpis {
+  openLeadsCount: number;
+  newLeads30: number;
+  dealsNegotiatingCount: number;
+  amountNegotiatingClp: number;
+  amountNegotiatingUf: number;
+  guardsInNegotiation: number;
+  closedWon30: number;
+  closeRate30: number;
+  proposalViewRate30: number;
+  proposalsSent30: number;
+  proposalsViewed30: number;
+  followUpsOverdueCount: number;
+}
+
+export interface ClosingHotDeal {
+  id: string;
+  companyName: string;
+  dealTitle: string;
+  contactName: string;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  stageName: string;
+  stageColor: string | null;
+  stageOrder: number;
+  amount: number;
+  totalPuestos: number;
+  totalViews: number;
+  lastViewedAt: Date | null;
+  viewTrend: 'up' | 'down' | 'flat';
+  heatScore: number;
+  daysInCurrentStage: number;
+  proposalSentAt: Date | null;
+  proposalLink: string | null;
+}
+
+export interface ClosingStaleDeal {
+  id: string;
+  companyName: string;
+  dealTitle: string;
+  contactName: string;
+  stageName: string;
+  stageColor: string | null;
+  amount: number;
+  issue: string;
+  issueType: 'no_views' | 'no_followup';
+  daysSinceLastView: number | null;
+}
+
+export interface ClosingPendingLead {
+  id: string;
+  companyName: string | null;
+  contactName: string;
+  source: string | null;
+  createdAt: Date;
+}
+
+export interface ClosingFunnel {
+  leadsCreated: number;
+  leadsConverted: number;
+  proposalsSent: number;
+  dealsWon: number;
+  leadToDealRate: number;
+  proposalToWonRate: number;
+}
+
+export interface ClosingHubData {
+  kpis: ClosingHubKpis;
+  hotDeals: ClosingHotDeal[];
+  staleDeals: ClosingStaleDeal[];
+  pendingLeads: ClosingPendingLead[];
+  funnel: ClosingFunnel;
+}
+
+export interface HubClosingSectionProps {
+  perms: HubPerms;
+  closingData: ClosingHubData;
+}

@@ -24,8 +24,7 @@ import {
 } from '@/lib/permissions-server';
 
 import {
-  getCommercialMetrics,
-  getDocsSignals,
+  getClosingHubData,
   getFinanceMetrics,
   getOpsMetrics,
   getRecentActivity,
@@ -72,13 +71,10 @@ export default async function HubPage() {
   };
 
   // Fetch data in parallel — only for modules user has access to
-  const [crmMetrics, docsSignals, financeMetrics, opsMetrics, activities, notifications, ticketMetrics, supervisionMetrics] =
+  const [closingData, financeMetrics, opsMetrics, activities, notifications, ticketMetrics, supervisionMetrics] =
     await Promise.all([
       hubPerms.hasCrm
-        ? getCommercialMetrics(tenantId, thirtyDaysAgo, now)
-        : null,
-      hubPerms.hasDocs
-        ? getDocsSignals(tenantId, thirtyDaysAgo)
+        ? getClosingHubData(tenantId, thirtyDaysAgo, now)
         : null,
       hubPerms.hasFinance
         ? getFinanceMetrics(tenantId)
@@ -105,9 +101,8 @@ export default async function HubPage() {
       firstName={firstName}
       hubPerms={hubPerms}
       opsMetrics={opsMetrics}
-      crmMetrics={crmMetrics}
+      closingData={closingData}
       financeMetrics={financeMetrics}
-      docsSignals={docsSignals}
       notifications={notifications}
       ticketMetrics={ticketMetrics}
       activities={activities}

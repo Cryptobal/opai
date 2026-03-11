@@ -1,3 +1,4 @@
+// @deprecated — Replaced by HubCrmSection (Hub de Cierre redesign). Safe to delete after validation.
 import Link from 'next/link';
 import { timeAgo } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';

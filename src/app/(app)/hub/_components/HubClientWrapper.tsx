@@ -7,8 +7,8 @@
 
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { HubGreeting } from './HubGreeting';
-import { HubNotifications } from './HubNotifications';
-import { HubPipelineSection } from './HubPipelineSection';
+// HubNotifications removed from Hub layout — notification system still exists elsewhere
+import { HubCrmSection } from './HubCrmSection';
 import { HubOperationsSection } from './HubOperationsSection';
 import { HubSupervisionSection } from './HubSupervisionSection';
 import { HubFinanzasSection } from './HubFinanzasSection';
@@ -16,8 +16,7 @@ import { HubTicketsSection } from './HubTicketsSection';
 import { HubActivitySection } from './HubActivitySection';
 import type {
   HubPerms,
-  CrmMetrics,
-  DocsSignals,
+  ClosingHubData,
   FinanceMetrics,
   OpsMetrics,
   HubNotification,
@@ -30,9 +29,8 @@ export interface HubClientWrapperProps {
   firstName: string;
   hubPerms: HubPerms;
   opsMetrics: OpsMetrics | null;
-  crmMetrics: CrmMetrics | null;
+  closingData: ClosingHubData | null;
   financeMetrics: FinanceMetrics | null;
-  docsSignals: DocsSignals | null;
   notifications: HubNotification[];
   ticketMetrics: TicketMetrics;
   activities: ActivityEntry[];
@@ -43,35 +41,28 @@ export function HubClientWrapper({
   firstName,
   hubPerms,
   opsMetrics,
-  crmMetrics,
+  closingData,
   financeMetrics,
-  docsSignals,
   notifications,
   ticketMetrics,
   activities,
   supervisionMetrics,
 }: HubClientWrapperProps) {
-  const pendingFollowUpsCount = crmMetrics
-    ? crmMetrics.followUpsOverdueCount + crmMetrics.followUpQueue.length
-    : 0;
+  const pendingFollowUpsCount = closingData?.kpis.followUpsOverdueCount ?? 0;
 
   return (
-    <div className="space-y-4 min-w-0 pb-24">
+    <div className="space-y-4 min-w-0 pb-24 max-w-screen-2xl">
       {/* Header */}
       <HubGreeting
         firstName={firstName}
         pendingFollowUpsCount={pendingFollowUpsCount}
       />
 
-      {/* Notifications (last 3) */}
-      <HubNotifications notifications={notifications} />
-
-      {/* Section 1: Pipeline Comercial (expanded by default) */}
-      {crmMetrics && hubPerms.hasCrm && (
-        <HubPipelineSection
+      {/* Section 1: Hub de Cierre (expanded by default) */}
+      {closingData && hubPerms.hasCrm && (
+        <HubCrmSection
           perms={hubPerms}
-          crmMetrics={crmMetrics}
-          docsSignals={docsSignals}
+          closingData={closingData}
         />
       )}
 
@@ -100,7 +91,7 @@ export function HubClientWrapper({
       <HubActivitySection activities={activities} />
 
       {/* Empty state */}
-      {!crmMetrics && !docsSignals && !opsMetrics && !financeMetrics && (
+      {!closingData && !opsMetrics && !financeMetrics && (
         <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="text-base">Sin datos disponibles</CardTitle>

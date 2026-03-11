@@ -1,3 +1,4 @@
+// @deprecated — Replaced by HubCrmSection (Hub de Cierre redesign). Safe to delete after validation.
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, FileText, Send, TrendingUp } from 'lucide-react';
