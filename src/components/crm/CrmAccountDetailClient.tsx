@@ -42,7 +42,9 @@ import {
   ClipboardList,
   ScrollText,
   MessageCircle,
+  GitMerge,
 } from "lucide-react";
+import { DuplicateAccountModal } from "./DuplicateAccountModal";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FileAttachments } from "./FileAttachments";
@@ -901,8 +903,11 @@ export function CrmAccountDetailClient({
     },
   ];
 
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+
   const headerActions: EntityHeaderAction[] = [
     { label: "Editar cuenta", icon: Pencil, onClick: openAccountEdit, primary: true },
+    { label: "Buscar duplicados", icon: GitMerge, onClick: () => setDuplicateModalOpen(true) },
     { label: "Eliminar cuenta", icon: Trash2, onClick: () => setDeleteAccountConfirm(true), variant: "destructive" },
   ];
 
@@ -1065,6 +1070,14 @@ export function CrmAccountDetailClient({
 
         {activeTab === "files" && <FileAttachments entityType="account" entityId={account.id} title="Documentos" />}
       </EntityDetailLayout>
+
+      {/* ── Duplicate Account Modal ── */}
+      <DuplicateAccountModal
+        open={duplicateModalOpen}
+        onOpenChange={setDuplicateModalOpen}
+        initialQuery={account.name}
+        onMerged={() => router.refresh()}
+      />
 
       {/* ── New External Chat Modal ── */}
       <NewExternalChatModal

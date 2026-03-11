@@ -17,7 +17,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import Link from "next/link";
-import { Loader2, Plus, ChevronRight, Globe, MessageSquare } from "lucide-react";
+import { Loader2, Plus, ChevronRight, Globe, MessageSquare, GitMerge } from "lucide-react";
+import { DuplicateAccountModal } from "./DuplicateAccountModal";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
@@ -105,6 +106,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
   const [sort, setSort] = useState("newest");
   const unreadNoteIds = useUnreadNoteIds("ACCOUNT");
   const [industries, setIndustries] = useState<{ id: string; name: string }[]>([]);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/crm/industries?active=true")
@@ -215,7 +217,18 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
         activeView={view}
         onViewChange={(v) => setView(v as ViewMode)}
         actionSlot={
-          <Dialog open={open} onOpenChange={setOpen}>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-9 w-9 shrink-0"
+              onClick={() => setDuplicateModalOpen(true)}
+              title="Buscar cuentas duplicadas"
+            >
+              <GitMerge className="h-4 w-4" />
+              <span className="sr-only">Buscar duplicados</span>
+            </Button>
+            <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
                 <Plus className="h-4 w-4" />
@@ -321,7 +334,8 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                 </Button>
               </DialogFooter>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         }
       />
 
@@ -489,6 +503,17 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
           )}
         </CardContent>
       </Card>
+      <DuplicateAccountModal
+        open={duplicateModalOpen}
+        onOpenChange={setDuplicateModalOpen}
+        onMerged={() => {
+          // Reload accounts after merge
+          fetch("/api/crm/accounts")
+            .then((r) => r.json())
+            .then((d) => d.success && setAccounts(d.data))
+            .catch(() => {});
+        }}
+      />
     </div>
   );
 }
