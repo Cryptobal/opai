@@ -136,7 +136,7 @@ export function CheckpointMapCreator({
   const [draftLng, setDraftLng] = useState<number | null>(null);
   const [draftName, setDraftName] = useState("");
   const [draftVerificationType, setDraftVerificationType] = useState("GEOFENCE");
-  const [draftRadius, setDraftRadius] = useState(30);
+  const [draftRadius, setDraftRadius] = useState(10);
   const [draftCritical, setDraftCritical] = useState(false);
   const [draftInstrucciones, setDraftInstrucciones] = useState("");
   const [draftTasks, setDraftTasks] = useState<TaskDraft[]>([]);
@@ -461,7 +461,7 @@ export function CheckpointMapCreator({
     setDraftLng(null);
     setDraftName("");
     setDraftVerificationType("GEOFENCE");
-    setDraftRadius(30);
+    setDraftRadius(10);
     setDraftCritical(false);
     setDraftInstrucciones("");
     setDraftTasks([]);

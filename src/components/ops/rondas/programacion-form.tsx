@@ -37,14 +37,23 @@ export function ProgramacionForm({
   onCancelEdit?: () => void;
 }) {
   const [templateId, setTemplateId] = useState(editingProgramacion?.rondaTemplateId ?? "");
-  const [diasSemana, setDiasSemana] = useState<number[]>(editingProgramacion?.diasSemana ?? [1, 2, 3, 4, 5]);
+  const [diasSemana, setDiasSemana] = useState<number[]>(editingProgramacion?.diasSemana ?? [0, 1, 2, 3, 4, 5, 6]);
   const [horaInicio, setHoraInicio] = useState(editingProgramacion?.horaInicio ?? "21:00");
   const [horaFin, setHoraFin] = useState(editingProgramacion?.horaFin ?? "08:00");
-  const [frecuenciaMinutos, setFrecuenciaMinutos] = useState(editingProgramacion?.frecuenciaMinutos ?? 120);
-  const [toleranciaMinutos, setToleranciaMinutos] = useState(editingProgramacion?.toleranciaMinutos ?? 10);
+  const [frecuenciaMinutos, setFrecuenciaMinutos] = useState(editingProgramacion?.frecuenciaMinutos ?? 60);
+  const [toleranciaMinutos, setToleranciaMinutos] = useState(editingProgramacion?.toleranciaMinutos ?? 20);
   const [saving, setSaving] = useState(false);
 
-  const dayLabels = ["D", "L", "M", "X", "J", "V", "S"];
+  // L=1, M=2, X=3, J=4, V=5, S=6, D=0  — semana comienza el lunes
+  const dayLabels = [
+    { label: "L", value: 1 },
+    { label: "M", value: 2 },
+    { label: "X", value: 3 },
+    { label: "J", value: 4 },
+    { label: "V", value: 5 },
+    { label: "S", value: 6 },
+    { label: "D", value: 0 },
+  ];
 
   return (
     <form
@@ -116,18 +125,18 @@ export function ProgramacionForm({
 
       <div className="space-y-1.5">
         <div className="flex gap-2">
-          {dayLabels.map((lbl, idx) => (
+          {dayLabels.map(({ label, value }) => (
             <button
-              key={lbl}
+              key={label}
               type="button"
-              className={`h-8 w-8 rounded text-xs border ${diasSemana.includes(idx) ? "bg-primary/20 border-primary/40" : "border-border"}`}
+              className={`h-8 w-8 rounded text-xs border ${diasSemana.includes(value) ? "bg-primary/20 border-primary/40" : "border-border"}`}
               onClick={() =>
                 setDiasSemana((prev) =>
-                  prev.includes(idx) ? prev.filter((d) => d !== idx) : [...prev, idx].sort((a, b) => a - b)
+                  prev.includes(value) ? prev.filter((d) => d !== value) : [...prev, value].sort((a, b) => a - b)
                 )
               }
             >
-              {lbl}
+              {label}
             </button>
           ))}
         </div>
