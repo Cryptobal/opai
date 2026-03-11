@@ -300,7 +300,7 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onRepo
 
   // ---- Render ----
   return (
-    <div className="flex min-h-dvh flex-col" style={{ backgroundColor: "#0a0a0f" }}>
+    <div className="flex flex-1 min-h-0 flex-col overflow-y-auto" style={{ backgroundColor: "#0a0a0f" }}>
       {/* ============ Content ============ */}
       <main className="flex-1 px-4 pt-3" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
         {/* Status bar */}

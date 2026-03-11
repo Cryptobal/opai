@@ -447,7 +447,7 @@ export function RondasPortalClient() {
   const needsGuardWarning = authMode === "ready" && !currentGuard;
 
   return (
-    <div className={`flex flex-col ${screen === "chat" ? "h-dvh" : "min-h-dvh"}`}>
+    <div className="flex flex-col h-dvh overflow-hidden">
       {isOffline && (
         <div
           className="fixed top-0 inset-x-0 z-50 bg-amber-600 px-4 py-2 text-center text-sm font-medium text-white"

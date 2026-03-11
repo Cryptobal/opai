@@ -74,7 +74,7 @@ export function PortalPerfil({ session, onLogout }: PortalPerfilProps) {
   }, [session.guardiaId]);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#0a0a0f] pb-24">
+    <div className="flex flex-1 min-h-0 flex-col overflow-y-auto bg-[#0a0a0f] pb-24">
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-gray-800 bg-[#0a0a0f]/90 px-4 py-4 backdrop-blur-sm">
         <h1 className="text-lg font-semibold text-white">Mi Perfil</h1>

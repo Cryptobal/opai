@@ -90,7 +90,7 @@ export function RondaCompletada({
   const isLate = punctuality !== "A tiempo" && punctuality !== "—";
 
   return (
-    <div className="flex min-h-dvh flex-col pb-24" style={{ backgroundColor: "#0a0a0f" }}>
+    <div className="flex flex-1 min-h-0 flex-col overflow-y-auto pb-24" style={{ backgroundColor: "#0a0a0f" }}>
       {/* ============ Header ============ */}
       <header
         className="sticky top-0 z-10 border-b border-gray-800 px-4 py-3"
