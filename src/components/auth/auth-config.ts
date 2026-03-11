@@ -15,7 +15,7 @@ export const PORTAL_CONFIG = {
     subtitle: "Checkpoints y registro",
     accent: "#10b981",
     accentRgb: "16, 185, 129",
-    href: "/portal/guardia/rondas",
+    href: "/portal/rondas",
   },
   supervisor: {
     id: "supervisor",

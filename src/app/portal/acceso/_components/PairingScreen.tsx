@@ -129,7 +129,7 @@ export function PairingScreen({ onPaired }: PairingScreenProps) {
       portalName="Control de Acceso"
       portalSubtitle="Dispositivo de ingreso"
     >
-      <AuthFormHeader title="Emparejar Dispositivo" subtitle="Código de emparejamiento de 12 caracteres" />
+      <AuthFormHeader title="Emparejar Dispositivo" subtitle="Código de emparejamiento de 6 caracteres" />
 
       <form onSubmit={handleSubmit}>
         {error && (

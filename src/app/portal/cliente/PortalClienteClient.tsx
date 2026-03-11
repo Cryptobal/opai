@@ -10,8 +10,9 @@ import {
 import { AuthShell } from "@/components/auth/AuthShell";
 import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
 import { AuthTextInput } from "@/components/auth/AuthTextInput";
+import { AuthPinInput } from "@/components/auth/AuthPinInput";
 import { AuthButton } from "@/components/auth/AuthButton";
-import { IdCardIcon, LockIcon } from "@/components/auth/icons";
+import { IdCardIcon } from "@/components/auth/icons";
 import { ChatClientePortal } from "@/components/portal/cliente/ChatClientePortal";
 import { PortalDocumentos } from "@/components/portal/cliente/PortalDocumentos";
 import { PortalClienteNav, PortalSection } from "@/components/portal/cliente/PortalClienteNav";
@@ -265,18 +266,13 @@ export function PortalClienteClient() {
             maxLength={12}
           />
 
-          <AuthTextInput
-            label="PIN de acceso"
-            accent={ACCENT}
-            icon={<LockIcon />}
-            type="password"
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            placeholder="••••"
-            maxLength={4}
-            inputMode="numeric"
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-          />
+          <label
+            className="block text-xs font-medium text-[#9ca3af] mb-[7px]"
+            style={{ letterSpacing: "0.02em", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+          >
+            PIN de acceso (4 d&iacute;gitos)
+          </label>
+          <AuthPinInput length={4} accent={ACCENT} value={pin} onChange={setPin} />
 
           {loginError && (
             <div className="rounded-xl px-4 py-3 mb-4" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
@@ -303,17 +299,6 @@ export function PortalClienteClient() {
             </button>
           </div>
 
-          <div
-            className="mt-5 p-3 rounded-xl"
-            style={{ background: `${ACCENT}04`, border: `1px solid ${ACCENT}08` }}
-          >
-            <span className="text-xs text-[#6b7280]">
-              &iquest;Eres cliente nuevo?{" "}
-              <a href="mailto:soporte@gard.cl" className="font-medium transition-colors" style={{ color: ACCENT }}>
-                Solicita acceso
-              </a>
-            </span>
-          </div>
         </div>
       </AuthShell>
     );

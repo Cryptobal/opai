@@ -51,7 +51,7 @@ export function AuthPinInput({ length = 4, accent, value, onChange }: AuthPinInp
             height: "64px",
             borderRadius: "14px",
             background: p ? `${accent}0a` : "rgba(255,255,255,0.03)",
-            border: `2px solid ${focusedIdx === i ? accent + "55" : p ? accent + "25" : "rgba(255,255,255,0.08)"}`,
+            border: `2px solid ${focusedIdx === i ? accent + "55" : p ? accent + "25" : "rgba(255,255,255,0.15)"}`,
             boxShadow: focusedIdx === i ? `0 0 0 4px ${accent}10, 0 0 20px ${accent}06` : "none",
             transform: p ? "scale(1.02)" : "scale(1)",
             fontFamily: "'JetBrains Mono', monospace",
