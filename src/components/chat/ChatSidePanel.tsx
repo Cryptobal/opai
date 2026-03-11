@@ -96,13 +96,15 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   const [creatingDmFor, setCreatingDmFor] = useState<string | null>(null);
   const [newChatModal, setNewChatModal] = useState<{ open: boolean; defaultStatus?: "prospect" | "client_active" }>({ open: false });
 
-  // Reset search and filter when panel closes
+  // When panel opens: default to "unread" if there are unread messages
+  const prevPanelOpen = useRef(false);
   useEffect(() => {
-    if (!ctx.isPanelOpen) {
+    if (ctx.isPanelOpen && !prevPanelOpen.current) {
+      setFilter(ctx.totalUnread > 0 ? "unread" : "all");
       setSearchQuery("");
-      setFilter("all");
     }
-  }, [ctx.isPanelOpen]);
+    prevPanelOpen.current = ctx.isPanelOpen;
+  }, [ctx.isPanelOpen, ctx.totalUnread]);
 
   // Fetch all users once for the "Usuarios" section
   useEffect(() => {

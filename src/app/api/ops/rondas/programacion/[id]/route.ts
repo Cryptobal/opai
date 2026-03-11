@@ -52,12 +52,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (result.count === 0) return NextResponse.json({ success: false, error: "No encontrado" }, { status: 404 });
 
     // ── Regenerate scheduled executions with new parameters ──
-    // Delete ALL pending ejecuciones for this programación (not just future).
-    // Past-but-pendiente slots used old frequency and must be purged too.
+    // Only delete FUTURE pending ejecuciones. Preserve past/current slots
+    // (e.g. overnight shift 22:00→08:00: editing at 02:00 must keep 03:00-07:00 slots).
+    const now = new Date();
     const deleted = await prisma.opsRondaEjecucion.deleteMany({
       where: {
         programacionId: id,
         status: "pendiente",
+        scheduledAt: { gte: now },
       },
     });
 
@@ -72,8 +74,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // Regenerate ejecuciones for today+tomorrow if still active
     if (updated && updated.isActive && updated.rondaTemplate) {
       try {
-        const now = new Date();
-        const from = startOfDayChile(now);
+        // Start from yesterday to capture overnight shifts (e.g. 22:00→08:00)
+        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const from = startOfDayChile(yesterday);
         const to = new Date(now.getTime() + 48 * 60 * 60 * 1000);
 
         const slots = buildScheduleSlots({

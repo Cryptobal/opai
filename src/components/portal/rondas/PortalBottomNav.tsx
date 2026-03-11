@@ -1,8 +1,8 @@
 "use client";
 
-import { MapPin, MessageCircle, AlertTriangle, User } from "lucide-react";
+import { MapPin, MessageCircle, FileWarning, AlertTriangle, User } from "lucide-react";
 
-export type PortalTab = "mis-rondas" | "chat" | "panico" | "perfil";
+export type PortalTab = "mis-rondas" | "chat" | "incidente" | "panico" | "perfil";
 
 interface PortalBottomNavProps {
   activeScreen: string;
@@ -12,6 +12,7 @@ interface PortalBottomNavProps {
 const tabs: { id: PortalTab; label: string; icon: typeof MapPin }[] = [
   { id: "mis-rondas", label: "Rondas", icon: MapPin },
   { id: "chat", label: "Chat", icon: MessageCircle },
+  { id: "incidente", label: "Incidente", icon: FileWarning },
   { id: "panico", label: "Panico", icon: AlertTriangle },
   { id: "perfil", label: "Perfil", icon: User },
 ];
@@ -24,7 +25,8 @@ export function PortalBottomNav({ activeScreen, onNavigate }: PortalBottomNavPro
     >
       {tabs.map((tab) => {
         const isPanico = tab.id === "panico";
-        const isActive = !isPanico && (
+        const isIncidente = tab.id === "incidente";
+        const isActive = !isPanico && !isIncidente && (
           tab.id === activeScreen ||
           (tab.id === "mis-rondas" && (activeScreen === "ronda-activa" || activeScreen === "completada"))
         );
@@ -34,11 +36,25 @@ export function PortalBottomNav({ activeScreen, onNavigate }: PortalBottomNavPro
             <button
               key={tab.id}
               onClick={() => onNavigate("panico")}
-              className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-red-950/80 px-4 py-1.5 transition-colors active:bg-red-900"
+              className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-red-950/80 px-3 py-1.5 transition-colors active:bg-red-900"
               aria-label="Activar panico"
             >
-              <tab.icon className="h-6 w-6 text-red-400" />
-              <span className="text-[10px] font-medium text-red-400">{tab.label}</span>
+              <tab.icon className="h-5 w-5 text-red-400" />
+              <span className="text-[9px] font-medium text-red-400">{tab.label}</span>
+            </button>
+          );
+        }
+
+        if (isIncidente) {
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onNavigate("incidente")}
+              className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-amber-950/80 px-3 py-1.5 transition-colors active:bg-amber-900"
+              aria-label="Reportar incidente"
+            >
+              <tab.icon className="h-5 w-5 text-amber-400" />
+              <span className="text-[9px] font-medium text-amber-400">{tab.label}</span>
             </button>
           );
         }
@@ -50,8 +66,8 @@ export function PortalBottomNav({ activeScreen, onNavigate }: PortalBottomNavPro
             className="flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 transition-colors"
             aria-label={tab.label}
           >
-            <tab.icon className={`h-6 w-6 ${isActive ? "text-teal-400" : "text-gray-400"}`} />
-            <span className={`text-[10px] font-medium ${isActive ? "text-teal-400" : "text-gray-400"}`}>
+            <tab.icon className={`h-5 w-5 ${isActive ? "text-teal-400" : "text-gray-400"}`} />
+            <span className={`text-[9px] font-medium ${isActive ? "text-teal-400" : "text-gray-400"}`}>
               {tab.label}
             </span>
           </button>

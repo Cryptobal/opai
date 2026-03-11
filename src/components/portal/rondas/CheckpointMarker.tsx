@@ -541,7 +541,165 @@ export function CheckpointMarker({
   }
 
   // ------------------------------------------------------------------
-  // Render: Bottom sheet
+  // Render: Ad-hoc GPS compact layout (split screen — no scroll)
+  // ------------------------------------------------------------------
+  const isAdHocGps = checkpoint.id === "ad-hoc-gps";
+
+  if (isAdHocGps) {
+    return (
+      <>
+        {showCamera && (
+          <PhotoCapture
+            onCapture={handlePhotoCapture}
+            onClose={() => setShowCamera(false)}
+          />
+        )}
+
+        <style>{`
+          @keyframes slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+          .animate-slide-up { animation: slide-up 0.3s ease-out; }
+          @keyframes gps-ring { 0% { transform: scale(0.8); opacity: 0.6; } 100% { transform: scale(2); opacity: 0; } }
+        `}</style>
+
+        <div className="fixed inset-0 z-[1100] flex flex-col bg-zinc-950">
+          {/* Top: GPS visual indicator */}
+          <div className="flex-1 relative flex items-center justify-center">
+            {/* Cancel button */}
+            <button
+              onClick={onBack}
+              className="absolute top-4 left-4 z-10 rounded-lg bg-zinc-800/80 px-3 py-2 text-sm text-gray-300 backdrop-blur-sm"
+            >
+              Cancelar
+            </button>
+
+            <div className="text-center">
+              <div className="relative mx-auto h-24 w-24">
+                {gpsStatus === "success" && (
+                  <span
+                    className="absolute inset-0 rounded-full bg-emerald-500/30"
+                    style={{ animation: "gps-ring 2s ease-out infinite" }}
+                  />
+                )}
+                {gpsStatus === "loading" && (
+                  <span
+                    className="absolute inset-0 rounded-full bg-yellow-500/20"
+                    style={{ animation: "gps-ring 1.5s ease-out infinite" }}
+                  />
+                )}
+                <div
+                  className={`relative flex h-24 w-24 items-center justify-center rounded-full border-3 ${
+                    gpsStatus === "success"
+                      ? "border-emerald-500/50 bg-emerald-500/15"
+                      : gpsStatus === "loading"
+                        ? "border-yellow-500/50 bg-yellow-500/10"
+                        : "border-red-500/50 bg-red-500/10"
+                  }`}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-10 w-10 ${
+                      gpsStatus === "success"
+                        ? "text-emerald-400"
+                        : gpsStatus === "loading"
+                          ? "text-yellow-400 animate-pulse"
+                          : "text-red-400"
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+              </div>
+
+              <p className={`mt-3 text-lg font-semibold ${
+                gpsStatus === "success" ? "text-emerald-400" : gpsStatus === "loading" ? "text-yellow-400" : "text-red-400"
+              }`}>
+                {gpsStatus === "success" ? "GPS Listo" : gpsStatus === "loading" ? "Obteniendo GPS..." : "Error GPS"}
+              </p>
+              {gpsStatus === "success" && distanceM != null && (
+                <p className="mt-1 text-sm text-emerald-300/70">{Math.round(distanceM)}m</p>
+              )}
+              {gpsStatus === "error" && (
+                <button
+                  onClick={requestGps}
+                  className="mt-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm text-gray-300"
+                >
+                  Reintentar
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom: Compact form */}
+          <div
+            className="shrink-0 bg-zinc-900 rounded-t-2xl border-t border-zinc-800 px-4 pt-3 animate-slide-up"
+            style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+          >
+            <div className="flex justify-center pb-2">
+              <div className="w-10 h-1 bg-zinc-600 rounded-full" />
+            </div>
+
+            <h2 className="text-base font-semibold text-white mb-3">Punto GPS</h2>
+
+            {/* Photo + Notes in a row */}
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={() => setShowCamera(true)}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-700 bg-gray-800/50 py-2.5 text-sm text-gray-300 transition-colors active:bg-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {photoPreview ? "Foto tomada" : "Foto"}
+              </button>
+              {photoPreview && (
+                <button
+                  onClick={removePhoto}
+                  className="rounded-xl border border-red-800/50 bg-red-950/20 px-3 py-2.5 text-sm text-red-400"
+                >
+                  Quitar
+                </button>
+              )}
+            </div>
+
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Nota opcional..."
+              maxLength={500}
+              className="mb-3 w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+            />
+
+            {submitError && (
+              <div className="mb-3 rounded-lg bg-red-500/20 px-3 py-2 text-center text-sm text-red-300">
+                {submitError}
+              </div>
+            )}
+
+            <button
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className="w-full rounded-xl bg-teal-600 py-3.5 text-base font-semibold text-white transition-colors active:bg-teal-700 disabled:opacity-40"
+            >
+              {submitting ? "Registrando..." : "Confirmar Marcacion"}
+            </button>
+
+            {!canSubmit && !submitting && gpsStatus !== "success" && (
+              <p className="mt-2 text-center text-xs text-gray-500">Esperando ubicacion GPS</p>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Render: Bottom sheet (standard checkpoints)
   // ------------------------------------------------------------------
   return (
     <>
@@ -560,7 +718,7 @@ export function CheckpointMarker({
         <div className="absolute inset-0 bg-black/50" onClick={onBack} />
 
         {/* Sheet */}
-        <div className="relative w-full max-h-[50vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
+        <div className="relative w-full max-h-[60vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
           {showSuccessFlash && (
             <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-emerald-500/20 transition-opacity" />
           )}

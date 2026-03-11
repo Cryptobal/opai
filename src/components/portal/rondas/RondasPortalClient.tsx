@@ -454,6 +454,10 @@ export function RondasPortalClient() {
       setShowPanicoModal(true);
       return;
     }
+    if (tab === "incidente") {
+      setShowIncidentModal(true);
+      return;
+    }
     if (tab === "mis-rondas" && (screen === "ronda-activa" || screen === "completada")) {
       return;
     }
