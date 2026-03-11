@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight, Camera, Mic, Clock, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, Camera, Mic, Clock, CheckCircle2, XCircle, AlertTriangle, ExternalLink, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ReporteRow {
@@ -41,8 +41,14 @@ interface MarcacionRow {
   timestamp: string;
   status: string;
   hasPhoto: boolean;
+  fotoEvidenciaUrl?: string | null;
   hasAudio: boolean;
   distanceM: number | null;
+  lat?: number | null;
+  lng?: number | null;
+  googleMapsUrl?: string | null;
+  geoValidada?: boolean | null;
+  verificationMethod?: string | null;
 }
 
 interface Props {
@@ -151,32 +157,48 @@ function ExpandedRow({ row }: { row: ReporteRow }) {
                   const isCompleted = m.status === "COMPLETED";
                   const isMissed = m.status === "MISSED";
                   return (
-                    <div
-                      key={m.id}
-                      className="flex items-center gap-2 text-xs"
-                    >
-                      <span className="text-muted-foreground w-5 text-right tabular-nums">{i + 1}</span>
-                      {isCompleted ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                      ) : isMissed ? (
-                        <XCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
-                      ) : (
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                      )}
-                      <span className="text-foreground">{m.checkpointName}</span>
-                      <span className="text-muted-foreground">
-                        {new Date(m.timestamp).toLocaleTimeString("es-CL", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      {m.hasPhoto && <Camera className="h-3 w-3 text-blue-400" />}
-                      {m.hasAudio && <Mic className="h-3 w-3 text-purple-400" />}
-                      {m.distanceM != null && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {Math.round(m.distanceM)}m
+                    <div key={m.id} className="space-y-0.5">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-muted-foreground w-5 text-right tabular-nums">{i + 1}</span>
+                        {isCompleted ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                        ) : isMissed ? (
+                          <XCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                        ) : (
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                        )}
+                        <span className="text-foreground">{m.checkpointName}</span>
+                        <span className="text-muted-foreground">
+                          {new Date(m.timestamp).toLocaleTimeString("es-CL", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </span>
-                      )}
+                        {m.fotoEvidenciaUrl ? (
+                          <a href={m.fotoEvidenciaUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                            <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-6 w-6 rounded object-cover border border-blue-500/30" />
+                          </a>
+                        ) : m.hasPhoto ? (
+                          <Camera className="h-3 w-3 text-blue-400" />
+                        ) : null}
+                        {m.hasAudio && <Mic className="h-3 w-3 text-purple-400" />}
+                        {m.distanceM != null && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {Math.round(m.distanceM)}m
+                          </span>
+                        )}
+                        {m.googleMapsUrl && (
+                          <a
+                            href={m.googleMapsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-300"
+                          >
+                            <MapPin className="h-2.5 w-2.5" />
+                            Mapa
+                          </a>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

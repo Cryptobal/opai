@@ -201,8 +201,12 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                       <span className="text-muted-foreground w-10 shrink-0">
                         {new Date(m.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
                       </span>
-                      <span className="text-foreground">{m.checkpointName ?? "Checkpoint"}</span>
-                      {m.fotoEvidenciaUrl && <span className="text-muted-foreground">📷</span>}
+                      <span className="text-foreground">{m.checkpointName ?? "Punto GPS"}</span>
+                      {m.fotoEvidenciaUrl && (
+                        <a href={m.fotoEvidenciaUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+                          <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-5 w-5 rounded object-cover border border-blue-500/30" />
+                        </a>
+                      )}
                     </div>
                   ))}
                   {r.marcaciones.length === 0 && (

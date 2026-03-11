@@ -283,7 +283,7 @@ export function RondasMonitoreoClient({
           if (m.lat != null && m.lng != null) {
             cps.push({
               id: `${r.id}-${m.checkpointId ?? m.id}`,
-              name: m.checkpoint?.name ?? "Checkpoint",
+              name: m.checkpoint?.name ?? (m.checkpointId ? "Checkpoint" : "Punto GPS"),
               lat: m.lat,
               lng: m.lng,
               radiusM: 30,

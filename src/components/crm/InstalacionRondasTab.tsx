@@ -14,11 +14,10 @@ interface Marcacion {
   lat: number | null;
   lng: number | null;
   googleMapsUrl: string | null;
-  geoAccuracy: number | null;
   geoValidada: boolean | null;
-  geoConfidence: string | null;
   verificationMethod: string | null;
   hashIntegridad: string | null;
+  fotoEvidenciaUrl: string | null;
 }
 
 interface Ejecucion {
@@ -95,7 +94,7 @@ export function InstalacionRondasTab({ installationId }: { installationId: strin
             json.data.map((g: any) => ({
               id: g.id,
               name: g.persona
-                ? `${g.persona.firstName} ${g.persona.lastName}`.trim()
+                ? `${(g.persona.lastName ?? "").trim()} ${(g.persona.firstName ?? "").trim()}`.trim()
                 : g.code ?? g.id,
             })),
           );
@@ -327,7 +326,13 @@ export function InstalacionRondasTab({ installationId }: { installationId: strin
                                         {Math.round(m.distanceM)}m
                                       </span>
                                     )}
-                                    {m.hasPhoto && <Camera className="h-3 w-3 text-blue-400" />}
+                                    {m.fotoEvidenciaUrl ? (
+                                      <a href={m.fotoEvidenciaUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+                                        <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-6 w-6 rounded object-cover border border-blue-500/30" />
+                                      </a>
+                                    ) : m.hasPhoto ? (
+                                      <Camera className="h-3 w-3 text-blue-400" />
+                                    ) : null}
                                   </div>
                                   <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground/70">
                                     {m.lat != null && m.lng != null && (
@@ -346,9 +351,6 @@ export function InstalacionRondasTab({ installationId }: { installationId: strin
                                           </a>
                                         )}
                                       </span>
-                                    )}
-                                    {m.geoAccuracy != null && (
-                                      <span>Precision: {Math.round(m.geoAccuracy)}m ({m.geoConfidence ?? "?"})</span>
                                     )}
                                     {m.geoValidada != null && (
                                       <span className={m.geoValidada ? "text-emerald-500" : "text-red-400"}>

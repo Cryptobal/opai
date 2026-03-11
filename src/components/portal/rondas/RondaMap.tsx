@@ -121,14 +121,17 @@ interface FitBoundsProps {
 function FitBounds({ checkpoints, guardPosition }: FitBoundsProps) {
   const map = useMap();
   const hasFitted = useRef(false);
+  // Capture initial data so deps don't re-trigger on array reference changes
+  const initialDataRef = useRef({ checkpoints, guardPosition });
 
   useEffect(() => {
-    // Only fit bounds on initial mount — never re-zoom after checkpoint updates
+    // Only fit bounds on initial mount — never re-zoom after checkpoint/trail updates
     if (hasFitted.current) return;
 
-    const points: L.LatLngExpression[] = checkpoints.map((cp) => [cp.lat, cp.lng]);
-    if (guardPosition) {
-      points.push([guardPosition.lat, guardPosition.lng]);
+    const { checkpoints: cps, guardPosition: gp } = initialDataRef.current;
+    const points: L.LatLngExpression[] = cps.map((cp) => [cp.lat, cp.lng]);
+    if (gp) {
+      points.push([gp.lat, gp.lng]);
     }
     if (points.length === 0) return;
 
@@ -141,7 +144,7 @@ function FitBounds({ checkpoints, guardPosition }: FitBoundsProps) {
       const bounds = L.latLngBounds(points as L.LatLngTuple[]);
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 19 });
     }
-  }, [map, checkpoints, guardPosition]);
+  }, [map]);
 
   return null;
 }

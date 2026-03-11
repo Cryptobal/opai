@@ -9,6 +9,7 @@
 import { prisma } from "@/lib/prisma";
 import { generateTimeSlots } from "@/lib/rondas/grid-utils";
 import { getCNDate } from "@/lib/rondas/cn-utils";
+import { formatPersonName } from "@/lib/personas";
 
 export { generateTimeSlots };
 
@@ -71,8 +72,15 @@ async function resolveGuardsFromSources(
   const result: Array<{ guardiaId: string; guardiaNombre: string; isExtra: boolean; turno: "nocturno" | "diurno" }> = [];
 
   // ── Source 1: Pauta mensual for today ──
+  // Only include guards actually working (Tn = nocturno, Td = diurno).
+  // Excludes rest days ("-"), vacations ("V"), licencias, etc.
   const pautas = await prisma.opsPautaMensual.findMany({
-    where: { tenantId, installationId, date: cnDate },
+    where: {
+      tenantId,
+      installationId,
+      date: cnDate,
+      shiftCode: { in: ["Tn", "Td"] },
+    },
     include: {
       plannedGuardia: {
         include: { persona: { select: { firstName: true, lastName: true } } },
@@ -88,7 +96,9 @@ async function resolveGuardsFromSources(
     const seen = new Set<string>();
     for (const pauta of pautas) {
       const effective = pauta.replacementGuardia ?? pauta.plannedGuardia;
-      const turno = turnoFromShift(pauta.puesto.shiftStart);
+      // Use shiftCode directly: "Tn" → nocturno, "Td" → diurno
+      const turno: "nocturno" | "diurno" =
+        pauta.shiftCode === "Td" ? "diurno" : "nocturno";
       if (!effective) {
         // PPC entry: slot exists in pauta but no guard assigned
         const ppcKey = `ppc-${pauta.id}-${turno}`;
@@ -108,7 +118,7 @@ async function resolveGuardsFromSources(
       seen.add(key);
       result.push({
         guardiaId: effective.id,
-        guardiaNombre: `${effective.persona.firstName} ${effective.persona.lastName}`.trim(),
+        guardiaNombre: formatPersonName(effective.persona.firstName, effective.persona.lastName),
         isExtra: !!pauta.replacementGuardia,
         turno,
       });
@@ -136,7 +146,7 @@ async function resolveGuardsFromSources(
       seen.add(key);
       result.push({
         guardiaId: asig.guardiaId,
-        guardiaNombre: `${asig.guardia.persona.firstName} ${asig.guardia.persona.lastName}`.trim(),
+        guardiaNombre: formatPersonName(asig.guardia.persona.firstName, asig.guardia.persona.lastName),
         isExtra: false,
         turno,
       });

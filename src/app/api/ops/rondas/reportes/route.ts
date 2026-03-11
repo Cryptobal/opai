@@ -28,7 +28,12 @@ export async function GET(request: NextRequest) {
       tenantId: ctx.tenantId,
       scheduledAt: { gte: dateFrom, lte: dateTo },
     };
-    if (installationId) where.installationId = installationId;
+    if (installationId) {
+      where.OR = [
+        { installationId },
+        { rondaTemplate: { installationId } },
+      ];
+    }
     if (guardiaId) where.guardiaId = guardiaId;
     if (statusFilter && statusFilter !== "all") where.status = statusFilter;
 
@@ -94,10 +99,11 @@ export async function GET(request: NextRequest) {
       durationMinutes: row.durationMinutes,
       marcaciones: row.marcaciones.map((m) => ({
         id: m.id,
-        checkpointName: m.checkpoint?.name ?? "Checkpoint eliminado",
+        checkpointName: m.checkpoint?.name ?? (m.checkpointId ? "Checkpoint eliminado" : "Punto GPS"),
         timestamp: m.timestamp.toISOString(),
         status: m.status,
         hasPhoto: !!m.fotoEvidenciaUrl,
+        fotoEvidenciaUrl: m.fotoEvidenciaUrl ?? null,
         hasAudio: !!m.audioUrl,
         distanceM: m.geoDistanciaM,
         lat: m.lat,
