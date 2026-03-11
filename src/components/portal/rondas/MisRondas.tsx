@@ -118,6 +118,21 @@ function hasValidCoords(checkpoints: CheckpointItem[]): boolean {
   return checkpoints.some((cp) => cp.lat != null && cp.lng != null);
 }
 
+const CHILE_TZ = "America/Santiago";
+
+/** True if scheduledAt falls on the current calendar day in Chile */
+function isScheduledTodayChile(scheduledAtIso: string): boolean {
+  try {
+    const scheduled = new Date(scheduledAtIso);
+    const now = new Date();
+    const scheduledDay = scheduled.toLocaleDateString("en-CA", { timeZone: CHILE_TZ });
+    const todayDay = now.toLocaleDateString("en-CA", { timeZone: CHILE_TZ });
+    return scheduledDay === todayDay;
+  } catch {
+    return false;
+  }
+}
+
 /** Map CheckpointItem[] to MapCheckpoint[] (only those with valid coords) */
 function toMapCheckpoints(checkpoints: CheckpointItem[], rondaStatus: string): MapCheckpoint[] {
   return checkpoints
@@ -258,6 +273,7 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShow
   }, [fetchRondas]);
 
   // ---- Group rondas into sections (redesigned priority) ----
+  // "NO REALIZADAS HOY" y "COMPLETADAS HOY" solo muestran rondas del día actual (Chile)
   const grouped = useMemo(() => {
     const map: Record<SectionKey, RondaItem[]> = {
       en_curso: [],
@@ -272,14 +288,18 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShow
       if (r.status === "en_curso") {
         map.en_curso.push(r);
       } else if (r.status === "no_realizada" || r.status === "cerrada_auto" || r.status === "cerrada_admin") {
-        map.no_realizadas.push(r);
+        if (isScheduledTodayChile(r.scheduledAt)) {
+          map.no_realizadas.push(r);
+        }
       } else if (r.status === "pendiente") {
         const scheduledMs = new Date(r.scheduledAt).getTime();
         const toleranciaMin = r.toleranciaMinutos ?? 30;
         const key = classifyPendiente(scheduledMs, toleranciaMin, now);
         map[key].push(r);
       } else if (r.status === "completada" || r.status === "incompleta") {
-        map.completadas.push(r);
+        if (isScheduledTodayChile(r.scheduledAt)) {
+          map.completadas.push(r);
+        }
       }
     }
 
