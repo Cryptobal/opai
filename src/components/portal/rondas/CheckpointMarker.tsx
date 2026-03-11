@@ -1223,7 +1223,7 @@ export function CheckpointMarker({
           {/* ---- Sticky Submit Footer ---- */}
           <div
             className="shrink-0 border-t border-zinc-800 bg-zinc-900 px-4 pt-3"
-            style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+            style={{ paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom, 0px))" }}
           >
             {submitError && (
               <div className="mb-2 rounded-lg bg-red-500/20 px-4 py-2 text-center text-sm text-red-300">
