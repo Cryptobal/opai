@@ -9,11 +9,11 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#0a0a0f",
+  themeColor: "#060a13",
 };
 
 export const metadata: Metadata = {
-  title: "Portal Supervisor — Gard Security",
+  title: "OPAI — Supervisor",
   description: "Portal móvil para supervisores de seguridad.",
   manifest: "/manifest-supervisor.json",
   robots: { index: false, follow: false },
@@ -35,7 +35,7 @@ export default async function PortalSupervisorLayout({
     redirect("/opai/login?callbackUrl=/portal/supervisor");
   }
   return (
-    <div className="min-h-dvh bg-[#0a0a0f] text-white">
+    <div className="min-h-dvh text-white">
       <ServiceWorkerRegistrar />
       <BadgeClear />
       {children}

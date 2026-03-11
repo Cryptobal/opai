@@ -11,7 +11,7 @@ import { Suspense } from 'react';
 import LoginLoading from './loading';
 
 export const metadata = {
-  title: 'Iniciar sesión - OPAI',
+  title: 'OPAI — Iniciar Sesión',
   description: 'Acceso al panel OPAI',
 };
 

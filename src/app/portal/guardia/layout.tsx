@@ -7,11 +7,11 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#0a0a0f",
+  themeColor: "#060a13",
 };
 
 export const metadata: Metadata = {
-  title: "OPAI Guardias — Gard Security",
+  title: "OPAI — Portal Guardia",
   description: "Portal de guardias de seguridad.",
   manifest: "/manifest-guardia.json",
   robots: { index: false, follow: false },

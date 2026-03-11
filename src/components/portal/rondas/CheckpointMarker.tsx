@@ -52,6 +52,8 @@ interface Props {
   onBack: () => void;
   /** Shared guard position from RondaActiva watchPosition — enables real-time distance */
   guardPos?: { lat: number; lng: number } | null;
+  /** Whether the guard is currently inside the checkpoint's geofence */
+  isInGeofence?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +97,7 @@ export function CheckpointMarker({
   onComplete,
   onBack,
   guardPos,
+  isInGeofence,
 }: Props) {
   // ---- GPS State ----
   const [gpsStatus, setGpsStatus] = useState<"loading" | "success" | "error">("loading");
@@ -699,6 +702,127 @@ export function CheckpointMarker({
   }
 
   // ------------------------------------------------------------------
+  // Render: Quick Mark — compact view for in-geofence GPS checkpoints
+  // ------------------------------------------------------------------
+  if (isInGeofence && tasks.length === 0 && !isAdHocGps) {
+    return (
+      <>
+        {showQr && (
+          <QrScanner
+            onScan={(code) => {
+              setQrCode(code);
+              setShowQr(false);
+            }}
+            onClose={() => setShowQr(false)}
+          />
+        )}
+        {showCamera && (
+          <PhotoCapture
+            onCapture={handlePhotoCapture}
+            onClose={() => setShowCamera(false)}
+          />
+        )}
+
+        <style>{`
+          @keyframes slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+          .animate-slide-up { animation: slide-up 0.3s ease-out; }
+        `}</style>
+
+        <div className="fixed inset-0 z-[1100] flex items-end">
+          <div className="absolute inset-0 bg-black/30" onClick={onBack} />
+          <div className="relative w-full max-h-[35vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
+            {showSuccessFlash && (
+              <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-emerald-500/20 transition-opacity" />
+            )}
+            <div className="flex justify-center py-2.5 sticky top-0 bg-zinc-900 z-10">
+              <div className="w-10 h-1 bg-zinc-600 rounded-full" />
+            </div>
+
+            <div className="space-y-3 px-4" style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}>
+              {/* Checkpoint name + validated badge */}
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-semibold text-white">{checkpoint.name}</h2>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">
+                    {"\u2713"} Geocerca validada
+                  </span>
+                </div>
+              </div>
+
+              {/* QR section — only if checkpoint requires QR */}
+              {needsQr && (
+                <div>
+                  {qrCode ? (
+                    <div className="flex items-center gap-2 rounded-lg bg-emerald-950/30 px-3 py-2 text-sm text-emerald-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      QR escaneado
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowQr(true)}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-purple-700/50 bg-purple-950/30 py-2.5 text-sm font-medium text-purple-400 transition-colors active:bg-purple-900/40"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                      </svg>
+                      Escanear QR
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Optional photo */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowCamera(true)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-700 bg-gray-800/50 py-2 text-sm text-gray-300 transition-colors active:bg-gray-700"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {photoPreview ? "Foto tomada" : "Foto (opcional)"}
+                </button>
+                {photoPreview && (
+                  <button
+                    onClick={removePhoto}
+                    className="rounded-xl border border-red-800/50 bg-red-950/20 px-3 py-2 text-sm text-red-400"
+                  >
+                    Quitar
+                  </button>
+                )}
+              </div>
+
+              {submitError && (
+                <div className="rounded-lg bg-red-500/20 px-3 py-2 text-center text-sm text-red-300">
+                  {submitError}
+                </div>
+              )}
+
+              <button
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className="w-full rounded-xl bg-emerald-600 py-3.5 text-base font-semibold text-white transition-colors active:bg-emerald-700 disabled:opacity-40"
+                style={{ minHeight: 48 }}
+              >
+                {submitting ? "Registrando..." : "Confirmar Marcacion"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ------------------------------------------------------------------
   // Render: Bottom sheet (standard checkpoints)
   // ------------------------------------------------------------------
   return (
@@ -715,10 +839,10 @@ export function CheckpointMarker({
 
       <div className="fixed inset-0 z-[1100] flex items-end">
         {/* Backdrop */}
-        <div className="absolute inset-0 bg-black/50" onClick={onBack} />
+        <div className="absolute inset-0 bg-black/30" onClick={onBack} />
 
         {/* Sheet */}
-        <div className="relative w-full max-h-[60vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
+        <div className="relative w-full max-h-[50vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
           {showSuccessFlash && (
             <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-emerald-500/20 transition-opacity" />
           )}

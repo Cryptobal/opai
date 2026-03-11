@@ -1,0 +1,58 @@
+export const PORTAL_CONFIG = {
+  guardia: {
+    id: "guardia",
+    label: "Guardia",
+    name: "Portal Guardia",
+    subtitle: "Novedades y asistencia",
+    accent: "#2dd4bf",
+    accentRgb: "45, 212, 191",
+    href: "/portal/guardia",
+  },
+  rondas: {
+    id: "rondas",
+    label: "Rondas",
+    name: "Portal Rondas",
+    subtitle: "Checkpoints y registro",
+    accent: "#10b981",
+    accentRgb: "16, 185, 129",
+    href: "/portal/guardia/rondas",
+  },
+  supervisor: {
+    id: "supervisor",
+    label: "Supervisor",
+    name: "Supervisor",
+    subtitle: "Hub Operacional",
+    accent: "#8b5cf6",
+    accentRgb: "139, 92, 246",
+    href: "/portal/supervisor",
+  },
+  cliente: {
+    id: "cliente",
+    label: "Cliente",
+    name: "Cliente",
+    subtitle: "Portal de Servicios",
+    accent: "#3b82f6",
+    accentRgb: "59, 130, 246",
+    href: "/portal/cliente",
+  },
+  acceso: {
+    id: "acceso",
+    label: "Acceso",
+    name: "Control de Acceso",
+    subtitle: "Dispositivo de ingreso",
+    accent: "#f59e0b",
+    accentRgb: "245, 158, 11",
+    href: "/portal/acceso",
+  },
+  opai: {
+    id: "opai",
+    label: "OPAI ERP",
+    name: "OPAI",
+    subtitle: "Sistema ERP Completo",
+    accent: "#f43f5e",
+    accentRgb: "244, 63, 94",
+    href: "/opai/login",
+  },
+} as const;
+
+export type PortalId = keyof typeof PORTAL_CONFIG;

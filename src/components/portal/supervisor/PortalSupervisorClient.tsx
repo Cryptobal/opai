@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2, ShieldX } from "lucide-react";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
+import { AuthButton } from "@/components/auth/AuthButton";
 import { SupervisorSession, SupervisorInstallation } from "@/lib/portal-supervisor";
 import { PortalSupervisorNav, SupervisorSection } from "./PortalSupervisorNav";
 import { SupervisorDashboard } from "./SupervisorDashboard";
@@ -58,46 +61,71 @@ export function PortalSupervisorClient() {
       .finally(() => setLoading(false));
   }, []);
 
+  const ACCENT = "#8b5cf6";
+
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-dvh gap-3 bg-[#0a0a0f]">
-        <Loader2 className="animate-spin text-blue-400" size={32} />
-        <p className="text-sm text-zinc-500">Cargando portal...</p>
-      </div>
+      <AuthShell
+        portalId="supervisor"
+        accent={ACCENT}
+        accentRgb="139, 92, 246"
+        portalName="Supervisor"
+        portalSubtitle="Hub Operacional"
+        showBackLink={false}
+      >
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
+          <Loader2 className="animate-spin" size={32} style={{ color: ACCENT }} />
+          <p className="text-sm text-[#6b7280]">Cargando portal...</p>
+        </div>
+      </AuthShell>
     );
   }
 
   if (error || !session) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-dvh gap-4 bg-[#0a0a0f] px-6 text-center">
-        <ShieldX size={48} className="text-zinc-600" />
-        <div>
-          <h2 className="text-lg font-semibold text-white">Acceso denegado</h2>
-          <p className="text-sm text-zinc-500 mt-1">
+      <AuthShell
+        portalId="supervisor"
+        accent={ACCENT}
+        accentRgb="139, 92, 246"
+        portalName="Supervisor"
+        portalSubtitle="Hub Operacional"
+      >
+        <div className="text-center py-4">
+          <ShieldX size={48} className="text-[#4b5563] mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-[#f9fafb] mb-1">Acceso denegado</h2>
+          <p className="text-sm text-[#6b7280] mb-6">
             {error ?? "Sin acceso al portal de supervisor."}
           </p>
+          <AuthButton
+            accent={ACCENT}
+            label="Iniciar sesión con otra cuenta"
+            onClick={() => { window.location.href = "/opai/login"; }}
+          />
         </div>
-        <a href="/opai/login" className="text-sm text-blue-400 underline underline-offset-2">
-          Iniciar sesión con otra cuenta
-        </a>
-      </div>
+      </AuthShell>
     );
   }
 
   if (session.installations.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-dvh gap-4 bg-[#0a0a0f] px-6 text-center">
-        <ShieldX size={48} className="text-zinc-600" />
-        <div>
-          <h2 className="text-lg font-semibold text-white">Sin instalaciones asignadas</h2>
-          <p className="text-sm text-zinc-500 mt-1">
+      <AuthShell
+        portalId="supervisor"
+        accent={ACCENT}
+        accentRgb="139, 92, 246"
+        portalName="Supervisor"
+        portalSubtitle="Hub Operacional"
+      >
+        <div className="text-center py-4">
+          <ShieldX size={48} className="text-[#4b5563] mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-[#f9fafb] mb-1">Sin instalaciones asignadas</h2>
+          <p className="text-sm text-[#6b7280] mb-2">
             Tu cuenta ({session.name}) no tiene instalaciones asignadas como supervisor.
           </p>
-          <p className="text-xs text-zinc-600 mt-2">
-            Un administrador debe crear una asignación en Ops → Supervisores.
+          <p className="text-xs text-[#4b5563]">
+            Un administrador debe crear una asignación en Ops &rarr; Supervisores.
           </p>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 

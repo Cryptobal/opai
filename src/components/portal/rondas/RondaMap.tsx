@@ -28,6 +28,8 @@ export interface RondaMapProps {
   onCenterGuard?: () => void;
   /** GPS trail points for ad-hoc rondas — rendered as a continuous polyline */
   trailPoints?: { lat: number; lng: number }[];
+  /** When set, draws a dashed teal line from guard to the marking checkpoint */
+  markingCheckpointId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -386,6 +388,7 @@ export default function RondaMap({
   showCenterButton = false,
   onCenterGuard,
   trailPoints,
+  markingCheckpointId,
 }: RondaMapProps) {
   const [mounted, setMounted] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
@@ -472,6 +475,39 @@ export default function RondaMap({
             title={cp.name}
           />
         ))}
+
+        {/* Guard → marking checkpoint dashed line */}
+        {guardPosition && markingCheckpointId && (() => {
+          const target = checkpoints.find((cp) => cp.id === markingCheckpointId);
+          if (!target) return null;
+          return (
+            <>
+              <Polyline
+                positions={[
+                  [guardPosition.lat, guardPosition.lng],
+                  [target.lat, target.lng],
+                ]}
+                pathOptions={{
+                  color: "#ffffff",
+                  weight: 5,
+                  opacity: 0.3,
+                }}
+              />
+              <Polyline
+                positions={[
+                  [guardPosition.lat, guardPosition.lng],
+                  [target.lat, target.lng],
+                ]}
+                pathOptions={{
+                  color: "#14b8a6",
+                  weight: 3,
+                  opacity: 0.8,
+                  dashArray: "8 8",
+                }}
+              />
+            </>
+          );
+        })()}
 
         {/* Guard position marker */}
         {guardPosition && (

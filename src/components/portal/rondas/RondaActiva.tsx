@@ -169,6 +169,9 @@ export function RondaActiva({
   const [nearbyCheckpointId, setNearbyCheckpointId] = useState<string | null>(null);
   const dismissedGeofenceRef = useRef<Set<string>>(new Set());
   const lastVibratedRef = useRef<string | null>(null);
+  const autoOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoOpenCooldownRef = useRef<Map<string, number>>(new Map());
+  const stableGeofenceIdRef = useRef<string | null>(null);
 
   // -- GPS live tracking --
   const [guardPos, setGuardPos] = useState<{
@@ -261,32 +264,70 @@ export function RondaActiva({
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!guardPos || isAdHoc) return;
-    // Already marking a checkpoint — don't show banner
-    if (markingCheckpointId) return;
+
+    // When marking is active, clear any pending auto-open timer
+    if (markingCheckpointId) {
+      if (autoOpenTimerRef.current) {
+        clearTimeout(autoOpenTimerRef.current);
+        autoOpenTimerRef.current = null;
+      }
+      stableGeofenceIdRef.current = null;
+      return;
+    }
 
     const unmarked = checkpoints.filter((c) => !c.completed);
-    let closest: { id: string; dist: number; name: string } | null = null;
+    let closest: ApiCheckpoint | null = null;
+    let closestDist = Infinity;
 
     for (const cp of unmarked) {
       const dist = haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng);
-      if (dist <= cp.geoRadiusM) {
-        if (!closest || dist < closest.dist) {
-          closest = { id: cp.id, dist, name: cp.name };
-        }
+      if (dist <= cp.geoRadiusM && dist < closestDist) {
+        closest = cp;
+        closestDist = dist;
       }
     }
 
     if (closest && !dismissedGeofenceRef.current.has(closest.id)) {
-      setNearbyCheckpointId(closest.id);
-      // Vibrate once per checkpoint entry
+      const cooldownUntil = autoOpenCooldownRef.current.get(closest.id);
+      const inCooldown = cooldownUntil != null && Date.now() < cooldownUntil;
+
+      // Vibrate on first entry
       if (lastVibratedRef.current !== closest.id) {
         lastVibratedRef.current = closest.id;
         navigator.vibrate?.([100, 50, 100]);
       }
+
+      // Show banner
+      setNearbyCheckpointId(closest.id);
+
+      // Auto-open after 2s stability (skip if in cooldown or already tracking this cp)
+      if (!inCooldown && stableGeofenceIdRef.current !== closest.id) {
+        stableGeofenceIdRef.current = closest.id;
+        if (autoOpenTimerRef.current) clearTimeout(autoOpenTimerRef.current);
+        const cpId = closest.id;
+        autoOpenTimerRef.current = setTimeout(() => {
+          autoOpenTimerRef.current = null;
+          setNearbyCheckpointId(null);
+          setMarkingCheckpointId(cpId);
+        }, 2000);
+      }
     } else {
+      // Left geofence
+      stableGeofenceIdRef.current = null;
+      if (autoOpenTimerRef.current) {
+        clearTimeout(autoOpenTimerRef.current);
+        autoOpenTimerRef.current = null;
+      }
       setNearbyCheckpointId(null);
     }
   }, [guardPos, checkpoints, isAdHoc, markingCheckpointId]);
+
+  // Cleanup auto-open timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoOpenTimerRef.current) clearTimeout(autoOpenTimerRef.current);
+    };
+  }, []);
 
   const nearbyCheckpoint = nearbyCheckpointId
     ? checkpoints.find((c) => c.id === nearbyCheckpointId) ?? null
@@ -378,6 +419,55 @@ export function RondaActiva({
   const markingCheckpoint = markingCheckpointId
     ? checkpoints.find((c) => c.id === markingCheckpointId) ?? null
     : null;
+
+  const isAdHocMark = markingCheckpointId === "ad-hoc-scan" || markingCheckpointId === "ad-hoc-gps";
+
+  const markingCpInfo = useMemo(() => {
+    if (!markingCheckpointId) return null;
+    if (markingCheckpoint) {
+      return {
+        id: markingCheckpoint.id,
+        name: markingCheckpoint.name,
+        instrucciones: markingCheckpoint.instrucciones,
+        lat: markingCheckpoint.lat,
+        lng: markingCheckpoint.lng,
+        geoRadiusM: markingCheckpoint.geoRadiusM,
+        verificationType: markingCheckpoint.verificationType,
+        tasks: markingCheckpoint.tasks,
+      };
+    }
+    if (markingCheckpointId === "ad-hoc-gps") {
+      return {
+        id: "ad-hoc-gps" as const,
+        name: "Punto GPS",
+        instrucciones: null,
+        lat: guardPos?.lat ?? 0,
+        lng: guardPos?.lng ?? 0,
+        geoRadiusM: 9999,
+        verificationType: "GEOFENCE" as const,
+        tasks: undefined,
+      };
+    }
+    if (markingCheckpointId === "ad-hoc-scan") {
+      return {
+        id: "ad-hoc-scan" as const,
+        name: "Checkpoint libre",
+        instrucciones: null,
+        lat: guardPos?.lat ?? 0,
+        lng: guardPos?.lng ?? 0,
+        geoRadiusM: 9999,
+        verificationType: "QR" as const,
+        tasks: undefined,
+      };
+    }
+    return null;
+  }, [markingCheckpointId, markingCheckpoint, guardPos]);
+
+  const isInGeofenceOfMarking = useMemo(() => {
+    if (!markingCpInfo || !guardPos) return false;
+    const dist = haversineDistance(guardPos.lat, guardPos.lng, markingCpInfo.lat, markingCpInfo.lng);
+    return dist <= markingCpInfo.geoRadiusM;
+  }, [markingCpInfo, guardPos]);
 
   // Incomplete checkpoint names (for confirmation modal)
   const incompleteCheckpoints = checkpoints.filter((c) => !c.completed);
@@ -492,73 +582,6 @@ export function RondaActiva({
     setShowConfirmModal(false);
     handleComplete();
   }, [handleComplete]);
-
-  // ---------------------------------------------------------------------------
-  // Render: CheckpointMarker bottom sheet overlay
-  // ---------------------------------------------------------------------------
-  const isAdHocMark = markingCheckpointId === "ad-hoc-scan" || markingCheckpointId === "ad-hoc-gps";
-  if (markingCheckpointId && (markingCheckpoint || isAdHocMark)) {
-    const cpInfo = markingCheckpoint
-      ? {
-          id: markingCheckpoint.id,
-          name: markingCheckpoint.name,
-          instrucciones: markingCheckpoint.instrucciones,
-          lat: markingCheckpoint.lat,
-          lng: markingCheckpoint.lng,
-          geoRadiusM: markingCheckpoint.geoRadiusM,
-          verificationType: markingCheckpoint.verificationType,
-          tasks: markingCheckpoint.tasks,
-        }
-      : markingCheckpointId === "ad-hoc-gps"
-        ? {
-            id: "ad-hoc-gps",
-            name: "Punto GPS",
-            instrucciones: null,
-            lat: guardPos?.lat ?? 0,
-            lng: guardPos?.lng ?? 0,
-            geoRadiusM: 9999,
-            verificationType: "GEOFENCE" as const,
-            tasks: undefined,
-          }
-        : {
-            id: "ad-hoc-scan",
-            name: "Checkpoint libre",
-            instrucciones: null,
-            lat: guardPos?.lat ?? 0,
-            lng: guardPos?.lng ?? 0,
-            geoRadiusM: 9999,
-            verificationType: "QR" as const,
-            tasks: undefined,
-          };
-    const adHocQrRequerido = markingCheckpointId === "ad-hoc-scan";
-    return (
-      <CheckpointMarker
-        checkpoint={cpInfo}
-        ejecucionId={rondaData.ejecucionId}
-        guardiaId={session.guardiaId}
-        qrRequerido={markingCheckpoint ? rondaData.qrRequerido : adHocQrRequerido}
-        guardPos={guardPos}
-        onComplete={() => {
-          // For ad-hoc marks, capture the point locally for map display
-          if (isAdHoc && guardPos) {
-            const label = markingCheckpointId === "ad-hoc-gps" ? "Punto GPS" : "Punto QR";
-            setAdHocMarkedPoints((prev) => [
-              ...prev,
-              {
-                id: `adhoc-${Date.now()}`,
-                lat: guardPos.lat,
-                lng: guardPos.lng,
-                name: `${label} #${prev.length + 1}`,
-              },
-            ]);
-          }
-          setMarkingCheckpointId(null);
-          refreshCheckpoints();
-        }}
-        onBack={() => setMarkingCheckpointId(null)}
-      />
-    );
-  }
 
   // ---------------------------------------------------------------------------
   // Render: Main
@@ -704,6 +727,7 @@ export function RondaActiva({
           interactive={true}
           showCenterButton={true}
           trailPoints={trailPoints}
+          markingCheckpointId={markingCheckpointId}
         />
 
         {/* Map collapse toggle — hidden for ad-hoc rondas (fixed compact map) */}
@@ -1117,6 +1141,40 @@ export function RondaActiva({
             </button>
           </div>
         </div>
+      )}
+
+      {/* ============ CheckpointMarker Overlay ============ */}
+      {markingCheckpointId && markingCpInfo && (
+        <CheckpointMarker
+          checkpoint={markingCpInfo}
+          ejecucionId={rondaData.ejecucionId}
+          guardiaId={session.guardiaId}
+          qrRequerido={markingCheckpoint ? rondaData.qrRequerido : markingCheckpointId === "ad-hoc-scan"}
+          guardPos={guardPos}
+          isInGeofence={isInGeofenceOfMarking}
+          onComplete={() => {
+            if (isAdHoc && guardPos) {
+              const label = markingCheckpointId === "ad-hoc-gps" ? "Punto GPS" : "Punto QR";
+              setAdHocMarkedPoints((prev) => [
+                ...prev,
+                {
+                  id: `adhoc-${Date.now()}`,
+                  lat: guardPos.lat,
+                  lng: guardPos.lng,
+                  name: `${label} #${prev.length + 1}`,
+                },
+              ]);
+            }
+            setMarkingCheckpointId(null);
+            refreshCheckpoints();
+          }}
+          onBack={() => {
+            if (markingCheckpointId && !markingCheckpointId.startsWith("ad-hoc")) {
+              autoOpenCooldownRef.current.set(markingCheckpointId, Date.now() + 60000);
+            }
+            setMarkingCheckpointId(null);
+          }}
+        />
       )}
     </div>
   );

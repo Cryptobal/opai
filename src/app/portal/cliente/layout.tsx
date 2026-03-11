@@ -7,11 +7,11 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#0a0a0f",
+  themeColor: "#060a13",
 };
 
 export const metadata: Metadata = {
-  title: "OPAI Clientes — Gard Security",
+  title: "OPAI — Portal Cliente",
   description: "Portal de clientes de seguridad.",
   manifest: "/manifest-cliente.json",
   robots: { index: false, follow: false },
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 
 export default function PortalClienteLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh bg-[#0a0a0f] text-white">
+    <div className="min-h-dvh text-white">
       <PwaRegistrar />
       <BadgeClear />
       {children}
