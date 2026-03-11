@@ -94,8 +94,37 @@ export async function POST(request: Request) {
       );
     }
 
+    // Query pauta mensual to get planned shift times per guard
+    const shiftMap = new Map<string, string>();
+    try {
+      const pautas = await prisma.opsPautaMensual.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          date: cn.date,
+          shiftCode: "T",
+          OR: [
+            { plannedGuardiaId: { not: null } },
+            { replacementGuardiaId: { not: null } },
+          ],
+        },
+        select: {
+          plannedGuardiaId: true,
+          replacementGuardiaId: true,
+          puesto: { select: { shiftStart: true } },
+        },
+      });
+      for (const p of pautas) {
+        const gId = p.replacementGuardiaId ?? p.plannedGuardiaId;
+        if (gId && p.puesto?.shiftStart) {
+          shiftMap.set(gId, p.puesto.shiftStart);
+        }
+      }
+    } catch (err) {
+      console.error("[COBERTURA_EMAIL] Failed to fetch pauta shift data:", err);
+    }
+
     // Build snapshot filtered by turno
-    const snapshot = buildCoberturaSnapshot(cn.instalaciones, turnoFilter);
+    const snapshot = buildCoberturaSnapshot(cn.instalaciones, turnoFilter, shiftMap);
 
     if (snapshot.instalaciones.length === 0) {
       return NextResponse.json(

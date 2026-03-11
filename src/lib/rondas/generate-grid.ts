@@ -72,14 +72,15 @@ async function resolveGuardsFromSources(
   const result: Array<{ guardiaId: string; guardiaNombre: string; isExtra: boolean; turno: "nocturno" | "diurno" }> = [];
 
   // ── Source 1: Pauta mensual for today ──
-  // Only include guards actually working (Tn = nocturno, Td = diurno).
+  // Only include guards actually working (shiftCode = "T").
   // Excludes rest days ("-"), vacations ("V"), licencias, etc.
+  // Turno (nocturno/diurno) is derived from puesto.shiftStart.
   const pautas = await prisma.opsPautaMensual.findMany({
     where: {
       tenantId,
       installationId,
       date: cnDate,
-      shiftCode: { in: ["Tn", "Td"] },
+      shiftCode: "T",
     },
     include: {
       plannedGuardia: {
@@ -96,9 +97,9 @@ async function resolveGuardsFromSources(
     const seen = new Set<string>();
     for (const pauta of pautas) {
       const effective = pauta.replacementGuardia ?? pauta.plannedGuardia;
-      // Use shiftCode directly: "Tn" → nocturno, "Td" → diurno
+      // Determine turno from puesto shift hours
       const turno: "nocturno" | "diurno" =
-        pauta.shiftCode === "Td" ? "diurno" : "nocturno";
+        pauta.puesto?.shiftStart ? turnoFromShift(pauta.puesto.shiftStart) : "nocturno";
       if (!effective) {
         // PPC entry: slot exists in pauta but no guard assigned
         const ppcKey = `ppc-${pauta.id}-${turno}`;
@@ -140,7 +141,7 @@ async function resolveGuardsFromSources(
   if (asignaciones.length > 0) {
     const seen = new Set<string>();
     for (const asig of asignaciones) {
-      const turno = turnoFromShift(asig.puesto.shiftStart);
+      const turno = asig.puesto?.shiftStart ? turnoFromShift(asig.puesto.shiftStart) : "nocturno";
       const key = `${asig.guardiaId}-${turno}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -209,9 +210,11 @@ async function populateGuards(
   const resolvedKeys = new Set(resolved.map((g) => guardKey(g.guardiaId || null, g.guardiaNombre, g.turno)));
 
   // Add guards that don't already exist
+  const addedKeys = new Set<string>();
   for (const guard of resolved) {
     const key = guardKey(guard.guardiaId || null, guard.guardiaNombre, guard.turno);
-    if (existingKeys.has(key)) continue;
+    if (existingKeys.has(key) || addedKeys.has(key)) continue;
+    addedKeys.add(key);
     await prisma.opsControlNocturnoGuardia.create({
       data: {
         controlInstalacionId,

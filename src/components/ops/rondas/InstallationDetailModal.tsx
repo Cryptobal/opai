@@ -96,7 +96,7 @@ export function InstallationDetailModal({ open, onClose, instalacion, alertRows 
   }, [alertRows, instalacion]);
 
   const completedRondas = (instalacion.rondas ?? []).filter((r) => r.status === "completada");
-  const trustScores = completedRondas.filter((r) => r.trustScore != null).map((r) => r.trustScore!);
+  const trustScores = completedRondas.filter((r) => r.trustScore != null && r.trustScore > 0).map((r) => r.trustScore!);
   const avgTrust = trustScores.length > 0 ? Math.round(trustScores.reduce((a, b) => a + b, 0) / trustScores.length) : null;
 
   return (

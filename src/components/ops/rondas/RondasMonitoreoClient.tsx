@@ -675,7 +675,7 @@ export function RondasMonitoreoClient({
         activeRondasCount={filtered.filter((r: any) => r.status === "en_curso").length}
         completedCount={rows.filter((r: any) => r.status === "completada").length}
         missedCount={rows.filter((r: any) => r.status === "no_realizada" || r.status === "incompleta").length}
-        trustAvg={(() => { const scored = rows.filter((r: any) => r.trustScore != null); return scored.length > 0 ? Math.round(scored.reduce((s: number, r: any) => s + r.trustScore, 0) / scored.length) : 0; })()}
+        trustAvg={(() => { const scored = rows.filter((r: any) => r.trustScore != null && r.trustScore > 0); return scored.length > 0 ? Math.round(scored.reduce((s: number, r: any) => s + r.trustScore, 0) / scored.length) : 0; })()}
         alertCount={currentAlertCount}
         operatorName={userName}
         onOpenCloseTurno={isReadOnly ? undefined : (id) => setCloseTurnoId(id)}

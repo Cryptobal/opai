@@ -138,7 +138,7 @@ export function MobileMonitorView({
     const cumplimiento = expected.length > 0
       ? Math.round((expected.filter((r: any) => r.status === "completada").length / expected.length) * 100)
       : 0;
-    const scores = allRondas.filter((r: any) => r.trustScore != null);
+    const scores = allRondas.filter((r: any) => r.trustScore != null && r.trustScore > 0);
     const trustAvg = scores.length > 0
       ? Math.round(scores.reduce((a: number, r: any) => a + (r.trustScore ?? 0), 0) / scores.length)
       : 0;

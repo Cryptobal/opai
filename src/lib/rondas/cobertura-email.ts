@@ -13,6 +13,7 @@ export interface CoberturaGuardia {
   nombre: string;
   status: string; // pendiente, en_camino, presente, no_viene, reemplazo
   turno: string; // nocturno, diurno
+  horaPlanificada: string | null; // planned shift start from puesto (e.g. "19:00")
   horaLlegada: string | null;
   isExtra: boolean;
   notes: string | null;
@@ -151,6 +152,7 @@ export function buildCoberturaSnapshot(
     coberturaStatus: string;
     notes?: string | null;
     guardias: {
+      guardiaId?: string | null;
       guardiaNombre: string;
       status: string;
       turno: string;
@@ -160,6 +162,8 @@ export function buildCoberturaSnapshot(
     }[];
   }[],
   turnoFilter: "nocturno" | "diurno",
+  /** Map of guardiaId → planned shift start (e.g. "19:00") from pauta mensual */
+  shiftMap?: Map<string, string>,
 ): CoberturaSnapshot {
   const turnoLabel =
     turnoFilter === "nocturno"
@@ -200,6 +204,7 @@ export function buildCoberturaSnapshot(
         nombre: g.guardiaNombre,
         status: g.status,
         turno: g.turno,
+        horaPlanificada: (g.guardiaId && shiftMap?.get(g.guardiaId)) ?? null,
         horaLlegada: g.horaLlegada,
         isExtra: g.isExtra,
         notes: g.notes,
@@ -337,8 +342,11 @@ export function buildCoberturaEmailHtml(
         .map((g) => {
           const gColor = guardStatusColor(g.status);
           const icon = guardStatusIcon(g.status);
+          const scheduled = g.horaPlanificada
+            ? ` <span style="color:#64748b;font-size:10px">Turno: ${escapeHtml(g.horaPlanificada)}</span>`
+            : "";
           const arrival = g.horaLlegada
-            ? ` · ${escapeHtml(g.horaLlegada)}`
+            ? ` <span style="color:#64748b;font-size:10px">${g.horaPlanificada ? "· " : ""}Llegada: ${escapeHtml(g.horaLlegada)}</span>`
             : "";
           const extraBadge = g.isExtra
             ? ' <span style="background:#7c3aed;color:#fff;font-size:9px;padding:1px 4px;border-radius:3px;margin-left:4px">EXTRA</span>'
@@ -347,7 +355,7 @@ export function buildCoberturaEmailHtml(
             g.notes
               ? `<br/><span style="color:#94a3b8;font-size:10px;padding-left:16px">↳ ${escapeHtml(g.notes)}</span>`
               : "";
-          return `<span style="color:${gColor};font-size:11px">${icon} ${escapeHtml(g.nombre)}${extraBadge}${arrival}</span>${notesStr}`;
+          return `<span style="color:${gColor};font-size:11px">${icon} ${escapeHtml(g.nombre)}${extraBadge}${scheduled}${arrival}</span>${notesStr}`;
         })
         .join("<br/>");
 

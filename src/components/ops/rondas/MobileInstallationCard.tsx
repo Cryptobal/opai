@@ -179,7 +179,7 @@ export function MobileInstallationCard({
   const completadas = rondas.filter((r) => r.status === "completada").length;
   const omitidas = rondas.filter((r) => r.status === "omitida").length;
   const expected = rondas.filter((r) => r.rondaExpected).length;
-  const scores = rondas.filter((r) => r.trustScore != null);
+  const scores = rondas.filter((r) => r.trustScore != null && r.trustScore > 0);
   const avgTrust = scores.length > 0 ? Math.round(scores.reduce((a, r) => a + (r.trustScore ?? 0), 0) / scores.length) : null;
 
   const isDescubierta = instalacion.coberturaStatus === "descubierta";
