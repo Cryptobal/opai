@@ -127,7 +127,18 @@ async function resolveGuardsFromSources(
     if (result.length > 0) return result;
   }
 
+  // If the pauta has ANY entries for this date (even rest days "-"),
+  // it is the source of truth — don't fall to Source 2/3.
+  // An empty result means no guards work tonight (all on rest / vacation).
+  if (pautas.length === 0) {
+    const pautaExists = await prisma.opsPautaMensual.count({
+      where: { tenantId, installationId, date: cnDate },
+    });
+    if (pautaExists > 0) return result;
+  }
+
   // ── Source 2: Active asignaciones ──
+  // Only used for installations with NO pauta data at all
   const asignaciones = await prisma.opsAsignacionGuardia.findMany({
     where: { tenantId, installationId, isActive: true },
     include: {
