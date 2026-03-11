@@ -523,13 +523,14 @@ export function CheckpointMarker({
   // Render: Overlays
   // ------------------------------------------------------------------
   if (showQr) {
+    const isAdHoc = checkpoint.id.startsWith("ad-hoc");
     return (
       <QrScanner
         onScan={(code) => {
           setQrCode(code);
           setShowQr(false);
         }}
-        onClose={() => setShowQr(false)}
+        onClose={isAdHoc ? onBack : () => setShowQr(false)}
       />
     );
   }
@@ -718,6 +719,7 @@ export function CheckpointMarker({
   // ------------------------------------------------------------------
   // Render: Quick Mark — compact view for in-geofence GPS checkpoints
   // ------------------------------------------------------------------
+  const isAdHocScan = checkpoint.id === "ad-hoc-scan";
   if (isInGeofence && tasks.length === 0 && !isAdHocGps) {
     return (
       <>
@@ -742,14 +744,27 @@ export function CheckpointMarker({
           .animate-slide-up { animation: slide-up 0.3s ease-out; }
         `}</style>
 
-        <div className="fixed inset-0 z-[1100] flex items-end">
+        <div className="fixed inset-0 z-[9999] flex items-end">
           <div className="absolute inset-0 bg-black/30" onClick={onBack} />
           <div className="relative w-full max-h-[35vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
             {showSuccessFlash && (
               <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-emerald-500/20 transition-opacity" />
             )}
-            <div className="flex justify-center py-2.5 sticky top-0 bg-zinc-900 z-10">
-              <div className="w-10 h-1 bg-zinc-600 rounded-full" />
+            <div className="flex items-center justify-between gap-2 py-2.5 px-4 sticky top-0 bg-zinc-900 z-10">
+              <div className="flex-1 flex justify-center">
+                <div className="w-10 h-1 bg-zinc-600 rounded-full" />
+              </div>
+              {isAdHocScan && (
+                <button
+                  onClick={onBack}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-white transition-colors active:bg-zinc-700"
+                  aria-label="Cerrar"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
 
             <div className="space-y-3 px-4" style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}>

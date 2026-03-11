@@ -60,12 +60,19 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4">
+    <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+      {/* Header — botón cerrar siempre visible */}
+      <div
+        className="flex items-center justify-between p-4 shrink-0"
+        style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
+      >
         <span className="text-white text-lg font-semibold">Escanear QR</span>
-        <button onClick={onClose} className="text-white p-2" aria-label="Cerrar">
-          <X size={24} />
+        <button
+          onClick={onClose}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-white transition-colors active:bg-zinc-700"
+          aria-label="Cerrar"
+        >
+          <X size={22} />
         </button>
       </div>
 
