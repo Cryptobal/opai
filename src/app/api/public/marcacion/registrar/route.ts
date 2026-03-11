@@ -326,10 +326,13 @@ export async function POST(req: NextRequest) {
         const isReplacementRow = asistencia.replacementGuardiaId === guardia.id
           && asistencia.attendanceStatus === "reemplazo";
 
-        const updateData: Record<string, unknown> = {};
+        const updateData: Record<string, unknown> = {
+          source: "marcacion_electronica",
+        };
         if (tipo === "entrada") {
           updateData.checkInAt = serverTimestamp;
           updateData.checkInSource = "digital";
+          updateData.marcacionEntradaId = marcacion.id;
           if (!isReplacementRow && asistencia.attendanceStatus === "pendiente") {
             updateData.attendanceStatus = "asistio";
             updateData.actualGuardiaId = guardia.id;
@@ -337,6 +340,7 @@ export async function POST(req: NextRequest) {
         } else {
           updateData.checkOutAt = serverTimestamp;
           updateData.checkOutSource = "digital";
+          updateData.marcacionSalidaId = marcacion.id;
         }
 
         const metrics = computeAttendanceMetrics({

@@ -2237,6 +2237,15 @@ model OpsGuardia {
   availableExtraShifts  Boolean   @default(false) @map("available_extra_shifts")
   marcacionPin          String?   @map("marcacion_pin") // bcrypt hash del PIN de 4-6 dígitos
   marcacionPinVisible   String?   @map("marcacion_pin_visible") // PIN activo visible en ficha para operación
+
+  // ── Face ID (AWS Rekognition) ──
+  faceIdRegistered      Boolean   @default(false) @map("face_id_registered")
+  faceIdAwsId           String?   @map("face_id_aws_id") // AWS Rekognition FaceId
+  faceIdPhotoUrl        String?   @map("face_id_photo_url") // R2 URL de foto de referencia
+  faceIdPhotoKey        String?   @map("face_id_photo_key") // R2 storage key
+  faceIdRegisteredAt    DateTime? @map("face_id_registered_at") @db.Timestamptz(6)
+  faceIdConsentAt       DateTime? @map("face_id_consent_at") @db.Timestamptz(6)
+  faceIdConsentRevoked  Boolean   @default(false) @map("face_id_consent_revoked")
   currentInstallationId String?   @map("current_installation_id") @db.Uuid
   montoAnticipo         Int       @default(0) @map("monto_anticipo")
   recibeAnticipo        Boolean   @default(false) @map("recibe_anticipo")
@@ -3015,6 +3024,9 @@ model OpsAsistenciaDiaria {
   lockedAt             DateTime? @map("locked_at") @db.Timestamptz(6)
   lockedBy             String?   @map("locked_by")
   correctionReason     String?   @map("correction_reason")
+  marcacionEntradaId   String?   @map("marcacion_entrada_id") @db.Uuid
+  marcacionSalidaId    String?   @map("marcacion_salida_id") @db.Uuid
+  source               String    @default("manual") @map("source") // "marcacion_electronica" | "manual" | "import"
   createdBy            String?   @map("created_by")
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -3031,6 +3043,8 @@ model OpsAsistenciaDiaria {
   plannedGuardia     OpsGuardia?        @relation("ops_asistencia_planificada_guardia", fields: [plannedGuardiaId], references: [id], onDelete: SetNull)
   actualGuardia      OpsGuardia?        @relation("ops_asistencia_real_guardia", fields: [actualGuardiaId], references: [id], onDelete: SetNull)
   replacementGuardia OpsGuardia?        @relation("ops_asistencia_reemplazo_guardia", fields: [replacementGuardiaId], references: [id], onDelete: SetNull)
+  marcacionEntrada   OpsMarcacion?      @relation("asistencia_marcacion_entrada", fields: [marcacionEntradaId], references: [id], onDelete: SetNull)
+  marcacionSalida    OpsMarcacion?      @relation("asistencia_marcacion_salida", fields: [marcacionSalidaId], references: [id], onDelete: SetNull)
   turnosExtra        OpsTurnoExtra[]
 
   @@unique([puestoId, slotNumber, date], map: "uq_ops_asistencia_puesto_slot_fecha")
@@ -3199,12 +3213,15 @@ model OpsMarcacion {
   lng              Float?
   geoValidada      Boolean  @default(false) @map("geo_validada")
   geoDistanciaM    Float?   @map("geo_distancia_m") // distancia al centro de la instalación en metros
-  metodoId         String   @default("rut_pin") @map("metodo_id") // método de identificación
+  metodoId         String   @default("rut_pin") @map("metodo_id") // "rut_pin" | "face_id" | "manual" | "import"
   fotoEvidenciaUrl String?  @map("foto_evidencia_url") // URL de la foto capturada al marcar (evidencia, no biométrica)
+  faceConfidence   Float?   @map("face_confidence") // Confianza del match facial (0-100)
   ipAddress        String?  @map("ip_address")
   userAgent        String?  @map("user_agent")
   hashIntegridad   String   @map("hash_integridad") // SHA-256 del registro completo
   atrasoMinutos    Int?     @map("atraso_minutos") // minutos de atraso cuando tipo=entrada
+  offlineSync      Boolean  @default(false) @map("offline_sync") // Marcación registrada offline
+  deviceTimestamp  DateTime? @map("device_timestamp") @db.Timestamptz(6) // Timestamp del dispositivo (offline)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   // ── Resolución Exenta N°38 — Campos obligatorios ──
@@ -3225,9 +3242,11 @@ model OpsMarcacion {
   modificationReason    String?   @map("modification_reason")
   isModified            Boolean   @default(false) @map("is_modified")
 
-  guardia      OpsGuardia          @relation(fields: [guardiaId], references: [id])
-  installation CrmInstallation     @relation(fields: [installationId], references: [id], onDelete: Restrict)
-  puesto       OpsPuestoOperativo? @relation(fields: [puestoId], references: [id])
+  guardia                OpsGuardia              @relation(fields: [guardiaId], references: [id])
+  installation           CrmInstallation         @relation(fields: [installationId], references: [id], onDelete: Restrict)
+  puesto                 OpsPuestoOperativo?     @relation(fields: [puestoId], references: [id])
+  asistenciaEntradas     OpsAsistenciaDiaria[]   @relation("asistencia_marcacion_entrada")
+  asistenciaSalidas      OpsAsistenciaDiaria[]   @relation("asistencia_marcacion_salida")
 
   @@index([tenantId], map: "idx_ops_marcaciones_tenant")
   @@index([guardiaId], map: "idx_ops_marcaciones_guardia")
@@ -3735,8 +3754,9 @@ model DevicePairing {
   name                 String?
   status               String    @default("ACTIVE") // ACTIVE | DISABLED | REVOKED
 
-  portalRondasEnabled  Boolean   @default(true) @map("portal_rondas_enabled")
-  portalAccesoEnabled  Boolean   @default(true) @map("portal_acceso_enabled")
+  portalRondasEnabled    Boolean   @default(true) @map("portal_rondas_enabled")
+  portalAccesoEnabled    Boolean   @default(true) @map("portal_acceso_enabled")
+  portalMarcacionEnabled Boolean   @default(true) @map("portal_marcacion_enabled")
 
   deviceModel          String?   @map("device_model")
   androidVersion       String?   @map("android_version")

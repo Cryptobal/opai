@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const full = await prisma.devicePairing.findUnique({
       where: { id: device.id },
       include: {
-        installation: { select: { name: true } },
+        installation: { select: { name: true, marcacionCode: true } },
         currentGuard: {
           include: {
             persona: { select: { firstName: true, lastName: true } },
@@ -47,6 +47,8 @@ export async function GET(request: NextRequest) {
         tenantId: device.tenantId,
         portalRondasEnabled: device.portalRondasEnabled,
         portalAccesoEnabled: device.portalAccesoEnabled,
+        portalMarcacionEnabled: device.portalMarcacionEnabled,
+        marcacionCode: full?.installation?.marcacionCode || null,
         currentGuardId: device.currentGuardId,
         currentGuardName,
         name: device.name,

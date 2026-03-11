@@ -7,6 +7,7 @@ const PRECACHE_URLS = [
   '/portal/rondas',
   '/portal/supervisor',
   '/portal/acceso',
+  '/portal/marcacion',
   '/opai/login',
   OFFLINE_URL,
 ];
