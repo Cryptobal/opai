@@ -31,9 +31,9 @@ export async function GET(request: NextRequest) {
     const now = new Date();
 
     // Find all pending executions that were never started.
-    // We fetch those scheduled more than 30 minutes ago (minimum grace),
+    // We fetch those scheduled more than 10 minutes ago (minimum grace),
     // then apply per-programacion tolerance in JS.
-    const cutoffMin = new Date(now.getTime() - 30 * 60 * 1000); // 30 min ago as safe lower bound
+    const cutoffMin = new Date(now.getTime() - 10 * 60 * 1000); // 10 min ago as safe lower bound
     const pendingEjecuciones = await prisma.opsRondaEjecucion.findMany({
       where: {
         status: "pendiente",
@@ -51,10 +51,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: { cerradas: 0, fecha: now.toISOString() } });
     }
 
-    // Filter: only close if scheduledAt + tolerancia + 30 min has passed
+    // Filter: only close if scheduledAt + tolerancia has passed (no extra grace)
     const toClose = pendingEjecuciones.filter((ej) => {
       const toleranciaMin = ej.programacion?.toleranciaMinutos ?? 30;
-      const graceMs = (toleranciaMin + 30) * 60 * 1000;
+      const graceMs = toleranciaMin * 60 * 1000;
       return ej.scheduledAt.getTime() + graceMs < now.getTime();
     });
 

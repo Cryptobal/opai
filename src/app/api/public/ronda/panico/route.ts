@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       where: { id: parsed.data.executionId },
       include: {
         rondaTemplate: { select: { installationId: true } },
-        guardia: { include: { persona: { select: { firstName: true, lastName: true } } } },
+        guardia: { include: { persona: { select: { firstName: true, lastName: true, phone: true } } } },
       },
     });
     if (!execution || !execution.guardiaId) {
@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
         incidenteId: result.incidente.id,
         guardiaId: execution.guardiaId,
         guardiaNombre,
+        guardiaTelefono: execution.guardia?.persona.phone ?? null,
         installationId: alertInstallationId,
         installationNombre: installation?.name ?? "Instalacion",
         lat: parsed.data.lat,
@@ -108,11 +109,16 @@ export async function POST(request: NextRequest) {
 
     // Push + chat notification for panic alert (fire-and-forget, bypasses cooldown)
     if (result.alerta) {
+      const parts = [result.alerta.mensaje];
+      if (execution.guardia?.persona.phone) parts.push(`Tel: ${execution.guardia.persona.phone}`);
+      if (installation?.name) parts.push(`Instalacion: ${installation.name}`);
+      parts.push(`Ubicacion: https://maps.google.com/?q=${parsed.data.lat},${parsed.data.lng}`);
+
       notifyCriticalAlert({
         tenantId: execution.tenantId,
         tipo: "panico",
         severidad: "critical",
-        mensaje: result.alerta.mensaje,
+        mensaje: parts.join("\n"),
       }).catch((err) => console.error("[public/panico] Alert notification failed:", err));
     }
 

@@ -24,6 +24,8 @@ export interface ReporteRow {
   trustScore: number;
   trustBreakdown: TrustBreakdown | null;
   durationMinutes: number | null;
+  walkRoute: Array<{ lat: number; lng: number }> | null;
+  routeSnapshot: Array<{ id: string; name: string; lat: number; lng: number; orderIndex: number; status: string }> | null;
   marcaciones: MarcacionRow[];
 }
 
@@ -59,6 +61,7 @@ interface Props {
   sortKey: string;
   sortDir: "asc" | "desc";
   onSort: (key: string) => void;
+  onViewMap?: (row: ReporteRow) => void;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
@@ -140,7 +143,7 @@ function TrustBreakdownBars({ breakdown }: { breakdown: TrustBreakdown }) {
   );
 }
 
-function ExpandedRow({ row }: { row: ReporteRow }) {
+function ExpandedRow({ row, onViewMap }: { row: ReporteRow; onViewMap?: (row: ReporteRow) => void }) {
   return (
     <tr>
       <td colSpan={9} className="px-4 py-3 bg-muted/20 border-b border-border/50">
@@ -217,6 +220,15 @@ function ExpandedRow({ row }: { row: ReporteRow }) {
                 </span>
               </div>
             )}
+            {row.walkRoute && row.walkRoute.length > 0 && onViewMap && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onViewMap(row); }}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-teal-500/15 px-3 py-1.5 text-xs font-medium text-teal-400 hover:bg-teal-500/25 transition-colors"
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                Ver Mapa de Ronda
+              </button>
+            )}
           </div>
         </div>
       </td>
@@ -232,6 +244,7 @@ export function RondasReportesTable({
   sortKey,
   sortDir,
   onSort,
+  onViewMap,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -305,11 +318,19 @@ export function RondasReportesTable({
                         )}
                       </td>
                       <td className={cellCls}>
-                        {new Date(row.scheduledAt).toLocaleDateString("es-CL", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                        <div>
+                          {new Date(row.scheduledAt).toLocaleDateString("es-CL", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(row.scheduledAt).toLocaleTimeString("es-CL", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
                       </td>
                       <td className={cn(cellCls, "max-w-[160px] truncate")}>{row.installation}</td>
                       <td className={cn(cellCls, "max-w-[140px] truncate")}>{row.template}</td>
@@ -354,7 +375,7 @@ export function RondasReportesTable({
                         </span>
                       </td>
                     </tr>
-                    {isExpanded && <ExpandedRow row={row} />}
+                    {isExpanded && <ExpandedRow row={row} onViewMap={onViewMap} />}
                   </Fragment>
                 );
               })

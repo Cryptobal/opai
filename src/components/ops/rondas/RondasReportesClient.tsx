@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, Loader2, BarChart3, User, Map } from "lucide-react";
+import { Download, Loader2, BarChart3, User, Map, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { RondasComplianceChart } from "./RondasComplianceChart";
 import { RondasReportesTable, type ReporteRow } from "./RondasReportesTable";
 import { RondasReportesPorGuardia } from "./RondasReportesPorGuardia";
 import { RondasReportesHeatmap } from "./RondasReportesHeatmap";
+import { RondaAuditMapModal } from "./RondaAuditMapModal";
 
 interface Installation {
   id: string;
@@ -39,6 +40,17 @@ interface Totals {
   trustPromedio: number;
 }
 
+interface PanicAlert {
+  id: string;
+  createdAt: string;
+  mensaje: string;
+  installation: string;
+  guardia: string;
+  resuelta: boolean;
+  isAcknowledged: boolean;
+  responseTimeMin: number | null;
+}
+
 interface Props {
   initialRows: ReporteRow[];
   initialTotals: Totals;
@@ -46,6 +58,7 @@ interface Props {
   installations: Installation[];
   guardias: GuardiaOption[];
   companyName?: string;
+  panicAlerts?: PanicAlert[];
 }
 
 const TABS = [
@@ -76,6 +89,7 @@ export function RondasReportesClient({
   installations,
   guardias,
   companyName,
+  panicAlerts,
 }: Props) {
   const [rows, setRows] = useState<ReporteRow[]>(initialRows);
   const [totals, setTotals] = useState<Totals>(initialTotals);
@@ -94,6 +108,7 @@ export function RondasReportesClient({
   const [sortKey, setSortKey] = useState("scheduledAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
+  const [mapRow, setMapRow] = useState<ReporteRow | null>(null);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
@@ -242,6 +257,50 @@ export function RondasReportesClient({
 
   return (
     <div className="space-y-4">
+      {/* Panic alerts banner */}
+      {panicAlerts && panicAlerts.length > 0 && (
+        <div className="rounded-xl border border-red-500/30 bg-red-950/20 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="h-5 w-5 text-red-400" />
+            <h3 className="text-sm font-bold text-red-400">
+              Alertas de Pánico ({panicAlerts.length})
+            </h3>
+          </div>
+          <div className="space-y-2">
+            {panicAlerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="flex items-center justify-between rounded-lg bg-red-950/30 border border-red-500/20 px-3 py-2"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div>
+                    <p className="text-xs font-medium text-red-300">{alert.guardia}</p>
+                    <p className="text-[10px] text-red-400/70">{alert.installation}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-[10px] shrink-0">
+                  <span className="text-red-400/70">
+                    {new Date(alert.createdAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short" })}{" "}
+                    {new Date(alert.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {alert.isAcknowledged ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-400">
+                      <CheckCircle2 className="h-3 w-3" />
+                      {alert.responseTimeMin != null ? `${alert.responseTimeMin} min` : "Atendida"}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-red-400 font-medium">
+                      <Clock className="h-3 w-3" />
+                      Sin atender
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Global filters */}
       <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-3">
         <div className="flex flex-wrap items-end gap-3">
@@ -367,6 +426,7 @@ export function RondasReportesClient({
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={handleSort}
+            onViewMap={setMapRow}
           />
 
           {/* Export buttons */}
@@ -415,6 +475,11 @@ export function RondasReportesClient({
           dateFrom={dateFrom}
           dateTo={dateTo}
         />
+      )}
+
+      {/* Audit map modal */}
+      {mapRow && (
+        <RondaAuditMapModal row={mapRow} onClose={() => setMapRow(null)} />
       )}
     </div>
   );

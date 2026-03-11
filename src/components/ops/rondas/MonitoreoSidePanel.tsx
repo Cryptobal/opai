@@ -73,6 +73,8 @@ interface Props {
   selectedInstallationId: string | null;
   // Active tab override (from header alert badge)
   initialTab?: "rondas" | "alertas" | "instalaciones";
+  // Chat message callback
+  onMessage?: (installationId: string) => void;
 }
 
 type TabKey = "rondas" | "alertas" | "instalaciones" | "historial";
@@ -98,6 +100,7 @@ export function MonitoreoSidePanel({
   onInstallationClick,
   selectedInstallationId,
   initialTab,
+  onMessage,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? "rondas");
 
@@ -192,6 +195,7 @@ export function MonitoreoSidePanel({
             selectedRondaId={selectedRondaId}
             onSelectGuard={onSelectGuard}
             onAddNote={onAddNote}
+            onMessage={onMessage}
           />
         )}
         {activeTab === "alertas" && (
@@ -232,12 +236,14 @@ function RondasTab({
   selectedRondaId,
   onSelectGuard,
   onAddNote,
+  onMessage,
 }: {
   guardPanelData: any[];
   completedData?: any[];
   selectedRondaId: string | null;
   onSelectGuard: (id: string | null) => void;
   onAddNote: (ejecucionId: string, guardiaId: string, installationId: string, note: string) => Promise<void>;
+  onMessage?: (installationId: string) => void;
 }) {
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -265,6 +271,7 @@ function RondasTab({
           onSelectGuard={onSelectGuard}
           selectedId={selectedRondaId}
           onAddNote={onAddNote}
+          onMessage={onMessage}
         />
       )}
 

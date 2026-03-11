@@ -14,13 +14,13 @@ import { MobileMonitorView } from "@/components/ops/rondas/MobileMonitorView";
 import { formatPersonName } from "@/lib/personas";
 import { toast } from "sonner";
 import Pusher from "pusher-js";
-import { PanicAlertBanner } from "./PanicAlertBanner";
-import type { PanicAlertData } from "./PanicAlertBanner";
+// PanicAlertBanner removed — panic alerts are now handled globally by PanicAlertProvider in AppLayoutClient
 import { CoberturaSheet } from "./CoberturaSheet";
 import { InstallationDetailModal } from "./InstallationDetailModal";
 import { soundCheckpointMarked, soundRondaCompleted, soundRondaStarted, soundAlert } from "@/lib/rondas/monitor-sounds";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 
 interface AlertRow {
   id: string;
@@ -78,7 +78,7 @@ export function RondasMonitoreoClient({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [closeTurnoId, setCloseTurnoId] = useState<string | null>(null);
   const [currentAlertCount, setCurrentAlertCount] = useState(alertCount);
-  const [panicAlerts, setPanicAlerts] = useState<PanicAlertData[]>([]);
+  // panicAlerts state removed — now handled globally by PanicAlertProvider
   const [alertRows, setAlertRows] = useState<AlertRow[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [mapCenterOverride, setMapCenterOverride] = useState<{ lat: number; lng: number } | null>(null);
@@ -97,6 +97,21 @@ export function RondasMonitoreoClient({
   const [splitPct, setSplitPct] = useState(45);
   const [isMobile, setIsMobile] = useState(false);
   const [detailInstallation, setDetailInstallation] = useState<CNInstalacion | null>(null);
+
+  // Chat side panel: open installation channel via "Mensaje" button
+  const chatCtx = useChatSidePanelContext();
+  const handleOpenInstallationChat = useCallback((installationId: string) => {
+    const ch = chatCtx.channels.find(
+      (c) => c.installationId === installationId && c.subType === "reportes",
+    );
+    if (ch) {
+      chatCtx.selectChannel(ch.id);
+      chatCtx.openPanel();
+    } else {
+      // Fallback: just open the panel
+      chatCtx.openPanel();
+    }
+  }, [chatCtx]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -160,8 +175,9 @@ export function RondasMonitoreoClient({
     );
     const channel = pusher.subscribe(`monitoreo-${tenantId}`);
 
-    channel.bind("alerta-panico", (data: PanicAlertData) => {
-      setPanicAlerts((prev) => [...prev, data]);
+    // alerta-panico binding removed — now handled globally by PanicAlertProvider
+    channel.bind("alerta-panico", () => {
+      // Refresh monitoring data when a panic alert arrives (UI handled by PanicAlertProvider)
       soundAlert();
       refreshMonitoreo();
       fetchAlerts();
@@ -667,12 +683,7 @@ export function RondasMonitoreoClient({
 
   return (
     <div className="flex flex-col min-w-0 h-[calc(100vh-64px)]">
-      <PanicAlertBanner
-        alerts={panicAlerts}
-        onAcknowledge={(alertaId) => {
-          setCurrentAlertCount((c) => Math.max(0, c - 1));
-        }}
-      />
+      {/* PanicAlertBanner removed — panic alerts now handled globally by PanicAlertProvider */}
       {/* Turno header */}
       <MonitoreoTurnoHeader
         key={activeTurno?.id ?? "no-turno"}
@@ -843,6 +854,7 @@ export function RondasMonitoreoClient({
                   onInstallationClick={(id) => setSelectedInstallationId(id)}
                   selectedInstallationId={selectedInstallationId}
                   initialTab={sidePanelTab}
+                  onMessage={handleOpenInstallationChat}
                 />
               </div>
             </div>

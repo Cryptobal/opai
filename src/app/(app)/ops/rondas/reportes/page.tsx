@@ -20,7 +20,7 @@ export default async function RondasReportesPage() {
   const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const now = new Date();
 
-  const [rows, installationsRaw, guardiasRaw] = await Promise.all([
+  const [rows, installationsRaw, guardiasRaw, panicAlerts] = await Promise.all([
     prisma.opsRondaEjecucion.findMany({
       where: { tenantId, scheduledAt: { gte: from, lte: now } },
       include: {
@@ -71,6 +71,20 @@ export default async function RondasReportesPage() {
       },
       orderBy: { persona: { lastName: "asc" } },
     }),
+    prisma.opsAlertaRonda.findMany({
+      where: { tenantId, tipo: "panico", createdAt: { gte: from, lte: now } },
+      select: {
+        id: true,
+        createdAt: true,
+        mensaje: true,
+        resuelta: true,
+        isAcknowledged: true,
+        acknowledgedAt: true,
+        installation: { select: { name: true } },
+        guardia: { select: { persona: { select: { firstName: true, lastName: true } } } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   const mapped = rows.map((row) => ({
@@ -94,6 +108,8 @@ export default async function RondasReportesPage() {
     trustScore: row.trustScore,
     trustBreakdown: (row as any).trustBreakdown as Record<string, unknown> | null,
     durationMinutes: (row as any).durationMinutes,
+    walkRoute: (row as any).walkRoute as Array<{ lat: number; lng: number }> | null,
+    routeSnapshot: (row as any).routeSnapshot as Array<{ id: string; name: string; lat: number; lng: number; orderIndex: number; status: string }> | null,
     marcaciones: row.marcaciones.map((m) => ({
       id: m.id,
       checkpointName: m.checkpoint?.name ?? (m.checkpointId ? "Checkpoint eliminado" : "Punto GPS"),
@@ -148,6 +164,19 @@ export default async function RondasReportesPage() {
     installationName: g.currentInstallation?.name ?? "",
   }));
 
+  const panicData = panicAlerts.map((a) => ({
+    id: a.id,
+    createdAt: a.createdAt.toISOString(),
+    mensaje: a.mensaje,
+    installation: a.installation?.name ?? "—",
+    guardia: a.guardia ? formatPersonName(a.guardia.persona.firstName, a.guardia.persona.lastName) : "—",
+    resuelta: a.resuelta,
+    isAcknowledged: a.isAcknowledged,
+    responseTimeMin: a.acknowledgedAt
+      ? Math.round((a.acknowledgedAt.getTime() - a.createdAt.getTime()) / 60000)
+      : null,
+  }));
+
   const tenantCfg = await getTenantCompanyConfig(tenantId);
 
   return (
@@ -164,6 +193,7 @@ export default async function RondasReportesPage() {
         installations={installationsRaw}
         guardias={guardiaOptions}
         companyName={tenantCfg.commercialName}
+        panicAlerts={panicData}
       />
     </div>
   );

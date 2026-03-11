@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const guardia = await prisma.opsGuardia.findFirst({
       where: { id: guardiaId, tenantId },
       include: {
-        persona: { select: { firstName: true, lastName: true } },
+        persona: { select: { firstName: true, lastName: true, phone: true } },
       },
     });
     if (!guardia) {
@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
         incidenteId: result.incidente.id,
         guardiaId,
         guardiaNombre,
+        guardiaTelefono: guardia.persona.phone ?? null,
         installationId,
         installationNombre: installation?.name ?? "Instalacion",
         lat: lat ?? null,
@@ -114,11 +115,17 @@ export async function POST(request: NextRequest) {
 
     // Push + chat notification for panic alert (fire-and-forget, bypasses cooldown)
     if (result.alerta) {
+      // Build enriched message for chat with phone + location
+      const parts = [result.alerta.mensaje];
+      if (guardia.persona.phone) parts.push(`Tel: ${guardia.persona.phone}`);
+      if (installation?.name) parts.push(`Instalacion: ${installation.name}`);
+      if (lat && lng) parts.push(`Ubicacion: https://maps.google.com/?q=${lat},${lng}`);
+
       notifyCriticalAlert({
         tenantId,
         tipo: "panico",
         severidad: "critical",
-        mensaje: result.alerta.mensaje,
+        mensaje: parts.join("\n"),
       }).catch((err) => console.error("[PANICO] Alert notification failed:", err));
     }
 

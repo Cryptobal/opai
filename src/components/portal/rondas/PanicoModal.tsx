@@ -18,23 +18,6 @@ export function PanicoModal({ session, activeEjecucionId, onClose, onPanicSent }
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 3-second countdown
-  useEffect(() => {
-    if (countdown <= 0) return;
-    intervalRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(intervalRef.current!);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleConfirm = useCallback(async () => {
     if (countdown > 0 || sending) return;
     setSending(true);
@@ -90,6 +73,30 @@ export function PanicoModal({ session, activeEjecucionId, onClose, onPanicSent }
       setSending(false);
     }
   }, [countdown, sending, session, activeEjecucionId, onPanicSent]);
+
+  // 3-second countdown
+  useEffect(() => {
+    if (countdown <= 0) return;
+    intervalRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(intervalRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-send when countdown reaches 0 (no manual confirm needed)
+  useEffect(() => {
+    if (countdown === 0 && !sending && !sent) {
+      handleConfirm();
+    }
+  }, [countdown, sending, sent, handleConfirm]);
 
   // Success state
   if (sent) {
@@ -150,24 +157,20 @@ export function PanicoModal({ session, activeEjecucionId, onClose, onPanicSent }
           />
         </div>
 
-        {/* Confirm button */}
-        <button
-          onClick={handleConfirm}
-          disabled={countdown > 0 || sending}
-          className={`w-full rounded-xl py-4 text-lg font-bold text-white transition-all ${
+        {/* Status text — auto-sends when countdown reaches 0 */}
+        <div
+          className={`w-full rounded-xl py-4 text-lg font-bold text-white text-center transition-all ${
             countdown > 0
               ? "bg-red-900/40 opacity-50"
-              : sending
-                ? "bg-red-700 opacity-70"
-                : "bg-red-600 shadow-lg shadow-red-600/30 hover:bg-red-500 animate-pulse"
+              : "bg-red-700 opacity-70 animate-pulse"
           }`}
         >
           {sending
             ? "Enviando alerta..."
             : countdown > 0
-              ? `Espera ${countdown}s...`
-              : "CONFIRMAR PANICO"}
-        </button>
+              ? `Enviando en ${countdown}s...`
+              : "Preparando envio..."}
+        </div>
 
         {/* Error */}
         {error && (

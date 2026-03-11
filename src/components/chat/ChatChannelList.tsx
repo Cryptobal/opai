@@ -290,7 +290,25 @@ export function ChatChannelList({
       />
     ));
 
-  const shouldExpand = (key: string) => isSearching || filter === "unread" ? true : !collapsed[key];
+  // Auto-expand sections that have unread messages
+  const sectionChannelsMap: Record<string, ChatChannelData[]> = useMemo(() => ({
+    direct: directChannels,
+    group: groupChannels,
+    installation_reportes: installationReportesChannels,
+    installation_interno: installationInternoChannels,
+    prospects: prospectChannels,
+    clients: clientChannels,
+  }), [directChannels, groupChannels, installationReportesChannels, installationInternoChannels, prospectChannels, clientChannels]);
+
+  const shouldExpand = (key: string) => {
+    if (isSearching || filter === "unread") return true;
+    // Auto-expand if section has unread messages (user can still manually collapse)
+    if (collapsed[key]) {
+      const chs = sectionChannelsMap[key];
+      if (chs && sectionUnread(chs) > 0) return true;
+    }
+    return !collapsed[key];
+  };
 
   return (
     <div className="flex flex-col h-full bg-[#0d1220]">

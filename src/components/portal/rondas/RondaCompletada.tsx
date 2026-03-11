@@ -14,8 +14,14 @@ interface CheckpointDetail {
   hasPhoto?: boolean;
 }
 
+interface TrustBreakdownEntry {
+  score: number;
+  weight: number;
+}
+
 interface Props {
   trustScore: number;
+  trustBreakdown?: Record<string, TrustBreakdownEntry> | null;
   porcentajeCompletado: number;
   durationMinutes: number | null;
   missed: number;
@@ -60,8 +66,25 @@ function getPunctuality(scheduledAt?: string, startedAt?: string): string {
 // Component
 // ---------------------------------------------------------------------------
 
+const BREAKDOWN_LABELS: Record<string, string> = {
+  completion: "Completitud",
+  time: "Tiempo",
+  speed: "Velocidad",
+  sequence: "Secuencia",
+  punctuality: "Puntualidad",
+};
+
+const BREAKDOWN_BAR_COLORS: Record<string, string> = {
+  completion: "#22c55e",
+  time: "#3b82f6",
+  speed: "#a855f7",
+  sequence: "#f59e0b",
+  punctuality: "#14b8a6",
+};
+
 export function RondaCompletada({
   trustScore,
+  trustBreakdown,
   porcentajeCompletado,
   durationMinutes,
   missed,
@@ -159,6 +182,40 @@ export function RondaCompletada({
         <p className="text-lg font-semibold" style={{ color }}>
           {trustLabel(clampedScore)}
         </p>
+
+        {/* ---- Trust Score Breakdown ---- */}
+        {trustBreakdown && (() => {
+          const entries = Object.entries(trustBreakdown).filter(
+            ([, v]) => v && typeof v === "object" && "score" in v,
+          ) as [string, TrustBreakdownEntry][];
+          if (entries.length === 0) return null;
+          return (
+            <div className="w-full max-w-sm rounded-2xl border border-gray-800 bg-gray-900/60 p-4 space-y-2.5">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Desglose del Score
+              </p>
+              {entries.map(([key, val]) => (
+                <div key={key} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">
+                      {BREAKDOWN_LABELS[key] ?? key}
+                    </span>
+                    <span className="text-xs font-medium text-white tabular-nums">{val.score}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${Math.max(val.score, 2)}%`,
+                        backgroundColor: BREAKDOWN_BAR_COLORS[key] ?? "#06b6d4",
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* ---- Expanded Summary Card ---- */}
         <div className="w-full max-w-sm rounded-2xl border border-gray-800 bg-gray-900/60 p-5">

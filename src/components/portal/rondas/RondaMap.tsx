@@ -52,7 +52,7 @@ function createCheckpointIcon(
   if (status === "completed") {
     inner = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M5 13l4 4L19 7"/></svg>`;
   } else if (orderIndex != null) {
-    inner = `<span style="font-size:13px;font-weight:700;color:${text};line-height:1;">${orderIndex + 1}</span>`;
+    inner = `<span style="font-size:13px;font-weight:700;color:${text};line-height:1;">${orderIndex}</span>`;
   }
 
   const pulseRing =
@@ -147,7 +147,7 @@ function FitBounds({ checkpoints, guardPosition }: FitBoundsProps) {
       map.setView(p as L.LatLngTuple, 19);
     } else {
       const bounds = L.latLngBounds(points as L.LatLngTuple[]);
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 19 });
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
     }
   }, [map]);
 
@@ -184,6 +184,50 @@ function DisableInteraction() {
       }
     };
   }, [map]);
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// AutoFollowGuard helper component — auto-pans map to keep guard visible
+// ---------------------------------------------------------------------------
+
+function AutoFollowGuard({ guardPosition }: { guardPosition: { lat: number; lng: number } }) {
+  const map = useMap();
+  const lastManualInteraction = useRef(0);
+  const isFirstRender = useRef(true);
+
+  // Track user interactions to pause auto-follow
+  useEffect(() => {
+    const onInteraction = () => {
+      lastManualInteraction.current = Date.now();
+    };
+    map.on("dragstart", onInteraction);
+    map.on("zoomstart", onInteraction);
+    return () => {
+      map.off("dragstart", onInteraction);
+      map.off("zoomstart", onInteraction);
+    };
+  }, [map]);
+
+  // Auto-pan when guard position changes
+  useEffect(() => {
+    // Skip first render (FitBounds handles initial positioning)
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    // If user interacted within last 10 seconds, don't auto-center
+    if (Date.now() - lastManualInteraction.current < 10_000) return;
+
+    // Only pan if guard is outside the visible area
+    const bounds = map.getBounds();
+    const guardLatLng = L.latLng(guardPosition.lat, guardPosition.lng);
+    if (!bounds.contains(guardLatLng)) {
+      map.panTo(guardLatLng, { animate: true, duration: 0.5 });
+    }
+  }, [map, guardPosition.lat, guardPosition.lng]);
 
   return null;
 }
@@ -281,7 +325,7 @@ function RoutePolylines({ checkpoints }: RoutePolylinesProps) {
         color = "#14b8a6";
         dashed = false;
       } else {
-        color = "#52525b";
+        color = "#2DD4BF";
         dashed = true;
       }
 
@@ -293,14 +337,26 @@ function RoutePolylines({ checkpoints }: RoutePolylinesProps) {
 
   return (
     <>
+      {/* White outline for contrast on satellite imagery */}
+      {segments.map((seg, i) => (
+        <Polyline
+          key={`outline-${i}`}
+          positions={seg.positions}
+          pathOptions={{
+            color: "#ffffff",
+            weight: 6,
+            opacity: 0.4,
+          }}
+        />
+      ))}
       {segments.map((seg, i) => (
         <Polyline
           key={i}
           positions={seg.positions}
           pathOptions={{
             color: seg.color,
-            weight: 3,
-            opacity: 0.8,
+            weight: 4,
+            opacity: 0.9,
             dashArray: seg.dashed ? "8 6" : undefined,
           }}
         />
@@ -394,14 +450,14 @@ export default function RondaMap({
           <RoutePolylines checkpoints={checkpoints} />
         )}
 
-        {/* GPS trail polyline (ad-hoc rondas) */}
+        {/* GPS trail polyline — walked route (green, solid) */}
         {trailPoints && trailPoints.length > 1 && (
           <Polyline
             positions={trailPoints.map((p) => [p.lat, p.lng] as L.LatLngExpression)}
             pathOptions={{
-              color: "#14b8a6",
-              weight: 3,
-              opacity: 0.5,
+              color: "#10B981",
+              weight: 4,
+              opacity: 0.8,
               dashArray: undefined,
             }}
           />
@@ -424,6 +480,11 @@ export default function RondaMap({
             icon={guardIcon}
             title="Guardia"
           />
+        )}
+
+        {/* Auto-follow guard when interactive */}
+        {interactive && guardPosition && (
+          <AutoFollowGuard guardPosition={guardPosition} />
         )}
 
         {/* Center button */}

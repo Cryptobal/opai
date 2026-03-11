@@ -36,6 +36,7 @@ import { NotificationProvider } from '@/contexts/NotificationContext';
 import { ChatSidePanelProvider } from '@/components/chat/ChatFloatingProvider';
 import { PushPermissionPrompt } from '@/components/pwa/PushPermissionPrompt';
 import { InAppNotificationProvider } from '@/components/notifications/InAppNotificationProvider';
+import { PanicAlertProvider } from '@/components/ops/PanicAlertProvider';
 
 interface AppLayoutClientProps {
   children: ReactNode;
@@ -231,6 +232,7 @@ function AppLayoutClientInner({
       userId={currentUserId ?? ""}
       chatUrlPrefix="/chat"
     >
+      <PanicAlertProvider tenantId={tenantId ?? ""}>
       <ChatSidePanelProvider currentUserId={currentUserId ?? ''} userRole={userRole}>
         <AppShell
           sidebar={
@@ -255,6 +257,7 @@ function AppLayoutClientInner({
           {children}
         </AppShell>
       </ChatSidePanelProvider>
+      </PanicAlertProvider>
     </InAppNotificationProvider>
   );
 }

@@ -560,7 +560,7 @@ export function CheckpointMarker({
         <div className="absolute inset-0 bg-black/50" onClick={onBack} />
 
         {/* Sheet */}
-        <div className="relative w-full max-h-[75vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
+        <div className="relative w-full max-h-[50vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
           {showSuccessFlash && (
             <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-emerald-500/20 transition-opacity" />
           )}

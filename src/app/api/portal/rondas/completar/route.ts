@@ -7,10 +7,12 @@ import { getPusherServer } from "@/lib/chat";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { ejecucionId, guardiaId, notes } = body as {
+    const { ejecucionId, guardiaId, notes, walkRoute, routeSnapshot } = body as {
       ejecucionId?: string;
       guardiaId?: string;
       notes?: string | null;
+      walkRoute?: Array<{ lat: number; lng: number }>;
+      routeSnapshot?: Array<{ id: string; name: string; lat: number; lng: number; orderIndex: number; status: string }>;
     };
 
     if (!ejecucionId || !guardiaId) {
@@ -147,6 +149,8 @@ export async function POST(request: NextRequest) {
         trustBreakdown: trustResult.breakdown as any,
         durationMinutes,
         notes: notes?.slice(0, 2000) ?? null,
+        walkRoute: walkRoute ?? undefined,
+        routeSnapshot: routeSnapshot ?? undefined,
       },
     });
 

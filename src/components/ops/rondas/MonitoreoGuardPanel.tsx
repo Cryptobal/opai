@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Phone, AlertTriangle, MessageSquarePlus, Send } from "lucide-react";
+import { ChevronDown, ChevronUp, Phone, AlertTriangle, MessageSquarePlus, MessageCircle, Send } from "lucide-react";
 import { RondaProgress } from "@/components/ops/rondas/ronda-progress";
 import { TrustScoreBadge } from "@/components/ops/rondas/trust-score-badge";
 import { cn } from "@/lib/utils";
@@ -54,10 +54,12 @@ interface Props {
   onSelectGuard: (rondaId: string) => void;
   selectedId: string | null;
   onAddNote?: (ejecucionId: string, guardiaId: string, installationId: string, note: string) => Promise<void>;
+  onMessage?: (installationId: string) => void;
 }
 
-export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNote }: Props) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNote, onMessage }: Props) {
+  // Start with all cards expanded by default (en_curso rondas should be visible)
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [noteRondaId, setNoteRondaId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -83,7 +85,7 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
       )}
 
       {rondas.map((r) => {
-        const isExpanded = expandedId === r.id;
+        const isExpanded = !collapsedIds.has(r.id);
         const hasAlerts = r.alerts.length > 0;
         const hasIncidents = (r.incidentes?.length ?? 0) > 0;
         const isNoting = noteRondaId === r.id;
@@ -129,7 +131,7 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                 </div>
               </div>
               <button
-                onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : r.id); }}
+                onClick={(e) => { e.stopPropagation(); setCollapsedIds((prev) => { const next = new Set(prev); if (isExpanded) next.add(r.id); else next.delete(r.id); return next; }); }}
                 className="p-1 rounded hover:bg-muted"
               >
                 {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -162,6 +164,14 @@ export function MonitoreoGuardPanel({ rondas, onSelectGuard, selectedId, onAddNo
                     >
                       <Phone className="h-3 w-3" /> Llamar
                     </a>
+                  )}
+                  {onMessage && r.installationId && (
+                    <button
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1.5 text-xs text-cyan-400"
+                      onClick={(e) => { e.stopPropagation(); onMessage(r.installationId!); }}
+                    >
+                      <MessageCircle className="h-3 w-3" /> Mensaje
+                    </button>
                   )}
                   {onAddNote && r.guardiaId && r.installationId && (
                     <button

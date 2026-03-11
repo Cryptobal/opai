@@ -3378,6 +3378,8 @@ model OpsRondaEjecucion {
   notes                  String?
   installationId         String?   @map("installation_id") @db.Uuid
   deviceInfo             Json?     @map("device_info") @db.JsonB
+  walkRoute              Json?     @map("walk_route") @db.JsonB     // GPS trail walked by guard: [{lat, lng}]
+  routeSnapshot          Json?     @map("route_snapshot") @db.JsonB // Checkpoint states at completion: [{id, name, lat, lng, status}]
   alertas                Json?     @db.JsonB  // DEPRECATED: use alertasRows relation instead (still read by public/ronda/iniciar)
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)

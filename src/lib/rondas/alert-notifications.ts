@@ -58,6 +58,10 @@ interface AlertNotificationParams {
   mensaje: string;
 }
 
+// Alert types that should be sent to the ops chat channel.
+// Other critical alerts (GPS out of range, static guard, etc.) only show in the monitoring panel.
+const CHAT_ALLOWED_TYPES = ["panico", "ronda_no_iniciada", "ronda_no_realizada"];
+
 /**
  * Send push + chat notifications for a critical alert.
  * Call fire-and-forget after creating an alert — does NOT throw.
@@ -65,6 +69,7 @@ interface AlertNotificationParams {
  * - Only sends for severidad === "critical"
  * - Panic alerts bypass cooldown
  * - Other critical alerts respect DB-based cooldown to avoid spam
+ * - Only panic + coverage alerts are sent to chat (to reduce spam)
  */
 export async function notifyCriticalAlert(
   params: AlertNotificationParams,
@@ -72,10 +77,11 @@ export async function notifyCriticalAlert(
   if (params.severidad !== "critical") return;
 
   const isPanic = params.tipo === "panico";
+  const sendToChat = CHAT_ALLOWED_TYPES.includes(params.tipo);
 
   await Promise.allSettled([
     sendAlertPush(params, isPanic),
-    sendAlertToOpsChat(params, isPanic),
+    ...(sendToChat ? [sendAlertToOpsChat(params, isPanic)] : []),
   ]);
 }
 
@@ -98,9 +104,13 @@ export async function notifyCriticalAlertsBatch(
   }
 
   // Multiple critical alerts — send grouped notification
+  const chatAlerts = critical.filter((a) => CHAT_ALLOWED_TYPES.includes(a.tipo));
+
   await Promise.allSettled([
     sendGroupedAlertPush(tenantId, critical, hasPanic),
-    sendGroupedAlertToOpsChat(tenantId, critical, hasPanic),
+    ...(chatAlerts.length > 0
+      ? [sendGroupedAlertToOpsChat(tenantId, chatAlerts, hasPanic)]
+      : []),
   ]);
 }
 
@@ -191,15 +201,25 @@ async function sendAlertToOpsChat(
       if (onCooldown) return;
     }
 
-    const emoji = params.tipo === "panico" ? "🆘" : "🚨";
     const typeLabel = formatAlertType(params.tipo);
 
-    const content = [
-      `${emoji} **Alerta CRITICAL:** ${typeLabel}`,
-      params.mensaje,
-      "",
-      "[Ver en Monitor](/ops/rondas/monitoreo)",
-    ].join("\n");
+    const content =
+      params.tipo === "panico"
+        ? [
+            "🚨🚨🚨 **ALERTA DE PANICO** 🚨🚨🚨",
+            "",
+            params.mensaje,
+            "",
+            "⚠️ REQUIERE ATENCION INMEDIATA",
+            "",
+            "[Ver en Monitor](/ops/rondas/monitoreo)",
+          ].join("\n")
+        : [
+            `🚨 **Alerta CRITICAL:** ${typeLabel}`,
+            params.mensaje,
+            "",
+            "[Ver en Monitor](/ops/rondas/monitoreo)",
+          ].join("\n");
 
     await sendSystemChatMessage({
       tenantId: params.tenantId,

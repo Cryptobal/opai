@@ -68,6 +68,7 @@ export interface RondaData {
 
 export interface CompletionData {
   trustScore: number;
+  trustBreakdown?: Record<string, { score: number; weight: number }> | null;
   porcentajeCompletado: number;
   durationMinutes: number | null;
   missed: number;
@@ -431,6 +432,16 @@ export function RondaActiva({
     setCompleting(true);
     setError("");
     try {
+      // Build route snapshot for audit: checkpoint states at completion time
+      const routeSnapshot = checkpoints.map((cp) => ({
+        id: cp.id,
+        name: cp.name,
+        lat: cp.lat,
+        lng: cp.lng,
+        orderIndex: cp.orderIndex,
+        status: cp.completed ? "completed" : "pending",
+      }));
+
       const res = await fetch("/api/portal/rondas/completar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -438,6 +449,8 @@ export function RondaActiva({
           ejecucionId: rondaData.ejecucionId,
           guardiaId: session.guardiaId,
           notes: null,
+          walkRoute: trailPoints,
+          routeSnapshot,
         }),
       });
       if (!res.ok) {
@@ -453,6 +466,7 @@ export function RondaActiva({
       navigator.vibrate?.(200);
       onComplete({
         trustScore: json.data?.trustScore ?? 0,
+        trustBreakdown: json.data?.trustBreakdown ?? null,
         porcentajeCompletado: json.data?.porcentajeCompletado ?? 0,
         durationMinutes: json.data?.durationMinutes ?? null,
         missed: json.data?.missed ?? 0,
@@ -466,7 +480,7 @@ export function RondaActiva({
     } finally {
       setCompleting(false);
     }
-  }, [rondaData.ejecucionId, session.guardiaId, onComplete]);
+  }, [rondaData.ejecucionId, session.guardiaId, onComplete, checkpoints, trailPoints]);
 
   const handleCompleteClick = useCallback(() => {
     if (!isAdHoc && incompleteCheckpoints.length > 0) {
@@ -691,7 +705,7 @@ export function RondaActiva({
           showRoute={true}
           interactive={true}
           showCenterButton={true}
-          trailPoints={isAdHoc ? trailPoints : undefined}
+          trailPoints={trailPoints}
         />
 
         {/* Map collapse toggle — hidden for ad-hoc rondas (fixed compact map) */}
