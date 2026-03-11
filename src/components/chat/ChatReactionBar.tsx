@@ -33,16 +33,14 @@ export function ChatReactionBar({
 
   useEffect(() => {
     if (mode !== "longpress") return;
-    const handler = (e: MouseEvent | TouchEvent) => {
+    const handler = (e: MouseEvent) => {
       if (barRef.current && !barRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
     document.addEventListener("mousedown", handler);
-    document.addEventListener("touchstart", handler);
     return () => {
       document.removeEventListener("mousedown", handler);
-      document.removeEventListener("touchstart", handler);
     };
   }, [mode, onClose]);
 
@@ -115,13 +113,14 @@ export function ChatReactionBar({
       <div
         className="fixed inset-0 z-40"
         onClick={onClose}
-        onTouchStart={(e) => { e.preventDefault(); onClose(); }}
+        onTouchStart={(e) => { e.stopPropagation(); e.preventDefault(); onClose(); }}
         style={{ WebkitUserSelect: "none", userSelect: "none" as const, WebkitTouchCallout: "none" as const, touchAction: "none" }}
       />
 
       {/* Floating menu */}
       <div
         ref={barRef}
+        onTouchStart={(e) => e.stopPropagation()}
         className="fixed left-4 right-4 z-50 mx-auto max-w-xs rounded-xl animate-in fade-in zoom-in-95 duration-150"
         style={{
           top: topOffset > 0 ? topOffset : "50%",

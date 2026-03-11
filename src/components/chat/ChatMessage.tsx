@@ -181,13 +181,9 @@ export function ChatMessage({ message, isOwn, isFirstInGroup, onReply, onOpenThr
   const showHeader = isFirstInGroup ?? true;
   const senderColorClass = senderColor(message.senderType);
 
-  const [mobileMenuCooldown, setMobileMenuCooldown] = useState(false);
   const closeMobile = useCallback(() => {
-    if (mobileMenuCooldown) return;
     setShowMobileMenu(false);
-    setMobileMenuCooldown(true);
-    setTimeout(() => setMobileMenuCooldown(false), 300);
-  }, [mobileMenuCooldown]);
+  }, []);
   const closeDesktop = useCallback(() => { setShowReactionBar(false); setShowTrigger(false); }, []);
 
   return (
@@ -201,6 +197,7 @@ export function ChatMessage({ message, isOwn, isFirstInGroup, onReply, onOpenThr
       onMouseLeave={() => { if (!dropdownOpen) { setShowTrigger(false); setShowReactionBar(false); } }}
       onTouchStart={(e) => {
         if (message.systemEventType) return;
+        if (showMobileMenu) return;
         longPressTimerRef.current = setTimeout(() => {
           e.preventDefault();
           navigator.vibrate?.(10);
