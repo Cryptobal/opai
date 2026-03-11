@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,8 @@ interface SearchableSelectProps {
   placeholder: string;
   emptyText?: string;
   disabled?: boolean;
+  /** Si true, el dropdown se renderiza en portal para no cortarse en contenedores con overflow */
+  dropdownInPortal?: boolean;
   onChange: (id: string) => void;
 }
 
@@ -41,15 +44,37 @@ export function SearchableSelect({
   placeholder,
   emptyText = "Sin resultados",
   disabled,
+  dropdownInPortal = false,
   onChange,
 }: SearchableSelectProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
+  const [portalRect, setPortalRect] = useState<{ top: number; left: number; width: number } | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  const portalRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const updatePortalRect = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    setPortalRect({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open || !dropdownInPortal) return;
+    updatePortalRect();
+    const onScrollOrResize = () => updatePortalRect();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [open, dropdownInPortal, updatePortalRect]);
 
   const focusTrigger = useCallback(() => {
     const trigger = triggerRef.current;
@@ -84,7 +109,10 @@ export function SearchableSelect({
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
-      if (!boxRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      const insideTrigger = boxRef.current?.contains(target);
+      const insidePortal = portalRef.current?.contains(target);
+      if (!insideTrigger && !insidePortal) setOpen(false);
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
@@ -223,107 +251,119 @@ export function SearchableSelect({
         />
       </button>
 
-      {/* Dropdown */}
-      {open && !disabled && (
-        <div
-          className={cn(
-            "absolute z-50 mt-1.5 w-full rounded-xl border border-border/80 bg-popover shadow-xl shadow-black/25 overflow-hidden",
-            "animate-in fade-in-0 zoom-in-[0.98] slide-in-from-top-1 duration-150",
-          )}
-        >
-          {/* Search input */}
-          <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
-            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-            <input
-              ref={searchRef}
-              type="text"
-              placeholder="Buscar..."
-              value={query}
-              className="flex-1 min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
-            {query && (
-              <span className="shrink-0 rounded-md bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
-                {filtered.length}
-              </span>
+      {/* Dropdown (inline o en portal para no cortarse) */}
+      {open && !disabled && (() => {
+        const dropdownContent = (
+          <div
+            ref={dropdownInPortal ? portalRef : undefined}
+            className={cn(
+              "z-50 rounded-xl border border-border/80 bg-popover shadow-xl shadow-black/25 overflow-hidden",
+              "animate-in fade-in-0 zoom-in-[0.98] slide-in-from-top-1 duration-150",
+              dropdownInPortal && portalRect ? "fixed" : "absolute mt-1.5 w-full",
             )}
-          </div>
-
-          {/* Options list */}
-          <div ref={listRef} className="max-h-60 overflow-auto overscroll-contain p-1">
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-1.5 px-3 py-8 text-muted-foreground">
-                <Search className="h-5 w-5 opacity-40" />
-                <span className="text-sm">{emptyText}</span>
-                {query && (
-                  <span className="text-xs opacity-60">
-                    Prueba con otro término
-                  </span>
-                )}
-              </div>
-            ) : (
-              filtered.map((opt, i) => {
-                const isSelected = opt.id === value;
-                const isHighlighted = i === highlightIdx;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    data-item
-                    className={cn(
-                      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-75",
-                      isHighlighted && "bg-accent text-accent-foreground",
-                      !isHighlighted && "hover:bg-accent/50",
-                      isSelected && !isHighlighted && "bg-primary/5",
-                    )}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onMouseEnter={() => setHighlightIdx(i)}
-                    onClick={() => {
-                      onChange(opt.id);
-                      setOpen(false);
-                      if (!isTouchLikeDevice()) focusTrigger();
-                    }}
-                  >
-                    {isSelected && (
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10">
-                        <Check className="h-3 w-3 text-primary" />
-                      </span>
-                    )}
-                    {opt.icon && !isSelected && (
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground/60">
-                        {opt.icon}
-                      </span>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className={cn(
-                        "truncate",
-                        isSelected ? "font-semibold text-primary" : "font-normal",
-                      )}>
-                        {highlightMatch(opt.label)}
-                      </div>
-                      {opt.description && (
-                        <div className="truncate text-xs text-muted-foreground/70 mt-0.5">
-                          {highlightMatch(opt.description)}
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-
-          {/* Footer with count */}
-          {filtered.length > 0 && options.length > 5 && (
-            <div className="border-t border-border/40 px-3 py-1.5">
-              <span className="text-[10px] text-muted-foreground/50">
-                {filtered.length} de {options.length} opciones
-              </span>
+            style={
+              dropdownInPortal && portalRect
+                ? { top: portalRect.top, left: portalRect.left, minWidth: portalRect.width }
+                : undefined
+            }
+          >
+            {/* Search input */}
+            <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder="Buscar..."
+                value={query}
+                className="flex-1 min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+              {query && (
+                <span className="shrink-0 rounded-md bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+                  {filtered.length}
+                </span>
+              )}
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Options list: altura que no corte en la sección y se adapte al viewport */}
+            <div ref={listRef} className="max-h-[min(18rem,65vh)] overflow-auto overscroll-contain p-1">
+              {filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-1.5 px-3 py-8 text-muted-foreground">
+                  <Search className="h-5 w-5 opacity-40" />
+                  <span className="text-sm">{emptyText}</span>
+                  {query && (
+                    <span className="text-xs opacity-60">
+                      Prueba con otro término
+                    </span>
+                  )}
+                </div>
+              ) : (
+                filtered.map((opt, i) => {
+                  const isSelected = opt.id === value;
+                  const isHighlighted = i === highlightIdx;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      data-item
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-75",
+                        isHighlighted && "bg-accent text-accent-foreground",
+                        !isHighlighted && "hover:bg-accent/50",
+                        isSelected && !isHighlighted && "bg-primary/5",
+                      )}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setHighlightIdx(i)}
+                      onClick={() => {
+                        onChange(opt.id);
+                        setOpen(false);
+                        if (!isTouchLikeDevice()) focusTrigger();
+                      }}
+                    >
+                      {isSelected && (
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                          <Check className="h-3 w-3 text-primary" />
+                        </span>
+                      )}
+                      {opt.icon && !isSelected && (
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground/60">
+                          {opt.icon}
+                        </span>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className={cn(
+                          "truncate",
+                          isSelected ? "font-semibold text-primary" : "font-normal",
+                        )}>
+                          {highlightMatch(opt.label)}
+                        </div>
+                        {opt.description && (
+                          <div className="truncate text-xs text-muted-foreground/70 mt-0.5">
+                            {highlightMatch(opt.description)}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer with count */}
+            {filtered.length > 0 && options.length > 5 && (
+              <div className="border-t border-border/40 px-3 py-1.5">
+                <span className="text-[10px] text-muted-foreground/50">
+                  {filtered.length} de {options.length} opciones
+                </span>
+              </div>
+            )}
+          </div>
+        );
+        return dropdownInPortal && typeof document !== "undefined"
+          ? createPortal(dropdownContent, document.body)
+          : dropdownContent;
+      })()}
     </div>
   );
 }

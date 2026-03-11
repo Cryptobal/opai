@@ -415,16 +415,34 @@ export function OpsPautaMensualClient({
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTargetRef = useRef<{ puestoId: string; slotNumber: number; dateKey: string } | null>(null);
 
-  // Client → installations
+  // Lista plana: todas las instalaciones con cliente para un solo buscador (buscar por instalación o cliente)
+  const allInstallations = useMemo(
+    () =>
+      clients.flatMap((c) =>
+        c.installations.map((inst) => ({
+          id: inst.id,
+          label: inst.name,
+          clientId: c.id,
+          clientName: c.name,
+          searchText: `${inst.name} ${c.name}`,
+        }))
+      ),
+    [clients]
+  );
+
+  // Client → installations (sigue usándose en fetch y resto de lógica)
   const currentClient = useMemo(
     () => clients.find((c) => c.id === clientId),
     [clients, clientId]
   );
   const installations = currentClient?.installations ?? [];
 
+  // Sincronizar clientId cuando cambia installationId (p. ej. URL o selección en el único buscador)
   useEffect(() => {
-    setInstallationId(installations[0]?.id ?? "");
-  }, [clientId, installations]);
+    if (!installationId) return;
+    const found = allInstallations.find((i) => i.id === installationId);
+    if (found) setClientId(found.clientId);
+  }, [installationId, allInstallations]);
 
   // Days of the month
   const monthDays = useMemo(() => daysInMonth(year, month), [year, month]);
@@ -1549,25 +1567,21 @@ export function OpsPautaMensualClient({
                 Volver al resumen
               </button>
             </div>
-            {/* Filtros: Cliente + Instalación + Mes + Año */}
+            {/* Filtros: Instalación (buscar por nombre de instalación o cliente) + Mes + Año */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
-              <div key="filter-client" className="space-y-1 col-span-2 sm:col-span-1">
-                <Label className="text-xs">Cliente</Label>
-                <SearchableSelect
-                  value={clientId}
-                  options={clients.map((c) => ({ id: c.id, label: c.name }))}
-                  placeholder="Seleccionar cliente"
-                  emptyText="Sin clientes"
-                  onChange={(val) => setClientId(val)}
-                />
-              </div>
-              <div key="filter-installation" className="space-y-1 col-span-2 sm:col-span-1">
+              <div key="filter-installation" className="space-y-1 col-span-2 sm:col-span-2">
                 <Label className="text-xs">Instalación</Label>
                 <SearchableSelect
                   value={installationId}
-                  options={installations.map((inst) => ({ id: inst.id, label: inst.name }))}
-                  placeholder="Seleccionar instalación"
+                  options={allInstallations.map(({ id, label, clientName, searchText }) => ({
+                    id,
+                    label,
+                    description: clientName,
+                    searchText,
+                  }))}
+                  placeholder="Buscar por instalación o cliente..."
                   emptyText="Sin instalaciones"
+                  dropdownInPortal
                   onChange={(val) => setInstallationId(val)}
                 />
               </div>

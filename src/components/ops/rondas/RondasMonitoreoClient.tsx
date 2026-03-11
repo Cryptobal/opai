@@ -9,7 +9,7 @@ import MonitoreoGrid from "@/components/ops/rondas/MonitoreoGrid";
 import type { CellModalData, CNInstalacion } from "@/components/ops/rondas/MonitoreoGrid";
 import { MonitoreoGridCellModal } from "@/components/ops/rondas/MonitoreoGridCellModal";
 import { GuardPanel } from "@/components/ops/rondas/GuardPanel";
-import { ChevronUp, ChevronDown, Shield, AlertTriangle, Moon } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Shield, AlertTriangle, Moon } from "lucide-react";
 import { MobileMonitorView } from "@/components/ops/rondas/MobileMonitorView";
 import { formatPersonName } from "@/lib/personas";
 import { toast } from "sonner";
@@ -97,6 +97,7 @@ export function RondasMonitoreoClient({
   const [splitPct, setSplitPct] = useState(45);
   const [isMobile, setIsMobile] = useState(false);
   const [detailInstallation, setDetailInstallation] = useState<CNInstalacion | null>(null);
+  const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
 
   // Chat side panel: open installation channel via "Mensaje" button
   const chatCtx = useChatSidePanelContext();
@@ -804,7 +805,7 @@ export function RondasMonitoreoClient({
                 {/* Map collapse bar */}
                 <button
                   onClick={() => setMapCollapsed((v) => !v)}
-                  className="flex items-center justify-center gap-1 h-5 rounded bg-[#0a0f1c] border border-[#1a1f2e] text-[#64748b] hover:text-[#94a3b8] hover:border-[#2a3040] transition-colors shrink-0"
+                  className="flex items-center justify-center gap-1 h-5 rounded bg-cyan-500/8 border border-cyan-500/20 text-cyan-400/70 hover:text-cyan-400 hover:border-cyan-500/40 hover:bg-cyan-500/12 transition-colors shrink-0"
                 >
                   {mapCollapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
                   <span className="text-[9px] uppercase tracking-wider font-semibold">{mapCollapsed ? "Mostrar mapa" : "Ocultar mapa"}</span>
@@ -836,37 +837,49 @@ export function RondasMonitoreoClient({
                     }}
                     onGuardClick={(inst, turno) => setGuardPanel({ instalacion: inst, turno })}
                     onInstallationDetail={setDetailInstallation}
+                    onDataRefresh={refreshMonitoreo}
                     isReadOnly={isReadOnly}
                   />
                 </div>
               </div>
 
+              {/* Side panel collapse toggle */}
+              <button
+                onClick={() => setSidePanelCollapsed((v) => !v)}
+                className="flex-shrink-0 flex items-center justify-center w-5 rounded bg-cyan-500/8 border border-cyan-500/20 text-cyan-400/70 hover:text-cyan-400 hover:border-cyan-500/40 hover:bg-cyan-500/12 transition-colors"
+                title={sidePanelCollapsed ? "Mostrar panel lateral" : "Ocultar panel lateral"}
+              >
+                {sidePanelCollapsed ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              </button>
+
               {/* Right zone: Side Panel (full height) */}
-              <div className="w-80 flex-shrink-0 flex flex-col rounded-lg border border-[#1a1f2e] bg-[#0a0f1c] overflow-hidden">
-                <MonitoreoSidePanel
-                  guardPanelData={guardPanelData}
-                  completedData={completedData}
-                  selectedRondaId={selectedRondaId}
-                  onSelectGuard={setSelectedRondaId}
-                  onAddNote={handleAddNote}
-                  alertRows={alertRows}
-                  alertsLoading={alertsLoading}
-                  resolvingAlertId={resolvingAlertId}
-                  resolveNotes={resolveNotes}
-                  onSetResolvingAlertId={setResolvingAlertId}
-                  onSetResolveNotes={setResolveNotes}
-                  onResolveAlert={handleResolveAlert}
-                  onGoToAlert={handleGoToAlert}
-                  alertInstallationFilter={alertInstallationFilter}
-                  onSetAlertInstallationFilter={setAlertInstallationFilter}
-                  onBulkResolveAlerts={handleBulkResolveAlerts}
-                  installations={mapInstallations}
-                  onInstallationClick={(id) => setSelectedInstallationId(id)}
-                  selectedInstallationId={selectedInstallationId}
-                  initialTab={sidePanelTab}
-                  onMessage={handleOpenInstallationChat}
-                />
-              </div>
+              {!sidePanelCollapsed && (
+                <div className="w-80 flex-shrink-0 flex flex-col rounded-lg border border-[#1a1f2e] bg-[#0a0f1c] overflow-hidden">
+                  <MonitoreoSidePanel
+                    guardPanelData={guardPanelData}
+                    completedData={completedData}
+                    selectedRondaId={selectedRondaId}
+                    onSelectGuard={setSelectedRondaId}
+                    onAddNote={handleAddNote}
+                    alertRows={alertRows}
+                    alertsLoading={alertsLoading}
+                    resolvingAlertId={resolvingAlertId}
+                    resolveNotes={resolveNotes}
+                    onSetResolvingAlertId={setResolvingAlertId}
+                    onSetResolveNotes={setResolveNotes}
+                    onResolveAlert={handleResolveAlert}
+                    onGoToAlert={handleGoToAlert}
+                    alertInstallationFilter={alertInstallationFilter}
+                    onSetAlertInstallationFilter={setAlertInstallationFilter}
+                    onBulkResolveAlerts={handleBulkResolveAlerts}
+                    installations={mapInstallations}
+                    onInstallationClick={(id) => setSelectedInstallationId(id)}
+                    selectedInstallationId={selectedInstallationId}
+                    initialTab={sidePanelTab}
+                    onMessage={handleOpenInstallationChat}
+                  />
+                </div>
+              )}
             </div>
           )}
         </>

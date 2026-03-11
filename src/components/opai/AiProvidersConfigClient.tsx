@@ -375,9 +375,8 @@ function ProviderConfigDialog({
       if (apiKey) body.apiKey = apiKey;
       if (baseUrl !== (provider.baseUrl ?? "")) body.baseUrl = baseUrl || null;
 
-      if (isOnlyConfigured && !provider.hasApiKey) {
-        body.isActive = true;
-      }
+      // Always activate the provider being configured
+      body.isActive = true;
 
       if (Object.keys(body).length > 0) {
         const res = await fetch(`/api/config/ai-providers/${provider.id}`, {

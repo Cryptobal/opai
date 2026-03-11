@@ -13,6 +13,8 @@ import {
   Wifi,
   Battery,
   Signal,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -100,6 +102,7 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
   const [confirmRevoke, setConfirmRevoke] = useState<DevicePairingRecord | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [devicesSectionOpen, setDevicesSectionOpen] = useState(false);
 
   const fetchDevices = useCallback(async () => {
     try {
@@ -205,171 +208,7 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Smartphone className="h-5 w-5 text-zinc-400" />
-          <h4 className="text-sm font-medium text-zinc-300">
-            Dispositivos Vinculados
-          </h4>
-          <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-            {activeDevices.length}
-          </span>
-        </div>
-        <Button
-          onClick={() => { setLoading(true); fetchDevices(); }}
-          variant="ghost"
-          size="sm"
-          className="text-zinc-400"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-        </Button>
-      </div>
-
-      {/* Device List */}
-      {loading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
-        </div>
-      ) : activeDevices.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-zinc-700 bg-zinc-900/50 p-6 text-center">
-          <Smartphone className="mx-auto h-8 w-8 text-zinc-600" />
-          <p className="mt-2 text-sm text-zinc-500">No hay dispositivos vinculados</p>
-          <p className="mt-1 text-xs text-zinc-600">
-            Genera un código de emparejamiento para vincular un dispositivo.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {activeDevices.map((device) => {
-            const activity = getRelativeTime(device.lastSeenAt);
-            return (
-              <div
-                key={device.id}
-                className="rounded-lg border border-zinc-700 bg-zinc-900 p-3"
-              >
-                {/* Line 1 */}
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-800">
-                    <Smartphone className="h-5 w-5 text-zinc-400" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-zinc-200">
-                      {parseDeviceDisplayName(device)}
-                    </p>
-                  </div>
-                  <span className={`text-xs ${activity.color}`}>{activity.label}</span>
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
-                  </span>
-
-                  {/* Portal toggles */}
-                  <label className="flex items-center gap-1 text-xs text-zinc-400 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={device.portalRondasEnabled}
-                      onChange={() => togglePortal(device, "portalRondasEnabled")}
-                      disabled={togglingId === `${device.id}-portalRondasEnabled`}
-                      className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-800 accent-blue-500"
-                    />
-                    Rondas
-                  </label>
-                  <label className="flex items-center gap-1 text-xs text-zinc-400 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={device.portalAccesoEnabled}
-                      onChange={() => togglePortal(device, "portalAccesoEnabled")}
-                      disabled={togglingId === `${device.id}-portalAccesoEnabled`}
-                      className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-800 accent-blue-500"
-                    />
-                    Acceso
-                  </label>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-zinc-500 hover:text-red-400"
-                    onClick={() => setConfirmRevoke(device)}
-                    disabled={revokingId === device.id}
-                  >
-                    {revokingId === device.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-
-                {/* Line 2 - device details */}
-                <div className="mt-1.5 ml-[52px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500">
-                  {device.androidVersion && <span>{device.androidVersion}</span>}
-                  {device.browserVersion && (
-                    <>
-                      <span>·</span>
-                      <span>{device.browserVersion}</span>
-                    </>
-                  )}
-                  {device.lastConnectionType && (
-                    <>
-                      <span>·</span>
-                      <span className="flex items-center gap-0.5">
-                        {connectionIcon(device.lastConnectionType)}
-                        {device.lastConnectionType}
-                      </span>
-                    </>
-                  )}
-                  {device.lastBatteryLevel != null && (
-                    <>
-                      <span>·</span>
-                      <span className="flex items-center gap-0.5">
-                        <Battery className="h-3 w-3" />
-                        {Math.round(device.lastBatteryLevel)}%
-                      </span>
-                    </>
-                  )}
-                  {device.currentGuard?.persona && (
-                    <>
-                      <span>·</span>
-                      <span className="text-blue-400">
-                        Guardia: {device.currentGuard.persona.firstName}{" "}
-                        {device.currentGuard.persona.lastName}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Inactive / Revoked Devices */}
-      {inactiveDevices.length > 0 && (
-        <details className="group">
-          <summary className="cursor-pointer text-xs text-zinc-600 hover:text-zinc-400">
-            ▸ {inactiveDevices.length} dispositivo(s) desvinculado(s)
-          </summary>
-          <div className="mt-2 space-y-1">
-            {inactiveDevices.map((device) => (
-              <div
-                key={device.id}
-                className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/30 p-2.5 opacity-60"
-              >
-                <Smartphone className="h-4 w-4 text-zinc-600" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-zinc-500">{parseDeviceDisplayName(device)}</p>
-                  <p className="text-[11px] text-zinc-600">
-                    {device.status === "REVOKED" ? "Revocado" : "Deshabilitado"}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
-
-      {/* Permanent Pairing Code */}
+      {/* 1. Vincular Nuevo Dispositivo — arriba */}
       <div className="rounded-lg border border-dashed border-zinc-700 bg-zinc-900/50 p-4">
         <div className="flex items-center gap-2 text-sm text-zinc-300">
           <LinkIcon className="h-4 w-4" />
@@ -438,6 +277,187 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
               Generar Código de Emparejamiento
             </Button>
           </div>
+        )}
+      </div>
+
+      {/* 2. Dispositivos Vinculados — sección contraíble con lista en scroll */}
+      <div className="rounded-lg border border-zinc-700 bg-zinc-900/30 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setDevicesSectionOpen((o) => !o)}
+          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-zinc-800/50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            {devicesSectionOpen ? (
+              <ChevronDown className="h-4 w-4 text-zinc-400 shrink-0" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0" />
+            )}
+            <Smartphone className="h-5 w-5 text-zinc-400" />
+            <h4 className="text-sm font-medium text-zinc-300">
+              Dispositivos Vinculados
+            </h4>
+            <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+              {activeDevices.length}
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-zinc-400 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLoading(true);
+              fetchDevices();
+            }}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </button>
+
+        {devicesSectionOpen && (
+          <>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+              </div>
+            ) : activeDevices.length === 0 ? (
+              <div className="rounded-lg border-t border-zinc-700/80 bg-zinc-900/50 p-6 text-center mx-3 mb-3">
+                <Smartphone className="mx-auto h-8 w-8 text-zinc-600" />
+                <p className="mt-2 text-sm text-zinc-500">No hay dispositivos vinculados</p>
+                <p className="mt-1 text-xs text-zinc-600">
+                  Genera un código de emparejamiento para vincular un dispositivo.
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-[min(18rem,50vh)] overflow-y-auto overscroll-contain border-t border-zinc-700/80 px-3 py-2 space-y-2">
+                {activeDevices.map((device) => {
+                  const activity = getRelativeTime(device.lastSeenAt);
+                  return (
+                    <div
+                      key={device.id}
+                      className="rounded-lg border border-zinc-700 bg-zinc-900 p-3"
+                    >
+                      {/* Line 1 */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-800">
+                          <Smartphone className="h-5 w-5 text-zinc-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-zinc-200">
+                            {parseDeviceDisplayName(device)}
+                          </p>
+                        </div>
+                        <span className={`text-xs ${activity.color}`}>{activity.label}</span>
+                        <span className="relative flex h-2.5 w-2.5">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
+                        </span>
+
+                        {/* Portal toggles */}
+                        <label className="flex items-center gap-1 text-xs text-zinc-400 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={device.portalRondasEnabled}
+                            onChange={() => togglePortal(device, "portalRondasEnabled")}
+                            disabled={togglingId === `${device.id}-portalRondasEnabled`}
+                            className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-800 accent-blue-500"
+                          />
+                          Rondas
+                        </label>
+                        <label className="flex items-center gap-1 text-xs text-zinc-400 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={device.portalAccesoEnabled}
+                            onChange={() => togglePortal(device, "portalAccesoEnabled")}
+                            disabled={togglingId === `${device.id}-portalAccesoEnabled`}
+                            className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-800 accent-blue-500"
+                          />
+                          Acceso
+                        </label>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-zinc-500 hover:text-red-400"
+                          onClick={() => setConfirmRevoke(device)}
+                          disabled={revokingId === device.id}
+                        >
+                          {revokingId === device.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* Line 2 - device details */}
+                      <div className="mt-1.5 ml-[52px] flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500">
+                        {device.androidVersion && <span>{device.androidVersion}</span>}
+                        {device.browserVersion && (
+                          <>
+                            <span>·</span>
+                            <span>{device.browserVersion}</span>
+                          </>
+                        )}
+                        {device.lastConnectionType && (
+                          <>
+                            <span>·</span>
+                            <span className="flex items-center gap-0.5">
+                              {connectionIcon(device.lastConnectionType)}
+                              {device.lastConnectionType}
+                            </span>
+                          </>
+                        )}
+                        {device.lastBatteryLevel != null && (
+                          <>
+                            <span>·</span>
+                            <span className="flex items-center gap-0.5">
+                              <Battery className="h-3 w-3" />
+                              {Math.round(device.lastBatteryLevel)}%
+                            </span>
+                          </>
+                        )}
+                        {device.currentGuard?.persona && (
+                          <>
+                            <span>·</span>
+                            <span className="text-blue-400">
+                              Guardia: {device.currentGuard.persona.firstName}{" "}
+                              {device.currentGuard.persona.lastName}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {/* Inactive / Revoked Devices — dentro de la sección contraíble */}
+            {inactiveDevices.length > 0 && (
+              <details className="group px-3 pb-2">
+                <summary className="cursor-pointer text-xs text-zinc-600 hover:text-zinc-400">
+                  ▸ {inactiveDevices.length} dispositivo(s) desvinculado(s)
+                </summary>
+                <div className="mt-2 space-y-1">
+                  {inactiveDevices.map((device) => (
+                    <div
+                      key={device.id}
+                      className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/30 p-2.5 opacity-60"
+                    >
+                      <Smartphone className="h-4 w-4 text-zinc-600" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-zinc-500">{parseDeviceDisplayName(device)}</p>
+                        <p className="text-[11px] text-zinc-600">
+                          {device.status === "REVOKED" ? "Revocado" : "Deshabilitado"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </>
         )}
       </div>
 

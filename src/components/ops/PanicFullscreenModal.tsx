@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Phone, MapPin, Loader2, MessageSquare } from "lucide-react";
+import { AlertTriangle, Phone, MapPin, Loader2, MessageSquare, MessageCircle } from "lucide-react";
 import { whatsappUrl } from "@/app/(app)/hub/_lib/hub-utils";
+import { useRouter } from "next/navigation";
 
 export interface PanicAlertData {
   alertaId: string;
@@ -24,6 +25,7 @@ interface PanicFullscreenModalProps {
 }
 
 export function PanicFullscreenModal({ alerts, onAcknowledge }: PanicFullscreenModalProps) {
+  const router = useRouter();
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
 
   const handleAcknowledge = async (alertaId: string) => {
@@ -82,7 +84,15 @@ export function PanicFullscreenModal({ alerts, onAcknowledge }: PanicFullscreenM
                 </div>
               )}
               {alert.installationTelefono && (
-                <InfoRow label="Tel. instalacion" value={alert.installationTelefono} />
+                <div className="flex items-center justify-between">
+                  <InfoRow label="Tel. instalacion" value={alert.installationTelefono} />
+                  <a
+                    href={`tel:${alert.installationTelefono}`}
+                    className="flex items-center gap-1 rounded-md bg-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-600"
+                  >
+                    <Phone className="h-3 w-3" /> Llamar
+                  </a>
+                </div>
               )}
             </div>
 
@@ -100,38 +110,71 @@ export function PanicFullscreenModal({ alerts, onAcknowledge }: PanicFullscreenM
             )}
 
             {/* Actions */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleAcknowledge(alert.alertaId)}
-                disabled={loadingIds.has(alert.alertaId)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 py-3 text-sm font-bold text-white shadow-lg hover:bg-red-500 disabled:opacity-60"
-              >
-                {loadingIds.has(alert.alertaId) ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "✓ ATENDER ALERTA"
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleAcknowledge(alert.alertaId)}
+                  disabled={loadingIds.has(alert.alertaId)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 py-3 text-sm font-bold text-white shadow-lg hover:bg-red-500 disabled:opacity-60"
+                >
+                  {loadingIds.has(alert.alertaId) ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "✓ ATENDER ALERTA"
+                  )}
+                </button>
+                {alert.guardiaTelefono && (
+                  <a
+                    href={`tel:${alert.guardiaTelefono}`}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-700 py-3 text-sm font-bold text-white hover:bg-zinc-600"
+                  >
+                    <Phone className="h-4 w-4" />
+                    LLAMAR
+                  </a>
                 )}
+                {alert.installationTelefono && (
+                  <a
+                    href={`tel:${alert.installationTelefono}`}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-700 py-3 text-sm font-bold text-white hover:bg-zinc-600"
+                  >
+                    <Phone className="h-4 w-4" />
+                    LLAMAR INST.
+                  </a>
+                )}
+                {alert.guardiaTelefono && (
+                  <a
+                    href={`${whatsappUrl(alert.guardiaTelefono)}?text=${encodeURIComponent("Alerta de panico recibida. Estamos en contacto.")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-700 py-3 text-sm font-bold text-white hover:bg-green-600"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    WHATSAPP
+                  </a>
+                )}
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/chat/channels?type=INSTALLATION");
+                    if (res.ok) {
+                      const data = await res.json();
+                      const ch = data.channels?.find((c: any) => c.installationId === alert.installationId);
+                      if (ch) {
+                        router.push(`/chat?channel=${ch.id}`);
+                        return;
+                      }
+                    }
+                    router.push("/chat");
+                  } catch {
+                    router.push("/chat");
+                  }
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-700 py-3 text-sm font-bold text-white hover:bg-teal-600"
+              >
+                <MessageCircle className="h-4 w-4" />
+                IR AL CHAT DE LA INSTALACIÓN
               </button>
-              {alert.guardiaTelefono && (
-                <a
-                  href={`tel:${alert.guardiaTelefono}`}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-700 py-3 text-sm font-bold text-white hover:bg-zinc-600"
-                >
-                  <Phone className="h-4 w-4" />
-                  LLAMAR
-                </a>
-              )}
-              {alert.guardiaTelefono && (
-                <a
-                  href={`${whatsappUrl(alert.guardiaTelefono)}?text=${encodeURIComponent("Alerta de panico recibida. Estamos en contacto.")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-700 py-3 text-sm font-bold text-white hover:bg-green-600"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  WHATSAPP
-                </a>
-              )}
             </div>
           </div>
         ))}

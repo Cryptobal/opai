@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -152,12 +152,50 @@ export function RendicionForm({
   const [locatingEnd, setLocatingEnd] = useState(false);
   const [tollAmount, setTollAmount] = useState("0");
 
+  // Route tracking
+  const [routePoints, setRoutePoints] = useState<Array<{lat: number; lng: number; ts: number}>>([]);
+  const watchIdRef = useRef<number | null>(null);
+  const lastPointRef = useRef<{ lat: number; lng: number } | null>(null);
+
   // Submit state
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  /* ── Route tracking ── */
+
+  const startTracking = useCallback(() => {
+    if (watchIdRef.current !== null || !navigator.geolocation) return;
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const pt = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const last = lastPointRef.current;
+        if (last) {
+          const R = 6371000;
+          const dLat = ((pt.lat - last.lat) * Math.PI) / 180;
+          const dLng = ((pt.lng - last.lng) * Math.PI) / 180;
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos((last.lat * Math.PI) / 180) * Math.cos((pt.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+          const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          if (dist < 100) return;
+        }
+        lastPointRef.current = pt;
+        setRoutePoints((prev) => [...prev, { ...pt, ts: Date.now() }]);
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+    );
+  }, []);
+
+  const stopTracking = useCallback(() => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => stopTracking(), [stopTracking]);
 
   /* ── Geolocation ── */
 
@@ -174,17 +212,22 @@ export function RendicionForm({
       setLocating(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setLocation({
+          const loc = {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
             timestamp: Date.now(),
-          });
+          };
+          setLocation(loc);
           setLocating(false);
-          toast.success(
-            target === "start"
-              ? "Ubicación de inicio capturada"
-              : "Ubicación de fin capturada"
-          );
+          if (target === "start") {
+            lastPointRef.current = { lat: loc.lat, lng: loc.lng };
+            setRoutePoints([{ lat: loc.lat, lng: loc.lng, ts: loc.timestamp }]);
+            startTracking();
+            toast.success("Ubicación de inicio capturada — rastreando ruta");
+          } else {
+            stopTracking();
+            toast.success("Ubicación de fin capturada");
+          }
         },
         (err) => {
           setLocating(false);
@@ -193,7 +236,7 @@ export function RendicionForm({
         { enableHighAccuracy: true, timeout: 10000 }
       );
     },
-    []
+    [startTracking, stopTracking]
   );
 
   /* ── Mileage calculation ── */
@@ -351,6 +394,7 @@ export function RendicionForm({
               endLng: endLocation.lng,
               endAddress: endLocation.address?.trim() || undefined,
               tollAmount: parseInt(tollAmount.replace(/[^\d]/g, "")) || 0,
+              routePoints: routePoints.length > 0 ? routePoints : undefined,
             }),
           });
           const tripEndData = await tripEndRes.json();
@@ -445,6 +489,7 @@ export function RendicionForm({
       startLocation,
       endLocation,
       tollAmount,
+      routePoints,
       mileageCost,
       initialData,
       router,

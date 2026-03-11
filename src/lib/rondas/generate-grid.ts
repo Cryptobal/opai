@@ -3,7 +3,7 @@
  *
  * Called when a turno is linked to a CN. Generates hourly slots
  * with rondaExpected pre-calculated based on programacion data,
- * and pre-populates guards from pauta mensual / asignaciones / previous CN.
+ * and pre-populates guards from pauta mensual (the ONLY source of truth).
  */
 
 import { prisma } from "@/lib/prisma";
@@ -60,9 +60,9 @@ function turnoFromShift(shiftStart: string): "nocturno" | "diurno" {
 }
 
 /**
- * Resolve guards from assignment sources.
- * Priority: 1) Pauta mensual for today  2) Active asignaciones  3) Previous CN
- * Returns array of guard data to create.
+ * Resolve guards from pauta mensual — the ONLY source of truth.
+ * Nocturno guards come from cnDate, diurno guards from cnDate + 1 day.
+ * No fallback to asignaciones or previous CN.
  */
 async function resolveGuardsFromSources(
   installationId: string,
@@ -70,121 +70,78 @@ async function resolveGuardsFromSources(
   cnDate: Date,
 ): Promise<Array<{ guardiaId: string; guardiaNombre: string; isExtra: boolean; turno: "nocturno" | "diurno" }>> {
   const result: Array<{ guardiaId: string; guardiaNombre: string; isExtra: boolean; turno: "nocturno" | "diurno" }> = [];
+  const seen = new Set<string>();
 
-  // ── Source 1: Pauta mensual for today ──
-  // Only include guards actually working (shiftCode = "T").
-  // Excludes rest days ("-"), vacations ("V"), licencias, etc.
-  // Turno (nocturno/diurno) is derived from puesto.shiftStart.
-  const pautas = await prisma.opsPautaMensual.findMany({
-    where: {
-      tenantId,
-      installationId,
-      date: cnDate,
-      shiftCode: "T",
+  // Diurno date = cnDate + 1 day (next morning)
+  const diurnoDate = new Date(cnDate);
+  diurnoDate.setUTCDate(diurnoDate.getUTCDate() + 1);
+
+  const pautaInclude = {
+    plannedGuardia: {
+      include: { persona: { select: { firstName: true, lastName: true } } },
     },
-    include: {
-      plannedGuardia: {
-        include: { persona: { select: { firstName: true, lastName: true } } },
-      },
-      replacementGuardia: {
-        include: { persona: { select: { firstName: true, lastName: true } } },
-      },
-      puesto: { select: { shiftStart: true } },
+    replacementGuardia: {
+      include: { persona: { select: { firstName: true, lastName: true } } },
     },
+    puesto: { select: { shiftStart: true } },
+  } as const;
+
+  // ── Nocturno: pauta for cnDate, only puestos with nocturno shift ──
+  const pautasNoc = await prisma.opsPautaMensual.findMany({
+    where: { tenantId, installationId, date: cnDate, shiftCode: "T" },
+    include: pautaInclude,
   });
 
-  if (pautas.length > 0) {
-    const seen = new Set<string>();
-    for (const pauta of pautas) {
-      const effective = pauta.replacementGuardia ?? pauta.plannedGuardia;
-      // Determine turno from puesto shift hours
-      const turno: "nocturno" | "diurno" =
-        pauta.puesto?.shiftStart ? turnoFromShift(pauta.puesto.shiftStart) : "nocturno";
-      if (!effective) {
-        // PPC entry: slot exists in pauta but no guard assigned
-        const ppcKey = `ppc-${pauta.id}-${turno}`;
-        if (!seen.has(ppcKey)) {
-          seen.add(ppcKey);
-          result.push({
-            guardiaId: "",
-            guardiaNombre: "PPC",
-            isExtra: false,
-            turno,
-          });
-        }
-        continue;
+  for (const pauta of pautasNoc) {
+    const turno = pauta.puesto?.shiftStart ? turnoFromShift(pauta.puesto.shiftStart) : "nocturno";
+    if (turno !== "nocturno") continue; // skip diurno puestos from this date
+    const effective = pauta.replacementGuardia ?? pauta.plannedGuardia;
+    if (!effective) {
+      const ppcKey = `ppc-${pauta.id}-nocturno`;
+      if (!seen.has(ppcKey)) {
+        seen.add(ppcKey);
+        result.push({ guardiaId: "", guardiaNombre: "PPC", isExtra: false, turno: "nocturno" });
       }
-      const key = `${effective.id}-${turno}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      result.push({
-        guardiaId: effective.id,
-        guardiaNombre: formatPersonName(effective.persona.firstName, effective.persona.lastName),
-        isExtra: !!pauta.replacementGuardia,
-        turno,
-      });
+      continue;
     }
-    if (result.length > 0) return result;
-  }
-
-  // If the pauta has ANY entries for this date (even rest days "-"),
-  // it is the source of truth — don't fall to Source 2/3.
-  // An empty result means no guards work tonight (all on rest / vacation).
-  if (pautas.length === 0) {
-    const pautaExists = await prisma.opsPautaMensual.count({
-      where: { tenantId, installationId, date: cnDate },
+    const key = `${effective.id}-nocturno`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({
+      guardiaId: effective.id,
+      guardiaNombre: formatPersonName(effective.persona.firstName, effective.persona.lastName),
+      isExtra: !!pauta.replacementGuardia,
+      turno: "nocturno",
     });
-    if (pautaExists > 0) return result;
   }
 
-  // ── Source 2: Active asignaciones ──
-  // Only used for installations with NO pauta data at all
-  const asignaciones = await prisma.opsAsignacionGuardia.findMany({
-    where: { tenantId, installationId, isActive: true },
-    include: {
-      guardia: {
-        include: { persona: { select: { firstName: true, lastName: true } } },
-      },
-      puesto: { select: { shiftStart: true } },
-    },
+  // ── Diurno: pauta for cnDate+1, only puestos with diurno shift ──
+  const pautasDiu = await prisma.opsPautaMensual.findMany({
+    where: { tenantId, installationId, date: diurnoDate, shiftCode: "T" },
+    include: pautaInclude,
   });
 
-  if (asignaciones.length > 0) {
-    const seen = new Set<string>();
-    for (const asig of asignaciones) {
-      const turno = asig.puesto?.shiftStart ? turnoFromShift(asig.puesto.shiftStart) : "nocturno";
-      const key = `${asig.guardiaId}-${turno}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      result.push({
-        guardiaId: asig.guardiaId,
-        guardiaNombre: formatPersonName(asig.guardia.persona.firstName, asig.guardia.persona.lastName),
-        isExtra: false,
-        turno,
-      });
+  for (const pauta of pautasDiu) {
+    const turno = pauta.puesto?.shiftStart ? turnoFromShift(pauta.puesto.shiftStart) : "nocturno";
+    if (turno !== "diurno") continue; // skip nocturno puestos from this date
+    const effective = pauta.replacementGuardia ?? pauta.plannedGuardia;
+    if (!effective) {
+      const ppcKey = `ppc-${pauta.id}-diurno`;
+      if (!seen.has(ppcKey)) {
+        seen.add(ppcKey);
+        result.push({ guardiaId: "", guardiaNombre: "PPC", isExtra: false, turno: "diurno" });
+      }
+      continue;
     }
-    if (result.length > 0) return result;
-  }
-
-  // ── Source 3: Copy from previous CN ──
-  const prevCNInst = await prisma.opsControlNocturnoInstalacion.findFirst({
-    where: {
-      installationId,
-      controlNocturno: { tenantId, date: { lt: cnDate } },
-    },
-    orderBy: { controlNocturno: { date: "desc" } },
-    include: { guardias: true },
-  });
-
-  if (prevCNInst?.guardias && prevCNInst.guardias.length > 0) {
-    for (const g of prevCNInst.guardias) {
-      result.push({
-        guardiaId: g.guardiaId ?? "",
-        guardiaNombre: g.guardiaNombre,
-        isExtra: g.isExtra,
-        turno: g.turno as "nocturno" | "diurno",
-      });
-    }
+    const key = `${effective.id}-diurno`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({
+      guardiaId: effective.id,
+      guardiaNombre: formatPersonName(effective.persona.firstName, effective.persona.lastName),
+      isExtra: !!pauta.replacementGuardia,
+      turno: "diurno",
+    });
   }
 
   return result;
@@ -261,7 +218,7 @@ async function populateGuards(
 
 /**
  * Generate or update grid slots for all installations of a CN.
- * Also pre-populates guards from pauta/asignaciones/previous CN.
+ * Also pre-populates guards from pauta mensual.
  */
 export async function generateGridSlots(params: GenerateGridParams): Promise<void> {
   const { controlNocturnoId, tenantId, shiftStart, shiftEnd } = params;

@@ -116,6 +116,7 @@ export default async function RendicionDetailPage({ params }: PageProps) {
           tollAmount: rendicion.trip.tollAmount,
           totalAmount: rendicion.trip.totalAmount,
           status: rendicion.trip.status,
+          routePoints: (rendicion.trip.routePoints as any) ?? null,
         }
       : null,
     approvals: rendicion.approvals.map((a) => ({

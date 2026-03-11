@@ -7,6 +7,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { decryptApiKey } from "@/lib/ai-encryption";
+import { KNOWN_PROVIDERS } from "@/lib/ai-known-models";
 
 export type AIConfig = {
   providerType: string;
@@ -31,14 +32,44 @@ export class AIService {
       },
     });
 
-    if (!activeProvider || activeProvider.models.length === 0) return null;
-    if (!activeProvider.apiKey) return null;
+    if (!activeProvider || !activeProvider.apiKey) {
+      console.warn("[ai-service] No active provider found with API key");
+      return null;
+    }
+
+    let model: { modelId: string } | null = activeProvider.models[0] ?? null;
+
+    // Fallback: if no default+active model found, try first active model
+    if (!model) {
+      console.warn("[ai-service] No default model for provider, trying fallback");
+      model = await prisma.aiModel.findFirst({
+        where: { providerId: activeProvider.id, isActive: true },
+        orderBy: { costTier: "asc" },
+      });
+    }
+
+    // Last resort: any model from this provider
+    if (!model) {
+      console.warn("[ai-service] No active model, trying any model");
+      model = await prisma.aiModel.findFirst({
+        where: { providerId: activeProvider.id },
+        orderBy: { costTier: "asc" },
+      });
+    }
+
+    if (!model) {
+      console.warn("[ai-service] Provider has no models at all");
+      return null;
+    }
+
+    const fallbackUrl =
+      KNOWN_PROVIDERS.find((kp) => kp.providerType === activeProvider.providerType)?.defaultBaseUrl ?? "";
 
     return {
       providerType: activeProvider.providerType,
-      modelId: activeProvider.models[0].modelId,
+      modelId: model.modelId,
       apiKey: decryptApiKey(activeProvider.apiKey),
-      baseUrl: activeProvider.baseUrl ?? "",
+      baseUrl: activeProvider.baseUrl || fallbackUrl,
     };
   }
 

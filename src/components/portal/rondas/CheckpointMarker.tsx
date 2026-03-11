@@ -640,7 +640,7 @@ export function CheckpointMarker({
           {/* Bottom: Compact form */}
           <div
             className="shrink-0 bg-zinc-900 rounded-t-2xl border-t border-zinc-800 px-4 pt-3 animate-slide-up"
-            style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+            style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}
           >
             <div className="flex justify-center pb-2">
               <div className="w-10 h-1 bg-zinc-600 rounded-full" />

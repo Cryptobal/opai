@@ -6,10 +6,18 @@ import { z } from "zod";
 
 type Params = { id: string };
 
+const routePointSchema = z.object({
+  lat: z.number(),
+  lng: z.number(),
+  ts: z.number(),
+});
+
 const endTripSchema = z.object({
   endLat: z.number().min(-90).max(90),
   endLng: z.number().min(-180).max(180),
   endAddress: z.string().max(500).nullish(),
+  tollAmount: z.number().int().min(0).optional(),
+  routePoints: z.array(routePointSchema).max(5000).optional(),
 });
 
 // ── POST: end trip (check-out) ──
@@ -81,7 +89,7 @@ export async function POST(
     const snapshotKmPerLiter = Number(trip.snapshotKmPerLiter ?? 10);
     const snapshotFuelPrice = trip.snapshotFuelPrice ?? 1500;
     const snapshotFeePct = Number(trip.snapshotFeePct ?? 10);
-    const tollAmount = trip.tollAmount ?? 0;
+    const tollAmount = body.tollAmount ?? trip.tollAmount ?? 0;
 
     const litersConsumed = snapshotKmPerLiter > 0 ? distanceKm / snapshotKmPerLiter : 0;
     const fuelCost = Math.round(litersConsumed * snapshotFuelPrice);
@@ -118,7 +126,9 @@ export async function POST(
           fuelCost,
           vehicleFee,
           subtotal,
+          tollAmount,
           totalAmount,
+          routePoints: body.routePoints ?? undefined,
           status: "COMPLETED",
         },
       });

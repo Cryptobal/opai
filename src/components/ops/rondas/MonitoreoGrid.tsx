@@ -83,6 +83,7 @@ interface MonitoreoGridProps {
   onCellClick?: (data: CellModalData) => void;
   onGuardClick?: (instalacion: CNInstalacion, turno: "nocturno" | "diurno") => void;
   onInstallationDetail?: (instalacion: CNInstalacion) => void;
+  onDataRefresh?: () => void;
   isReadOnly?: boolean;
 }
 
@@ -392,42 +393,69 @@ function GridSummaryRow({
   instalaciones: CNInstalacion[];
   summary: { completadas: number; omitidas: number; cumplimiento: number };
 }) {
-  return (
-    <tr>
-      <td colSpan={4} className="px-3 py-2">
-        <span className="text-[10px] text-[#64748b] font-semibold uppercase tracking-wider">Resumen</span>
-        <span className="text-[10px] text-[#64748b] ml-2 tabular-nums">
-          {summary.completadas} completadas &middot; {summary.omitidas} omitidas &middot; {summary.cumplimiento}%
-        </span>
-      </td>
-      {timeSlots.map((slot) => {
-        const slotRondas = instalaciones.flatMap((inst) =>
-          (inst.rondas ?? []).filter((r) => r.horaEsperada === slot),
-        );
-        const completed = slotRondas.filter((r) => r.status === "completada").length;
-        const expected = slotRondas.filter((r) => r.rondaExpected).length;
-        const scores = slotRondas.filter((r) => r.trustScore != null && r.trustScore > 0);
-        const avgTrust = scores.length > 0
-          ? Math.round(scores.reduce((a, r) => a + (r.trustScore ?? 0), 0) / scores.length)
-          : null;
+  // Count puestos and PPCs per turno across all installations
+  const allGuardias = instalaciones.flatMap((i) => i.guardias ?? []);
+  const nocGuardias = allGuardias.filter((g) => g.turno === "nocturno" || !g.turno);
+  const diuGuardias = allGuardias.filter((g) => g.turno === "diurno");
+  const nocPPC = nocGuardias.filter((g) => g.guardiaNombre === "PPC").length;
+  const diuPPC = diuGuardias.filter((g) => g.guardiaNombre === "PPC").length;
 
-        return (
-          <td key={slot} className="text-center py-2">
-            <div className="text-[9px] text-[#64748b] tabular-nums">
-              {completed}/{expected > 0 ? expected : "\u2014"}
-            </div>
-            {avgTrust !== null && (
-              <div className={`text-[8px] font-medium tabular-nums ${
-                avgTrust >= 80 ? "text-emerald-400" : avgTrust >= 60 ? "text-amber-400" : "text-red-400"
-              }`}>
-                {avgTrust}
+  return (
+    <>
+      <tr>
+        <td colSpan={4} className="px-3 py-2">
+          <span className="text-[10px] text-[#64748b] font-semibold uppercase tracking-wider">Resumen</span>
+          <span className="text-[10px] text-[#64748b] ml-2 tabular-nums">
+            {summary.completadas} completadas &middot; {summary.omitidas} omitidas &middot; {summary.cumplimiento}%
+          </span>
+        </td>
+        {timeSlots.map((slot) => {
+          const slotRondas = instalaciones.flatMap((inst) =>
+            (inst.rondas ?? []).filter((r) => r.horaEsperada === slot),
+          );
+          const completed = slotRondas.filter((r) => r.status === "completada").length;
+          const expected = slotRondas.filter((r) => r.rondaExpected).length;
+          const scores = slotRondas.filter((r) => r.trustScore != null && r.trustScore > 0);
+          const avgTrust = scores.length > 0
+            ? Math.round(scores.reduce((a, r) => a + (r.trustScore ?? 0), 0) / scores.length)
+            : null;
+
+          return (
+            <td key={slot} className="text-center py-2">
+              <div className="text-[9px] text-[#64748b] tabular-nums">
+                {completed}/{expected > 0 ? expected : "\u2014"}
               </div>
-            )}
-          </td>
-        );
-      })}
-      <td colSpan={2} />
-    </tr>
+              {avgTrust !== null && (
+                <div className={`text-[8px] font-medium tabular-nums ${
+                  avgTrust >= 80 ? "text-emerald-400" : avgTrust >= 60 ? "text-amber-400" : "text-red-400"
+                }`}>
+                  {avgTrust}
+                </div>
+              )}
+            </td>
+          );
+        })}
+        <td colSpan={2} />
+      </tr>
+      <tr className="border-t border-[#1a1f2e]/40">
+        <td colSpan={2} className="px-3 py-1.5" />
+        <td className="px-1 py-1.5">
+          <div className="text-[9px] text-[#64748b] tabular-nums">
+            <span className="font-semibold text-[#94a3b8]">{nocGuardias.length}</span> puestos
+            {nocPPC > 0 && <span className="text-amber-400 ml-1">({nocPPC} PPC)</span>}
+          </div>
+        </td>
+        <td />
+        <td colSpan={timeSlots.length} />
+        <td />
+        <td className="px-1 py-1.5">
+          <div className="text-[9px] text-[#64748b] tabular-nums">
+            <span className="font-semibold text-[#94a3b8]">{diuGuardias.length}</span> puestos
+            {diuPPC > 0 && <span className="text-amber-400 ml-1">({diuPPC} PPC)</span>}
+          </div>
+        </td>
+      </tr>
+    </>
   );
 }
 
@@ -461,13 +489,32 @@ function GridHeaderBar({
   summary,
   isSaving,
   onExportPDF,
+  onRefreshPauta,
+  isReadOnly,
 }: {
   totalInstalaciones: number;
   totalSlots: number;
   summary: { completadas: number; omitidas: number; cumplimiento: number };
   isSaving?: boolean;
   onExportPDF?: () => void;
+  onRefreshPauta?: () => void;
+  isReadOnly?: boolean;
 }) {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      const res = await fetch("/api/ops/rondas/monitoreo/grid/refresh", { method: "POST" });
+      if (res.ok) onRefreshPauta?.();
+    } catch {
+      // silent
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <div className="flex items-center justify-between px-4 py-2 bg-[#0a0f1c] border-b border-[#1a1f2e] flex-shrink-0">
       <div className="flex items-center gap-3">
@@ -494,6 +541,16 @@ function GridHeaderBar({
         }`}>
           {summary.cumplimiento}%
         </span>
+        {!isReadOnly && (
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="px-2.5 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-[10px] text-cyan-400 font-medium hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-colors disabled:opacity-50"
+            title="Re-sincronizar guardias desde la pauta diaria"
+          >
+            {refreshing ? "Refrescando..." : "Refrescar de pauta"}
+          </button>
+        )}
         {onExportPDF && (
           <button
             onClick={onExportPDF}
@@ -583,6 +640,7 @@ export default function MonitoreoGrid({
   onCellClick,
   onGuardClick,
   onInstallationDetail,
+  onDataRefresh,
   isReadOnly,
 }: MonitoreoGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
@@ -643,6 +701,8 @@ export default function MonitoreoGrid({
         totalSlots={timeSlots.length}
         summary={summary}
         onExportPDF={handleExportPDF}
+        onRefreshPauta={onDataRefresh}
+        isReadOnly={isReadOnly}
       />
 
       <div ref={gridRef} className="flex-1 overflow-auto scrollbar-thin">

@@ -4375,6 +4375,7 @@ model FinanceTrip {
   snapshotFuelPrice  Int?      @map("snapshot_fuel_price")
   snapshotFeePct     Decimal?  @map("snapshot_fee_pct") @db.Decimal(5, 2)
   status             String    @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED | CANCELLED
+  routePoints        Json?     @map("route_points") // [{lat,lng,ts}]
 
   rendicion   FinanceRendicion?
   attachments FinanceAttachment[]

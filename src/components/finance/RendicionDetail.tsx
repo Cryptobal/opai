@@ -38,6 +38,12 @@ import {
   Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
+
+const TripRouteMap = dynamic(
+  () => import("@/components/finance/TripRouteMap").then((m) => m.TripRouteMap),
+  { ssr: false }
+);
 
 /* ── Types ── */
 
@@ -86,6 +92,7 @@ interface TripData {
   tollAmount: number;
   totalAmount: number | null;
   status: string;
+  routePoints?: Array<{ lat: number; lng: number; ts: number }> | null;
 }
 
 interface RendicionData {
@@ -473,6 +480,19 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
                   </div>
                 )}
               </div>
+
+              {/* Route map */}
+              {r.trip.endLat != null && r.trip.endLng != null && (
+                <TripRouteMap
+                  startLat={r.trip.startLat}
+                  startLng={r.trip.startLng}
+                  endLat={r.trip.endLat}
+                  endLng={r.trip.endLng}
+                  routePoints={r.trip.routePoints ?? undefined}
+                  distanceKm={r.trip.distanceKm ?? undefined}
+                  inline
+                />
+              )}
             </div>
           </CardContent>
         </Card>

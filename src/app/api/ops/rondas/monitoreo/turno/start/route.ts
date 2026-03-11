@@ -17,6 +17,26 @@ export async function POST() {
       where: { tenantId: ctx.tenantId, operatorId: ctx.userId, status: "active" },
     });
     if (existing) {
+      // Always re-sync guards from pauta even when turno already exists
+      if (existing.controlNocturnoId) {
+        try {
+          const cnForSync = await prisma.opsControlNocturno.findUnique({
+            where: { id: existing.controlNocturnoId },
+            select: { id: true, shiftStart: true, shiftEnd: true },
+          });
+          if (cnForSync) {
+            const { generateGridSlots } = await import("@/lib/rondas/generate-grid");
+            await generateGridSlots({
+              controlNocturnoId: cnForSync.id,
+              tenantId: ctx.tenantId,
+              shiftStart: cnForSync.shiftStart,
+              shiftEnd: cnForSync.shiftEnd,
+            });
+          }
+        } catch (err) {
+          console.error("[turno/start] Re-sync grid slots failed:", err);
+        }
+      }
       return NextResponse.json({ success: true, data: existing });
     }
 

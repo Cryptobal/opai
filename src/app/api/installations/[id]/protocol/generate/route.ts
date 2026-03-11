@@ -62,13 +62,18 @@ Cada ítem debe ser detallado, práctico y accionable para un guardia de segurid
     try {
       aiResponse = (await aiService.generateJSON(prompt, 4096)) as typeof aiResponse;
     } catch (err: unknown) {
-      if (err instanceof Error && err.message === "NO_AI_CONFIGURED") {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[PROTOCOL_GENERATE] AI error:", msg);
+      if (msg === "NO_AI_CONFIGURED") {
         return NextResponse.json(
           { success: false, error: "NO_AI_CONFIGURED", message: "No hay un proveedor de IA configurado. Configura uno en Ajustes > IA." },
           { status: 400 },
         );
       }
-      throw err;
+      return NextResponse.json(
+        { success: false, error: msg, message: `Error del proveedor de IA: ${msg}` },
+        { status: 502 },
+      );
     }
 
     if (!aiResponse?.sections?.length) {
