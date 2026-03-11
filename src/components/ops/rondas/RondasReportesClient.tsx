@@ -102,7 +102,9 @@ export function RondasReportesClient({
   const [guardiaFilterId, setGuardiaFilterId] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const [panicAlertsState, setPanicAlertsState] = useState<PanicAlert[]>(panicAlerts ?? []);
+  const [panicAlertsState, setPanicAlertsState] = useState<PanicAlert[]>(
+    () => (panicAlerts ?? []).filter((a) => !a.resuelta),
+  );
   const [resolvingPanicId, setResolvingPanicId] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState("instalacion");
@@ -123,9 +125,7 @@ export function RondasReportesClient({
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        setPanicAlertsState((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, resuelta: true } : a)),
-        );
+        setPanicAlertsState((prev) => prev.filter((a) => a.id !== id));
         toast.success("Alerta de pánico marcada como resuelta");
       } else {
         toast.error(json.error ?? "Error");

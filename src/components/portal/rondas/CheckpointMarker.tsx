@@ -564,10 +564,10 @@ export function CheckpointMarker({
           @keyframes gps-ring { 0% { transform: scale(0.8); opacity: 0.6; } 100% { transform: scale(2); opacity: 0; } }
         `}</style>
 
-        <div className="fixed inset-0 z-[1100] flex flex-col bg-zinc-950">
-          {/* Barra fija arriba: Cancelar visible debajo de la zona del nombre */}
+        <div className="fixed inset-0 z-[9999] flex flex-col bg-zinc-950">
+          {/* Barra fija arriba: Cerrar siempre visible */}
           <div
-            className="shrink-0 flex items-center px-4 pb-3 bg-zinc-950 border-b border-zinc-800"
+            className="shrink-0 flex items-center justify-between px-4 pb-3 bg-zinc-950 border-b border-zinc-800"
             style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
           >
             <button
@@ -575,6 +575,15 @@ export function CheckpointMarker({
               className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-medium text-gray-200 active:bg-zinc-700"
             >
               Cancelar
+            </button>
+            <button
+              onClick={onBack}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-white transition-colors active:bg-zinc-700"
+              aria-label="Cerrar"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
 
