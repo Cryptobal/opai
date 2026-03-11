@@ -395,10 +395,11 @@ export function CheckpointMarker({
       const verificationMethod = qrCode ? "QR" : "GEOFENCE";
 
       // 4. Compute client-side integrity hash
-      const timestamp = new Date().toISOString();
+      // clientTimestamp es solo referencia para el hash — el timestamp oficial es del servidor
+      const clientTimestamp = new Date().toISOString();
       const clientHash = await computeClientHash([
         checkpoint.id,
-        timestamp,
+        clientTimestamp,
         coords.lat.toString(),
         coords.lng.toString(),
         guardiaId,
@@ -431,7 +432,7 @@ export function CheckpointMarker({
         isOfflineSync: false,
         guardiaId,
         clientHash,
-        clientTimestamp: timestamp,
+        clientTimestamp,
         taskResponses: taskResponsesPayload,
       };
 

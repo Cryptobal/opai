@@ -41,6 +41,7 @@ interface MarcacionResult {
   timestamp: string;
   geoValidada: boolean;
   geoDistanciaM: number | null;
+  gpsStatus: string; // dentro_rango | fuera_rango | sin_gps
   guardiaName: string;
   installationName: string;
   hashIntegridad: string;
@@ -211,12 +212,8 @@ export function MarcacionClient({ code }: { code: string }) {
       setError(null);
       setLoading(true);
 
-      // 1. Verificar que tenemos geolocalización
-      if (!geoCoords) {
-        setError("Ubicación no disponible. Activa el GPS y permite el acceso a tu ubicación.");
-        setLoading(false);
-        return;
-      }
+      // 1. GPS es evidencia, no restricción (Res. N°38 Art. 19)
+      // Se permite marcar sin GPS, pero se registra como "sin_gps"
 
       // 2. Capturar foto si la cámara está activa
       let foto = fotoBase64;
@@ -233,8 +230,8 @@ export function MarcacionClient({ code }: { code: string }) {
             rut,
             pin,
             tipo,
-            lat: geoCoords.lat,
-            lng: geoCoords.lng,
+            lat: geoCoords?.lat ?? null,
+            lng: geoCoords?.lng ?? null,
             fotoBase64: foto || undefined,
           }),
         });
@@ -510,7 +507,8 @@ function MarcarScreen({
   });
 
   const geoReady = geoStatus === "granted" && geoCoords != null;
-  const canMark = geoReady && !loading;
+  // Res. N°38 Art. 19: GPS es evidencia, no restricción. Se puede marcar sin GPS.
+  const canMark = !loading;
 
   return (
     <div className="p-6">
@@ -541,12 +539,12 @@ function MarcarScreen({
         <p className="text-sm text-slate-500 mt-1 capitalize">{dateStr}</p>
       </div>
 
-      {/* ── ESTADO DE GEOLOCALIZACIÓN (obligatorio) ── */}
+      {/* ── ESTADO DE GEOLOCALIZACIÓN (evidencia, no restricción — Res. N°38 Art. 19) ── */}
       <div className={`flex items-center gap-2 p-3 rounded-lg mb-4 ${
         geoReady
           ? "bg-emerald-50 border border-emerald-200"
           : geoStatus === "denied" || geoStatus === "error"
-          ? "bg-red-50 border border-red-200"
+          ? "bg-amber-50 border border-amber-200"
           : "bg-amber-50 border border-amber-200"
       }`}>
         {geoReady ? (
@@ -561,11 +559,11 @@ function MarcarScreen({
           </>
         ) : (
           <>
-            <MapPinOff className="w-4 h-4 text-red-500 shrink-0" />
+            <MapPinOff className="w-4 h-4 text-amber-500 shrink-0" />
             <div className="flex-1">
-              <p className="text-sm text-red-700 font-medium">Ubicación requerida</p>
-              <p className="text-xs text-red-600 mt-0.5">
-                Activa el GPS y permite el acceso a la ubicación en tu navegador.
+              <p className="text-sm text-amber-700 font-medium">Sin ubicación GPS</p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                Puedes marcar sin GPS, pero se recomienda activar la ubicación.
               </p>
               <button
                 onClick={onRequestGeo}
@@ -729,27 +727,27 @@ function ConfirmacionScreen({
       {/* Estado geo */}
       <div
         className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium mb-4 ${
-          data.geoValidada
+          data.gpsStatus === "dentro_rango"
             ? "bg-emerald-100 text-emerald-700"
-            : data.geoDistanciaM != null
-            ? "bg-amber-100 text-amber-700"
+            : data.gpsStatus === "fuera_rango"
+            ? "bg-yellow-100 text-yellow-700"
             : "bg-slate-100 text-slate-600"
         }`}
       >
-        {data.geoValidada ? (
+        {data.gpsStatus === "dentro_rango" ? (
           <>
             <MapPin className="w-4 h-4" />
             Ubicación validada
             {data.geoDistanciaM != null && ` (${data.geoDistanciaM}m)`}
           </>
-        ) : data.geoDistanciaM != null ? (
+        ) : data.gpsStatus === "fuera_rango" ? (
           <>
             <AlertTriangle className="w-4 h-4" />
             Fuera de rango ({data.geoDistanciaM}m)
           </>
         ) : (
           <>
-            <MapPin className="w-4 h-4" />
+            <MapPinOff className="w-4 h-4" />
             Sin geolocalización
           </>
         )}

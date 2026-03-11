@@ -130,6 +130,7 @@ export async function POST(req: NextRequest) {
         guardiaId: guardia.id,
         installationId: installation.id,
         timestamp: { gte: today, lt: tomorrow },
+        deletedAt: null,
       },
       orderBy: { timestamp: "desc" },
       select: { tipo: true, timestamp: true },

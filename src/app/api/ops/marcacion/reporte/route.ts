@@ -31,9 +31,10 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 200);
 
-    // Construir filtro
+    // Construir filtro (solo marcaciones activas — soft delete)
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,
+      deletedAt: null,
     };
 
     if (installationId) where.installationId = installationId;
@@ -84,16 +85,16 @@ export async function GET(req: NextRequest) {
 
     const [totalHoy, entradasHoy, salidasHoy, fueraRadioHoy] = await Promise.all([
       prisma.opsMarcacion.count({
-        where: { tenantId: ctx.tenantId, timestamp: { gte: today, lt: tomorrow } },
+        where: { tenantId: ctx.tenantId, timestamp: { gte: today, lt: tomorrow }, deletedAt: null },
       }),
       prisma.opsMarcacion.count({
-        where: { tenantId: ctx.tenantId, tipo: "entrada", timestamp: { gte: today, lt: tomorrow } },
+        where: { tenantId: ctx.tenantId, tipo: "entrada", timestamp: { gte: today, lt: tomorrow }, deletedAt: null },
       }),
       prisma.opsMarcacion.count({
-        where: { tenantId: ctx.tenantId, tipo: "salida", timestamp: { gte: today, lt: tomorrow } },
+        where: { tenantId: ctx.tenantId, tipo: "salida", timestamp: { gte: today, lt: tomorrow }, deletedAt: null },
       }),
       prisma.opsMarcacion.count({
-        where: { tenantId: ctx.tenantId, geoValidada: false, timestamp: { gte: today, lt: tomorrow } },
+        where: { tenantId: ctx.tenantId, gpsStatus: "fuera_rango", timestamp: { gte: today, lt: tomorrow }, deletedAt: null },
       }),
     ]);
 
