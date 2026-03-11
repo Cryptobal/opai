@@ -122,9 +122,11 @@ Campos a extraer:
 - guardsPerShift: cantidad de guardias por turno o total solicitados
 - numberOfLocations: cantidad de puntos/instalaciones/sedes a cubrir
 - startDate: fecha estimada de inicio (ej. "02 de marzo", "inmediato", "a definir")
-- summary: resumen ejecutivo en 2-4 oraciones con lo más relevante de la solicitud
+- summary: resumen ejecutivo del NEGOCIO en 2-5 oraciones: qué pide el cliente, tipo de servicio, alcance, plazos. Si hay más mensajes en la conversación, puedes usar ese contexto para enriquecer el resumen.
 - industry: rubro del cliente solicitante (construcción, minería, retail, inmobiliaria, energía, etc.)
-- website: sitio web de la empresa solicitante. Buscar URLs en la firma del contacto, cuerpo del correo o datos de la empresa (ej. www.empresa.cl, https://empresa.cl). NO usar sitios de ${companyName} (${domain}). Si encuentras una URL sin protocolo (ej. "www.empresa.cl"), devuélvela con https:// (ej. "https://www.empresa.cl")`;
+- website: sitio web de la empresa solicitante. Buscar URLs en la firma del contacto, cuerpo del correo o datos de la empresa (ej. www.empresa.cl, https://empresa.cl). NO usar sitios de ${companyName} (${domain}). Si encuentras una URL sin protocolo (ej. "www.empresa.cl"), devuélvela con https:// (ej. "https://www.empresa.cl")
+
+Cuando el texto incluye "MENSAJE ORIGINAL" y "CONTEXTO DE LA CONVERSACIÓN": extrae contacto, empresa y datos estructurados SOLO del mensaje original (primer reenvío). El resumen (summary) puede incorporar también lo relevante del contexto de la conversación.`;
 }
 
 function stripHtml(html: string): string {
@@ -141,6 +143,43 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+/** Marcadores de reenvío en distintos clientes (Gmail, etc.) */
+const FORWARD_HEADER_REGEX = /----------\s*(?:Forwarded\s+message|Mensaje\s+reenviado)\s*----------/i;
+/** Inicio del siguiente bloque (Previous message, Reply, etc.) */
+const NEXT_BLOCK_REGEX = /\n\s*----------\s*.+/;
+
+const MAX_CONTEXT_CHARS = 2500;
+
+/**
+ * En correos reenviados con historial, extrae el primer mensaje reenviado (el del cliente real)
+ * y el resto de la conversación como contexto para el resumen.
+ */
+function extractFirstForwardedBlockAndContext(body: string): {
+  firstBlock: string;
+  conversationContext: string;
+} {
+  const trimmed = body.trim();
+  if (!trimmed) return { firstBlock: "", conversationContext: "" };
+
+  const match = trimmed.match(FORWARD_HEADER_REGEX);
+  if (!match || match.index === undefined) {
+    return { firstBlock: trimmed, conversationContext: "" };
+  }
+
+  const start = match.index + match[0].length;
+  const afterHeader = trimmed.slice(start).replace(/^\s*\n?/, "");
+  const nextBlock = afterHeader.match(NEXT_BLOCK_REGEX);
+  const firstBlockEnd = nextBlock?.index ?? afterHeader.length;
+  const firstBlock = afterHeader.slice(0, firstBlockEnd).trim();
+
+  const restStart = nextBlock ? nextBlock.index! + nextBlock[0].length : afterHeader.length;
+  const rest = afterHeader.slice(restStart).trim();
+  const conversationContext =
+    rest.length > 0 ? rest.slice(0, MAX_CONTEXT_CHARS) + (rest.length > MAX_CONTEXT_CHARS ? "…" : "") : "";
+
+  return { firstBlock, conversationContext };
+}
+
 /**
  * Extrae datos de lead desde el contenido de un email (asunto + cuerpo).
  * Acepta HTML o texto plano.
@@ -155,7 +194,7 @@ export async function extractLeadFromEmail(params: {
   /** Nombre de la empresa propia (ej. "Gard Security") para contexto del prompt de IA */
   ownCompanyName?: string | null;
 }): Promise<ExtractedLeadData> {
-  const textBody = params.textBody?.trim() || stripHtml(params.htmlBody || "");
+  let textBody = params.textBody?.trim() || stripHtml(params.htmlBody || "");
 
   // Detectar si el remitente es interno (reenvío desde la empresa propia)
   const ownDomain = params.ownDomain || process.env.TENANT_DOMAIN || "gard.cl";
@@ -164,17 +203,34 @@ export async function extractLeadFromEmail(params: {
     ? params.fromEmail.toLowerCase().includes(`@${ownDomain.toLowerCase()}`)
     : false;
 
-  const content = [
+  // En reenvíos: usar solo el primer mensaje reenviado para contacto/empresa y el resto como contexto para el resumen
+  let conversationContext = "";
+  if (isForwarded && textBody) {
+    const { firstBlock, conversationContext: ctx } = extractFirstForwardedBlockAndContext(textBody);
+    if (firstBlock) {
+      textBody = firstBlock;
+      conversationContext = ctx;
+    }
+  }
+
+  const contentParts: string[] = [
     `Asunto: ${params.subject || "(sin asunto)"}`,
-    // Solo incluir "De:" si NO es un reenvío interno; si es reenvío, la IA debe buscar al cliente en el cuerpo
     !isForwarded && params.fromEmail ? `De: ${params.fromEmail}` : "",
     isForwarded
-      ? `[NOTA: Este correo fue REENVIADO por un empleado de ${ownCompanyName}. El remitente real (el cliente que solicita el servicio) está en el cuerpo del correo. IGNORA los datos de ${ownCompanyName}, ${ownDomain} y del empleado que reenvía.]`
+      ? `[NOTA: Este correo fue REENVIADO por un empleado de ${ownCompanyName}. Extrae contacto, empresa y datos SOLO del mensaje original abajo. IGNORA datos de ${ownCompanyName}, ${ownDomain} y del reenviador.]`
       : "",
-    textBody,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  ];
+  if (isForwarded) {
+    contentParts.push("--- MENSAJE ORIGINAL (primer reenvío — extrae de aquí contacto, empresa y datos estructurados) ---");
+  }
+  contentParts.push(textBody);
+  if (conversationContext) {
+    contentParts.push(
+      "--- CONTEXTO DE LA CONVERSACIÓN (usa para enriquecer el resumen ejecutivo del negocio) ---",
+      conversationContext
+    );
+  }
+  const content = contentParts.filter(Boolean).join("\n\n");
 
   if (!content.trim()) {
     return emptyResult(params.fromEmail || null, "Correo sin contenido extraíble.");

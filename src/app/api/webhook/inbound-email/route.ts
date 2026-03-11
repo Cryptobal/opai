@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
         textBody: text,
         fromEmail: from,
         ownDomain: "gard.cl",
+        ownCompanyName: "Gard Security",
       });
     } catch (extractErr) {
       console.warn("[inbound-email] Extract failed, creating lead from envelope:", extractErr);
