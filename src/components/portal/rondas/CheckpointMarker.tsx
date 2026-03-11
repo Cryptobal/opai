@@ -842,17 +842,17 @@ export function CheckpointMarker({
         <div className="absolute inset-0 bg-black/30" onClick={onBack} />
 
         {/* Sheet */}
-        <div className="relative w-full max-h-[50vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
+        <div className="relative w-full max-h-[85vh] bg-zinc-900 rounded-t-2xl flex flex-col animate-slide-up">
           {showSuccessFlash && (
             <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-emerald-500/20 transition-opacity" />
           )}
           {/* Drag handle */}
-          <div className="flex justify-center py-3 sticky top-0 bg-zinc-900 z-10">
+          <div className="flex justify-center py-2.5 shrink-0 rounded-t-2xl bg-zinc-900">
             <div className="w-10 h-1 bg-zinc-600 rounded-full" />
           </div>
 
-          {/* Content */}
-          <div className="space-y-4 px-4" style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom, 0px))" }}>
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto min-h-0 px-4 space-y-3">
             {/* ---- Checkpoint name ---- */}
             <h2 className="text-lg font-semibold text-white">{checkpoint.name}</h2>
 
@@ -876,7 +876,7 @@ export function CheckpointMarker({
                 {tasks.map((task) => (
                   <div
                     key={task.id}
-                    className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4 space-y-2"
+                    className="rounded-2xl border border-gray-800 bg-gray-900/60 p-3 space-y-2"
                   >
                     <p className="text-sm text-gray-200">
                       {task.label}
@@ -1005,7 +1005,7 @@ export function CheckpointMarker({
             )}
 
             {/* ---- GPS Status ---- */}
-            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-3">
               <div className="flex items-center gap-3">
                 {/* GPS icon */}
                 <div className="shrink-0">
@@ -1094,7 +1094,7 @@ export function CheckpointMarker({
 
             {/* ---- QR Status (only if required) ---- */}
             {needsQr && (
-              <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+              <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-3">
                 <div className="flex items-center gap-3">
                   {/* QR icon */}
                   <div className="shrink-0">
@@ -1154,7 +1154,7 @@ export function CheckpointMarker({
             )}
 
             {/* ---- Photo ---- */}
-            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-3">
               {photoPreview ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -1203,7 +1203,7 @@ export function CheckpointMarker({
             </div>
 
             {/* ---- Notes ---- */}
-            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-3">
               <label htmlFor="checkpoint-note" className="mb-2 block text-base font-medium text-gray-200">
                 Notas (opcional)
               </label>
@@ -1212,25 +1212,30 @@ export function CheckpointMarker({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Observaciones del punto..."
-                rows={3}
+                rows={2}
                 maxLength={500}
-                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 text-base text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2.5 text-base text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
               />
             </div>
 
-            {/* ---- Error ---- */}
+          </div>
+
+          {/* ---- Sticky Submit Footer ---- */}
+          <div
+            className="shrink-0 border-t border-zinc-800 bg-zinc-900 px-4 pt-3"
+            style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+          >
             {submitError && (
-              <div className="rounded-lg bg-red-500/20 px-4 py-3 text-center text-base text-red-300">
+              <div className="mb-2 rounded-lg bg-red-500/20 px-4 py-2 text-center text-sm text-red-300">
                 {submitError}
               </div>
             )}
 
-            {/* ---- Submit Button ---- */}
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full rounded-xl bg-teal-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-40"
-              style={{ minHeight: 56 }}
+              className="w-full rounded-xl bg-teal-600 py-3.5 text-base font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-40"
+              style={{ minHeight: 52 }}
             >
               {submitting ? (
                 <span className="flex items-center justify-center gap-2">
@@ -1261,9 +1266,8 @@ export function CheckpointMarker({
               )}
             </button>
 
-            {/* ---- Disabled reason hint ---- */}
             {!canSubmit && !submitting && (
-              <p className="text-center text-sm text-gray-500">
+              <p className="mt-1.5 text-center text-xs text-gray-500">
                 {gpsStatus !== "success" && "Esperando ubicacion GPS"}
                 {gpsStatus === "success" && needsQr && !qrCode && "Escanea el codigo QR del punto"}
                 {gpsStatus === "success" && (needsQr ? qrCode != null : true) && !requiredTasksComplete && "Completa las tareas obligatorias"}

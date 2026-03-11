@@ -21,6 +21,7 @@ import { PortalPerfil } from "./PortalPerfil";
 import { useDeviceHeartbeat } from "@/hooks/useDeviceHeartbeat";
 import { DEVICE_TOKEN_KEY, safeStorage } from "@/lib/device-constants";
 import { LogoutPinModal } from "@/components/portal/LogoutPinModal";
+import { GuardTourOverlay } from "./tour/GuardTourOverlay";
 import Pusher from "pusher-js";
 
 export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "completada" | "chat" | "perfil";
@@ -53,6 +54,7 @@ export function RondasPortalClient() {
   const [isOffline, setIsOffline] = useState(false);
   const [showIncidentModal, setShowIncidentModal] = useState(false);
   const [showPanicoModal, setShowPanicoModal] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const [panicBanner, setPanicBanner] = useState<"off" | "active" | "acknowledged">("off");
   const [incidentToast, setIncidentToast] = useState(false);
 
@@ -359,6 +361,31 @@ export function RondasPortalClient() {
     }
   };
 
+  // --- Guard tour (onboarding) ---
+
+  useEffect(() => {
+    if (authMode !== "ready" || !currentGuard) return;
+    try {
+      if (!localStorage.getItem("rondas-tour-completed")) {
+        const timer = setTimeout(() => setShowTour(true), 800);
+        return () => clearTimeout(timer);
+      }
+    } catch {
+      // localStorage not available
+    }
+  }, [authMode, currentGuard]);
+
+  const handleTourComplete = useCallback(() => {
+    setShowTour(false);
+    try {
+      localStorage.setItem("rondas-tour-completed", "1");
+    } catch {
+      // localStorage not available
+    }
+  }, []);
+
+  const handleShowTour = useCallback(() => setShowTour(true), []);
+
   // --- Ronda navigation ---
 
   const fetchRondaData = useCallback(
@@ -587,6 +614,7 @@ export function RondasPortalClient() {
             session={session}
             onIniciarRonda={handleIniciarRonda}
             onIniciarRondaLibre={handleIniciarRondaLibre}
+            onShowTour={handleShowTour}
           />
           {loadingRonda && (
             <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60">
@@ -707,6 +735,8 @@ export function RondasPortalClient() {
         onConfirm={() => { setShowLogoutPin(false); doFullLogout(); }}
         onCancel={() => setShowLogoutPin(false)}
       />
+
+      {showTour && <GuardTourOverlay onComplete={handleTourComplete} />}
     </div>
   );
 }
