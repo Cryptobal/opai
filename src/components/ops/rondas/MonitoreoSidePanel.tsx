@@ -50,6 +50,7 @@ interface InstallationCard {
 interface Props {
   // Rondas tab
   guardPanelData: any[];
+  completedData?: any[];
   selectedRondaId: string | null;
   onSelectGuard: (id: string | null) => void;
   onAddNote: (ejecucionId: string, guardiaId: string, installationId: string, note: string) => Promise<void>;
@@ -78,6 +79,7 @@ type TabKey = "rondas" | "alertas" | "instalaciones" | "historial";
 
 export function MonitoreoSidePanel({
   guardPanelData,
+  completedData,
   selectedRondaId,
   onSelectGuard,
   onAddNote,
@@ -186,6 +188,7 @@ export function MonitoreoSidePanel({
         {activeTab === "rondas" && (
           <RondasTab
             guardPanelData={guardPanelData}
+            completedData={completedData}
             selectedRondaId={selectedRondaId}
             onSelectGuard={onSelectGuard}
             onAddNote={onAddNote}
@@ -225,15 +228,22 @@ export function MonitoreoSidePanel({
    ═══════════════════════════════════════════════ */
 function RondasTab({
   guardPanelData,
+  completedData,
   selectedRondaId,
   onSelectGuard,
   onAddNote,
 }: {
   guardPanelData: any[];
+  completedData?: any[];
   selectedRondaId: string | null;
   onSelectGuard: (id: string | null) => void;
   onAddNote: (ejecucionId: string, guardiaId: string, installationId: string, note: string) => Promise<void>;
 }) {
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  const completadas = completedData?.filter((r: any) => r.status === "completada") ?? [];
+  const incompletas = completedData?.filter((r: any) => r.status === "incompleta") ?? [];
+  const totalCompleted = completadas.length + incompletas.length;
 
   return (
     <>
@@ -256,6 +266,98 @@ function RondasTab({
           selectedId={selectedRondaId}
           onAddNote={onAddNote}
         />
+      )}
+
+      {/* Completed section */}
+      {totalCompleted > 0 && (
+        <>
+          <button
+            onClick={() => setShowCompleted(!showCompleted)}
+            className="w-full px-4 py-2 border-t border-[#1a1f2e] flex items-center gap-2 hover:bg-[#0f1420] transition-colors"
+          >
+            <Check className="h-3 w-3 text-emerald-400" />
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">
+              Completadas
+            </p>
+            <span className="text-[10px] rounded-full px-1.5 py-0.5 font-semibold bg-emerald-500/20 text-emerald-400">
+              {completadas.length}
+            </span>
+            {incompletas.length > 0 && (
+              <span className="text-[10px] rounded-full px-1.5 py-0.5 font-semibold bg-red-500/20 text-red-400">
+                {incompletas.length} incompleta{incompletas.length !== 1 ? "s" : ""}
+              </span>
+            )}
+            <ChevronDown
+              className={cn(
+                "ml-auto h-3.5 w-3.5 text-[#64748b] transition-transform",
+                showCompleted && "rotate-180",
+              )}
+            />
+          </button>
+          {showCompleted && (
+            <div className="divide-y divide-[#1a1f2e]">
+              {[...incompletas, ...completadas].map((r: any) => {
+                const guardia = r.guardia;
+                const tpl = r.rondaTemplate;
+                const inst = tpl?.installation;
+                const isIncomplete = r.status === "incompleta";
+                const completedAt = r.completedAt ? new Date(r.completedAt) : null;
+                const hh = completedAt ? String(completedAt.getHours()).padStart(2, "0") : "--";
+                const mm = completedAt ? String(completedAt.getMinutes()).padStart(2, "0") : "--";
+
+                return (
+                  <div
+                    key={r.id}
+                    className={cn(
+                      "px-4 py-3",
+                      isIncomplete ? "bg-red-950/10" : "bg-[#0a0e1a]",
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={cn(
+                            "w-2 h-2 rounded-full shrink-0",
+                            isIncomplete ? "bg-red-400" : "bg-emerald-400",
+                          )}
+                        />
+                        <span className="text-sm font-medium text-white truncate">
+                          {guardia?.persona
+                            ? `${guardia.persona.firstName} ${guardia.persona.lastName}`
+                            : "Guardia"}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-[#64748b] shrink-0">{hh}:{mm}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-[#64748b] pl-4">
+                      <span className="truncate">{inst?.name ?? tpl?.name ?? "—"}</span>
+                      <span className="shrink-0">
+                        {r.checkpointsCompletados}/{r.checkpointsTotal}
+                      </span>
+                      {r.trustScore > 0 && (
+                        <span
+                          className={cn(
+                            "shrink-0 font-medium",
+                            r.trustScore >= 80
+                              ? "text-emerald-400"
+                              : r.trustScore >= 50
+                                ? "text-yellow-400"
+                                : "text-red-400",
+                          )}
+                        >
+                          Trust {r.trustScore}
+                        </span>
+                      )}
+                      {isIncomplete && (
+                        <span className="shrink-0 text-red-400 font-medium">Incompleta</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </>
   );

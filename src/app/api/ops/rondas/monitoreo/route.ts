@@ -61,12 +61,70 @@ export async function GET() {
       take: 50,
     });
 
-    // If there's an active turno linked to a CN, include CN data for the grid
-    let controlNocturno = null;
+    // Fetch active turno first (used by recently-completed lookback + CN grid)
     const activeTurno = await prisma.opsMonitoreoTurno.findFirst({
       where: { tenantId: ctx.tenantId, status: "active" },
       select: { id: true, controlNocturnoId: true, operatorId: true, operatorName: true, startedAt: true },
     });
+
+    // Recently completed/incompleta rounds (visible in monitoring for KPIs + history)
+    const completedLookback = activeTurno?.startedAt
+      ? new Date(activeTurno.startedAt)
+      : new Date(Date.now() - 12 * 60 * 60 * 1000);
+
+    const recentlyCompleted = await prisma.opsRondaEjecucion.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        status: { in: ["completada", "incompleta"] },
+        completedAt: { gte: completedLookback },
+      },
+      include: {
+        rondaTemplate: {
+          include: {
+            installation: { select: { id: true, name: true, lat: true, lng: true } },
+            checkpoints: {
+              include: { checkpoint: true },
+              orderBy: { orderIndex: "asc" },
+            },
+          },
+        },
+        guardia: {
+          include: {
+            persona: { select: { firstName: true, lastName: true, phoneMobile: true } },
+          },
+        },
+        marcaciones: {
+          select: {
+            id: true,
+            timestamp: true,
+            status: true,
+            lat: true,
+            lng: true,
+            geoValidada: true,
+            geoDistanciaM: true,
+            fotoEvidenciaUrl: true,
+            checkpointId: true,
+            verificationMethod: true,
+            checkpoint: { select: { name: true } },
+          },
+          orderBy: { timestamp: "desc" },
+        },
+        alertasRows: {
+          where: { resuelta: false, archivedAt: null },
+          orderBy: { createdAt: "desc" },
+          take: 3,
+        },
+        incidentes: {
+          select: { id: true, tipo: true, descripcion: true, fotoUrl: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+      orderBy: { completedAt: "desc" },
+      take: 30,
+    });
+
+    // If there's an active turno linked to a CN, include CN data for the grid
+    let controlNocturno = null;
 
     // Self-heal: if active turno has no CN link, try to find/create one
     if (activeTurno && !activeTurno.controlNocturnoId) {
@@ -216,6 +274,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: active,
+      recentlyCompleted,
       controlNocturno,
       activeTurno: activeTurno ? { id: activeTurno.id, operatorId: activeTurno.operatorId, operatorName: activeTurno.operatorName, startedAt: activeTurno.startedAt } : null,
     });

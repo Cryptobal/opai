@@ -34,33 +34,38 @@ export interface RondaMapProps {
 // Custom marker icons using L.divIcon
 // ---------------------------------------------------------------------------
 
-const MARKER_SIZE = 24;
+const MARKER_SIZE = 30;
 
-function createCheckpointIcon(status: "completed" | "active" | "pending"): L.DivIcon {
-  const colors: Record<string, { bg: string; border: string }> = {
-    completed: { bg: "#22c55e", border: "#16a34a" },
-    active: { bg: "#14b8a6", border: "#0d9488" },
-    pending: { bg: "#52525b", border: "#3f3f46" },
+function createCheckpointIcon(
+  status: "completed" | "active" | "pending",
+  orderIndex?: number,
+): L.DivIcon {
+  const colors: Record<string, { bg: string; border: string; text: string }> = {
+    completed: { bg: "#22c55e", border: "#16a34a", text: "#fff" },
+    active: { bg: "#ffffff", border: "#14b8a6", text: "#0d9488" },
+    pending: { bg: "#ffffff", border: "#71717a", text: "#52525b" },
   };
 
-  const { bg, border } = colors[status];
+  const { bg, border, text } = colors[status];
 
   let inner = "";
   if (status === "completed") {
-    inner = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M5 13l4 4L19 7"/></svg>`;
-  } else if (status === "active") {
-    inner = "";
+    inner = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M5 13l4 4L19 7"/></svg>`;
+  } else if (orderIndex != null) {
+    inner = `<span style="font-size:13px;font-weight:700;color:${text};line-height:1;">${orderIndex + 1}</span>`;
   }
 
   const pulseRing =
     status === "active"
-      ? `<span style="position:absolute;top:50%;left:50%;width:${MARKER_SIZE + 12}px;height:${MARKER_SIZE + 12}px;transform:translate(-50%,-50%);border-radius:50%;background:${bg};opacity:0.3;animation:ronda-pulse 1.5s ease-out infinite;"></span>`
+      ? `<span style="position:absolute;top:50%;left:50%;width:${MARKER_SIZE + 16}px;height:${MARKER_SIZE + 16}px;transform:translate(-50%,-50%);border-radius:50%;background:#14b8a6;opacity:0.3;animation:ronda-pulse 1.5s ease-out infinite;"></span>`
       : "";
+
+  const shadow = "filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));";
 
   const html = `
     <div style="position:relative;width:${MARKER_SIZE}px;height:${MARKER_SIZE}px;">
       ${pulseRing}
-      <div style="position:relative;width:${MARKER_SIZE}px;height:${MARKER_SIZE}px;border-radius:50%;background:${bg};border:2px solid ${border};display:flex;align-items:center;justify-content:center;z-index:1;">
+      <div style="position:relative;width:${MARKER_SIZE}px;height:${MARKER_SIZE}px;border-radius:50%;background:${bg};border:3px solid ${border};display:flex;align-items:center;justify-content:center;z-index:1;${shadow}">
         ${inner}
       </div>
     </div>
@@ -75,12 +80,12 @@ function createCheckpointIcon(status: "completed" | "active" | "pending"): L.Div
 }
 
 function createGuardIcon(): L.DivIcon {
-  const size = 16;
-  const outerSize = 32;
+  const size = 18;
+  const outerSize = 40;
   const html = `
     <div style="position:relative;width:${outerSize}px;height:${outerSize}px;">
       <span style="position:absolute;top:50%;left:50%;width:${outerSize}px;height:${outerSize}px;transform:translate(-50%,-50%);border-radius:50%;background:rgba(59,130,246,0.25);animation:ronda-pulse 1.5s ease-out infinite;"></span>
-      <div style="position:absolute;top:50%;left:50%;width:${size}px;height:${size}px;transform:translate(-50%,-50%);border-radius:50%;background:#3b82f6;border:2px solid #2563eb;z-index:1;"></div>
+      <div style="position:absolute;top:50%;left:50%;width:${size}px;height:${size}px;transform:translate(-50%,-50%);border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.5);z-index:1;"></div>
     </div>
   `;
 
@@ -329,14 +334,17 @@ export default function RondaMap({
   const [mounted, setMounted] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
 
-  // Memoize icons to avoid re-creating on every render
+  // Memoize icons — keyed by "status-orderIndex" since each checkpoint shows its number
   const checkpointIcons = useMemo(() => {
     const icons: Record<string, L.DivIcon> = {};
-    for (const status of ["completed", "active", "pending"] as const) {
-      icons[status] = createCheckpointIcon(status);
+    for (const cp of checkpoints) {
+      const key = `${cp.status}-${cp.orderIndex}`;
+      if (!icons[key]) {
+        icons[key] = createCheckpointIcon(cp.status, cp.orderIndex);
+      }
     }
     return icons;
-  }, []);
+  }, [checkpoints]);
 
   const guardIcon = useMemo(() => createGuardIcon(), []);
 
@@ -404,7 +412,7 @@ export default function RondaMap({
           <Marker
             key={cp.id}
             position={[cp.lat, cp.lng]}
-            icon={checkpointIcons[cp.status]}
+            icon={checkpointIcons[`${cp.status}-${cp.orderIndex}`]}
             title={cp.name}
           />
         ))}

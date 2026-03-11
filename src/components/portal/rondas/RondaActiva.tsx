@@ -162,6 +162,15 @@ export function RondaActiva({
   // -- Confirmation modal state --
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
+  // -- Auto-complete celebration modal --
+  const [showAutoCompleteModal, setShowAutoCompleteModal] = useState(false);
+  const autoCompleteShownRef = useRef(false);
+
+  // -- Geofence auto-prompt state --
+  const [nearbyCheckpointId, setNearbyCheckpointId] = useState<string | null>(null);
+  const dismissedGeofenceRef = useRef<Set<string>>(new Set());
+  const lastVibratedRef = useRef<string | null>(null);
+
   // -- GPS live tracking --
   const [guardPos, setGuardPos] = useState<{
     lat: number;
@@ -247,6 +256,56 @@ export function RondaActiva({
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Geofence auto-detection: check guard proximity to unmarked checkpoints
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!guardPos || isAdHoc) return;
+    // Already marking a checkpoint — don't show banner
+    if (markingCheckpointId) return;
+
+    const unmarked = checkpoints.filter((c) => !c.completed);
+    let closest: { id: string; dist: number; name: string } | null = null;
+
+    for (const cp of unmarked) {
+      const dist = haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng);
+      if (dist <= cp.geoRadiusM) {
+        if (!closest || dist < closest.dist) {
+          closest = { id: cp.id, dist, name: cp.name };
+        }
+      }
+    }
+
+    if (closest && !dismissedGeofenceRef.current.has(closest.id)) {
+      setNearbyCheckpointId(closest.id);
+      // Vibrate once per checkpoint entry
+      if (lastVibratedRef.current !== closest.id) {
+        lastVibratedRef.current = closest.id;
+        navigator.vibrate?.([100, 50, 100]);
+      }
+    } else {
+      setNearbyCheckpointId(null);
+    }
+  }, [guardPos, checkpoints, isAdHoc, markingCheckpointId]);
+
+  const nearbyCheckpoint = nearbyCheckpointId
+    ? checkpoints.find((c) => c.id === nearbyCheckpointId) ?? null
+    : null;
+
+  // ---------------------------------------------------------------------------
+  // Auto-complete detection: show celebration when all checkpoints marked
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (isAdHoc || autoCompleteShownRef.current) return;
+    if (checkpoints.length === 0) return;
+    const allDone = checkpoints.every((c) => c.completed);
+    if (allDone) {
+      autoCompleteShownRef.current = true;
+      navigator.vibrate?.([200, 100, 200]);
+      setShowAutoCompleteModal(true);
+    }
+  }, [checkpoints, isAdHoc]);
 
   // ---------------------------------------------------------------------------
   // Derived values
@@ -466,6 +525,7 @@ export function RondaActiva({
         ejecucionId={rondaData.ejecucionId}
         guardiaId={session.guardiaId}
         qrRequerido={markingCheckpoint ? rondaData.qrRequerido : adHocQrRequerido}
+        guardPos={guardPos}
         onComplete={() => {
           // For ad-hoc marks, capture the point locally for map display
           if (isAdHoc && guardPos) {
@@ -572,6 +632,53 @@ export function RondaActiva({
       {showFreeRoundCritical && (
         <div className="mx-4 mt-2 animate-pulse rounded-lg border border-red-600/50 bg-red-950/40 px-4 py-2 text-center text-sm font-semibold text-red-300">
           Tu ronda se cerrará en {Math.max(0, freeRoundTimeLeftMinutes!)} min — finalízala ahora
+        </div>
+      )}
+
+      {/* ============ Geofence Auto-Prompt Banner ============ */}
+      {nearbyCheckpoint && !markingCheckpointId && (
+        <div className="mx-4 mt-2 rounded-xl border border-teal-600/50 bg-teal-950/50 p-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-500/20">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-teal-300">
+                Estas en {nearbyCheckpoint.name}
+              </p>
+              <p className="text-xs text-teal-400/70">
+                {guardPos
+                  ? formatDistance(
+                      haversineDistance(guardPos.lat, guardPos.lng, nearbyCheckpoint.lat, nearbyCheckpoint.lng),
+                    )
+                  : ""}{" "}
+                del punto
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                onClick={() => {
+                  dismissedGeofenceRef.current.add(nearbyCheckpoint.id);
+                  setNearbyCheckpointId(null);
+                }}
+                className="rounded-lg bg-gray-800 px-3 py-2 text-xs font-medium text-gray-400 transition-colors active:bg-gray-700"
+              >
+                Ignorar
+              </button>
+              <button
+                onClick={() => {
+                  setNearbyCheckpointId(null);
+                  setMarkingCheckpointId(nearbyCheckpoint.id);
+                }}
+                className="rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white transition-colors active:bg-teal-700"
+              >
+                Marcar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -815,6 +922,9 @@ export function RondaActiva({
           }
 
           // -- Pending checkpoint: compact row --
+          const pendingDist = guardPos
+            ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
+            : null;
           return (
             <button
               key={cp.id}
@@ -832,9 +942,14 @@ export function RondaActiva({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm text-gray-300">{cp.name}</p>
-                {cp.isRequired && (
-                  <p className="text-xs text-gray-600">Obligatorio</p>
-                )}
+                <div className="flex gap-2 text-xs text-gray-600">
+                  {cp.isRequired && <span>Obligatorio</span>}
+                  {pendingDist != null && (
+                    <span className={pendingDist <= cp.geoRadiusM ? "text-teal-500" : ""}>
+                      {formatDistance(pendingDist)}
+                    </span>
+                  )}
+                </div>
               </div>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -917,38 +1032,86 @@ export function RondaActiva({
         </div>
       </div>
 
-      {/* ============ Confirmation Modal ============ */}
+      {/* ============ Confirmation Modal (incomplete checkpoints) ============ */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
           <div className="w-full max-w-sm rounded-2xl border border-gray-700 bg-gray-900 p-6">
             <h2 className="mb-3 text-lg font-semibold text-white">
               Checkpoints pendientes
             </h2>
-            <p className="mb-4 text-base text-gray-300">
+            <p className="mb-2 text-base text-gray-300">
               Te faltan{" "}
               <span className="font-semibold text-yellow-400">
                 {incompleteCheckpoints.length}
               </span>{" "}
-              puntos:{" "}
-              <span className="text-gray-400">
-                {incompleteCheckpoints.map((c) => c.name).join(", ")}
-              </span>
-              . {"\u00BF"}Completar de todas formas?
+              puntos:
+            </p>
+            <ul className="mb-4 max-h-40 space-y-1 overflow-y-auto">
+              {incompleteCheckpoints.map((c) => (
+                <li key={c.id} className="flex items-center gap-2 text-sm text-gray-400">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-yellow-500" />
+                  {c.name}
+                  {c.isRequired && <span className="text-xs text-red-400">(obligatorio)</span>}
+                </li>
+              ))}
+            </ul>
+            <p className="mb-4 text-sm text-gray-500">
+              {"\u00BF"}Completar de todas formas? Tu puntaje de confianza sera menor.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowConfirmModal(false)}
                 className="flex-1 rounded-xl border border-gray-700 bg-gray-800 py-3 text-base font-medium text-gray-300 transition-colors hover:bg-gray-700"
               >
-                Cancelar
+                Seguir ronda
               </button>
               <button
                 onClick={confirmComplete}
-                className="flex-1 rounded-xl bg-teal-600 py-3 text-base font-semibold text-white transition-colors hover:bg-teal-500"
+                className="flex-1 rounded-xl bg-yellow-600 py-3 text-base font-semibold text-white transition-colors hover:bg-yellow-500"
               >
                 Completar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ Auto-Complete Celebration Modal ============ */}
+      {showAutoCompleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
+          <div className="w-full max-w-sm rounded-2xl border border-green-700/50 bg-gray-900 p-6 text-center">
+            <div className="mb-3 flex justify-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+            <h2 className="mb-2 text-xl font-bold text-white">
+              Ronda Completa!
+            </h2>
+            <p className="mb-1 text-base text-gray-300">
+              Todos los checkpoints han sido marcados.
+            </p>
+            <p className="mb-5 text-sm text-gray-500">
+              {completedCount}/{total} puntos &middot; {formatElapsed(elapsedSeconds)}
+            </p>
+            <button
+              onClick={() => {
+                setShowAutoCompleteModal(false);
+                handleComplete();
+              }}
+              disabled={completing}
+              className="w-full rounded-xl bg-green-600 py-3.5 text-base font-semibold text-white transition-colors hover:bg-green-500 active:bg-green-700 disabled:opacity-40"
+            >
+              {completing ? "Completando..." : "Finalizar Ronda"}
+            </button>
+            <button
+              onClick={() => setShowAutoCompleteModal(false)}
+              className="mt-2 w-full rounded-xl border border-gray-700 bg-gray-800 py-3 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-700"
+            >
+              Seguir revisando
+            </button>
           </div>
         </div>
       )}

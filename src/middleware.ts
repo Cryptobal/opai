@@ -147,8 +147,16 @@ export default auth((req) => {
 
   if (isPublicPath(pathname)) return;
 
-  // Rutas protegidas: sin sesión -> login OPAI
+  // Rutas protegidas: sin sesión
   if (!req.auth) {
+    // API routes: return 401 JSON (never redirect — callers expect JSON)
+    if (pathname.startsWith('/api/')) {
+      return Response.json(
+        { success: false, error: 'No autorizado' },
+        { status: 401 },
+      );
+    }
+    // Page navigations: redirect to login
     const loginUrl = new URL('/opai/login', req.nextUrl.origin);
     loginUrl.searchParams.set('callbackUrl', pathname);
     return Response.redirect(loginUrl);

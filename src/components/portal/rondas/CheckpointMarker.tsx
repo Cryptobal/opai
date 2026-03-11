@@ -50,6 +50,8 @@ interface Props {
   qrRequerido: boolean;
   onComplete: (result: MarcarResult) => void;
   onBack: () => void;
+  /** Shared guard position from RondaActiva watchPosition — enables real-time distance */
+  guardPos?: { lat: number; lng: number } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,6 +94,7 @@ export function CheckpointMarker({
   qrRequerido,
   onComplete,
   onBack,
+  guardPos,
 }: Props) {
   // ---- GPS State ----
   const [gpsStatus, setGpsStatus] = useState<"loading" | "success" | "error">("loading");
@@ -147,7 +150,7 @@ export function CheckpointMarker({
   const motionCountRef = useRef<number>(0);
 
   // ------------------------------------------------------------------
-  // GPS acquisition
+  // GPS acquisition — use shared guardPos when available, fallback to one-shot
   // ------------------------------------------------------------------
   const requestGps = useCallback(() => {
     setGpsStatus("loading");
@@ -183,9 +186,19 @@ export function CheckpointMarker({
     );
   }, []);
 
+  // Sync shared guardPos into local coords (real-time updates from parent watchPosition)
   useEffect(() => {
+    if (guardPos) {
+      setCoords({ lat: guardPos.lat, lng: guardPos.lng });
+      setGpsStatus("success");
+    }
+  }, [guardPos]);
+
+  useEffect(() => {
+    // If guardPos is already provided, skip one-shot GPS
+    if (guardPos) return;
     requestGps();
-  }, [requestGps]);
+  }, [requestGps, guardPos]);
 
   // ------------------------------------------------------------------
   // Auto-open QR scanner if required

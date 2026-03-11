@@ -33,6 +33,7 @@ export default async function RondasMonitoreoPage() {
   // Each query wrapped individually so a single failure doesn't crash the page
   let activeRows: Awaited<ReturnType<typeof prisma.opsRondaEjecucion.findMany>> = [];
   let upcomingRows: Awaited<ReturnType<typeof prisma.opsRondaEjecucion.findMany>> = [];
+  let completedRows: Awaited<ReturnType<typeof prisma.opsRondaEjecucion.findMany>> = [];
   let installations: { id: string; name: string; lat: number | null; lng: number | null }[] = [];
   let alertCount = 0;
 
@@ -104,6 +105,53 @@ export default async function RondasMonitoreoPage() {
   }
 
   try {
+    completedRows = await prisma.opsRondaEjecucion.findMany({
+      where: {
+        tenantId,
+        status: { in: ["completada", "incompleta"] },
+        completedAt: { gte: lookbackStart },
+      },
+      include: {
+        rondaTemplate: {
+          include: {
+            installation: { select: { id: true, name: true, lat: true, lng: true } },
+            checkpoints: {
+              include: { checkpoint: { select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true } } },
+              orderBy: { orderIndex: "asc" },
+            },
+          },
+        },
+        guardia: { include: { persona: { select: { firstName: true, lastName: true, phoneMobile: true } } } },
+        marcaciones: {
+          select: {
+            id: true,
+            timestamp: true,
+            status: true,
+            lat: true,
+            lng: true,
+            geoValidada: true,
+            geoDistanciaM: true,
+            fotoEvidenciaUrl: true,
+            checkpointId: true,
+            verificationMethod: true,
+            checkpoint: { select: { name: true } },
+          },
+          orderBy: { timestamp: "desc" },
+        },
+        alertasRows: { where: { resuelta: false, archivedAt: null }, orderBy: { createdAt: "desc" }, take: 3 },
+        incidentes: {
+          select: { id: true, tipo: true, descripcion: true, fotoUrl: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+      orderBy: { completedAt: "desc" },
+      take: 30,
+    });
+  } catch (err) {
+    console.error("[RONDAS_ERROR] Failed to fetch completed rows:", err);
+  }
+
+  try {
     installations = await prisma.crmInstallation.findMany({
       where: { tenantId, isActive: true, nocturnoEnabled: true },
       select: { id: true, name: true, lat: true, lng: true },
@@ -129,6 +177,7 @@ export default async function RondasMonitoreoPage() {
       <RondasMonitoreoClient
         initialRows={JSON.parse(JSON.stringify(activeRows))}
         upcomingRows={JSON.parse(JSON.stringify(upcomingRows))}
+        completedRows={JSON.parse(JSON.stringify(completedRows))}
         installations={JSON.parse(JSON.stringify(installations))}
         alertCount={alertCount}
         userId={session.user.id ?? ""}

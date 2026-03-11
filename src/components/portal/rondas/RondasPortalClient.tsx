@@ -53,6 +53,7 @@ export function RondasPortalClient() {
   const [showIncidentModal, setShowIncidentModal] = useState(false);
   const [showPanicoModal, setShowPanicoModal] = useState(false);
   const [panicBannerActive, setPanicBannerActive] = useState(false);
+  const [incidentToast, setIncidentToast] = useState(false);
 
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
@@ -69,18 +70,61 @@ export function RondasPortalClient() {
       .catch(() => {});
   }, []);
 
-  // Online/offline tracking
+  // Online/offline tracking + retry pending incidents
   useEffect(() => {
     setIsOffline(!navigator.onLine);
     const goOffline = () => setIsOffline(true);
-    const goOnline = () => setIsOffline(false);
+    const goOnline = () => {
+      setIsOffline(false);
+      // Retry pending offline incidents
+      retryPendingIncidents();
+    };
     window.addEventListener("offline", goOffline);
     window.addEventListener("online", goOnline);
+    // Also try on mount if already online
+    if (navigator.onLine) retryPendingIncidents();
     return () => {
       window.removeEventListener("offline", goOffline);
       window.removeEventListener("online", goOnline);
     };
   }, []);
+
+  function retryPendingIncidents() {
+    try {
+      const raw = localStorage.getItem("pending-incidents");
+      if (!raw) return;
+      const pending = JSON.parse(raw) as Record<string, unknown>[];
+      if (pending.length === 0) return;
+
+      localStorage.removeItem("pending-incidents");
+      const failed: Record<string, unknown>[] = [];
+
+      Promise.allSettled(
+        pending.map((inc) =>
+          fetch("/api/portal/rondas/incidente", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(inc),
+          }).then((r) => {
+            if (!r.ok) failed.push(inc);
+          }),
+        ),
+      )
+        .then(() => {
+          if (failed.length > 0) {
+            localStorage.setItem("pending-incidents", JSON.stringify(failed));
+          } else if (pending.length > 0) {
+            setIncidentToast(true);
+            setTimeout(() => setIncidentToast(false), 3500);
+          }
+        })
+        .catch(() => {
+          localStorage.setItem("pending-incidents", JSON.stringify(pending));
+        });
+    } catch {
+      // Ignore parse errors
+    }
+  }
 
   // Init: determine auth mode on mount
   useEffect(() => {
@@ -564,8 +608,33 @@ export function RondasPortalClient() {
           session={session}
           activeEjecucionId={activeEjecucionId ?? undefined}
           onClose={() => setShowIncidentModal(false)}
-          onSubmitted={() => setShowIncidentModal(false)}
+          onSubmitted={() => {
+            setShowIncidentModal(false);
+            setIncidentToast(true);
+            navigator.vibrate?.([100, 50, 100]);
+            setTimeout(() => setIncidentToast(false), 3500);
+          }}
         />
+      )}
+
+      {/* Incident submitted toast */}
+      {incidentToast && (
+        <div className="fixed top-4 inset-x-4 z-[70] flex items-center gap-3 rounded-xl border border-green-700/50 bg-green-950/90 px-4 py-3 shadow-lg backdrop-blur-sm animate-in slide-in-from-top">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500/20">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-green-300">Incidente reportado</p>
+            <p className="text-xs text-green-400/70">Central ha sido notificada</p>
+          </div>
+          <button onClick={() => setIncidentToast(false)} className="text-green-400/50 hover:text-green-300">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       )}
 
       {session && screen !== "login" && (

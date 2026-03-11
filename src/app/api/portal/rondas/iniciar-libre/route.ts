@@ -30,6 +30,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Guardia no encontrado" }, { status: 404 });
     }
 
+    // ── Block free rounds when scheduled rounds are pending ("listas" / "con_retraso") ──
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+    const windowEnd = new Date(now.getTime() + 15 * 60 * 1000);
+
+    const pendingScheduled = await prisma.opsRondaEjecucion.findMany({
+      where: {
+        tenantId,
+        installationId,
+        status: "pendiente",
+        programacionId: { not: null },
+        scheduledAt: { gte: windowStart, lte: windowEnd },
+      },
+      include: { programacion: { select: { toleranciaMinutos: true } } },
+    });
+
+    const blockingRounds = pendingScheduled.filter((r) => {
+      const elapsedMin = (now.getTime() - r.scheduledAt.getTime()) / 60000;
+      const tolerance = r.programacion?.toleranciaMinutos ?? 30;
+      return elapsedMin >= -15 && elapsedMin <= tolerance;
+    });
+
+    if (blockingRounds.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Tienes ${blockingRounds.length} ronda${blockingRounds.length !== 1 ? "s" : ""} programada${blockingRounds.length !== 1 ? "s" : ""} pendiente${blockingRounds.length !== 1 ? "s" : ""}. Completa tus rondas programadas primero.`,
+        },
+        { status: 400 },
+      );
+    }
+
     // If an ad-hoc ronda is already en_curso, return it so the frontend can resume
     const existing = await prisma.opsRondaEjecucion.findFirst({
       where: {
@@ -50,8 +82,6 @@ export async function POST(request: NextRequest) {
         },
       });
     }
-
-    const now = new Date();
 
     const ejecucion = await prisma.opsRondaEjecucion.create({
       data: {

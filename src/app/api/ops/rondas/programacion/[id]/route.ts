@@ -52,12 +52,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (result.count === 0) return NextResponse.json({ success: false, error: "No encontrado" }, { status: 404 });
 
     // ── Regenerate scheduled executions with new parameters ──
-    // Delete future pending ejecuciones (preserves started/completed/etc.)
-    await prisma.opsRondaEjecucion.deleteMany({
+    // Delete ALL pending ejecuciones for this programación (not just future).
+    // Past-but-pendiente slots used old frequency and must be purged too.
+    const deleted = await prisma.opsRondaEjecucion.deleteMany({
       where: {
         programacionId: id,
         status: "pendiente",
-        scheduledAt: { gte: new Date() },
       },
     });
 
@@ -112,9 +112,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           );
           await prisma.opsRondaEjecucion.createMany({ data: rows, skipDuplicates: true });
         }
+
+        console.log(
+          `[RONDAS] Programacion ${id} updated: deleted ${deleted.count} pending, regenerated ${futureSlots.length} slots (freq=${updated.frecuenciaMinutos}min)`,
+        );
       } catch (genError) {
-        console.error("[RONDAS] Regenerate on PATCH failed:", genError);
-        // Don't fail the update itself
+        console.error(
+          `[RONDAS] Regenerate on PATCH failed for programacion ${id} (deleted ${deleted.count} pending):`,
+          genError,
+        );
       }
     }
 

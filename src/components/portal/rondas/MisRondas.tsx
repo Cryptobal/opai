@@ -286,6 +286,10 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onRepo
     return map;
   }, [rondas, now]);
 
+  // ---- Block free round when scheduled rounds are pending ("listas" / "con_retraso") ----
+  const pendingScheduledCount = grouped.listas.length + grouped.con_retraso.length;
+  const hasPendingScheduled = pendingScheduledCount > 0;
+
   // ---- Date header ----
   const dateHeader = useMemo(() => {
     const d = new Date();
@@ -349,7 +353,12 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onRepo
         {/* Ad-hoc ronda button */}
         <button
           onClick={onIniciarRondaLibre}
-          className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-teal-700/50 bg-teal-950/30 py-4 text-lg font-semibold text-teal-400 transition-colors hover:bg-teal-900/40 active:bg-teal-900/60"
+          disabled={hasPendingScheduled}
+          className={`mb-2 flex w-full items-center justify-center gap-2 rounded-xl border py-4 text-lg font-semibold transition-colors ${
+            hasPendingScheduled
+              ? "border-gray-700/30 bg-gray-900/20 text-gray-600 cursor-not-allowed opacity-50"
+              : "border-teal-700/50 bg-teal-950/30 text-teal-400 hover:bg-teal-900/40 active:bg-teal-900/60"
+          }`}
           style={{ minHeight: 56 }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -357,6 +366,17 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onRepo
           </svg>
           Iniciar Ronda Libre
         </button>
+        {hasPendingScheduled && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <span>
+              Tienes {pendingScheduledCount} ronda{pendingScheduledCount !== 1 ? "s" : ""} programada{pendingScheduledCount !== 1 ? "s" : ""} pendiente{pendingScheduledCount !== 1 ? "s" : ""}. Completa tus rondas programadas primero.
+            </span>
+          </div>
+        )}
+        {!hasPendingScheduled && <div className="mb-2" />}
 
         {/* Error */}
         {error && (

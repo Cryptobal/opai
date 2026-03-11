@@ -52,6 +52,7 @@ interface UpcomingRow {
 export function RondasMonitoreoClient({
   initialRows,
   upcomingRows: initialUpcoming,
+  completedRows: initialCompleted,
   installations,
   alertCount,
   userId,
@@ -61,6 +62,7 @@ export function RondasMonitoreoClient({
 }: {
   initialRows: any[];
   upcomingRows: UpcomingRow[];
+  completedRows?: any[];
   installations: Installation[];
   alertCount: number;
   userId: string;
@@ -69,6 +71,7 @@ export function RondasMonitoreoClient({
   userRole?: string;
 }) {
   const [rows, setRows] = useState<any[]>(initialRows);
+  const [completedData, setCompletedData] = useState<any[]>(initialCompleted ?? []);
   const [closingOrphans, setClosingOrphans] = useState(false);
   const [selectedInstallationId, setSelectedInstallationId] = useState<string | null>(null);
   const [selectedRondaId, setSelectedRondaId] = useState<string | null>(null);
@@ -119,6 +122,7 @@ export function RondasMonitoreoClient({
       const monJson = await monRes.json();
       if (monJson.success) {
         setRows(monJson.data);
+        setCompletedData(monJson.recentlyCompleted ?? []);
         setControlNocturno(monJson.controlNocturno ?? null);
         setActiveTurno(monJson.activeTurno ?? null);
       }
@@ -673,9 +677,9 @@ export function RondasMonitoreoClient({
       <MonitoreoTurnoHeader
         key={activeTurno?.id ?? "no-turno"}
         activeRondasCount={filtered.filter((r: any) => r.status === "en_curso").length}
-        completedCount={rows.filter((r: any) => r.status === "completada").length}
-        missedCount={rows.filter((r: any) => r.status === "no_realizada" || r.status === "incompleta").length}
-        trustAvg={(() => { const scored = rows.filter((r: any) => r.trustScore != null && r.trustScore > 0); return scored.length > 0 ? Math.round(scored.reduce((s: number, r: any) => s + r.trustScore, 0) / scored.length) : 0; })()}
+        completedCount={completedData.filter((r: any) => r.status === "completada").length}
+        missedCount={completedData.filter((r: any) => r.status === "incompleta").length}
+        trustAvg={(() => { const scored = completedData.filter((r: any) => r.trustScore != null && r.trustScore > 0); return scored.length > 0 ? Math.round(scored.reduce((s: number, r: any) => s + r.trustScore, 0) / scored.length) : 0; })()}
         alertCount={currentAlertCount}
         operatorName={userName}
         onOpenCloseTurno={isReadOnly ? undefined : (id) => setCloseTurnoId(id)}
@@ -820,6 +824,7 @@ export function RondasMonitoreoClient({
               <div className="w-80 flex-shrink-0 flex flex-col rounded-lg border border-[#1a1f2e] bg-[#0a0f1c] overflow-hidden">
                 <MonitoreoSidePanel
                   guardPanelData={guardPanelData}
+                  completedData={completedData}
                   selectedRondaId={selectedRondaId}
                   onSelectGuard={setSelectedRondaId}
                   onAddNote={handleAddNote}
