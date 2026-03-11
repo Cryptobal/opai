@@ -150,7 +150,7 @@ export function WelcomeScreen() {
           transition={{ delay: 0.6 }}
           className="mt-10 text-center text-xs text-white/30"
         >
-          <span>{branding.appName} &middot; {branding.tagline}</span>
+          <span>{branding.appName} · Powered by <a href="https://lx3.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/60 transition-colors">LX3.ai</a></span>
         </motion.div>
       </div>
     </div>

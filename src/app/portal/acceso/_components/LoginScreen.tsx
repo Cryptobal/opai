@@ -83,11 +83,12 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
     <div className="flex min-h-dvh flex-col items-center justify-center bg-[#0A0F1C] px-6">
       {/* Logo area */}
       <div className="mb-10 flex flex-col items-center">
-        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20">
-          <ShieldCheck className="h-10 w-10 text-white" />
+        <div className="mb-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/logo-horizontal-white.png" alt="OPAI" className="h-10 object-contain mx-auto" />
         </div>
-        <h1 className="mt-5 text-2xl font-bold text-white">Control de Acceso</h1>
-        <p className="mt-1 text-sm text-gray-400">Gard Security</p>
+        <h1 className="mt-3 text-2xl font-bold text-white">Control de Acceso</h1>
+        <p className="mt-1 text-sm text-gray-400">OPAI · Gard Security</p>
       </div>
 
       {/* Login form */}
@@ -174,8 +175,12 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
         </button>
       </form>
 
-      <p className="mt-8 text-xs text-gray-600">
+      <p className="mt-8 text-xs text-gray-600 text-center">
         Si no tienes acceso, contacta a tu supervisor.
+      </p>
+      <p className="mt-2 text-[10px] text-gray-700 text-center">
+        Powered by{" "}
+        <a href="https://lx3.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-500 transition-colors">LX3.ai</a>
       </p>
     </div>
   );

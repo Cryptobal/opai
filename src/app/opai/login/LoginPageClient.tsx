@@ -24,13 +24,11 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
-          <Image
-            src="/iconos_azul/icon-96x96.png"
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icons/logo-stacked.svg"
             alt="OPAI"
-            width={64}
-            height={64}
-            className="mx-auto h-16 w-16 object-contain"
-            priority
+            className="mx-auto h-16 w-auto object-contain"
           />
           <h1 className="text-2xl font-bold text-foreground mt-3">OPAI</h1>
           <p className="text-muted-foreground mt-1 text-sm">Iniciar sesión</p>
@@ -97,7 +95,10 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
             Entrar
           </button>
         </form>
-        <p className="text-center text-xs text-muted-foreground">opai.gard.cl · Gard Security</p>
+        <p className="text-center text-xs text-muted-foreground">
+          Powered by{" "}
+          <a href="https://lx3.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">LX3.ai</a>
+        </p>
       </div>
     </div>
   );

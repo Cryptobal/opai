@@ -234,9 +234,9 @@ export function PortalClienteClient() {
       <div className="min-h-dvh flex items-center justify-center p-4">
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center">
-            <div className="inline-flex items-center gap-2 mb-4">
-              <Shield className="h-8 w-8 text-teal-400" />
-              <span className="text-xl font-bold tracking-tight">Gard Security</span>
+            <div className="mb-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/logo-horizontal-white.png" alt="OPAI" className="h-8 object-contain mx-auto" />
             </div>
             <h1 className="text-lg font-semibold">Portal de Seguridad</h1>
             <p className="text-sm text-zinc-400 mt-1">RUT de la empresa + tu PIN de acceso (el que te asignaron)</p>
@@ -283,7 +283,7 @@ export function PortalClienteClient() {
               disabled={loggingIn || !rut || !pin}
               className="w-full h-11 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-sm font-medium transition-colors flex items-center justify-center gap-2"
             >
-              {loggingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+              {loggingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Ingresar al portal
             </button>
             <button
@@ -296,7 +296,8 @@ export function PortalClienteClient() {
           </div>
 
           <p className="text-[10px] text-zinc-600 text-center">
-            Powered by Gard Security · Portal de cumplimiento
+            Powered by{" "}
+            <a href="https://lx3.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-zinc-400 transition-colors">LX3.ai</a>
           </p>
         </div>
       </div>
