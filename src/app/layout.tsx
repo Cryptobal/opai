@@ -9,6 +9,7 @@ import { BadgeClear } from "@/components/pwa/BadgeClear";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#060a13",
 };
 
 export const metadata: Metadata = {

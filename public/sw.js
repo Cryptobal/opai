@@ -5,6 +5,8 @@ const PRECACHE_URLS = [
   '/portal/cliente',
   '/portal/guardia',
   '/portal/rondas',
+  '/portal/supervisor',
+  '/portal/acceso',
   '/opai/login',
   OFFLINE_URL,
 ];
@@ -61,7 +63,7 @@ self.addEventListener('fetch', (event) => {
   // Static assets: cache-first
   if (
     url.pathname.startsWith('/_next/static/') ||
-    url.pathname.startsWith('/iconos_azul/') ||
+    url.pathname.startsWith('/icons/') ||
     url.pathname.match(/\.(png|jpg|jpeg|svg|gif|webp|woff2?)$/)
   ) {
     event.respondWith(
@@ -92,8 +94,8 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
       self.registration.showNotification('OPAI', {
         body: 'Tienes una nueva notificacion',
-        icon: '/iconos_azul/icon-192x192.png',
-        badge: '/iconos_azul/icon-72x72.png',
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/favicon-48x48.png',
       })
     );
     return;
@@ -132,8 +134,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: displayBody,
-    icon: icon || '/iconos_azul/icon-192x192.png',
-    badge: badge || '/iconos_azul/icon-72x72.png',
+    icon: icon || '/icons/icon-192x192.png',
+    badge: badge || '/icons/favicon-48x48.png',
     image: image || undefined,
     tag: tag || undefined,
     renotify: renotify !== undefined ? renotify : !!tag,

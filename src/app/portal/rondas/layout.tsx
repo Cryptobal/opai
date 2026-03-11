@@ -20,6 +20,7 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "OPAI Rondas",
   },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export default function PortalRondasLayout({ children }: { children: React.ReactNode }) {
