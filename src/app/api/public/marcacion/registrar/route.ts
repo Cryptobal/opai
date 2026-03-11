@@ -24,8 +24,9 @@ const schema = z.object({
   rut: z.string().min(1),
   pin: z.string().min(4).max(6),
   tipo: z.enum(["entrada", "salida"]),
-  lat: z.number({ message: "Geolocalización requerida" }),
-  lng: z.number({ message: "Geolocalización requerida" }),
+  lat: z.number().nullable().optional(),  // GPS es evidencia, no restricción (Res. N°38 Art. 19)
+  lng: z.number().nullable().optional(),
+  gpsAccuracy: z.number().nullable().optional(), // Precisión del GPS en metros
   fotoBase64: z.string().optional(), // Foto de evidencia en base64 (captura cámara frontal)
 });
 
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { code, rut, pin, tipo, lat, lng, fotoBase64 } = parsed.data;
+    const { code, rut, pin, tipo, lat, lng, gpsAccuracy, fotoBase64 } = parsed.data;
 
     // Validar RUT
     const normalizedRut = normalizeRut(rut);
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
         id: true,
         tenantId: true,
         name: true,
+        address: true,
         lat: true,
         lng: true,
         geoRadiusM: true,
@@ -82,12 +84,15 @@ export async function POST(req: NextRequest) {
         firstName: true,
         lastName: true,
         email: true,
+        personalEmail: true,
         guardia: {
           select: {
             id: true,
             lifecycleStatus: true,
             isBlacklisted: true,
             marcacionPin: true,
+            dtResolucionJornada: true,
+            personalEmail: true,
           },
         },
       },
@@ -143,6 +148,7 @@ export async function POST(req: NextRequest) {
         guardiaId: guardia.id,
         installationId: installation.id,
         timestamp: { gte: today, lt: tomorrow },
+        deletedAt: null,
       },
       orderBy: { timestamp: "desc" },
       select: { tipo: true },
@@ -167,34 +173,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── GEOLOCALIZACIÓN OBLIGATORIA Y BLOQUEANTE ──
-    // La marcación REQUIERE ubicación GPS válida dentro del radio de la instalación.
-    // Si la instalación no tiene coordenadas configuradas, se permite sin validación geo.
+    // ── GEOLOCALIZACIÓN COMO EVIDENCIA (Res. Exenta N°38 Art. 19) ──
+    // El GPS es EVIDENCIA, nunca restricción. No se bloquea la marcación por ubicación.
+    // Se registra gpsStatus para informar al admin: dentro_rango | fuera_rango | sin_gps
 
     let geoValidada = false;
     let geoDistanciaM: number | null = null;
+    let gpsStatus: "dentro_rango" | "fuera_rango" | "sin_gps" = "sin_gps";
 
-    if (installation.lat != null && installation.lng != null) {
-      // La instalación tiene coordenadas → validación GPS obligatoria
+    if (lat != null && lng != null && installation.lat != null && installation.lng != null) {
       geoDistanciaM = Math.round(
         haversineDistance(lat, lng, installation.lat, installation.lng)
       );
       geoValidada = geoDistanciaM <= installation.geoRadiusM;
-
-      if (!geoValidada) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Ubicación fuera de rango. Estás a ${geoDistanciaM}m de la instalación (máximo permitido: ${installation.geoRadiusM}m). Debes estar físicamente en la instalación para marcar.`,
-            geoDistanciaM,
-            geoRadiusM: installation.geoRadiusM,
-          },
-          { status: 403 }
-        );
-      }
-    } else {
-      // Instalación sin coordenadas → solo registrar la ubicación del guardia
-      geoValidada = false;
+      gpsStatus = geoValidada ? "dentro_rango" : "fuera_rango";
+    } else if (lat != null && lng != null) {
+      // Guardia envía GPS pero instalación sin coordenadas configuradas
+      gpsStatus = "sin_gps";
     }
 
     // Sello de tiempo del servidor (no del cliente)
@@ -206,8 +201,8 @@ export async function POST(req: NextRequest) {
       installationId: installation.id,
       tipo,
       timestamp: serverTimestamp.toISOString(),
-      lat,
-      lng,
+      lat: lat ?? null,
+      lng: lng ?? null,
       metodoId: "rut_pin",
       tenantId: installation.tenantId,
     });
@@ -253,6 +248,10 @@ export async function POST(req: NextRequest) {
     const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || null;
     const userAgent = req.headers.get("user-agent") || null;
 
+    // Obtener datos del empleador desde configuración del tenant
+    const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+    const tenantCfg = await getTenantCompanyConfig(installation.tenantId);
+
     // Crear la marcación y actualizar asistencia diaria en una transacción
     const result = await prisma.$transaction(async (tx) => {
       // 1. Crear OpsMarcacion
@@ -265,8 +264,8 @@ export async function POST(req: NextRequest) {
           slotNumber: asignacion?.slotNumber ?? null,
           tipo,
           timestamp: serverTimestamp,
-          lat,
-          lng,
+          lat: lat ?? null,
+          lng: lng ?? null,
           geoValidada,
           geoDistanciaM,
           metodoId: "rut_pin",
@@ -275,6 +274,14 @@ export async function POST(req: NextRequest) {
           userAgent,
           hashIntegridad,
           atrasoMinutos,
+          // Resolución Exenta N°38 — Datos obligatorios
+          employerRut: tenantCfg.rut,
+          employerName: tenantCfg.razonSocial,
+          establishmentAddress: installation.address,
+          dtResolutionNumber: guardia.dtResolucionJornada,
+          gpsStatus,
+          distanciaMetros: geoDistanciaM,
+          gpsAccuracy: gpsAccuracy ?? null,
         },
       });
 
@@ -370,18 +377,27 @@ export async function POST(req: NextRequest) {
     }
 
     // Enviar comprobante por email (fire-and-forget, no bloquea la respuesta)
+    // Res. N°38: preferir email personal del guardia; fallback al email corporativo
+    const guardiaEmail = persona.guardia?.personalEmail ?? persona.personalEmail ?? persona.email ?? undefined;
     if (comprobanteEmailEnabled && persona.guardia && persona.firstName) {
-      sendMarcacionComprobante({
-        guardiaName: formatPersonName(persona.firstName, persona.lastName),
-        guardiaEmail: persona.email ?? undefined,
-        guardiaRut: normalizedRut,
-        installationName: installation.name,
-        tipo,
-        timestamp: serverTimestamp,
-        geoValidada,
-        geoDistanciaM,
-        hashIntegridad,
-      }).catch((err) => console.error("[marcacion] Error enviando comprobante:", err));
+      if (!guardiaEmail) {
+        console.warn(`[marcacion] Guardia ${formatPersonName(persona.firstName, persona.lastName)} sin email personal — comprobante no enviado`);
+      } else {
+        sendMarcacionComprobante({
+          guardiaName: formatPersonName(persona.firstName, persona.lastName),
+          guardiaEmail,
+          guardiaRut: normalizedRut,
+          installationName: installation.name,
+          tipo,
+          timestamp: serverTimestamp,
+          geoValidada,
+          geoDistanciaM,
+          gpsStatus,
+          hashIntegridad,
+          lat: lat ?? null,
+          lng: lng ?? null,
+        }).catch((err) => console.error("[marcacion] Error enviando comprobante:", err));
+      }
     }
 
     return NextResponse.json({
@@ -392,6 +408,7 @@ export async function POST(req: NextRequest) {
         timestamp: result.timestamp.toISOString(),
         geoValidada,
         geoDistanciaM,
+        gpsStatus,
         guardiaName: formatPersonName(persona.firstName, persona.lastName),
         installationName: installation.name,
         hashIntegridad: result.hashIntegridad,

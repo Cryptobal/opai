@@ -2206,6 +2206,8 @@ model OpsPersona {
   cotizaAFP             Boolean?  @map("cotiza_afp") // Si jubilado: opta por cotizar AFP voluntariamente
   cotizaAFC             Boolean?  @map("cotiza_afc") // Si jubilado: cotiza AFC (solo invalidez parcial o casa particular)
   cotizaSalud           Boolean?  @default(true) @map("cotiza_salud")
+  // ── Resolución Exenta N°38 ──
+  personalEmail         String?   @map("personal_email") // Email personal del trabajador (obligatorio Res. 38)
   status                String    @default("active")
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -2259,6 +2261,17 @@ model OpsGuardia {
   contractCurrentPeriod      Int?      @default(1) @map("contract_current_period") // 1, 2 o 3
   contractBecameIndefinidoAt DateTime? @map("contract_became_indefinido_at") @db.Date
   contractAlertDaysBefore    Int?      @default(5) @map("contract_alert_days_before") // Días hábiles antes para alertar
+
+  // ── Resolución Exenta N°38 — Jornada excepcional & Face ID ──
+  dtResolucionJornada   String?   @map("dt_resolucion_jornada")   // N° resolución DT de jornada excepcional
+  dtResolucionVigencia  DateTime? @map("dt_resolucion_vigencia") @db.Date // Fecha de vencimiento de la resolución
+  tipoJornada           String    @default("excepcional") @map("tipo_jornada") // ordinaria | excepcional
+  maxHorasSemanales     Float     @default(42) @map("max_horas_semanales") // Configurable (Ley 40h)
+  personalEmail         String?   @map("personal_email") // Email PERSONAL del guardia (obligatorio Res. 38)
+  faceIdRegistered      Boolean   @default(false) @map("face_id_registered")
+  faceIdPhotoUrl        String?   @map("face_id_photo_url") // URL foto de referencia en R2
+  faceIdAwsId           String?   @map("face_id_aws_id") // Face ID en colección de AWS Rekognition
+  faceIdRegisteredAt    DateTime? @map("face_id_registered_at") @db.Timestamptz(6)
 
   // ── TE (Turno Extra) quick-entry fields ──
   estadoUniforme       String?  @map("estado_uniforme") // "completo" | "incompleto"
@@ -3017,8 +3030,15 @@ model OpsAsistenciaDiaria {
   createdBy            String?   @map("created_by")
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  // ── Soft delete & auditoría de modificaciones (Res. N°38) ──
+  deletedAt             DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedBy             String?   @map("deleted_by")
+  modifiedAt            DateTime? @map("modified_at") @db.Timestamptz(6)
+  modifiedBy            String?   @map("modified_by")
+  modificationReason    String?   @map("modification_reason")
+  isModified            Boolean   @default(false) @map("is_modified")
 
-  installation       CrmInstallation    @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  installation       CrmInstallation    @relation(fields: [installationId], references: [id], onDelete: Restrict)
   puesto             OpsPuestoOperativo @relation(fields: [puestoId], references: [id], onDelete: Cascade)
   plannedGuardia     OpsGuardia?        @relation("ops_asistencia_planificada_guardia", fields: [plannedGuardiaId], references: [id], onDelete: SetNull)
   actualGuardia      OpsGuardia?        @relation("ops_asistencia_real_guardia", fields: [actualGuardiaId], references: [id], onDelete: SetNull)
@@ -3032,6 +3052,7 @@ model OpsAsistenciaDiaria {
   @@index([installationId, date], map: "idx_ops_asistencia_installation_date")
   @@index([attendanceStatus], map: "idx_ops_asistencia_status")
   @@index([date, overtimeMinutes], map: "idx_ops_asistencia_date_overtime")
+  @@index([deletedAt], map: "idx_ops_asistencia_deleted_at")
   @@map("asistencia_diaria")
   @@schema("ops")
 }
@@ -3203,8 +3224,26 @@ model OpsMarcacion {
   deviceTimestamp  DateTime? @map("device_timestamp") @db.Timestamptz(6) // Timestamp del dispositivo (offline)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  // ── Resolución Exenta N°38 — Campos obligatorios ──
+  employerRut           String?   @map("employer_rut")            // RUT empleador con formato XX.XXX.XXX-X
+  employerName          String?   @map("employer_name")           // Razón social del empleador
+  establishmentAddress  String?   @map("establishment_address")   // Dirección de la instalación al momento de la marca
+  dtResolutionNumber    String?   @map("dt_resolution_number")    // N° resolución jornada excepcional DT (si aplica)
+  mandanteRut           String?   @map("mandante_rut")            // RUT del mandante si es subcontrato
+  mandanteName          String?   @map("mandante_name")           // Nombre del mandante
+  gpsStatus             String    @default("sin_gps") @map("gps_status") // dentro_rango | fuera_rango | sin_gps
+  distanciaMetros       Float?    @map("distancia_metros")        // Distancia al punto de referencia en metros
+  gpsAccuracy           Float?    @map("gps_accuracy")            // Precisión del GPS en metros
+  // ── Soft delete & auditoría de modificaciones ──
+  deletedAt             DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedBy             String?   @map("deleted_by")
+  modifiedAt            DateTime? @map("modified_at") @db.Timestamptz(6)
+  modifiedBy            String?   @map("modified_by")
+  modificationReason    String?   @map("modification_reason")
+  isModified            Boolean   @default(false) @map("is_modified")
+
   guardia                OpsGuardia              @relation(fields: [guardiaId], references: [id])
-  installation           CrmInstallation         @relation(fields: [installationId], references: [id])
+  installation           CrmInstallation         @relation(fields: [installationId], references: [id], onDelete: Restrict)
   puesto                 OpsPuestoOperativo?     @relation(fields: [puestoId], references: [id])
   asistenciaEntradas     OpsAsistenciaDiaria[]   @relation("asistencia_marcacion_entrada")
   asistenciaSalidas      OpsAsistenciaDiaria[]   @relation("asistencia_marcacion_salida")
@@ -3213,6 +3252,7 @@ model OpsMarcacion {
   @@index([guardiaId], map: "idx_ops_marcaciones_guardia")
   @@index([installationId, timestamp], map: "idx_ops_marcaciones_inst_ts")
   @@index([timestamp], map: "idx_ops_marcaciones_timestamp")
+  @@index([deletedAt], map: "idx_ops_marcaciones_deleted_at")
   @@map("marcaciones")
   @@schema("ops")
 }
@@ -6641,5 +6681,25 @@ model GamificacionCanje {
 
   @@index([guardiaId], map: "idx_gam_canje_guardia")
   @@map("gamificacion_canjes")
+  @@schema("ops")
+}
+
+// ============================================
+// CONFIGURACIÓN EMPRESA (Resolución N°38)
+// ============================================
+
+model ConfigEmpresa {
+  id                    String   @id @default(cuid())
+  tenantId              String   @map("tenant_id")
+  rut                   String   // RUT empresa con formato
+  razonSocial           String   @map("razon_social") // Nombre legal
+  direccionPrincipal    String   @map("direccion_principal") // Dirección principal
+  representanteLegal    String?  @map("representante_legal") // Nombre representante
+  giroComercial         String?  @map("giro_comercial") // Giro
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId], map: "uq_config_empresa_tenant")
+  @@map("config_empresa")
   @@schema("ops")
 }

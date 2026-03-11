@@ -294,7 +294,7 @@ export async function PATCH(
       const todayEndReset = new Date(todayStartReset);
       todayEndReset.setDate(todayEndReset.getDate() + 1);
 
-      const deletedManual = await prisma.opsMarcacion.deleteMany({
+      const deletedManual = await prisma.opsMarcacion.updateMany({
         where: {
           tenantId: ctx.tenantId,
           installationId: asistencia.installationId,
@@ -302,10 +302,15 @@ export async function PATCH(
           slotNumber: asistencia.slotNumber,
           metodoId: "manual",
           timestamp: { gte: todayStartReset, lt: todayEndReset },
+          deletedAt: null,
+        },
+        data: {
+          deletedAt: new Date(),
+          deletedBy: ctx.userId,
         },
       });
       if (deletedManual.count > 0) {
-        console.log(`[OPS] Reset: eliminadas ${deletedManual.count} marcación(es) manual(es) huérfana(s)`);
+        console.log(`[OPS] Reset: soft-deleted ${deletedManual.count} marcación(es) manual(es) huérfana(s)`);
       }
 
       // Eliminar email pendiente (si hay delay configurado)
@@ -470,12 +475,17 @@ export async function PATCH(
         dayStart.setHours(0, 0, 0, 0);
         const dayEnd = new Date(dayStart);
         dayEnd.setDate(dayEnd.getDate() + 1);
-        await prisma.opsMarcacion.deleteMany({
+        await prisma.opsMarcacion.updateMany({
           where: {
             guardiaId: asistencia.plannedGuardiaId,
             installationId: asistencia.installationId,
             timestamp: { gte: dayStart, lt: dayEnd },
             metodoId: "manual",
+            deletedAt: null,
+          },
+          data: {
+            deletedAt: new Date(),
+            deletedBy: ctx.userId,
           },
         });
       } catch { /* non-critical */ }
@@ -501,6 +511,7 @@ export async function PATCH(
             installationId: asistencia.installationId,
             timestamp: { gte: todayStart, lt: todayEnd },
             metodoId: { not: "manual" },
+            deletedAt: null,
           },
         });
 
@@ -526,6 +537,7 @@ export async function PATCH(
               installationId: asistencia.installationId,
               timestamp: { gte: todayStart, lt: todayEnd },
               metodoId: "manual",
+              deletedAt: null,
             },
           });
 

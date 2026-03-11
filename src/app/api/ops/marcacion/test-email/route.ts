@@ -45,6 +45,9 @@ export async function POST(request: NextRequest) {
           timestamp: now,
           geoValidada: true,
           geoDistanciaM: 15,
+          gpsStatus: "dentro_rango",
+          lat: -33.4489,
+          lng: -70.6693,
           hashIntegridad: "TEST_" + "a1b2c3d4e5f6".repeat(5) + "_" + now.getTime(),
         });
         results.push({ type: "digital", status: "sent" });

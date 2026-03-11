@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
+import { useIsMobile } from "@/lib/pwa/use-is-mobile";
 import type { ChatMessageData, SendMessagePayload, ChatSenderType } from "@/lib/chat-types";
 import { usePusher } from "./hooks/usePusher";
 import { useChatMessages } from "./hooks/useChatMessages";
@@ -214,42 +215,100 @@ export function ChatPortalWrapper({
   );
 
   const onlineCount = members.length;
+  const isMobile = useIsMobile();
+
+  // Swipe-down to close (solo móvil)
+  const touchStartYRef = useRef<number | null>(null);
+  const closedRef = useRef(false);
+
+  const handleHeaderTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isMobile || !onBack) return;
+      touchStartYRef.current = e.touches[0].clientY;
+      closedRef.current = false;
+    },
+    [isMobile, onBack],
+  );
+
+  const handleHeaderTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isMobile || !onBack || touchStartYRef.current === null || closedRef.current) return;
+      const delta = e.touches[0].clientY - touchStartYRef.current;
+      if (delta > 80) {
+        closedRef.current = true;
+        onBack();
+      }
+    },
+    [isMobile, onBack],
+  );
+
+  const handleHeaderTouchEnd = useCallback(() => {
+    touchStartYRef.current = null;
+  }, []);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="shrink-0 flex items-center justify-between h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
-        <div className="flex items-center gap-3 min-w-0">
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
-              aria-label="Volver"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-          )}
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)] truncate">
-              <span className="text-[#2dd4bf]">#</span> {channelName}
-            </h3>
-            {channelSubtitle && (
-              <p className="text-[11px] text-[rgba(255,255,255,0.4)] truncate">
-                {channelSubtitle}
-              </p>
+      {/* Header — en móvil: barra para arrastrar hacia abajo + botón X */}
+      <div
+        className="shrink-0 flex flex-col border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]"
+        {...(isMobile && onBack
+          ? {
+              onTouchStart: handleHeaderTouchStart,
+              onTouchMove: handleHeaderTouchMove,
+              onTouchEnd: handleHeaderTouchEnd,
+            }
+          : {})}
+      >
+        {isMobile && onBack && (
+          <div className="flex justify-center pt-2 pb-1">
+            <div className="w-10 h-1 rounded-full bg-[rgba(255,255,255,0.2)]" />
+          </div>
+        )}
+        <div className="flex items-center justify-between h-12 px-4 pb-2">
+          <div className="flex items-center gap-3 min-w-0">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+                aria-label="Volver"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            )}
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)] truncate">
+                <span className="text-[#2dd4bf]">#</span> {channelName}
+              </h3>
+              {channelSubtitle && (
+                <p className="text-[11px] text-[rgba(255,255,255,0.4)] truncate">
+                  {channelSubtitle}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {onlineCount > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[#22c55e]" />
+                <span className="text-xs text-[rgba(255,255,255,0.45)]">
+                  {onlineCount} en linea
+                </span>
+              </div>
+            )}
+            {isMobile && onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-800 text-zinc-300 shrink-0"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
             )}
           </div>
         </div>
-
-        {onlineCount > 0 && (
-          <div className="flex items-center gap-1.5 ml-2 shrink-0">
-            <span className="h-2 w-2 rounded-full bg-[#22c55e]" />
-            <span className="text-xs text-[rgba(255,255,255,0.45)]">
-              {onlineCount} en linea
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Messages */}
