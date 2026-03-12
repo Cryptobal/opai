@@ -48,6 +48,8 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    const userId = searchParams.get("userId");
+
     const phoneLines = await prisma.inventoryPhoneLine.findMany({
       where,
       include: {
@@ -56,6 +58,7 @@ export async function GET(request: NextRequest) {
           where: { returnedAt: null },
           include: {
             installation: { select: { id: true, name: true } },
+            assignedToUser: { select: { id: true, name: true, email: true } },
           },
         },
       },
@@ -67,6 +70,12 @@ export async function GET(request: NextRequest) {
     if (installationId) {
       filtered = filtered.filter((pl) =>
         pl.assignments.some((a) => a.installationId === installationId)
+      );
+    }
+
+    if (userId) {
+      filtered = filtered.filter((pl) =>
+        pl.assignments.some((a) => a.assignedToUserId === userId)
       );
     }
 

@@ -61,6 +61,27 @@ export async function PATCH(
       );
     }
 
+    // ── Alerta de contradicción: no_asistio con marcación electrónica registrada ──
+    if (body.attendanceStatus === "no_asistio" && asistencia.source === "marcacion_electronica") {
+      if (!body.confirmarContradiccion) {
+        return NextResponse.json(
+          {
+            success: false,
+            requiresConfirmation: true,
+            error:
+              "Este guardia tiene marcación electrónica registrada para este día. ¿Está seguro de marcar como no asistió?",
+            code: "CONTRADICCION_MARCACION_ELECTRONICA",
+          },
+          { status: 409 }
+        );
+      }
+      // Confirmado: registrar override en audit log (best-effort)
+      const guardiaIdForLog = asistencia.actualGuardiaId ?? asistencia.plannedGuardiaId;
+      console.warn(
+        `[asistencia] Admin override CONTRADICCION_MARCACION_ELECTRONICA: guardia=${guardiaIdForLog} fecha=${asistencia.date.toISOString().slice(0, 10)} por userId=${ctx.userId}`
+      );
+    }
+
     const guardiaIdsToValidate = [body.actualGuardiaId, body.replacementGuardiaId].filter(
       (value): value is string => Boolean(value)
     );

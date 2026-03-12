@@ -40,6 +40,7 @@ export async function GET(
         assignments: {
           include: {
             installation: { select: { id: true, name: true } },
+            assignedToUser: { select: { id: true, name: true, email: true } },
           },
           orderBy: { assignedAt: "desc" },
         },
@@ -141,6 +142,7 @@ export async function PATCH(
           where: { returnedAt: null },
           include: {
             installation: { select: { id: true, name: true } },
+            assignedToUser: { select: { id: true, name: true, email: true } },
           },
         },
       },

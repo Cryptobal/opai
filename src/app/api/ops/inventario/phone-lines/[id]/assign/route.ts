@@ -4,10 +4,16 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureInventarioAccess } from "@/lib/inventory";
 import { z } from "zod";
 
-const assignSchema = z.object({
-  installationId: z.string().uuid(),
-  notes: z.string().optional().nullable(),
-});
+const assignSchema = z
+  .object({
+    installationId: z.string().uuid().optional(),
+    userId: z.string().min(1).optional(),
+    notes: z.string().optional().nullable(),
+  })
+  .refine((data) => (data.installationId ? !data.userId : data.userId), {
+    message: "Indica instalación o usuario de Gard (solo uno).",
+    path: ["installationId"],
+  });
 
 export async function POST(
   request: NextRequest,
@@ -46,18 +52,23 @@ export async function POST(
       data: { returnedAt: new Date() },
     });
 
-    // Create new assignment
+    const installationId = parsed.data.installationId ?? null;
+    const assignedToUserId = parsed.data.userId ?? null;
+
+    // Create new assignment (either to installation or to user)
     const assignment = await prisma.inventoryPhoneLineAssignment.create({
       data: {
         tenantId: ctx.tenantId,
         phoneLineId: id,
-        installationId: parsed.data.installationId,
+        installationId,
+        assignedToUserId,
         assignedAt: new Date(),
         assignedBy: ctx.userId,
         notes: parsed.data.notes ?? null,
       },
       include: {
         installation: { select: { id: true, name: true } },
+        assignedToUser: { select: { id: true, name: true, email: true } },
         phoneLine: { select: { id: true, phoneNumber: true, carrier: true } },
       },
     });
@@ -102,7 +113,7 @@ export async function DELETE(
 
     if (!active) {
       return NextResponse.json(
-        { success: false, error: "La línea no está asignada a ninguna instalación" },
+        { success: false, error: "La línea no está asignada" },
         { status: 400 }
       );
     }

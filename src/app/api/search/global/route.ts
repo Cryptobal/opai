@@ -202,6 +202,7 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             address: true,
+            pairingCode: true,
             account: { select: { name: true } },
           },
         }),
@@ -300,11 +301,16 @@ export async function GET(request: NextRequest) {
       const curYear = now.getFullYear();
 
       for (const inst of installations) {
+        const subtitleParts = [
+          inst.address,
+          inst.account?.name,
+          inst.pairingCode ? `Código emparejamiento: ${inst.pairingCode}` : null,
+        ].filter(Boolean);
         results.push({
           id: inst.id,
           type: "installation",
           title: inst.name,
-          subtitle: [inst.address, inst.account?.name].filter(Boolean).join(" · "),
+          subtitle: subtitleParts.join(" · "),
           href: `/crm/installations/${inst.id}`,
         });
         results.push({

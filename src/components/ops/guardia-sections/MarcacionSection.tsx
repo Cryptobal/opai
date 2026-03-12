@@ -2,26 +2,106 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Copy, KeyRound, Loader2 } from "lucide-react";
+import { Copy, KeyRound, Loader2, ScanFace } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface MarcacionSectionProps {
   guardiaId: string;
   marcacionPin?: string | null;
   marcacionPinVisible?: string | null;
+  faceIdRegistered?: boolean;
+  faceIdPhotoUrl?: string | null;
+  faceIdRegisteredAt?: string | null;
   canManageGuardias: boolean;
   onPinUpdated: (pin: string) => void;
+  onFaceIdReset?: () => void;
 }
 
 export default function MarcacionSection({
   guardiaId,
   marcacionPin,
   marcacionPinVisible,
+  faceIdRegistered,
+  faceIdPhotoUrl,
+  faceIdRegisteredAt,
   canManageGuardias,
   onPinUpdated,
+  onFaceIdReset,
 }: MarcacionSectionProps) {
+  const [faceIdResetting, setFaceIdResetting] = useState(false);
+
+  const handleFaceIdReset = async () => {
+    setFaceIdResetting(true);
+    try {
+      const res = await fetch(`/api/ops/guardias/${guardiaId}/face-id-reset`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast.error(data.error || "Error al resetear Face ID");
+        return;
+      }
+      toast.success("Face ID reseteado exitosamente");
+      onFaceIdReset?.();
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setFaceIdResetting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {/* Face ID */}
+      <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+        <div className="flex items-center gap-3">
+          {faceIdRegistered && faceIdPhotoUrl ? (
+            <img src={faceIdPhotoUrl} className="w-16 h-16 rounded-full object-cover" alt="Face ID" />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center">
+              <ScanFace className="h-7 w-7 text-muted-foreground" />
+            </div>
+          )}
+          <div>
+            <p className="text-sm font-medium">Face ID</p>
+            {faceIdRegistered && faceIdRegisteredAt ? (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Registrado el{" "}
+                {new Date(faceIdRegisteredAt).toLocaleString("es-CL", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-0.5">No registrado</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {faceIdRegistered ? (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+              Face ID Activo
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+              Face ID No Registrado
+            </span>
+          )}
+          {canManageGuardias && faceIdRegistered && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[11px]"
+              onClick={handleFaceIdReset}
+              disabled={faceIdResetting}
+            >
+              {faceIdResetting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+              Resetear Face ID
+            </Button>
+          )}
+        </div>
+      </div>
       <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
         <div>
           <p className="text-sm font-medium">PIN de marcación</p>

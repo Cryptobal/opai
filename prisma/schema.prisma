@@ -198,6 +198,7 @@ model Admin {
   authoredNotes         Note[]                    @relation("note_author")
   visitasTecnicas       OpsVisitaTecnica[]        @relation("ops_visita_tecnica_supervisor")
   portalEjecutivoCuentas CrmAccount[]             @relation("PortalEjecutivo")
+  inventoryPhoneLineAssignments InventoryPhoneLineAssignment[]
 
   @@index([email])
   @@index([status])
@@ -3035,7 +3036,7 @@ model OpsAsistenciaDiaria {
   isModified            Boolean   @default(false) @map("is_modified")
 
   installation       CrmInstallation    @relation(fields: [installationId], references: [id], onDelete: Restrict)
-  puesto             OpsPuestoOperativo @relation(fields: [puestoId], references: [id], onDelete: Cascade)
+  puesto             OpsPuestoOperativo @relation(fields: [puestoId], references: [id], onDelete: Restrict)
   plannedGuardia     OpsGuardia?        @relation("ops_asistencia_planificada_guardia", fields: [plannedGuardiaId], references: [id], onDelete: SetNull)
   actualGuardia      OpsGuardia?        @relation("ops_asistencia_real_guardia", fields: [actualGuardiaId], references: [id], onDelete: SetNull)
   replacementGuardia OpsGuardia?        @relation("ops_asistencia_reemplazo_guardia", fields: [replacementGuardiaId], references: [id], onDelete: SetNull)
@@ -3237,6 +3238,7 @@ model OpsMarcacion {
   modifiedBy            String?   @map("modified_by")
   modificationReason    String?   @map("modification_reason")
   isModified            Boolean   @default(false) @map("is_modified")
+  pinFallbackReason     String?   @map("pin_fallback_reason") // "camera_error" | "low_light" | "aws_error" | "no_face_registered" | "user_choice"
 
   guardia                OpsGuardia              @relation(fields: [guardiaId], references: [id])
   installation           CrmInstallation         @relation(fields: [installationId], references: [id], onDelete: Restrict)
@@ -5536,24 +5538,27 @@ model InventoryPhoneLine {
   @@schema("inventory")
 }
 
-// ── Historial de asignaciones línea → instalación ──────────────────────────────
+// ── Historial de asignaciones línea → instalación o usuario Gard ───────────────
 model InventoryPhoneLineAssignment {
-  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId       String    @map("tenant_id")
-  phoneLineId    String    @map("phone_line_id") @db.Uuid
-  installationId String    @map("installation_id") @db.Uuid
-  assignedAt     DateTime  @default(now()) @map("assigned_at") @db.Timestamptz(6)
-  assignedBy     String?   @map("assigned_by")
-  returnedAt     DateTime? @map("returned_at") @db.Timestamptz(6)
-  notes          String?   @db.Text
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId          String    @map("tenant_id")
+  phoneLineId       String    @map("phone_line_id") @db.Uuid
+  installationId    String?   @map("installation_id") @db.Uuid
+  assignedToUserId  String?   @map("assigned_to_user_id")
+  assignedAt        DateTime  @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  assignedBy        String?   @map("assigned_by")
+  returnedAt        DateTime? @map("returned_at") @db.Timestamptz(6)
+  notes             String?   @db.Text
 
   tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   phoneLine    InventoryPhoneLine @relation(fields: [phoneLineId], references: [id], onDelete: Cascade)
-  installation CrmInstallation    @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  installation CrmInstallation?   @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  assignedToUser Admin?           @relation(fields: [assignedToUserId], references: [id], onDelete: Cascade)
 
   @@index([tenantId], map: "idx_inv_phone_assign_tenant")
   @@index([phoneLineId], map: "idx_inv_phone_assign_line")
   @@index([installationId], map: "idx_inv_phone_assign_installation")
+  @@index([assignedToUserId], map: "idx_inv_phone_assign_user")
   @@map("phone_line_assignments")
   @@schema("inventory")
 }

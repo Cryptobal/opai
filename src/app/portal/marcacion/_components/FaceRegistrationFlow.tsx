@@ -7,6 +7,7 @@ interface FaceRegistrationFlowProps {
   installationId: string;
   onRegistered: () => void;
   onCancel: () => void;
+  prefillRut?: string; // Pre-fill RUT from Step 1 lookup
 }
 
 type Step = "consent" | "identify" | "capture" | "processing" | "success" | "error";
@@ -15,9 +16,10 @@ export function FaceRegistrationFlow({
   installationId,
   onRegistered,
   onCancel,
+  prefillRut = "",
 }: FaceRegistrationFlowProps) {
   const [step, setStep] = useState<Step>("consent");
-  const [rut, setRut] = useState("");
+  const [rut, setRut] = useState(prefillRut);
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -89,22 +91,16 @@ export function FaceRegistrationFlow({
               Acepta el uso de reconocimiento facial para marcacion de asistencia?
             </p>
           </div>
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={onCancel}
-              className="flex-1 rounded-xl px-4 py-3 text-sm font-medium text-white/70"
-              style={{ background: "rgba(255,255,255,0.06)" }}
-            >
-              No, usar solo PIN
-            </button>
-            <button
-              onClick={() => setStep("identify")}
-              className="flex-1 rounded-xl px-4 py-3 text-sm font-bold text-white"
-              style={{ background: "rgba(16,185,129,0.4)" }}
-            >
-              Acepto
-            </button>
-          </div>
+          <button
+            onClick={() => setStep("identify")}
+            className="w-full rounded-xl px-4 py-3 text-sm font-bold text-white mt-6"
+            style={{ background: "rgba(16,185,129,0.4)" }}
+          >
+            Acepto — Registrar Face ID
+          </button>
+          <p className="text-xs text-white/25 text-center mt-4 leading-relaxed">
+            Si no desea utilizar reconocimiento facial, contacte a su supervisor para coordinar un método alternativo de verificación.
+          </p>
         </div>
       </div>
     );

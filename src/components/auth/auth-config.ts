@@ -46,11 +46,11 @@ export const PORTAL_CONFIG = {
   },
   marcacion: {
     id: "marcacion",
-    label: "Marcacion",
-    name: "Marcacion",
+    label: "Marcación",
+    name: "Portal Marcación",
     subtitle: "Control de asistencia",
-    accent: "#10b981",
-    accentRgb: "16, 185, 129",
+    accent: "#f97316",
+    accentRgb: "249, 115, 22",
     href: "/portal/marcacion",
   },
   opai: {

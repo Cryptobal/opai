@@ -158,6 +158,7 @@ export const updateAsistenciaSchema = z.object({
   checkOutAt: z.string().datetime().optional().nullable(),
   forceDeletePaidTe: z.boolean().optional(),
   forceDeleteReason: z.string().trim().max(500).optional().nullable(),
+  confirmarContradiccion: z.boolean().optional(),
 });
 
 export const createGuardiaSchema = z.object({
