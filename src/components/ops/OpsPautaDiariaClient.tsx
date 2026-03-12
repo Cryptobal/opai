@@ -616,7 +616,12 @@ export function OpsPautaDiariaClient({
               {/* Card-based layout: cada item es una fila (desktop) o tarjeta vertical (móvil) */}
               <div className="space-y-1">
                 {group.items.map((item) => {
-                  const te = item.turnosExtra?.[0];
+                  const TE_PRIORITY: Record<string, number> = { paid: 0, approved: 1, pending: 2 };
+                  const te = item.turnosExtra
+                    ?.filter((t: { status: string }) => t.status !== "rejected")
+                    .sort((a: { status: string }, b: { status: string }) =>
+                      (TE_PRIORITY[a.status] ?? 9) - (TE_PRIORITY[b.status] ?? 9)
+                    )[0];
                   const isLocked = Boolean(item.lockedAt);
                   const isPPC = !item.plannedGuardiaId;
                   const showReplacementSearch =
@@ -937,7 +942,7 @@ export function OpsPautaDiariaClient({
                                 className="h-8 text-xs px-3 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
                                 disabled={savingId === item.id || isLocked || !canExecuteOps}
                                 onClick={() => {
-                                  const te2 = item.turnosExtra?.[0];
+                                  const te2 = item.turnosExtra?.filter((t: { status: string }) => t.status !== "rejected").sort((a: { status: string }, b: { status: string }) => (TE_PRIORITY[a.status] ?? 9) - (TE_PRIORITY[b.status] ?? 9))[0];
                                   if (te2?.status === "paid" && !canManagePaidTeReset) {
                                     toast.error("No puedes resetear: este TE ya está pagado.");
                                     return;

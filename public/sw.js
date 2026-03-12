@@ -133,6 +133,9 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  // Panic alerts get aggressive vibration and persistent display
+  const isPanicNotif = title && (title.includes('\uD83C\uDE9A') || title.includes('🆘') || title.includes('PÁNICO') || title.includes('PANICO'));
+
   const options = {
     body: displayBody,
     icon: icon || '/icons/icon-192x192.png',
@@ -143,7 +146,8 @@ self.addEventListener('push', (event) => {
     silent: silent || false,
     timestamp: timestamp || Date.now(),
     data: notifData,
-    vibrate: [200, 100, 200],
+    vibrate: isPanicNotif ? [500, 200, 500, 200, 500, 200, 500] : [200, 100, 200],
+    requireInteraction: isPanicNotif ? true : undefined,
   };
 
   // Notify open clients for in-app toast (Prompt 3)
@@ -152,7 +156,7 @@ self.addEventListener('push', (event) => {
     .then((clients) => {
       for (const client of clients) {
         client.postMessage({
-          type: 'PUSH_RECEIVED',
+          type: isPanicNotif ? 'PANIC_PUSH' : 'PUSH_RECEIVED',
           title,
           body: displayBody,
           data: notifData,

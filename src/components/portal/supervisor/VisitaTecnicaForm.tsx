@@ -213,9 +213,9 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/finance/rendiciones/attachments/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/portal/rondas/upload", { method: "POST", body: fd });
       const json = await res.json();
-      if (json.success && json.url) setPhotos((p) => [...p, json.url]);
+      if (json.success && json.data?.url) setPhotos((p) => [...p, json.data.url]);
       else toast.error("Error al subir foto");
     } catch {
       toast.error("Error de conexión");
@@ -280,10 +280,10 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
     const blob = await (await fetch(dataUrl)).blob();
     const fd = new FormData();
     fd.append("file", blob, "firma.png");
-    const res = await fetch("/api/finance/rendiciones/attachments/upload", { method: "POST", body: fd });
+    const res = await fetch("/api/portal/rondas/upload", { method: "POST", body: fd });
     const json = await res.json();
-    if (json.success && json.url) {
-      setSignatureUrl(json.url);
+    if (json.success && json.data?.url) {
+      setSignatureUrl(json.data.url);
       toast.success("Firma guardada");
     }
   }

@@ -193,20 +193,25 @@ export async function PATCH(
           ? null
           : asistencia.actualGuardiaId;
 
-    const existingTe = await prisma.opsTurnoExtra.findFirst({
-      where: { tenantId: ctx.tenantId, asistenciaId: asistencia.id },
+    // Exclude rejected TEs so paid/approved protections always fire correctly
+    // Order: paid > approved > pending to surface the most critical one first
+    const allActiveTes = await prisma.opsTurnoExtra.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        asistenciaId: asistencia.id,
+        status: { not: "rejected" },
+      },
       select: {
         id: true,
         status: true,
         guardiaId: true,
-        paymentItems: {
-          select: {
-            id: true,
-            loteId: true,
-          },
-        },
+        paymentItems: { select: { id: true, loteId: true } },
       },
     });
+    const STATUS_PRIORITY: Record<string, number> = { paid: 0, approved: 1, pending: 2 };
+    const existingTe = allActiveTes.sort(
+      (a, b) => (STATUS_PRIORITY[a.status] ?? 9) - (STATUS_PRIORITY[b.status] ?? 9)
+    )[0] ?? null;
 
     const initialStatus: "pendiente" | "ppc" = asistencia.plannedGuardiaId ? "pendiente" : "ppc";
     const isResetToInitial =

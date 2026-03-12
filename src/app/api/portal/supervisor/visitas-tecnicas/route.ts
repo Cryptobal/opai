@@ -52,8 +52,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "installationId y accountId son requeridos" }, { status: 400 });
   }
 
+  // Allow active assigned installations OR any prospecto (isActive=false) in the tenant
   if (!installationIds.includes(installationId)) {
-    return NextResponse.json({ success: false, error: "Instalación no asignada" }, { status: 403 });
+    const installation = await prisma.crmInstallation.findFirst({
+      where: { id: installationId, tenantId, isActive: false },
+      select: { id: true },
+    });
+    if (!installation) {
+      return NextResponse.json({ success: false, error: "Instalación no asignada" }, { status: 403 });
+    }
   }
 
   const visita = await prisma.opsVisitaTecnica.create({

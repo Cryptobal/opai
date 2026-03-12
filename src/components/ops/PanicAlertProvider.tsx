@@ -113,6 +113,22 @@ export function PanicAlertProvider({ tenantId, children }: PanicAlertProviderPro
     }
   }, [resolveLocal, stopAlarm]);
 
+  // Service Worker push message listener — fires when push arrives while tab is open
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.serviceWorker) return;
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === "PANIC_PUSH") {
+        // Trigger alarm immediately from push (before Pusher confirms)
+        if (!isAudioLeaderRef.current) {
+          isAudioLeaderRef.current = true;
+          startAlarm();
+        }
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", handler);
+    return () => navigator.serviceWorker.removeEventListener("message", handler);
+  }, [startAlarm]);
+
   // Pusher subscription — global listener for panic alerts
   useEffect(() => {
     if (!tenantId) return;

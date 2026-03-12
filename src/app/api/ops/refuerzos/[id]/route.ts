@@ -169,10 +169,26 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
       return NextResponse.json({ success: false, error: "Solicitud no encontrada" }, { status: 404 });
     }
 
+    // Fetch asistenciaId before deleting so we can reset teGenerated
+    let asistenciaId: string | null = null;
+    if (existing.turnoExtraId) {
+      const te = await prisma.opsTurnoExtra.findUnique({
+        where: { id: existing.turnoExtraId },
+        select: { asistenciaId: true },
+      });
+      asistenciaId = te?.asistenciaId ?? null;
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.opsRefuerzoSolicitud.delete({ where: { id } });
       if (existing.turnoExtraId) {
         await tx.opsTurnoExtra.deleteMany({ where: { id: existing.turnoExtraId, tenantId: ctx.tenantId } });
+      }
+      if (asistenciaId) {
+        await tx.opsAsistenciaDiaria.update({
+          where: { id: asistenciaId },
+          data: { teGenerated: false },
+        });
       }
     });
 

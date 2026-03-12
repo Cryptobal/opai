@@ -24,7 +24,7 @@ import type {
   DocumentCheckResult,
 } from "./types";
 
-export function SupervisionVisitWizard() {
+export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void } = {}) {
   const router = useRouter();
 
   // Core state
@@ -483,7 +483,8 @@ export function SupervisionVisitWizard() {
       }
 
       toast.success("Visita finalizada correctamente");
-      router.push("/ops/supervision/historial");
+      if (onComplete) onComplete();
+      else router.push("/ops/supervision/historial");
     } catch (e) {
       const message = e instanceof Error ? e.message : "Error al finalizar visita";
       toast.error(message);
@@ -616,7 +617,8 @@ export function SupervisionVisitWizard() {
         throw new Error(err.error ?? "Error al cancelar visita");
       }
       toast.success("Visita cancelada");
-      router.push("/ops/supervision/historial");
+      if (onComplete) onComplete();
+      else router.push("/ops/supervision/historial");
     } catch (e) {
       const message = e instanceof Error ? e.message : "Error al cancelar visita";
       toast.error(message);

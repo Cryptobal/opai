@@ -158,8 +158,8 @@ export function PanicFullscreenModal({ alerts, onAcknowledge }: PanicFullscreenM
                   try {
                     const res = await fetch("/api/chat/channels?type=INSTALLATION");
                     if (res.ok) {
-                      const data = await res.json();
-                      const ch = data.channels?.find((c: any) => c.installationId === alert.installationId);
+                      const json = await res.json();
+                      const ch = (json.data as any[])?.find((c: any) => c.installationId === alert.installationId);
                       if (ch) {
                         router.push(`/chat?channel=${ch.id}`);
                         return;

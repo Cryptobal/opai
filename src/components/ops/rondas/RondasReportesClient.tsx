@@ -518,6 +518,7 @@ export function RondasReportesClient({
           installations={installations}
           dateFrom={dateFrom}
           dateTo={dateTo}
+          initialInstallationId={installationId || undefined}
         />
       )}
 
