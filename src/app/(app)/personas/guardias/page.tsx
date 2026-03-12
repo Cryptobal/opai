@@ -19,7 +19,15 @@ export default async function GuardiasPage() {
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
   const guardias = await prisma.opsGuardia.findMany({
     where: { tenantId },
-    include: {
+    select: {
+      id: true,
+      code: true,
+      status: true,
+      lifecycleStatus: true,
+      isBlacklisted: true,
+      blacklistReason: true,
+      availableExtraShifts: true,
+      faceIdPhotoUrl: true,
       persona: {
         select: {
           firstName: true,

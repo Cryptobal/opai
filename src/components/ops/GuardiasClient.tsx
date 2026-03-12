@@ -77,6 +77,7 @@ type GuardiaItem = {
     isapreExtraPercent?: string | null;
     hasMobilization?: boolean | null;
   };
+  faceIdPhotoUrl?: string | null;
   bankAccounts?: Array<{
     id: string;
     bankName: string;
@@ -737,7 +738,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                     }}
                     className="rounded-lg border border-border p-3 flex gap-3 min-w-0 overflow-hidden hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer"
                   >
-                    <Avatar name={fullName} size="lg" />
+                    <Avatar name={fullName} photoUrl={item.faceIdPhotoUrl} size="lg" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-semibold truncate">{fullName}</p>
@@ -849,7 +850,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                     className="rounded-lg border border-border px-3 py-2.5 grid grid-cols-[auto_1fr_auto_minmax(120px,180px)_minmax(140px,200px)] items-center gap-4 min-w-0 overflow-hidden hover:border-primary/50 hover:bg-muted/30 transition-colors cursor-pointer max-md:grid-cols-[auto_1fr_auto] max-md:gap-2"
                   >
                     {/* Col 1: Avatar */}
-                    <Avatar name={fullName} size="md" />
+                    <Avatar name={fullName} photoUrl={item.faceIdPhotoUrl} size="md" />
 
                     {/* Col 2: Nombre + estado + teléfono + mobile extras */}
                     <div className="min-w-0">
