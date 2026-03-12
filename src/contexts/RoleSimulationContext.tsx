@@ -39,7 +39,6 @@ export const SYSTEM_ROLES = [
     { slug: 'solo_crm', label: 'Solo CRM' },
     { slug: 'solo_documentos', label: 'Solo Documentos' },
     { slug: 'solo_payroll', label: 'Solo Payroll' },
-    { slug: 'solo_finanzas', label: 'Solo Finanzas' },
     { slug: 'viewer', label: 'Viewer' },
 ] as const;
 
@@ -64,7 +63,6 @@ export const ROLE_COLORS: Record<string, { bg: string; text: string; border: str
     solo_crm: { bg: 'bg-indigo-500/15', text: 'text-indigo-400', border: 'border-indigo-500/30' },
     solo_documentos: { bg: 'bg-teal-500/15', text: 'text-teal-400', border: 'border-teal-500/30' },
     solo_payroll: { bg: 'bg-rose-500/15', text: 'text-rose-400', border: 'border-rose-500/30' },
-    solo_finanzas: { bg: 'bg-cyan-500/15', text: 'text-cyan-400', border: 'border-cyan-500/30' },
     viewer: { bg: 'bg-gray-500/15', text: 'text-gray-400', border: 'border-gray-500/30' },
 };
 

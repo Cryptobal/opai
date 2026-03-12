@@ -303,7 +303,6 @@ const ROLE_ALIASES: Record<string, string> = {
   "solo crm": "solo_crm",
   "solo documentos": "solo_documentos",
   "solo payroll": "solo_payroll",
-  "solo finanzas": "solo_finanzas",
   finance: "finanzas",
   lectura: "viewer",
   supervisor: "supervisor",
@@ -522,8 +521,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
     submodules: {},
     capabilities: {},
   },
-
-  solo_finanzas: finanzasPermissions(),
 
   viewer: {
     modules: {
@@ -761,13 +758,6 @@ export const ROLE_TEMPLATE_SEEDS: RoleTemplateSeed[] = [
     description: "Acceso completo al módulo de rendiciones de gastos y finanzas.",
     isSystem: false,
     permissions: DEFAULT_ROLE_PERMISSIONS.finanzas,
-  },
-  {
-    slug: "solo_finanzas",
-    name: "Solo Finanzas",
-    description: "Acceso exclusivo al módulo de finanzas/rendiciones.",
-    isSystem: false,
-    permissions: DEFAULT_ROLE_PERMISSIONS.solo_finanzas,
   },
   {
     slug: "jefe_operaciones",

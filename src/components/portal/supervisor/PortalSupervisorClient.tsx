@@ -7,7 +7,8 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { SupervisorSession, SupervisorInstallation } from "@/lib/portal-supervisor";
-import { PortalSupervisorNav, SupervisorSection } from "./PortalSupervisorNav";
+import { PortalSupervisorNav, SupervisorSection, MORE_NAV } from "./PortalSupervisorNav";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { SupervisorDashboard } from "./SupervisorDashboard";
 import { SupervisorInstalaciones } from "./SupervisorInstalaciones";
 import { SupervisorInstalacionDetail } from "./SupervisorInstalacionDetail";
@@ -46,6 +47,7 @@ export function PortalSupervisorClient() {
   const [showCrearRendicion, setShowCrearRendicion] = useState(false);
   const [visitaTecnicaMode, setVisitaTecnicaMode] = useState<"list" | "form" | "detail">("list");
   const [selectedVisitaTecnicaId, setSelectedVisitaTecnicaId] = useState<string | undefined>();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/portal/supervisor/session")
@@ -180,7 +182,7 @@ export function PortalSupervisorClient() {
     switch (activeSection) {
       case "dashboard":
         return (
-          <SupervisorDashboard session={session!} onAction={handleDashboardAction} />
+          <SupervisorDashboard session={session!} onAction={handleDashboardAction} onMoreOpen={() => setMoreOpen(true)} />
         );
 
       case "visitas":
@@ -326,6 +328,37 @@ export function PortalSupervisorClient() {
           setShowCrearRendicion(false);
         }}
       />
+
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent side="bottom" className="bg-zinc-950 border-zinc-800 text-white pb-safe">
+          <SheetHeader>
+            <SheetTitle className="text-white text-left">Más opciones</SheetTitle>
+          </SheetHeader>
+          <div className="grid grid-cols-3 gap-3 mt-4 pb-4">
+            {MORE_NAV.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => {
+                  setActiveSection(id);
+                  if (id !== "instalaciones") setSelectedInstallation(null);
+                  if (id !== "visita-tecnica") setVisitaTecnicaMode("list");
+                  setShowCrearTE(false);
+                  setShowCrearRendicion(false);
+                  setMoreOpen(false);
+                }}
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl transition-colors ${
+                  activeSection === id
+                    ? "bg-blue-950 text-blue-400 border border-blue-800"
+                    : "bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+                }`}
+              >
+                <Icon size={24} />
+                <span className="text-xs text-center leading-tight">{label}</span>
+              </button>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Novedad FAB — available in all sections */}
       <SupervisorNovedadRapida

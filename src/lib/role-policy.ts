@@ -13,7 +13,6 @@ export const ROLES = {
   SOLO_CRM: "solo_crm",
   SOLO_DOCUMENTOS: "solo_documentos",
   SOLO_PAYROLL: "solo_payroll",
-  SOLO_FINANZAS: "solo_finanzas",
   SUPERVISOR: "supervisor",
   VIEWER: "viewer",
 } as const;
@@ -276,15 +275,6 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     docsSubmodules: [],
     opsCapabilities: [],
   },
-  solo_finanzas: {
-    rank: 1,
-    appAccess: ["hub", "finance"],
-    permissions: [],
-    crmSubmodules: [],
-    configSubmodules: [],
-    docsSubmodules: [],
-    opsCapabilities: [],
-  },
   viewer: {
     rank: 1,
     appAccess: ["hub", "docs"],
@@ -295,7 +285,7 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     opsCapabilities: [],
   },
   supervisor: {
-    rank: 1,
+    rank: 2,
     appAccess: ["hub", "ops", "finance", "crm"],
     permissions: [PERMISSIONS.VIEW_PRESENTATIONS],
     crmSubmodules: ["installations"],
@@ -311,6 +301,8 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     configSubmodules: [],
     docsSubmodules: [],
     opsCapabilities: [
+      "guardias_manage",
+      "guardias_te_ingreso",
       "guardias_documents",
       "ops_execution",
       "te_execution",
