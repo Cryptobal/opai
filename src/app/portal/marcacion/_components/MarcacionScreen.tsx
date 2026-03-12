@@ -43,18 +43,21 @@ type ScreenMode =
   | "error";
 
 function normalizeRut(value: string): string {
-  // Remove spaces and dots, lowercase
   return value.replace(/[\s.]/g, "").toLowerCase();
 }
 
-function formatRutDisplay(value: string): string {
-  // Format as XX.XXX.XXX-X
-  const clean = value.replace(/[^0-9kK]/g, "");
-  if (clean.length <= 1) return clean;
-  const body = clean.slice(0, -1);
-  const dv = clean.slice(-1);
-  const formatted = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `${formatted}-${dv}`;
+/** Formats a RUT as XX.XXX.XXX-X while the user types */
+function formatRutInput(value: string): string {
+  // Keep only digits and K/k
+  const digits = value.replace(/[^0-9kK]/g, "");
+  if (digits.length === 0) return "";
+  // Always keep dash before last char once we have ≥2 chars
+  if (digits.length === 1) return digits;
+  const body = digits.slice(0, -1);
+  const dv = digits.slice(-1);
+  // Add dots every 3 digits from the right of body
+  const bodyFormatted = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${bodyFormatted}-${dv.toUpperCase()}`;
 }
 
 export function MarcacionScreen({
@@ -138,7 +141,7 @@ export function MarcacionScreen({
   const handleRutSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      const rut = normalizeRut(rutInput);
+      const rut = rutInput.trim();
       if (!rut) return;
 
       setLookupLoading(true);
@@ -453,13 +456,12 @@ export function MarcacionScreen({
                 type="text"
                 value={rutInput}
                 onChange={(e) => {
-                  const raw = e.target.value.replace(/[^0-9kK.\-\s]/g, "");
-                  setRutInput(raw);
+                  setRutInput(formatRutInput(e.target.value));
                 }}
-                placeholder="12.345.678-9"
+                placeholder="13.255.838-8"
                 className="w-full rounded-2xl px-5 py-4 text-white text-xl text-center placeholder-white/15 outline-none tracking-widest"
                 style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", fontSize: "1.5rem" }}
-                inputMode="text"
+                inputMode="numeric"
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}

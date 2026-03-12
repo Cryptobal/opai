@@ -8,10 +8,19 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { formatPersonName } from "@/lib/personas";
+import { formatPersonName, normalizeRut } from "@/lib/personas";
 
-function normalizeRut(raw: string): string {
-  return raw.replace(/[\s.]/g, "").toLowerCase();
+/**
+ * Normalizes RUT for DB lookup.
+ * Handles: "13255838-8", "13.255.838-8", "132558388" (sin guión) → "13255838-8"
+ */
+function prepareRutForLookup(raw: string): string {
+  let clean = normalizeRut(raw.trim()); // removes dots, uppercases, keeps dash
+  // Auto-insert dash before last char if missing
+  if (!clean.includes("-") && clean.length >= 2) {
+    clean = clean.slice(0, -1) + "-" + clean.slice(-1);
+  }
+  return clean;
 }
 
 export async function GET(req: NextRequest) {
@@ -27,7 +36,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const rut = normalizeRut(rawRut);
+    const rut = prepareRutForLookup(rawRut);
 
     // Find installation
     const installation = await prisma.crmInstallation.findFirst({
