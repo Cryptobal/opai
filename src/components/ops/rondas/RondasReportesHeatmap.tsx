@@ -26,6 +26,7 @@ interface Props {
   installations: Installation[];
   dateFrom: string;
   dateTo: string;
+  initialInstallationId?: string;
 }
 
 function coverageColor(pct: number): string {
@@ -70,8 +71,8 @@ function loadGoogleMaps(): Promise<void> {
   });
 }
 
-export function RondasReportesHeatmap({ installations, dateFrom, dateTo }: Props) {
-  const [installationId, setInstallationId] = useState("");
+export function RondasReportesHeatmap({ installations, dateFrom, dateTo, initialInstallationId }: Props) {
+  const [installationId, setInstallationId] = useState(initialInstallationId ?? "");
   const [points, setPoints] = useState<HeatmapPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [mapReady, setMapReady] = useState(false);

@@ -51,17 +51,11 @@ export function SupervisorRefuerzos({ installations }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!formInstallId) return;
-    fetch(`/api/portal/supervisor/mi-equipo?installationId=${formInstallId}`)
+    fetch("/api/portal/supervisor/guardias")
       .then((r) => r.json())
-      .then((json) => {
-        const group = (json.data ?? []).find(
-          (g: { installationId: string }) => g.installationId === formInstallId
-        );
-        setGuards(group?.guards ?? []);
-      })
+      .then((json) => setGuards(json.data ?? []))
       .catch(() => setGuards([]));
-  }, [formInstallId]);
+  }, []);
 
   async function load() {
     setLoading(true);

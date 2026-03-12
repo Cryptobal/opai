@@ -105,7 +105,7 @@ const FILTER_PILLS = [
 /* ─── Main Component ─── */
 
 export function RondasDashboardClient({ initialData }: { initialData?: DashboardData }) {
-  const [period, setPeriod] = useState<PeriodKey>("hoy");
+  const [period, setPeriod] = useState<PeriodKey>("7d");
   const [data, setData] = useState<DashboardData | null>(initialData ?? null);
   const [loading, setLoading] = useState(!initialData);
   const [filter, setFilter] = useState("all");

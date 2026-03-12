@@ -15,7 +15,7 @@ interface Props {
   onComplete: () => void;
 }
 
-export function SupervisorVisitaWizard({ onClose }: Props) {
+export function SupervisorVisitaWizard({ onClose, onComplete }: Props) {
   return (
     <div className="fixed inset-0 z-50 bg-[#0a0a0f] flex flex-col overflow-hidden">
       {/* Mobile close bar */}
@@ -32,7 +32,7 @@ export function SupervisorVisitaWizard({ onClose }: Props) {
 
       {/* Wizard content */}
       <div className="flex-1 overflow-y-auto">
-        <SupervisionVisitWizard />
+        <SupervisionVisitWizard onComplete={onComplete} />
       </div>
     </div>
   );
