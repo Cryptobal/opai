@@ -66,18 +66,9 @@ export function SupervisorDashboard({ session, onAction }: Props) {
   return (
     <div className="flex flex-col gap-4 px-4 py-4 pb-24">
       {/* Greeting */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">Hola, {session.name.split(" ")[0]}</h1>
-          <p className="text-sm text-zinc-400 capitalize">{today}</p>
-        </div>
-        <a
-          href="/hub"
-          className="md:hidden flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white bg-zinc-800/80 hover:bg-zinc-700 px-2.5 py-1.5 rounded-lg transition-colors shrink-0"
-        >
-          <LayoutGrid size={13} />
-          <span>ERP</span>
-        </a>
+      <div>
+        <h1 className="text-lg font-semibold">Hola, {session.name.split(" ")[0]}</h1>
+        <p className="text-sm text-zinc-400 capitalize">{today}</p>
       </div>
 
       {/* KPIs */}
@@ -153,6 +144,13 @@ export function SupervisorDashboard({ session, onAction }: Props) {
             color="bg-emerald-600 hover:bg-emerald-500"
             onClick={() => onAction("rendicion")}
           />
+          <a
+            href="/hub"
+            className="flex flex-col items-center justify-center gap-1.5 rounded-xl py-3 px-2 text-center font-medium text-white text-xs bg-zinc-700 hover:bg-zinc-600 transition-colors"
+          >
+            <LayoutGrid size={18} />
+            <span>ERP</span>
+          </a>
         </div>
       </div>
 

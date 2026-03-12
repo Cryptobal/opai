@@ -91,7 +91,7 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
             </div>
             <a
               href="/portal/supervisor"
-              className="md:hidden flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 px-2.5 py-1.5 rounded-lg transition-colors shrink-0 mt-0.5"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 px-2.5 py-1.5 rounded-lg transition-colors shrink-0 mt-0.5"
             >
               <Smartphone size={13} />
               <span>Portal</span>
