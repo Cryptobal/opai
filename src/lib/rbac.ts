@@ -27,7 +27,6 @@ const ROLE_HIERARCHY: Record<Role, number> = {
   solo_crm: ROLE_POLICIES.solo_crm.rank,
   solo_documentos: ROLE_POLICIES.solo_documentos.rank,
   solo_payroll: ROLE_POLICIES.solo_payroll.rank,
-  solo_finanzas: ROLE_POLICIES.solo_finanzas.rank,
   supervisor: ROLE_POLICIES.supervisor.rank,
   viewer: ROLE_POLICIES.viewer.rank,
 };
