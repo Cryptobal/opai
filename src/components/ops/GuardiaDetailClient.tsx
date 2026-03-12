@@ -128,6 +128,11 @@ type GuardiaDetail = {
   personalEmail?: string | null;
   marcacionPin?: string | null;
   marcacionPinVisible?: string | null;
+  faceIdRegistered?: boolean;
+  faceIdPhotoUrl?: string | null;
+  faceIdAwsId?: string | null;
+  faceIdRegisteredAt?: string | null;
+  faceIdConsentAt?: string | null;
   montoAnticipo?: number;
   recibeAnticipo?: boolean;
   currentInstallation?: {
@@ -487,10 +492,28 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       case "operaciones":
         return (
           <div className="space-y-3">
+            {!(guardia.persona.personalEmail || guardia.personalEmail) && guardia.lifecycleStatus === "contratado" && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-400">
+                <span className="mt-0.5 shrink-0">⚠</span>
+                <span>
+                  <strong>Email personal faltante</strong> — requerido por Res. N°38 para envío de comprobantes de asistencia.{" "}
+                  <button className="underline underline-offset-2" onClick={() => setEditPersonalOpen(true)}>
+                    Agregar en Perfil
+                  </button>
+                </span>
+              </div>
+            )}
             <CollapsibleSection title="Marcación de asistencia" defaultOpen>
-              <MarcacionSection guardiaId={guardia.id} marcacionPin={guardia.marcacionPin}
-                marcacionPinVisible={guardia.marcacionPinVisible} canManageGuardias={canManageGuardias}
+              <MarcacionSection
+                guardiaId={guardia.id}
+                marcacionPin={guardia.marcacionPin}
+                marcacionPinVisible={guardia.marcacionPinVisible}
+                faceIdRegistered={guardia.faceIdRegistered}
+                faceIdPhotoUrl={guardia.faceIdPhotoUrl}
+                faceIdRegisteredAt={guardia.faceIdRegisteredAt}
+                canManageGuardias={canManageGuardias}
                 onPinUpdated={(pin) => setGuardia((prev) => ({ ...prev, marcacionPin: "[configurado]", marcacionPinVisible: pin }))}
+                onFaceIdReset={() => setGuardia((prev) => ({ ...prev, faceIdRegistered: false, faceIdPhotoUrl: null, faceIdAwsId: null }))}
               />
             </CollapsibleSection>
           </div>

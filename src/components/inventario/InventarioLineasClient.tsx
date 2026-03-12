@@ -41,12 +41,14 @@ import * as XLSX from "xlsx";
 // ── Types ──────────────────────────────────────────────
 type PhoneLineAssignment = {
   id: string;
-  installationId: string;
+  installationId: string | null;
+  assignedToUserId: string | null;
   assignedAt: string;
   assignedBy: string | null;
   returnedAt: string | null;
   notes: string | null;
-  installation: { id: string; name: string };
+  installation: { id: string; name: string } | null;
+  assignedToUser: { id: string; name: string; email: string } | null;
 };
 
 type PhoneLine = {
@@ -64,6 +66,7 @@ type PhoneLine = {
 };
 
 type Installation = { id: string; name: string };
+type GardUser = { id: string; name: string; email: string };
 
 // ── Constants ──────────────────────────────────────────
 const CARRIERS = ["movistar", "entel", "wom", "claro", "otro"];
@@ -101,6 +104,7 @@ const emptyForm = {
 export function InventarioLineasClient() {
   const [lines, setLines] = useState<PhoneLine[]>([]);
   const [installations, setInstallations] = useState<Installation[]>([]);
+  const [users, setUsers] = useState<GardUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -117,10 +121,12 @@ export function InventarioLineasClient() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  // Assign dialog
+  // Assign dialog: "installation" | "user"
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [assignLineId, setAssignLineId] = useState<string | null>(null);
+  const [assignTargetType, setAssignTargetType] = useState<"installation" | "user">("installation");
   const [assignInstallationId, setAssignInstallationId] = useState("");
+  const [assignUserId, setAssignUserId] = useState("");
   const [assignNotes, setAssignNotes] = useState("");
 
   // Expanded row for history
@@ -158,12 +164,24 @@ export function InventarioLineasClient() {
       const json = await res.json();
       const list = json?.data ?? json;
       if (Array.isArray(list)) {
-        // filter by active items only
         const activeOnly = list.filter((i: any) => i.isActive === true);
         setInstallations(activeOnly.map((i: { id: string; name: string }) => ({ id: i.id, name: i.name })));
       }
     } catch {
-      // silent - installations are for assignment only
+      // silent
+    }
+  }, []);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/crm/users");
+      const json = await res.json();
+      const list = json?.data?.users ?? [];
+      if (Array.isArray(list)) {
+        setUsers(list.map((u: { id: string; name: string; email: string }) => ({ id: u.id, name: u.name, email: u.email })));
+      }
+    } catch {
+      // silent
     }
   }, []);
 
@@ -174,6 +192,10 @@ export function InventarioLineasClient() {
   useEffect(() => {
     fetchInstallations();
   }, [fetchInstallations]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   // ── Create / Edit ──────────────────────────────────
   const openCreate = () => {
@@ -253,21 +275,26 @@ export function InventarioLineasClient() {
   // ── Assign / Unassign ─────────────────────────────
   const openAssign = (lineId: string) => {
     setAssignLineId(lineId);
+    setAssignTargetType("installation");
     setAssignInstallationId("");
+    setAssignUserId("");
     setAssignNotes("");
     setAssignDialogOpen(true);
   };
 
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!assignLineId || !assignInstallationId) return;
+    const toInstallation = assignTargetType === "installation" && assignInstallationId;
+    const toUser = assignTargetType === "user" && assignUserId;
+    if (!assignLineId || (!toInstallation && !toUser)) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/ops/inventario/phone-lines/${assignLineId}/assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          installationId: assignInstallationId,
+          ...(toInstallation ? { installationId: assignInstallationId } : {}),
+          ...(toUser ? { userId: assignUserId } : {}),
           notes: assignNotes || null,
         }),
       });
@@ -287,7 +314,7 @@ export function InventarioLineasClient() {
   };
 
   const handleUnassign = async (lineId: string) => {
-    if (!confirm("¿Desvincular esta línea de la instalación?")) return;
+    if (!confirm("¿Desvincular esta línea?")) return;
     try {
       const res = await fetch(`/api/ops/inventario/phone-lines/${lineId}/assign`, {
         method: "DELETE",
@@ -335,10 +362,13 @@ export function InventarioLineasClient() {
 
   const handleExportExcel = () => {
     try {
+      const assignmentLabel = (a: PhoneLineAssignment) =>
+        a.installation ? a.installation.name : a.assignedToUser ? a.assignedToUser.name : "—";
+
       const dataToExport = lines.map((line) => {
         const activeAssignment = line.assignments?.[0] ?? null;
         return {
-          "Número": line.phoneNumber, // raw number is often better for excel
+          "Número": line.phoneNumber,
           "Número (Formato)": formatPhone(line.phoneNumber),
           "Compañía": line.carrier.charAt(0).toUpperCase() + line.carrier.slice(1),
           "Plan":
@@ -349,7 +379,7 @@ export function InventarioLineasClient() {
               : "Sin especificar",
           "Estado": STATUS_LABELS[line.status] ?? line.status,
           "Etiqueta": line.label || "",
-          "Instalación": activeAssignment ? activeAssignment.installation.name : "Sin asignar",
+          "Asignado a": activeAssignment ? assignmentLabel(activeAssignment) : "Sin asignar",
           "Asignada desde": activeAssignment
             ? new Date(activeAssignment.assignedAt).toLocaleDateString("es-CL")
             : "",
@@ -505,7 +535,12 @@ export function InventarioLineasClient() {
                             {line.label && <span>{line.label}</span>}
                             {activeAssignment && (
                               <span>
-                                {line.label ? "·" : ""} {activeAssignment.installation.name}
+                                {line.label ? "·" : ""}{" "}
+                                {activeAssignment.installation
+                                  ? activeAssignment.installation.name
+                                  : activeAssignment.assignedToUser
+                                    ? activeAssignment.assignedToUser.name
+                                    : "—"}
                               </span>
                             )}
                           </div>
@@ -529,7 +564,7 @@ export function InventarioLineasClient() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
-                          title="Asignar a instalación"
+                          title="Asignar a instalación o usuario"
                           onClick={() => openAssign(line.id)}
                         >
                           <ArrowRightLeft className="h-4 w-4" />
@@ -582,7 +617,13 @@ export function InventarioLineasClient() {
                           <div className="space-y-1.5">
                             {historyData.map((a) => (
                               <div key={a.id} className="flex items-center gap-2 text-sm">
-                                <span className="font-medium">{a.installation.name}</span>
+                                <span className="font-medium">
+                                  {a.installation
+                                    ? a.installation.name
+                                    : a.assignedToUser
+                                      ? a.assignedToUser.name
+                                      : "—"}
+                                </span>
                                 <span className="text-muted-foreground">
                                   {new Date(a.assignedAt).toLocaleDateString("es-CL")}
                                   {a.returnedAt
@@ -706,27 +747,78 @@ export function InventarioLineasClient() {
         <DialogContent className="overflow-visible sm:max-w-md">
           <form onSubmit={handleAssign}>
             <DialogHeader>
-              <DialogTitle>Asignar línea a instalación</DialogTitle>
+              <DialogTitle>Asignar línea</DialogTitle>
               <DialogDescription>
-                Si la línea ya está asignada a otra instalación, se moverá automáticamente.
+                Elige si asignas a una instalación o a un usuario de Gard. Si ya está asignada, se reasignará.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div>
-                <Label>Instalación *</Label>
-                <div className="mt-1">
-                  <SearchableSelect
-                    value={assignInstallationId}
-                    options={installations.map((i) => ({
-                      id: i.id,
-                      label: i.name,
-                    }))}
-                    placeholder="Buscar instalación..."
-                    emptyText="Sin instalaciones"
-                    onChange={(id) => setAssignInstallationId(id)}
-                  />
+                <Label>Asignar a *</Label>
+                <div className="flex gap-4 mt-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="assignTarget"
+                      checked={assignTargetType === "installation"}
+                      onChange={() => {
+                        setAssignTargetType("installation");
+                        setAssignUserId("");
+                      }}
+                      className="rounded"
+                    />
+                    Instalación
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="assignTarget"
+                      checked={assignTargetType === "user"}
+                      onChange={() => {
+                        setAssignTargetType("user");
+                        setAssignInstallationId("");
+                      }}
+                      className="rounded"
+                    />
+                    Usuario de Gard
+                  </label>
                 </div>
               </div>
+              {assignTargetType === "installation" && (
+                <div>
+                  <Label>Instalación *</Label>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      value={assignInstallationId}
+                      options={installations.map((i) => ({
+                        id: i.id,
+                        label: i.name,
+                      }))}
+                      placeholder="Buscar instalación..."
+                      emptyText="Sin instalaciones"
+                      onChange={(id) => setAssignInstallationId(id)}
+                    />
+                  </div>
+                </div>
+              )}
+              {assignTargetType === "user" && (
+                <div>
+                  <Label>Usuario de Gard *</Label>
+                  <div className="mt-1">
+                    <SearchableSelect
+                      value={assignUserId}
+                      options={users.map((u) => ({
+                        id: u.id,
+                        label: u.name,
+                        description: u.email,
+                      }))}
+                      placeholder="Buscar usuario..."
+                      emptyText="Sin usuarios"
+                      onChange={(id) => setAssignUserId(id)}
+                    />
+                  </div>
+                </div>
+              )}
               <div>
                 <Label>Notas</Label>
                 <Input
@@ -740,7 +832,13 @@ export function InventarioLineasClient() {
               <Button type="button" variant="outline" onClick={() => setAssignDialogOpen(false)} disabled={saving}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={saving || !assignInstallationId}>
+              <Button
+                type="submit"
+                disabled={
+                  saving ||
+                  (assignTargetType === "installation" ? !assignInstallationId : !assignUserId)
+                }
+              >
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Asignar
               </Button>

@@ -36,6 +36,7 @@ const PORTALS: PortalDef[] = [
     accentColor: "#2dd4bf",
     glow: "rgba(45,212,191,0.12)",
     subOptions: [
+      { label: "Portal Marcación", subtitle: "Entrada y salida con Face ID o PIN", href: "/portal/marcacion" },
       { label: "Portal Guardia", subtitle: "Novedades, asistencia y documentos", href: "/portal/guardia" },
       { label: "Portal Rondas", subtitle: "Registro de rondas y checkpoints", href: "/portal/rondas" },
     ],

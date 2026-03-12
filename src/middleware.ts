@@ -36,6 +36,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/portal/cliente')) return true;
   if (pathname.startsWith('/portal/rondas')) return true;
   if (pathname.startsWith('/portal/acceso')) return true; // Control de acceso (auth por device_token)
+  if (pathname.startsWith('/portal/marcacion')) return true; // Portal Marcación (auth por device_token)
   if (pathname.startsWith('/descargar')) return true; // PWA download landing pages
   if (pathname === '/welcome') return true;
   if (pathname.startsWith('/api/branding')) return true;

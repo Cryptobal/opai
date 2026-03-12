@@ -179,6 +179,13 @@ export function OpsPautaDiariaClient({
   const [asistioModalItem, setAsistioModalItem] = useState<AsistenciaItem | null>(null);
   const [asistioModalHours, setAsistioModalHours] = useState<{ checkIn: string; checkOut: string }>({ checkIn: "", checkOut: "" });
   const [allSectionsState, setAllSectionsState] = useState<"default" | "all-collapsed" | "all-expanded">("default");
+  // Dialog de confirmación: contradicción con marcación electrónica
+  const [contradictionPending, setContradictionPending] = useState<{
+    id: string;
+    payload: Record<string, unknown>;
+    message: string;
+    successMessage?: string;
+  } | null>(null);
 
   const handleKpiClick = useCallback((kpi: "todos" | "cubiertos" | "ppc" | "te") => {
     const finalKpi = kpiFilter === kpi && kpi !== "todos" ? "todos" : kpi;
@@ -351,6 +358,10 @@ export function OpsPautaDiariaClient({
         body: JSON.stringify(payload),
       });
       const data = await res.json();
+      if (res.status === 409 && data.code === "CONTRADICCION_MARCACION_ELECTRONICA") {
+        setContradictionPending({ id, payload, message: data.error as string, successMessage });
+        return;
+      }
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Error actualizando asistencia");
       }
@@ -1166,6 +1177,49 @@ export function OpsPautaDiariaClient({
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de confirmación: contradicción con marcación electrónica */}
+      <Dialog
+        open={!!contradictionPending}
+        onOpenChange={(open) => {
+          if (!open) setContradictionPending(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Contradicción con marcación electrónica</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {contradictionPending?.message}
+            </p>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setContradictionPending(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={contradictionPending ? savingId === contradictionPending.id : false}
+              onClick={() => {
+                if (!contradictionPending) return;
+                const { id, payload, successMessage } = contradictionPending;
+                setContradictionPending(null);
+                void patchAsistencia(
+                  id,
+                  { ...payload, confirmarContradiccion: true },
+                  successMessage
+                );
+              }}
+            >
+              Sí, marcar como no asistió
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

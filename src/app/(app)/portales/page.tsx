@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { Shield, Route, Monitor, Users, ClipboardCheck, ScanLine } from 'lucide-react';
+import { Shield, Route, Monitor, Users, ClipboardCheck, ScanLine, Fingerprint } from 'lucide-react';
 import { PageHeader } from '@/components/opai';
 import { PortalCard } from '@/components/portales/PortalCard';
 import { PortalViewer } from '@/components/portales/PortalViewer';
@@ -57,6 +57,15 @@ const PORTALS: PortalDef[] = [
         href: '/portal/supervisor',
         icon: ClipboardCheck,
         accentColor: 'from-violet-500/25 to-violet-400/5',
+    },
+    {
+        id: 'marcacion',
+        name: 'Portal Marcación',
+        description:
+            'Portal para el registro de asistencia con Face ID y PIN. Los guardias marcan entrada y salida desde un dispositivo fijo en la instalación.',
+        href: '/portal/marcacion',
+        icon: Fingerprint,
+        accentColor: 'from-orange-500/25 to-orange-400/5',
     },
     {
         id: 'acceso',
