@@ -16,6 +16,8 @@ import {
 
 interface ChatMessageProps {
   message: ChatMessageData;
+  /** Map of mention id -> display name so @mentions show names instead of ids/phones */
+  mentionDisplayMap?: Record<string, string>;
   isOwn: boolean;
   /** Whether this message starts a new visual group (different sender, time gap, etc.) */
   isFirstInGroup?: boolean;
@@ -89,7 +91,11 @@ const ENTITY_CONFIG: Record<string, { icon: string; color: string; basePath: str
  *
  * Note: contentHtml is pre-sanitized on the server side before storage.
  */
-function renderContent(content: string, currentUserId?: string): ReactNode {
+function renderContent(
+  content: string,
+  currentUserId?: string,
+  mentionDisplayMap?: Record<string, string>
+): ReactNode {
   // Parse <@userId> and <#type:id:title> patterns
   const parts = content.split(/(<@[^>]+>|<#[^>]+>)/g);
   if (parts.length === 1) return content;
@@ -101,6 +107,7 @@ function renderContent(content: string, currentUserId?: string): ReactNode {
       const token = mentionMatch[1];
       const isTodos = token === "todos";
       const isMe = !isTodos && token === currentUserId;
+      const displayName = mentionDisplayMap?.[token] ?? token;
 
       return (
         <span
@@ -114,7 +121,7 @@ function renderContent(content: string, currentUserId?: string): ReactNode {
                 : "bg-teal-500/20 text-teal-300"
           )}
         >
-          @{isTodos ? "todos" : token}
+          @{isTodos ? "todos" : displayName}
         </span>
       );
     }
@@ -154,7 +161,7 @@ function renderContent(content: string, currentUserId?: string): ReactNode {
   });
 }
 
-export function ChatMessage({ message, isOwn, isFirstInGroup, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction, canDeleteAny }: ChatMessageProps) {
+export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction, canDeleteAny }: ChatMessageProps) {
   const [showTrigger, setShowTrigger] = useState(false);
   const [showReactionBar, setShowReactionBar] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -285,7 +292,7 @@ export function ChatMessage({ message, isOwn, isFirstInGroup, onReply, onOpenThr
           />
         ) : (
           <p className="break-words whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
-            {renderContent(message.content, currentUserId)}
+            {renderContent(message.content, currentUserId, mentionDisplayMap)}
           </p>
         )}
 

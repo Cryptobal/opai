@@ -10,6 +10,8 @@ import { ChatMessageSystem } from "./ChatMessageSystem";
 
 interface ChatMessageListProps {
   messages: ChatMessageData[];
+  /** Map of mention id -> display name so @mentions show names instead of ids */
+  mentionDisplayMap?: Record<string, string>;
   isLoading: boolean;
   hasMore: boolean;
   onLoadMore: () => Promise<void>;
@@ -70,6 +72,7 @@ function getDateKey(dateStr: string): string {
  */
 export function ChatMessageList({
   messages,
+  mentionDisplayMap = {},
   isLoading,
   hasMore,
   onLoadMore,
@@ -228,6 +231,7 @@ export function ChatMessageList({
               <ChatMessage
                 key={msg.id}
                 message={msg}
+                mentionDisplayMap={mentionDisplayMap}
                 isOwn={isOwnMessage(msg)}
                 isFirstInGroup={isFirst}
                 onReply={() => onReply(msg)}

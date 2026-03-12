@@ -172,10 +172,34 @@ export async function GET(
         ? trimmed[trimmed.length - 1].id
         : null;
 
+    const mentionRegex = /<@([^>]+)>/g;
+    const mentionIds = new Set<string>();
+    for (const msg of trimmed) {
+      let m: RegExpExecArray | null;
+      mentionRegex.lastIndex = 0;
+      while ((m = mentionRegex.exec(msg.content)) !== null) {
+        if (m[1] !== "todos") mentionIds.add(m[1]);
+      }
+    }
+    const mentionDisplayMap: Record<string, string> = {};
+    if (mentionIds.size > 0) {
+      const ids = [...mentionIds];
+      const admins = await prisma.admin.findMany({
+        where: { id: { in: ids }, tenantId: ctx.tenantId },
+        select: { id: true, name: true },
+      });
+      for (const a of admins) mentionDisplayMap[a.id] = a.name ?? a.id;
+      for (const id of ids) {
+        if (mentionDisplayMap[id]) continue;
+        const msgWithSender = trimmed.find((m) => m.senderId === id);
+        if (msgWithSender?.senderName) mentionDisplayMap[id] = msgWithSender.senderName;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data,
-      meta: { hasMore, nextCursor },
+      meta: { hasMore, nextCursor, mentionDisplayMap },
     });
   } catch (err: any) {
     console.error("Error listing chat messages:", err);

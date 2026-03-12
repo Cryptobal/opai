@@ -67,6 +67,7 @@ export function ChatPortalWrapper({
   const {
     messages: apiMessages,
     isLoading,
+    mentionDisplayMap,
     hasMore,
     loadMore,
     sendMessage,
@@ -314,6 +315,7 @@ export function ChatPortalWrapper({
       {/* Messages */}
       <ChatMessageList
         messages={apiMessages}
+        mentionDisplayMap={mentionDisplayMap}
         isLoading={isLoading}
         hasMore={hasMore}
         onLoadMore={loadMore}

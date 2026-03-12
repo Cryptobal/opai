@@ -22,6 +22,8 @@ export type UseChatMessagesOptions = {
 
 type UseChatMessagesReturn = {
   messages: ChatMessageData[];
+  /** Map of mention id -> display name for rendering @mentions */
+  mentionDisplayMap: Record<string, string>;
   isLoading: boolean;
   hasMore: boolean;
   loadMore: () => Promise<void>;
@@ -37,6 +39,7 @@ type CacheEntry = {
   messages: ChatMessageData[];
   cursor: string | null;
   hasMore: boolean;
+  mentionDisplayMap: Record<string, string>;
 };
 
 const MAX_CACHE_SIZE = 5;
@@ -76,6 +79,8 @@ export function useChatMessages(
   const senderType = options?.senderType ?? "ADMIN";
   const senderName = options?.senderName ?? "Yo";
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
+  const [mentionDisplayMap, setMentionDisplayMap] = useState<Record<string, string>>({});
+  const mentionDisplayMapRef = useRef<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const cursorRef = useRef<string | null>(null);
@@ -97,6 +102,7 @@ export function useChatMessages(
             messages: currentMsgs,
             cursor: cursorRef.current,
             hasMore: hasMoreRef.current,
+            mentionDisplayMap: mentionDisplayMapRef.current,
           });
         }
         return currentMsgs;
@@ -110,17 +116,23 @@ export function useChatMessages(
       if (cached) {
         setMessages(cached.messages);
         setHasMore(cached.hasMore);
+        setMentionDisplayMap(cached.mentionDisplayMap ?? {});
+        mentionDisplayMapRef.current = cached.mentionDisplayMap ?? {};
         cursorRef.current = cached.cursor;
         // Still revalidate in background (stale-while-revalidate)
         initialFetchDone.current = false;
       } else {
         setMessages([]);
+        setMentionDisplayMap({});
+        mentionDisplayMapRef.current = {};
         setHasMore(true);
         cursorRef.current = null;
         initialFetchDone.current = false;
       }
     } else {
       setMessages([]);
+      setMentionDisplayMap({});
+      mentionDisplayMapRef.current = {};
       setHasMore(true);
       cursorRef.current = null;
       initialFetchDone.current = false;
@@ -152,6 +164,12 @@ export function useChatMessages(
         if (json.success) {
           // API returns messages in desc order (newest first) — reverse for chronological display
           const sorted = [...json.data].reverse();
+          const newMap = {
+            ...(cursor ? mentionDisplayMapRef.current : {}),
+            ...(json.meta.mentionDisplayMap ?? {}),
+          };
+          setMentionDisplayMap(newMap);
+          mentionDisplayMapRef.current = newMap;
           setMessages((prev) => {
             // When loading older messages (cursor), prepend. Otherwise, replace.
             if (cursor) {
@@ -169,6 +187,7 @@ export function useChatMessages(
             messages: sorted,
             cursor: json.meta.nextCursor,
             hasMore: json.meta.hasMore,
+            mentionDisplayMap: newMap,
           });
         }
       } catch (err) {
@@ -317,6 +336,7 @@ export function useChatMessages(
 
   return {
     messages,
+    mentionDisplayMap,
     isLoading,
     hasMore,
     loadMore,

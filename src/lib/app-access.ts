@@ -27,6 +27,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppKey[]> = {
   editor: ROLE_POLICIES.editor.appAccess,
   rrhh: ROLE_POLICIES.rrhh.appAccess,
   operaciones: ROLE_POLICIES.operaciones.appAccess,
+  jefe_operaciones: ROLE_POLICIES.jefe_operaciones.appAccess,
   finanzas: ROLE_POLICIES.finanzas.appAccess,
   reclutamiento: ROLE_POLICIES.reclutamiento.appAccess,
   solo_ops: ROLE_POLICIES.solo_ops.appAccess,

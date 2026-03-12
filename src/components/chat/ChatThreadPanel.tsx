@@ -30,6 +30,7 @@ export function ChatThreadPanel({
 }: ChatThreadPanelProps) {
   const [rootMessage, setRootMessage] = useState<ChatMessageData | null>(null);
   const [replies, setReplies] = useState<ChatMessageData[]>([]);
+  const [mentionDisplayMap, setMentionDisplayMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -56,6 +57,7 @@ export function ChatThreadPanel({
         const repliesJson = await repliesRes.json();
         if (repliesJson.success) {
           setReplies(repliesJson.data);
+          setMentionDisplayMap(repliesJson.meta?.mentionDisplayMap ?? {});
         }
       }
     } catch (err) {
@@ -176,6 +178,7 @@ export function ChatThreadPanel({
               <div className="mb-3 pb-3 border-b border-[rgba(255,255,255,0.06)]">
                 <ChatMessage
                   message={rootMessage}
+                  mentionDisplayMap={mentionDisplayMap}
                   isOwn={rootMessage.senderType === "ADMIN"}
                   onReply={() => {}}
                   currentUserId={currentUserId}
@@ -188,6 +191,7 @@ export function ChatThreadPanel({
               <ChatMessage
                 key={msg.id}
                 message={msg}
+                mentionDisplayMap={mentionDisplayMap}
                 isOwn={msg.senderType === "ADMIN"}
                 onReply={() => {}}
                 currentUserId={currentUserId}

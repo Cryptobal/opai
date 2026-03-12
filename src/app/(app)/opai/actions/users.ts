@@ -2,7 +2,8 @@
 
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { hasPermission, PERMISSIONS, type Role } from '@/lib/rbac';
+import { hasPermission, PERMISSIONS, isValidRole, type Role } from '@/lib/rbac';
+import { ROLE_TEMPLATE_SEEDS } from '@/lib/permissions';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { Resend } from 'resend';
@@ -201,12 +202,24 @@ export async function changeUserRole(userId: string, roleTemplateId: string) {
     return { success: false, error: 'Sin permisos para gestionar usuarios' };
   }
 
-  const template = await prisma.roleTemplate.findFirst({
-    where: { id: roleTemplateId, tenantId: session.user.tenantId },
-  });
+  let slug: string;
+  let roleTemplateIdToSet: string | null;
 
-  if (!template) {
-    return { success: false, error: 'Rol no encontrado' };
+  if (roleTemplateId.startsWith(SEED_ROLE_PREFIX)) {
+    slug = roleTemplateId.slice(SEED_ROLE_PREFIX.length);
+    if (!isValidRole(slug)) {
+      return { success: false, error: 'Rol no válido' };
+    }
+    roleTemplateIdToSet = null;
+  } else {
+    const template = await prisma.roleTemplate.findFirst({
+      where: { id: roleTemplateId, tenantId: session.user.tenantId },
+    });
+    if (!template) {
+      return { success: false, error: 'Rol no encontrado' };
+    }
+    slug = template.slug;
+    roleTemplateIdToSet = template.id;
   }
 
   const user = await prisma.admin.findUnique({
@@ -240,8 +253,8 @@ export async function changeUserRole(userId: string, roleTemplateId: string) {
   await prisma.admin.update({
     where: { id: userId },
     data: {
-      role: template.slug as Role,
-      roleTemplateId: template.id,
+      role: slug as Role,
+      roleTemplateId: roleTemplateIdToSet,
     },
   });
 
@@ -253,7 +266,7 @@ export async function changeUserRole(userId: string, roleTemplateId: string) {
       action: 'user.role_changed',
       entity: 'user',
       entityId: userId,
-      details: { oldRole, newRole: template.slug, roleTemplateId: template.id },
+      details: { oldRole, newRole: slug, roleTemplateId: roleTemplateIdToSet },
     },
   });
 
@@ -432,8 +445,12 @@ export async function listPendingInvitations() {
   return { success: true, invitations };
 }
 
+const SEED_ROLE_PREFIX = 'seed:';
+
 /**
- * Listar RoleTemplates del tenant (para selector de Gestión de Usuarios)
+ * Listar RoleTemplates del tenant (para selector de Gestión de Usuarios).
+ * Incluye templates de la BD + roles del sistema que aún no tengan template en el tenant,
+ * para que "Jefe de operaciones" y otros aparezcan aunque no se haya corrido la migración.
  */
 export async function listRoleTemplates() {
   const session = await auth();
@@ -444,11 +461,23 @@ export async function listRoleTemplates() {
     return { success: false, error: 'Sin permisos', templates: [] };
   }
 
-  const templates = await prisma.roleTemplate.findMany({
+  const dbTemplates = await prisma.roleTemplate.findMany({
     where: { tenantId: session.user.tenantId },
     select: { id: true, name: true, slug: true, isSystem: true },
     orderBy: [{ isSystem: 'desc' }, { name: 'asc' }],
   });
+
+  const slugSet = new Set(dbTemplates.map((t) => t.slug));
+  const seedOnly = ROLE_TEMPLATE_SEEDS.filter((s) => !slugSet.has(s.slug)).map((s) => ({
+    id: `${SEED_ROLE_PREFIX}${s.slug}`,
+    name: s.name,
+    slug: s.slug,
+    isSystem: s.isSystem,
+  }));
+
+  const templates = [...dbTemplates, ...seedOnly].sort((a, b) =>
+    a.name.localeCompare(b.name, 'es')
+  );
 
   return { success: true, templates };
 }

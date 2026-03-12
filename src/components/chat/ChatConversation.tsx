@@ -45,6 +45,7 @@ export function ChatConversation({
 }: ChatConversationProps) {
   const {
     messages: apiMessages,
+    mentionDisplayMap,
     isLoading,
     hasMore,
     loadMore,
@@ -300,6 +301,7 @@ export function ChatConversation({
 
         <ChatMessageList
           messages={searchQuery.trim() ? searchResults : apiMessages}
+          mentionDisplayMap={mentionDisplayMap}
           isLoading={searchQuery.trim() ? isSearching : isLoading}
           hasMore={searchQuery.trim() ? false : hasMore}
           onLoadMore={loadMore}

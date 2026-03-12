@@ -149,6 +149,8 @@ export type MessagesResponse = {
   meta: {
     hasMore: boolean;
     nextCursor: string | null;
+    /** Resolved display names for @mention tokens (id -> name) */
+    mentionDisplayMap?: Record<string, string>;
   };
 };
 
