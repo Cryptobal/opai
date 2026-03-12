@@ -35,6 +35,7 @@ export interface HubClientWrapperProps {
   ticketMetrics: TicketMetrics;
   activities: ActivityEntry[];
   supervisionMetrics: SupervisionMetrics | null;
+  showPortalLink?: boolean;
 }
 
 export function HubClientWrapper({
@@ -47,6 +48,7 @@ export function HubClientWrapper({
   ticketMetrics,
   activities,
   supervisionMetrics,
+  showPortalLink,
 }: HubClientWrapperProps) {
   const pendingFollowUpsCount = closingData?.kpis.followUpsOverdueCount ?? 0;
 
@@ -56,6 +58,7 @@ export function HubClientWrapper({
       <HubGreeting
         firstName={firstName}
         pendingFollowUpsCount={pendingFollowUpsCount}
+        showPortalLink={showPortalLink}
       />
 
       {/* Section 1: Hub de Cierre (expanded by default) */}

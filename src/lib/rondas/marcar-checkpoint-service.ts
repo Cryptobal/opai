@@ -49,6 +49,7 @@ export class MarcarCheckpointError extends Error {
   constructor(
     message: string,
     public statusCode: number = 400,
+    public code?: string,
   ) {
     super(message);
     this.name = "MarcarCheckpointError";
@@ -236,6 +237,17 @@ export async function marcarCheckpoint(
   const turnoId = await getActiveTurnoId(execution.tenantId);
 
   const created = await prisma.$transaction(async (tx) => {
+    // Guard against duplicate marks on the same checkpoint within the same execution
+    if (checkpoint?.id) {
+      const existingMark = await tx.opsMarcacionCheckpoint.findFirst({
+        where: { ejecucionId: execution.id, checkpointId: checkpoint.id },
+        select: { id: true },
+      });
+      if (existingMark) {
+        throw new MarcarCheckpointError("Checkpoint ya marcado en esta ronda", 200, "already_marked");
+      }
+    }
+
     const mark = await tx.opsMarcacionCheckpoint.create({
       data: {
         tenantId: execution.tenantId,

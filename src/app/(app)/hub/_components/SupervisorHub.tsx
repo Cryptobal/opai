@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Receipt, CalendarDays, ClipboardList, Clock3, Building2, Plus, BarChart3, Ticket, UserPlus } from "lucide-react";
+import { MapPin, Receipt, CalendarDays, ClipboardList, Clock3, Building2, Plus, BarChart3, Ticket, UserPlus, Smartphone } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,10 +82,21 @@ export async function SupervisorHub({ tenantId, userId, firstName }: SupervisorH
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Hola, {firstName}</CardTitle>
-          <CardDescription>
-            Hub de supervisión para trabajo en terreno: check-in, visitas y rendiciones.
-          </CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle className="text-lg">Hola, {firstName}</CardTitle>
+              <CardDescription>
+                Hub de supervisión para trabajo en terreno: check-in, visitas y rendiciones.
+              </CardDescription>
+            </div>
+            <a
+              href="/portal/supervisor"
+              className="md:hidden flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 px-2.5 py-1.5 rounded-lg transition-colors shrink-0 mt-0.5"
+            >
+              <Smartphone size={13} />
+              <span>Portal</span>
+            </a>
+          </div>
         </CardHeader>
       </Card>
 
