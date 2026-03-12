@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, X, Send, Loader2, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
@@ -8,10 +8,16 @@ import { SupervisorInstallation } from "@/lib/portal-supervisor";
 interface Props {
   installations: SupervisorInstallation[];
   defaultInstallationId?: string;
+  /** Increment this value to programmatically open the form */
+  openTrigger?: number;
 }
 
-export function SupervisorNovedadRapida({ installations, defaultInstallationId }: Props) {
+export function SupervisorNovedadRapida({ installations, defaultInstallationId, openTrigger }: Props) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (openTrigger) setOpen(true);
+  }, [openTrigger]);
   const [installationId, setInstallationId] = useState(
     defaultInstallationId ?? installations[0]?.id ?? ""
   );
