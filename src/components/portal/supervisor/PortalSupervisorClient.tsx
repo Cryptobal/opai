@@ -48,6 +48,7 @@ export function PortalSupervisorClient() {
   const [visitaTecnicaMode, setVisitaTecnicaMode] = useState<"list" | "form" | "detail">("list");
   const [selectedVisitaTecnicaId, setSelectedVisitaTecnicaId] = useState<string | undefined>();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [novedadTrigger, setNovedadTrigger] = useState(0);
 
   useEffect(() => {
     fetch("/api/portal/supervisor/session")
@@ -149,7 +150,9 @@ export function PortalSupervisorClient() {
         setActiveSection("visita-tecnica");
         setVisitaTecnicaMode("form");
         break;
-      // "novedad" is handled by FAB
+      case "novedad":
+        setNovedadTrigger((n) => n + 1);
+        break;
     }
   }
 
@@ -327,6 +330,7 @@ export function PortalSupervisorClient() {
           setShowCrearTE(false);
           setShowCrearRendicion(false);
         }}
+        onMoreOpen={() => setMoreOpen(true)}
       />
 
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
@@ -366,6 +370,7 @@ export function PortalSupervisorClient() {
         defaultInstallationId={
           selectedInstallation?.id ?? activeInstallationId ?? session.installations[0]?.id
         }
+        openTrigger={novedadTrigger}
       />
 
       {/* Visit wizard — full-screen overlay */}

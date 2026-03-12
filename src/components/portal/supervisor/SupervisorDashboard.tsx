@@ -8,11 +8,9 @@ import {
   Receipt,
   Plus,
   FileText,
-  Bell,
   Loader2,
   Briefcase,
   LayoutGrid,
-  Menu,
 } from "lucide-react";
 import { KpiCard } from "@/components/opai/KpiCard";
 import { SupervisorSession } from "@/lib/portal-supervisor";
@@ -75,7 +73,7 @@ export function SupervisorDashboard({ session, onAction, onMoreOpen }: Props) {
         </div>
         <a
           href="/hub"
-          className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white bg-zinc-800/80 hover:bg-zinc-700 px-2.5 py-1.5 rounded-lg transition-colors shrink-0"
+          className="flex items-center gap-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-lg transition-colors shrink-0 shadow-sm shadow-blue-900/50"
         >
           <LayoutGrid size={13} />
           <span>ERP</span>
@@ -139,8 +137,8 @@ export function SupervisorDashboard({ session, onAction, onMoreOpen }: Props) {
           />
           <QuickAction
             label="Novedad"
-            icon={<Bell size={18} />}
-            color="bg-amber-600 hover:bg-amber-500"
+            icon={<AlertTriangle size={18} />}
+            color="bg-amber-700 hover:bg-amber-600"
             onClick={() => onAction("novedad")}
           />
           <QuickAction
@@ -156,10 +154,10 @@ export function SupervisorDashboard({ session, onAction, onMoreOpen }: Props) {
             onClick={() => onAction("rendicion")}
           />
           <QuickAction
-            label="Más"
-            icon={<Menu size={18} />}
-            color="bg-zinc-700 hover:bg-zinc-600"
-            onClick={() => onMoreOpen?.()}
+            label="Novedad Rápida"
+            icon={<Plus size={18} />}
+            color="bg-amber-500 hover:bg-amber-400"
+            onClick={() => onAction("novedad")}
           />
         </div>
       </div>
