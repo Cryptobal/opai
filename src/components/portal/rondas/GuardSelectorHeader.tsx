@@ -6,6 +6,7 @@ import { ChevronDown, Loader2, MapPin, UserCircle } from "lucide-react";
 interface Guard {
   id: string;
   name: string;
+  isTurnoExtra?: boolean;
 }
 
 interface Props {
@@ -151,7 +152,14 @@ export function GuardSelectorHeader({
                       : "text-zinc-200"
                   }`}
                 >
-                  {g.name}
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="truncate">{g.name}</span>
+                    {g.isTurnoExtra && (
+                      <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                        turno extra
+                      </span>
+                    )}
+                  </span>
                 </button>
               ))
             )}

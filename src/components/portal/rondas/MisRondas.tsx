@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import type { RondasSession } from "./RondasPortalClient";
 import type { MapCheckpoint } from "./RondaMap";
+import { HistorialRondaModal } from "./HistorialRondaModal";
 
 // Lazy-load RondaMap to avoid SSR issues with Leaflet
 const RondaMap = dynamic(() => import("./RondaMap"), {
@@ -152,6 +153,24 @@ function toMapCheckpoints(checkpoints: CheckpointItem[], rondaStatus: string): M
 }
 
 // ---------------------------------------------------------------------------
+// Historial types
+// ---------------------------------------------------------------------------
+
+interface HistorialItem {
+  ejecucionId: string;
+  templateName: string;
+  installationName: string;
+  completedAt: string;
+  durationMinutes: number | null;
+  porcentajeCompletado: number;
+  trustScore: number;
+  checkpointsTotal: number;
+  checkpointsCompletados: number;
+  status: string;
+  isAdHoc: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Section types — Redesigned priority order
 // ---------------------------------------------------------------------------
 
@@ -205,6 +224,9 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShow
     no_realizadas: true,
     completadas: true,
   });
+  const [historial, setHistorial] = useState<HistorialItem[]>([]);
+  const [historialLoading, setHistorialLoading] = useState(false);
+  const [selectedRondaId, setSelectedRondaId] = useState<string | null>(null);
 
   const toggleSection = (key: string) =>
     setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -271,6 +293,29 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShow
   useEffect(() => {
     fetchRondas();
   }, [fetchRondas]);
+
+  // ---- Fetch historial (last 30 days) ----
+  useEffect(() => {
+    if (!isValidSession(session)) return;
+    let cancelled = false;
+    setHistorialLoading(true);
+    fetch(
+      `/api/portal/rondas/historial?guardiaId=${session.guardiaId}&tenantId=${session.tenantId}&limit=30`,
+    )
+      .then(async (res) => {
+        if (cancelled) return;
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!cancelled && json.success) {
+          setHistorial(json.data ?? []);
+        }
+      })
+      .catch(() => {/* silent: historial is non-critical */})
+      .finally(() => {
+        if (!cancelled) setHistorialLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [session.guardiaId, session.tenantId]);
 
   // ---- Group rondas into sections (redesigned priority) ----
   // "NO REALIZADAS HOY" y "COMPLETADAS HOY" solo muestran rondas del día actual (Chile)
@@ -550,8 +595,161 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShow
           </div>
         )}
 
+        {/* ============ Historial section ============ */}
+        <div className="mt-6">
+          {/* Section separator */}
+          <div className="mb-3 flex items-center gap-3">
+            <div className="h-px flex-1 bg-white/5" />
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-600">
+              Mis rondas realizadas
+            </span>
+            <div className="h-px flex-1 bg-white/5" />
+          </div>
+
+          {historialLoading && (
+            <div className="flex items-center justify-center py-8">
+              <svg
+                className="h-6 w-6 animate-spin text-teal-500"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+            </div>
+          )}
+
+          {!historialLoading && historial.length === 0 && (
+            <p className="py-6 text-center text-sm text-gray-600">
+              Sin rondas registradas en los últimos 30 días
+            </p>
+          )}
+
+          {!historialLoading && historial.length > 0 && (
+            <div className="space-y-2">
+              {historial.map((item) => (
+                <HistorialCard
+                  key={item.ejecucionId}
+                  item={item}
+                  onTap={() => setSelectedRondaId(item.ejecucionId)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
       </main>
+
+      {/* Detail modal */}
+      {selectedRondaId && (
+        <HistorialRondaModal
+          ejecucionId={selectedRondaId}
+          session={session}
+          onClose={() => setSelectedRondaId(null)}
+        />
+      )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Historial Card sub-component
+// ---------------------------------------------------------------------------
+
+function HistorialCard({
+  item,
+  onTap,
+}: {
+  item: HistorialItem;
+  onTap: () => void;
+}) {
+  const d = new Date(item.completedAt);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = d.toLocaleString("es-CL", { month: "short" });
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  const dateStr = `${day} ${month} · ${hh}:${mm}`;
+
+  const statusBg =
+    item.status === "completada"
+      ? "bg-green-500/20 text-green-400"
+      : item.status === "incompleta"
+        ? "bg-amber-500/20 text-amber-400"
+        : "bg-gray-700/50 text-gray-400";
+  const statusLabel =
+    item.status === "completada"
+      ? "Completada"
+      : item.status === "incompleta"
+        ? "Incompleta"
+        : item.status === "cerrada_auto"
+          ? "Cerrada auto"
+          : item.status;
+
+  const scoreColor =
+    item.trustScore >= 80
+      ? "text-green-400"
+      : item.trustScore >= 50
+        ? "text-yellow-400"
+        : "text-red-400";
+
+  return (
+    <button
+      type="button"
+      onClick={onTap}
+      className="w-full rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-3 text-left transition-colors hover:border-gray-700 hover:bg-gray-900/80 active:bg-gray-800/80"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-gray-200">
+            {item.templateName}
+          </p>
+          <p className="mt-0.5 text-xs text-gray-500">{dateStr}</p>
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${statusBg}`}
+        >
+          {statusLabel}
+        </span>
+      </div>
+      <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+        <span>
+          {item.checkpointsCompletados}/{item.checkpointsTotal} CP ·{" "}
+          {Math.round(item.porcentajeCompletado)}%
+        </span>
+        <span className={`font-medium ${scoreColor}`}>
+          Score: {item.trustScore}
+        </span>
+        {item.durationMinutes != null && (
+          <span>
+            {item.durationMinutes >= 60
+              ? `${Math.floor(item.durationMinutes / 60)}h ${item.durationMinutes % 60}m`
+              : `${item.durationMinutes}m`}
+          </span>
+        )}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="ml-auto h-3.5 w-3.5 shrink-0 text-gray-700"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
+    </button>
   );
 }
 

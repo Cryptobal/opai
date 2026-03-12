@@ -477,12 +477,12 @@ export function RondasPortalClient() {
         status: "en_curso",
         scheduledAt: new Date().toISOString(),
         startedAt: json.data.startedAt,
-        checkpointsTotal: 0,
+        checkpointsTotal: json.data.checkpointsTotal ?? 0,
         checkpointsCompletados: 0,
         qrRequerido: false,
         orderMode: "flexible",
         estimatedDurationMin: null,
-        checkpoints: [],
+        checkpoints: json.data.checkpoints ?? [],
       });
       setScreen("ronda-activa");
     } catch {
