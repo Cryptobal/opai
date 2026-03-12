@@ -101,7 +101,6 @@ export function FaceRegistrationFlow({
           <p className="text-xs text-white/25 text-center mt-4 leading-relaxed">
             Si no desea utilizar reconocimiento facial, contacte a su supervisor para coordinar un método alternativo de verificación.
           </p>
-          </div>
         </div>
       </div>
     );
