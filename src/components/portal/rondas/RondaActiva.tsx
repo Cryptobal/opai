@@ -219,6 +219,8 @@ export function RondaActiva({
 
   // Ad-hoc flag (needed early for tracking effect)
   const isAdHoc = !rondaData.templateId;
+  // Free-form (GPS-only) mode: ad-hoc AND no checkpoints from installation
+  const isAdHocFreeForm = isAdHoc && checkpoints.length === 0;
 
   // -- Server-side GPS tracking (every 30s for ad-hoc rondas) --
   const trackingPointsRef = useRef<Array<{ lat: number; lng: number; ts: number }>>([]);
@@ -263,7 +265,7 @@ export function RondaActiva({
   // Geofence auto-detection: check guard proximity to unmarked checkpoints
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!guardPos || isAdHoc) return;
+    if (!guardPos || isAdHocFreeForm) return;
 
     // When marking is active, clear any pending auto-open timer
     if (markingCheckpointId) {
@@ -320,7 +322,7 @@ export function RondaActiva({
       }
       setNearbyCheckpointId(null);
     }
-  }, [guardPos, checkpoints, isAdHoc, markingCheckpointId]);
+  }, [guardPos, checkpoints, isAdHocFreeForm, markingCheckpointId]);
 
   // Cleanup auto-open timer on unmount
   useEffect(() => {
@@ -337,7 +339,7 @@ export function RondaActiva({
   // Auto-complete detection: show celebration when all checkpoints marked
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (isAdHoc || autoCompleteShownRef.current) return;
+    if (isAdHocFreeForm || autoCompleteShownRef.current) return;
     if (checkpoints.length === 0) return;
     const allDone = checkpoints.every((c) => c.completed);
     if (allDone) {
@@ -345,7 +347,7 @@ export function RondaActiva({
       navigator.vibrate?.([200, 100, 200]);
       setShowAutoCompleteModal(true);
     }
-  }, [checkpoints, isAdHoc]);
+  }, [checkpoints, isAdHocFreeForm]);
 
   // ---------------------------------------------------------------------------
   // Derived values
@@ -386,7 +388,7 @@ export function RondaActiva({
           : ("pending" as const),
     }));
 
-    if (!isAdHoc) return templateCps;
+    if (!isAdHocFreeForm) return templateCps;
 
     // For ad-hoc rondas, add locally tracked marked points
     const adHocCps = adHocMarkedPoints.map((pt, i) => ({
@@ -399,7 +401,7 @@ export function RondaActiva({
     }));
 
     return [...templateCps, ...adHocCps];
-  }, [checkpoints, activeCheckpointId, isAdHoc, adHocMarkedPoints]);
+  }, [checkpoints, activeCheckpointId, isAdHocFreeForm, adHocMarkedPoints]);
 
   // Distance to active checkpoint
   const activeCheckpoint = checkpoints.find(
@@ -474,7 +476,7 @@ export function RondaActiva({
 
   // Sorted checkpoints: active first, then pending, then completed
   const sortedCheckpoints = useMemo(() => {
-    if (isAdHoc) return checkpoints;
+    if (isAdHocFreeForm) return checkpoints;
     const active: ApiCheckpoint[] = [];
     const pending: ApiCheckpoint[] = [];
     const completed: ApiCheckpoint[] = [];
@@ -484,7 +486,7 @@ export function RondaActiva({
       else pending.push(cp);
     }
     return [...active, ...pending, ...completed];
-  }, [checkpoints, activeCheckpointId, isAdHoc]);
+  }, [checkpoints, activeCheckpointId, isAdHocFreeForm]);
 
   // ---------------------------------------------------------------------------
   // Callbacks
@@ -571,12 +573,12 @@ export function RondaActiva({
   }, [rondaData.ejecucionId, session.guardiaId, onComplete, checkpoints, trailPoints]);
 
   const handleCompleteClick = useCallback(() => {
-    if (!isAdHoc && incompleteCheckpoints.length > 0) {
+    if (!isAdHocFreeForm && incompleteCheckpoints.length > 0) {
       setShowConfirmModal(true);
     } else {
       handleComplete();
     }
-  }, [isAdHoc, incompleteCheckpoints.length, handleComplete]);
+  }, [isAdHocFreeForm, incompleteCheckpoints.length, handleComplete]);
 
   const confirmComplete = useCallback(() => {
     setShowConfirmModal(false);
@@ -722,7 +724,7 @@ export function RondaActiva({
         <RondaMap
           checkpoints={mapCheckpoints}
           guardPosition={guardPos}
-          height={isAdHoc ? "25vh" : mapCollapsed ? "20vh" : "45vh"}
+          height={isAdHocFreeForm ? "25vh" : mapCollapsed ? "20vh" : "45vh"}
           showRoute={true}
           interactive={true}
           showCenterButton={true}
@@ -731,7 +733,7 @@ export function RondaActiva({
         />
 
         {/* Map collapse toggle — hidden for ad-hoc rondas (fixed compact map) */}
-        {!isAdHoc && (
+        {!isAdHocFreeForm && (
           <button
             onClick={() => setMapCollapsed((v) => !v)}
             className="absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 translate-y-1/2 items-center gap-1 rounded-full border border-gray-700 bg-gray-900 px-3 py-1 text-xs text-gray-400 shadow-lg transition-colors hover:bg-gray-800"
@@ -757,7 +759,7 @@ export function RondaActiva({
 
       {/* ============ Checkpoint List (scrollable) ============ */}
       <main className="flex-1 space-y-2 overflow-y-auto px-4 pb-52 pt-6">
-        {isAdHoc && (
+        {isAdHocFreeForm && (
           <div className="space-y-4">
             {/* GPS active indicator + timer + counter */}
             <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
@@ -831,7 +833,7 @@ export function RondaActiva({
         )}
 
         {/* Non-ad-hoc checkpoint list */}
-        {!isAdHoc && sortedCheckpoints.map((cp) => {
+        {!isAdHocFreeForm && sortedCheckpoints.map((cp) => {
           const isCompleted = cp.completed;
           const isActive = cp.id === activeCheckpointId;
           const needsQr =

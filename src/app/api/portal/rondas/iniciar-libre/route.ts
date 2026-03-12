@@ -30,6 +30,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Guardia no encontrado" }, { status: 404 });
     }
 
+    // Fetch active checkpoints for the installation
+    const installationCheckpoints = await prisma.opsCheckpoint.findMany({
+      where: { tenantId, installationId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        instrucciones: true,
+        qrCode: true,
+        lat: true,
+        lng: true,
+        geoRadiusM: true,
+        verificationType: true,
+        sortOrder: true,
+        isCritical: true,
+      },
+      orderBy: { sortOrder: "asc" },
+    });
+
     // ── Block free rounds when scheduled rounds are pending ("listas" / "con_retraso") ──
     const now = new Date();
     const windowStart = new Date(now.getTime() - 6 * 60 * 60 * 1000);
@@ -78,6 +96,7 @@ export async function POST(request: NextRequest) {
           ejecucionId: existing.id,
           status: existing.status,
           startedAt: existing.startedAt?.toISOString(),
+          checkpointsTotal: installationCheckpoints.length,
           resumed: true,
         },
       });
@@ -94,7 +113,7 @@ export async function POST(request: NextRequest) {
         status: "en_curso",
         scheduledAt: now,
         startedAt: now,
-        checkpointsTotal: 0,
+        checkpointsTotal: installationCheckpoints.length,
         checkpointsCompletados: 0,
         deviceInfo: deviceInfo as any,
       },
@@ -119,6 +138,21 @@ export async function POST(request: NextRequest) {
         ejecucionId: ejecucion.id,
         status: ejecucion.status,
         startedAt: ejecucion.startedAt?.toISOString(),
+        checkpointsTotal: installationCheckpoints.length,
+        checkpoints: installationCheckpoints.map((cp, idx) => ({
+          id: cp.id,
+          name: cp.name,
+          instrucciones: cp.instrucciones ?? null,
+          qrCode: cp.qrCode,
+          lat: cp.lat ?? 0,
+          lng: cp.lng ?? 0,
+          geoRadiusM: cp.geoRadiusM,
+          verificationType: cp.verificationType,
+          orderIndex: idx,
+          isRequired: cp.isCritical,
+          completed: false,
+          tasks: [],
+        })),
       },
     });
   } catch (error) {
