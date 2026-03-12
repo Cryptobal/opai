@@ -5,9 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 interface FaceCameraCaptureProps {
   onCapture: (imageBase64: string) => void;
   onCancel: () => void;
+  captureLabel?: string;
+  captureColor?: string;
 }
 
-export function FaceCameraCapture({ onCapture, onCancel }: FaceCameraCaptureProps) {
+export function FaceCameraCapture({ onCapture, onCancel, captureLabel = "Capturar", captureColor = "rgba(16,185,129,0.4)" }: FaceCameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -173,9 +175,9 @@ export function FaceCameraCapture({ onCapture, onCancel }: FaceCameraCaptureProp
           <button
             onClick={startAutoCapture}
             className="flex-1 rounded-xl px-4 py-3 text-sm font-bold text-white"
-            style={{ background: "rgba(16,185,129,0.4)" }}
+            style={{ background: captureColor }}
           >
-            Capturar
+            {captureLabel}
           </button>
         </div>
       )}

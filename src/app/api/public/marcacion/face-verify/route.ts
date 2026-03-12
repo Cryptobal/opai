@@ -30,6 +30,8 @@ const schema = z.object({
   lng: z.number().nullable(),
   deviceTimestamp: z.string().optional(),
   offlineSync: z.boolean().optional(),
+  // Optional: expected guardiaId from lookup step — cross-validates the face match
+  expectedGuardiaId: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { image, installationId, tipo, lat, lng, deviceTimestamp, offlineSync } = parsed.data;
+    const { image, installationId, tipo, lat, lng, deviceTimestamp, offlineSync, expectedGuardiaId } = parsed.data;
 
     // Find installation
     const installation = await prisma.crmInstallation.findFirst({
@@ -90,6 +92,14 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json(
         { success: false, error: verification.error || "No se pudo verificar el rostro" },
+        { status: 401 }
+      );
+    }
+
+    // Cross-validate: if lookup step identified a specific guardia, ensure it matches
+    if (expectedGuardiaId && verification.guardiaId !== expectedGuardiaId) {
+      return NextResponse.json(
+        { success: false, error: "El rostro no corresponde al RUT ingresado.", code: "FACE_MISMATCH" },
         { status: 401 }
       );
     }
@@ -357,6 +367,11 @@ export async function POST(req: NextRequest) {
         timestamp: effectiveTimestamp,
         geoValidada,
         geoDistanciaM,
+        gpsStatus: (lat != null && lng != null)
+          ? (geoValidada ? "dentro_rango" : "fuera_rango")
+          : "sin_gps",
+        lat,
+        lng,
         hashIntegridad,
       }).catch((err) => console.error("[marcacion] Error enviando comprobante:", err));
     }

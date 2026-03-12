@@ -310,6 +310,8 @@ export async function GET(request: NextRequest) {
             lng: true,
             ipAddress: true,
             userAgent: true,
+            metodoId: true,
+            pinFallbackReason: true,
           },
           orderBy: { timestamp: "asc" },
         })

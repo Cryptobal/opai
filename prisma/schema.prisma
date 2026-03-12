@@ -3238,6 +3238,7 @@ model OpsMarcacion {
   modifiedBy            String?   @map("modified_by")
   modificationReason    String?   @map("modification_reason")
   isModified            Boolean   @default(false) @map("is_modified")
+  pinFallbackReason     String?   @map("pin_fallback_reason") // "camera_error" | "low_light" | "aws_error" | "no_face_registered" | "user_choice"
 
   guardia                OpsGuardia              @relation(fields: [guardiaId], references: [id])
   installation           CrmInstallation         @relation(fields: [installationId], references: [id], onDelete: Restrict)

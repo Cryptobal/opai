@@ -48,6 +48,8 @@ type MarcacionItem = {
   lng: number | null;
   ipAddress: string | null;
   userAgent: string | null;
+  metodoId?: string | null; // "face_id" | "pin_fallback" | "rut_pin" | "manual"
+  pinFallbackReason?: string | null;
 };
 
 type AsistenciaItem = {
@@ -853,9 +855,36 @@ export function OpsPautaDiariaClient({
                                   </>
                                 );
                               })()}
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">
-                                Marcación asistencia
-                              </span>
+                              {(() => {
+                                const entradaMarca = item.marcaciones?.find((m) => m.tipo === "entrada");
+                                const metodo = entradaMarca?.metodoId;
+                                if (metodo === "face_id") {
+                                  return (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium" title="Marcación verificada con Face ID">
+                                      ✅ Face ID
+                                    </span>
+                                  );
+                                }
+                                if (metodo === "pin_fallback" || metodo === "rut_pin") {
+                                  return (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium" title="Marcación con PIN — requiere validación del supervisor">
+                                      ⚠️ PIN fallback
+                                    </span>
+                                  );
+                                }
+                                if (metodo === "manual") {
+                                  return (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-500/20 text-zinc-400 font-medium" title="Marcación ingresada manualmente por admin">
+                                      📝 Manual
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">
+                                    Marcación asistencia
+                                  </span>
+                                );
+                              })()}
                               <button
                                 type="button"
                                 className="text-xs text-primary hover:underline"

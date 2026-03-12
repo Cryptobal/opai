@@ -7,6 +7,7 @@ interface FaceRegistrationFlowProps {
   installationId: string;
   onRegistered: () => void;
   onCancel: () => void;
+  prefillRut?: string; // Pre-fill RUT from Step 1 lookup
 }
 
 type Step = "consent" | "identify" | "capture" | "processing" | "success" | "error";
@@ -15,9 +16,10 @@ export function FaceRegistrationFlow({
   installationId,
   onRegistered,
   onCancel,
+  prefillRut = "",
 }: FaceRegistrationFlowProps) {
   const [step, setStep] = useState<Step>("consent");
-  const [rut, setRut] = useState("");
+  const [rut, setRut] = useState(prefillRut);
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

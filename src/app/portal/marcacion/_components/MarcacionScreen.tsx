@@ -14,22 +14,48 @@ interface MarcacionScreenProps {
 
 type MarcaTipo = "entrada" | "salida";
 
+interface GuardiaInfo {
+  guardiaId: string;
+  name: string;
+  photoUrl: string | null;
+  faceIdRegistered: boolean;
+  faceIdPhotoUrl: string | null;
+  faceIdConsentRevoked: boolean;
+  nextTipo: MarcaTipo;
+}
+
 interface MarcaResult {
   guardiaName: string;
-  tipo: string;
+  tipo: MarcaTipo;
   timestamp: string;
   hashIntegridad: string;
   faceConfidence?: number;
+  offline?: boolean;
 }
 
 type ScreenMode =
-  | "idle"
-  | "face-capture"
-  | "face-register"
-  | "pin-entry"
+  | "rut-entry"       // Step 1: enter RUT
+  | "face-verify"     // Step 2: face verification
+  | "pin-fallback"    // Fallback: PIN entry
+  | "face-register"   // Register face ID for first time
   | "processing"
   | "success"
   | "error";
+
+function normalizeRut(value: string): string {
+  // Remove spaces and dots, lowercase
+  return value.replace(/[\s.]/g, "").toLowerCase();
+}
+
+function formatRutDisplay(value: string): string {
+  // Format as XX.XXX.XXX-X
+  const clean = value.replace(/[^0-9kK]/g, "");
+  if (clean.length <= 1) return clean;
+  const body = clean.slice(0, -1);
+  const dv = clean.slice(-1);
+  const formatted = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${formatted}-${dv}`;
+}
 
 export function MarcacionScreen({
   deviceToken,
@@ -37,52 +63,112 @@ export function MarcacionScreen({
   installationName,
   isOnline,
 }: MarcacionScreenProps) {
-  const [mode, setMode] = useState<ScreenMode>("idle");
-  const [selectedTipo, setSelectedTipo] = useState<MarcaTipo>("entrada");
+  const [mode, setMode] = useState<ScreenMode>("rut-entry");
+  const [rutInput, setRutInput] = useState("");
+  const [guardiaInfo, setGuardiaInfo] = useState<GuardiaInfo | null>(null);
   const [lastMarca, setLastMarca] = useState<MarcaResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // PIN fallback state
-  const [rut, setRut] = useState("");
   const [pin, setPin] = useState("");
   const [pinLoading, setPinLoading] = useState(false);
+  const [pinFallbackReason, setPinFallbackReason] = useState<string>("user_choice");
 
   // Geolocation
   const [geoPosition, setGeoPosition] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Clock update
+  const rutInputRef = useRef<HTMLInputElement>(null);
+
+  // Clock
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Get geolocation on mount
+  // Geolocation
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => setGeoPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => { /* geo unavailable */ },
+        () => {},
         { enableHighAccuracy: true, timeout: 10000 }
       );
     }
   }, []);
 
-  // Auto-reset to idle after success/error
+  // Auto-reset to rut-entry after success
   useEffect(() => {
-    if (mode === "success" || mode === "error") {
+    if (mode === "success") {
       const timer = setTimeout(() => {
-        setMode("idle");
+        setMode("rut-entry");
+        setRutInput("");
+        setGuardiaInfo(null);
         setError(null);
-        setRut("");
         setPin("");
+        rutInputRef.current?.focus();
       }, 5000);
       return () => clearTimeout(timer);
     }
   }, [mode]);
 
+  // Auto-reset error after 4s
+  useEffect(() => {
+    if (mode === "error") {
+      const timer = setTimeout(() => {
+        setMode("rut-entry");
+        setRutInput("");
+        setGuardiaInfo(null);
+        setError(null);
+        setPin("");
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [mode]);
+
+  // Focus RUT input on mount and after reset
+  useEffect(() => {
+    if (mode === "rut-entry") {
+      setTimeout(() => rutInputRef.current?.focus(), 100);
+    }
+  }, [mode]);
+
+  // ── Step 1: RUT lookup ──────────────────────────────────────────────────
+  const handleRutSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      const rut = normalizeRut(rutInput);
+      if (!rut) return;
+
+      setLookupLoading(true);
+      setError(null);
+
+      try {
+        const res = await fetch(
+          `/api/public/marcacion/lookup-guardia?rut=${encodeURIComponent(rut)}&installationId=${installationId}`
+        );
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "No se encontró el guardia");
+        }
+
+        setGuardiaInfo(data.data as GuardiaInfo);
+        setMode("face-verify");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error al buscar guardia");
+      } finally {
+        setLookupLoading(false);
+      }
+    },
+    [rutInput, installationId]
+  );
+
+  // ── Step 2: Face capture → verification ────────────────────────────────
   const handleFaceCapture = useCallback(
     async (imageBase64: string) => {
+      if (!guardiaInfo) return;
       setMode("processing");
       setError(null);
 
@@ -93,9 +179,10 @@ export function MarcacionScreen({
           body: JSON.stringify({
             image: imageBase64,
             installationId,
-            tipo: selectedTipo,
+            tipo: guardiaInfo.nextTipo,
             lat: geoPosition?.lat ?? null,
             lng: geoPosition?.lng ?? null,
+            expectedGuardiaId: guardiaInfo.guardiaId,
           }),
         });
 
@@ -106,12 +193,14 @@ export function MarcacionScreen({
             setMode("face-register");
             return;
           }
-          throw new Error(data.error || "Error al verificar rostro");
+          // Face verify failed → suggest PIN fallback
+          setPinFallbackReason("aws_error");
+          throw new Error(data.error || "No se pudo verificar el rostro");
         }
 
         setLastMarca({
           guardiaName: data.data.guardiaName,
-          tipo: data.data.tipo,
+          tipo: data.data.tipo as MarcaTipo,
           timestamp: data.data.timestamp,
           hashIntegridad: data.data.hashIntegridad,
           faceConfidence: data.data.faceConfidence,
@@ -119,42 +208,42 @@ export function MarcacionScreen({
         setMode("success");
       } catch (err) {
         if (!isOnline) {
-          // Queue offline
           MarcacionOfflineQueue.add({
             type: "face",
             imageBase64,
             installationId,
-            tipo: selectedTipo,
+            tipo: guardiaInfo.nextTipo,
             lat: geoPosition?.lat ?? null,
             lng: geoPosition?.lng ?? null,
             deviceTimestamp: new Date().toISOString(),
           });
           setLastMarca({
-            guardiaName: "Guardia",
-            tipo: selectedTipo,
+            guardiaName: guardiaInfo.name,
+            tipo: guardiaInfo.nextTipo,
             timestamp: new Date().toISOString(),
             hashIntegridad: "offline",
+            offline: true,
           });
           setMode("success");
           return;
         }
         setError(err instanceof Error ? err.message : "Error desconocido");
-        setMode("error");
+        setMode("face-verify"); // stay on face-verify showing error, not crash to error screen
       }
     },
-    [installationId, selectedTipo, geoPosition, isOnline]
+    [guardiaInfo, installationId, geoPosition, isOnline]
   );
 
+  // ── PIN fallback submission ─────────────────────────────────────────────
   const handlePinSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!rut || !pin) return;
+      if (!pin || !guardiaInfo) return;
 
       setPinLoading(true);
       setError(null);
 
       try {
-        // Get installation marcacionCode from device info
         const configRes = await fetch("/api/devices/validate", {
           headers: { Authorization: `Bearer ${deviceToken}` },
         });
@@ -170,11 +259,12 @@ export function MarcacionScreen({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             code: marcacionCode,
-            rut,
+            rut: normalizeRut(rutInput),
             pin,
-            tipo: selectedTipo,
+            tipo: guardiaInfo.nextTipo,
             lat: geoPosition?.lat ?? 0,
             lng: geoPosition?.lng ?? 0,
+            pinFallbackReason,
           }),
         });
 
@@ -186,7 +276,7 @@ export function MarcacionScreen({
 
         setLastMarca({
           guardiaName: data.data.guardiaName,
-          tipo: data.data.tipo,
+          tipo: data.data.tipo as MarcaTipo,
           timestamp: data.data.timestamp,
           hashIntegridad: data.data.hashIntegridad,
         });
@@ -195,41 +285,31 @@ export function MarcacionScreen({
         if (!isOnline) {
           MarcacionOfflineQueue.add({
             type: "pin",
-            rut,
+            rut: normalizeRut(rutInput),
             pin,
             installationId,
-            tipo: selectedTipo,
+            tipo: guardiaInfo.nextTipo,
             lat: geoPosition?.lat ?? null,
             lng: geoPosition?.lng ?? null,
             deviceTimestamp: new Date().toISOString(),
           });
           setLastMarca({
-            guardiaName: rut,
-            tipo: selectedTipo,
+            guardiaName: guardiaInfo.name,
+            tipo: guardiaInfo.nextTipo,
             timestamp: new Date().toISOString(),
             hashIntegridad: "offline",
+            offline: true,
           });
           setMode("success");
           return;
         }
         setError(err instanceof Error ? err.message : "Error desconocido");
-        setMode("error");
       } finally {
         setPinLoading(false);
       }
     },
-    [rut, pin, selectedTipo, geoPosition, deviceToken, installationId, isOnline]
+    [pin, guardiaInfo, rutInput, deviceToken, installationId, geoPosition, isOnline, pinFallbackReason]
   );
-
-  function handleFaceRegistered() {
-    setMode("idle");
-    setError(null);
-  }
-
-  function startFaceCapture(tipo: MarcaTipo) {
-    setSelectedTipo(tipo);
-    setMode("face-capture");
-  }
 
   const timeStr = currentTime.toLocaleTimeString("es-CL", {
     hour: "2-digit",
@@ -244,199 +324,352 @@ export function MarcacionScreen({
     day: "numeric",
   });
 
-  // Face registration flow
-  if (mode === "face-register") {
+  // ── Shared header ───────────────────────────────────────────────────────
+  const Header = () => (
+    <div className="px-4 pt-4 pb-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-bold text-white">GARD SECURITY</h1>
+          <p className="text-sm text-white/60">{installationName}</p>
+        </div>
+        {!isOnline && (
+          <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-400">
+            Sin conexión
+          </span>
+        )}
+      </div>
+      <div className="mt-2 text-center">
+        <p className="text-3xl font-mono font-bold text-emerald-400 tabular-nums">{timeStr}</p>
+        <p className="text-sm text-white/50 capitalize">{dateStr}</p>
+      </div>
+    </div>
+  );
+
+  // ── Face registration flow ──────────────────────────────────────────────
+  if (mode === "face-register" && guardiaInfo) {
     return (
       <FaceRegistrationFlow
         installationId={installationId}
-        onRegistered={handleFaceRegistered}
-        onCancel={() => setMode("idle")}
+        prefillRut={rutInput}
+        onRegistered={() => {
+          // After registering, go back to face-verify to try again
+          setMode("face-verify");
+          setError(null);
+        }}
+        onCancel={() => setMode("face-verify")}
       />
     );
   }
 
-  return (
-    <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
-      {/* Header */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-white">GARD SECURITY</h1>
-            <p className="text-sm text-white/60">{installationName}</p>
-          </div>
-          {!isOnline && (
-            <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-400">
-              Sin conexion
-            </span>
-          )}
-        </div>
-        <div className="mt-2 text-center">
-          <p className="text-3xl font-mono font-bold text-emerald-400 tabular-nums">{timeStr}</p>
-          <p className="text-sm text-white/50 capitalize">{dateStr}</p>
-        </div>
-      </div>
-
-      {/* Camera / Face capture area */}
-      {mode === "face-capture" && (
-        <div className="flex-1 px-4 py-2">
-          <FaceCameraCapture
-            onCapture={handleFaceCapture}
-            onCancel={() => setMode("idle")}
-          />
-        </div>
-      )}
-
-      {/* Processing state */}
-      {mode === "processing" && (
+  // ── Processing spinner ──────────────────────────────────────────────────
+  if (mode === "processing") {
+    return (
+      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
+        <Header />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="h-12 w-12 mx-auto animate-spin rounded-full border-3 border-white/20 border-t-emerald-400" />
             <p className="mt-4 text-white/70">Verificando identidad...</p>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Success state */}
-      {mode === "success" && lastMarca && (
+  // ── Success screen ──────────────────────────────────────────────────────
+  if (mode === "success" && lastMarca) {
+    return (
+      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
+        <Header />
         <div className="flex-1 flex items-center justify-center px-4">
-          <div className="w-full max-w-sm rounded-2xl p-6 text-center" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)" }}>
-            <div className="text-5xl mb-3">{lastMarca.tipo === "entrada" ? "\u2705" : "\uD83D\uDEAA"}</div>
-            <p className="text-xl font-bold text-white">{lastMarca.guardiaName}</p>
-            <p className="text-emerald-400 font-medium mt-1">
-              {lastMarca.tipo === "entrada" ? "Entrada" : "Salida"}{" "}
-              {new Date(lastMarca.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
+          <div
+            className="w-full max-w-sm rounded-2xl p-8 text-center"
+            style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)" }}
+          >
+            <div className="text-6xl mb-4">{lastMarca.tipo === "entrada" ? "✅" : "🚪"}</div>
+            <p className="text-2xl font-bold text-white">{lastMarca.guardiaName}</p>
+            <p className="text-emerald-400 font-semibold mt-2 text-lg">
+              {lastMarca.tipo === "entrada" ? "ENTRADA" : "SALIDA"}{" "}
+              {new Date(lastMarca.timestamp).toLocaleTimeString("es-CL", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false,
+              })}
             </p>
             {lastMarca.faceConfidence && (
-              <p className="text-xs text-white/40 mt-1">Face ID {lastMarca.faceConfidence.toFixed(1)}%</p>
+              <p className="text-xs text-white/40 mt-2">
+                Face ID · {lastMarca.faceConfidence.toFixed(1)}% confianza
+              </p>
             )}
-            {lastMarca.hashIntegridad === "offline" && (
-              <p className="text-xs text-amber-400 mt-2">Registrada offline. Se sincronizara al recuperar conexion.</p>
+            {lastMarca.offline && (
+              <p className="text-xs text-amber-400 mt-3">
+                Registrada offline — se sincronizará al recuperar conexión
+              </p>
             )}
+            <p className="text-xs text-white/25 mt-4">Vuelve a pantalla principal en 5s...</p>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Error state */}
-      {mode === "error" && (
+  // ── Error screen ────────────────────────────────────────────────────────
+  if (mode === "error") {
+    return (
+      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
+        <Header />
         <div className="flex-1 flex items-center justify-center px-4">
-          <div className="w-full max-w-sm rounded-2xl p-6 text-center" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
-            <div className="text-5xl mb-3">{"\u274C"}</div>
-            <p className="text-red-400 font-medium">{error || "Error al procesar la marcacion"}</p>
-            <button
-              onClick={() => setMode("idle")}
-              className="mt-4 rounded-xl px-6 py-2 text-sm font-medium text-white"
-              style={{ background: "rgba(255,255,255,0.1)" }}
-            >
-              Reintentar
-            </button>
+          <div
+            className="w-full max-w-sm rounded-2xl p-6 text-center"
+            style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}
+          >
+            <div className="text-5xl mb-3">❌</div>
+            <p className="text-red-400 font-medium">{error}</p>
+            <p className="text-xs text-white/30 mt-3">Vuelve a pantalla principal en 4s...</p>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Main idle UI */}
-      {mode === "idle" && (
-        <div className="flex-1 flex flex-col px-4 py-2">
-          {/* Face ID buttons */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <button
-              onClick={() => startFaceCapture("entrada")}
-              className="rounded-2xl p-6 text-center transition-transform active:scale-95"
-              style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)" }}
-            >
-              <div className="text-4xl mb-2">{"\u2705"}</div>
-              <p className="text-lg font-bold text-emerald-400">ENTRADA</p>
-              <p className="text-xs text-white/40 mt-1">Face ID</p>
-            </button>
-            <button
-              onClick={() => startFaceCapture("salida")}
-              className="rounded-2xl p-6 text-center transition-transform active:scale-95"
-              style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}
-            >
-              <div className="text-4xl mb-2">{"\uD83D\uDEAA"}</div>
-              <p className="text-lg font-bold text-red-400">SALIDA</p>
-              <p className="text-xs text-white/40 mt-1">Face ID</p>
-            </button>
+  // ── Step 1: RUT entry ───────────────────────────────────────────────────
+  if (mode === "rut-entry") {
+    return (
+      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
+        <Header />
+        <div className="flex-1 flex flex-col justify-center px-4 pb-8">
+          <div className="mb-8 text-center">
+            <p className="text-white/60 text-sm">Ingresa tu RUT para identificarte</p>
           </div>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1 h-px bg-white/10" />
-            <span className="text-xs text-white/30">o marcar con PIN</span>
-            <div className="flex-1 h-px bg-white/10" />
-          </div>
-
-          {/* PIN fallback form */}
-          <form onSubmit={handlePinSubmit} className="space-y-3">
+          <form onSubmit={handleRutSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs text-white/40 mb-1">RUT</label>
+              <label className="block text-xs text-white/40 mb-2 text-center tracking-widest uppercase">
+                RUT
+              </label>
               <input
+                ref={rutInputRef}
                 type="text"
-                value={rut}
-                onChange={(e) => setRut(e.target.value)}
+                value={rutInput}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^0-9kK.\-\s]/g, "");
+                  setRutInput(raw);
+                }}
                 placeholder="12.345.678-9"
-                className="w-full rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+                className="w-full rounded-2xl px-5 py-4 text-white text-xl text-center placeholder-white/15 outline-none tracking-widest"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", fontSize: "1.5rem" }}
                 inputMode="text"
                 autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
               />
             </div>
-            <div>
-              <label className="block text-xs text-white/40 mb-1">PIN</label>
-              <input
-                type="password"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                placeholder="****"
-                maxLength={6}
-                className="w-full rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 outline-none"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
-                inputMode="numeric"
-                autoComplete="off"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="submit"
-                onClick={() => setSelectedTipo("entrada")}
-                disabled={!rut || !pin || pinLoading}
-                className="rounded-xl px-4 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
-                style={{ background: "rgba(16,185,129,0.3)" }}
-              >
-                {pinLoading && selectedTipo === "entrada" ? "..." : "ENTRADA"}
-              </button>
-              <button
-                type="submit"
-                onClick={() => setSelectedTipo("salida")}
-                disabled={!rut || !pin || pinLoading}
-                className="rounded-xl px-4 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40"
-                style={{ background: "rgba(239,68,68,0.3)" }}
-              >
-                {pinLoading && selectedTipo === "salida" ? "..." : "SALIDA"}
-              </button>
-            </div>
+
+            {error && (
+              <p className="text-red-400 text-sm text-center">{error}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={!rutInput.trim() || lookupLoading}
+              className="w-full rounded-2xl py-4 text-base font-bold text-white transition-opacity disabled:opacity-40"
+              style={{ background: "rgba(16,185,129,0.4)", border: "1px solid rgba(16,185,129,0.3)" }}
+            >
+              {lookupLoading ? "Buscando..." : "Continuar →"}
+            </button>
           </form>
 
-          {/* Last marca display */}
-          {lastMarca && mode === "idle" && (
-            <div className="mt-4 rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.03)" }}>
-              <p className="text-xs text-white/40">Ultima marca</p>
-              <p className="text-sm text-white/70">
+          {lastMarca && (
+            <div className="mt-8 rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.03)" }}>
+              <p className="text-xs text-white/30">Última marca registrada</p>
+              <p className="text-sm text-white/60 mt-1">
                 {lastMarca.guardiaName} — {lastMarca.tipo === "entrada" ? "Entrada" : "Salida"}{" "}
-                {new Date(lastMarca.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
+                {new Date(lastMarca.timestamp).toLocaleTimeString("es-CL", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: false,
+                })}
               </p>
             </div>
           )}
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* PIN entry when mode is pin-entry */}
-      {mode === "pin-entry" && (
-        <div className="flex-1 px-4 py-2">
-          <p className="text-white/60 text-sm text-center mb-4">
-            Ingresa tu RUT y PIN para marcar {selectedTipo}
-          </p>
+  // ── Step 2: Face verify (or no face ID registered) ──────────────────────
+  if (mode === "face-verify" && guardiaInfo) {
+    const tipo = guardiaInfo.nextTipo;
+    const tipoColor = tipo === "entrada" ? "rgba(16,185,129,0.4)" : "rgba(239,68,68,0.4)";
+    const tipoBorder = tipo === "entrada" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)";
+    const tipoText = tipo === "entrada" ? "text-emerald-400" : "text-red-400";
+
+    return (
+      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
+        <Header />
+        <div className="flex-1 flex flex-col px-4 pb-6">
+          {/* Guardia greeting */}
+          <div className="flex items-center gap-3 my-4">
+            {guardiaInfo.photoUrl ? (
+              <img
+                src={guardiaInfo.photoUrl}
+                alt={guardiaInfo.name}
+                className="h-14 w-14 rounded-full object-cover"
+                style={{ border: `2px solid ${tipoColor}` }}
+              />
+            ) : (
+              <div
+                className="h-14 w-14 rounded-full flex items-center justify-center text-2xl font-bold text-white/60"
+                style={{ background: "rgba(255,255,255,0.08)", border: `2px solid ${tipoColor}` }}
+              >
+                {guardiaInfo.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-white/40">Hola,</p>
+              <p className="text-lg font-bold text-white">{guardiaInfo.name}</p>
+              <p className={`text-sm font-semibold ${tipoText}`}>
+                Tu siguiente marca: {tipo === "entrada" ? "ENTRADA" : "SALIDA"}
+              </p>
+            </div>
+          </div>
+
+          {error && (
+            <div
+              className="rounded-xl p-3 mb-3 text-sm text-red-400 text-center"
+              style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}
+            >
+              {error}
+            </div>
+          )}
+
+          {/* Main face capture area */}
+          {guardiaInfo.faceIdRegistered ? (
+            <div className="flex-1 flex flex-col">
+              <FaceCameraCapture
+                onCapture={handleFaceCapture}
+                onCancel={() => {
+                  setMode("rut-entry");
+                  setGuardiaInfo(null);
+                  setError(null);
+                }}
+                captureLabel={`Marcar ${tipo === "entrada" ? "Entrada" : "Salida"}`}
+                captureColor={tipoColor}
+              />
+            </div>
+          ) : (
+            // No face ID registered yet
+            <div
+              className="flex-1 flex flex-col items-center justify-center rounded-2xl p-6 text-center"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.1)" }}
+            >
+              <div className="text-4xl mb-3">🤳</div>
+              <p className="text-white font-semibold mb-2">No tienes Face ID activado</p>
+              <p className="text-white/50 text-sm mb-6">
+                Registra tu rostro para poder marcar con Face ID
+              </p>
+              <button
+                onClick={() => setMode("face-register")}
+                className="w-full max-w-xs rounded-xl py-3 text-sm font-bold text-white mb-3"
+                style={{ background: "rgba(16,185,129,0.4)", border: "1px solid rgba(16,185,129,0.3)" }}
+              >
+                Registrar Face ID ahora
+              </button>
+            </div>
+          )}
+
+          {/* PIN fallback link */}
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => {
+                setPinFallbackReason("user_choice");
+                setMode("pin-fallback");
+              }}
+              className="text-xs text-white/25 hover:text-white/50 transition-colors underline underline-offset-2"
+            >
+              ¿Problemas con la cámara? Usar PIN
+            </button>
+          </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  // ── PIN fallback ────────────────────────────────────────────────────────
+  if (mode === "pin-fallback" && guardiaInfo) {
+    const tipo = guardiaInfo.nextTipo;
+
+    return (
+      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
+        <Header />
+        <div className="flex-1 flex flex-col justify-center px-4 pb-8">
+          {/* Warning badge */}
+          <div
+            className="rounded-xl p-3 mb-6 text-center"
+            style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)" }}
+          >
+            <p className="text-amber-400 text-xs font-medium">
+              ⚠️ Marcación con PIN — requiere validación del supervisor
+            </p>
+          </div>
+
+          {/* Guardia info */}
+          <div className="mb-6 text-center">
+            <p className="text-white font-bold text-lg">{guardiaInfo.name}</p>
+            <p className={`text-sm font-semibold ${tipo === "entrada" ? "text-emerald-400" : "text-red-400"}`}>
+              {tipo === "entrada" ? "ENTRADA" : "SALIDA"}
+            </p>
+          </div>
+
+          <form onSubmit={handlePinSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs text-white/40 mb-2 text-center tracking-widest uppercase">
+                PIN
+              </label>
+              <input
+                type="password"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                placeholder="••••"
+                maxLength={6}
+                className="w-full rounded-2xl px-5 py-4 text-white text-xl text-center placeholder-white/15 outline-none tracking-widest"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", fontSize: "2rem", letterSpacing: "0.5rem" }}
+                inputMode="numeric"
+                autoComplete="off"
+                autoFocus
+              />
+            </div>
+
+            {error && (
+              <p className="text-red-400 text-sm text-center">{error}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={!pin || pinLoading}
+              className="w-full rounded-2xl py-4 text-base font-bold text-white transition-opacity disabled:opacity-40"
+              style={{
+                background: tipo === "entrada" ? "rgba(16,185,129,0.4)" : "rgba(239,68,68,0.4)",
+                border: `1px solid ${tipo === "entrada" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
+              }}
+            >
+              {pinLoading ? "Registrando..." : `Marcar ${tipo === "entrada" ? "Entrada" : "Salida"} con PIN`}
+            </button>
+          </form>
+
+          <button
+            onClick={() => setMode("face-verify")}
+            className="mt-5 w-full text-xs text-white/30 hover:text-white/50 transition-colors"
+          >
+            ← Volver a Face ID
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback (should not reach)
+  return null;
 }
