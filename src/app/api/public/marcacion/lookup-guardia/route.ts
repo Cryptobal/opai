@@ -20,9 +20,9 @@ export async function GET(req: NextRequest) {
     const rawRut = searchParams.get("rut");
     const installationId = searchParams.get("installationId");
 
-    if (!rawRut || !installationId) {
+    if (!rawRut || !installationId || installationId === "undefined" || installationId === "null") {
       return NextResponse.json(
-        { success: false, error: "Faltan parámetros: rut e installationId son requeridos" },
+        { success: false, error: "Dispositivo no emparejado. Recarga el portal." },
         { status: 400 }
       );
     }

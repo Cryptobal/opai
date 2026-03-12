@@ -48,8 +48,9 @@ export function MarcacionPortalApp() {
         });
 
         if (res.ok) {
-          const data = await res.json();
-          if (data.portalMarcacionEnabled === false) {
+          const json = await res.json();
+          const data = json.data ?? json; // handle both { data: {...} } and flat response
+          if (data.portalMarcacionEnabled === false || !data.installationId) {
             setAppState("pairing");
             return;
           }
