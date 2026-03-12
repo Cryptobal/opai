@@ -191,7 +191,7 @@ export async function GET(
       for (const a of admins) mentionDisplayMap[a.id] = a.name ?? a.id;
       for (const id of ids) {
         if (mentionDisplayMap[id]) continue;
-        const msgWithSender = trimmed.find((m) => m.senderId === id);
+        const msgWithSender = trimmed.find((m) => getSenderId(m) === id);
         if (msgWithSender?.senderName) mentionDisplayMap[id] = msgWithSender.senderName;
       }
     }
