@@ -16,8 +16,8 @@ export async function GET() {
 
   const { tenantId } = result.data;
 
-  const guardias = await prisma.guardia.findMany({
-    where: { tenantId, isActive: true },
+  const guardias = await prisma.opsGuardia.findMany({
+    where: { tenantId, status: "active" },
     select: {
       id: true,
       persona: { select: { firstName: true, lastName: true } },
