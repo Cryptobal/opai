@@ -183,9 +183,12 @@ export async function POST(req: NextRequest) {
     let geoValidada = false;
     let geoDistanciaM: number | null = null;
 
+    let gpsStatus: "dentro_rango" | "fuera_rango" | "sin_gps" = "sin_gps";
+
     if (lat != null && lng != null && installation.lat != null && installation.lng != null) {
       geoDistanciaM = Math.round(haversineDistance(lat, lng, installation.lat, installation.lng));
       geoValidada = geoDistanciaM <= installation.geoRadiusM;
+      gpsStatus = geoValidada ? "dentro_rango" : "fuera_rango";
     }
 
     // Server timestamp
@@ -261,6 +264,7 @@ export async function POST(req: NextRequest) {
           lng,
           geoValidada,
           geoDistanciaM,
+          gpsStatus,
           metodoId: "face_id",
           faceConfidence: verification.confidence,
           ipAddress,
@@ -357,7 +361,10 @@ export async function POST(req: NextRequest) {
         timestamp: effectiveTimestamp,
         geoValidada,
         geoDistanciaM,
+        gpsStatus,
         hashIntegridad,
+        lat: lat ?? null,
+        lng: lng ?? null,
       }).catch((err) => console.error("[marcacion] Error enviando comprobante:", err));
     }
 
