@@ -28,6 +28,7 @@ import {
   Monitor,
   Shield,
   Trophy,
+  ScanLine,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
@@ -217,7 +218,8 @@ function AppLayoutClientInner({
         { href: '/portal/rondas', label: 'Portal Rondas', icon: Route },
         { href: '/portal/cliente', label: 'Portal Cliente', icon: Users },
         { href: '/portal/supervisor', label: 'Portal Supervisor', icon: ClipboardCheck },
-        { href: '/portal/acceso', label: 'Control de Acceso', icon: Fingerprint },
+        { href: '/portal/marcacion', label: 'Portal Marcación', icon: Fingerprint },
+        { href: '/portal/acceso', label: 'Control de Acceso', icon: ScanLine },
       ],
     },
   ], [permissions, isAdmin, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge]);

@@ -13,6 +13,7 @@ const NAV_PORTALS: { id: PortalId; label: string; accent: string; href: string }
   { id: "rondas", label: "Rondas", accent: "#10b981", href: "/portal/rondas" },
   { id: "supervisor", label: "Supervisor", accent: "#8b5cf6", href: "/portal/supervisor" },
   { id: "cliente", label: "Cliente", accent: "#3b82f6", href: "/portal/cliente" },
+  { id: "marcacion", label: "Marcación", accent: "#f97316", href: "/portal/marcacion" },
   { id: "acceso", label: "Acceso", accent: "#f59e0b", href: "/portal/acceso" },
   { id: "opai", label: "OPAI ERP", accent: "#f43f5e", href: "/opai/login" },
 ];
