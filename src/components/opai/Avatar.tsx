@@ -2,16 +2,17 @@ import { cn } from '@/lib/utils';
 
 interface AvatarProps {
   name: string;
+  photoUrl?: string | null;
   className?: string;
   size?: 'sm' | 'md' | 'lg';
 }
 
 /**
- * Avatar - Inicial circular con color determinístico
+ * Avatar - Foto de perfil o inicial circular con color determinístico
  */
-export function Avatar({ name, className, size = 'md' }: AvatarProps) {
+export function Avatar({ name, photoUrl, className, size = 'md' }: AvatarProps) {
   const initial = name?.charAt(0)?.toUpperCase() || '?';
-  
+
   // Color determinístico basado en el nombre
   const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const colors = [
@@ -29,6 +30,21 @@ export function Avatar({ name, className, size = 'md' }: AvatarProps) {
     md: 'h-8 w-8 text-sm',
     lg: 'h-10 w-10 text-base',
   };
+
+  if (photoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photoUrl}
+        alt={name}
+        className={cn(
+          'shrink-0 rounded-full object-cover',
+          sizeClasses[size],
+          className
+        )}
+      />
+    );
+  }
 
   return (
     <div className={cn(

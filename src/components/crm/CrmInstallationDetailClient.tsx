@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint } from "lucide-react";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -2165,6 +2165,16 @@ export function CrmInstallationDetailClient({
   );
 
   const associatedSections: AssociatedSection[] = [
+    {
+      id: "marcaciones-faceid",
+      label: "Marcaciones",
+      icon: Fingerprint,
+      content: (
+        <div className="py-6 text-center text-sm text-muted-foreground">
+          Historial de marcaciones de todos los guardias próximamente.
+        </div>
+      ),
+    },
     {
       id: "account",
       label: "Cuenta",

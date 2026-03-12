@@ -613,15 +613,19 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
 
   const associatedSections: AssociatedSection[] = [
     {
+      id: "marcaciones",
+      label: "Marcaciones",
+      content: (
+        <div className="py-6 text-center text-sm text-muted-foreground">
+          Historial de marcaciones próximamente.
+        </div>
+      ),
+    },
+    {
       id: "asignacion",
       label: "Asignación",
       content: <AsignacionSection asignaciones={asignaciones} />,
       defaultOpen: true,
-    },
-    {
-      id: "rondas",
-      label: "Marcación rondas",
-      content: <RondasSection currentInstallation={guardia.currentInstallation} />,
     },
     ...(hasInventarioAccess
       ? [{
@@ -670,7 +674,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
 
         <div className="flex items-center justify-between gap-3 min-w-0 py-1.5 lg:py-2">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <Avatar name={fullName} size="lg" />
+            <Avatar name={fullName} photoUrl={guardia.faceIdPhotoUrl} size="lg" />
             <h1 className="text-base sm:text-lg font-semibold text-[#e8edf4] truncate">{fullName}</h1>
             <span className={cn("inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium border",
               LIFECYCLE_COLORS[guardia.lifecycleStatus] || "bg-muted text-muted-foreground border-border")}>
