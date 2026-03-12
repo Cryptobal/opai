@@ -280,6 +280,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const [pendingInactivoTarget, setPendingInactivoTarget] = useState<string | null>(null);
   const [recontratarModalOpen, setRecontratarModalOpen] = useState(false);
   const [recontratarDate, setRecontratarDate] = useState("");
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
 
   // ── Permissions ──
   const canManageGuardias = hasOpsCapability(userRole, "guardias_manage");
@@ -674,7 +675,18 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
 
         <div className="flex items-center justify-between gap-3 min-w-0 py-1.5 lg:py-2">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <Avatar name={fullName} photoUrl={guardia.faceIdPhotoUrl} size="lg" />
+            {guardia.faceIdPhotoUrl ? (
+              <button
+                type="button"
+                onClick={() => setPhotoModalOpen(true)}
+                className="shrink-0 rounded-full ring-2 ring-transparent hover:ring-[#2d3a4d] focus:ring-[#3b82f6] focus:outline-none transition-shadow"
+                title="Ver foto"
+              >
+                <Avatar name={fullName} photoUrl={guardia.faceIdPhotoUrl} size="lg" />
+              </button>
+            ) : (
+              <Avatar name={fullName} photoUrl={guardia.faceIdPhotoUrl} size="lg" />
+            )}
             <h1 className="text-base sm:text-lg font-semibold text-[#e8edf4] truncate">{fullName}</h1>
             <span className={cn("inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium border",
               LIFECYCLE_COLORS[guardia.lifecycleStatus] || "bg-muted text-muted-foreground border-border")}>
@@ -892,6 +904,25 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               {editPersonalSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={photoModalOpen} onOpenChange={setPhotoModalOpen}>
+        <DialogContent className="max-w-md p-0 overflow-hidden bg-[#0a0e14] border-[#1a2332]">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle className="text-[#e8edf4]">Foto de perfil</DialogTitle>
+            <DialogDescription className="sr-only">Foto del guardia {fullName}</DialogDescription>
+          </DialogHeader>
+          <div className="p-4 pt-2 flex justify-center">
+            {guardia.faceIdPhotoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={guardia.faceIdPhotoUrl}
+                alt={fullName}
+                className="max-h-[70vh] w-auto rounded-lg object-contain"
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>
