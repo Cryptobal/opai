@@ -1,9 +1,13 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
+import { useEffect } from "react";
+
 /**
  * Página de error global: captura excepciones que no atrapa ningún error boundary.
  * Se muestra cuando ocurre "Application error: a client-side exception has occurred".
  * Incluye botón para refrescar la página (crítico en móvil/acceso directo donde no se puede recargar).
+ * Los errores se envían a Sentry cuando está configurado.
  */
 export default function GlobalError({
   error,
@@ -12,6 +16,10 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   const handleRefresh = () => {
     window.location.reload();
   };

@@ -50,6 +50,7 @@
     "@react-email/components": "^1.0.7",
     "@react-email/render": "^2.0.4",
     "@react-pdf/renderer": "^4.3.2",
+    "@sentry/nextjs": "^10.43.0",
     "@sparticuz/chromium": "^143.0.4",
     "@tiptap/extension-color": "^3.19.0",
     "@tiptap/extension-highlight": "^3.19.0",

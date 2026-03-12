@@ -1,3 +1,5 @@
+const { withSentryConfig } = require("@sentry/nextjs");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: __dirname,
@@ -45,4 +47,15 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+const sentryOptions = {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  tunnelRoute: "/monitoring",
+  silent: !process.env.CI,
+};
+
+module.exports =
+  process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
+    ? withSentryConfig(nextConfig, sentryOptions)
+    : nextConfig;

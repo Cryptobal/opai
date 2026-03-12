@@ -40,3 +40,4 @@ OPAI Suite is a multi-tenant SaaS platform for security companies (Next.js 15 Ap
 - **ESLint not in original devDependencies**: If eslint is needed, install `eslint` and `eslint-config-next@15.4.11` (match the Next.js version). Create `.eslintrc.json` with `{"extends": "next/core-web-vitals"}`.
 - **`npm run dev` vs `npm run dev:watch`**: Use `dev:watch` for development. The `dev` script runs `build && start` which fails due to pre-existing lint errors caught by `next build`.
 - **Login credentials (seeded)**: `[REDACTED]` / `GardSecurity2026!` (owner role).
+- **Sentry (errores)**: Opcional. Definir `NEXT_PUBLIC_SENTRY_DSN` en `.env.local` (y en Vercel) para enviar errores a Sentry. Ver `.env.example` para `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN` (source maps).
