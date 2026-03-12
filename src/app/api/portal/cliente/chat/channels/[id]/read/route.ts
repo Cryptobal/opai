@@ -33,8 +33,9 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}));
 
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const lastReadMessageId =
-      typeof body.lastReadMessageId === "string"
+      typeof body.lastReadMessageId === "string" && UUID_RE.test(body.lastReadMessageId)
         ? body.lastReadMessageId
         : null;
 

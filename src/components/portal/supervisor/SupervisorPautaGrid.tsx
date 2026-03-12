@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Calendar, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { EmptyState } from "@/components/opai/EmptyState";
+import { formatPersonName } from "@/lib/personas";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
 
 interface Props {
@@ -132,7 +133,7 @@ export function SupervisorPautaGrid({ installations }: Props) {
           shiftStart: item.puesto.shiftStart,
           slotNumber: item.slotNumber,
           guardiaName: guardia
-            ? `${guardia.persona.firstName} ${guardia.persona.lastName}`.trim()
+            ? formatPersonName(guardia.persona.firstName, guardia.persona.lastName)
             : "Sin asignar",
           cells: new Map(),
         });
@@ -144,7 +145,7 @@ export function SupervisorPautaGrid({ installations }: Props) {
 
       if (item.plannedGuardia && row.guardiaName === "Sin asignar") {
         const g = item.plannedGuardia;
-        row.guardiaName = `${g.persona.firstName} ${g.persona.lastName}`.trim();
+        row.guardiaName = formatPersonName(g.persona.firstName, g.persona.lastName);
       }
     }
 
@@ -286,7 +287,7 @@ export function SupervisorPautaGrid({ installations }: Props) {
                                 }`}
                                 title={
                                   cellData.item?.plannedGuardia
-                                    ? `${cellData.item.plannedGuardia.persona.firstName} ${cellData.item.plannedGuardia.persona.lastName}`
+                                    ? formatPersonName(cellData.item.plannedGuardia.persona.firstName, cellData.item.plannedGuardia.persona.lastName)
                                     : "Sin asignar"
                                 }
                               >

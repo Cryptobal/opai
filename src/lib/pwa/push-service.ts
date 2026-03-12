@@ -85,13 +85,9 @@ async function calculateBadgeCount(
     // Bell notification unreads (admin only)
     let bellUnreads = 0;
     if (userType === 'admin') {
-      const bellResult = await prisma.$queryRaw<[{ count: bigint }]>`
-        SELECT COUNT(*) AS count FROM notifications
-        WHERE recipient_id = ${userId}
-          AND tenant_id = ${tenantId}
-          AND read = false
-      `;
-      bellUnreads = Number(bellResult[0]?.count ?? 0);
+      bellUnreads = await prisma.notification.count({
+        where: { tenantId, read: false },
+      });
     }
 
     return chatUnreads + bellUnreads;
@@ -158,13 +154,9 @@ async function batchCalculateBadgeCounts(
         // Bell notification unreads (admin only)
         let bellUnreads = 0;
         if (r.subscriberType === 'ADMIN') {
-          const bellResult = await prisma.$queryRaw<[{ count: bigint }]>`
-            SELECT COUNT(*) AS count FROM notifications
-            WHERE recipient_id = ${r.subscriberId}
-              AND tenant_id = ${tenantId}
-              AND read = false
-          `;
-          bellUnreads = Number(bellResult[0]?.count ?? 0);
+          bellUnreads = await prisma.notification.count({
+            where: { tenantId, read: false },
+          });
         }
 
         badgeCounts.set(key, chatUnreads + bellUnreads);

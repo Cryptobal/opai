@@ -70,6 +70,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     if (error instanceof MarcarCheckpointError) {
+      if (error.code === "already_marked") {
+        return NextResponse.json({ success: true, already_marked: true }, { status: 200 });
+      }
       return NextResponse.json({ success: false, error: error.message }, { status: error.statusCode });
     }
     console.error("[Portal Rondas] marcar checkpoint error:", error);

@@ -7,6 +7,7 @@ import {
   getAiHelpChatConfig,
   saveAiHelpChatConfig,
 } from "@/lib/ai/help-chat-config";
+import { isValidRole } from "@/lib/rbac";
 
 export async function GET() {
   try {
@@ -14,7 +15,7 @@ export async function GET() {
     if (!ctx) return unauthorized();
 
     const config = await getAiHelpChatConfig(ctx.tenantId);
-    const canManage = hasPermission(ctx.userRole as Role, PERMISSIONS.MANAGE_SETTINGS);
+    const canManage = isValidRole(ctx.userRole) && hasPermission(ctx.userRole as Role, PERMISSIONS.MANAGE_SETTINGS);
 
     return NextResponse.json({
       success: true,
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
-    if (!hasPermission(ctx.userRole as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    if (!isValidRole(ctx.userRole) || !hasPermission(ctx.userRole as Role, PERMISSIONS.MANAGE_SETTINGS)) {
       return NextResponse.json(
         { success: false, error: "Sin permisos para cambiar esta configuración" },
         { status: 403 },

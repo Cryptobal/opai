@@ -91,6 +91,8 @@ export default async function HubPage() {
     ]);
 
   const firstName = session.user.name?.split(' ')[0] || 'Usuario';
+  const role = session.user.role as string | undefined;
+  const showPortalLink = role === 'owner' || role === 'admin';
 
   if (perms.hubLayout === "supervisor") {
     return <SupervisorHub tenantId={tenantId} userId={session.user.id} firstName={firstName} />;
@@ -107,6 +109,7 @@ export default async function HubPage() {
       ticketMetrics={ticketMetrics}
       activities={activities}
       supervisionMetrics={supervisionMetrics}
+      showPortalLink={showPortalLink}
     />
   );
 }
