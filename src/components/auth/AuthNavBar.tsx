@@ -9,7 +9,6 @@ interface AuthNavBarProps {
 }
 
 const NAV_PORTALS: { id: PortalId; label: string; accent: string; href: string }[] = [
-  { id: "marcacion", label: "Marcación", accent: "#f97316", href: "/portal/marcacion" },
   { id: "guardia", label: "Guardia", accent: "#2dd4bf", href: "/portal/guardia" },
   { id: "rondas", label: "Rondas", accent: "#10b981", href: "/portal/rondas" },
   { id: "supervisor", label: "Supervisor", accent: "#8b5cf6", href: "/portal/supervisor" },

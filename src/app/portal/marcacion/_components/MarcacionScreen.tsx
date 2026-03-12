@@ -355,7 +355,8 @@ export function MarcacionScreen({
         installationId={installationId}
         prefillRut={rutInput}
         onRegistered={() => {
-          // After registering, go back to face-verify to try again
+          // Mark face as registered so face-verify shows the camera immediately
+          setGuardiaInfo((prev) => prev ? { ...prev, faceIdRegistered: true } : prev);
           setMode("face-verify");
           setError(null);
         }}
