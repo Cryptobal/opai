@@ -347,6 +347,8 @@ export async function POST(req: NextRequest) {
     });
 
     // Send comprobante email (fire-and-forget)
+    const gpsStatus: "dentro_rango" | "fuera_rango" | "sin_gps" =
+      lat != null && lng != null ? (geoValidada ? "dentro_rango" : "fuera_rango") : "sin_gps";
     if (guardia.persona.firstName) {
       sendMarcacionComprobante({
         guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),
@@ -357,7 +359,10 @@ export async function POST(req: NextRequest) {
         timestamp: effectiveTimestamp,
         geoValidada,
         geoDistanciaM,
+        gpsStatus,
         hashIntegridad,
+        lat: lat ?? null,
+        lng: lng ?? null,
       }).catch((err) => console.error("[marcacion] Error enviando comprobante:", err));
     }
 
