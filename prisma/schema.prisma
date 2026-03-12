@@ -2268,10 +2268,6 @@ model OpsGuardia {
   tipoJornada           String    @default("excepcional") @map("tipo_jornada") // ordinaria | excepcional
   maxHorasSemanales     Float     @default(42) @map("max_horas_semanales") // Configurable (Ley 40h)
   personalEmail         String?   @map("personal_email") // Email PERSONAL del guardia (obligatorio Res. 38)
-  faceIdRegistered      Boolean   @default(false) @map("face_id_registered")
-  faceIdPhotoUrl        String?   @map("face_id_photo_url") // URL foto de referencia en R2
-  faceIdAwsId           String?   @map("face_id_aws_id") // Face ID en colección de AWS Rekognition
-  faceIdRegisteredAt    DateTime? @map("face_id_registered_at") @db.Timestamptz(6)
 
   // ── TE (Turno Extra) quick-entry fields ──
   estadoUniforme       String?  @map("estado_uniforme") // "completo" | "incompleto"
