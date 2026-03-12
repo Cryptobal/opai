@@ -242,7 +242,8 @@ export async function POST(
       return totalInst + puestosInstalacion;
     }, 0);
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(
+      async (tx) => {
       let account: { id: string; name: string };
       if (useExistingAccountId) {
         const existing = await tx.crmAccount.findFirst({
@@ -972,7 +973,9 @@ export async function POST(
       });
 
       return { account, contact, deal, quotes: createdQuotes };
-    });
+      },
+      { timeout: 30_000 }
+    );
 
     return NextResponse.json({ success: true, data: result });
   } catch (error: unknown) {
