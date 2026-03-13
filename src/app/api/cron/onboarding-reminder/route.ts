@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { subHours } from "date-fns";
 import { sendEmailToGuardia } from "@/lib/email/onboarding-email-service";
+import type { EmailBlock } from "@/lib/email/types";
 
 export async function GET(request: NextRequest) {
   try {
@@ -66,12 +67,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const contenido = template.contenido as Array<{
-      id: string;
-      tipo: string;
-      contenido: Record<string, unknown>;
-      orden: number;
-    }>;
+    const contenido: EmailBlock[] = template.contenido as unknown as EmailBlock[];
 
     for (const status of pendientes) {
       const email =

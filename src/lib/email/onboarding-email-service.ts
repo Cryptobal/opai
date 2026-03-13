@@ -143,8 +143,8 @@ export async function sendBatchEmails(
       }))
     );
     results.push({
-      data: data as { id: string }[] | undefined,
-      error: error as { message: string } | undefined,
+      data: (data as unknown) as { id: string }[] | undefined,
+      error: (error as unknown) as { message: string } | undefined,
     });
   }
 

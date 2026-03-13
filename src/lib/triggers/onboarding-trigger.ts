@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { sendEmailToGuardia } from "@/lib/email/onboarding-email-service";
+import type { EmailBlock } from "@/lib/email/types";
 export type GuardActivationResult =
   | { ok: true }
   | { ok: false; reason: "no_guardia" | "no_email" | "no_template" | "send_error"; detail?: string };
@@ -65,12 +66,7 @@ export async function handleGuardActivation(guardiaId: string, tenantId: string)
       return { ok: false, reason: "no_template" };
     }
 
-    const contenido = template.contenido as Array<{
-      id: string;
-      tipo: string;
-      contenido: Record<string, unknown>;
-      orden: number;
-    }>;
+    const contenido: EmailBlock[] = template.contenido as unknown as EmailBlock[];
 
     const result = await sendEmailToGuardia({
       tenantId,

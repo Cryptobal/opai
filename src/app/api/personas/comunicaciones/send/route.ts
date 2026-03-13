@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     const loteId = crypto.randomUUID();
-    const contenido = template.contenido as unknown as EmailBlock[];
+    const contenido: EmailBlock[] = template.contenido as unknown as EmailBlock[];
     const asunto = data.asunto || template.asunto;
 
     let enviados = 0;

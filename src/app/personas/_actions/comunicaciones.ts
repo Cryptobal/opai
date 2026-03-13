@@ -11,6 +11,7 @@ import type {
   OpsEmailEstado,
   OpsOnboardingEstado,
 } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -159,7 +160,7 @@ export async function getOnboardingDashboard(
   tenantId: string,
   filters?: GetOnboardingDashboardFilters
 ): Promise<OnboardingDashboardResult> {
-  const where: Parameters<typeof prisma.opsGuardia.findMany>[0]["where"] = {
+  const where: Prisma.OpsGuardiaWhereInput = {
     tenantId,
     lifecycleStatus: { in: ["contratado", "seleccionado", "te"] },
   };
@@ -401,7 +402,7 @@ export async function getEmailHistory(
   const pageSize = filters.pageSize ?? 20;
   const skip = (page - 1) * pageSize;
 
-  const where: Parameters<typeof prisma.opsEmailLog.findMany>[0]["where"] = {
+  const where: Prisma.OpsEmailLogWhereInput = {
     tenantId: filters.tenantId,
   };
   if (filters.tipo) where.tipo = filters.tipo;
@@ -575,7 +576,7 @@ export async function sendBulkEmail(
   if (input.filtros.guardiaIds?.length) {
     guardiaIds = input.filtros.guardiaIds;
   } else {
-    const where: Parameters<typeof prisma.opsGuardia.findMany>[0]["where"] = {
+    const where: Prisma.OpsGuardiaWhereInput = {
       tenantId: input.tenantId,
       lifecycleStatus: { in: ["contratado", "seleccionado", "te"] },
     };
@@ -603,7 +604,7 @@ export async function sendBulkEmail(
     });
     if (template) {
       asunto = template.asunto;
-      contenido = (template.contenido as EmailBlock[]) ?? contenido;
+      contenido = ((template.contenido as unknown) as EmailBlock[]) ?? contenido;
     }
   }
 
