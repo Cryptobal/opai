@@ -76,8 +76,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, skipped: "wrong_recipient" });
     }
 
-    console.log("[inbound-email] Processing for leads", { from, subject, to: toList });
-
     const tenantId = await getDefaultTenantId();
 
     const emailResponse = await resend.emails.receiving.get(emailId);
@@ -92,6 +90,7 @@ export async function POST(request: NextRequest) {
     const email = emailResponse.data;
     const from = email.from || "";
     const subject = email.subject || "(sin asunto)";
+    console.log("[inbound-email] Processing for leads", { from, subject, to: toList });
     const html = email.html ?? null;
     const text = email.text ?? null;
     const attachments = email.attachments || [];
