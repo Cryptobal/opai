@@ -14,14 +14,16 @@ function formatDate(d: Date | null | undefined): string {
   });
 }
 
+const DEFAULT_BASE_URL = "https://opai.gard.cl";
+
 function getBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.NEXTAUTH_URL ??
-    process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "https://opai.gard.cl"
-  );
+  const candidates = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXTAUTH_URL,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+  ];
+  const url = candidates.find((u) => u && u !== "undefined" && !u.includes("undefined"));
+  return url ?? DEFAULT_BASE_URL;
 }
 
 export async function resolveVariables(
@@ -51,7 +53,7 @@ export async function resolveVariables(
         take: 1,
         orderBy: { startDate: "desc" },
         include: {
-          cargo: { select: { name: true } },
+          puesto: { include: { cargo: { select: { name: true } } } },
         },
       },
     },
@@ -88,7 +90,7 @@ export async function resolveVariables(
     "";
 
   const cargo =
-    guardia.asignaciones[0]?.cargo?.name ?? "Guardia de Seguridad";
+    guardia.asignaciones[0]?.puesto?.cargo?.name ?? "Guardia de Seguridad";
 
   const pin = guardia.marcacionPinVisible ?? "Sin PIN asignado";
 
