@@ -17,7 +17,7 @@ async function main() {
   const prisma = new PrismaClient();
   try {
     const installations = await prisma.crmInstallation.findMany({
-      where: { isActive: true, pairingCode: null },
+      where: { status: 'ACTIVE', pairingCode: null },
       select: { id: true, name: true },
     });
 
