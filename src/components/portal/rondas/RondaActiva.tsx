@@ -160,6 +160,7 @@ export function RondaActiva({
 
   // -- Confirmation modal state --
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [incompleteNotes, setIncompleteNotes] = useState("");
 
   // -- Auto-complete celebration modal --
   const [showAutoCompleteModal, setShowAutoCompleteModal] = useState(false);
@@ -352,10 +353,10 @@ export function RondaActiva({
   // ---------------------------------------------------------------------------
   // Derived values
   // ---------------------------------------------------------------------------
-  const completedCount = isAdHoc
+  const completedCount = isAdHocFreeForm
     ? adHocMarkedPoints.length
     : checkpoints.filter((c) => c.completed).length;
-  const total = isAdHoc ? adHocMarkedPoints.length : checkpoints.length;
+  const total = isAdHocFreeForm ? adHocMarkedPoints.length : checkpoints.length;
 
   const activeCheckpointId =
     checkpoints.find((c) => !c.completed)?.id ?? null;
@@ -538,7 +539,7 @@ export function RondaActiva({
         body: JSON.stringify({
           ejecucionId: rondaData.ejecucionId,
           guardiaId: session.guardiaId,
-          notes: null,
+          notes: incompleteNotes.trim() || null,
           walkRoute: trailPoints,
           routeSnapshot,
         }),
@@ -570,7 +571,7 @@ export function RondaActiva({
     } finally {
       setCompleting(false);
     }
-  }, [rondaData.ejecucionId, session.guardiaId, onComplete, checkpoints, trailPoints]);
+  }, [rondaData.ejecucionId, session.guardiaId, onComplete, checkpoints, trailPoints, incompleteNotes]);
 
   const handleCompleteClick = useCallback(() => {
     if (!isAdHocFreeForm && incompleteCheckpoints.length > 0) {
@@ -584,6 +585,11 @@ export function RondaActiva({
     setShowConfirmModal(false);
     handleComplete();
   }, [handleComplete]);
+
+  const cancelConfirmModal = useCallback(() => {
+    setShowConfirmModal(false);
+    setIncompleteNotes("");
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Render: Main
@@ -1085,19 +1091,31 @@ export function RondaActiva({
                 </li>
               ))}
             </ul>
-            <p className="mb-4 text-sm text-gray-500">
-              {"\u00BF"}Completar de todas formas? Tu puntaje de confianza sera menor.
+            <p className="mb-2 text-sm text-gray-500">
+              Indica por que no pudiste completar todos los puntos:
+            </p>
+            <textarea
+              value={incompleteNotes}
+              onChange={(e) => setIncompleteNotes(e.target.value)}
+              placeholder="Ej: Acceso bloqueado, zona en mantenimiento..."
+              maxLength={500}
+              rows={3}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-yellow-500 focus:outline-none"
+            />
+            <p className={`mb-3 mt-1 text-xs ${incompleteNotes.trim().length > 0 && incompleteNotes.trim().length < 10 ? "text-yellow-500/70" : "text-transparent"}`}>
+              Minimo 10 caracteres
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => setShowConfirmModal(false)}
+                onClick={cancelConfirmModal}
                 className="flex-1 rounded-xl border border-gray-700 bg-gray-800 py-3 text-base font-medium text-gray-300 transition-colors hover:bg-gray-700"
               >
                 Seguir ronda
               </button>
               <button
                 onClick={confirmComplete}
-                className="flex-1 rounded-xl bg-yellow-600 py-3 text-base font-semibold text-white transition-colors hover:bg-yellow-500"
+                disabled={incompleteNotes.trim().length < 10}
+                className="flex-1 rounded-xl bg-yellow-600 py-3 text-base font-semibold text-white transition-colors hover:bg-yellow-500 disabled:opacity-40"
               >
                 Completar
               </button>
@@ -1156,8 +1174,11 @@ export function RondaActiva({
           guardPos={guardPos}
           isInGeofence={isInGeofenceOfMarking}
           onComplete={() => {
-            if (isAdHoc && guardPos) {
-              const label = markingCheckpointId === "ad-hoc-gps" ? "Punto GPS" : "Punto QR";
+            const cpId = markingCheckpointId;
+            const isAdHocMark = cpId === "ad-hoc-gps" || cpId === "ad-hoc-scan";
+
+            if (isAdHocMark && guardPos) {
+              const label = cpId === "ad-hoc-gps" ? "Punto GPS" : "Punto QR";
               setAdHocMarkedPoints((prev) => [
                 ...prev,
                 {
@@ -1168,6 +1189,16 @@ export function RondaActiva({
                 },
               ]);
             }
+
+            // Optimistic local update: mark checkpoint as completed immediately
+            if (cpId && !isAdHocMark) {
+              setCheckpoints((prev) =>
+                prev.map((cp) =>
+                  cp.id === cpId ? { ...cp, completed: true } : cp,
+                ),
+              );
+            }
+
             setMarkingCheckpointId(null);
             refreshCheckpoints();
           }}
