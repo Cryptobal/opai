@@ -328,6 +328,172 @@ function getSourceLabel(source: string | null | undefined): string {
   }
 }
 
+/* ─── Service Requirements sub-component ─── */
+
+const GEOGRAPHIC_ZONES = [
+  { value: "norte", label: "Norte" },
+  { value: "centro", label: "Centro" },
+  { value: "sur", label: "Sur" },
+  { value: "austral", label: "Austral" },
+];
+const INDUSTRY_TYPES = [
+  { value: "mining", label: "Minería" },
+  { value: "retail", label: "Retail" },
+  { value: "residential", label: "Residencial" },
+  { value: "industrial", label: "Industrial" },
+  { value: "gobierno", label: "Gobierno" },
+  { value: "other", label: "Otro" },
+];
+const EQUIPMENT_OPTIONS = [
+  { value: "radio", label: "Radio" },
+  { value: "vehicle", label: "Vehículo" },
+  { value: "cctv", label: "CCTV" },
+  { value: "vest", label: "Chaleco antibalas" },
+  { value: "drone", label: "Dron" },
+  { value: "other_equipment", label: "Otro" },
+];
+const SHIFT_OPTIONS = [
+  { value: "24/7", label: "24/7" },
+  { value: "diurno", label: "Diurno" },
+  { value: "nocturno", label: "Nocturno" },
+];
+
+function ServiceRequirementsSection({ lead, isEditable, onUpdate }: { lead: CrmLead; isEditable: boolean; onUpdate: (updater: (prev: CrmLead) => CrmLead) => void }) {
+  const [saving, setSaving] = useState(false);
+  const [localZone, setLocalZone] = useState(lead.geographicZone ?? "");
+  const [localIndustry, setLocalIndustry] = useState(lead.industryType ?? "");
+  const [localEquipment, setLocalEquipment] = useState<string[]>(lead.requiredEquipment ?? []);
+  const [localShift, setLocalShift] = useState(lead.preferredShift ?? "");
+  const [localDuration, setLocalDuration] = useState(lead.estimatedDuration?.toString() ?? "");
+
+  const hasChanges =
+    localZone !== (lead.geographicZone ?? "") ||
+    localIndustry !== (lead.industryType ?? "") ||
+    JSON.stringify(localEquipment.sort()) !== JSON.stringify([...(lead.requiredEquipment ?? [])].sort()) ||
+    localShift !== (lead.preferredShift ?? "") ||
+    localDuration !== (lead.estimatedDuration?.toString() ?? "");
+
+  const saveRequirements = async () => {
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        geographicZone: localZone || null,
+        industryType: localIndustry || null,
+        requiredEquipment: localEquipment,
+        preferredShift: localShift || null,
+        estimatedDuration: localDuration ? Number(localDuration) : null,
+      };
+      const res = await fetch(`/api/crm/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Error al guardar");
+      onUpdate((prev) => ({ ...prev, ...data.data }));
+      toast.success("Requerimientos guardados");
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleEquipment = (value: string) => {
+    setLocalEquipment((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
+    );
+  };
+
+  const readOnly = !isEditable;
+  const selectCls = "w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[40px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60";
+
+  const hasAnyValue = localZone || localIndustry || localEquipment.length > 0 || localShift || localDuration;
+  if (readOnly && !hasAnyValue) return null;
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-medium text-muted-foreground">Requerimientos de servicio</h4>
+        {isEditable && hasChanges && (
+          <Button variant="outline" size="sm" onClick={saveRequirements} disabled={saving}>
+            {saving ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-2 h-3.5 w-3.5" />}
+            Guardar
+          </Button>
+        )}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Zona geográfica</Label>
+          {readOnly ? (
+            <p className="text-sm">{(GEOGRAPHIC_ZONES.find((z) => z.value === localZone)?.label ?? localZone) || "—"}</p>
+          ) : (
+            <select className={selectCls} value={localZone} onChange={(e) => setLocalZone(e.target.value)}>
+              <option value="">Sin definir</option>
+              {GEOGRAPHIC_ZONES.map((z) => <option key={z.value} value={z.value}>{z.label}</option>)}
+            </select>
+          )}
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Tipo de industria</Label>
+          {readOnly ? (
+            <p className="text-sm">{(INDUSTRY_TYPES.find((i) => i.value === localIndustry)?.label ?? localIndustry) || "—"}</p>
+          ) : (
+            <select className={selectCls} value={localIndustry} onChange={(e) => setLocalIndustry(e.target.value)}>
+              <option value="">Sin definir</option>
+              {INDUSTRY_TYPES.map((i) => <option key={i.value} value={i.value}>{i.label}</option>)}
+            </select>
+          )}
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Turno preferido</Label>
+          {readOnly ? (
+            <p className="text-sm">{(SHIFT_OPTIONS.find((s) => s.value === localShift)?.label ?? localShift) || "—"}</p>
+          ) : (
+            <select className={selectCls} value={localShift} onChange={(e) => setLocalShift(e.target.value)}>
+              <option value="">Sin definir</option>
+              {SHIFT_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+          )}
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Duración estimada (meses)</Label>
+          {readOnly ? (
+            <p className="text-sm">{localDuration ? `${localDuration} meses` : "—"}</p>
+          ) : (
+            <Input type="number" min={1} max={120} placeholder="Ej: 12" value={localDuration}
+              onChange={(e) => setLocalDuration(e.target.value)} className="h-10" />
+          )}
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs text-muted-foreground">Equipamiento requerido</Label>
+          {readOnly ? (
+            <div className="flex flex-wrap gap-1.5">
+              {localEquipment.length > 0 ? localEquipment.map((eq) => (
+                <Badge key={eq} variant="secondary" className="text-xs">
+                  {EQUIPMENT_OPTIONS.find((o) => o.value === eq)?.label ?? eq}
+                </Badge>
+              )) : <span className="text-sm text-muted-foreground">—</span>}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {EQUIPMENT_OPTIONS.map((opt) => (
+                <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                  <input type="checkbox" checked={localEquipment.includes(opt.value)}
+                    onChange={() => toggleEquipment(opt.value)}
+                    className="rounded border-input h-4 w-4" />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Component ─── */
 
 export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
@@ -797,6 +963,11 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         notes: approveForm.notes.trim() || null,
         industry: approveForm.industry.trim() || null,
         website: approveForm.website.trim() || null,
+        geographicZone: lead.geographicZone || null,
+        industryType: lead.industryType || null,
+        requiredEquipment: lead.requiredEquipment ?? [],
+        preferredShift: lead.preferredShift || null,
+        estimatedDuration: lead.estimatedDuration ?? null,
         status: "in_review",
         metadata: {
           ...(lead.metadata && typeof lead.metadata === "object" ? lead.metadata : {}),
@@ -1084,6 +1255,9 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           <DetailField label="Última modificación" value={lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
           <DetailField label="Fuente" value={<LeadSourceBadge source={lead.source} />} />
         </DetailFieldGrid>
+
+        {/* Requerimientos de servicio */}
+        <ServiceRequirementsSection lead={lead} isEditable={isEditable} onUpdate={setLead} />
 
         {/* Dotación solicitada (read-only summary) */}
         {dotacion && dotacion.length > 0 && (

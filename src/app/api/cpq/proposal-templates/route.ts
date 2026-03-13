@@ -1,9 +1,10 @@
 /**
  * API Route: /api/cpq/proposal-templates
- * GET - Listar templates de propuesta disponibles
+ * GET  - Listar templates de propuesta disponibles
+ * POST - Crear template personalizado para el tenant
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
@@ -91,7 +92,7 @@ export async function GET() {
         active: true,
         OR: [{ tenantId: ctx.tenantId }, { tenantId: null }],
       },
-      orderBy: { name: "asc" },
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
     });
 
     if (templates.length === 0) {
@@ -103,6 +104,53 @@ export async function GET() {
     console.error("Error fetching proposal templates:", error);
     return NextResponse.json(
       { success: false, error: "Failed to fetch templates" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
+
+    const body = await request.json();
+    const name = body?.name?.trim();
+    const slug = body?.slug?.trim();
+    const sections = body?.sections ?? {};
+
+    if (!name || !slug) {
+      return NextResponse.json(
+        { success: false, error: "name and slug are required" },
+        { status: 400 },
+      );
+    }
+
+    const template = await prisma.cpqProposalTemplate.create({
+      data: {
+        tenantId: ctx.tenantId,
+        name,
+        slug,
+        description: body?.description?.trim() || null,
+        sections,
+        isDefault: body?.isDefault ?? false,
+        active: true,
+      },
+    });
+
+    return NextResponse.json({ success: true, data: template }, { status: 201 });
+  } catch (error: any) {
+    if (error?.code === "P2002") {
+      return NextResponse.json(
+        { success: false, error: "Ya existe un template con ese slug para este tenant" },
+        { status: 409 },
+      );
+    }
+    console.error("Error creating proposal template:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to create template" },
       { status: 500 },
     );
   }

@@ -15,6 +15,11 @@ export interface CrmLead {
   website?: string | null;
   serviceType?: string | null;
   metadata?: any;
+  geographicZone?: string | null;
+  industryType?: string | null;
+  requiredEquipment?: string[];
+  preferredShift?: string | null;
+  estimatedDuration?: number | null;
   approvedAt?: string | null;
   approvedBy?: string | null;
   convertedAccountId?: string | null;

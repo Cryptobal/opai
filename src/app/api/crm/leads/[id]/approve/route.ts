@@ -549,6 +549,28 @@ export async function POST(
       }
 
       // ── Instalaciones + Cotización CPQ ──
+      // Resolve lead fields for quote auto-configuration
+      const resolvedContractDuration = lead.estimatedDuration && lead.estimatedDuration > 0
+        ? lead.estimatedDuration
+        : undefined;
+
+      let resolvedTemplateId: string | undefined;
+      const industryType = lead.industryType;
+      if (industryType) {
+        let templateSlug: string | null = null;
+        if (industryType === "mining") templateSlug = "tender";
+        else if (industryType === "industrial" || industryType === "gobierno") templateSlug = "detailed";
+        if (templateSlug) {
+          const tpl = await tx.cpqProposalTemplate.findFirst({
+            where: { slug: templateSlug, active: true, OR: [{ tenantId: ctx.tenantId }, { tenantId: null }] },
+            select: { id: true },
+          });
+          if (tpl) resolvedTemplateId = tpl.id;
+        }
+      }
+
+      const leadEquipment = Array.isArray(lead.requiredEquipment) ? lead.requiredEquipment : [];
+
       // Obtener defaults y catálogos CPQ activos
       const tenantOrShared = { OR: [{ tenantId: ctx.tenantId }, { tenantId: null }] };
       const defaultCargo = await tx.cpqCargo.findFirst({ where: { active: true, ...tenantOrShared }, orderBy: { name: "asc" } });
@@ -654,10 +676,11 @@ export async function POST(
                 totalPositions: dotacionTotals.totalPositions,
                 totalGuards: dotacionTotals.totalGuards,
                 notes: dealNotes,
+                ...(resolvedContractDuration != null && { contractDuration: resolvedContractDuration }),
+                ...(resolvedTemplateId && { proposalTemplateId: resolvedTemplateId }),
               },
             });
 
-            // Create initial note on the quote if notes were provided
             if (dealNotes) {
               await tx.crmNote.create({
                 data: {
@@ -681,6 +704,31 @@ export async function POST(
           }
 
           if (quote) {
+            // Pre-cargar costos del catálogo según requiredEquipment del lead
+            if (leadEquipment.length > 0) {
+              const equipCatalogItems = await tx.cpqCatalogItem.findMany({
+                where: {
+                  OR: [{ tenantId: ctx.tenantId }, { tenantId: null }],
+                  active: true,
+                  type: { in: leadEquipment },
+                },
+              });
+              for (const eqItem of equipCatalogItems) {
+                await tx.cpqQuoteCostItem.create({
+                  data: {
+                    quoteId: quote.id,
+                    catalogItemId: eqItem.id,
+                    calcMode: "per_month",
+                    quantity: 1,
+                    unitPriceOverride: null,
+                    isEnabled: true,
+                    visibility: eqItem.defaultVisibility || "visible",
+                    notes: null,
+                  },
+                });
+              }
+            }
+
             // Crear posiciones CPQ a partir de la dotación
             for (const d of dotacion) {
               const customName =
@@ -941,6 +989,8 @@ export async function POST(
               totalPositions: 0,
               totalGuards: 0,
               notes: dealNotes,
+              ...(resolvedContractDuration != null && { contractDuration: resolvedContractDuration }),
+              ...(resolvedTemplateId && { proposalTemplateId: resolvedTemplateId }),
             },
           });
           if (dealNotes) {

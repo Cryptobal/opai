@@ -417,22 +417,41 @@ export async function PUT(
         })),
       });
 
+      const catalogCostItems: any[] = [];
+      const inlineCostItems: any[] = [];
+      for (const item of costItems) {
+        if (item.catalogItemId) {
+          catalogCostItems.push(item);
+        } else {
+          if (!item.customName || !item.customType) continue;
+          inlineCostItems.push(item);
+        }
+      }
+
       const costMap = new Map(
-        existingCostItems.map((item) => [
-          item.catalogItemId,
-          {
-            quoteId: id,
-            catalogItemId: item.catalogItemId,
-            calcMode: item.calcMode || "per_month",
-            quantity: normalizeDecimal(item.quantity ?? 1),
-            unitPriceOverride: item.unitPriceOverride ?? null,
-            isEnabled: item.isEnabled ?? true,
-            visibility: item.visibility || "visible",
-            notes: item.notes ?? null,
-          },
-        ])
+        existingCostItems
+          .filter((item) => item.catalogItemId)
+          .map((item) => [
+            item.catalogItemId,
+            {
+              quoteId: id,
+              catalogItemId: item.catalogItemId,
+              calcMode: item.calcMode || "per_month",
+              quantity: normalizeDecimal(item.quantity ?? 1),
+              unitPriceOverride: item.unitPriceOverride ?? null,
+              isEnabled: item.isEnabled ?? true,
+              visibility: item.visibility || "visible",
+              notes: item.notes ?? null,
+              isAmortizable: item.isAmortizable ?? false,
+              investmentAmount: item.investmentAmount ?? null,
+              amortizationMonths: item.amortizationMonths ?? null,
+              customName: item.customName ?? null,
+              customType: item.customType ?? null,
+              customCategory: item.customCategory ?? null,
+            },
+          ])
       );
-      costItems.forEach((item: any) => {
+      catalogCostItems.forEach((item: any) => {
         costMap.set(item.catalogItemId, {
           ...item,
           quoteId: id,
@@ -442,6 +461,12 @@ export async function PUT(
           isEnabled: item.isEnabled ?? true,
           visibility: item.visibility || "visible",
           notes: item.notes ?? null,
+          isAmortizable: item.isAmortizable ?? false,
+          investmentAmount: item.investmentAmount ?? null,
+          amortizationMonths: item.amortizationMonths ?? null,
+          customName: item.customName ?? null,
+          customType: item.customType ?? null,
+          customCategory: item.customCategory ?? null,
         });
       });
       costDefaults.forEach((item) => {
@@ -455,22 +480,62 @@ export async function PUT(
             isEnabled: true,
             visibility: item.defaultVisibility || "visible",
             notes: null,
+            isAmortizable: false,
+            investmentAmount: null,
+            amortizationMonths: null,
+            customName: null,
+            customType: null,
+            customCategory: null,
           });
         }
       });
+
+      const savedToCatalogItems: any[] = [];
+      for (const item of inlineCostItems) {
+        if (item.savedToCatalog) {
+          const catalogItem = await tx.cpqCatalogItem.create({
+            data: {
+              tenantId,
+              name: String(item.customName).slice(0, 200),
+              type: String(item.customType).slice(0, 50),
+              unit: item.unit || "mes",
+              basePrice: item.unitPriceOverride ?? 0,
+              isDefault: false,
+              defaultVisibility: item.visibility || "visible",
+              active: true,
+            },
+          });
+          savedToCatalogItems.push({ ...item, catalogItemId: catalogItem.id });
+        }
+      }
+
       await tx.cpqQuoteCostItem.deleteMany({ where: { quoteId: id } });
-      await tx.cpqQuoteCostItem.createMany({
-        data: Array.from(costMap.values()).map((item: any) => ({
-          quoteId: id,
-          catalogItemId: item.catalogItemId,
-          calcMode: item.calcMode || "per_month",
-          quantity: normalizeDecimal(item.quantity ?? 1),
-          unitPriceOverride: item.unitPriceOverride ?? null,
-          isEnabled: item.isEnabled ?? true,
-          visibility: item.visibility || "visible",
-          notes: item.notes ?? null,
-        })),
-      });
+
+      const allCostData = [
+        ...Array.from(costMap.values()),
+        ...inlineCostItems.filter((i: any) => !i.savedToCatalog),
+        ...savedToCatalogItems,
+      ];
+      if (allCostData.length > 0) {
+        await tx.cpqQuoteCostItem.createMany({
+          data: allCostData.map((item: any) => ({
+            quoteId: id,
+            catalogItemId: item.catalogItemId || null,
+            calcMode: item.calcMode || "per_month",
+            quantity: normalizeDecimal(item.quantity ?? 1),
+            unitPriceOverride: item.unitPriceOverride ?? null,
+            isEnabled: item.isEnabled ?? true,
+            visibility: item.visibility || "visible",
+            notes: item.notes ?? null,
+            customName: item.customName ? String(item.customName).slice(0, 200) : null,
+            customType: item.customType ? String(item.customType).slice(0, 50) : null,
+            customCategory: item.customCategory ? String(item.customCategory).slice(0, 50) : null,
+            isAmortizable: item.isAmortizable ?? false,
+            investmentAmount: item.investmentAmount != null ? normalizeDecimal(item.investmentAmount) : null,
+            amortizationMonths: item.amortizationMonths != null ? Number(item.amortizationMonths) : null,
+          })),
+        });
+      }
 
       const mealMap = new Map(
         existingMeals.map((meal) => [

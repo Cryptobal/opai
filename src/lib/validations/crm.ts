@@ -19,6 +19,11 @@ export const createLeadSchema = z.object({
   city: z.string().trim().max(100).optional().nullable(),
   website: z.string().trim().max(500).optional().nullable(),
   serviceType: z.string().trim().max(100).optional().nullable(),
+  geographicZone: z.string().trim().max(30).optional().nullable(),
+  industryType: z.string().trim().max(30).optional().nullable(),
+  requiredEquipment: z.array(z.string().trim().max(50)).optional(),
+  preferredShift: z.string().trim().max(20).optional().nullable(),
+  estimatedDuration: z.number().int().min(1).max(120).optional().nullable(),
   status: z.enum(["pending", "in_review", "approved", "rejected"]).optional(),
   metadata: z.any().optional().nullable(),
 });
