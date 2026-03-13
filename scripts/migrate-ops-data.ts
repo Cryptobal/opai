@@ -268,8 +268,6 @@ async function loadInstallations(
     const accountId = clientCode ? clientCodeToId.get(clientCode) ?? null : null;
     const clientIsActive = clientCode ? (clientCodeToActive.get(clientCode) ?? true) : true;
 
-    // Si el cliente está inactivo, la instalación pasa a inactiva
-    const isActive = clientIsActive;
     if (!clientIsActive) overriddenCount++;
 
     const lat = parseChileanFloat(row["Latitud"]);
@@ -289,7 +287,7 @@ async function loadInstallations(
         commune,
         lat,
         lng,
-        isActive,
+        status: clientIsActive ? "active" : "inactive",
         marcacionCode,
         startDate: parseChileanDate(row["Inicio"]),
         endDate: parseChileanDate(row["Término"]),
@@ -297,7 +295,7 @@ async function loadInstallations(
     });
     cecosToId.set(cecos, installation.id);
     activeCount++;
-    const tag = isActive ? "✅ Activa  " : "⚠️  Inactiva";
+    const tag = clientIsActive ? "✅ Activa  " : "⚠️  Inactiva";
     console.log(`  ${tag} ${cecos} - ${row["Nombre Instalación"]?.trim()} (cliente: ${row["Cliente"]?.trim()}) [marcación: ${marcacionCode}]`);
   }
 
@@ -326,7 +324,7 @@ async function loadInstallations(
         commune,
         lat,
         lng,
-        isActive: false,
+        status: "inactive",
         marcacionCode,
         startDate: parseChileanDate(row["Inicio"]),
         endDate: parseChileanDate(row["Término"]),
