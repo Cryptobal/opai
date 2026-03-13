@@ -5,6 +5,12 @@ import { useCallback, useRef, useState } from "react";
 const SWIPE_THRESHOLD = 60;
 const VELOCITY_THRESHOLD = 0.3;
 
+function triggerHaptic() {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    (navigator as Navigator & { vibrate: (p: number | number[]) => boolean }).vibrate(10);
+  }
+}
+
 interface SwipeHandlers {
   onTouchStart: (e: React.TouchEvent) => void;
   onTouchMove: (e: React.TouchEvent) => void;
@@ -18,6 +24,8 @@ interface UseSwipeGestureOptions {
   onSwipeUp?: () => void;
   /** Si true, el gesto sigue el dedo con translate (feedback visual) */
   followFinger?: boolean;
+  /** Vibración al completar el gesto (si el dispositivo lo soporta) */
+  hapticOnComplete?: boolean;
   /** Solo activar en móvil */
   mobileOnly?: boolean;
 }
@@ -34,6 +42,7 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
     onSwipeDown,
     onSwipeUp,
     followFinger = false,
+    hapticOnComplete = true,
     mobileOnly = true,
   } = options;
 
@@ -61,8 +70,9 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
       lastRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
 
       if (followFinger) {
-        // Limitar el arrastre para que no se vaya demasiado
-        setTranslate({ x: dx, y: dy });
+        const maxDrag = 320;
+        const clamp = (v: number) => Math.max(-maxDrag, Math.min(maxDrag, v));
+        setTranslate({ x: clamp(dx), y: clamp(dy) });
       }
     },
     [followFinger]
@@ -82,6 +92,7 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
 
       // Swipe right: dx > threshold o velocidad positiva
       if ((dx > SWIPE_THRESHOLD || vx > VELOCITY_THRESHOLD) && Math.abs(dy) < Math.abs(dx) * 1.5) {
+        if (hapticOnComplete) triggerHaptic();
         onSwipeRight?.();
         startRef.current = null;
         lastRef.current = null;
@@ -89,6 +100,7 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
       }
       // Swipe left
       if ((dx < -SWIPE_THRESHOLD || vx < -VELOCITY_THRESHOLD) && Math.abs(dy) < Math.abs(dx) * 1.5) {
+        if (hapticOnComplete) triggerHaptic();
         onSwipeLeft?.();
         startRef.current = null;
         lastRef.current = null;
@@ -96,6 +108,7 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
       }
       // Swipe down
       if ((dy > SWIPE_THRESHOLD || vy > VELOCITY_THRESHOLD) && Math.abs(dx) < Math.abs(dy) * 1.5) {
+        if (hapticOnComplete) triggerHaptic();
         onSwipeDown?.();
         startRef.current = null;
         lastRef.current = null;
@@ -103,6 +116,7 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
       }
       // Swipe up
       if ((dy < -SWIPE_THRESHOLD || vy < -VELOCITY_THRESHOLD) && Math.abs(dx) < Math.abs(dy) * 1.5) {
+        if (hapticOnComplete) triggerHaptic();
         onSwipeUp?.();
         startRef.current = null;
         lastRef.current = null;
@@ -112,7 +126,7 @@ export function useSwipeGesture(options: UseSwipeGestureOptions): SwipeHandlers 
       startRef.current = null;
       lastRef.current = null;
     },
-    [onSwipeRight, onSwipeLeft, onSwipeDown, onSwipeUp, followFinger]
+    [onSwipeRight, onSwipeLeft, onSwipeDown, onSwipeUp, followFinger, hapticOnComplete]
   );
 
   return {

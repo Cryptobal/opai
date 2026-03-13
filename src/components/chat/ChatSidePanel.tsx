@@ -100,6 +100,28 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
   const [creatingDmFor, setCreatingDmFor] = useState<string | null>(null);
   const [newChatModal, setNewChatModal] = useState<{ open: boolean; defaultStatus?: "prospect" | "client_active" }>({ open: false });
+  const [panelEntered, setPanelEntered] = useState(false);
+  const [panelClosing, setPanelClosing] = useState(false);
+
+  // Animación de entrada del panel móvil
+  useEffect(() => {
+    if (ctx.isPanelOpen) {
+      setPanelClosing(false);
+      const id = requestAnimationFrame(() => setPanelEntered(true));
+      return () => cancelAnimationFrame(id);
+    } else {
+      setPanelEntered(false);
+    }
+  }, [ctx.isPanelOpen]);
+
+  const handleClosePanel = useCallback(() => {
+    if (panelClosing) return;
+    setPanelClosing(true);
+    setTimeout(() => {
+      ctx.closePanel();
+      setPanelClosing(false);
+    }, 280);
+  }, [ctx, panelClosing]);
 
   // When panel opens: default to "unread" if there are unread messages
   const prevPanelOpen = useRef(false);
@@ -163,10 +185,13 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   // Swipe gestures para móvil: derecha = volver a lista, abajo = cerrar panel
   const swipeBack = useSwipeGesture({
     onSwipeRight: () => selectedChannel && ctx.selectChannel(null),
+    followFinger: true,
+    hapticOnComplete: true,
     mobileOnly: true,
   });
   const swipeClose = useSwipeGesture({
-    onSwipeDown: () => ctx.closePanel(),
+    onSwipeDown: handleClosePanel,
+    hapticOnComplete: true,
     mobileOnly: true,
   });
 
@@ -524,13 +549,19 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
         <>
           {/* Mobile backdrop */}
           <div
-            className="fixed inset-0 z-50 bg-black/40 lg:hidden"
-            onClick={ctx.closePanel}
+            className={cn(
+              "fixed inset-0 z-50 bg-black/40 lg:hidden transition-opacity duration-300",
+              panelEntered && !panelClosing ? "opacity-100" : "opacity-0"
+            )}
+            onClick={handleClosePanel}
             aria-hidden="true"
           />
           <div
-            className="fixed inset-0 z-50 lg:hidden flex flex-col bg-[#0a0e17]"
-            style={{ bottom: 'var(--bottom-nav-height, 0px)' }}
+            className={cn(
+              "fixed inset-0 z-50 lg:hidden flex flex-col bg-[#0a0e17] transition-transform duration-300 ease-out",
+              panelEntered && !panelClosing ? "translate-x-0" : "translate-x-full"
+            )}
+            style={{ bottom: "var(--bottom-nav-height, 0px)" }}
             role="dialog"
             aria-label="Panel de chat"
           >
@@ -548,7 +579,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                     <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
                     <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">Chat</h3>
                   </div>
-                  <button onClick={ctx.closePanel} className="p-2 text-zinc-400 hover:text-zinc-200 transition-colors">
+                  <button onClick={handleClosePanel} className="p-2 text-zinc-400 hover:text-zinc-200 transition-colors">
                     <X className="h-5 w-5" />
                   </button>
                 </div>
@@ -568,10 +599,16 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               {/* Conversation layer (slides in from right) — swipe right para volver */}
               <div
                 className={cn(
-                  "absolute inset-0 bg-[#0a0e17] transition-transform duration-[250ms] ease-out flex flex-col",
-                  selectedChannel ? "translate-x-0" : "translate-x-full"
+                  "absolute inset-0 bg-[#0a0e17] flex flex-col",
+                  selectedChannel ? "translate-x-0" : "translate-x-full",
+                  swipeBack.translateX != null ? "" : "transition-transform duration-[250ms] ease-out"
                 )}
-                {...(selectedChannel ? swipeBack : {})}
+                style={
+                  swipeBack.translateX != null
+                    ? { transform: `translateX(${swipeBack.translateX}px)` }
+                    : undefined
+                }
+                {...(selectedChannel ? { onTouchStart: swipeBack.onTouchStart, onTouchMove: swipeBack.onTouchMove, onTouchEnd: swipeBack.onTouchEnd } : {})}
               >
                 {ctx.selectedChannelId && selectedChannel && (
                   <ChatConversation
@@ -582,8 +619,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                     autoContextPrefix={getAutoContextPrefix}
                     currentUserId={ctx.currentUserId}
                     userRole={userRole}
-                    onClose={ctx.closePanel}
-                    onSwipeDownToClose={ctx.closePanel}
+                    onClose={handleClosePanel}
+                    onSwipeDownToClose={handleClosePanel}
                   />
                 )}
               </div>
