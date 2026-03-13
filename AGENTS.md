@@ -41,3 +41,4 @@ OPAI Suite is a multi-tenant SaaS platform for security companies (Next.js 15 Ap
 - **`npm run dev` vs `npm run dev:watch`**: Use `dev:watch` for development. The `dev` script runs `build && start` which fails due to pre-existing lint errors caught by `next build`.
 - **Login credentials (seeded)**: `[REDACTED]` / `GardSecurity2026!` (owner role).
 - **Sentry (errores)**: Opcional. Definir `NEXT_PUBLIC_SENTRY_DSN` en `.env.local` (y en Vercel) para enviar errores a Sentry. Ver `.env.example` para `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN` (source maps).
+- **Connection pool (producción)**: En Vercel, `DATABASE_URL` debe incluir `connection_limit=5&pool_timeout=20` en la query string para evitar "Timed out fetching a new connection" (500). Ver `.env.example`.

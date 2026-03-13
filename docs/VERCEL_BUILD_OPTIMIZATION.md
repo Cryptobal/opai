@@ -1,5 +1,27 @@
 # Optimización del deploy en Vercel
 
+## Fix: Connection pool timeout (500 en producción)
+
+Si ves errores `Timed out fetching a new connection from the connection pool (connection limit: 1)` en los logs de Vercel, actualiza `DATABASE_URL` en **Vercel → Project → Settings → Environment Variables**:
+
+1. Edita `DATABASE_URL` (o créala si no existe).
+2. Asegúrate de usar el host **con `-pooler`** (Neon): `...@ep-xxx-pooler.region.neon.tech/...`
+3. Añade al final de la query string: `&connection_limit=5&pool_timeout=20`
+
+Ejemplo:
+```
+postgresql://user:pass@ep-xxx-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require&connection_limit=5&pool_timeout=20
+```
+
+Si ya tienes otros parámetros (ej. `?sslmode=require`), añade con `&`:
+```
+...?sslmode=require&connection_limit=5&pool_timeout=20
+```
+
+Tras guardar, redeploy para que tome efecto.
+
+---
+
 ## Situación
 
 - **Antes:** ~1 minuto de deploy.
