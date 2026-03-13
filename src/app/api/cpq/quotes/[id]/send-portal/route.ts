@@ -538,9 +538,8 @@ interface WhatsAppMsgParams {
 function buildWhatsAppUrl(
   phone: string | null | undefined,
   params: WhatsAppMsgParams
-): string | null {
+): string {
   const normalized = normalizePhone(phone);
-  if (!normalized) return null;
 
   const { contactName, companyName, email, pin, portalUrl, proposalLink, ejecutivoName } = params;
 
@@ -570,6 +569,9 @@ function buildWhatsAppUrl(
 
   lines.push(``, `¿Tienes alguna consulta? Responde aquí mismo 🙌`);
 
-  const message = lines.join("\n");
-  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
+  const message = encodeURIComponent(lines.join("\n"));
+  // If phone available, open directly; otherwise open WhatsApp without number (user picks contact)
+  return normalized
+    ? `https://wa.me/${normalized}?text=${message}`
+    : `https://wa.me/?text=${message}`;
 }

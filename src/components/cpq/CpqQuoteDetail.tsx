@@ -1648,40 +1648,39 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         />
       )}
 
-      {/* Modal de WhatsApp — se muestra siempre tras envio exitoso si hay telefono */}
+      {/* Modal de WhatsApp — se muestra tras envio exitoso cuando usuario eligio enviar + WhatsApp */}
       <Dialog open={whatsappModalOpen} onOpenChange={setWhatsappModalOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-green-400" />
-              Enviar por WhatsApp
+              ¡Enviado! Ahora por WhatsApp
             </DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-3">
             <p className="text-sm text-muted-foreground">
-              Email enviado a <strong className="text-foreground">{whatsappSentTo}</strong>. Ahora envíale el mismo mensaje por WhatsApp para asegurar que lo reciba.
+              Email enviado a <strong className="text-foreground">{whatsappSentTo}</strong>. Haz clic para enviarle el mismo mensaje por WhatsApp.
             </p>
             <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-1">
               <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">El mensaje incluye</p>
-              <p className="text-xs text-muted-foreground">✅ Credenciales de acceso al portal (email + PIN)</p>
-              <p className="text-xs text-muted-foreground">✅ Link directo al portal y a la propuesta técnica</p>
-              <p className="text-xs text-muted-foreground">✅ Beneficios del portal explicados</p>
+              <p className="text-xs text-muted-foreground">🔑 Email y PIN de acceso al portal</p>
+              <p className="text-xs text-muted-foreground">🔗 Link al portal y a la propuesta técnica</p>
+              <p className="text-xs text-muted-foreground">📋 Beneficios del portal explicados</p>
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setWhatsappModalOpen(false)}>
-              Omitir
-            </Button>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
             <Button
-              size="sm"
-              className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+              className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white h-11"
               onClick={() => {
                 if (whatsappUrl) window.open(whatsappUrl, "_blank");
                 setWhatsappModalOpen(false);
               }}
             >
               <MessageCircle className="h-4 w-4" />
-              Abrir WhatsApp
+              Compartir por WhatsApp
+            </Button>
+            <Button variant="ghost" className="w-full text-muted-foreground text-xs" onClick={() => setWhatsappModalOpen(false)}>
+              Omitir
             </Button>
           </DialogFooter>
         </DialogContent>
