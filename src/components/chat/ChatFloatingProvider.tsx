@@ -65,6 +65,7 @@ interface ChatSidePanelContextValue {
   archivedChannels: ChatSidePanelChannel[];
   fetchArchivedChannels: () => Promise<void>;
   markChannelAsRead: (channelId: string) => Promise<void>;
+  markAllChannelsAsRead: () => Promise<void>;
   updateChannelNotifPref: (channelId: string, preference: NotifPreference) => Promise<void>;
 }
 
@@ -187,6 +188,14 @@ export function ChatSidePanelProvider({
     } catch {}
   }, []);
 
+  const markAllChannelsAsRead = useCallback(async () => {
+    try {
+      const res = await fetch("/api/chat/read-all", { method: "POST" });
+      if (!res.ok) return;
+      setChannels((prev) => prev.map((ch) => ({ ...ch, unreadCount: 0 })));
+    } catch {}
+  }, []);
+
   const updateChannelNotifPref = useCallback(async (channelId: string, preference: NotifPreference) => {
     setChannels((prev) =>
       prev.map((ch) => (ch.id === channelId ? { ...ch, notificationPreference: preference } : ch))
@@ -275,6 +284,7 @@ export function ChatSidePanelProvider({
     archivedChannels,
     fetchArchivedChannels,
     markChannelAsRead,
+    markAllChannelsAsRead,
     updateChannelNotifPref,
   };
 

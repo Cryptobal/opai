@@ -133,6 +133,23 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
 
   const handleDeleteChannel = (id: string) => setChannelToDelete(id);
 
+  const applySectionNotifPref = useCallback(
+    async (channelIds: string[], preference: NotifPreference) => {
+      if (channelIds.length === 0) return;
+      try {
+        const res = await fetch("/api/chat/channels/notification-preference-bulk", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ channelIds, preference }),
+        });
+        if (res.ok) await ctx.refreshChannels();
+      } catch {
+        /* ignore */
+      }
+    },
+    [ctx]
+  );
+
   const confirmDelete = async () => {
     if (!channelToDelete) return;
     await ctx.deleteChannel(channelToDelete);
@@ -240,8 +257,18 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-[rgba(255,255,255,0.06)] bg-muted/40 placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-teal-600/50 focus:border-teal-600/50"
           />
         </div>
-        {/* Filter chips */}
-        <div className="px-0 pb-2 pt-2 flex items-center gap-1.5 shrink-0">
+        {/* Filter chips + Marcar todos como leídos */}
+        <div className="px-0 pb-2 pt-2 flex flex-wrap items-center gap-1.5 shrink-0">
+          {ctx.totalUnread > 0 && (
+            <button
+              type="button"
+              onClick={() => ctx.markAllChannelsAsRead()}
+              className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium bg-teal-600/20 text-teal-400 hover:bg-teal-600/30 transition-colors"
+            >
+              <CheckCheck className="h-3 w-3" />
+              Marcar todos leídos
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setFilter("all")}
@@ -321,6 +348,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 getDisplayName={getChannelDisplayName}
                 onMarkAsRead={ctx.markChannelAsRead}
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
+                onApplySectionNotifPref={applySectionNotifPref}
               />
             )}
 
@@ -333,6 +361,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={getChannelDisplayName}
                 onBulkNotifPref={ctx.refreshChannels}
+                onApplySectionNotifPref={applySectionNotifPref}
                 onMarkAsRead={ctx.markChannelAsRead}
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
               />
@@ -353,6 +382,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onDelete={handleDeleteChannel}
                 onMarkAsRead={ctx.markChannelAsRead}
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
+                onApplySectionNotifPref={applySectionNotifPref}
               />
             )}
 
@@ -371,6 +401,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onDelete={handleDeleteChannel}
                 onMarkAsRead={ctx.markChannelAsRead}
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
+                onApplySectionNotifPref={applySectionNotifPref}
               />
             )}
 
@@ -390,6 +421,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onNewChat={() => setNewChatModal({ open: true, defaultStatus: "prospect" })}
                 onMarkAsRead={ctx.markChannelAsRead}
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
+                onApplySectionNotifPref={applySectionNotifPref}
               />
             )}
 
@@ -409,6 +441,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onNewChat={() => setNewChatModal({ open: true, defaultStatus: "client_active" })}
                 onMarkAsRead={ctx.markChannelAsRead}
                 onUpdateNotifPref={ctx.updateChannelNotifPref}
+                onApplySectionNotifPref={applySectionNotifPref}
               />
             )}
 
@@ -610,6 +643,7 @@ function GroupChannelsSection({
   onSelectChannel,
   getDisplayName,
   onBulkNotifPref,
+  onApplySectionNotifPref,
   onMarkAsRead,
   onUpdateNotifPref,
 }: {
@@ -619,10 +653,13 @@ function GroupChannelsSection({
   onSelectChannel: (id: string) => void;
   getDisplayName: (ch: ChatSidePanelChannel) => string;
   onBulkNotifPref?: () => void;
+  onApplySectionNotifPref?: (channelIds: string[], preference: NotifPreference) => Promise<void>;
   onMarkAsRead?: (channelId: string) => void;
   onUpdateNotifPref?: (channelId: string, pref: NotifPreference) => void;
 }) {
   const sectionUnread = groupChannels.reduce((sum, ch) => sum + ch.unreadCount, 0);
+  const sectionPref = sectionNotifMode(groupChannels);
+  const showSectionNotifMenu = onApplySectionNotifPref && groupChannels.length > 0;
 
   // Agrupar por groupId (channels con mismo group.id)
   const groups = useMemo(() => {
@@ -670,27 +707,73 @@ function GroupChannelsSection({
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex-1 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors w-full"
-      >
-        {collapsed ? (
-          <ChevronRight className="h-3 w-3 shrink-0" />
-        ) : (
-          <ChevronDown className="h-3 w-3 shrink-0" />
-        )}
-        <Users className="h-3.5 w-3.5 text-amber-500" />
-        <span className="flex-1 text-left">Grupos</span>
-        <span className="min-w-[20px] text-right text-[10px] font-normal normal-case tracking-normal tabular-nums text-muted-foreground/70">
-          {groupChannels.length}
-        </span>
-        {sectionUnread > 0 && (
-          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600 px-1 text-[9px] font-bold text-white">
-            {sectionUnread > 99 ? "99+" : sectionUnread}
+      <div className="flex items-center group/section">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex-1 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors"
+        >
+          {collapsed ? (
+            <ChevronRight className="h-3 w-3 shrink-0" />
+          ) : (
+            <ChevronDown className="h-3 w-3 shrink-0" />
+          )}
+          <Users className="h-3.5 w-3.5 text-amber-500" />
+          <span className="flex-1 text-left">Grupos</span>
+          {showSectionNotifMenu && (
+            <span className="text-muted-foreground/60" title={
+              sectionPref === "ALL" ? "Notificar todo" : sectionPref === "MENTIONS_ONLY" ? "Solo menciones" : "Silenciado"
+            }>
+              {sectionPref === "MUTED" && <BellOff className="h-3 w-3 shrink-0" />}
+              {sectionPref === "MENTIONS_ONLY" && <AtSign className="h-3 w-3 shrink-0" />}
+              {sectionPref === "ALL" && <Bell className="h-3 w-3 shrink-0" />}
+            </span>
+          )}
+          <span className="min-w-[20px] text-right text-[10px] font-normal normal-case tracking-normal tabular-nums text-muted-foreground/70">
+            {groupChannels.length}
           </span>
+          {sectionUnread > 0 && (
+            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600 px-1 text-[9px] font-bold text-white">
+              {sectionUnread > 99 ? "99+" : sectionUnread}
+            </span>
+          )}
+        </button>
+        {showSectionNotifMenu && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="opacity-0 group-hover/section:opacity-100 mr-2 h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Notificaciones de la sección Grupos"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="z-[70] w-52">
+              <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Notificaciones para todos los grupos ({groupChannels.length} canales)
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onApplySectionNotifPref!(groupChannels.map((c) => c.id), "ALL")}>
+                <Bell className="h-3.5 w-3.5 mr-2" />
+                Notificar todo
+                {sectionPref === "ALL" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onApplySectionNotifPref!(groupChannels.map((c) => c.id), "MENTIONS_ONLY")}>
+                <AtSign className="h-3.5 w-3.5 mr-2" />
+                Solo menciones
+                {sectionPref === "MENTIONS_ONLY" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onApplySectionNotifPref!(groupChannels.map((c) => c.id), "MUTED")}>
+                <BellOff className="h-3.5 w-3.5 mr-2" />
+                Silenciar
+                {sectionPref === "MUTED" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
-      </button>
+      </div>
       {!collapsed && (
         <div className="divide-y divide-border/20">
           {groups.map((grp) => (
@@ -805,6 +888,18 @@ function GroupChannelsSection({
 
 /* ─── Channel Section ─── */
 
+function sectionNotifMode(channels: ChatSidePanelChannel[]): NotifPreference {
+  if (channels.length === 0) return "ALL";
+  const counts: Record<NotifPreference, number> = { ALL: 0, MENTIONS_ONLY: 0, MUTED: 0 };
+  for (const ch of channels) {
+    counts[ch.notificationPreference] = (counts[ch.notificationPreference] ?? 0) + 1;
+  }
+  const max = Math.max(counts.ALL, counts.MENTIONS_ONLY, counts.MUTED);
+  if (max === counts.MUTED) return "MUTED";
+  if (max === counts.MENTIONS_ONLY) return "MENTIONS_ONLY";
+  return "ALL";
+}
+
 function ChannelSection({
   label,
   icon,
@@ -821,6 +916,7 @@ function ChannelSection({
   onNewChat,
   onMarkAsRead,
   onUpdateNotifPref,
+  onApplySectionNotifPref,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -837,12 +933,15 @@ function ChannelSection({
   onNewChat?: () => void;
   onMarkAsRead?: (channelId: string) => void;
   onUpdateNotifPref?: (channelId: string, pref: NotifPreference) => void;
+  onApplySectionNotifPref?: (channelIds: string[], preference: NotifPreference) => Promise<void>;
 }) {
   const sectionUnread = channels.reduce((sum, ch) => sum + ch.unreadCount, 0);
+  const sectionPref = sectionNotifMode(channels);
+  const showSectionNotifMenu = onApplySectionNotifPref && !isArchivedSection && channels.length > 0;
 
   return (
     <div>
-      <div className="flex items-center">
+      <div className="flex items-center group/section">
         <button
           type="button"
           onClick={onToggle}
@@ -855,6 +954,15 @@ function ChannelSection({
           )}
           {icon}
           <span className="flex-1 text-left">{label}</span>
+          {showSectionNotifMenu && (
+            <span className="text-muted-foreground/60" title={
+              sectionPref === "ALL" ? "Notificar todo" : sectionPref === "MENTIONS_ONLY" ? "Solo menciones" : "Silenciado"
+            }>
+              {sectionPref === "MUTED" && <BellOff className="h-3 w-3 shrink-0" />}
+              {sectionPref === "MENTIONS_ONLY" && <AtSign className="h-3 w-3 shrink-0" />}
+              {sectionPref === "ALL" && <Bell className="h-3 w-3 shrink-0" />}
+            </span>
+          )}
           <span className="min-w-[20px] text-right text-[10px] font-normal normal-case tracking-normal tabular-nums text-muted-foreground/70">
             {channels.length}
           </span>
@@ -864,6 +972,41 @@ function ChannelSection({
             </span>
           )}
         </button>
+        {showSectionNotifMenu && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="opacity-0 group-hover/section:opacity-100 mr-2 h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Notificaciones de la sección"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="z-[70] w-52">
+              <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Notificaciones para {channels.length} canal{channels.length !== 1 ? "es" : ""}
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onApplySectionNotifPref!(channels.map((c) => c.id), "ALL")}>
+                <Bell className="h-3.5 w-3.5 mr-2" />
+                Notificar todo
+                {sectionPref === "ALL" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onApplySectionNotifPref!(channels.map((c) => c.id), "MENTIONS_ONLY")}>
+                <AtSign className="h-3.5 w-3.5 mr-2" />
+                Solo menciones
+                {sectionPref === "MENTIONS_ONLY" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onApplySectionNotifPref!(channels.map((c) => c.id), "MUTED")}>
+                <BellOff className="h-3.5 w-3.5 mr-2" />
+                Silenciar
+                {sectionPref === "MUTED" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         {onNewChat && (
           <button
             type="button"
