@@ -24,6 +24,8 @@ interface ChatConversationProps {
   userRole?: string;
   /** Optional callback to close the entire panel (e.g. floating chat) */
   onClose?: () => void;
+  /** En móvil: swipe down en el header para cerrar el panel */
+  onSwipeDownToClose?: () => void;
   /** Called after messages are marked as read — use to update sidebar unread counts */
   onMarkAsRead?: (channelId: string) => void;
 }
@@ -41,6 +43,7 @@ export function ChatConversation({
   currentUserId: currentUserIdProp,
   userRole,
   onClose,
+  onSwipeDownToClose,
   onMarkAsRead,
 }: ChatConversationProps) {
   const {
@@ -276,6 +279,7 @@ export function ChatConversation({
           onSearch={handleSearch}
           isSearching={isSearching}
           channelId={channelId}
+          onSwipeDownToClose={onSwipeDownToClose}
         >
           {canDeleteAny && (
             <button

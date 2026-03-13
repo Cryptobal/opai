@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ChatPortalChannelList, type LockedChannel } from "@/components/chat/ChatPortalChannelList";
 import { ChatPortalWrapper } from "@/components/chat/ChatPortalWrapper";
 import type { ClienteSession } from "@/lib/portal-cliente-types";
@@ -13,6 +14,7 @@ interface ChatClientePortalProps {
 /**
  * Cliente portal chat — multi-channel with locked channels support.
  * Uses cliente API endpoints with contact auth headers.
+ * En móvil: transición fluida lista ↔ conversación, swipe right para volver.
  */
 export function ChatClientePortal({ session }: ChatClientePortalProps) {
   const [selectedChannel, setSelectedChannel] = useState<{
@@ -57,27 +59,6 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (selectedChannel) {
-    return (
-      <div className="flex flex-col h-full overflow-hidden">
-        <ChatPortalWrapper
-          apiBase="/api/portal/cliente/chat"
-          apiHeaders={apiHeaders}
-          pusherAuthEndpoint="/api/portal/cliente/chat/pusher/auth"
-          pusherAuthHeaders={apiHeaders}
-          uploadEndpoint="/api/portal/cliente/chat/upload"
-          senderName={senderName}
-          senderType="CLIENT"
-          channelId={selectedChannel.id}
-          channelName={selectedChannel.name}
-          onBack={() => setSelectedChannel(null)}
-          enableEmoji
-          enableFileUpload
-        />
-      </div>
-    );
-  }
-
   if (!autoSelectDone) {
     return (
       <div className="flex flex-1 items-center justify-center h-full">
@@ -87,25 +68,55 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="shrink-0 flex items-center gap-3 h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
-        <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">
-          Chat con tu equipo Gard
-        </h3>
+    <div className="flex flex-col h-full overflow-hidden relative">
+      {/* Lista de canales — slide a la izquierda cuando hay conversación */}
+      <div
+        className={cn(
+          "absolute inset-0 flex flex-col bg-[#0a0e17] transition-transform duration-[250ms] ease-out z-0",
+          selectedChannel ? "-translate-x-full" : "translate-x-0"
+        )}
+      >
+        <div className="shrink-0 flex items-center gap-3 h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
+          <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">
+            Chat con tu equipo Gard
+          </h3>
+        </div>
+        <ChatPortalChannelList
+          apiBase="/api/portal/cliente/chat"
+          apiHeaders={apiHeaders}
+          groupsEndpoint="/api/portal/cliente/chat/groups"
+          onSelectChannel={(id, name) => setSelectedChannel({ id, name })}
+          selectedChannelId={selectedChannel?.id ?? null}
+          lockedChannels={lockedChannels}
+          autoSelectSingle
+          initialChannels={prefetchedChannels ?? undefined}
+        />
       </div>
 
-      {/* Channel list */}
-      <ChatPortalChannelList
-        apiBase="/api/portal/cliente/chat"
-        apiHeaders={apiHeaders}
-        groupsEndpoint="/api/portal/cliente/chat/groups"
-        onSelectChannel={(id, name) => setSelectedChannel({ id, name })}
-        selectedChannelId={null}
-        lockedChannels={lockedChannels}
-        autoSelectSingle
-        initialChannels={prefetchedChannels ?? undefined}
-      />
+      {/* Conversación — slide desde la derecha */}
+      <div
+        className={cn(
+          "absolute inset-0 flex flex-col bg-[#0a0e17] transition-transform duration-[250ms] ease-out z-10",
+          selectedChannel ? "translate-x-0" : "translate-x-full"
+        )}
+      >
+        {selectedChannel && (
+          <ChatPortalWrapper
+            apiBase="/api/portal/cliente/chat"
+            apiHeaders={apiHeaders}
+            pusherAuthEndpoint="/api/portal/cliente/chat/pusher/auth"
+            pusherAuthHeaders={apiHeaders}
+            uploadEndpoint="/api/portal/cliente/chat/upload"
+            senderName={senderName}
+            senderType="CLIENT"
+            channelId={selectedChannel.id}
+            channelName={selectedChannel.name}
+            onBack={() => setSelectedChannel(null)}
+            enableEmoji
+            enableFileUpload
+          />
+        )}
+      </div>
     </div>
   );
 }

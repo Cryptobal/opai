@@ -23,6 +23,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useSwipeGesture } from "./hooks/useSwipeGesture";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useChatSidePanelContext, type ChatSidePanelChannel, type NotifPreference } from "./ChatFloatingProvider";
@@ -158,6 +159,16 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   };
 
   const selectedChannel = ctx.channels.find((ch) => ch.id === ctx.selectedChannelId);
+
+  // Swipe gestures para móvil: derecha = volver a lista, abajo = cerrar panel
+  const swipeBack = useSwipeGesture({
+    onSwipeRight: () => selectedChannel && ctx.selectChannel(null),
+    mobileOnly: true,
+  });
+  const swipeClose = useSwipeGesture({
+    onSwipeDown: () => ctx.closePanel(),
+    mobileOnly: true,
+  });
 
   // Derive display name for a channel
   const getChannelDisplayName = useCallback((ch: ChatSidePanelChannel) => {
@@ -523,16 +534,24 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             role="dialog"
             aria-label="Panel de chat"
           >
-            {/* Mobile header (channel list only -- conversation has its own via ChatPresenceBar) */}
+            {/* Mobile header (channel list only — conversation has its own via ChatPresenceBar) */}
             {!selectedChannel && (
-              <div className="shrink-0 flex items-center justify-between h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
-                  <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">Chat</h3>
+              <div
+                className="shrink-0 flex flex-col border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]"
+                {...swipeClose}
+              >
+                <div className="flex justify-center pt-2 pb-1">
+                  <div className="w-10 h-1 rounded-full bg-[rgba(255,255,255,0.2)]" aria-hidden />
                 </div>
-                <button onClick={ctx.closePanel} className="p-2 text-zinc-400 hover:text-zinc-200 transition-colors">
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="flex items-center justify-between h-12 px-4 pb-2">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
+                    <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">Chat</h3>
+                  </div>
+                  <button onClick={ctx.closePanel} className="p-2 text-zinc-400 hover:text-zinc-200 transition-colors">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -546,11 +565,14 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 {channelListContent}
               </div>
 
-              {/* Conversation layer (slides in from right) */}
-              <div className={cn(
-                "absolute inset-0 bg-[#0a0e17] transition-transform duration-[250ms] ease-out flex flex-col",
-                selectedChannel ? "translate-x-0" : "translate-x-full"
-              )}>
+              {/* Conversation layer (slides in from right) — swipe right para volver */}
+              <div
+                className={cn(
+                  "absolute inset-0 bg-[#0a0e17] transition-transform duration-[250ms] ease-out flex flex-col",
+                  selectedChannel ? "translate-x-0" : "translate-x-full"
+                )}
+                {...(selectedChannel ? swipeBack : {})}
+              >
                 {ctx.selectedChannelId && selectedChannel && (
                   <ChatConversation
                     channelId={ctx.selectedChannelId}
@@ -561,6 +583,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                     currentUserId={ctx.currentUserId}
                     userRole={userRole}
                     onClose={ctx.closePanel}
+                    onSwipeDownToClose={ctx.closePanel}
                   />
                 )}
               </div>

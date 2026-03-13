@@ -7,6 +7,7 @@ import { ChatChannelList } from "./ChatChannelList";
 import { ChatConversation } from "./ChatConversation";
 import { usePusher } from "./hooks/usePusher";
 import { useChatUnreadCounts } from "./hooks/useChatUnreadCounts";
+import { useSwipeGesture } from "./hooks/useSwipeGesture";
 
 interface ChatPageProps {
   currentUserId?: string;
@@ -43,6 +44,11 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
     refreshUnread();
   }, [refreshUnread]);
 
+  const swipeBack = useSwipeGesture({
+    onSwipeRight: () => selectedChannelId && handleBack(),
+    mobileOnly: true,
+  });
+
   return (
     <div className="chat-full-height flex overflow-hidden rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#0a0e17]">
       {/* Left panel: Channel list */}
@@ -61,13 +67,14 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
         />
       </div>
 
-      {/* Right panel: Conversation */}
+      {/* Right panel: Conversation — swipe right en móvil para volver */}
       <div
         className={cn(
           "flex-1 min-w-0 flex flex-col",
           // On mobile, hide when no channel is selected
           !selectedChannelId ? "hidden lg:flex" : "flex"
         )}
+        {...(selectedChannelId ? swipeBack : {})}
       >
         {selectedChannelId ? (
           <ChatConversation

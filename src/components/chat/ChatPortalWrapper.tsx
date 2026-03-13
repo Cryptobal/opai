@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, X } from "lucide-react";
 import { useIsMobile } from "@/lib/pwa/use-is-mobile";
+import { useSwipeGesture } from "./hooks/useSwipeGesture";
 import type { ChatMessageData, SendMessagePayload, ChatSenderType } from "@/lib/chat-types";
 import { usePusher } from "./hooks/usePusher";
 import { useChatMessages } from "./hooks/useChatMessages";
@@ -218,47 +219,21 @@ export function ChatPortalWrapper({
   const onlineCount = members.length;
   const isMobile = useIsMobile();
 
-  // Swipe-down to close (solo móvil)
-  const touchStartYRef = useRef<number | null>(null);
-  const closedRef = useRef(false);
-
-  const handleHeaderTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      if (!isMobile || !onBack) return;
-      touchStartYRef.current = e.touches[0].clientY;
-      closedRef.current = false;
-    },
-    [isMobile, onBack],
-  );
-
-  const handleHeaderTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (!isMobile || !onBack || touchStartYRef.current === null || closedRef.current) return;
-      const delta = e.touches[0].clientY - touchStartYRef.current;
-      if (delta > 80) {
-        closedRef.current = true;
-        onBack();
-      }
-    },
-    [isMobile, onBack],
-  );
-
-  const handleHeaderTouchEnd = useCallback(() => {
-    touchStartYRef.current = null;
-  }, []);
+  const swipeDown = useSwipeGesture({
+    onSwipeDown: () => onBack?.(),
+    mobileOnly: true,
+  });
+  const swipeRight = useSwipeGesture({
+    onSwipeRight: () => onBack?.(),
+    mobileOnly: true,
+  });
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden" {...(onBack ? swipeRight : {})}>
       {/* Header — en móvil: barra para arrastrar hacia abajo + botón X */}
       <div
         className="shrink-0 flex flex-col border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]"
-        {...(isMobile && onBack
-          ? {
-              onTouchStart: handleHeaderTouchStart,
-              onTouchMove: handleHeaderTouchMove,
-              onTouchEnd: handleHeaderTouchEnd,
-            }
-          : {})}
+        {...(isMobile && onBack ? swipeDown : {})}
       >
         {isMobile && onBack && (
           <div className="flex justify-center pt-2 pb-1">
