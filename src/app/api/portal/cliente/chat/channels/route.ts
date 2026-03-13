@@ -27,68 +27,63 @@ export async function GET(request: NextRequest) {
       select: { status: true, portalEjecutivoId: true },
     });
 
+    // Para prospectos: nombre del ejecutivo para mostrar en el chat
+    let ejecutivoName: string | null = null;
+    if (account?.status === "prospect" && account.portalEjecutivoId) {
+      const ejecutivo = await prisma.admin.findUnique({
+        where: { id: account.portalEjecutivoId },
+        select: { name: true },
+      });
+      ejecutivoName = ejecutivo?.name ?? null;
+    }
+
     if (account?.status === "prospect") {
-      // For prospects: find the DIRECT channel with the ejecutivo
-      let directChannelData: any[] = [];
-
-      if (account.portalEjecutivoId) {
-        const directChannel = await prisma.chatChannel.findFirst({
-          where: {
-            tenantId: session.tenantId,
-            channelType: "DIRECT",
-            dmParticipants: {
-              some: { adminId: account.portalEjecutivoId },
-            },
+      // For prospects: find EXTERNAL channel where contact is participant (chat con ejecutivo)
+      const externalChannel = await prisma.chatChannel.findFirst({
+        where: {
+          tenantId: session.tenantId,
+          channelType: "EXTERNAL",
+          accountId: session.accountId,
+          isActive: true,
+          participants: {
+            some: { participantType: "CONTACT", participantId: session.contactId },
           },
-          include: {
-            installation: {
-              select: {
-                id: true,
-                name: true,
-                account: {
-                  select: { id: true, name: true },
-                },
-              },
-            },
+        },
+      });
+
+      let channelData: any[] = [];
+      if (externalChannel) {
+        const unreadMap = await batchUnreadCounts([externalChannel.id], "CLIENT", session.contactId);
+        const accountInfo = externalChannel.accountId
+          ? await prisma.crmAccount.findUnique({
+              where: { id: externalChannel.accountId },
+              select: { id: true, name: true },
+            })
+          : null;
+        channelData = [
+          {
+            id: externalChannel.id,
+            tenantId: externalChannel.tenantId,
+            accountId: externalChannel.accountId,
+            name: ejecutivoName ? `Chat con ${ejecutivoName}` : externalChannel.name,
+            channelType: externalChannel.channelType,
+            isActive: externalChannel.isActive,
+            lastMessageAt: externalChannel.lastMessageAt?.toISOString() ?? null,
+            lastMessagePreview: externalChannel.lastMessagePreview,
+            messageCount: externalChannel.messageCount,
+            createdAt: externalChannel.createdAt.toISOString(),
+            updatedAt: externalChannel.updatedAt.toISOString(),
+            account: accountInfo ? { id: accountInfo.id, name: accountInfo.name } : null,
+            unreadCount: unreadMap.get(externalChannel.id) ?? 0,
           },
-        });
-
-        if (directChannel) {
-          const unreadMap = await batchUnreadCounts([directChannel.id], "CLIENT", session.contactId);
-
-          directChannelData = [
-            {
-              id: directChannel.id,
-              tenantId: directChannel.tenantId,
-              installationId: directChannel.installationId,
-              name: directChannel.name,
-              channelType: directChannel.channelType,
-              isActive: directChannel.isActive,
-              lastMessageAt: directChannel.lastMessageAt?.toISOString() ?? null,
-              lastMessagePreview: directChannel.lastMessagePreview,
-              messageCount: directChannel.messageCount,
-              createdAt: directChannel.createdAt.toISOString(),
-              updatedAt: directChannel.updatedAt.toISOString(),
-              installation: directChannel.installation
-                ? {
-                    id: directChannel.installation.id,
-                    name: directChannel.installation.name,
-                    account: directChannel.installation.account
-                      ? { id: directChannel.installation.account.id, name: directChannel.installation.account.name }
-                      : null,
-                  }
-                : undefined,
-              unreadCount: unreadMap.get(directChannel.id) ?? 0,
-            },
-          ];
-        }
+        ];
       }
 
       return NextResponse.json({
         success: true,
-        data: directChannelData,
+        data: channelData,
         lockedChannels: DEMO_CHAT_CHANNELS,
-        meta: { total: directChannelData.length },
+        meta: { total: channelData.length },
       });
     }
 

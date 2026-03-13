@@ -128,7 +128,7 @@ export function PortalViewer({ name, href, icon: Icon, isOpen, onClose }: Portal
                         src={href}
                         title={`Portal: ${name}`}
                         className="h-full w-full border-0"
-                        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
                     />
                 </div>
             </div>

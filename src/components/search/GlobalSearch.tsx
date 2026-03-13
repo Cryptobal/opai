@@ -39,6 +39,8 @@ type SearchResult = {
   badgeClass?: string;
   /** Photo/logo URL for guardias and accounts - shown in result icon */
   imageUrl?: string;
+  /** PIN de marcación - mostrado arriba a la derecha en fichas de guardia */
+  pinDisplay?: string;
 };
 
 const TYPE_CONFIG: Record<
@@ -314,13 +316,14 @@ export function GlobalSearch({
                 const showImage =
                   (result.type === "guardia" || result.type === "account") &&
                   result.imageUrl;
+                const isGuardia = result.type === "guardia";
                 return (
                   <button
                     key={`${result.type}-${result.id}`}
                     type="button"
                     onClick={() => selectResult(result)}
                     className={cn(
-                      "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
+                      "flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors",
                       globalIdx === activeIndex
                         ? "bg-accent text-foreground"
                         : "hover:bg-accent/50"
@@ -355,9 +358,16 @@ export function GlobalSearch({
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{result.title}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium truncate">{result.title}</p>
+                        {isGuardia && result.pinDisplay && (
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                            {result.pinDisplay}
+                          </span>
+                        )}
+                      </div>
                       {result.subtitle && (
-                        <p className="text-xs text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
                           {result.subtitle}
                         </p>
                       )}

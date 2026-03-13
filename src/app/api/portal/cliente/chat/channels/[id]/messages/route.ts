@@ -30,7 +30,7 @@ export async function GET(
     const { id: channelId } = await params;
 
     // Verify client has access to this channel
-    const hasAccess = await verifyClientChannelAccess(session.accountId, channelId);
+    const hasAccess = await verifyClientChannelAccess(session.accountId, channelId, session.contactId);
     if (!hasAccess) {
       return NextResponse.json(
         { success: false, error: "Canal no encontrado" },
@@ -183,7 +183,7 @@ export async function POST(
     const { id: channelId } = await params;
 
     // Verify client has access to this channel
-    const hasAccess = await verifyClientChannelAccess(session.accountId, channelId);
+    const hasAccess = await verifyClientChannelAccess(session.accountId, channelId, session.contactId);
     if (!hasAccess) {
       return NextResponse.json(
         { success: false, error: "Canal no encontrado" },

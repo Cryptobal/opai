@@ -20,6 +20,7 @@ export async function GET(
   const quote = await prisma.cpqQuote.findFirst({
     where: { id, accountId: session.accountId, tenantId: session.tenantId },
     include: {
+      parameters: { select: { salePriceMonthly: true } },
       positions: {
         select: {
           id: true,
@@ -71,11 +72,17 @@ export async function GET(
     } catch {}
   }
 
+  // Precio venta mensual neto cuando existe; sino monthlyCost
+  const salePriceClp = quote.parameters?.salePriceMonthly != null
+    ? Number(quote.parameters.salePriceMonthly)
+    : 0;
+  const rawMonthly = salePriceClp > 0 ? salePriceClp : (quote.monthlyCost?.toNumber() ?? 0);
+
   return NextResponse.json({
     success: true,
     data: {
       ...quote,
-      monthlyCost: convertCost(quote.monthlyCost?.toNumber() ?? 0),
+      monthlyCost: convertCost(rawMonthly),
       proposalLink,
       positions: quote.positions.map((p) => ({
         ...p,

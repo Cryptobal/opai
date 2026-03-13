@@ -175,14 +175,14 @@ export function PortalNosotros({ onNavigate }: Props) {
       <FadeIn>
         <div className="text-center py-6">
           <div
-            className="w-24 h-24 rounded-3xl mx-auto mb-5 flex items-center justify-center relative overflow-hidden"
+            className="w-24 h-24 rounded-3xl mx-auto mb-5 flex items-center justify-center relative overflow-hidden p-4"
             style={{
               background: "linear-gradient(135deg, rgba(45,212,191,0.2), rgba(14,165,233,0.1), rgba(139,92,246,0.08))",
               border: "1px solid rgba(45,212,191,0.2)",
               boxShadow: "0 0 60px rgba(45,212,191,0.15), inset 0 0 30px rgba(45,212,191,0.05)",
             }}
           >
-            <Shield className="w-12 h-12 text-teal-400 relative z-10" />
+            <img src="/logo-gard-blanco.svg" alt="Gard Security" className="w-full h-full object-contain relative z-10" />
           </div>
           <h1
             className="text-2xl font-bold mb-2"

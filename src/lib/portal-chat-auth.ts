@@ -51,14 +51,39 @@ export async function verifyGuardChannelAccess(guardiaId: string, channelId: str
   return guardia.asignaciones.some(a => a.installationId === channel.installationId);
 }
 
-export async function verifyClientChannelAccess(accountId: string, channelId: string): Promise<boolean> {
+export async function verifyClientChannelAccess(
+  accountId: string,
+  channelId: string,
+  contactId?: string
+): Promise<boolean> {
   const channel = await prisma.chatChannel.findUnique({
     where: { id: channelId },
-    select: { installationId: true },
+    select: {
+      channelType: true,
+      installationId: true,
+      accountId: true,
+    },
   });
-  if (!channel || !channel.installationId) return false;
+  if (!channel) return false;
 
-  // Check if the installation belongs to the client's account
+  // EXTERNAL: canal prospecto/ejecutivo — verificar accountId y que el contacto sea participante
+  if (channel.channelType === "EXTERNAL" && channel.accountId) {
+    if (channel.accountId !== accountId) return false;
+    if (contactId) {
+      const participant = await prisma.chatChannelParticipant.findFirst({
+        where: {
+          channelId,
+          participantType: "CONTACT",
+          participantId: contactId,
+        },
+      });
+      return !!participant;
+    }
+    return true;
+  }
+
+  // INSTALLATION: canal de instalación — verificar que la instalación pertenezca a la cuenta
+  if (!channel.installationId) return false;
   const installation = await prisma.crmInstallation.findFirst({
     where: { id: channel.installationId, accountId },
   });

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import {
-  Shield, Loader2, ChevronDown,
+  Loader2, ChevronDown,
 } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
@@ -320,7 +320,7 @@ export function PortalClienteClient() {
           {session?.accountLogoUrl ? (
             <img src={session.accountLogoUrl} alt="" className="h-8 w-8 rounded-lg border border-white/10 bg-white/5 object-contain" />
           ) : (
-            <Shield className="h-6 w-6 text-teal-400" />
+            <img src="/logo-gard-blanco.svg" alt="Gard Security" className="h-8 object-contain" />
           )}
           <div>
             <div className="flex items-center gap-1.5">

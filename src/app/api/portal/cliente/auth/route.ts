@@ -5,7 +5,7 @@ import { validateClienteSession, parsePortalClienteSessionCookie } from "@/lib/p
 import type { ClienteSession } from "@/lib/portal-cliente-types";
 
 const PORTAL_CLIENTE_SESSION_COOKIE = "portal_cliente_session";
-const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 días
+const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30 días — no botar al cliente al salir
 
 function setSessionCookie(session: ClienteSession) {
   const value = Buffer.from(JSON.stringify(session), "utf-8").toString("base64url");

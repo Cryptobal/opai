@@ -21,6 +21,8 @@ export type GlobalSearchResult = {
   badgeClass?: string;
   /** Photo/logo URL for guardias (faceIdPhotoUrl) and accounts (logoUrl) - shown in search result icon */
   imageUrl?: string;
+  /** PIN de marcación para guardias - siempre visible, mostrado arriba a la derecha */
+  pinDisplay?: string;
 };
 
 const LIFECYCLE_BADGE: Record<string, { label: string; class: string }> = {
@@ -386,15 +388,14 @@ export async function GET(request: NextRequest) {
           const apellidos = g.persona.lastName?.trim() ?? "";
           const title = apellidos ? `${apellidos}${primerNombre ? `, ${primerNombre}` : ""}` : (g.persona.firstName ?? "").trim() || "Guardia";
           const hasPin = Boolean(g.marcacionPin || g.marcacionPinVisible);
-          const pinText = g.marcacionPinVisible
+          const pinDisplay = g.marcacionPinVisible
             ? `PIN: ${g.marcacionPinVisible}`
             : g.marcacionPin
               ? "PIN: Configurado"
-              : "";
+              : "Sin PIN";
           const subtitleParts = [
             g.currentInstallation?.name,
             g.persona.rut ?? "",
-            pinText,
           ].filter(Boolean);
           const lifecycleBadge = LIFECYCLE_BADGE[g.lifecycleStatus] ?? { label: "Guardia", class: "bg-sky-400/20 text-sky-400" };
           results.push({
@@ -406,6 +407,7 @@ export async function GET(request: NextRequest) {
             badgeLabel: hasPin ? lifecycleBadge.label : "PIN No creado",
             badgeClass: hasPin ? lifecycleBadge.class : "bg-rose-500/20 text-rose-400",
             imageUrl: g.faceIdPhotoUrl ?? undefined,
+            pinDisplay,
           });
         }
       }

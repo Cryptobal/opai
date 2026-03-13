@@ -42,6 +42,8 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         code: true,
+        marcacionPin: true,
+        marcacionPinVisible: true,
         persona: {
           select: {
             firstName: true,
@@ -62,6 +64,7 @@ export async function GET(request: NextRequest) {
       title: string;
       subtitle?: string;
       href: string;
+      pinDisplay?: string;
     }[] = [];
 
     for (const g of guardias) {
@@ -72,7 +75,12 @@ export async function GET(request: NextRequest) {
         ? `${apellidos}${primerNombre ? `, ${primerNombre}` : ""}`
         : (g.persona.firstName ?? "").trim() || "Guardia";
 
-      // Subtitle: instalación actual · RUT
+      const pinDisplay = g.marcacionPinVisible
+        ? `PIN: ${g.marcacionPinVisible}`
+        : g.marcacionPin
+          ? "PIN: Configurado"
+          : "Sin PIN";
+
       const subtitleParts = [
         g.currentInstallation?.name,
         g.persona.rut ?? "",
@@ -84,6 +92,7 @@ export async function GET(request: NextRequest) {
         title,
         subtitle: subtitleParts.join(" · ") || undefined,
         href: `/personas/guardias/${g.id}`,
+        pinDisplay,
       });
     }
 

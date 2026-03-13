@@ -16,6 +16,7 @@ export async function GET() {
     where: { accountId: session.accountId, tenantId: session.tenantId },
     include: {
       positions: { select: { id: true, numGuards: true } },
+      parameters: { select: { salePriceMonthly: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -51,7 +52,11 @@ export async function GET() {
 
   const data = quotes.map((q) => {
     const deal = q.dealId ? dealMap.get(q.dealId) : null;
-    const rawCost = q.monthlyCost?.toNumber() ?? 0;
+    // Precio venta mensual neto (salePriceMonthly) cuando existe; sino monthlyCost (costo)
+    const salePriceClp = q.parameters?.salePriceMonthly != null
+      ? Number(q.parameters.salePriceMonthly)
+      : 0;
+    const rawCost = salePriceClp > 0 ? salePriceClp : (q.monthlyCost?.toNumber() ?? 0);
     const currency = (q.currency || "CLP") as string;
     const monthlyCost = currency === "UF" && ufValue > 0 ? clpToUf(rawCost, ufValue) : rawCost;
 

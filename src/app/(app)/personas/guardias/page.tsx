@@ -17,7 +17,7 @@ export default async function GuardiasPage() {
   }
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
-  const guardias = await prisma.opsGuardia.findMany({
+  const guardiasRaw = await prisma.opsGuardia.findMany({
     where: { tenantId },
     select: {
       id: true,
@@ -28,6 +28,8 @@ export default async function GuardiasPage() {
       blacklistReason: true,
       availableExtraShifts: true,
       faceIdPhotoUrl: true,
+      marcacionPin: true,
+      marcacionPinVisible: true,
       persona: {
         select: {
           firstName: true,
@@ -56,6 +58,12 @@ export default async function GuardiasPage() {
     },
     orderBy: [{ isBlacklisted: "asc" }, { createdAt: "desc" }],
   });
+
+  const guardias = guardiasRaw.map(({ marcacionPin, ...g }) => ({
+    ...g,
+    marcacionPinVisible: g.marcacionPinVisible,
+    marcacionPin: marcacionPin ? "[configurado]" : null,
+  }));
 
   return (
     <div className="space-y-6 min-w-0 overflow-x-hidden">

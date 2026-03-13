@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { Avatar, EmptyState } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, Loader2 } from "lucide-react";
+import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, Loader2, RefreshCw } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import {
@@ -78,6 +78,8 @@ type GuardiaItem = {
     hasMobilization?: boolean | null;
   };
   faceIdPhotoUrl?: string | null;
+  marcacionPin?: string | null;
+  marcacionPinVisible?: string | null;
   bankAccounts?: Array<{
     id: string;
     bankName: string;
@@ -151,6 +153,13 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
 
   const [contractDateModal, setContractDateModal] = useState<{ item: GuardiaItem; nextStatus: string } | null>(null);
   const [contractDate, setContractDate] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    router.refresh();
+    setTimeout(() => setRefreshing(false), 500);
+  };
 
   const ACCOUNT_TYPE_LABELS: Record<string, string> = {
     cuenta_corriente: "Cuenta corriente",
@@ -172,7 +181,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
       if (lifecycleFilter !== "all" && item.lifecycleStatus !== lifecycleFilter) return false;
       if (!query) return true;
       const text =
-        `${formatPersonName(item.persona.firstName, item.persona.lastName)} ${item.persona.rut ?? ""} ${item.persona.email ?? ""} ${item.code ?? ""} ${item.persona.addressFormatted ?? ""}`.toLowerCase();
+        `${formatPersonName(item.persona.firstName, item.persona.lastName)} ${item.persona.rut ?? ""} ${item.persona.email ?? ""} ${item.code ?? ""} ${item.persona.addressFormatted ?? ""} ${item.marcacionPinVisible ?? ""} ${item.currentInstallation?.name ?? ""}`.toLowerCase();
       return text.includes(query);
     });
   }, [guardias, search, lifecycleFilter]);
@@ -380,9 +389,27 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
     }
   };
 
+  const pinDisplay = (item: GuardiaItem) => {
+    if (item.marcacionPinVisible) return `PIN: ${item.marcacionPinVisible}`;
+    if (item.marcacionPin) return "PIN: Configurado";
+    return null;
+  };
+
   return (
     <div className="space-y-4 min-w-0 overflow-x-hidden">
       <div className="flex items-center justify-end gap-2 flex-wrap">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 px-2 text-xs"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          title="Recargar lista"
+        >
+          {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+          Recargar
+        </Button>
         {canIngresoTe && (
           <Button
             type="button"
@@ -740,9 +767,10 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                   >
                     <Avatar name={fullName} photoUrl={item.faceIdPhotoUrl} size="lg" />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold truncate">{fullName}</p>
-                        {canChangeLifecycle ? (
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                          <p className="text-sm font-semibold truncate">{fullName}</p>
+                          {canChangeLifecycle ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                               <button
@@ -779,6 +807,12 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                             {LIFECYCLE_LABELS[item.lifecycleStatus] || item.lifecycleStatus}
                           </span>
                         )}
+                        </div>
+                        {pinDisplay(item) && (
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                            {pinDisplay(item)}
+                          </span>
+                        )}
                       </div>
                       {item.code && (
                         <p className="text-[10px] text-muted-foreground/60 mt-0.5">{item.code}</p>
@@ -798,14 +832,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         <p className="text-xs text-muted-foreground mt-1">Sin teléfono</p>
                       )}
                       <div className="mt-1.5">
-                        {item.currentInstallation ? (
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <Building2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />
-                            <span className="text-xs font-medium truncate min-w-0">{item.currentInstallation.name}</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground/50 italic">Sin instalación</span>
-                        )}
+                        <p className="text-xs text-muted-foreground truncate">
+                          {[item.currentInstallation?.name, item.persona.rut].filter(Boolean).join(" · ") || "—"}
+                        </p>
                         {(item.persona.city || item.persona.commune) && (
                           <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
                             <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -854,9 +883,10 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
 
                     {/* Col 2: Nombre + estado + teléfono + mobile extras */}
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <p className="text-sm font-semibold truncate min-w-0">{fullName}</p>
-                        {canChangeLifecycle ? (
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p className="text-sm font-semibold truncate min-w-0">{fullName}</p>
+                          {canChangeLifecycle ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                               <button
@@ -893,8 +923,14 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                             {LIFECYCLE_LABELS[item.lifecycleStatus] || item.lifecycleStatus}
                           </span>
                         )}
-                        {item.code && (
-                          <span className="text-[10px] text-muted-foreground/60 shrink-0">{item.code}</span>
+                          {item.code && (
+                            <span className="text-[10px] text-muted-foreground/60 shrink-0">{item.code}</span>
+                          )}
+                        </div>
+                        {pinDisplay(item) && (
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                            {pinDisplay(item)}
+                          </span>
                         )}
                       </div>
                       {phone ? (

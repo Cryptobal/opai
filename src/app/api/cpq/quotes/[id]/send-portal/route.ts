@@ -141,18 +141,61 @@ export async function POST(
       pin = contact.portalPinVisible || "****";
     }
 
-    // 5. Update account: status = 'prospect' (if not active), portalEjecutivoId
+    // 5. Update account: status = 'prospect' (if not active), portalEjecutivoId (always set to sender)
     const accountUpdates: Record<string, unknown> = {};
     if (account.status !== "client_active") {
       accountUpdates.status = "prospect";
     }
-    if (!account.portalEjecutivoId) {
-      accountUpdates.portalEjecutivoId = ctx.userId;
-    }
-    if (Object.keys(accountUpdates).length > 0) {
-      await prisma.crmAccount.update({
-        where: { id: account.id },
-        data: accountUpdates,
+    // Siempre actualizar al ejecutivo que envía la cotización (quien envía es el ejecutivo asignado)
+    accountUpdates.portalEjecutivoId = ctx.userId;
+    await prisma.crmAccount.update({
+      where: { id: account.id },
+      data: accountUpdates,
+    });
+
+    // 5b. Crear o buscar canal EXTERNAL para chat prospecto-ejecutivo (1:1 contacto-ejecutivo)
+    const existingExternal = await prisma.chatChannel.findFirst({
+      where: {
+        tenantId: ctx.tenantId,
+        channelType: "EXTERNAL",
+        accountId: account.id,
+        isActive: true,
+        participants: {
+          some: { participantType: "CONTACT", participantId: contact.id },
+        },
+      },
+      include: { participants: true },
+    });
+
+    const hasEjecutivo =
+      existingExternal?.participants.some(
+        (p) => p.participantType === "ADMIN" && p.participantId === ctx.userId
+      ) ?? false;
+
+    if (!existingExternal) {
+      const channelName = `${contact.firstName} ${contact.lastName} · ${account.name}`;
+      await prisma.chatChannel.create({
+        data: {
+          tenantId: ctx.tenantId,
+          channelType: "EXTERNAL",
+          accountId: account.id,
+          name: channelName,
+          isActive: true,
+          participants: {
+            create: [
+              { participantType: "ADMIN", participantId: ctx.userId },
+              { participantType: "CONTACT", participantId: contact.id },
+            ],
+          },
+        },
+      });
+    } else if (!hasEjecutivo) {
+      await prisma.chatChannelParticipant.create({
+        data: {
+          channelId: existingExternal.id,
+          participantType: "ADMIN",
+          participantId: ctx.userId,
+        },
       });
     }
 
