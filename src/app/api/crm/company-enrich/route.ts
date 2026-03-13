@@ -270,7 +270,9 @@ async function downloadLogoToR2(logoUrl: string): Promise<string | null> {
         const isWhite = r >= whiteThreshold && g >= whiteThreshold && b >= whiteThreshold;
         if (isWhite) data[i * channels + 3] = 0;
       }
-      uploadBuffer = await sharp(Buffer.from(data.buffer as ArrayBuffer), { raw: { width, height, channels: 4 } }).png().toBuffer();
+      const rawCopy = Buffer.alloc(data.length);
+      for (let i = 0; i < data.length; i++) rawCopy[i] = data[i];
+      uploadBuffer = await sharp(rawCopy, { raw: { width, height, channels: 4 } }).png().toBuffer();
       fileName = `logo-${Date.now()}-${hash}.png`;
       mimeType = "image/png";
     } catch (logoErr) {
