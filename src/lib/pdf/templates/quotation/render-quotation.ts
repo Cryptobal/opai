@@ -106,6 +106,7 @@ export interface QuotationPDFProps {
     website: string;
     repLegalNombre?: string;
     brandNameUpper?: string;
+    logoUrl?: string;
   };
   includedItems: string[];
   aiDescription?: string;
@@ -137,6 +138,7 @@ export async function renderQuotationToBuffer(
     StyleSheet,
     Svg,
     Path,
+    Image: PDFImage,
   } = pdf;
 
   // Font registration — inline it since eval'd require can't resolve @/ aliases
@@ -498,7 +500,7 @@ export async function renderQuotationToBuffer(
 
   /* ─── Reusable sub-trees ─── */
 
-  const shield = e(
+  const shieldSvg = e(
     Svg,
     { width: 28, height: 28, viewBox: '0 0 24 24' },
     e(Path, {
@@ -510,6 +512,10 @@ export async function renderQuotationToBuffer(
       fill: C.white,
     }),
   );
+
+  const logoElement = companyConfig.logoUrl
+    ? e(PDFImage, { src: companyConfig.logoUrl, style: { height: 28, maxWidth: 120, objectFit: 'contain' as const } })
+    : shieldSvg;
 
   const sectionTitle = (text: string, num?: number) =>
     numbered && num != null
@@ -526,7 +532,7 @@ export async function renderQuotationToBuffer(
         e(
           View,
           null,
-          e(View, { style: s.brandRow }, shield, e(Text, { style: s.brandName }, brandName)),
+          e(View, { style: s.brandRow }, logoElement, e(Text, { style: s.brandName }, brandName)),
           subtitle
             ? e(Text, { style: s.brandSub }, subtitle)
             : null,

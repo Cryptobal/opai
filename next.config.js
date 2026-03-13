@@ -7,6 +7,7 @@ const nextConfig = {
     '/api/cpq/quotes/\\[id\\]/export-pdf': ['./public/fonts/**/*'],
     '/api/cpq/quotes/\\[id\\]/send-email': ['./public/fonts/**/*'],
     '/api/cpq/quotes/\\[id\\]/send-portal': ['./public/fonts/**/*'],
+    '/api/portal/cliente/cotizaciones/\\[id\\]/pdf': ['./public/fonts/**/*'],
   },
   turbopack: {
     root: __dirname,

@@ -8,36 +8,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { buildQuotationProps } from '@/lib/pdf/templates/quotation/build-quotation-props';
+import {
+  buildQuotationProps,
+  resolveCanonicalSections,
+} from '@/lib/pdf/templates/quotation/build-quotation-props';
 import { renderQuotationToBuffer } from '@/lib/pdf/templates/quotation/render-quotation';
 import { prisma } from '@/lib/prisma';
 import type { ProposalTemplateSections } from '@/types/cpq';
 
 export const runtime = 'nodejs';
-
-const DEFAULT_TEMPLATES_MAP: Record<string, Partial<ProposalTemplateSections>> = {
-  standard: {
-    showCoverPage: true, showCompanyIntro: true, showPositionsTable: true,
-    showCostBreakdown: false, showCostSummaryByCategory: false, showLaborDetail: false,
-    showEquipmentDetail: false, showVehicleDetail: false, showAdditionalServices: true,
-    showConditions: true, showIncludedItems: true, showSignature: true,
-    showComplianceSection: false, numberedSections: false, headerStyle: 'standard',
-  },
-  detailed: {
-    showCoverPage: true, showCompanyIntro: true, showPositionsTable: true,
-    showCostBreakdown: true, showCostSummaryByCategory: true, showLaborDetail: true,
-    showEquipmentDetail: true, showVehicleDetail: true, showAdditionalServices: true,
-    showConditions: true, showIncludedItems: true, showSignature: true,
-    showComplianceSection: false, numberedSections: false, headerStyle: 'detailed',
-  },
-  tender: {
-    showCoverPage: true, showCompanyIntro: true, showPositionsTable: true,
-    showCostBreakdown: true, showCostSummaryByCategory: true, showLaborDetail: true,
-    showEquipmentDetail: true, showVehicleDetail: true, showAdditionalServices: true,
-    showConditions: true, showIncludedItems: true, showSignature: true,
-    showComplianceSection: true, numberedSections: true, headerStyle: 'formal',
-  },
-};
 
 async function resolveTemplateSections(
   templateSlug: string,
@@ -50,8 +29,14 @@ async function resolveTemplateSections(
       OR: [{ tenantId }, { tenantId: null }],
     },
   });
-  if (dbTemplate) return (dbTemplate.sections ?? {}) as Partial<ProposalTemplateSections>;
-  return DEFAULT_TEMPLATES_MAP[templateSlug] ?? null;
+
+  if (dbTemplate) {
+    const dbSections = (dbTemplate.sections ?? {}) as Partial<ProposalTemplateSections>;
+    if (Object.keys(dbSections).length > 0) return dbSections;
+    return resolveCanonicalSections(templateSlug) ?? dbSections;
+  }
+
+  return resolveCanonicalSections(templateSlug) ?? null;
 }
 
 export async function GET(

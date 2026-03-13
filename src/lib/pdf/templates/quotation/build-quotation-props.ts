@@ -28,6 +28,44 @@ export interface BuildQuotationOptions {
   templateSectionsOverride?: Partial<ProposalTemplateSections>;
 }
 
+const CANONICAL_SECTIONS: Record<string, Partial<ProposalTemplateSections>> = {
+  standard: {
+    showCoverPage: true, showCompanyIntro: true, showPositionsTable: true,
+    showCostBreakdown: false, showCostSummaryByCategory: false, showLaborDetail: false,
+    showEquipmentDetail: false, showVehicleDetail: false, showAdditionalServices: true,
+    showConditions: true, showIncludedItems: true, showSignature: true,
+    showComplianceSection: false, numberedSections: false, headerStyle: 'standard',
+  },
+  detailed: {
+    showCoverPage: true, showCompanyIntro: true, showPositionsTable: true,
+    showCostBreakdown: true, showCostSummaryByCategory: true, showLaborDetail: true,
+    showEquipmentDetail: true, showVehicleDetail: true, showAdditionalServices: true,
+    showConditions: true, showIncludedItems: true, showSignature: true,
+    showComplianceSection: false, numberedSections: false, headerStyle: 'detailed',
+  },
+  tender: {
+    showCoverPage: true, showCompanyIntro: true, showPositionsTable: true,
+    showCostBreakdown: true, showCostSummaryByCategory: true, showLaborDetail: true,
+    showEquipmentDetail: true, showVehicleDetail: true, showAdditionalServices: true,
+    showConditions: true, showIncludedItems: true, showSignature: true,
+    showComplianceSection: true, numberedSections: true, headerStyle: 'formal',
+  },
+};
+
+const SLUG_ALIASES: Record<string, string> = {
+  estandar: 'standard', estándar: 'standard', standard: 'standard',
+  detallado: 'detailed', detailed: 'detailed',
+  licitacion: 'tender', licitación: 'tender', tender: 'tender',
+};
+
+export function resolveCanonicalSections(
+  slug: string | null | undefined,
+): Partial<ProposalTemplateSections> | undefined {
+  if (!slug) return undefined;
+  const canonical = SLUG_ALIASES[slug.toLowerCase()];
+  return canonical ? CANONICAL_SECTIONS[canonical] : undefined;
+}
+
 export async function buildQuotationProps(
   quoteId: string,
   tenantId: string,
@@ -305,8 +343,14 @@ export async function buildQuotationProps(
   }
 
   /* ── Template sections ── */
-  const rawSections = (options?.templateSectionsOverride ?? quote.proposalTemplate?.sections ?? {}) as Partial<ProposalTemplateSections>;
-  const templateSections: ProposalTemplateSections = { ...DEFAULT_TEMPLATE_SECTIONS, ...rawSections };
+  const dbSections = (quote.proposalTemplate?.sections ?? {}) as Partial<ProposalTemplateSections>;
+  const dbSectionsEmpty = Object.keys(dbSections).length === 0;
+  const slugFallback = resolveCanonicalSections(
+    (quote.proposalTemplate as { slug?: string } | null)?.slug
+  );
+  const effectiveSections = options?.templateSectionsOverride
+    ?? (dbSectionsEmpty && slugFallback ? slugFallback : dbSections);
+  const templateSections: ProposalTemplateSections = { ...DEFAULT_TEMPLATE_SECTIONS, ...effectiveSections };
 
   /* ── CostsByCategory from summary ── */
   const costsByCategory = summary?.costsByCategory ?? [];
@@ -389,6 +433,7 @@ export async function buildQuotationProps(
       website: companyConfig.website,
       repLegalNombre: companyConfig.repLegalNombre || undefined,
       brandNameUpper: companyConfig.brandNameUpper || undefined,
+      logoUrl: companyConfig.brandingLogoWhite || companyConfig.brandingLogoFull || companyConfig.logoUrl || undefined,
     },
     includedItems: quote.includedItems || [],
     aiDescription: sanitizeAiDescription(quote.aiDescription),
