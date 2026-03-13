@@ -14,12 +14,17 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { CpqCatalogConfig } from "@/components/cpq/CpqCatalogConfig";
 import { CpqSimpleCatalogConfig } from "@/components/cpq/CpqSimpleCatalogConfig";
+import { CpqTemplateConfig } from "@/components/cpq/CpqTemplateConfig";
+import { CpqCostCategoryConfig } from "@/components/cpq/CpqCostCategoryConfig";
+import { CpqDefaultsConfig } from "@/components/cpq/CpqDefaultsConfig";
 import {
-  Settings2,
   Package,
   Briefcase,
   Award,
   Users,
+  FileText,
+  FolderTree,
+  SlidersHorizontal,
 } from "lucide-react";
 
 const TABS = [
@@ -46,6 +51,24 @@ const TABS = [
     label: "Roles / Turnos",
     icon: Users,
     description: "Roles o turnos de trabajo",
+  },
+  {
+    id: "templates",
+    label: "Templates de Propuesta",
+    icon: FileText,
+    description: "Secciones y formato de propuestas comerciales",
+  },
+  {
+    id: "categorias",
+    label: "Categorías de Costos",
+    icon: FolderTree,
+    description: "Categorías para agrupar costos en propuestas",
+  },
+  {
+    id: "defaults",
+    label: "Valores por Defecto",
+    icon: SlidersHorizontal,
+    description: "Margen, modo de margen y template default",
   },
 ] as const;
 
@@ -114,6 +137,10 @@ export function CpqConfigTabs() {
             hasPattern={true}
           />
         )}
+
+        {activeTab === "templates" && <CpqTemplateConfig />}
+        {activeTab === "categorias" && <CpqCostCategoryConfig />}
+        {activeTab === "defaults" && <CpqDefaultsConfig />}
       </div>
     </div>
   );

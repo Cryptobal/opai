@@ -16,6 +16,9 @@ import {
 import { GardServiceIncludes } from "./GardServiceIncludes";
 import { WhatsAppButton } from "./WhatsAppButton";
 import { QuoteBreakdownPanel } from "@/components/cpq/QuoteBreakdownPanel";
+import { CostBreakdownPortal } from "./CostBreakdownPortal";
+import { CompliancePortal } from "./CompliancePortal";
+import { AdditionalServicesPortal } from "./AdditionalServicesPortal";
 
 /* ══════════════════════════════════════════════════════ */
 
@@ -200,14 +203,21 @@ export function CotizacionCard({
             </div>
           )}
 
-          {detail && (
+          {detail && (() => {
+            const sec = detail.templateSections;
+            const isDetailed = sec?.showCostBreakdown === true;
+            const isTender = sec?.showComplianceSection === true;
+            const currencyKey = detail.currency === "UF" ? "UF" : "CLP";
+            let sectionCounter = 0;
+
+            return (
             <>
               {/* Service detail / AI description */}
               {(detail.serviceDetail || detail.aiDescription) && (
                 <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
                   <div className="flex items-center gap-2 mb-1.5">
                     <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
-                      Detalle del servicio
+                      {isTender ? `${++sectionCounter}. ` : ""}Detalle del servicio
                     </h4>
                     {detail.aiDescription && (
                       <span className="text-[10px] uppercase tracking-wider bg-teal-500/10 text-teal-400/70 rounded-full px-2 py-0.5 font-medium">
@@ -224,69 +234,85 @@ export function CotizacionCard({
               {/* Gard service includes */}
               <GardServiceIncludes variant="full" />
 
-              {/* Positions + additional lines table */}
-              {(detail.positions.length > 0 || (detail.additionalLines && detail.additionalLines.length > 0)) && (
-                <div className="overflow-x-auto -mx-4 px-4">
-                  <table className="w-full text-xs min-w-[480px]">
-                    <thead>
-                      <tr className="text-zinc-500 border-b border-white/[0.06]">
-                        <th className="text-left py-2 pr-3 font-medium">Descripción</th>
-                        <th className="text-center py-2 pr-3 font-medium">Guardias</th>
-                        <th className="text-left py-2 pr-3 font-medium">Horario</th>
-                        <th className="text-left py-2 pr-3 font-medium">Días</th>
-                        <th className="text-right py-2 font-medium">Precio mensual</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detail.positions.map((pos) => (
-                        <tr key={pos.id} className="border-b border-white/[0.03] last:border-0">
-                          <td className="py-2 pr-3 text-zinc-200">
-                            {pos.customName ?? `Puesto ${pos.numPuestos ?? ""}`}
-                          </td>
-                          <td className="py-2 pr-3 text-center text-zinc-300">
-                            {pos.numGuards ?? "—"}
-                          </td>
-                          <td className="py-2 pr-3 text-zinc-400">
-                            {formatHorario(pos.startTime, pos.endTime)}
-                          </td>
-                          <td className="py-2 pr-3 text-zinc-400">
-                            {formatWeekdays(pos.weekdays)}
-                          </td>
-                          <td className="py-2 text-right text-teal-400 font-medium">
-                            {formatCurrency(pos.displayPrice ?? pos.monthlyPositionCost, detail.currency === "UF" ? "UF" : "CLP")}
-                          </td>
+              {/* Positions table */}
+              {detail.positions.length > 0 && (
+                <div className="space-y-1">
+                  {isTender && (
+                    <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      {++sectionCounter}. Dotación
+                    </h4>
+                  )}
+                  <div className="overflow-x-auto -mx-4 px-4">
+                    <table className="w-full text-xs min-w-[480px]">
+                      <thead>
+                        <tr className="text-zinc-500 border-b border-white/[0.06]">
+                          <th className="text-left py-2 pr-3 font-medium">Descripción</th>
+                          <th className="text-center py-2 pr-3 font-medium">Guardias</th>
+                          <th className="text-left py-2 pr-3 font-medium">Horario</th>
+                          <th className="text-left py-2 pr-3 font-medium">Días</th>
+                          <th className="text-right py-2 font-medium">Precio mensual</th>
                         </tr>
-                      ))}
-                      {detail.additionalLines?.map((line) => (
-                        <tr key={line.id} className="border-b border-white/[0.03] last:border-0">
-                          <td className="py-2 pr-3 text-zinc-200">
-                            {line.nombre}
-                            {line.descripcion && (
-                              <span className="block text-[10px] text-zinc-500 mt-0.5">{line.descripcion}</span>
-                            )}
-                          </td>
-                          <td className="py-2 pr-3 text-center text-zinc-500">—</td>
-                          <td className="py-2 pr-3 text-zinc-500">—</td>
-                          <td className="py-2 pr-3 text-zinc-500">—</td>
-                          <td className="py-2 text-right text-teal-400 font-medium">
-                            {formatCurrency(line.precio, detail.currency === "UF" ? "UF" : "CLP")}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t border-zinc-700">
-                        <td colSpan={4} className="py-2 pr-3 text-xs font-semibold text-zinc-400">
-                          Total mensual
-                        </td>
-                        <td className="py-2 text-right text-sm font-bold text-teal-300">
-                          {formatCurrency(detail.monthlyCost, detail.currency === "UF" ? "UF" : "CLP")}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {detail.positions.map((pos) => (
+                          <tr key={pos.id} className="border-b border-white/[0.03] last:border-0">
+                            <td className="py-2 pr-3 text-zinc-200">
+                              {pos.customName ?? `Puesto ${pos.numPuestos ?? ""}`}
+                            </td>
+                            <td className="py-2 pr-3 text-center text-zinc-300">
+                              {pos.numGuards ?? "—"}
+                            </td>
+                            <td className="py-2 pr-3 text-zinc-400">
+                              {formatHorario(pos.startTime, pos.endTime)}
+                            </td>
+                            <td className="py-2 pr-3 text-zinc-400">
+                              {formatWeekdays(pos.weekdays)}
+                            </td>
+                            <td className="py-2 text-right text-teal-400 font-medium">
+                              {formatCurrency(pos.displayPrice ?? pos.monthlyPositionCost, currencyKey)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
+
+              {/* Cost breakdown by category — Detailed / Tender templates */}
+              {isDetailed && detail.costsByCategory && detail.costsByCategory.length > 0 && (
+                <CostBreakdownPortal
+                  categories={detail.costsByCategory}
+                  currency={currencyKey}
+                  numbered={isTender}
+                />
+              )}
+
+              {/* Additional services — enhanced display */}
+              {detail.additionalLines && detail.additionalLines.length > 0 && (
+                <AdditionalServicesPortal
+                  lines={detail.additionalLines}
+                  currency={currencyKey}
+                />
+              )}
+
+              {/* Compliance — Tender template only */}
+              {isTender && (
+                <CompliancePortal
+                  numbered={true}
+                  sectionNumber={++sectionCounter}
+                />
+              )}
+
+              {/* Total card */}
+              <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 px-4 py-3 flex items-center justify-between">
+                <span className="text-xs font-semibold text-zinc-400">
+                  {isTender ? `${++sectionCounter}. ` : ""}Total mensual
+                </span>
+                <span className="text-sm font-bold text-teal-300">
+                  {formatCurrency(detail.monthlyCost, currencyKey)}
+                </span>
+              </div>
 
               {detail.positions.length === 0 && !detail.additionalLines?.length && (
                 <p className="text-xs text-zinc-500">Sin posiciones detalladas.</p>
@@ -335,7 +361,7 @@ export function CotizacionCard({
                 </div>
               )}
 
-              {/* Cost breakdown */}
+              {/* Cost breakdown — full transparent (always if available) */}
               {detail.costBreakdown && (
                 <div className="rounded-xl border border-white/[0.07] overflow-hidden">
                   <button
@@ -454,7 +480,8 @@ export function CotizacionCard({
                 </p>
               </div>
             </>
-          )}
+            );
+          })()}
         </div>
       )}
     </div>

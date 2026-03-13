@@ -9,15 +9,21 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 
 const KEY_PREFIX = "cpq.";
-const DEFAULTS = {
+const NUMERIC_DEFAULTS: Record<string, number> = {
   monthlyHoursStandard: 180,
   avgStayMonths: 4,
   uniformChangesPerYear: 3,
   holidayAnnualCount: 12,
   holidayCommercialBufferPct: 10,
+  defaultMarginPct: 13,
 };
+const STRING_DEFAULTS: Record<string, string> = {
+  defaultMarginMode: "sobre_venta",
+  defaultProposalTemplateId: "",
+};
+const DEFAULTS = { ...NUMERIC_DEFAULTS };
 
-const buildKey = (key: keyof typeof DEFAULTS) => `${KEY_PREFIX}${key}`;
+const buildKey = (key: string) => `${KEY_PREFIX}${key}`;
 
 export async function GET() {
   try {
@@ -26,29 +32,32 @@ export async function GET() {
     const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
     if (forbiddenMod) return forbiddenMod;
     const tenantId = ctx.tenantId;
-    const keys = Object.keys(DEFAULTS).map((key) => buildKey(key as keyof typeof DEFAULTS));
+    const allKeys = [...Object.keys(NUMERIC_DEFAULTS), ...Object.keys(STRING_DEFAULTS)].map(buildKey);
     const settings = await prisma.setting.findMany({
-      where: {
-        key: { in: keys },
-        tenantId,
-      },
+      where: { key: { in: allKeys }, tenantId },
     });
 
-    const data = { ...DEFAULTS } as Record<string, number>;
+    const numData = { ...NUMERIC_DEFAULTS } as Record<string, number>;
+    const strData = { ...STRING_DEFAULTS } as Record<string, string>;
     for (const setting of settings) {
       const rawKey = setting.key.replace(KEY_PREFIX, "");
-      const value = Number(setting.value);
-      if (!Number.isNaN(value)) data[rawKey] = value;
+      if (rawKey in NUMERIC_DEFAULTS) {
+        const value = Number(setting.value);
+        if (!Number.isNaN(value)) numData[rawKey] = value;
+      } else if (rawKey in STRING_DEFAULTS) {
+        strData[rawKey] = setting.value ?? STRING_DEFAULTS[rawKey];
+      }
     }
 
-    const holidayMonthlyFactor = (data.holidayAnnualCount || 0) / 12;
-    const holidayCommercialFactor = 1 + (data.holidayCommercialBufferPct || 0) / 100;
+    const holidayMonthlyFactor = (numData.holidayAnnualCount || 0) / 12;
+    const holidayCommercialFactor = 1 + (numData.holidayCommercialBufferPct || 0) / 100;
     const holidayTotalFactor = 0.5 * holidayMonthlyFactor * holidayCommercialFactor;
 
     return NextResponse.json({
       success: true,
       data: {
-        ...data,
+        ...numData,
+        ...strData,
         holidayMonthlyFactor,
         holidayCommercialFactor,
         holidayTotalFactor,
@@ -72,25 +81,32 @@ export async function PUT(request: NextRequest) {
     const tenantId = ctx.tenantId;
     const body = await request.json();
 
-    const entries = Object.keys(DEFAULTS).map((key) => {
-      const value = body?.[key] ?? DEFAULTS[key as keyof typeof DEFAULTS];
-      return { key, value };
-    });
+    const numericEntries = Object.keys(NUMERIC_DEFAULTS).map((key) => ({
+      key,
+      value: String(body?.[key] ?? NUMERIC_DEFAULTS[key]),
+      type: "number" as const,
+    }));
+    const stringEntries = Object.keys(STRING_DEFAULTS).map((key) => ({
+      key,
+      value: String(body?.[key] ?? STRING_DEFAULTS[key]),
+      type: "string" as const,
+    }));
+    const allEntries = [...numericEntries, ...stringEntries];
 
     await prisma.$transaction(
-      entries.map((entry) =>
+      allEntries.map((entry) =>
         prisma.setting.upsert({
-          where: { key: buildKey(entry.key as keyof typeof DEFAULTS) },
+          where: { key: buildKey(entry.key) },
           update: {
-            value: String(entry.value ?? 0),
-            type: "number",
+            value: entry.value,
+            type: entry.type,
             category: "cpq",
             tenantId,
           },
           create: {
-            key: buildKey(entry.key as keyof typeof DEFAULTS),
-            value: String(entry.value ?? 0),
-            type: "number",
+            key: buildKey(entry.key),
+            value: entry.value,
+            type: entry.type,
             category: "cpq",
             tenantId,
           },

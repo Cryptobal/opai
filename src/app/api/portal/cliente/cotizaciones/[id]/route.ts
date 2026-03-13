@@ -34,6 +34,9 @@ export async function GET(
           monthlyHoursStandard: true,
         },
       },
+      proposalTemplate: {
+        select: { id: true, name: true, slug: true, sections: true },
+      },
       positions: {
         select: {
           id: true,
@@ -50,7 +53,10 @@ export async function GET(
         orderBy: { createdAt: "asc" },
       },
       additionalLines: {
-        select: { id: true, nombre: true, descripcion: true, precio: true, orden: true },
+        select: {
+          id: true, nombre: true, descripcion: true, precio: true,
+          orden: true, tipo: true, recurrencia: true, cantidad: true, marginPct: true,
+        },
         orderBy: { orden: "asc" },
       },
       attachments: {
@@ -273,6 +279,52 @@ export async function GET(
     // Non-critical — return quote without breakdown
   }
 
+  /* ── Build costs by category for "Detailed" portal view ── */
+  let costsByCategory: Array<{ category: string; slug: string; type: string; items: Array<{ name: string; value: number }>; subtotal: number }> | undefined;
+  try {
+    if (costSummary) {
+      const costItems = await prisma.cpqQuoteCostItem.findMany({
+        where: { quoteId: id, isEnabled: true },
+        include: { catalogItem: true },
+      });
+      const categories = await prisma.cpqCostCategory.findMany({
+        where: { active: true, OR: [{ tenantId: session.tenantId }, { tenantId: null }] },
+        orderBy: [{ type: "asc" }, { sortOrder: "asc" }],
+      });
+      const catMap = new Map(categories.map((c) => [c.slug, c]));
+
+      const grouped = new Map<string, { category: string; slug: string; type: string; items: Array<{ name: string; value: number }>; subtotal: number }>();
+      for (const item of costItems) {
+        const cat = item.catalogItem;
+        if (!cat) continue;
+        const catSlug = (cat as Record<string, unknown>).type as string ?? "other";
+        const catInfo = catMap.get(catSlug);
+        if (!grouped.has(catSlug)) {
+          grouped.set(catSlug, {
+            category: catInfo?.name ?? catSlug,
+            slug: catSlug,
+            type: catInfo?.type ?? "indirect",
+            items: [],
+            subtotal: 0,
+          });
+        }
+        const base = Number(cat.basePrice || 0);
+        const override = item.unitPriceOverride != null ? Number(item.unitPriceOverride) : null;
+        const unitPrice = override ?? base;
+        const qty = Number(item.quantity ?? 1);
+        const totalGuards = costSummary.totalGuards;
+        const val = item.calcMode === "per_guard" ? unitPrice * qty * totalGuards : unitPrice * qty;
+        const entry = grouped.get(catSlug)!;
+        entry.items.push({ name: cat.name, value: convertCost(val) });
+        entry.subtotal += val;
+      }
+      for (const e of grouped.values()) e.subtotal = convertCost(e.subtotal);
+      costsByCategory = Array.from(grouped.values()).filter((g) => g.items.length > 0);
+    }
+  } catch {}
+
+  const templateSections = (quote.proposalTemplate?.sections ?? null) as Record<string, boolean> | null;
+
   return NextResponse.json({
     success: true,
     data: {
@@ -281,8 +333,14 @@ export async function GET(
       proposalLink,
       positions: positionsWithPrice,
       additionalLines: quote.additionalLines.map((l) => ({
-        ...l,
+        id: l.id,
+        nombre: l.nombre,
+        descripcion: l.descripcion,
         precio: convertCost(Number(l.precio) || 0),
+        orden: l.orden,
+        tipo: l.tipo,
+        recurrencia: l.recurrencia,
+        cantidad: l.cantidad,
       })),
       attachments: quote.attachments?.map((a) => ({
         id: a.id,
@@ -292,6 +350,9 @@ export async function GET(
         publicUrl: a.publicUrl,
       })) ?? [],
       costBreakdown,
+      templateSlug: quote.proposalTemplate?.slug ?? "standard",
+      templateSections,
+      costsByCategory,
     },
   });
 }

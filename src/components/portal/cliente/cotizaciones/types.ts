@@ -40,6 +40,9 @@ export interface AdditionalLine {
   descripcion: string | null;
   precio: number;
   orden: number;
+  tipo?: string;
+  recurrencia?: string;
+  cantidad?: number;
 }
 
 export interface QuoteAttachment {
@@ -48,6 +51,14 @@ export interface QuoteAttachment {
   mimeType: string;
   size: number;
   publicUrl: string | null;
+}
+
+export interface CostByCategoryPortal {
+  category: string;
+  slug: string;
+  type: string;
+  items: Array<{ name: string; value: number }>;
+  subtotal: number;
 }
 
 export interface QuoteDetail extends QuoteSummary {
@@ -59,6 +70,9 @@ export interface QuoteDetail extends QuoteSummary {
   serviceDetail: string | null;
   /** Full transparent cost breakdown for client display */
   costBreakdown?: import("@/types/cpq-breakdown").QuoteBreakdownData;
+  templateSlug?: string;
+  templateSections?: Record<string, boolean> | null;
+  costsByCategory?: CostByCategoryPortal[];
 }
 
 export interface DealGroup {
