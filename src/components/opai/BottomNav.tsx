@@ -166,7 +166,7 @@ function SectionBottomNav({
 }) {
   const [activeSection, setActiveSection] = useState(items[0]?.key.replace('section-', '') || '');
   const isClickScrolling = useRef(false);
-  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const compact = items.length > 5;
 
   // IntersectionObserver to track active section

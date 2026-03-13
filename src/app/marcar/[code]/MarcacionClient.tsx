@@ -479,8 +479,8 @@ function MarcarScreen({
   geoCoords: { lat: number; lng: number } | null;
   cameraActive: boolean;
   fotoBase64: string | null;
-  videoRef: React.RefObject<HTMLVideoElement>;
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   onRequestGeo: () => void;
   onStartCamera: () => void;
   onCapturePhoto: () => void;

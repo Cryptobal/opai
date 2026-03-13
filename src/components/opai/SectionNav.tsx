@@ -112,7 +112,7 @@ function HorizontalSectionNav({
   const [hasOverflow, setHasOverflow] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
   const isClickScrolling = useRef(false);
-  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     const sectionIds = sections.map((s) => `section-${s.key}`);
@@ -327,7 +327,7 @@ function VerticalSectionNav({
   // Expandido en tablet+ (≥768px), colapsado solo en móvil
   const [isExpanded, setIsExpanded] = useState(windowWidth >= 768);
   const isClickScrolling = useRef(false);
-  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Auto-collapse/expand on resize
   useEffect(() => {

@@ -158,8 +158,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [secMargen, setSecMargen] = useState(true);
   const initialLoadDone = useRef(false);
   const skipAutoSave = useRef(false);
-  const financialsAutoSaveTimer = useRef<NodeJS.Timeout>();
-  const quoteFormAutoSaveTimer = useRef<NodeJS.Timeout>();
+  const financialsAutoSaveTimer = useRef<NodeJS.Timeout | undefined>(undefined);
+  const quoteFormAutoSaveTimer = useRef<NodeJS.Timeout | undefined>(undefined);
   const formatDateInput = (value?: string | null) => (value ? value.split("T")[0] : "");
   const formatTime = (value: Date) =>
     value.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
