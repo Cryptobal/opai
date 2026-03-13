@@ -193,8 +193,9 @@ export function ChatSidePanelProvider({
       const res = await fetch("/api/chat/read-all", { method: "POST" });
       if (!res.ok) return;
       setChannels((prev) => prev.map((ch) => ({ ...ch, unreadCount: 0 })));
+      await fetchChannels();
     } catch {}
-  }, []);
+  }, [fetchChannels]);
 
   const updateChannelNotifPref = useCallback(async (channelId: string, preference: NotifPreference) => {
     setChannels((prev) =>

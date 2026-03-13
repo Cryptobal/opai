@@ -257,47 +257,49 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-[rgba(255,255,255,0.06)] bg-muted/40 placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-teal-600/50 focus:border-teal-600/50"
           />
         </div>
-        {/* Filter chips + Marcar todos como leídos */}
-        <div className="px-0 pb-2 pt-2 flex flex-wrap items-center gap-1.5 shrink-0">
+        {/* Filtros + Marcar todos leídos */}
+        <div className="px-0 pb-2 pt-2 space-y-2 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors",
+                filter === "all"
+                  ? "bg-teal-600 text-white"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
+              )}
+            >
+              Todos
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("unread")}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors",
+                filter === "unread"
+                  ? "bg-teal-600 text-white"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
+              )}
+            >
+              No leídos
+              {ctx.totalUnread > 0 && filter !== "unread" && (
+                <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600/30 px-1 text-[9px] font-bold text-teal-400">
+                  {ctx.totalUnread > 99 ? "99+" : ctx.totalUnread}
+                </span>
+              )}
+            </button>
+          </div>
           {ctx.totalUnread > 0 && (
             <button
               type="button"
-              onClick={() => ctx.markAllChannelsAsRead()}
-              className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium bg-teal-600/20 text-teal-400 hover:bg-teal-600/30 transition-colors"
+              onClick={async () => { await ctx.markAllChannelsAsRead(); }}
+              className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-[11px] font-medium bg-teal-600/15 text-teal-400 hover:bg-teal-600/25 border border-teal-600/30 transition-colors"
             >
-              <CheckCheck className="h-3 w-3" />
-              Marcar todos leídos
+              <CheckCheck className="h-3.5 w-3.5" />
+              Marcar todos como leídos
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setFilter("all")}
-            className={cn(
-              "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
-              filter === "all"
-                ? "bg-teal-600 text-white"
-                : "bg-muted/50 text-muted-foreground hover:bg-muted"
-            )}
-          >
-            Todos
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter("unread")}
-            className={cn(
-              "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
-              filter === "unread"
-                ? "bg-teal-600 text-white"
-                : "bg-muted/50 text-muted-foreground hover:bg-muted"
-            )}
-          >
-            No leídos
-            {ctx.totalUnread > 0 && filter !== "unread" && (
-              <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600/30 px-1 text-[9px] font-bold text-teal-400">
-                {ctx.totalUnread > 99 ? "99+" : ctx.totalUnread}
-              </span>
-            )}
-          </button>
         </div>
       </div>
 
@@ -707,72 +709,76 @@ function GroupChannelsSection({
 
   return (
     <div>
-      <div className="flex items-center group/section">
+      <div className="flex items-center w-full group/section gap-1">
         <button
           type="button"
           onClick={onToggle}
-          className="flex-1 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors"
+          className="flex-1 min-w-0 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors text-left"
         >
           {collapsed ? (
             <ChevronRight className="h-3 w-3 shrink-0" />
           ) : (
             <ChevronDown className="h-3 w-3 shrink-0" />
           )}
-          <Users className="h-3.5 w-3.5 text-amber-500" />
-          <span className="flex-1 text-left">Grupos</span>
+          <Users className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+          <span className="truncate">Grupos</span>
+        </button>
+        <div className="flex shrink-0 items-center gap-1 pr-2">
           {showSectionNotifMenu && (
-            <span className="text-muted-foreground/60" title={
+            <span className="w-4 h-4 flex items-center justify-center text-muted-foreground/60" title={
               sectionPref === "ALL" ? "Notificar todo" : sectionPref === "MENTIONS_ONLY" ? "Solo menciones" : "Silenciado"
             }>
-              {sectionPref === "MUTED" && <BellOff className="h-3 w-3 shrink-0" />}
-              {sectionPref === "MENTIONS_ONLY" && <AtSign className="h-3 w-3 shrink-0" />}
-              {sectionPref === "ALL" && <Bell className="h-3 w-3 shrink-0" />}
+              {sectionPref === "MUTED" && <BellOff className="h-3 w-3" />}
+              {sectionPref === "MENTIONS_ONLY" && <AtSign className="h-3 w-3" />}
+              {sectionPref === "ALL" && <Bell className="h-3 w-3" />}
             </span>
           )}
-          <span className="min-w-[20px] text-right text-[10px] font-normal normal-case tracking-normal tabular-nums text-muted-foreground/70">
+          <span className="w-5 text-right text-[10px] font-normal tabular-nums text-muted-foreground/70">
             {groupChannels.length}
           </span>
-          {sectionUnread > 0 && (
-            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600 px-1 text-[9px] font-bold text-white">
+          {sectionUnread > 0 ? (
+            <span className="flex h-4 min-w-[18px] items-center justify-center rounded-full bg-teal-600 px-1.5 text-[9px] font-bold text-white">
               {sectionUnread > 99 ? "99+" : sectionUnread}
             </span>
+          ) : (
+            <span className="w-[18px]" />
           )}
-        </button>
-        {showSectionNotifMenu && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="opacity-0 group-hover/section:opacity-100 mr-2 h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-                onClick={(e) => e.stopPropagation()}
-                aria-label="Notificaciones de la sección Grupos"
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="z-[70] w-52">
-              <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                Notificaciones para todos los grupos ({groupChannels.length} canales)
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onApplySectionNotifPref!(groupChannels.map((c) => c.id), "ALL")}>
-                <Bell className="h-3.5 w-3.5 mr-2" />
-                Notificar todo
-                {sectionPref === "ALL" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onApplySectionNotifPref!(groupChannels.map((c) => c.id), "MENTIONS_ONLY")}>
-                <AtSign className="h-3.5 w-3.5 mr-2" />
-                Solo menciones
-                {sectionPref === "MENTIONS_ONLY" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onApplySectionNotifPref!(groupChannels.map((c) => c.id), "MUTED")}>
-                <BellOff className="h-3.5 w-3.5 mr-2" />
-                Silenciar
-                {sectionPref === "MUTED" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+          {showSectionNotifMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground opacity-0 group-hover/section:opacity-100 transition-opacity"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="Notificaciones de la sección Grupos"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="z-[70] w-52">
+                <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  Notificaciones para todos los grupos ({groupChannels.length} canales)
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onApplySectionNotifPref!(groupChannels.map((c) => c.id), "ALL")}>
+                  <Bell className="h-3.5 w-3.5 mr-2" />
+                  Notificar todo
+                  {sectionPref === "ALL" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onApplySectionNotifPref!(groupChannels.map((c) => c.id), "MENTIONS_ONLY")}>
+                  <AtSign className="h-3.5 w-3.5 mr-2" />
+                  Solo menciones
+                  {sectionPref === "MENTIONS_ONLY" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onApplySectionNotifPref!(groupChannels.map((c) => c.id), "MUTED")}>
+                  <BellOff className="h-3.5 w-3.5 mr-2" />
+                  Silenciar
+                  {sectionPref === "MUTED" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
       {!collapsed && (
         <div className="divide-y divide-border/20">
@@ -941,11 +947,11 @@ function ChannelSection({
 
   return (
     <div>
-      <div className="flex items-center group/section">
+      <div className="flex items-center w-full group/section gap-1">
         <button
           type="button"
           onClick={onToggle}
-          className="flex-1 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors"
+          className="flex-1 min-w-0 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors text-left"
         >
           {collapsed ? (
             <ChevronRight className="h-3 w-3 shrink-0" />
@@ -953,70 +959,74 @@ function ChannelSection({
             <ChevronDown className="h-3 w-3 shrink-0" />
           )}
           {icon}
-          <span className="flex-1 text-left">{label}</span>
-          {showSectionNotifMenu && (
-            <span className="text-muted-foreground/60" title={
+          <span className="truncate">{label}</span>
+        </button>
+        {/* Columna derecha alineada: notif | count | badge | menu | plus */}
+        <div className="flex shrink-0 items-center gap-1 pr-2">
+          <span className="w-4 h-4 flex shrink-0 items-center justify-center text-muted-foreground/60" title={
               sectionPref === "ALL" ? "Notificar todo" : sectionPref === "MENTIONS_ONLY" ? "Solo menciones" : "Silenciado"
             }>
-              {sectionPref === "MUTED" && <BellOff className="h-3 w-3 shrink-0" />}
-              {sectionPref === "MENTIONS_ONLY" && <AtSign className="h-3 w-3 shrink-0" />}
-              {sectionPref === "ALL" && <Bell className="h-3 w-3 shrink-0" />}
+              {sectionPref === "MUTED" && <BellOff className="h-3 w-3" />}
+              {sectionPref === "MENTIONS_ONLY" && <AtSign className="h-3 w-3" />}
+              {sectionPref === "ALL" && <Bell className="h-3 w-3" />}
             </span>
           )}
-          <span className="min-w-[20px] text-right text-[10px] font-normal normal-case tracking-normal tabular-nums text-muted-foreground/70">
+          <span className="w-5 text-right text-[10px] font-normal tabular-nums text-muted-foreground/70">
             {channels.length}
           </span>
-          {sectionUnread > 0 && (
-            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600 px-1 text-[9px] font-bold text-white">
+          {sectionUnread > 0 ? (
+            <span className="flex h-4 min-w-[18px] items-center justify-center rounded-full bg-teal-600 px-1.5 text-[9px] font-bold text-white">
               {sectionUnread > 99 ? "99+" : sectionUnread}
             </span>
+          ) : (
+            <span className="w-[18px]" />
           )}
-        </button>
-        {showSectionNotifMenu && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="opacity-0 group-hover/section:opacity-100 mr-2 h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-                onClick={(e) => e.stopPropagation()}
-                aria-label="Notificaciones de la sección"
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="z-[70] w-52">
-              <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                Notificaciones para {channels.length} canal{channels.length !== 1 ? "es" : ""}
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onApplySectionNotifPref!(channels.map((c) => c.id), "ALL")}>
-                <Bell className="h-3.5 w-3.5 mr-2" />
-                Notificar todo
-                {sectionPref === "ALL" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onApplySectionNotifPref!(channels.map((c) => c.id), "MENTIONS_ONLY")}>
-                <AtSign className="h-3.5 w-3.5 mr-2" />
-                Solo menciones
-                {sectionPref === "MENTIONS_ONLY" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onApplySectionNotifPref!(channels.map((c) => c.id), "MUTED")}>
-                <BellOff className="h-3.5 w-3.5 mr-2" />
-                Silenciar
-                {sectionPref === "MUTED" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-        {onNewChat && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onNewChat(); }}
-            className="mr-3 h-4 w-4 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-foreground"
-            aria-label="Nuevo chat"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-        )}
+          {showSectionNotifMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground opacity-0 group-hover/section:opacity-100 transition-opacity"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="Notificaciones de la sección"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="z-[70] w-52">
+                <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  Notificaciones para {channels.length} canal{channels.length !== 1 ? "es" : ""}
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onApplySectionNotifPref!(channels.map((c) => c.id), "ALL")}>
+                  <Bell className="h-3.5 w-3.5 mr-2" />
+                  Notificar todo
+                  {sectionPref === "ALL" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onApplySectionNotifPref!(channels.map((c) => c.id), "MENTIONS_ONLY")}>
+                  <AtSign className="h-3.5 w-3.5 mr-2" />
+                  Solo menciones
+                  {sectionPref === "MENTIONS_ONLY" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onApplySectionNotifPref!(channels.map((c) => c.id), "MUTED")}>
+                  <BellOff className="h-3.5 w-3.5 mr-2" />
+                  Silenciar
+                  {sectionPref === "MUTED" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {onNewChat && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onNewChat(); }}
+              className="h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label="Nuevo chat"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       </div>
       {!collapsed && (
         <div className="divide-y divide-border/20">
