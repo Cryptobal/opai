@@ -3,13 +3,10 @@ const { withSentryConfig } = require("@sentry/nextjs");
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: __dirname,
-  experimental: {
-    outputFileTracingIncludes: {
-      "/api/cpq/quotes/[id]/export-pdf": ["./public/fonts/**"],
-      "/api/cpq/quotes/[id]/send-pdf-email": ["./public/fonts/**"],
-      "/api/cpq/quotes/[id]/send-email": ["./public/fonts/**"],
-      "/api/portal/cliente/cotizaciones/[id]/pdf": ["./public/fonts/**"],
-    },
+  outputFileTracingIncludes: {
+    '/api/cpq/quotes/\\[id\\]/export-pdf': ['./public/fonts/**/*'],
+    '/api/cpq/quotes/\\[id\\]/send-email': ['./public/fonts/**/*'],
+    '/api/cpq/quotes/\\[id\\]/send-portal': ['./public/fonts/**/*'],
   },
   turbopack: {
     root: __dirname,
