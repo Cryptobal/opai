@@ -11,6 +11,8 @@
  * DO NOT convert this to JSX or use import/await import for react/@react-pdf.
  */
 
+import type { QuoteBreakdownData } from '@/types/cpq-breakdown';
+
 export interface QuotationPDFProps {
   quote: {
     code: string;
@@ -59,6 +61,8 @@ export interface QuotationPDFProps {
   includedItems: string[];
   aiDescription?: string;
   serviceDetail?: string;
+  /** Full transparent cost breakdown — adds page 3 to the PDF */
+  breakdown?: QuoteBreakdownData;
 }
 
 export async function renderQuotationToBuffer(
@@ -395,6 +399,7 @@ export async function renderQuotationToBuffer(
     includedItems,
     aiDescription,
     serviceDetail,
+    breakdown,
   } = props;
 
   const dateStr = new Date().toLocaleDateString('es-CL');
@@ -575,6 +580,12 @@ export async function renderQuotationToBuffer(
     : null;
 
   /* ─── Footer ─── */
+  /* ─── Currency format helper ─── */
+  const fmtMoney = (n: number) =>
+    new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Math.round(n));
+
+  const totalPages = breakdown ? '3' : '2';
+
   const pageFooter = (label: string) =>
     e(
       View,
@@ -623,7 +634,7 @@ export async function renderQuotationToBuffer(
         ),
         e(Text, { style: s.netNote }, 'Valores netos. IVA se factura segun ley vigente.'),
       ),
-      pageFooter('1/2'),
+      pageFooter(`1/${totalPages}`),
     ),
 
     // ─── PAGE 2: Condiciones Comerciales ───
@@ -712,8 +723,102 @@ export async function renderQuotationToBuffer(
             : null,
         ),
       ),
-      pageFooter('2/2'),
+      pageFooter(`2/${totalPages}`),
     ),
+
+    // ─── PAGE 3: Estructura de Costos (optional) ───
+    breakdown
+      ? e(
+          Page,
+          { size: 'A4', style: s.page },
+          header(false),
+          e(
+            View,
+            { style: s.body },
+            e(Text, { style: s.sectionTitle }, 'Estructura de Costos'),
+
+            // Mano de Obra
+            e(
+              View,
+              { style: { marginBottom: 8 } },
+              e(
+                View,
+                { style: [s.tblRow, { backgroundColor: '#dbeafe' }] },
+                e(Text, { style: [s.tblCellBold, { flex: 3, color: '#1d4ed8' }] }, 'Mano de Obra'),
+                e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#1d4ed8' }] }, fmtMoney(breakdown.totalLaborCost)),
+              ),
+              breakdown.positions.reduce<unknown[]>((acc, pos) => {
+                const imp = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
+                const prov = pos.vacationProvision + pos.severanceProvision;
+                if (pos.totalImponible > 0) acc.push(e(View, { key: `${pos.id}-imp`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} - Sueldo imponible`), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(pos.totalImponible))));
+                if (imp > 0) acc.push(e(View, { key: `${pos.id}-sis`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} - Imposiciones (SIS+AFC+Mutual)`), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(imp))));
+                if (prov > 0) acc.push(e(View, { key: `${pos.id}-prov`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} - Provisiones (vacac.+finiquito)`), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(prov))));
+                return acc;
+              }, []),
+            ),
+
+            // Costos Directos
+            (breakdown.holidayAdjustment + breakdown.uniforms + breakdown.exams + breakdown.meals) > 0
+              ? e(
+                  View,
+                  { style: { marginBottom: 8 } },
+                  e(View, { style: [s.tblRow, { backgroundColor: '#ccfbf1' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#0d9488' }] }, 'Costos Directos'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#0d9488' }] }, fmtMoney(breakdown.holidayAdjustment + breakdown.uniforms + breakdown.exams + breakdown.meals))),
+                  breakdown.holidayAdjustment > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Ajuste feriados legales'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.holidayAdjustment))) : null,
+                  breakdown.uniforms > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Uniformes'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.uniforms))) : null,
+                  breakdown.exams > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Examenes medicos'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.exams))) : null,
+                  breakdown.meals > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Alimentacion'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.meals))) : null,
+                )
+              : null,
+
+            // Costos Indirectos
+            (breakdown.equipment + breakdown.transport + breakdown.vehicles + breakdown.infrastructure + breakdown.systems) > 0
+              ? e(
+                  View,
+                  { style: { marginBottom: 8 } },
+                  e(View, { style: [s.tblRow, { backgroundColor: '#fef3c7' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#b45309' }] }, 'Costos Indirectos'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#b45309' }] }, fmtMoney(breakdown.equipment + breakdown.transport + breakdown.vehicles + breakdown.infrastructure + breakdown.systems))),
+                  breakdown.equipment > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Equipo operativo'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.equipment))) : null,
+                  breakdown.transport > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Transporte'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.transport))) : null,
+                  breakdown.vehicles > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Vehiculos'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.vehicles))) : null,
+                  breakdown.infrastructure > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Infraestructura'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.infrastructure))) : null,
+                  breakdown.systems > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Sistemas'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.systems))) : null,
+                )
+              : null,
+
+            // Subtotal + Margen + Financiero + Total
+            e(View, { style: [s.tblRow, { backgroundColor: C.slate100 }] }, e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Subtotal costos base'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.subtotalBase))),
+            e(View, { style: [s.tblRow, { backgroundColor: '#d1fae5' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#065f46' }] }, `Margen comercial (${breakdown.marginPct}% sobre precio venta)`), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#065f46' }] }, fmtMoney(breakdown.marginAmount))),
+            breakdown.financial > 0
+              ? e(View, { style: [s.tblRow, { backgroundColor: '#fff7ed' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, `Costo financiero (${breakdown.financialRatePct}%)`), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(breakdown.financial)))
+              : null,
+            e(
+              View,
+              { style: [s.grandTotal, { marginTop: 8 }] },
+              e(Text, { style: s.grandTotalLabel }, 'PRECIO VENTA MENSUAL NETO'),
+              e(Text, { style: s.grandTotalAmount }, fmtMoney(breakdown.grandTotal)),
+            ),
+
+            // Valor hora por puesto
+            breakdown.positions.length > 0
+              ? e(
+                  View,
+                  { style: { marginTop: 16 } },
+                  e(Text, { style: s.sectionTitle }, 'Valor Hora de Venta por Puesto'),
+                  ...breakdown.positions.map((pos, i) =>
+                    e(
+                      View,
+                      { key: i, style: s.tblRow },
+                      e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} (${pos.totalGuardsInPosition} guardia${pos.totalGuardsInPosition !== 1 ? 's' : ''})`),
+                      e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#0d9488' }] }, `${fmtMoney(Math.round(pos.hourlyRateSale))}/hr`),
+                    ),
+                  ),
+                )
+              : null,
+
+            e(Text, { style: s.netNote }, 'Estructura de costos con transparencia total · Valores netos · IVA se factura segun ley vigente'),
+          ),
+          pageFooter(`3/${totalPages}`),
+        )
+      : null,
   );
 
   const buffer = await renderToBuffer(doc);
