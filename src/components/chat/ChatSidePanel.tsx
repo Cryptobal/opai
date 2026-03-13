@@ -23,6 +23,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useSwipeGesture } from "./hooks/useSwipeGesture";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useChatSidePanelContext, type ChatSidePanelChannel, type NotifPreference } from "./ChatFloatingProvider";
@@ -99,6 +100,28 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
   const [creatingDmFor, setCreatingDmFor] = useState<string | null>(null);
   const [newChatModal, setNewChatModal] = useState<{ open: boolean; defaultStatus?: "prospect" | "client_active" }>({ open: false });
+  const [panelEntered, setPanelEntered] = useState(false);
+  const [panelClosing, setPanelClosing] = useState(false);
+
+  // Animación de entrada del panel móvil
+  useEffect(() => {
+    if (ctx.isPanelOpen) {
+      setPanelClosing(false);
+      const id = requestAnimationFrame(() => setPanelEntered(true));
+      return () => cancelAnimationFrame(id);
+    } else {
+      setPanelEntered(false);
+    }
+  }, [ctx.isPanelOpen]);
+
+  const handleClosePanel = useCallback(() => {
+    if (panelClosing) return;
+    setPanelClosing(true);
+    setTimeout(() => {
+      ctx.closePanel();
+      setPanelClosing(false);
+    }, 280);
+  }, [ctx, panelClosing]);
 
   // When panel opens: default to "unread" if there are unread messages
   const prevPanelOpen = useRef(false);
@@ -158,6 +181,19 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   };
 
   const selectedChannel = ctx.channels.find((ch) => ch.id === ctx.selectedChannelId);
+
+  // Swipe gestures para móvil: derecha = volver a lista, abajo = cerrar panel
+  const swipeBack = useSwipeGesture({
+    onSwipeRight: () => selectedChannel && ctx.selectChannel(null),
+    followFinger: true,
+    hapticOnComplete: true,
+    mobileOnly: true,
+  });
+  const swipeClose = useSwipeGesture({
+    onSwipeDown: handleClosePanel,
+    hapticOnComplete: true,
+    mobileOnly: true,
+  });
 
   // Derive display name for a channel
   const getChannelDisplayName = useCallback((ch: ChatSidePanelChannel) => {
@@ -513,26 +549,40 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
         <>
           {/* Mobile backdrop */}
           <div
-            className="fixed inset-0 z-50 bg-black/40 lg:hidden"
-            onClick={ctx.closePanel}
+            className={cn(
+              "fixed inset-0 z-50 bg-black/40 lg:hidden transition-opacity duration-300",
+              panelEntered && !panelClosing ? "opacity-100" : "opacity-0"
+            )}
+            onClick={handleClosePanel}
             aria-hidden="true"
           />
           <div
-            className="fixed inset-0 z-50 lg:hidden flex flex-col bg-[#0a0e17]"
-            style={{ bottom: 'var(--bottom-nav-height, 0px)' }}
+            className={cn(
+              "fixed inset-0 z-50 lg:hidden flex flex-col bg-[#0a0e17] transition-transform duration-300 ease-out",
+              panelEntered && !panelClosing ? "translate-x-0" : "translate-x-full"
+            )}
+            style={{ bottom: "var(--bottom-nav-height, 0px)" }}
             role="dialog"
             aria-label="Panel de chat"
           >
-            {/* Mobile header (channel list only -- conversation has its own via ChatPresenceBar) */}
+            {/* Mobile header (channel list only — conversation has its own via ChatPresenceBar) */}
             {!selectedChannel && (
-              <div className="shrink-0 flex items-center justify-between h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
-                  <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">Chat</h3>
+              <div
+                className="shrink-0 flex flex-col border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]"
+                {...swipeClose}
+              >
+                <div className="flex justify-center pt-2 pb-1">
+                  <div className="w-10 h-1 rounded-full bg-[rgba(255,255,255,0.2)]" aria-hidden />
                 </div>
-                <button onClick={ctx.closePanel} className="p-2 text-zinc-400 hover:text-zinc-200 transition-colors">
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="flex items-center justify-between h-12 px-4 pb-2">
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
+                    <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">Chat</h3>
+                  </div>
+                  <button onClick={handleClosePanel} className="p-2 text-zinc-400 hover:text-zinc-200 transition-colors">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -546,11 +596,20 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 {channelListContent}
               </div>
 
-              {/* Conversation layer (slides in from right) */}
-              <div className={cn(
-                "absolute inset-0 bg-[#0a0e17] transition-transform duration-[250ms] ease-out flex flex-col",
-                selectedChannel ? "translate-x-0" : "translate-x-full"
-              )}>
+              {/* Conversation layer (slides in from right) — swipe right para volver */}
+              <div
+                className={cn(
+                  "absolute inset-0 bg-[#0a0e17] flex flex-col",
+                  selectedChannel ? "translate-x-0" : "translate-x-full",
+                  swipeBack.translateX != null ? "" : "transition-transform duration-[250ms] ease-out"
+                )}
+                style={
+                  swipeBack.translateX != null
+                    ? { transform: `translateX(${swipeBack.translateX}px)` }
+                    : undefined
+                }
+                {...(selectedChannel ? { onTouchStart: swipeBack.onTouchStart, onTouchMove: swipeBack.onTouchMove, onTouchEnd: swipeBack.onTouchEnd } : {})}
+              >
                 {ctx.selectedChannelId && selectedChannel && (
                   <ChatConversation
                     channelId={ctx.selectedChannelId}
@@ -560,7 +619,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                     autoContextPrefix={getAutoContextPrefix}
                     currentUserId={ctx.currentUserId}
                     userRole={userRole}
-                    onClose={ctx.closePanel}
+                    onClose={handleClosePanel}
+                    onSwipeDownToClose={handleClosePanel}
                   />
                 )}
               </div>

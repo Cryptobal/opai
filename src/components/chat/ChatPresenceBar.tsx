@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, type ReactNode } from "react";
 import { ArrowLeft, Bell, BellOff, AtSign, Search, X, Users } from "lucide-react";
+import { useSwipeGesture } from "./hooks/useSwipeGesture";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -22,6 +23,8 @@ interface ChatPresenceBarProps {
   onSearch?: (query: string) => void;
   isSearching?: boolean;
   channelId?: string;
+  /** En móvil: swipe down en el header para cerrar (ej. panel flotante) */
+  onSwipeDownToClose?: () => void;
   children?: ReactNode;
 }
 
@@ -33,12 +36,18 @@ export function ChatPresenceBar({
   onSearch,
   isSearching,
   channelId,
+  onSwipeDownToClose,
   children,
 }: ChatPresenceBarProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [notifPref, setNotifPref] = useState<NotifPreference>("ALL");
+
+  const swipeDown = useSwipeGesture({
+    onSwipeDown: () => onSwipeDownToClose?.(),
+    mobileOnly: true,
+  });
 
   // Fetch current preference when channel changes
   useEffect(() => {
@@ -71,23 +80,35 @@ export function ChatPresenceBar({
 
   return (
     <>
-      <div className="shrink-0 flex items-center justify-between h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
-        <div className="flex items-center gap-3 min-w-0">
-          <button
-            type="button"
-            onClick={onBack}
-            className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
-            aria-label="Volver a canales"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)] truncate">
-              <span className="text-[#2dd4bf]">#</span> {channelName}
-            </h3>
+      <div
+        className={cn(
+          "shrink-0 flex flex-col border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]",
+          onSwipeDownToClose && "lg:flex-row lg:items-center"
+        )}
+        {...(onSwipeDownToClose ? swipeDown : {})}
+      >
+        {onSwipeDownToClose && (
+          <div className="flex justify-center pt-2 pb-1 lg:hidden">
+            <div className="w-10 h-1 rounded-full bg-[rgba(255,255,255,0.2)]" aria-hidden />
           </div>
-        </div>
+        )}
+        <div className="flex items-center justify-between h-14 px-4 pb-2 lg:pb-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={onBack}
+              className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+              aria-label="Volver a canales"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)] truncate">
+                <span className="text-[#2dd4bf]">#</span> {channelName}
+              </h3>
+            </div>
+          </div>
 
         <div className="flex items-center gap-1 shrink-0">
           {/* Extra actions (e.g. clear conversation) */}
@@ -215,6 +236,7 @@ export function ChatPresenceBar({
               </PopoverContent>
             </Popover>
           )}
+        </div>
         </div>
       </div>
 
