@@ -59,18 +59,49 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const password = String(credentials.password);
 
         const { prisma } = await import('@/lib/prisma');
+
+        // 1. Intentar login como inspector DT (credenciales temporales)
+        if (email.startsWith("dt_")) {
+          const dtSession = await prisma.dtInspectorSession.findUnique({
+            where: { tempUsername: email },
+            include: { tenant: true },
+          });
+
+          if (
+            dtSession &&
+            dtSession.isActive &&
+            dtSession.validUntil > new Date()
+          ) {
+            const dtValid = await bcrypt.compare(password, dtSession.tempPasswordHash);
+            if (dtValid) {
+              await prisma.dtInspectorSession.update({
+                where: { id: dtSession.id },
+                data: { lastAccessAt: new Date() },
+              });
+              return {
+                id: `dt_${dtSession.id}`,
+                email: dtSession.inspectorEmail,
+                name: dtSession.inspectorName,
+                role: "inspector_dt",
+                roleTemplateId: null,
+                tenantId: dtSession.tenantId,
+              };
+            }
+          }
+          return null;
+        }
+
+        // 2. Login normal (Admin)
         const admin = await prisma.admin.findUnique({
           where: { email },
           include: { tenant: true },
         });
         
-        // Verificar que existe y está activo
         if (!admin || admin.status !== 'active') return null;
 
         const valid = await bcrypt.compare(password, admin.password);
         if (!valid) return null;
 
-        // Actualizar último login
         await prisma.admin.update({
           where: { id: admin.id },
           data: { lastLoginAt: new Date() },

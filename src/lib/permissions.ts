@@ -45,6 +45,7 @@ export const MODULE_KEYS = [
   "config",
   "finance",
   "reportes_dt",
+  "fiscalizacion",
 ] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
@@ -106,6 +107,15 @@ export const SUBMODULE_KEYS = {
     "proveedores",
   ] as const,
   reportes_dt: [] as readonly string[],
+  fiscalizacion: [
+    "marcaciones",
+    "asistencia",
+    "guardias",
+    "instalaciones",
+    "payroll",
+    "auditlog",
+    "incidentes",
+  ] as const,
 } as const satisfies Record<ModuleKey, readonly string[]>;
 
 // ── Capability keys (acciones especiales no-CRUD) ──
@@ -136,6 +146,8 @@ export const CAPABILITY_KEYS = [
   "supervision_view_all",
   "supervision_dashboard",
   "gamificacion_bonos_aprobar",
+  "dt_manage_sessions",
+  "dt_view_incidents",
 ] as const;
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
 
@@ -197,6 +209,7 @@ export const MODULE_META: ModuleMeta[] = [
   { key: "config", label: "Configuración" },
   { key: "finance", label: "Finanzas" },
   { key: "reportes_dt", label: "Reportes DT" },
+  { key: "fiscalizacion", label: "Fiscalización DT" },
 ];
 
 export const SUBMODULE_META: SubmoduleMeta[] = [
@@ -253,6 +266,14 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "config.tipos_ticket", module: "config", submodule: "tipos_ticket", label: "Tipos de ticket", href: "/opai/configuracion/tipos-ticket" },
   { key: "config.finanzas", module: "config", submodule: "finanzas", label: "Finanzas", href: "/opai/configuracion/finanzas" },
   { key: "config.inteligencia_artificial", module: "config", submodule: "inteligencia_artificial", label: "Inteligencia Artificial", href: "/opai/configuracion/inteligencia-artificial" },
+  // ── Fiscalización DT ──
+  { key: "fiscalizacion.marcaciones", module: "fiscalizacion", submodule: "marcaciones", label: "Marcaciones", href: "/fiscalizacion" },
+  { key: "fiscalizacion.asistencia", module: "fiscalizacion", submodule: "asistencia", label: "Asistencia", href: "/fiscalizacion" },
+  { key: "fiscalizacion.guardias", module: "fiscalizacion", submodule: "guardias", label: "Guardias", href: "/fiscalizacion" },
+  { key: "fiscalizacion.instalaciones", module: "fiscalizacion", submodule: "instalaciones", label: "Instalaciones", href: "/fiscalizacion" },
+  { key: "fiscalizacion.payroll", module: "fiscalizacion", submodule: "payroll", label: "Liquidaciones", href: "/fiscalizacion" },
+  { key: "fiscalizacion.auditlog", module: "fiscalizacion", submodule: "auditlog", label: "Auditoría", href: "/fiscalizacion" },
+  { key: "fiscalizacion.incidentes", module: "fiscalizacion", submodule: "incidentes", label: "Incidentes", href: "/fiscalizacion" },
 ];
 
 export const CAPABILITY_META: CapabilityMeta[] = [
@@ -281,6 +302,8 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "supervision_view_all", label: "Ver todas las visitas", description: "Puede ver visitas de supervisión de cualquier supervisor", moduleKey: "ops", submoduleKey: "supervision" },
   { key: "supervision_dashboard", label: "Dashboard supervisión", description: "Puede ver KPIs y reportes consolidados de supervisión", moduleKey: "ops", submoduleKey: "supervision" },
   { key: "gamificacion_bonos_aprobar", label: "Aprobar bonos gamificación", description: "Puede aprobar o rechazar sugerencias de bono generadas por gamificación", moduleKey: "ops", submoduleKey: "gamificacion" },
+  { key: "dt_manage_sessions", label: "Gestionar accesos DT", description: "Puede crear y revocar accesos temporales para inspectores de la DT", moduleKey: "fiscalizacion" },
+  { key: "dt_view_incidents", label: "Ver incidentes de servicio", description: "Puede ver y registrar incidentes de servicio del sistema", moduleKey: "fiscalizacion" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -311,6 +334,8 @@ const ROLE_ALIASES: Record<string, string> = {
   finance: "finanzas",
   lectura: "viewer",
   supervisor: "supervisor",
+  "inspector dt": "inspector_dt",
+  "inspector_dt": "inspector_dt",
 };
 
 export function normalizeRole(role: string): string {
@@ -540,6 +565,31 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       finance: "none",
     },
     submodules: {},
+    capabilities: {},
+  },
+
+  inspector_dt: {
+    modules: {
+      hub: "none",
+      ops: "none",
+      crm: "none",
+      docs: "none",
+      payroll: "none",
+      cpq: "none",
+      config: "none",
+      finance: "none",
+      reportes_dt: "view",
+      fiscalizacion: "view",
+    },
+    submodules: {
+      "fiscalizacion.marcaciones": "view",
+      "fiscalizacion.asistencia": "view",
+      "fiscalizacion.guardias": "view",
+      "fiscalizacion.instalaciones": "view",
+      "fiscalizacion.payroll": "view",
+      "fiscalizacion.auditlog": "view",
+      "fiscalizacion.incidentes": "view",
+    },
     capabilities: {},
   },
 
@@ -802,6 +852,13 @@ export const ROLE_TEMPLATE_SEEDS: RoleTemplateSeed[] = [
     isSystem: false,
     permissions: DEFAULT_ROLE_PERMISSIONS.viewer,
   },
+  {
+    slug: "inspector_dt",
+    name: "Inspector DT",
+    description: "Acceso de solo lectura para inspectores de la Dirección del Trabajo (Res. N°38).",
+    isSystem: true,
+    permissions: DEFAULT_ROLE_PERMISSIONS.inspector_dt,
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -886,6 +943,9 @@ export function pathToPermission(
   // Hub
   if (pathname === "/hub" || pathname.startsWith("/hub/")) return { module: "hub" };
 
+  // Fiscalización DT
+  if (pathname.startsWith("/fiscalizacion")) return { module: "fiscalizacion" };
+
   return null;
 }
 
@@ -903,6 +963,7 @@ export function apiPathToModule(pathname: string): ModuleKey | null {
   if (pathname.startsWith("/api/payroll/")) return "payroll";
   if (pathname.startsWith("/api/cpq/")) return "cpq";
   if (pathname.startsWith("/api/finance/")) return "finance";
+  if (pathname.startsWith("/api/admin/dt/") || pathname.startsWith("/api/fiscalizacion/")) return "fiscalizacion";
   return null;
 }
 
