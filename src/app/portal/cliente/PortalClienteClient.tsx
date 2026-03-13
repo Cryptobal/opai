@@ -273,9 +273,9 @@ export function PortalClienteClient() {
             className="block text-xs font-medium text-[#9ca3af] mb-[7px]"
             style={{ letterSpacing: "0.02em", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
-            PIN de acceso (6 d&iacute;gitos)
+            PIN de acceso (4 d&iacute;gitos)
           </label>
-          <AuthPinInput length={6} accent={ACCENT} value={pin} onChange={setPin} />
+          <AuthPinInput length={4} accent={ACCENT} value={pin} onChange={setPin} />
 
           {loginError && (
             <div className="rounded-xl px-4 py-3 mb-4" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>

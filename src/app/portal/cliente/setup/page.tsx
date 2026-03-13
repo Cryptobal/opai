@@ -39,8 +39,8 @@ function SetupContent() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!/^\d{6}$/.test(pin)) {
-      setError('El PIN debe ser de 6 dígitos numéricos')
+    if (!/^\d{4}$/.test(pin)) {
+      setError('El PIN debe ser de 4 dígitos numéricos')
       return
     }
     if (pin !== pinConfirm) {
@@ -113,16 +113,16 @@ function SetupContent() {
                 />
               </div>
               <div>
-                <label className="text-zinc-400 text-xs mb-1.5 block">Crear PIN (6 dígitos)</label>
+                <label className="text-zinc-400 text-xs mb-1.5 block">Crear PIN (4 dígitos)</label>
                 <Input
                   type="password"
                   value={pin}
-                  onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="••••••"
+                  onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="••••"
                   className="bg-zinc-800 border-zinc-700 text-white tracking-[0.5em] text-center"
                   inputMode="numeric"
                   autoComplete="new-password"
-                  maxLength={6}
+                  maxLength={4}
                 />
               </div>
               <div>
@@ -130,12 +130,12 @@ function SetupContent() {
                 <Input
                   type="password"
                   value={pinConfirm}
-                  onChange={e => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="••••••"
+                  onChange={e => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="••••"
                   className="bg-zinc-800 border-zinc-700 text-white tracking-[0.5em] text-center"
                   inputMode="numeric"
                   autoComplete="new-password"
-                  maxLength={6}
+                  maxLength={4}
                 />
               </div>
               {error && (
@@ -146,7 +146,7 @@ function SetupContent() {
               )}
               <Button
                 type="submit"
-                disabled={submitting || pin.length < 6}
+                disabled={submitting || pin.length < 4}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {submitting ? (
