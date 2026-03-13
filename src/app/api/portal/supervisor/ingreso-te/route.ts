@@ -67,7 +67,7 @@ export async function POST(req: Request) {
 
   const parsed = createGuardiaTeSchema.safeParse(rawBody);
   if (!parsed.success) {
-    const firstError = parsed.error.errors[0];
+    const firstError = parsed.error.issues[0];
     return NextResponse.json(
       { success: false, error: firstError?.message || "Datos inválidos" },
       { status: 400 }
