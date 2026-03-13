@@ -53,8 +53,11 @@ function extractAccountLogoUrl(notes?: string | null): string | null {
   return raw || null;
 }
 
+const BROKEN_LOGO_PREFIX = "/uploads/company-logos/";
 function getAccountLogo(account: Pick<AccountRow, "logoUrl" | "notes">): string | null {
-  return account.logoUrl || extractAccountLogoUrl(account.notes);
+  const url = account.logoUrl || extractAccountLogoUrl(account.notes);
+  if (!url || url.startsWith(BROKEN_LOGO_PREFIX)) return null;
+  return url;
 }
 
 type AccountRow = {

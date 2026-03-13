@@ -637,7 +637,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       const summary = payload?.data?.summary || "";
       const normalizedWebsite = payload?.data?.websiteNormalized || "";
       const companyNameDetected = payload?.data?.companyNameDetected || "";
-      const logoUrl = payload?.data?.localLogoUrl || payload?.data?.logoUrl || null;
+      const raw = payload?.data?.localLogoUrl || payload?.data?.logoUrl || null;
+      const logoUrl = raw && !raw.startsWith("/uploads/company-logos/") ? raw : null;
       const industry = payload?.data?.industry || "";
       const segment = payload?.data?.segment || "";
       const legalName = payload?.data?.legalName || "";

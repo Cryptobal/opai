@@ -46,7 +46,7 @@ function sanitizeAccountLogoUrl(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  if (trimmed.startsWith("/uploads/company-logos/")) return trimmed;
+  if (trimmed.startsWith("/uploads/company-logos/")) return null;
   try {
     const url = new URL(trimmed);
     if (url.protocol === "https:" || url.protocol === "http:") return url.toString();
@@ -93,6 +93,49 @@ function normalizePositiveInt(value: unknown, fallback = 1): number {
   return normalized > 0 ? normalized : fallback;
 }
 
+/** Normaliza texto para comparación (quita acentos, puntuación, lowercase) */
+function normalizeForSimilarity(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim();
+}
+
+/** Similitud 0–1 entre dos strings (incluye "Anglo American" vs "AngloAmerican") */
+function nameSimilarity(a: string, b: string): number {
+  const na = normalizeForSimilarity(a);
+  const nb = normalizeForSimilarity(b);
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) return 0.9;
+  const la = na.length;
+  const lb = nb.length;
+  if (la === 0 || lb === 0) return 0;
+  const dp: number[][] = Array.from({ length: la + 1 }, (_, i) =>
+    Array.from({ length: lb + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= la; i++) {
+    for (let j = 1; j <= lb; j++) {
+      dp[i][j] =
+        na[i - 1] === nb[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return 1 - dp[la][lb] / Math.max(la, lb);
+}
+
+/** Extrae términos de búsqueda para nombres compuestos sin espacios (ej: AngloAmerican → anglo, american) */
+function getSearchTerms(name: string): string[] {
+  const n = normalizeForSimilarity(name);
+  const bySpace = n.split(/\s+/).filter((w) => w.length >= 2);
+  if (bySpace.length > 0) return bySpace;
+  const byCamel = name.replace(/([a-z])([A-Z])/g, "$1 $2").split(/\s+/);
+  const normalized = byCamel.map((w) => normalizeForSimilarity(w)).filter((w) => w.length >= 2);
+  return normalized.length > 0 ? normalized : (n.length >= 2 ? [n] : []);
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -135,8 +178,8 @@ export async function POST(
 
     const contactEmail = (body?.email?.trim() || lead.email || "").trim().toLowerCase();
 
-    // Detección de conflictos: cuenta por nombre, contacto por email
-    const duplicates = await prisma.crmAccount.findMany({
+    // Detección de conflictos: cuenta por nombre (exacto + similar), contacto por email
+    const exactDuplicates = await prisma.crmAccount.findMany({
       where: {
         tenantId: ctx.tenantId,
         name: { equals: accountName, mode: "insensitive" },
@@ -144,6 +187,34 @@ export async function POST(
       select: { id: true, name: true, rut: true, type: true },
       take: 10,
     });
+
+    const seenIds = new Set(exactDuplicates.map((d) => d.id));
+    let duplicates: { id: string; name: string; rut: string | null; type: string }[] = [...exactDuplicates];
+
+    if (accountName.length >= 2) {
+      const terms = getSearchTerms(accountName);
+      if (terms.length > 0) {
+        const candidates = await prisma.crmAccount.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            OR: terms.map((t) => ({ name: { contains: t, mode: "insensitive" as const } })),
+          },
+          select: { id: true, name: true, rut: true, type: true },
+          take: 50,
+        });
+        const THRESHOLD = 0.45;
+        const similar = candidates
+          .filter((c) => !seenIds.has(c.id))
+          .map((c) => ({ ...c, score: nameSimilarity(accountName, c.name) }))
+          .filter((c) => c.score >= THRESHOLD)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 10);
+        for (const s of similar) {
+          seenIds.add(s.id);
+          duplicates.push({ id: s.id, name: s.name, rut: s.rut, type: s.type });
+        }
+      }
+    }
 
     const existingContact =
       contactEmail &&

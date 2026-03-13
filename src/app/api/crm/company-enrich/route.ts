@@ -5,10 +5,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import sharp from "sharp";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { uploadFile } from "@/lib/storage";
 import { openai } from "@/lib/openai";
 
 type ExtractedWebData = {
@@ -229,7 +228,7 @@ function pickBestLogoCandidate(candidates: LogoCandidate[]): string | null {
   return candidates[0]?.url || null;
 }
 
-async function downloadLogoToPublic(logoUrl: string): Promise<string | null> {
+async function downloadLogoToR2(logoUrl: string): Promise<string | null> {
   const response = await fetch(logoUrl, {
     headers: {
       "User-Agent": "Mozilla/5.0 (compatible; OPAI-Bot/1.0; +https://gard.cl)",
@@ -240,14 +239,14 @@ async function downloadLogoToPublic(logoUrl: string): Promise<string | null> {
   if (!response.ok) return null;
 
   const mime = (response.headers.get("content-type") || "").toLowerCase().split(";")[0];
-  const allowed: Record<string, string> = {
-    "image/png": ".png",
-    "image/jpeg": ".jpg",
-    "image/webp": ".webp",
-    "image/svg+xml": ".svg",
+  const allowed: Record<string, { ext: string; mime: string }> = {
+    "image/png": { ext: ".png", mime: "image/png" },
+    "image/jpeg": { ext: ".jpg", mime: "image/jpeg" },
+    "image/webp": { ext: ".webp", mime: "image/webp" },
+    "image/svg+xml": { ext: ".svg", mime: "image/svg+xml" },
   };
-  const ext = allowed[mime];
-  if (!ext) return null;
+  const spec = allowed[mime];
+  if (!spec) return null;
 
   let buffer = Buffer.from(await response.arrayBuffer());
   if (buffer.byteLength <= 0 || buffer.byteLength > 5 * 1024 * 1024) {
@@ -255,12 +254,12 @@ async function downloadLogoToPublic(logoUrl: string): Promise<string | null> {
   }
 
   const hash = createHash("sha1").update(logoUrl).digest("hex").slice(0, 12);
-  const relDir = path.join("public", "uploads", "company-logos");
-  const absDir = path.join(process.cwd(), relDir);
-  await mkdir(absDir, { recursive: true });
+  let uploadBuffer = buffer;
+  let fileName = `logo-${Date.now()}-${hash}${spec.ext}`;
+  let mimeType = spec.mime;
 
-  try {
-    if (ext !== ".svg") {
+  if (spec.ext !== ".svg") {
+    try {
       const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
       const { width, height, channels } = info;
       const whiteThreshold = 248;
@@ -271,19 +270,21 @@ async function downloadLogoToPublic(logoUrl: string): Promise<string | null> {
         const isWhite = r >= whiteThreshold && g >= whiteThreshold && b >= whiteThreshold;
         if (isWhite) data[i * channels + 3] = 0;
       }
-      const outFileName = `logo-${Date.now()}-${hash}.png`;
-      const absFile = path.join(absDir, outFileName);
-      await sharp(data, { raw: { width, height, channels: 4 } }).png().toFile(absFile);
-      return `/uploads/company-logos/${outFileName}`;
+      uploadBuffer = await sharp(data, { raw: { width, height, channels: 4 } }).png().toBuffer();
+      fileName = `logo-${Date.now()}-${hash}.png`;
+      mimeType = "image/png";
+    } catch (logoErr) {
+      console.error("Logo transparency processing failed, using raw:", logoErr);
     }
-  } catch (logoErr) {
-    console.error("Logo transparency processing failed, using raw:", logoErr);
   }
 
-  const fileName = `logo-${Date.now()}-${hash}${ext}`;
-  const absFile = path.join(absDir, fileName);
-  await writeFile(absFile, buffer);
-  return `/uploads/company-logos/${fileName}`;
+  try {
+    const result = await uploadFile(uploadBuffer, fileName, mimeType, "company-logos");
+    return result.publicUrl || null;
+  } catch (err) {
+    console.error("Logo upload to R2 failed:", err);
+    return null;
+  }
 }
 
 const BROWSER_UA =
@@ -572,7 +573,7 @@ export async function POST(request: NextRequest) {
     let localLogoUrl: string | null = null;
     if (extracted.logoUrl) {
       try {
-        localLogoUrl = await downloadLogoToPublic(extracted.logoUrl);
+        localLogoUrl = await downloadLogoToR2(extracted.logoUrl);
       } catch (logoError) {
         console.error("Error downloading company logo:", logoError);
       }

@@ -233,8 +233,15 @@ export async function GET(request: NextRequest) {
         const raw = notes.slice(start + ACCOUNT_LOGO_PREFIX.length, end).trim();
         return raw || null;
       }
+      const BROKEN_LOGO_PREFIX = "/uploads/company-logos/";
+      function useLogoUrl(url: string | null | undefined): string | undefined {
+        if (!url) return undefined;
+        if (url.startsWith(BROKEN_LOGO_PREFIX)) return undefined;
+        return url;
+      }
       for (const acc of accounts) {
-        const imageUrl = acc.logoUrl || extractAccountLogoUrl(acc.notes) || undefined;
+        const raw = acc.logoUrl || extractAccountLogoUrl(acc.notes) || undefined;
+        const imageUrl = useLogoUrl(raw);
         results.push({
           id: acc.id,
           type: "account",

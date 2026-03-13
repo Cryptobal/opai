@@ -87,6 +87,12 @@ function withAccountLogoMarker(notes: string, logoUrl: string | null): string {
   return cleanNotes ? `${marker}\n${cleanNotes}` : marker;
 }
 
+const BROKEN_LOGO_PREFIX = "/uploads/company-logos/";
+function sanitizeLogoUrl(url: string | null | undefined): string | null {
+  if (!url || url.startsWith(BROKEN_LOGO_PREFIX)) return null;
+  return url;
+}
+
 type ContactRow = {
   id: string;
   firstName: string;
@@ -202,8 +208,10 @@ export function CrmAccountDetailClient({
   const chatCtx = useChatSidePanelContext();
   const [account, setAccount] = useState(initialAccount);
   const [accountLogoUrl, setAccountLogoUrl] = useState<string | null>(
-    (initialAccount as Record<string, unknown>).logoUrl as string | null
-    ?? extractAccountLogoUrl(initialAccount.notes)
+    sanitizeLogoUrl(
+      (initialAccount as Record<string, unknown>).logoUrl as string | null
+      ?? extractAccountLogoUrl(initialAccount.notes)
+    )
   );
 
   // ── Account edit state ──
@@ -248,8 +256,8 @@ export function CrmAccountDetailClient({
       formData.append("entityId", account.id);
       const res = await fetch("/api/crm/files/upload", { method: "POST", body: formData });
       const json = await res.json();
-      if (json.success && json.data?.url) {
-        const logoUrl = json.data.url;
+      const logoUrl = json.data?.publicUrl ?? json.data?.url;
+      if (json.success && logoUrl) {
         await fetch(`/api/crm/accounts/${account.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -383,7 +391,7 @@ export function CrmAccountDetailClient({
       }
       const summary = payload?.data?.summary || "";
       const normalizedWebsite = payload?.data?.websiteNormalized || "";
-      const logoUrl = payload?.data?.localLogoUrl || payload?.data?.logoUrl || null;
+      const logoUrl = sanitizeLogoUrl(payload?.data?.localLogoUrl || payload?.data?.logoUrl);
       const industry = payload?.data?.industry || "";
       const segment = payload?.data?.segment || "";
       const legalName = payload?.data?.legalName || "";
