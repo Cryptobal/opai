@@ -41,11 +41,12 @@ export async function POST(
     }
 
     // Clone the position (Prisma JSON fields need JsonNull for null, not literal null)
+    // customName: null para que el título se derive de cargo + puestoTrabajo (sin sufijo "copia")
     const { id: _id, createdAt: _ca, updatedAt: _ua, ...posData } = original;
     const cloned = await prisma.cpqPosition.create({
       data: {
         ...posData,
-        customName: `${posData.customName || "Puesto"} (copia)`,
+        customName: null,
         payrollSnapshot:
           posData.payrollSnapshot === null
             ? Prisma.JsonNull
