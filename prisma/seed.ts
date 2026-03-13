@@ -14,6 +14,7 @@ import { seedCrmData } from './seeds/crm-initial-data';
 import { seedGroupsAndTicketTypes } from './seeds/ops-groups-ticket-types';
 import { seedAiProviders } from './seeds/ai-providers-initial-data';
 import { seedGamification } from './seeds/gamification-seed';
+import { seedConfigJornada } from './seeds/config-jornada-seed';
 
 const prisma = new PrismaClient();
 
@@ -117,6 +118,9 @@ async function main() {
 
   // 9. Seed Gamificacion config & badges
   await seedGamification(tenant.id);
+
+  // 10. Seed ConfigJornada (Ley 42 horas)
+  await seedConfigJornada(prisma, tenant.id);
 
   console.log('🎉 Seeding completed!');
 }

@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { getJornadaLimits } from "@/lib/dt/jornada-config";
 
 export interface MonthlyAttendance {
   source: "OPAI" | "IMPORT";
@@ -23,6 +24,7 @@ export interface MonthlyAttendance {
   overtimeHours50: number;
   overtimeHours100: number;
   lateHours: number;
+  maxHorasSemanales: number;
   dailyDetail: Array<{
     date: string;
     code: string;
@@ -37,11 +39,16 @@ export interface MonthlyAttendance {
 export async function resolveMonthlyAttendance(
   guardiaId: string,
   year: number,
-  month: number
+  month: number,
+  tenantId?: string
 ): Promise<MonthlyAttendance> {
   const startDate = new Date(Date.UTC(year, month - 1, 1));
   const endDate = new Date(Date.UTC(year, month, 0)); // last day of month
   const totalDaysMonth = endDate.getUTCDate();
+
+  const jornadaLimits = tenantId
+    ? await getJornadaLimits(tenantId, startDate)
+    : { maxHorasSemanales: 42, maxHorasDiarias: 12, maxHorasExtras: 2, leyReferencia: null };
 
   // Get all pauta entries for this guard in the month
   const pautaEntries = await prisma.opsPautaMensual.findMany({
@@ -242,6 +249,7 @@ export async function resolveMonthlyAttendance(
     overtimeHours50: Math.round(overtimeHours50 * 100) / 100,
     overtimeHours100,
     lateHours: Math.round(lateHours * 100) / 100,
+    maxHorasSemanales: jornadaLimits.maxHorasSemanales,
     dailyDetail,
   };
 }
@@ -268,7 +276,7 @@ export async function resolveAllMonthlyAttendance(
 
   const results: MonthlyAttendance[] = [];
   for (const g of guards) {
-    const attendance = await resolveMonthlyAttendance(g.id, year, month);
+    const attendance = await resolveMonthlyAttendance(g.id, year, month, tenantId);
     results.push(attendance);
   }
 

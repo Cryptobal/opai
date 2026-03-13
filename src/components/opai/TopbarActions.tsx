@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { FiscalizacionDTButton } from "./FiscalizacionDTButton";
 
 interface TopbarActionsProps {
   userName?: string;
@@ -126,6 +127,9 @@ export function TopbarActions({
 
       {/* Role Switcher a la izquierda (solo owner/admin) */}
       <RoleSwitcher />
+
+      {/* Botón Fiscalización DT — Resolución N°38 */}
+      <FiscalizacionDTButton userRole={userRole} />
 
       {/* Spacer */}
       <div className="flex-1" />

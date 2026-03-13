@@ -15,6 +15,7 @@ export const ROLES = {
   SOLO_PAYROLL: "solo_payroll",
   SUPERVISOR: "supervisor",
   VIEWER: "viewer",
+  INSPECTOR_DT: "inspector_dt",
 } as const;
 
 export type Role = typeof ROLES[keyof typeof ROLES];
@@ -310,5 +311,14 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
       "rondas_monitor",
       "rondas_resolve",
     ],
+  },
+  inspector_dt: {
+    rank: 0,
+    appAccess: [],
+    permissions: [],
+    crmSubmodules: [],
+    configSubmodules: [],
+    docsSubmodules: [],
+    opsCapabilities: [],
   },
 };

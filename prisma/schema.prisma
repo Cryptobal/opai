@@ -7,7 +7,7 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_DATABASE_URL")
-  schemas   = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance", "inventory", "notes", "chat", "access_control"]
+  schemas   = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance", "inventory", "notes", "chat", "access_control", "dt"]
 }
 
 model Tenant {
@@ -54,6 +54,9 @@ model Tenant {
   globalDocuments             ProtocolDocument[]           @relation("protocol_document_tenant")
   gamificacionConfig          GamificacionConfig?
   defaultMaxRondaDurationMinutes Int @default(120) @map("default_max_ronda_duration_minutes")
+  dtInspectorSessions         DtInspectorSession[]
+  systemIncidents             SystemIncident[]
+  configJornadas              ConfigJornada[]
 
   @@index([slug])
   @@index([active])
@@ -6771,5 +6774,79 @@ model ConfigEmpresa {
 
   @@unique([tenantId], map: "uq_config_empresa_tenant")
   @@map("config_empresa")
+  @@schema("ops")
+}
+
+// ============================================
+// FISCALIZACIÓN DT (Resolución N°38)
+// ============================================
+
+model DtInspectorSession {
+  id               String    @id @default(cuid())
+  tenantId         String    @map("tenant_id")
+  inspectorName    String    @map("inspector_name")
+  inspectorEmail   String    @map("inspector_email")
+  inspectorRut     String?   @map("inspector_rut")
+  tempUsername      String    @unique @map("temp_username")
+  tempPasswordHash String    @map("temp_password_hash")
+  ipAddress        String?   @map("ip_address")
+  isFromDtNetwork  Boolean   @default(false) @map("is_from_dt_network")
+  validFrom        DateTime  @default(now()) @map("valid_from") @db.Timestamptz(6)
+  validUntil       DateTime  @map("valid_until") @db.Timestamptz(6)
+  isActive         Boolean   @default(true) @map("is_active")
+  lastAccessAt     DateTime? @map("last_access_at") @db.Timestamptz(6)
+  createdBy        String    @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, isActive], map: "idx_dt_session_tenant_active")
+  @@index([inspectorEmail], map: "idx_dt_session_email")
+  @@map("dt_inspector_sessions")
+  @@schema("dt")
+}
+
+model SystemIncident {
+  id              String    @id @default(cuid())
+  tenantId        String    @map("tenant_id")
+  type            String    // "downtime" | "data_loss" | "security" | "performance"
+  description     String
+  startedAt       DateTime  @map("started_at") @db.Timestamptz(6)
+  resolvedAt      DateTime? @map("resolved_at") @db.Timestamptz(6)
+  duration        Int?      // Minutes
+  affectedModule  String    @map("affected_module") // "marcacion" | "all" | "portal_guardia" etc.
+  affectedUsers   Int?      @map("affected_users")
+  resolution      String?
+  isAutoDetected  Boolean   @default(false) @map("is_auto_detected")
+  createdBy       String    @map("created_by")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, startedAt], map: "idx_system_incident_tenant_date")
+  @@map("system_incidents")
+  @@schema("dt")
+}
+
+// ============================================
+// CONFIGURACIÓN JORNADA (Ley 42 Horas)
+// ============================================
+
+model ConfigJornada {
+  id                String    @id @default(cuid())
+  tenantId          String    @map("tenant_id")
+  maxHorasSemanales Float     @default(42) @map("max_horas_semanales")
+  maxHorasDiarias   Float     @default(12) @map("max_horas_diarias")
+  maxHorasExtras    Float     @default(2) @map("max_horas_extras")
+  vigenciaDesde     DateTime  @map("vigencia_desde") @db.Timestamptz(6)
+  vigenciaHasta     DateTime? @map("vigencia_hasta") @db.Timestamptz(6)
+  leyReferencia     String?   @map("ley_referencia")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, vigenciaDesde], map: "idx_config_jornada_tenant_vigencia")
+  @@map("config_jornada")
   @@schema("ops")
 }
