@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess, createOpsAuditLog } from "@/lib/ops";
+import { sendAvisoModificacionMarcacion } from "@/lib/marcacion-email";
 import { z } from "zod";
 
 const deleteSchema = z.object({
@@ -115,11 +116,22 @@ export async function PATCH(
       );
     }
 
+    // Generar token de oposición único para esta modificación
+    const oppositionToken = crypto.randomUUID();
+    const baseUrl = process.env.NEXTAUTH_URL ?? "https://opai.gard.cl";
+    const oppositionUrl = `${baseUrl}/marcacion/oposicion/${oppositionToken}`;
+
     const updateData: Record<string, unknown> = {
       modifiedAt: new Date(),
       modifiedBy: ctx.userId,
       modificationReason: parsed.data.reason,
       isModified: true,
+      // Nueva modificación invalida oposición previa pendiente
+      oppositionToken,
+      opposedAt: null,
+      opposedBy: null,
+      oppositionReason: null,
+      consolidatedAt: null,
     };
 
     if (parsed.data.timestamp) {
@@ -129,6 +141,15 @@ export async function PATCH(
     const updated = await prisma.opsMarcacion.update({
       where: { id },
       data: updateData,
+      include: {
+        guardia: {
+          select: {
+            personalEmail: true,
+            persona: { select: { firstName: true, lastName: true, rut: true } },
+          },
+        },
+        installation: { select: { name: true } },
+      },
     });
 
     await createOpsAuditLog(ctx, "ops.marcacion.modified", "ops_marcacion", id, {
@@ -136,7 +157,29 @@ export async function PATCH(
       changes: parsed.data.timestamp ? { timestamp: { from: marcacion.timestamp, to: parsed.data.timestamp } } : {},
     });
 
-    return NextResponse.json({ success: true, data: updated });
+    // Enviar email de aviso al guardia (fire-and-forget)
+    const warnings: string[] = [];
+    const guardiaEmail = updated.guardia.personalEmail;
+    if (guardiaEmail) {
+      const guardiaName = `${updated.guardia.persona.firstName} ${updated.guardia.persona.lastName}`;
+      const registradoPor = ctx.userEmail ?? ctx.userId;
+      sendAvisoModificacionMarcacion({
+        guardiaName,
+        guardiaEmail,
+        guardiaRut: updated.guardia.persona.rut ?? "",
+        installationName: updated.installation.name,
+        tipo: updated.tipo as "entrada" | "salida",
+        timestampOriginal: marcacion.timestamp,
+        timestampNuevo: updated.timestamp,
+        motivo: parsed.data.reason,
+        registradoPor,
+        oppositionUrl,
+      }).catch((err) => console.error("[OPS] Error enviando email oposición:", err));
+    } else {
+      warnings.push("guardia_sin_email");
+    }
+
+    return NextResponse.json({ success: true, data: updated, warnings });
   } catch (error) {
     console.error("[OPS] Error modifying marcacion:", error);
     return NextResponse.json(
