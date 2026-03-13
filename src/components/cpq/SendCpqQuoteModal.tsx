@@ -42,6 +42,8 @@ interface SendCpqQuoteModalProps {
   contactName?: string;
   contactEmail?: string;
   dealId?: string;
+  /** Compact trigger for header placement */
+  triggerClassName?: string;
 }
 
 interface TemplateOption {
@@ -66,6 +68,7 @@ export function SendCpqQuoteModal({
   contactName,
   contactEmail,
   dealId,
+  triggerClassName,
 }: SendCpqQuoteModalProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("template");
@@ -174,7 +177,7 @@ export function SendCpqQuoteModal({
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full h-9 gap-2 text-xs font-medium text-muted-foreground" disabled={disabled}>
+        <Button variant="outline" className={triggerClassName ?? "w-full h-9 gap-2 text-xs font-medium text-muted-foreground"} disabled={disabled}>
           <Send className="h-3.5 w-3.5" />
           Enviar cotización por email
         </Button>

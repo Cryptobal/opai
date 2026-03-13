@@ -25,6 +25,8 @@ interface SendPdfEmailModalProps {
   companyName?: string;
   disabled?: boolean;
   dealId?: string;
+  /** Compact trigger for header placement */
+  triggerClassName?: string;
 }
 
 type Step = "compose" | "followup" | "sent";
@@ -37,6 +39,7 @@ export function SendPdfEmailModal({
   companyName,
   disabled,
   dealId,
+  triggerClassName,
 }: SendPdfEmailModalProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("compose");
@@ -156,7 +159,7 @@ export function SendPdfEmailModal({
       <DialogTrigger asChild>
         <Button
           variant="outline"
-          className="w-full h-11 gap-2 text-sm font-semibold"
+          className={triggerClassName ?? "w-full h-11 gap-2 text-sm font-semibold"}
           disabled={disabled}
         >
           <Mail className="h-4 w-4" />

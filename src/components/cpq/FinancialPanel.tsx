@@ -11,9 +11,7 @@ import { Card } from "@/components/ui/card";
 import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { formatCurrency, formatWeekdaysShort } from "@/components/cpq/utils";
-import { SendCpqQuoteModal } from "@/components/cpq/SendCpqQuoteModal";
-import { SendPdfEmailModal } from "@/components/cpq/SendPdfEmailModal";
-import { Loader2, Sparkles, Shield, ChevronDown, ListChecks, Plus, X } from "lucide-react";
+import { Loader2, Sparkles, ChevronDown, ListChecks, Plus, X } from "lucide-react";
 import type {
   CpqQuote,
   CpqPosition,
@@ -321,21 +319,21 @@ export function FinancialPanel(props: FinancialPanelProps) {
       </div>
 
       {/* ── Tab content ── */}
-      <div className="overflow-y-auto flex-1">
+      <div className="overflow-y-auto flex-1 min-h-0">
         {activeTab === "desglose" && (
-          <div className="p-3 space-y-3">
+          <div className="p-2.5 space-y-2">
             {/* Hero Card */}
-            <div className="rounded-xl bg-gradient-to-br from-emerald-950 to-card border border-emerald-500/20 p-4">
+            <div className="rounded-lg bg-gradient-to-br from-emerald-950 to-card border border-emerald-500/20 p-3">
               <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-400 mb-1.5">
                 Precio de venta mensual
               </div>
-              <div className="text-2xl font-extrabold text-white tabular-nums transition-all duration-300">
+              <div className="text-xl font-extrabold text-white tabular-nums transition-all duration-300">
                 {formatCurrency(salePriceMonthly)}
               </div>
               {ufTotal !== null && (
-                <div className="text-[12px] text-emerald-400 mt-0.5">{ufTotal.toFixed(2)} UF</div>
+                <div className="text-[11px] text-emerald-400 mt-0.5">{ufTotal.toFixed(2)} UF</div>
               )}
-              <div className="flex gap-5 mt-3 pt-3 border-t border-emerald-500/20">
+              <div className="flex gap-4 mt-2 pt-2 border-t border-emerald-500/20">
                 <div>
                   <div className="text-[10px] text-muted-foreground">Puestos</div>
                   <div className="text-[15px] font-bold text-foreground">{positionsCount}</div>
@@ -352,7 +350,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
             </div>
 
             {/* Breakdown with progress bars */}
-            <div className="rounded-xl border border-border bg-card p-3">
+            <div className="rounded-lg border border-border bg-card p-2.5">
               <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-2.5">Desglose</div>
               {[
                 { label: "Mano de obra", amount: laborCost, color: "bg-emerald-500" },
@@ -378,7 +376,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
 
             {/* Additional lines summary */}
             {additionalLinesTotal > 0 && (
-              <div className="rounded-xl border border-border bg-card p-3">
+              <div className="rounded-lg border border-border bg-card p-2.5">
                 <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1">Líneas adicionales</div>
                 <div className="text-lg font-bold text-amber-400 tabular-nums transition-all duration-300">{formatCurrency(additionalLinesTotal)}</div>
                 <div className="text-[11px] text-muted-foreground">
@@ -939,50 +937,7 @@ function PreviewTab({
         </Card>
       </div>
 
-      {/* ── Action buttons (sticky at bottom) ── */}
-      <div className="border-t border-border/40 p-3 space-y-2">
-        <Button
-          className="w-full h-11 gap-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white"
-          disabled={
-            !quote ||
-            positions.length === 0 ||
-            quote.status === "sent" ||
-            !hasAccount ||
-            !hasContact ||
-            !hasDeal ||
-            sendingPortal
-          }
-          onClick={onSendPortal}
-        >
-          {sendingPortal ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Shield className="h-4 w-4" />
-          )}
-          {sendingPortal ? "Enviando..." : "Enviar por Portal"}
-        </Button>
-        <SendPdfEmailModal
-          quoteId={quoteId}
-          quoteCode={quoteCode}
-          contactEmail={contactEmail}
-          contactName={contactName}
-          companyName={quote.clientName || undefined}
-          disabled={!contactEmail}
-          dealId={dealId}
-        />
-        <SendCpqQuoteModal
-          quoteId={quoteId}
-          quoteCode={quoteCode}
-          clientName={quote.clientName || undefined}
-          disabled={!quote || positions.length === 0 || quote.status === "sent"}
-          hasAccount={hasAccount}
-          hasContact={hasContact}
-          hasDeal={hasDeal}
-          dealId={dealId}
-          contactName={contactName}
-          contactEmail={contactEmail}
-        />
-      </div>
+      {/* Action buttons moved to header in CpqQuoteDetail (desktop) — MobileBottomBar handles mobile */}
     </div>
   );
 }

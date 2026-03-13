@@ -17,6 +17,7 @@ import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { SendCpqQuoteModal } from "@/components/cpq/SendCpqQuoteModal";
+import { SendPdfEmailModal } from "@/components/cpq/SendPdfEmailModal";
 import { formatCurrency } from "@/components/cpq/utils";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type {
@@ -42,7 +43,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Eye } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Eye, Shield, Mail, Send } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -997,6 +998,49 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {/* Action buttons: Enviar por Portal, Enviar PDF, Enviar cotización (desktop) */}
+          <div className="hidden lg:flex items-center gap-1 border-r border-border/60 pr-2 mr-1">
+            <Button
+              size="sm"
+              className="h-7 px-2 text-[11px] gap-1.5 bg-teal-600 hover:bg-teal-700 text-white"
+              disabled={
+                !quote ||
+                positions.length === 0 ||
+                quote.status === "sent" ||
+                !crmContext.accountId ||
+                !crmContext.contactId ||
+                !crmContext.dealId ||
+                sendingPortal
+              }
+              onClick={handleSendPortal}
+            >
+              {sendingPortal ? <Loader2 className="h-3 w-3 animate-spin" /> : <Shield className="h-3 w-3" />}
+              {sendingPortal ? "Enviando..." : "Portal"}
+            </Button>
+            <SendPdfEmailModal
+              quoteId={quoteId}
+              quoteCode={quote.code}
+              contactEmail={crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId)?.email ?? undefined : undefined}
+              contactName={crmContext.contactId ? (() => { const c = crmContacts.find((x) => x.id === crmContext.contactId); return c ? `${c.firstName} ${c.lastName}`.trim() : undefined; })() : undefined}
+              companyName={quote.clientName || undefined}
+              disabled={!crmContext.contactId || !crmContacts.find((x) => x.id === crmContext.contactId)?.email}
+              dealId={crmContext.dealId || undefined}
+              triggerClassName="h-7 px-2 text-[11px] gap-1.5 shrink-0"
+            />
+            <SendCpqQuoteModal
+              quoteId={quoteId}
+              quoteCode={quote.code}
+              clientName={quote.clientName || undefined}
+              disabled={!quote || positions.length === 0 || quote.status === "sent"}
+              hasAccount={!!crmContext.accountId}
+              hasContact={!!crmContext.contactId}
+              hasDeal={!!crmContext.dealId}
+              dealId={crmContext.dealId || undefined}
+              contactName={crmContext.contactId ? (() => { const c = crmContacts.find((x) => x.id === crmContext.contactId); return c ? `${c.firstName} ${c.lastName}`.trim() : undefined; })() : undefined}
+              contactEmail={crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId)?.email ?? undefined : undefined}
+              triggerClassName="h-7 px-2 text-[11px] gap-1.5 shrink-0"
+            />
+          </div>
           {quote.status === "sent" ? (
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setStatusChangePending("draft")} disabled={changingStatus}>
               {changingStatus ? "..." : "Borrador"}
@@ -1039,11 +1083,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </div>
       </div>{/* end sticky header */}
 
-      {/* -- 2-column layout: scrollable editor + sticky sidebar -- */}
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-0">
+      {/* -- 2-column layout: left column scrolls, right column (desglose/preview) stays fixed -- */}
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-0 lg:h-[calc(100vh-11rem)] lg:min-h-[420px]">
 
-      {/* -- Editor: scrollable left column -- */}
-      <div className="space-y-2 min-w-0 lg:pr-5">
+      {/* -- Editor: scrollable left column (only this scrolls on desktop) -- */}
+      <div className="space-y-2 min-w-0 lg:pr-5 overflow-y-auto lg:min-h-0 lg:overscroll-contain">
 
       {/* -- Section: Datos -- */}
       <Card className="shadow-sm overflow-visible">
@@ -1652,8 +1696,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
 
       </div>{/* end editor column */}
 
-      {/* -- Sidebar: sticky right column (desktop only) -- */}
-      <aside className="hidden lg:flex flex-col sticky top-[105px] h-[calc(100vh-105px)] border-l border-border/40 overflow-y-auto pl-4">
+      {/* -- Sidebar: fixed right column (desktop only), stays visible while left column scrolls -- */}
+      <aside className="hidden lg:flex flex-col lg:self-start lg:h-[calc(100vh-140px)] border-l border-border/40 overflow-y-auto pl-4 min-h-0">
         <FinancialPanel
           positionsCount={positions.length}
           totalGuards={stats.totalGuards}
