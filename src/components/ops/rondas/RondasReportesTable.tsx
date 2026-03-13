@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight, Camera, Mic, Clock, CheckCircle2, XCircle, AlertTriangle, ExternalLink, MapPin } from "lucide-react";
+import { ChevronDown, ChevronRight, Camera, Mic, Clock, CheckCircle2, XCircle, AlertTriangle, ExternalLink, MapPin, MapPinned } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ReporteRow {
@@ -62,6 +62,7 @@ interface Props {
   sortDir: "asc" | "desc";
   onSort: (key: string) => void;
   onViewMap?: (row: ReporteRow) => void;
+  onSendToCheckpoints?: (row: ReporteRow) => void;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
@@ -143,7 +144,21 @@ function TrustBreakdownBars({ breakdown }: { breakdown: TrustBreakdown }) {
   );
 }
 
-function ExpandedRow({ row, onViewMap }: { row: ReporteRow; onViewMap?: (row: ReporteRow) => void }) {
+function ExpandedRow({
+  row,
+  onViewMap,
+  onSendToCheckpoints,
+}: {
+  row: ReporteRow;
+  onViewMap?: (row: ReporteRow) => void;
+  onSendToCheckpoints?: (row: ReporteRow) => void;
+}) {
+  const puntosConCoords = row.marcaciones.filter((m) => m.lat != null && m.lng != null);
+  const canSendToCheckpoints =
+    onSendToCheckpoints &&
+    row.installationId &&
+    puntosConCoords.length > 0;
+
   return (
     <tr>
       <td colSpan={9} className="px-4 py-3 bg-muted/20 border-b border-border/50">
@@ -220,15 +235,31 @@ function ExpandedRow({ row, onViewMap }: { row: ReporteRow; onViewMap?: (row: Re
                 </span>
               </div>
             )}
-            {row.walkRoute && row.walkRoute.length > 0 && onViewMap && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onViewMap(row); }}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-teal-500/15 px-3 py-1.5 text-xs font-medium text-teal-400 hover:bg-teal-500/25 transition-colors"
-              >
-                <MapPin className="h-3.5 w-3.5" />
-                Ver Mapa de Ronda
-              </button>
-            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {row.walkRoute && row.walkRoute.length > 0 && onViewMap && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onViewMap(row); }}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-teal-500/15 px-3 py-1.5 text-xs font-medium text-teal-400 hover:bg-teal-500/25 transition-colors"
+                >
+                  <MapPin className="h-3.5 w-3.5" />
+                  Ver Mapa de Ronda
+                </button>
+              )}
+              {canSendToCheckpoints && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm(`¿Enviar los ${puntosConCoords.length} puntos de esta ronda como checkpoints de ${row.installation}?`)) {
+                      onSendToCheckpoints(row);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/15 px-3 py-1.5 text-xs font-medium text-blue-400 hover:bg-blue-500/25 transition-colors"
+                >
+                  <MapPinned className="h-3.5 w-3.5" />
+                  Enviar a checkpoints
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </td>
@@ -245,6 +276,7 @@ export function RondasReportesTable({
   sortDir,
   onSort,
   onViewMap,
+  onSendToCheckpoints,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -375,7 +407,7 @@ export function RondasReportesTable({
                         </span>
                       </td>
                     </tr>
-                    {isExpanded && <ExpandedRow row={row} onViewMap={onViewMap} />}
+                    {isExpanded && <ExpandedRow row={row} onViewMap={onViewMap} onSendToCheckpoints={onSendToCheckpoints} />}
                   </Fragment>
                 );
               })

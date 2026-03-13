@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Download, Loader2, BarChart3, User, Map, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { RondasComplianceChart } from "./RondasComplianceChart";
@@ -114,6 +115,35 @@ export function RondasReportesClient({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
   const [mapRow, setMapRow] = useState<ReporteRow | null>(null);
+  const [sendingToCheckpoints, setSendingToCheckpoints] = useState(false);
+  const router = useRouter();
+
+  const handleSendToCheckpoints = useCallback(
+    async (row: ReporteRow) => {
+      if (!row.installationId) return;
+      setSendingToCheckpoints(true);
+      try {
+        const res = await fetch(
+          `/api/ops/rondas/ejecucion/${row.id}/crear-checkpoints-from-marcaciones`,
+          { method: "POST" },
+        );
+        const json = await res.json();
+        if (res.ok && json.success) {
+          toast.success(`${json.data.created.length} checkpoints creados`);
+          router.push(
+            `/ops/rondas/configuracion?installationId=${row.installationId}&tab=checkpoints`,
+          );
+        } else {
+          toast.error(json.error ?? "Error al crear checkpoints");
+        }
+      } catch {
+        toast.error("Error al crear checkpoints");
+      } finally {
+        setSendingToCheckpoints(false);
+      }
+    },
+    [router],
+  );
 
   const handleResolvePanic = useCallback(async (id: string) => {
     setResolvingPanicId(id);
@@ -471,6 +501,7 @@ export function RondasReportesClient({
             sortDir={sortDir}
             onSort={handleSort}
             onViewMap={setMapRow}
+            onSendToCheckpoints={sendingToCheckpoints ? undefined : handleSendToCheckpoints}
           />
 
           {/* Export buttons */}

@@ -120,7 +120,11 @@ export function RondasConfiguracionClient({
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab");
     if (tab && TABS.some((t) => t.id === tab)) setActiveTab(tab);
-  }, []);
+    const instId = params.get("installationId");
+    if (instId && installations.some((i) => i.id === instId)) {
+      setInstallationId(instId);
+    }
+  }, [installations]);
 
   const programacionColumns: DataTableColumn[] = [
     { key: "rondaTemplate", label: "Plantilla", render: (_v, row) => row.rondaTemplate?.name ?? "—" },
