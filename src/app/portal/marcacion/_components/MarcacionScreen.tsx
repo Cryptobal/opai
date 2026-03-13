@@ -42,6 +42,12 @@ type ScreenMode =
   | "success"
   | "error";
 
+type GpsStatus = "idle" | "loading" | "ok" | "error";
+
+const GPS_TIMEOUT_MS = 20000;
+const GPS_RETRY_DELAY_MS = 2000;
+const GPS_MAX_RETRIES = 3;
+
 function normalizeRut(value: string): string {
   return value.replace(/[\s.]/g, "").toLowerCase();
 }
@@ -58,6 +64,19 @@ function formatRutInput(value: string): string {
   // Add dots every 3 digits from the right of body
   const bodyFormatted = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return `${bodyFormatted}-${dv.toUpperCase()}`;
+}
+
+function getGpsErrorMessage(code: number): string {
+  switch (code) {
+    case 1:
+      return "Permiso de ubicación denegado. Actívalo en Configuración.";
+    case 2:
+      return "GPS no disponible. Verifica que la ubicación esté activada.";
+    case 3:
+      return "La obtención de ubicación tardó demasiado. Reintentando...";
+    default:
+      return "Error al obtener ubicación. Reintentando...";
+  }
 }
 
 export function MarcacionScreen({
@@ -79,8 +98,11 @@ export function MarcacionScreen({
   const [pinLoading, setPinLoading] = useState(false);
   const [pinFallbackReason, setPinFallbackReason] = useState<string>("user_choice");
 
-  // Geolocation
+  // GPS obligatorio — se solicita al entrar a face-verify o pin-fallback, no al montar
   const [geoPosition, setGeoPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsStatus, setGpsStatus] = useState<GpsStatus>("idle");
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [showGpsModal, setShowGpsModal] = useState(false);
 
   const rutInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,16 +112,73 @@ export function MarcacionScreen({
     return () => clearInterval(interval);
   }, []);
 
-  // Geolocation
-  useEffect(() => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setGeoPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {},
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
+  // Solicitar GPS con reintentos automáticos (3 intentos, 2s entre cada uno)
+  const requestGps = useCallback((): Promise<{ lat: number; lng: number } | null> => {
+    if (!("geolocation" in navigator)) {
+      setGpsError("Tu dispositivo no soporta geolocalización.");
+      setGpsStatus("error");
+      return Promise.resolve(null);
     }
+
+    const tryGetPosition = (attempt: number): Promise<{ lat: number; lng: number } | null> =>
+      new Promise((resolve) => {
+        setGpsStatus("loading");
+        setGpsError(null);
+
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            setGeoPosition(coords);
+            setGpsStatus("ok");
+            setGpsError(null);
+            resolve(coords);
+          },
+          (err) => {
+            const msg = getGpsErrorMessage(err.code);
+            setGpsError(msg);
+
+            if (attempt < GPS_MAX_RETRIES) {
+              // Reintentar después de 2 segundos
+              setTimeout(() => {
+                tryGetPosition(attempt + 1).then(resolve);
+              }, GPS_RETRY_DELAY_MS);
+            } else {
+              setGpsStatus("error");
+              setShowGpsModal(true);
+              resolve(null);
+            }
+          },
+          { enableHighAccuracy: true, timeout: GPS_TIMEOUT_MS, maximumAge: 0 }
+        );
+      });
+
+    return tryGetPosition(1);
   }, []);
+
+  // Solicitar GPS al entrar a face-verify o pin-fallback (no al montar del componente)
+  // Si ya tenemos coords (ej. al cambiar de face-verify a pin-fallback), mantenerlos
+  const prevModeRef = useRef<ScreenMode>("rut-entry");
+  useEffect(() => {
+    if (mode === "face-verify" || mode === "pin-fallback") {
+      const comingFromOtherMarkScreen =
+        prevModeRef.current === "face-verify" || prevModeRef.current === "pin-fallback";
+      prevModeRef.current = mode;
+
+      if (comingFromOtherMarkScreen && geoPosition) {
+        setGpsStatus("ok");
+        setGpsError(null);
+        setShowGpsModal(false);
+      } else {
+        setGeoPosition(null);
+        setGpsStatus("idle");
+        setGpsError(null);
+        setShowGpsModal(false);
+        requestGps();
+      }
+    } else {
+      prevModeRef.current = mode;
+    }
+  }, [mode, requestGps]);
 
   // Auto-reset to rut-entry after success
   useEffect(() => {
@@ -169,9 +248,15 @@ export function MarcacionScreen({
   );
 
   // ── Step 2: Face capture → verification ────────────────────────────────
+  // GPS obligatorio: el botón de capturar está deshabilitado hasta tener coordenadas
   const handleFaceCapture = useCallback(
     async (imageBase64: string) => {
       if (!guardiaInfo) return;
+      // Doble verificación: sin GPS no se envía (el botón debería estar deshabilitado)
+      if (!geoPosition) {
+        setError("Se requiere ubicación GPS para marcar.");
+        return;
+      }
       setMode("processing");
       setError(null);
 
@@ -183,8 +268,8 @@ export function MarcacionScreen({
             image: imageBase64,
             installationId,
             tipo: guardiaInfo.nextTipo,
-            lat: geoPosition?.lat ?? null,
-            lng: geoPosition?.lng ?? null,
+            lat: geoPosition.lat,
+            lng: geoPosition.lng,
             expectedGuardiaId: guardiaInfo.guardiaId,
           }),
         });
@@ -193,8 +278,6 @@ export function MarcacionScreen({
 
         if (!res.ok) {
           // CRITICAL: Only offer enrollment when guard has NO Face ID registered.
-          // If faceIdRegistered is true and verification failed → FACE_MISMATCH (wrong person).
-          // Never offer enrollment in that case — reject with clear message.
           if (
             res.status === 404 &&
             data.code === "FACE_NOT_REGISTERED" &&
@@ -203,7 +286,6 @@ export function MarcacionScreen({
             setMode("face-register");
             return;
           }
-          // Face mismatch or AWS error → suggest PIN fallback
           setPinFallbackReason(data.code === "FACE_MISMATCH" ? "face_mismatch" : "aws_error");
           throw new Error(data.error || "No se pudo verificar el rostro");
         }
@@ -218,13 +300,14 @@ export function MarcacionScreen({
         setMode("success");
       } catch (err) {
         if (!isOnline) {
+          // Offline: solo permitir si tenemos GPS (obligatorio)
           MarcacionOfflineQueue.add({
             type: "face",
             imageBase64,
             installationId,
             tipo: guardiaInfo.nextTipo,
-            lat: geoPosition?.lat ?? null,
-            lng: geoPosition?.lng ?? null,
+            lat: geoPosition.lat,
+            lng: geoPosition.lng,
             deviceTimestamp: new Date().toISOString(),
           });
           setLastMarca({
@@ -238,17 +321,22 @@ export function MarcacionScreen({
           return;
         }
         setError(err instanceof Error ? err.message : "Error desconocido");
-        setMode("face-verify"); // stay on face-verify showing error, not crash to error screen
+        setMode("face-verify");
       }
     },
     [guardiaInfo, installationId, geoPosition, isOnline]
   );
 
   // ── PIN fallback submission ─────────────────────────────────────────────
+  // GPS obligatorio: el botón está deshabilitado hasta tener coordenadas
   const handlePinSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (!pin || !guardiaInfo) return;
+      if (!geoPosition) {
+        setError("Se requiere ubicación GPS para marcar.");
+        return;
+      }
 
       setPinLoading(true);
       setError(null);
@@ -272,8 +360,8 @@ export function MarcacionScreen({
             rut: normalizeRut(rutInput),
             pin,
             tipo: guardiaInfo.nextTipo,
-            lat: geoPosition?.lat ?? 0,
-            lng: geoPosition?.lng ?? 0,
+            lat: geoPosition.lat,
+            lng: geoPosition.lng,
             pinFallbackReason,
           }),
         });
@@ -299,8 +387,8 @@ export function MarcacionScreen({
             pin,
             installationId,
             tipo: guardiaInfo.nextTipo,
-            lat: geoPosition?.lat ?? null,
-            lng: geoPosition?.lng ?? null,
+            lat: geoPosition.lat,
+            lng: geoPosition.lng,
             deviceTimestamp: new Date().toISOString(),
           });
           setLastMarca({
@@ -333,6 +421,84 @@ export function MarcacionScreen({
     month: "long",
     day: "numeric",
   });
+
+  // Indicador visual permanente de GPS
+  const GpsIndicator = () => {
+    if (mode !== "face-verify" && mode !== "pin-fallback") return null;
+    return (
+      <div
+        className="absolute top-4 right-4 z-10 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+        style={{
+          background:
+            gpsStatus === "ok"
+              ? "rgba(16,185,129,0.2)"
+              : gpsStatus === "error"
+                ? "rgba(239,68,68,0.2)"
+                : "rgba(245,158,11,0.2)",
+          border:
+            gpsStatus === "ok"
+              ? "1px solid rgba(16,185,129,0.4)"
+              : gpsStatus === "error"
+                ? "1px solid rgba(239,68,68,0.4)"
+                : "1px solid rgba(245,158,11,0.4)",
+          color:
+            gpsStatus === "ok"
+              ? "#34d399"
+              : gpsStatus === "error"
+                ? "#f87171"
+                : "#fbbf24",
+        }}
+      >
+        <span>
+          {gpsStatus === "ok" ? "🟢" : gpsStatus === "error" ? "🔴" : "🟡"}
+        </span>
+        <span>
+          {gpsStatus === "ok"
+            ? "GPS OK"
+            : gpsStatus === "error"
+              ? "Sin GPS"
+              : "Obteniendo GPS..."}
+        </span>
+      </div>
+    );
+  };
+
+  // Modal cuando falla GPS después de 3 reintentos
+  const GpsModal = () =>
+    showGpsModal ? (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div
+          className="max-w-sm rounded-2xl p-6 text-center"
+          style={{
+            background: "#0f172a",
+            border: "1px solid rgba(239,68,68,0.3)",
+          }}
+        >
+          <div className="text-4xl mb-3">📍</div>
+          <p className="text-white font-semibold mb-2">
+            No se pudo obtener tu ubicación
+          </p>
+          <p className="text-white/60 text-sm mb-6">
+            Verifica que la ubicación esté activada en tu dispositivo y que hayas
+            dado permiso a la app.
+          </p>
+          <button
+            onClick={() => {
+              setShowGpsModal(false);
+              setGpsStatus("idle");
+              requestGps();
+            }}
+            className="w-full rounded-xl py-3 text-base font-bold text-white"
+            style={{
+              background: "rgba(16,185,129,0.4)",
+              border: "1px solid rgba(16,185,129,0.3)",
+            }}
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    ) : null;
 
   // ── Shared header ───────────────────────────────────────────────────────
   const Header = () => (
@@ -515,9 +681,12 @@ export function MarcacionScreen({
     const tipoColor = tipo === "entrada" ? "rgba(16,185,129,0.4)" : "rgba(239,68,68,0.4)";
     const tipoBorder = tipo === "entrada" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)";
     const tipoText = tipo === "entrada" ? "text-emerald-400" : "text-red-400";
+    const gpsReady = gpsStatus === "ok" && geoPosition != null;
 
     return (
-      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex flex-col relative" style={{ background: "#060a13" }}>
+        <GpsIndicator />
+        <GpsModal />
         <Header />
         <div className="flex-1 flex flex-col px-4 pb-6">
           {/* Guardia greeting */}
@@ -565,8 +734,13 @@ export function MarcacionScreen({
                   setGuardiaInfo(null);
                   setError(null);
                 }}
-                captureLabel={`Marcar ${tipo === "entrada" ? "Entrada" : "Salida"}`}
+                captureLabel={
+                  gpsReady
+                    ? `Marcar ${tipo === "entrada" ? "Entrada" : "Salida"}`
+                    : "Obteniendo ubicación..."
+                }
                 captureColor={tipoColor}
+                captureDisabled={!gpsReady}
               />
             </div>
           ) : (
@@ -610,9 +784,12 @@ export function MarcacionScreen({
   // ── PIN fallback ────────────────────────────────────────────────────────
   if (mode === "pin-fallback" && guardiaInfo) {
     const tipo = guardiaInfo.nextTipo;
+    const gpsReady = gpsStatus === "ok" && geoPosition != null;
 
     return (
-      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex flex-col relative" style={{ background: "#060a13" }}>
+        <GpsIndicator />
+        <GpsModal />
         <Header />
         <div className="flex-1 flex flex-col justify-center px-4 pb-8">
           {/* Warning badge */}
@@ -658,14 +835,18 @@ export function MarcacionScreen({
 
             <button
               type="submit"
-              disabled={!pin || pinLoading}
-              className="w-full rounded-2xl py-4 text-base font-bold text-white transition-opacity disabled:opacity-40"
+              disabled={!pin || pinLoading || !gpsReady}
+              className="w-full rounded-2xl py-4 text-base font-bold text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
                 background: tipo === "entrada" ? "rgba(16,185,129,0.4)" : "rgba(239,68,68,0.4)",
                 border: `1px solid ${tipo === "entrada" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
               }}
             >
-              {pinLoading ? "Registrando..." : `Marcar ${tipo === "entrada" ? "Entrada" : "Salida"} con PIN`}
+              {pinLoading
+                ? "Registrando..."
+                : !gpsReady
+                  ? "Obteniendo ubicación..."
+                  : `Marcar ${tipo === "entrada" ? "Entrada" : "Salida"} con PIN`}
             </button>
           </form>
 

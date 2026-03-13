@@ -47,6 +47,14 @@ export async function POST(req: NextRequest) {
 
     const { image, installationId, tipo, lat, lng, deviceTimestamp, offlineSync, expectedGuardiaId } = parsed.data;
 
+    // GPS obligatorio — sin ubicación no hay marcación
+    if (lat == null || lng == null) {
+      return NextResponse.json(
+        { success: false, error: "Ubicación GPS requerida" },
+        { status: 400 }
+      );
+    }
+
     // Find installation
     const installation = await prisma.crmInstallation.findFirst({
       where: { id: installationId, status: "active" },

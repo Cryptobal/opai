@@ -7,9 +7,10 @@ interface FaceCameraCaptureProps {
   onCancel: () => void;
   captureLabel?: string;
   captureColor?: string;
+  captureDisabled?: boolean;
 }
 
-export function FaceCameraCapture({ onCapture, onCancel, captureLabel = "Capturar", captureColor = "rgba(16,185,129,0.4)" }: FaceCameraCaptureProps) {
+export function FaceCameraCapture({ onCapture, onCancel, captureLabel = "Capturar", captureColor = "rgba(16,185,129,0.4)", captureDisabled = false }: FaceCameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -174,8 +175,9 @@ export function FaceCameraCapture({ onCapture, onCancel, captureLabel = "Captura
           </button>
           <button
             onClick={startAutoCapture}
-            className="flex-1 rounded-xl px-4 py-3 text-sm font-bold text-white"
-            style={{ background: captureColor }}
+            disabled={captureDisabled}
+            className="flex-1 rounded-xl px-4 py-3 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+            style={{ background: captureDisabled ? "rgba(255,255,255,0.2)" : captureColor }}
           >
             {captureLabel}
           </button>

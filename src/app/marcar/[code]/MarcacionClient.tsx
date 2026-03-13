@@ -116,45 +116,65 @@ export function MarcacionClient({ code }: { code: string }) {
     }
   }, [code, rut, pin]);
 
-  // ─── Estado de geolocalización ───
+  // ─── Estado de geolocalización (GPS obligatorio — sin ubicación no hay marcación) ───
   const [geoStatus, setGeoStatus] = useState<"pending" | "granted" | "denied" | "error">("pending");
   const [geoCoords, setGeoCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [showGpsModal, setShowGpsModal] = useState(false);
 
-  // ─── Solicitar geolocalización al entrar a pantalla de marcación ───
+  const GPS_TIMEOUT_MS = 20000;
+  const GPS_RETRY_DELAY_MS = 2000;
+  const GPS_MAX_RETRIES = 3;
+
+  const getGpsErrorMessage = (code: number) => {
+    switch (code) {
+      case 1:
+        return "Permiso de ubicación denegado. Actívalo en Configuración.";
+      case 2:
+        return "GPS no disponible. Verifica que la ubicación esté activada.";
+      case 3:
+        return "La obtención de ubicación tardó demasiado. Reintentando...";
+      default:
+        return "Error al obtener ubicación. Reintentando...";
+    }
+  };
+
+  // Solicitar GPS con reintentos automáticos (3 intentos, 2s entre cada uno, timeout 20s)
   const requestGeo = useCallback(() => {
-    setGeoStatus("pending");
     if (!navigator.geolocation) {
       setGeoStatus("error");
       setError("Tu navegador no soporta geolocalización. No puedes marcar asistencia.");
       return;
     }
-    // Verificar que estamos en un contexto seguro (HTTPS) — necesario para GPS
     if (typeof window !== "undefined" && !window.isSecureContext) {
       setGeoStatus("error");
       setError("Esta página debe abrirse con HTTPS para acceder al GPS. Contacta a tu supervisor.");
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setGeoCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
-        setGeoStatus("granted");
-        setError(null);
-      },
-      (err) => {
-        if (err.code === err.PERMISSION_DENIED) {
-          setGeoStatus("denied");
-          setError("Debes permitir el acceso a tu ubicación para marcar asistencia. Toca \"Reintentar\" después de activar la ubicación.");
-        } else if (err.code === err.TIMEOUT) {
-          setGeoStatus("error");
-          setError("No se pudo obtener tu ubicación a tiempo. Verifica que el GPS esté activado y reintenta.");
-        } else {
-          setGeoStatus("error");
-          setError("No se pudo obtener tu ubicación. Verifica que el GPS esté activado.");
-        }
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+    const tryGetPosition = (attempt: number) => {
+      setGeoStatus("pending");
+      setError(null);
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setGeoCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
+          setGeoStatus("granted");
+          setError(null);
+        },
+        (err) => {
+          setError(getGpsErrorMessage(err.code));
+          if (attempt < GPS_MAX_RETRIES) {
+            setTimeout(() => tryGetPosition(attempt + 1), GPS_RETRY_DELAY_MS);
+          } else {
+            setGeoStatus("error");
+            setShowGpsModal(true);
+          }
+        },
+        { enableHighAccuracy: true, timeout: GPS_TIMEOUT_MS, maximumAge: 0 }
+      );
+    };
+
+    tryGetPosition(1);
   }, []);
 
   // ─── Captura de foto (cámara frontal) ───
@@ -206,16 +226,16 @@ export function MarcacionClient({ code }: { code: string }) {
     setCameraActive(false);
   }, []);
 
-  // ─── Registrar marcación ───
+  // ─── Registrar marcación (GPS obligatorio) ───
   const handleMarcar = useCallback(
     async (tipo: "entrada" | "salida") => {
+      if (!geoCoords) {
+        setError("Se requiere ubicación GPS para marcar.");
+        return;
+      }
       setError(null);
       setLoading(true);
 
-      // 1. GPS es evidencia, no restricción (Res. N°38 Art. 19)
-      // Se permite marcar sin GPS, pero se registra como "sin_gps"
-
-      // 2. Capturar foto si la cámara está activa
       let foto = fotoBase64;
       if (cameraActive && !foto) {
         foto = capturePhoto();
@@ -230,8 +250,8 @@ export function MarcacionClient({ code }: { code: string }) {
             rut,
             pin,
             tipo,
-            lat: geoCoords?.lat ?? null,
-            lng: geoCoords?.lng ?? null,
+            lat: geoCoords.lat,
+            lng: geoCoords.lng,
             fotoBase64: foto || undefined,
           }),
         });
@@ -290,6 +310,41 @@ export function MarcacionClient({ code }: { code: string }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
+      {/* Modal GPS (fuera del overflow-hidden para que no se recorte) */}
+      {screen === "marcar" && showGpsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <div className="text-center">
+              <div className="text-4xl mb-3">📍</div>
+              <p className="text-slate-900 font-semibold mb-2">
+                No se pudo obtener tu ubicación
+              </p>
+              <p className="text-slate-600 text-sm mb-6">
+                Verifica que la ubicación esté activada en tu dispositivo y que
+                hayas dado permiso a la app.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowGpsModal(false)}
+                  className="flex-1 py-2.5 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50"
+                >
+                  Cerrar
+                </button>
+                <button
+                  onClick={() => {
+                    setShowGpsModal(false);
+                    requestGeo();
+                  }}
+                  className="flex-1 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                >
+                  Reintentar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-6">
@@ -337,6 +392,7 @@ export function MarcacionClient({ code }: { code: string }) {
                 setValidacion(null);
                 setGeoStatus("pending");
                 setGeoCoords(null);
+                setShowGpsModal(false);
               }}
             />
           )}
@@ -488,7 +544,6 @@ function MarcarScreen({
   onHistorial: () => void;
   onLogout: () => void;
 }) {
-  // Solicitar geo automáticamente al montar
   useEffect(() => {
     if (geoStatus === "pending") {
       onRequestGeo();
@@ -507,8 +562,8 @@ function MarcarScreen({
   });
 
   const geoReady = geoStatus === "granted" && geoCoords != null;
-  // Res. N°38 Art. 19: GPS es evidencia, no restricción. Se puede marcar sin GPS.
-  const canMark = !loading;
+  // GPS obligatorio — sin ubicación no hay marcación
+  const canMark = !loading && geoReady;
 
   return (
     <div className="p-6">
@@ -563,7 +618,7 @@ function MarcarScreen({
             <div className="flex-1">
               <p className="text-sm text-amber-700 font-medium">Sin ubicación GPS</p>
               <p className="text-xs text-amber-600 mt-0.5">
-                Puedes marcar sin GPS, pero se recomienda activar la ubicación.
+                Sin ubicación no hay marcación. Activa el GPS y reintenta.
               </p>
               <button
                 onClick={onRequestGeo}

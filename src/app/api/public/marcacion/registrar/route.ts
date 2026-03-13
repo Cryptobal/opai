@@ -24,10 +24,12 @@ const schema = z.object({
   rut: z.string().min(1),
   pin: z.string().min(4).max(6),
   tipo: z.enum(["entrada", "salida"]),
-  lat: z.number().nullable().optional(),  // GPS es evidencia, no restricción (Res. N°38 Art. 19)
+  lat: z.number().nullable().optional(),
   lng: z.number().nullable().optional(),
-  gpsAccuracy: z.number().nullable().optional(), // Precisión del GPS en metros
-  fotoBase64: z.string().optional(), // Foto de evidencia en base64 (captura cámara frontal)
+  gpsAccuracy: z.number().nullable().optional(),
+  fotoBase64: z.string().optional(),
+  // Solo para marcaciones manuales desde back office (bypass GPS)
+  manualFromBackOffice: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -41,7 +43,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { code, rut, pin, tipo, lat, lng, gpsAccuracy, fotoBase64 } = parsed.data;
+    const { code, rut, pin, tipo, lat, lng, gpsAccuracy, fotoBase64, manualFromBackOffice } = parsed.data;
+
+    // GPS obligatorio — sin excepción para marcaciones desde portal (manual/import desde back office sí puede omitir)
+    if (!manualFromBackOffice && (lat == null || lng == null)) {
+      return NextResponse.json(
+        { success: false, error: "Ubicación GPS requerida" },
+        { status: 400 }
+      );
+    }
 
     // Validar RUT
     const normalizedRut = normalizeRut(rut);
