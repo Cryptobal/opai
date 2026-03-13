@@ -1762,6 +1762,30 @@ model CrmEmailTemplate {
   @@schema("crm")
 }
 
+model DocumentFolder {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String   @map("tenant_id")
+  name           String
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id") @db.Uuid
+  parentId       String?  @map("parent_id") @db.Uuid
+  portalVisible  Boolean  @default(false) @map("portal_visible")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  parent   DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children DocumentFolder[] @relation("FolderHierarchy")
+
+  opsDocumentos OpsDocumentoPersona[]
+  crmFileLinks  CrmFileLink[]
+
+  @@index([tenantId], map: "idx_document_folders_tenant")
+  @@index([entityType, entityId], map: "idx_document_folders_entity")
+  @@index([parentId], map: "idx_document_folders_parent")
+  @@map("document_folders")
+  @@schema("crm")
+}
+
 model CrmFile {
   id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId        String   @map("tenant_id")
@@ -1770,6 +1794,7 @@ model CrmFile {
   size            Int
   storageProvider String   @map("storage_provider")
   storageKey      String   @map("storage_key")
+  portalVisible   Boolean  @default(false) @map("portal_visible")
   createdBy       String?  @map("created_by")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -1787,13 +1812,16 @@ model CrmFileLink {
   fileId     String   @map("file_id") @db.Uuid
   entityType String   @map("entity_type")
   entityId   String   @map("entity_id")
+  folderId   String?  @map("folder_id") @db.Uuid
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  file CrmFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  file   CrmFile        @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  folder DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_crm_file_links_tenant")
   @@index([fileId], map: "idx_crm_file_links_file")
   @@index([entityType, entityId], map: "idx_crm_file_links_entity")
+  @@index([folderId], map: "idx_crm_file_links_folder")
   @@map("file_links")
   @@schema("crm")
 }
@@ -2369,25 +2397,29 @@ model OpsGuardiaFlag {
 }
 
 model OpsDocumentoPersona {
-  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId    String    @map("tenant_id")
-  guardiaId   String    @map("guardia_id") @db.Uuid
-  type        String
-  fileUrl     String?   @map("file_url")
-  status      String    @default("pending")
-  issuedAt    DateTime? @map("issued_at") @db.Date
-  expiresAt   DateTime? @map("expires_at") @db.Date
-  notes       String?
-  validatedBy String?   @map("validated_by")
-  validatedAt DateTime? @map("validated_at") @db.Timestamptz(6)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String    @map("tenant_id")
+  guardiaId      String    @map("guardia_id") @db.Uuid
+  type           String
+  fileUrl        String?   @map("file_url")
+  status         String    @default("pending")
+  issuedAt       DateTime? @map("issued_at") @db.Date
+  expiresAt      DateTime? @map("expires_at") @db.Date
+  notes          String?
+  validatedBy    String?   @map("validated_by")
+  validatedAt    DateTime? @map("validated_at") @db.Timestamptz(6)
+  folderId       String?   @map("folder_id") @db.Uuid
+  portalVisible  Boolean   @default(false) @map("portal_visible")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  guardia OpsGuardia @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+  guardia OpsGuardia      @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+  folder  DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_ops_docs_persona_tenant")
   @@index([guardiaId], map: "idx_ops_docs_persona_guardia")
   @@index([expiresAt], map: "idx_ops_docs_persona_expires")
+  @@index([folderId], map: "idx_ops_docs_persona_folder")
   @@map("documentos_persona")
   @@schema("ops")
 }

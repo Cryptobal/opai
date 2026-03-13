@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file");
     const entityType = formData.get("entityType") as string | null;
     const entityId = formData.get("entityId") as string | null;
+    const folderId = formData.get("folderId") as string | null;
+    const portalVisible = formData.get("portalVisible") === "true";
 
     if (!file || !(file instanceof File)) {
       return NextResponse.json(
@@ -80,28 +82,38 @@ export async function POST(request: NextRequest) {
         size: result.size,
         storageProvider: STORAGE_PROVIDER,
         storageKey: result.storageKey,
+        portalVisible,
         createdBy: ctx.userId,
       },
     });
 
-    await prisma.crmFileLink.create({
+    const link = await prisma.crmFileLink.create({
       data: {
         tenantId: ctx.tenantId,
         fileId: crmFile.id,
         entityType,
         entityId,
+        folderId: folderId || null,
       },
     });
+
+    const folder = folderId
+      ? await prisma.documentFolder.findUnique({ where: { id: folderId }, select: { name: true } })
+      : null;
 
     return NextResponse.json({
       success: true,
       data: {
         id: crmFile.id,
+        linkId: link.id,
         fileName: crmFile.fileName,
         mimeType: crmFile.mimeType,
         size: crmFile.size,
         publicUrl: result.publicUrl,
         createdAt: crmFile.createdAt,
+        portalVisible: crmFile.portalVisible,
+        folderId: folderId || null,
+        folderName: folder?.name ?? null,
       },
     }, { status: 201 });
   } catch (error) {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { FileText, FileCheck2, BookOpen } from "lucide-react";
+import { useState, useEffect } from "react";
+import { FileText, FileCheck2, BookOpen, FolderOpen, Loader2, Download, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PortalContractsSection } from "@/components/portales/PortalContractsSection";
 import { PortalProtocolos } from "./PortalProtocolos";
@@ -9,17 +9,19 @@ import { ClienteSession } from "@/lib/portal-cliente-types";
 
 interface Props {
   session: ClienteSession;
+  selectedInstallation?: string;
   isProspect?: boolean;
 }
 
-type Tab = "contratos" | "protocolos";
+type Tab = "contratos" | "protocolos" | "instalacion";
 
 const TABS: Array<{ id: Tab; label: string; icon: typeof FileText }> = [
   { id: "contratos", label: "Contratos", icon: FileCheck2 },
   { id: "protocolos", label: "Protocolos", icon: BookOpen },
+  { id: "instalacion", label: "Documentos instalación", icon: FolderOpen },
 ];
 
-export function PortalDocumentos({ session, isProspect }: Props) {
+export function PortalDocumentos({ session, selectedInstallation, isProspect }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("contratos");
 
   return (
@@ -56,10 +58,111 @@ export function PortalDocumentos({ session, isProspect }: Props) {
       {activeTab === "protocolos" && (
         <PortalProtocolos
           session={session}
-          selectedInstallation={session.installations[0]?.id ?? ""}
+          selectedInstallation={selectedInstallation ?? session.installations[0]?.id ?? ""}
           isProspect={isProspect}
         />
       )}
+      {activeTab === "instalacion" && (
+        <PortalInstalacionDocumentos
+          installationId={selectedInstallation ?? session.installations[0]?.id ?? ""}
+          isProspect={isProspect}
+        />
+      )}
+    </div>
+  );
+}
+
+function PortalInstalacionDocumentos({ installationId, isProspect }: { installationId: string; isProspect?: boolean }) {
+  const [docs, setDocs] = useState<Array<{ id: string; fileName: string; mimeType: string; size: number; createdAt: string; publicUrl: string | null; folderName: string | null }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!installationId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    fetch(`/api/portal/cliente/instalaciones/${installationId}/documentos`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) setDocs(data.data);
+      })
+      .catch(() => setDocs([]))
+      .finally(() => setLoading(false));
+  }, [installationId]);
+
+  if (isProspect) {
+    return (
+      <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 px-4 py-3 text-xs text-teal-300/80">
+        En modo activo verás los documentos de tu instalación compartidos por tu proveedor.
+      </div>
+    );
+  }
+
+  if (!installationId) {
+    return (
+      <div className="text-center py-16 text-zinc-500 text-sm">
+        Selecciona una instalación para ver sus documentos.
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
+      </div>
+    );
+  }
+
+  if (docs.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <FolderOpen className="h-10 w-10 text-zinc-600 mx-auto mb-3" />
+        <p className="text-sm text-zinc-400">No hay documentos de instalación disponibles</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {docs.map((doc) => (
+        <div
+          key={doc.id}
+          className="flex items-center gap-3 rounded-lg border border-white/[0.06] bg-white/[0.03] p-3"
+        >
+          <FileText className="h-8 w-8 text-teal-400/70 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium truncate">{doc.fileName}</p>
+            {doc.folderName && (
+              <p className="text-xs text-zinc-500 truncate">{doc.folderName}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {doc.publicUrl && (
+              <>
+                <a
+                  href={doc.publicUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded hover:bg-white/10 transition-colors"
+                  title="Ver"
+                >
+                  <ExternalLink className="h-4 w-4 text-zinc-400" />
+                </a>
+                <a
+                  href={`${doc.publicUrl}?download=true`}
+                  download={doc.fileName}
+                  className="p-2 rounded hover:bg-white/10 transition-colors"
+                  title="Descargar"
+                >
+                  <Download className="h-4 w-4 text-zinc-400" />
+                </a>
+              </>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

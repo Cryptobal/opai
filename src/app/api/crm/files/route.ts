@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       },
       include: {
         file: true,
+        folder: true,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -53,11 +54,15 @@ export async function GET(request: NextRequest) {
 
     const data = links.map((link) => ({
       id: link.file.id,
+      linkId: link.id,
       fileName: link.file.fileName,
       mimeType: link.file.mimeType,
       size: link.file.size,
       createdAt: link.file.createdAt,
       publicUrl: publicUrlBase ? `${publicUrlBase}/${link.file.storageKey}` : null,
+      folderId: link.folderId,
+      folderName: link.folder?.name ?? null,
+      portalVisible: link.file.portalVisible,
     }));
 
     return NextResponse.json({ success: true, data });

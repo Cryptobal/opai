@@ -35,6 +35,7 @@ export async function GET(
 
     const docs = await prisma.opsDocumentoPersona.findMany({
       where: { tenantId: ctx.tenantId, guardiaId: id },
+      include: { folder: true },
       orderBy: [{ expiresAt: "asc" }, { createdAt: "desc" }],
     });
 
@@ -75,6 +76,8 @@ export async function POST(
         issuedAt: body.issuedAt ? parseDateOnly(body.issuedAt) : null,
         expiresAt: body.expiresAt ? parseDateOnly(body.expiresAt) : null,
         notes: normalizeNullable(body.notes),
+        folderId: body.folderId || null,
+        portalVisible: body.portalVisible ?? false,
       },
     });
 
@@ -141,6 +144,8 @@ export async function PATCH(
         notes: body.notes !== undefined ? normalizeNullable(body.notes) : undefined,
         validatedBy: body.status && body.status !== "pendiente" ? ctx.userId : undefined,
         validatedAt: body.status && body.status !== "pendiente" ? new Date() : undefined,
+        folderId: body.folderId !== undefined ? (body.folderId || null) : undefined,
+        portalVisible: body.portalVisible !== undefined ? body.portalVisible : undefined,
       },
     });
 

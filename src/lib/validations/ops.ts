@@ -321,6 +321,8 @@ export const createGuardiaDocumentSchema = z.object({
   issuedAt: z.string().regex(dateRegex, "issuedAt debe tener formato YYYY-MM-DD").optional().nullable(),
   expiresAt: z.string().regex(dateRegex, "expiresAt debe tener formato YYYY-MM-DD").optional().nullable(),
   notes: z.string().trim().max(1000).optional().nullable(),
+  folderId: z.string().uuid().optional().nullable(),
+  portalVisible: z.boolean().optional(),
 });
 
 export const updateGuardiaDocumentSchema = createGuardiaDocumentSchema.partial();

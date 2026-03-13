@@ -184,7 +184,7 @@ export function PortalClienteClient() {
           </div>
         );
       case "documentacion":
-        return <PortalDocumentos session={session} isProspect={session?.isProspect} />;
+        return <PortalDocumentos session={session} selectedInstallation={selectedInstallation} isProspect={session?.isProspect} />;
       case "reportes":
         return <PortalReportes session={session} isProspect={session?.isProspect} />;
       case "comparativa":

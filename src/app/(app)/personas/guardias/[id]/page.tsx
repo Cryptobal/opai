@@ -32,7 +32,7 @@ export default async function GuardiaDetailPage({
         },
         bankAccounts: { orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] },
         comments: { orderBy: [{ createdAt: "desc" }], take: 100 },
-        documents: { orderBy: [{ createdAt: "desc" }] },
+        documents: { include: { folder: true }, orderBy: [{ createdAt: "desc" }] },
         historyEvents: { orderBy: [{ createdAt: "desc" }], take: 100 },
       },
     }),

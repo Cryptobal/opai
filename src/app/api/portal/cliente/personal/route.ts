@@ -39,6 +39,13 @@ export async function GET() {
     include: {
       persona: { select: { firstName: true, lastName: true } },
       documents: {
+        where: {
+          portalVisible: true,
+          OR: [
+            { folderId: null },
+            { folder: { portalVisible: true } },
+          ],
+        },
         select: { type: true, status: true, fileUrl: true },
         orderBy: { createdAt: "desc" },
       },
