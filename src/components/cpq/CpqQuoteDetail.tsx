@@ -691,9 +691,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         `Invitacion enviada a ${payload.data.sentTo}. ${payload.data.pinGenerated ? "Se genero PIN de acceso." : "PIN existente."}`
       );
 
-      // Show WhatsApp modal if user chose it and there's a phone number
-      if (wantsWhatsApp && payload.data.whatsappUrl) {
-        setWhatsappUrl(payload.data.whatsappUrl);
+      // Build wa.me URL in the browser so encodeURIComponent preserves emojis correctly
+      if (wantsWhatsApp && payload.data.whatsappMessage) {
+        const phone = payload.data.whatsappPhone ?? "";
+        const encoded = encodeURIComponent(payload.data.whatsappMessage);
+        const waUrl = phone
+          ? `https://wa.me/${phone}?text=${encoded}`
+          : `https://wa.me/?text=${encoded}`;
+        setWhatsappUrl(waUrl);
         setWhatsappSentTo(payload.data.sentTo);
         setWhatsappModalOpen(true);
       }

@@ -491,7 +491,10 @@ export async function POST(
         proposalLink: presentationUniqueId
           ? `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/p/${presentationUniqueId}`
           : null,
-        whatsappUrl: buildWhatsAppUrl(contact.phone, {
+        // Return phone + plain message separately — client builds wa.me URL
+        // so the browser's encodeURIComponent preserves emojis correctly
+        whatsappPhone: normalizePhone(contact.phone),
+        whatsappMessage: buildWhatsAppMessage({
           contactName,
           companyName: account.name,
           email: contact.email,
@@ -535,14 +538,8 @@ interface WhatsAppMsgParams {
   ejecutivoName: string;
 }
 
-function buildWhatsAppUrl(
-  phone: string | null | undefined,
-  params: WhatsAppMsgParams
-): string {
-  const normalized = normalizePhone(phone);
-
+function buildWhatsAppMessage(params: WhatsAppMsgParams): string {
   const { contactName, companyName, email, pin, portalUrl, proposalLink, ejecutivoName } = params;
-
   const firstName = contactName.split(" ")[0];
 
   const lines = [
@@ -569,9 +566,7 @@ function buildWhatsAppUrl(
 
   lines.push(``, `¿Tienes alguna consulta? Responde aquí mismo 🙌`);
 
-  const message = encodeURIComponent(lines.join("\n"));
-  // If phone available, open directly; otherwise open WhatsApp without number (user picks contact)
-  return normalized
-    ? `https://wa.me/${normalized}?text=${message}`
-    : `https://wa.me/?text=${message}`;
+  // Return plain text — client builds the wa.me URL so the browser's
+  // encodeURIComponent preserves emojis correctly (server-side encoding can garble them)
+  return lines.join("\n");
 }
