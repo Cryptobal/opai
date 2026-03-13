@@ -39,7 +39,7 @@ export function TourOverlay({ onComplete, session }: Props) {
   const [displayStep, setDisplayStep] = useState(0);
   const [slideDir, setSlideDir] = useState<"next" | "prev">("next");
   const [showPostTour, setShowPostTour] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const steps = useMemo(
     () =>
