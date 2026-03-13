@@ -17,7 +17,7 @@ import { resend } from "@/lib/resend";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
-import { extractLeadFromEmail } from "@/lib/email-lead-extractor";
+import { extractLeadFromEmail, parseFromHeader } from "@/lib/email-lead-extractor";
 
 import { toSentenceCase } from "@/lib/text-format";
 
@@ -100,15 +100,17 @@ export async function POST(request: NextRequest) {
       });
     } catch (extractErr) {
       console.warn("[inbound-email] Extract failed, creating lead from envelope:", extractErr);
+      const parsedFrom = parseFromHeader(from || "");
+      const nameParts = parsedFrom.name?.split(/\s+/) || [];
       extracted = {
         companyName: null,
         rut: null,
         legalName: null,
         businessActivity: null,
         legalRepresentativeName: null,
-        contactFirstName: null,
-        contactLastName: null,
-        contactEmail: from?.replace(/^.*<([^>]+)>$/, "$1").trim() || from || null,
+        contactFirstName: nameParts[0] || null,
+        contactLastName: nameParts.slice(1).join(" ") || null,
+        contactEmail: parsedFrom.email || null,
         contactPhone: null,
         contactRole: null,
         address: null,
@@ -128,6 +130,16 @@ export async function POST(request: NextRequest) {
 
     const firstName = toSentenceCase(extracted.contactFirstName?.trim() || "") ?? null;
     const lastName = toSentenceCase(extracted.contactLastName?.trim() || "") ?? null;
+
+    console.log("[inbound-email] Extracted data:", {
+      companyName: extracted.companyName,
+      contactFirstName: extracted.contactFirstName,
+      contactLastName: extracted.contactLastName,
+      contactEmail: extracted.contactEmail,
+      hasSummary: !!extracted.summary,
+      summaryPreview: extracted.summary?.slice(0, 80),
+    });
+
     const notesParts: string[] = [];
     if (extracted.summary) notesParts.push(extracted.summary);
     if (extracted.coverageDetails) notesParts.push(`Cobertura: ${extracted.coverageDetails}`);

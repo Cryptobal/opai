@@ -96,7 +96,7 @@ function buildSystemPrompt(companyName: string, domain: string): string {
 CONTEXTO CRÍTICO:
 - ${companyName} (${domain}) es la empresa que RECIBE estas solicitudes. NUNCA extraigas "${companyName}" ni datos de empleados de ${domain} como la empresa o contacto solicitante.
 - Estos correos suelen ser REENVIADOS por un empleado de ${companyName} (ej. usuario@${domain}) a un buzón interno. El cliente real que solicita el servicio está en el CUERPO del correo (dentro del mensaje reenviado).
-- Busca patrones de reenvío como "---------- Forwarded message ----------", "De:", "From:", "Mensaje reenviado", firmas con logos de otras empresas, etc.
+- Busca patrones de reenvío como "---------- Forwarded message ----------", "De:", "From:", "Mensaje reenviado", "Original Message", "Mensaje original", firmas con logos de otras empresas, etc.
 - Si ves datos de ${companyName} / ${domain} (nombre, dirección, teléfono, firma), IGNÓRALOS completamente; son del empleado que reenvía, no del cliente.
 
 El correo suele contener solicitudes de servicio de seguridad (guardias, vigilancia, resguardo de obras/instalaciones). Puede incluir datos de la empresa solicitante, del contacto, datos legales/facturación, y requerimientos del servicio.
@@ -129,26 +129,62 @@ Campos a extraer:
 Cuando el texto incluye "MENSAJE ORIGINAL" y "CONTEXTO DE LA CONVERSACIÓN": extrae contacto, empresa y datos estructurados SOLO del mensaje original (primer reenvío). El resumen (summary) puede incorporar también lo relevante del contexto de la conversación.`;
 }
 
+/**
+ * Convierte HTML de email a texto plano preservando la estructura visible.
+ * Más robusto que un strip simple: preserva saltos de línea, listas, y separadores.
+ */
 function stripHtml(html: string): string {
   return html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "- ")
+    .replace(/<hr[^>]*>/gi, "\n---\n")
+    .replace(/<\/h[1-6]>/gi, "\n\n")
     .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
-/** Marcadores de reenvío en distintos clientes (Gmail, etc.) */
-const FORWARD_HEADER_REGEX = /----------\s*(?:Forwarded\s+message|Mensaje\s+reenviado)\s*----------/i;
-/** Inicio del siguiente bloque (Previous message, Reply, etc.) */
-const NEXT_BLOCK_REGEX = /\n\s*----------\s*.+/;
+/**
+ * Patrones de reenvío soportados:
+ * - Gmail: "---------- Forwarded message ----------"
+ * - Gmail ES: "---------- Mensaje reenviado ----------"
+ * - Outlook: "-----Original Message-----" o "-----Mensaje original-----"
+ * - Apple Mail / genérico: "Begin forwarded message:" o "Inicio del mensaje reenviado:"
+ * - Outlook header block: "De: ... Enviado: ... Para: ... Asunto: ..."
+ */
+const FORWARD_PATTERNS: RegExp[] = [
+  /----------\s*(?:Forwarded\s+message|Mensaje\s+reenviado)\s*----------/i,
+  /-----\s*(?:Original\s+Message|Mensaje\s+original)\s*-----/i,
+  /(?:Begin\s+forwarded\s+message|Inicio\s+del\s+mensaje\s+reenviado)\s*:/i,
+  /(?:^|\n)\s*(?:De|From)\s*:\s*.+\n\s*(?:Enviado|Sent|Fecha|Date)\s*:\s*.+\n\s*(?:Para|To)\s*:\s*.+\n\s*(?:Asunto|Subject)\s*:\s*.+/im,
+];
+
+const NEXT_BLOCK_REGEX = /\n\s*(?:----------\s*.+|-----\s*(?:Original\s+Message|Mensaje\s+original)\s*-----)/i;
 
 const MAX_CONTEXT_CHARS = 2500;
+
+/**
+ * Detecta si el cuerpo del email contiene marcadores de reenvío,
+ * sin depender del dominio del remitente.
+ */
+export function detectForwardInBody(body: string): boolean {
+  return FORWARD_PATTERNS.some((pattern) => pattern.test(body));
+}
 
 /**
  * En correos reenviados con historial, extrae el primer mensaje reenviado (el del cliente real)
@@ -161,12 +197,21 @@ function extractFirstForwardedBlockAndContext(body: string): {
   const trimmed = body.trim();
   if (!trimmed) return { firstBlock: "", conversationContext: "" };
 
-  const match = trimmed.match(FORWARD_HEADER_REGEX);
-  if (!match || match.index === undefined) {
+  let matchResult: { index: number; length: number } | null = null;
+  for (const pattern of FORWARD_PATTERNS) {
+    const m = trimmed.match(pattern);
+    if (m && m.index !== undefined) {
+      if (!matchResult || m.index < matchResult.index) {
+        matchResult = { index: m.index, length: m[0].length };
+      }
+    }
+  }
+
+  if (!matchResult) {
     return { firstBlock: trimmed, conversationContext: "" };
   }
 
-  const start = match.index + match[0].length;
+  const start = matchResult.index + matchResult.length;
   const afterHeader = trimmed.slice(start).replace(/^\s*\n?/, "");
   const nextBlock = afterHeader.match(NEXT_BLOCK_REGEX);
   const firstBlockEnd = nextBlock?.index ?? afterHeader.length;
@@ -181,6 +226,20 @@ function extractFirstForwardedBlockAndContext(body: string): {
 }
 
 /**
+ * Parsea el display name de un header From.
+ * "Juan Pérez <juan@empresa.cl>" → { name: "Juan Pérez", email: "juan@empresa.cl" }
+ * "juan@empresa.cl" → { name: null, email: "juan@empresa.cl" }
+ */
+export function parseFromHeader(from: string): { name: string | null; email: string } {
+  const match = from.match(/^(.+?)\s*<([^>]+)>$/);
+  if (match) {
+    const name = match[1].replace(/^["']|["']$/g, "").trim();
+    return { name: name || null, email: match[2].trim() };
+  }
+  return { name: null, email: from.trim() };
+}
+
+/**
  * Extrae datos de lead desde el contenido de un email (asunto + cuerpo).
  * Acepta HTML o texto plano.
  */
@@ -189,21 +248,21 @@ export async function extractLeadFromEmail(params: {
   htmlBody?: string | null;
   textBody?: string | null;
   fromEmail?: string | null;
-  /** Dominio propio de la empresa (ej. "gard.cl") para que la IA lo ignore como empresa solicitante */
   ownDomain?: string | null;
-  /** Nombre de la empresa propia (ej. "Gard Security") para contexto del prompt de IA */
   ownCompanyName?: string | null;
 }): Promise<ExtractedLeadData> {
   let textBody = params.textBody?.trim() || stripHtml(params.htmlBody || "");
 
-  // Detectar si el remitente es interno (reenvío desde la empresa propia)
   const ownDomain = params.ownDomain || process.env.TENANT_DOMAIN || "gard.cl";
   const ownCompanyName = params.ownCompanyName || process.env.TENANT_NAME || "Gard Security";
-  const isForwarded = params.fromEmail
+
+  // Detectar reenvío: por dominio del remitente O por marcadores en el cuerpo
+  const fromDomainIsOwn = params.fromEmail
     ? params.fromEmail.toLowerCase().includes(`@${ownDomain.toLowerCase()}`)
     : false;
+  const bodyHasForwardMarkers = detectForwardInBody(textBody);
+  const isForwarded = fromDomainIsOwn || bodyHasForwardMarkers;
 
-  // En reenvíos: usar solo el primer mensaje reenviado para contacto/empresa y el resto como contexto para el resumen
   let conversationContext = "";
   if (isForwarded && textBody) {
     const { firstBlock, conversationContext: ctx } = extractFirstForwardedBlockAndContext(textBody);
@@ -233,8 +292,18 @@ export async function extractLeadFromEmail(params: {
   const content = contentParts.filter(Boolean).join("\n\n");
 
   if (!content.trim()) {
+    console.warn("[email-lead-extractor] Empty content after processing, subject:", params.subject);
     return emptyResult(params.fromEmail || null, "Correo sin contenido extraíble.");
   }
+
+  console.log("[email-lead-extractor] Sending to AI:", {
+    subject: params.subject,
+    isForwarded,
+    fromDomainIsOwn,
+    bodyHasForwardMarkers,
+    contentLength: content.length,
+    textBodyLength: textBody.length,
+  });
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -243,19 +312,27 @@ export async function extractLeadFromEmail(params: {
       { role: "user", content },
     ],
     response_format: EXTRACTOR_SCHEMA,
-    max_tokens: 800,
+    max_tokens: 1500,
     temperature: 0.2,
   });
 
   const raw = completion.choices[0]?.message?.content;
+  const finishReason = completion.choices[0]?.finish_reason;
+
   if (!raw) {
+    console.warn("[email-lead-extractor] No content in AI response, finish_reason:", finishReason);
     return emptyResult(params.fromEmail || null, "No se pudo extraer información.");
+  }
+
+  if (finishReason === "length") {
+    console.warn("[email-lead-extractor] AI response truncated (finish_reason=length), raw length:", raw.length);
   }
 
   try {
     const parsed = JSON.parse(raw) as Record<string, string>;
     const str = (key: string) => parsed[key]?.trim() || null;
-    return {
+
+    const result: ExtractedLeadData = {
       companyName: str("companyName"),
       rut: str("rut"),
       legalName: str("legalName"),
@@ -279,7 +356,15 @@ export async function extractLeadFromEmail(params: {
       industry: str("industry"),
       website: str("website"),
     };
-  } catch {
+
+    const criticalEmpty = !result.contactFirstName && !result.contactEmail && !result.companyName && !result.summary;
+    if (criticalEmpty) {
+      console.warn("[email-lead-extractor] AI returned all critical fields empty. Raw:", raw.slice(0, 500));
+    }
+
+    return result;
+  } catch (parseErr) {
+    console.error("[email-lead-extractor] JSON parse failed:", parseErr, "raw:", raw.slice(0, 500));
     return emptyResult(params.fromEmail || null, raw.slice(0, 500));
   }
 }
