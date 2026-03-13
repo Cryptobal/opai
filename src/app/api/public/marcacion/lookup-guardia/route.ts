@@ -12,7 +12,7 @@ import { formatPersonName, normalizeRut } from "@/lib/personas";
 
 /**
  * Normalizes RUT for DB lookup.
- * Handles: "13255838-8", "13.255.838-8", "132558388" (sin guión) → "13255838-8"
+ * Handles: "12345678-5", "12.345.678-5", "123456785" (sin guión) → "12345678-5"
  */
 function prepareRutForLookup(raw: string): string {
   let clean = normalizeRut(raw.trim()); // removes dots, uppercases, keeps dash

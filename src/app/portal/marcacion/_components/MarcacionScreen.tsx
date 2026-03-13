@@ -632,7 +632,7 @@ export function MarcacionScreen({
                 onChange={(e) => {
                   setRutInput(formatRutInput(e.target.value));
                 }}
-                placeholder="13.255.838-8"
+                placeholder="12.345.678-5"
                 className="w-full rounded-2xl px-5 py-4 text-white text-xl text-center placeholder-white/15 outline-none tracking-widest"
                 style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", fontSize: "1.5rem" }}
                 inputMode="numeric"
