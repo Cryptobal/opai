@@ -192,12 +192,19 @@ export function MarcacionScreen({
         const data = await res.json();
 
         if (!res.ok) {
-          if (res.status === 404 && data.code === "FACE_NOT_REGISTERED") {
+          // CRITICAL: Only offer enrollment when guard has NO Face ID registered.
+          // If faceIdRegistered is true and verification failed → FACE_MISMATCH (wrong person).
+          // Never offer enrollment in that case — reject with clear message.
+          if (
+            res.status === 404 &&
+            data.code === "FACE_NOT_REGISTERED" &&
+            !guardiaInfo.faceIdRegistered
+          ) {
             setMode("face-register");
             return;
           }
-          // Face verify failed → suggest PIN fallback
-          setPinFallbackReason("aws_error");
+          // Face mismatch or AWS error → suggest PIN fallback
+          setPinFallbackReason(data.code === "FACE_MISMATCH" ? "face_mismatch" : "aws_error");
           throw new Error(data.error || "No se pudo verificar el rostro");
         }
 

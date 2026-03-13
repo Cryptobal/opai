@@ -83,7 +83,32 @@ export async function POST(req: NextRequest) {
     }
 
     if (!verification.match || !verification.guardiaId) {
-      // Check if the error means face not in collection
+      // CRITICAL: When expectedGuardiaId is provided (user identified via RUT), the guard
+      // already has faceIdRegistered (frontend only shows camera when true). So a failed
+      // verification means WRONG PERSON (face mismatch), NEVER offer enrollment.
+      if (expectedGuardiaId) {
+        const expectedGuard = await prisma.opsGuardia.findUnique({
+          where: { id: expectedGuardiaId },
+          select: {
+            faceIdRegistered: true,
+            persona: { select: { firstName: true, lastName: true } },
+          },
+        });
+        if (expectedGuard?.faceIdRegistered) {
+          const nombre = expectedGuard.persona
+            ? `${expectedGuard.persona.firstName ?? ""} ${expectedGuard.persona.lastName ?? ""}`.trim() || "el guardia"
+            : "el guardia";
+          return NextResponse.json(
+            {
+              success: false,
+              error: `El rostro no coincide con el registrado para ${nombre}. Intente nuevamente o use PIN como fallback.`,
+              code: "FACE_MISMATCH",
+            },
+            { status: 401 }
+          );
+        }
+      }
+      // No expectedGuardiaId or guard has no Face ID: offer enrollment only when face not in collection
       if (verification.error === "Rostro no reconocido") {
         return NextResponse.json(
           { success: false, error: "Rostro no reconocido. Registra tu Face ID primero.", code: "FACE_NOT_REGISTERED" },
@@ -98,8 +123,19 @@ export async function POST(req: NextRequest) {
 
     // Cross-validate: if lookup step identified a specific guardia, ensure it matches
     if (expectedGuardiaId && verification.guardiaId !== expectedGuardiaId) {
+      const expectedGuard = await prisma.opsGuardia.findUnique({
+        where: { id: expectedGuardiaId },
+        select: { persona: { select: { firstName: true, lastName: true } } },
+      });
+      const nombre = expectedGuard?.persona
+        ? `${expectedGuard.persona.firstName ?? ""} ${expectedGuard.persona.lastName ?? ""}`.trim() || "el guardia"
+        : "el guardia";
       return NextResponse.json(
-        { success: false, error: "El rostro no corresponde al RUT ingresado.", code: "FACE_MISMATCH" },
+        {
+          success: false,
+          error: `El rostro no coincide con el registrado para ${nombre}. Intente nuevamente o use PIN como fallback.`,
+          code: "FACE_MISMATCH",
+        },
         { status: 401 }
       );
     }
