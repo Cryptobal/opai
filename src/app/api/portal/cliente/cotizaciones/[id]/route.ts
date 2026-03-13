@@ -39,6 +39,10 @@ export async function GET(
         select: { id: true, nombre: true, descripcion: true, precio: true, orden: true },
         orderBy: { orden: "asc" },
       },
+      attachments: {
+        select: { id: true, fileName: true, mimeType: true, size: true, publicUrl: true },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
 
@@ -130,6 +134,13 @@ export async function GET(
         ...l,
         precio: convertCost(Number(l.precio) || 0),
       })),
+      attachments: quote.attachments?.map((a) => ({
+        id: a.id,
+        fileName: a.fileName,
+        mimeType: a.mimeType,
+        size: a.size,
+        publicUrl: a.publicUrl,
+      })) ?? [],
     },
   });
 }

@@ -123,6 +123,11 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
       let ejecutivoName: string | null = null
       let accountLogoUrl: string | null = null
       let accountRut: string | null = contact.account.rut ?? null
+      const BROKEN_LOGO_PREFIX = "/uploads/company-logos/"
+      const sanitizeLogoUrl = (url: string | null | undefined): string | null => {
+        if (!url || url.startsWith(BROKEN_LOGO_PREFIX)) return null
+        return url
+      }
       try {
         const account = await prisma.crmAccount.findUnique({
           where: { id: contact.accountId },
@@ -132,13 +137,13 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
           portalTourShown = account.portalTourShown ?? false
           ejecutivoId = account.portalEjecutivoId ?? null
           accountRut = account.rut ?? null
-          accountLogoUrl = account.logoUrl ?? null
+          accountLogoUrl = sanitizeLogoUrl(account.logoUrl ?? null)
           if (!accountLogoUrl && account.notes) {
             const marker = "[[ACCOUNT_LOGO_URL:";
             const start = account.notes.indexOf(marker);
             if (start >= 0) {
               const end = account.notes.indexOf("]]", start);
-              if (end >= 0) accountLogoUrl = account.notes.slice(start + marker.length, end).trim() || null;
+              if (end >= 0) accountLogoUrl = sanitizeLogoUrl(account.notes.slice(start + marker.length, end).trim() || null);
             }
           }
           if (ejecutivoId) {

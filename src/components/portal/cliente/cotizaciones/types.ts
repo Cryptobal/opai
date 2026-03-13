@@ -42,9 +42,18 @@ export interface AdditionalLine {
   orden: number;
 }
 
+export interface QuoteAttachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  publicUrl: string | null;
+}
+
 export interface QuoteDetail extends QuoteSummary {
   positions: Position[];
   additionalLines?: AdditionalLine[];
+  attachments?: QuoteAttachment[];
   notes: string | null;
   aiDescription: string | null;
   serviceDetail: string | null;

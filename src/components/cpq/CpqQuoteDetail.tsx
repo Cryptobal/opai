@@ -44,6 +44,7 @@ import {
 import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
+import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
 import { FinancialPanel } from "@/components/cpq/FinancialPanel";
 import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
 import { FollowUpDecisionModal, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
@@ -1466,6 +1467,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           </div>
         )}
       </Card>
+
+      {/* -- Section: Adjuntos para enviar con el mail -- */}
+      <QuoteAttachmentsSection quoteId={quoteId} isLocked={isLocked} />
 
       </div>{/* end editor column */}
 

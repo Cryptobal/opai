@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   ChevronDown, ChevronUp, FileDown, FileText, MessageSquare,
-  Loader2, AlertTriangle, Check, XCircle,
+  Loader2, AlertTriangle, Check, XCircle, Paperclip, Download, ExternalLink,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import {
@@ -287,6 +287,49 @@ export function CotizacionCard({
 
               {detail.positions.length === 0 && !detail.additionalLines?.length && (
                 <p className="text-xs text-zinc-500">Sin posiciones detalladas.</p>
+              )}
+
+              {/* Documentos adjuntos */}
+              {detail.attachments && detail.attachments.length > 0 && (
+                <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+                  <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Paperclip className="h-3.5 w-3.5" />
+                    Documentos adjuntos
+                  </h4>
+                  <ul className="space-y-1.5">
+                    {detail.attachments.map((att) => (
+                      <li
+                        key={att.id}
+                        className="flex items-center justify-between gap-2 rounded-md bg-white/[0.04] px-2.5 py-2 text-xs"
+                      >
+                        <span className="truncate text-zinc-300 font-medium">{att.fileName}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {att.publicUrl && (
+                            <>
+                              <a
+                                href={att.publicUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-teal-400 hover:text-teal-300 transition-colors"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                Ver
+                              </a>
+                              <a
+                                href={att.publicUrl}
+                                download={att.fileName}
+                                className="inline-flex items-center gap-1 text-teal-400 hover:text-teal-300 transition-colors"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                                Descargar
+                              </a>
+                            </>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
 
               {/* Action buttons */}

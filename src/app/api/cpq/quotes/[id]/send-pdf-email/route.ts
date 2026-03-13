@@ -87,6 +87,37 @@ ${htmlBody.replace(/\n/g, "<br>")}
       );
     }
 
+    // Build attachments: PDF + quote attachments
+    const emailAttachments: { filename: string; content: Buffer; contentType: string }[] = [
+      {
+        filename: fileName,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      },
+    ];
+
+    // Add quote attachments (documents from "Para adjuntar documentos")
+    const quoteAttachments = await prisma.cpqQuoteAttachment.findMany({
+      where: { quoteId: id, tenantId: ctx.tenantId },
+      select: { fileName: true, publicUrl: true, mimeType: true, storageKey: true },
+    });
+    for (const att of quoteAttachments) {
+      if (!att.publicUrl) continue;
+      try {
+        const res = await fetch(att.publicUrl);
+        if (res.ok) {
+          const buf = Buffer.from(await res.arrayBuffer());
+          emailAttachments.push({
+            filename: att.fileName,
+            content: buf,
+            contentType: att.mimeType || "application/octet-stream",
+          });
+        }
+      } catch (err) {
+        console.warn("[CPQ] Could not fetch attachment for email:", att.fileName, err);
+      }
+    }
+
     const emailResult = await resend.emails.send({
       from: emailConfig.from,
       to: toList,
@@ -95,13 +126,7 @@ ${htmlBody.replace(/\n/g, "<br>")}
       replyTo: emailConfig.replyTo,
       subject,
       html: fullHtml,
-      attachments: [
-        {
-          filename: fileName,
-          content: pdfBuffer,
-          contentType: "application/pdf",
-        },
-      ],
+      attachments: emailAttachments,
       tags: [
         { name: "type", value: "cpq-quote-pdf" },
         { name: "quote", value: quote.code },

@@ -918,6 +918,7 @@ model CpqQuote {
   vehicles         CpqQuoteVehicle[]
   infrastructure   CpqQuoteInfrastructure[]
   additionalLines  CpqQuoteAdditionalLine[]
+  attachments     CpqQuoteAttachment[]
   installation     CrmInstallation?         @relation(fields: [installationId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_cpq_quotes_tenant")
@@ -1210,6 +1211,25 @@ model CpqQuoteAdditionalLine {
 
   @@index([quoteId], map: "idx_cpq_additional_lines_quote")
   @@map("quote_additional_lines")
+  @@schema("cpq")
+}
+
+model CpqQuoteAttachment {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  quoteId     String   @map("quote_id") @db.Uuid
+  tenantId    String   @map("tenant_id")
+  fileName    String   @map("file_name") @db.VarChar(255)
+  mimeType    String   @map("mime_type") @db.VarChar(100)
+  size        Int      @default(0)
+  storageKey  String   @map("storage_key") @db.VarChar(512)
+  publicUrl   String?  @map("public_url") @db.VarChar(1024)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  quote CpqQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId], map: "idx_cpq_quote_attachments_quote")
+  @@index([tenantId], map: "idx_cpq_quote_attachments_tenant")
+  @@map("quote_attachments")
   @@schema("cpq")
 }
 

@@ -36,15 +36,19 @@ import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
 import { PortalNotificacionesSheet } from "@/components/portal/cliente/PortalNotificacionesSheet";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
 import { TourOverlay } from "@/components/portal/cliente/tour/TourOverlay";
+import { useBranding } from "@/lib/branding/useBranding";
 
 /* ── Helpers ── */
 
 
 /* ══════════════════════════════════════════════════════ */
 
+const GARD_HEADER_LOGO_FALLBACK = "/logo-gard-blanco.svg";
+
 export function PortalClienteClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { branding } = useBranding();
   const initialSection = searchParams.get("section") as PortalSection | null;
 
   const [session, setSession] = useState<ClienteSession | null>(null);
@@ -64,6 +68,10 @@ export function PortalClienteClient() {
   const [notifSheetOpen, setNotifSheetOpen] = useState(false);
   const [restoringSession, setRestoringSession] = useState(true);
   const [showTour, setShowTour] = useState(false);
+  const [headerLogoBroken, setHeaderLogoBroken] = useState(false);
+
+  // Logo versión oscura (blanco) para header — viene de Imagen Corporativa
+  const headerGardLogo = branding.logoDark || branding.logoIcon || branding.logoWhite || GARD_HEADER_LOGO_FALLBACK;
 
   /* ── Restaurar sesión desde cookie al montar ── */
   useEffect(() => {
@@ -89,6 +97,11 @@ export function PortalClienteClient() {
       cancelled = true;
     };
   }, []);
+
+  /* ── Reset logo broken state when session/account changes (e.g. new login) ── */
+  useEffect(() => {
+    setHeaderLogoBroken(false);
+  }, [session?.accountId, session?.accountLogoUrl]);
 
   /* ── Auto-trigger tour for prospects ── */
   useEffect(() => {
@@ -321,10 +334,19 @@ export function PortalClienteClient() {
       {activeSection !== "chat" && (
       <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/50">
         <div className="flex items-center gap-3">
-          {session?.accountLogoUrl ? (
-            <img src={session.accountLogoUrl} alt="" className="h-8 w-8 rounded-lg border border-white/10 bg-white/5 object-contain" />
+          {session?.accountLogoUrl && !headerLogoBroken ? (
+            <img
+              src={session.accountLogoUrl}
+              alt=""
+              className="h-8 w-8 rounded-lg border border-white/10 bg-white/5 object-contain"
+              onError={() => setHeaderLogoBroken(true)}
+            />
           ) : (
-            <img src="/logo-gard-blanco.svg" alt="Gard Security" className="h-8 object-contain" />
+            <img
+              src={headerGardLogo}
+              alt="Gard Security"
+              className="h-8 object-contain"
+            />
           )}
           <div>
             <div className="flex items-center gap-1.5">

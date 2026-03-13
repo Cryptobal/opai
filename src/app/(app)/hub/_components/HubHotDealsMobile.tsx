@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Phone, MessageCircle, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { timeAgo } from '@/lib/utils';
@@ -25,15 +26,19 @@ function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
 }
 
 export function HubHotDealsMobile({ deals }: Props) {
+  const router = useRouter();
   return (
     <div className="space-y-2">
       {deals.map((deal, idx) => {
         const rank = idx + 1;
         return (
-          <Link
+          <div
             key={deal.id}
-            href={`/crm/deals/${deal.id}`}
-            className="block rounded-lg border border-border bg-card overflow-hidden transition-colors hover:bg-accent/20"
+            role="button"
+            tabIndex={0}
+            onClick={() => router.push(`/crm/deals/${deal.id}`)}
+            onKeyDown={(e) => e.key === 'Enter' && router.push(`/crm/deals/${deal.id}`)}
+            className="block rounded-lg border border-border bg-card overflow-hidden transition-colors hover:bg-accent/20 cursor-pointer"
             style={{ borderLeftWidth: 3, borderLeftColor: deal.stageColor ?? 'var(--border)' }}
           >
             <div className="p-3">
@@ -101,7 +106,7 @@ export function HubHotDealsMobile({ deals }: Props) {
                 )}
               </div>
             </div>
-          </Link>
+          </div>
         );
       })}
     </div>
