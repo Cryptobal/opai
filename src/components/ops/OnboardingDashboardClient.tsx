@@ -173,12 +173,17 @@ export function OnboardingDashboardClient({ tenantId }: OnboardingDashboardClien
   const handleResend = async (guardiaId: string) => {
     setResendingId(guardiaId);
     try {
-      // TODO: Implementar endpoint de reenvío
-      await new Promise((r) => setTimeout(r, 800));
-      toast.success("Email reenviado");
+      const res = await fetch("/api/personas/onboarding/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guardiaId }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? "Error al reenviar");
+      toast.success("Email de onboarding reenviado");
       void fetchData();
-    } catch {
-      toast.error("Error al reenviar");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al reenviar");
     } finally {
       setResendingId(null);
     }

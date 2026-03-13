@@ -1,33 +1,33 @@
-"use client";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { getDefaultTenantId } from "@/lib/tenant";
+import { Breadcrumb } from "@/components/opai";
+import ComunicacionesPageClient from "@/components/comunicaciones/ComunicacionesPageClient";
 
-import { useState } from "react";
-import { PageHeader } from "@/components/opai";
-import { ChipTabs } from "@/components/ui/chip-tabs";
-import { Send, History, FileText } from "lucide-react";
-import TemplatesListClient from "@/components/comunicaciones/TemplatesListClient";
-import EmailComposerClient from "@/components/comunicaciones/EmailComposerClient";
-import EmailHistoryClient from "@/components/comunicaciones/EmailHistoryClient";
+export default async function ComunicacionesPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/personas/comunicaciones");
+  }
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "ops", "guardias")) {
+    redirect("/hub");
+  }
 
-const TABS = [
-  { id: "enviar", label: "Enviar", icon: Send },
-  { id: "historial", label: "Historial", icon: History },
-  { id: "plantillas", label: "Plantillas", icon: FileText },
-];
-
-export default function ComunicacionesPage() {
-  const [tab, setTab] = useState("plantillas");
+  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
 
   return (
     <div className="space-y-6 min-w-0 overflow-x-hidden">
-      <PageHeader
-        title="Comunicaciones"
-        description="Gestión de plantillas de email y envío de comunicaciones."
+      <Breadcrumb
+        items={[
+          { label: "Inicio", href: "/hub" },
+          { label: "Personas", href: "/personas/guardias" },
+          { label: "Comunicaciones" },
+        ]}
+        className="mb-2"
       />
-      <ChipTabs tabs={TABS} activeTab={tab} onTabChange={setTab} />
-
-      {tab === "plantillas" && <TemplatesListClient />}
-      {tab === "enviar" && <EmailComposerClient tenantId="" />}
-      {tab === "historial" && <EmailHistoryClient tenantId="" />}
+      <ComunicacionesPageClient tenantId={tenantId} />
     </div>
   );
 }

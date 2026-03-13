@@ -29,6 +29,8 @@ import {
   Shield,
   Trophy,
   ScanLine,
+  UserRoundCheck,
+  Bell,
   FileBarChart,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
@@ -164,6 +166,8 @@ function AppLayoutClientInner({
       badge: personasNotesBadge,
       children: [
         { href: '/personas/guardias', label: 'Listado', icon: User, badge: notesByModule.guard },
+        { href: '/personas/onboarding', label: 'Onboarding', icon: UserRoundCheck },
+        { href: '/personas/comunicaciones', label: 'Comunicaciones', icon: Bell },
         { href: '/personas/guardias/sueldos-rut', label: 'Sueldos por RUT', icon: DollarSign },
         canView(permissions, 'ops', 'gamificacion') && { href: '/personas/gamificacion', label: 'Gamificación', icon: Trophy },
       ].filter(Boolean) as NavItem['children'],
