@@ -5,6 +5,8 @@ import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { buildQuotationProps } from "@/lib/pdf/templates/quotation/build-quotation-props";
 import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-quotation";
 
+export const runtime = "nodejs";
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

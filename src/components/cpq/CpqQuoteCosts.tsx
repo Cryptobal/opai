@@ -396,6 +396,8 @@ export function CpqQuoteCosts({
   }, [open, isInline]);
 
   // Debounced auto-save: 2s after last change
+  // When onAdditionalLinesChange is provided, the parent owns additionalLines and handles saving them.
+  // This component only saves uniforms/exams/costItems/meals/vehicles/infrastructure.
   useEffect(() => {
     if (!initialLoadDone.current || readOnly) return;
     clearTimeout(autoSaveTimer.current);
@@ -403,7 +405,7 @@ export function CpqQuoteCosts({
       handleSave({ close: false, silent: true }).then(() => setLastSaved(new Date()));
     }, 2000);
     return () => clearTimeout(autoSaveTimer.current);
-  }, [uniforms, exams, costItems, meals, vehicles, infrastructure, additionalLines]);
+  }, [uniforms, exams, costItems, meals, vehicles, infrastructure]);
 
   useEffect(() => {
     defaultsApplied.current = false;

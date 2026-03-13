@@ -240,7 +240,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
 
   // Debounced auto-save for financial parameters + additional lines
   useEffect(() => {
-    if (!initialLoadDone.current || skipAutoSave.current || isLocked || !costParams) return;
+    if (!initialLoadDone.current || skipAutoSave.current || isLocked) return;
     clearTimeout(financialsAutoSaveTimer.current);
     financialsAutoSaveTimer.current = setTimeout(() => {
       handleSaveFinancials();
@@ -490,7 +490,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   };
 
   const handleSaveFinancials = async () => {
-    if (!costParams) return;
     setSavingFinancials(true);
     setFinancialError(null);
     try {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Eye } from "lucide-react";
+import { Eye, FileText } from "lucide-react";
 
 interface Quote {
   id: string;
@@ -125,10 +125,15 @@ function CotizacionCard({ quote, onViewDetail, onChat }: { quote: Quote; onViewD
         {quote.proposalLink && (
           <button
             onClick={() => window.open(quote.proposalLink!, "_blank")}
-            className="flex items-center justify-center gap-1.5 text-[11px] text-teal-300/70 hover:text-teal-300 py-1.5 transition-colors"
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-xs font-semibold border transition-all"
+            style={{
+              background: "linear-gradient(135deg, rgba(20,184,166,0.15), rgba(6,182,212,0.10))",
+              borderColor: "rgba(45,212,191,0.35)",
+              color: "#5eead4",
+            }}
           >
-            <Eye className="w-3 h-3" />
-            Ver propuesta técnica
+            <FileText className="w-3.5 h-3.5" />
+            Propuesta técnica
           </button>
         )}
       </div>

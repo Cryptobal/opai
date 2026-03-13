@@ -80,13 +80,18 @@ export async function POST(req: NextRequest) {
 
     // 4. Si ya existe una presentación draft para esta sesión (flujo CPQ), usar su uniqueId
     //    para el enlace del email. Así el link del correo y el de WhatsApp apuntan a la misma página.
-    const existingDraftPresentation = await prisma.presentation.findFirst({
-      where: {
-        clientData: { path: ['id'], equals: sessionId },
-        status: 'draft',
-        tenantId,
-      },
-    });
+    // Buscamos por el quoteId que viene en zohoData._cpqQuoteId, ligado a la WebhookSession.
+    const cpqQuoteIdForLookup = zohoData._cpqQuoteId as string | undefined;
+    const existingDraftPresentation = cpqQuoteIdForLookup
+      ? await prisma.presentation.findFirst({
+          where: {
+            quoteId: cpqQuoteIdForLookup,
+            status: 'draft',
+            tenantId,
+          },
+          orderBy: { createdAt: 'desc' },
+        })
+      : null;
 
     const uniqueId = existingDraftPresentation?.uniqueId ?? nanoid(12);
     const presentationUrl = `${siteUrl}/p/${uniqueId}`;
@@ -164,22 +169,24 @@ export async function POST(req: NextRequest) {
         },
       });
     } else {
-      presentation = await prisma.presentation.create({
-        data: {
-          uniqueId,
-          templateId: template.id,
-          tenantId,
-          clientData: zohoData,
-          status: 'sent',
-          recipientEmail,
-          recipientName,
-          ccEmails: ccEmails.filter((email: string) => email && email.trim()),
-          emailSentAt: new Date(),
-          emailProvider: 'resend',
-          emailMessageId: emailResponse.data?.id || null,
-          tags: ['zoho', 'auto-sent'],
-        },
-      });
+      const createData: Parameters<typeof prisma.presentation.create>[0]['data'] = {
+        uniqueId,
+        templateId: template.id,
+        tenantId,
+        clientData: zohoData,
+        status: 'sent',
+        recipientEmail,
+        recipientName,
+        ccEmails: ccEmails.filter((email: string) => email && email.trim()),
+        emailSentAt: new Date(),
+        emailProvider: 'resend',
+        emailMessageId: emailResponse.data?.id || null,
+        tags: cpqQuoteIdForLookup ? ['cpq', 'sent-direct'] : ['zoho', 'auto-sent'],
+      };
+      if (cpqQuoteIdForLookup) {
+        (createData as any).quoteId = cpqQuoteIdForLookup;
+      }
+      presentation = await prisma.presentation.create({ data: createData });
     }
 
     // 10. Actualizar contador de uso del template

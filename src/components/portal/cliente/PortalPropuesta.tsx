@@ -650,10 +650,15 @@ function QuoteCard({
                 {onViewProposal && (
                   <button
                     onClick={onViewProposal}
-                    className="flex items-center gap-2 px-4 h-9 rounded-lg border border-teal-500/30 text-teal-300 hover:text-teal-200 hover:border-teal-500/50 text-sm transition-colors"
+                    className="flex items-center gap-2 px-4 h-9 rounded-lg text-sm font-semibold transition-all"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(20,184,166,0.18), rgba(6,182,212,0.12))",
+                      border: "1px solid rgba(45,212,191,0.4)",
+                      color: "#5eead4",
+                    }}
                   >
-                    <Eye className="w-4 h-4" />
-                    Ver propuesta técnica
+                    <FileText className="w-4 h-4" />
+                    Propuesta técnica
                   </button>
                 )}
 

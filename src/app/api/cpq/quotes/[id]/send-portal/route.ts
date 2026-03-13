@@ -8,6 +8,7 @@
  * 3. If contact doesn't have portalPin -> generate 6-digit PIN, hash with bcrypt, set portalEnabled = true
  * 4. Sends email with RUT + PIN + portal link using PortalProspectoInviteEmail template
  * 5. Updates quote status to "sent" and deal fields
+ * 6. Creates a Presentation (status "sent") so the prospect sees "Ver propuesta técnica"
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -16,8 +17,12 @@ import { prisma } from "@/lib/prisma";
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
+import { mapCpqDataToPresentation } from "@/lib/cpq-mapper";
+import { getUfValue } from "@/lib/uf";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { PortalProspectoInviteEmail } from "@/emails/PortalProspectoInviteEmail";
 import bcrypt from "bcryptjs";
+import { nanoid } from "nanoid";
 
 export async function POST(
   _request: NextRequest,
@@ -41,6 +46,7 @@ export async function POST(
         positions: {
           include: { puestoTrabajo: true },
         },
+        parameters: true,
         installation: true,
       },
     });
@@ -149,10 +155,190 @@ export async function POST(
 
     // 6. Compute costs (same as send-email)
     let monthlyTotal = Number(quote.monthlyCost) || 0;
+    let costSummary: Awaited<ReturnType<typeof computeCpqQuoteCosts>> | null = null;
     try {
-      const costs = await computeCpqQuoteCosts(id);
-      monthlyTotal = costs.monthlyTotal;
+      costSummary = await computeCpqQuoteCosts(id);
+      monthlyTotal = costSummary.monthlyTotal;
     } catch {}
+
+    // 6b. Generate Presentation (status "sent") so prospect can see "Ver propuesta técnica"
+    let presentationUniqueId: string | null = null;
+    try {
+      const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+
+      // Check if there's already a sent presentation for this quote
+      const existingPresentation = await prisma.presentation.findFirst({
+        where: { quoteId: id, status: "sent" },
+        select: { uniqueId: true },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (existingPresentation) {
+        presentationUniqueId = existingPresentation.uniqueId;
+      } else {
+        // Build presentation payload (same logic as create-draft)
+        const template = await prisma.template.findFirst({
+          where: { slug: "commercial", active: true, tenantId: ctx.tenantId },
+        });
+
+        if (template) {
+          const ACCOUNT_LOGO_PREFIX = "[[ACCOUNT_LOGO_URL:";
+          const ACCOUNT_LOGO_SUFFIX = "]]";
+          const acc = await prisma.crmAccount.findUnique({
+            where: { id: quote.accountId! },
+            select: { name: true, notes: true, industry: true, segment: true },
+          });
+          const deal = quote.dealId
+            ? await prisma.crmDeal.findUnique({ where: { id: quote.dealId }, select: { title: true } })
+            : null;
+          const additionalLines = await prisma.cpqQuoteAdditionalLine.findMany({
+            where: { quoteId: id },
+            orderBy: { orden: "asc" },
+          });
+          const totalAdditionalLines = additionalLines.reduce((s, l) => s + Number(l.precio), 0);
+
+          let accountLogoUrl: string | null = null;
+          if (acc?.notes) {
+            const s = acc.notes.indexOf(ACCOUNT_LOGO_PREFIX);
+            if (s >= 0) {
+              const e = acc.notes.indexOf(ACCOUNT_LOGO_SUFFIX, s);
+              if (e >= 0) accountLogoUrl = acc.notes.slice(s + ACCOUNT_LOGO_PREFIX.length, e).trim() || null;
+            }
+          }
+          const companyDescription = acc?.notes
+            ? acc.notes.replace(/\[\[ACCOUNT_LOGO_URL:[^\]]+\]\]\n?/g, "").trim() || undefined
+            : undefined;
+
+          const accountData = acc
+            ? { name: acc.name, logoUrl: accountLogoUrl, companyDescription, industry: acc.industry || undefined, segment: acc.segment || undefined }
+            : null;
+
+          const marginPct = Number(quote.parameters?.marginPct ?? 13) / 100;
+          const financialRatePct = Number(quote.parameters?.financialRatePct ?? 2.5);
+          const policyRatePct = Number(quote.parameters?.policyRatePct ?? 0);
+          const policyContractMonths = Number(quote.parameters?.policyContractMonths ?? 12);
+          const policyContractPct = Number(quote.parameters?.policyContractPct ?? 100);
+          const contractMonths = Number(quote.parameters?.contractMonths ?? 12);
+          const policyFactor = contractMonths > 0 ? (policyContractMonths * (policyContractPct / 100)) / contractMonths : 0;
+          const totalGuards = costSummary?.totalGuards ?? quote.positions.reduce((s, p) => s + p.numGuards * (p.numPuestos || 1), 0);
+          const baseAdditionalCosts = costSummary
+            ? Math.max(0, (costSummary.monthlyExtras ?? 0) - (costSummary.monthlyFinancial ?? 0) - (costSummary.monthlyPolicy ?? 0))
+            : 0;
+
+          const positionSalePrices = new Map<string, number>();
+          for (const pos of quote.positions) {
+            const guards = pos.numGuards * (pos.numPuestos || 1);
+            const proportion = totalGuards > 0 ? guards / totalGuards : 0;
+            const totalCost = Number(pos.monthlyPositionCost) + baseAdditionalCosts * proportion;
+            const bwm = marginPct < 1 ? totalCost / (1 - marginPct) : totalCost;
+            positionSalePrices.set(pos.id, bwm + bwm * (financialRatePct / 100) + bwm * (policyRatePct / 100) * policyFactor);
+          }
+
+          let salePriceMonthly = 0;
+          if (costSummary) {
+            const costsBase = costSummary.monthlyPositions + (costSummary.monthlyUniforms ?? 0) + (costSummary.monthlyExams ?? 0) + (costSummary.monthlyMeals ?? 0) + (costSummary.monthlyVehicles ?? 0) + (costSummary.monthlyInfrastructure ?? 0) + (costSummary.monthlyCostItems ?? 0);
+            const bwm = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
+            salePriceMonthly = bwm + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
+          }
+
+          const ufValue = quote.currency === "UF" ? await getUfValue() : undefined;
+          const tenantCfg = await getTenantCompanyConfig(ctx.tenantId);
+          const sessionId = `cpq_${nanoid(16)}`;
+          const uniqueId = nanoid(12);
+
+          const payload = mapCpqDataToPresentation(
+            {
+              ufValue,
+              quote: {
+                id: quote.id,
+                code: quote.code,
+                clientName: quote.clientName,
+                validUntil: quote.validUntil,
+                notes: quote.notes,
+                aiDescription: quote.aiDescription,
+                serviceDetail: quote.serviceDetail,
+                currency: quote.currency,
+              },
+              positions: quote.positions,
+              account: accountData,
+              deal: deal ? { title: deal.title } : null,
+              contact: {
+                firstName: contact.firstName,
+                lastName: contact.lastName,
+                email: contact.email,
+                phone: null,
+                roleTitle: null,
+              },
+              installation: quote.installation,
+              salePriceMonthly,
+              positionSalePrices,
+              siteUrl,
+              additionalLines: additionalLines.map((l) => ({
+                nombre: l.nombre,
+                descripcion: l.descripcion,
+                precio: Number(l.precio),
+                orden: l.orden,
+              })),
+              totalAdditionalLines,
+            },
+            sessionId,
+            tenantCfg,
+            "commercial"
+          );
+
+          const payloadWithMeta = {
+            ...JSON.parse(JSON.stringify(payload)),
+            _cpqQuoteId: quote.id,
+            _cpqQuoteCode: quote.code,
+            _cpqDealId: quote.dealId || null,
+            contact: {
+              ...payload.contact,
+              First_Name: contact.firstName,
+              Last_Name: contact.lastName,
+              Email: contact.email,
+            },
+            quote: {
+              ...payload.quote,
+              Subject: `Propuesta de Servicio de Seguridad - ${acc?.name || quote.clientName || "Cliente"}`,
+              Quote_Number: quote.code,
+            },
+            account: {
+              ...payload.client,
+              Account_Name: acc?.name || quote.clientName || "Cliente",
+            },
+          };
+
+          await prisma.presentation.create({
+            data: {
+              uniqueId,
+              templateId: template.id,
+              tenantId: ctx.tenantId,
+              clientData: payloadWithMeta,
+              quoteId: quote.id,
+              status: "sent",
+              recipientEmail: contact.email,
+              recipientName: `${contact.firstName} ${contact.lastName}`.trim(),
+              emailSentAt: new Date(),
+              tags: ["cpq", "portal-invite"],
+            },
+          });
+
+          // Save proposalLink on deal so portal picks it up
+          const proposalLink = `${siteUrl}/p/${uniqueId}`;
+          if (quote.dealId) {
+            await prisma.crmDeal.update({
+              where: { id: quote.dealId },
+              data: { proposalLink },
+            });
+          }
+
+          presentationUniqueId = uniqueId;
+        }
+      }
+    } catch (presentationError) {
+      console.error("Error creating presentation in send-portal:", presentationError);
+      // Non-fatal: portal invite still works without the presentation link
+    }
 
     // 7. Send portal invite email with PIN
     const basePortalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/cliente`;
@@ -297,6 +483,9 @@ export async function POST(
         sentTo: contact.email,
         portalUrl,
         pinGenerated: !contact.portalPin,
+        proposalLink: presentationUniqueId
+          ? `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/p/${presentationUniqueId}`
+          : null,
       },
     });
   } catch (error) {

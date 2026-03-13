@@ -10,6 +10,8 @@ import { auth } from '@/lib/auth';
 import { buildQuotationProps } from '@/lib/pdf/templates/quotation/build-quotation-props';
 import { renderQuotationToBuffer } from '@/lib/pdf/templates/quotation/render-quotation';
 
+export const runtime = 'nodejs';
+
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
