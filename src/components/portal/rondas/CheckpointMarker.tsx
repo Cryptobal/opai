@@ -790,7 +790,7 @@ export function CheckpointMarker({
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <div className="relative w-full max-h-[35vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
+          <div className="relative w-full max-h-[50vh] bg-zinc-900 rounded-t-2xl overflow-y-auto animate-slide-up">
             {showSuccessFlash && (
               <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-emerald-500/20 transition-opacity" />
             )}
@@ -815,7 +815,7 @@ export function CheckpointMarker({
               </button>
             </div>
 
-            <div className="space-y-3 px-4" style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}>
+            <div className="space-y-3 px-4" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
               {/* Checkpoint name + validated badge */}
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">

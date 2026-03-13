@@ -674,16 +674,16 @@ export function RondaActiva({
 
       {/* ============ Geofence Auto-Prompt Banner ============ */}
       {nearbyCheckpoint && !markingCheckpointId && (
-        <div className="mx-4 mt-2 rounded-xl border border-teal-600/50 bg-teal-950/50 p-3">
+        <div className="relative z-10 mx-4 mt-3 mb-1 rounded-xl border border-teal-500/60 bg-teal-950/80 p-3 shadow-lg shadow-teal-900/30 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-500/20">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-500/20 ring-2 ring-teal-500/30">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-teal-300">
+              <p className="text-sm font-semibold text-teal-200">
                 Estas en {nearbyCheckpoint.name}
               </p>
               <p className="text-xs text-teal-400/70">
@@ -701,7 +701,7 @@ export function RondaActiva({
                   dismissedGeofenceRef.current.add(nearbyCheckpoint.id);
                   setNearbyCheckpointId(null);
                 }}
-                className="rounded-lg bg-gray-800 px-3 py-2 text-xs font-medium text-gray-400 transition-colors active:bg-gray-700"
+                className="rounded-lg bg-gray-800/80 px-3 py-2 text-xs font-medium text-gray-400 transition-colors active:bg-gray-700"
               >
                 Ignorar
               </button>
@@ -710,7 +710,7 @@ export function RondaActiva({
                   setNearbyCheckpointId(null);
                   setMarkingCheckpointId(nearbyCheckpoint.id);
                 }}
-                className="rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white transition-colors active:bg-teal-700"
+                className="rounded-lg bg-teal-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-teal-700/40 transition-colors active:bg-teal-700"
               >
                 Marcar
               </button>
