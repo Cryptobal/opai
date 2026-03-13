@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
 
       // 10. Eliminar la cuenta duplicada
       await tx.crmAccount.delete({ where: { id: duplicateId } });
-    });
+    }, { timeout: 30_000 });
 
     // Log en historial
     await createCrmHistoryLog({

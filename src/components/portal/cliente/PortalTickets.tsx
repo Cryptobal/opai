@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Loader2, Ticket, ChevronLeft, Send, Plus, MessageSquare } from 'lucide-react'
-import { ClienteSession } from '@/lib/portal-cliente'
+import { ClienteSession } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
 import { PortalCreateTicket } from './PortalCreateTicket'
 import { PreviewBadge } from './PreviewBadge'

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { BookOpen, Loader2 } from 'lucide-react'
-import { ClienteSession } from '@/lib/portal-cliente'
+import { ClienteSession } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
 import { PreviewBadge } from './PreviewBadge'
 import { DEMO_POSTA } from '@/lib/portal/demo-data'

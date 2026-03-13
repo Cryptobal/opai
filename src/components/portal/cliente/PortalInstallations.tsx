@@ -1,6 +1,6 @@
 'use client'
 
-import { ClienteSession } from '@/lib/portal-cliente'
+import { ClienteSession } from '@/lib/portal-cliente-types'
 import { Building2, ChevronRight } from 'lucide-react'
 import { PreviewBadge } from './PreviewBadge'
 import { DEMO_INSTALACIONES } from '@/lib/portal/demo-data'

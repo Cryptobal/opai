@@ -137,6 +137,7 @@ export function PortalClienteClient() {
         return (
           <PortalInstallations
             session={session}
+            isProspect={session?.isProspect}
             onSelectInstallation={(id) => {
               setSelectedInstallation(id);
               setActiveSection("dashboard");
@@ -240,7 +241,10 @@ export function PortalClienteClient() {
         portalName="Cliente"
         portalSubtitle="Portal de Servicios"
       >
-        <AuthFormHeader title="Bienvenido" subtitle="Visibilidad completa de tu servicio de seguridad" />
+        <AuthFormHeader title="Portal Gard Security" subtitle="powered by OPAI" />
+        <p className="text-sm text-[#9ca3af] text-center max-w-xs mx-auto -mt-2 mb-4">
+          El único sistema operativo integral de seguridad privada en Chile. Visibilidad total de tu servicio en tiempo real.
+        </p>
 
         <PWAInstallBanner
           appName="OPAI Clientes"
@@ -265,7 +269,7 @@ export function PortalClienteClient() {
             className="block text-xs font-medium text-[#9ca3af] mb-[7px]"
             style={{ letterSpacing: "0.02em", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
-            PIN de acceso (4 d&iacute;gitos)
+            PIN de acceso (4 dígitos)
           </label>
           <AuthPinInput length={4} accent={ACCENT} value={pin} onChange={setPin} />
 
@@ -290,7 +294,7 @@ export function PortalClienteClient() {
               className="text-xs transition-colors"
               style={{ color: "#6b7280" }}
             >
-              &iquest;Olvidaste tu PIN?
+              ¿Olvidaste tu PIN?
             </button>
           </div>
 
@@ -312,7 +316,10 @@ export function PortalClienteClient() {
             <Shield className="h-6 w-6 text-teal-400" />
           )}
           <div>
-            <h1 className="text-base font-semibold">Portal de Seguridad</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-base font-semibold">Portal Gard</h1>
+              <span className="text-[9px] font-medium bg-teal-500/15 text-teal-400 px-1.5 py-0.5 rounded">OPAI</span>
+            </div>
             <p className="text-xs text-zinc-400">{session?.accountName}</p>
           </div>
         </div>

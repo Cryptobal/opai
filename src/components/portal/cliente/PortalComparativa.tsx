@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import { Loader2, GitCompare, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ClienteSession } from '@/lib/portal-cliente'
+import { ClienteSession } from '@/lib/portal-cliente-types'
 import { PreviewBadge } from './PreviewBadge'
 
 /* ── Types ── */

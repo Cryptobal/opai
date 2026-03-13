@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, ClipboardList, ChevronDown, ChevronUp, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ClienteSession } from '@/lib/portal-cliente'
+import { ClienteSession } from '@/lib/portal-cliente-types'
 
 /* ── Types ── */
 

@@ -32,7 +32,20 @@ export async function POST(request: NextRequest) {
     const { handleGuardActivation } = await import(
       "@/lib/triggers/onboarding-trigger"
     );
-    await handleGuardActivation(guardiaId, ctx.tenantId);
+    const result = await handleGuardActivation(guardiaId, ctx.tenantId);
+
+    if (!result.ok) {
+      const messages: Record<string, string> = {
+        no_guardia: "Guardia no encontrado",
+        no_email: "El guardia no tiene email configurado",
+        no_template: "No hay plantilla de onboarding configurada. Ejecuta el seed: npx prisma db seed",
+        send_error: result.detail ?? "Error al enviar el email",
+      };
+      return NextResponse.json(
+        { success: false, error: messages[result.reason] ?? result.reason },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -136,7 +136,7 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
               )}
             >
               <MoreHorizontal className="h-5 w-5" />
-              <span className="text-[10px] leading-tight font-medium">Mas</span>
+              <span className="text-[10px] leading-tight font-medium">Más</span>
             </button>
             {moreOpen && groupedExtras && (
               <div className="absolute bottom-14 right-0 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-2 min-w-[180px] max-h-[70vh] overflow-y-auto z-10">

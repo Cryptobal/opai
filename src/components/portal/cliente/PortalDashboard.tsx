@@ -9,7 +9,7 @@ import {
   Clock, Loader2, BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ClienteSession } from '@/lib/portal-cliente'
+import { ClienteSession } from '@/lib/portal-cliente-types'
 import { DEMO_SUMMARY, DEMO_CHART_DATA, DEMO_GUARDIAS_RANKING, DEMO_ACTIVITY } from '@/lib/portal/demo-data'
 import { PreviewBadge } from './PreviewBadge'
 import { ProspectCotizacionCarousel } from './ProspectCotizacionCarousel'
@@ -311,8 +311,20 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
           )}
 
           {/* Footer */}
-          <footer className="text-center text-[10px] text-zinc-600 pt-4 pb-8">
-            Powered by Gard Security · Ultima actualizacion: {new Date().toLocaleString('es-CL')}
+          <footer className="text-center text-xs text-zinc-500 pt-4 pb-8 space-y-1">
+            <p>
+              Gard Security · Plataforma{' '}
+              <span className="font-medium text-zinc-400">OPAI</span> · Desarrollado por{' '}
+              <a
+                href="https://lx3.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-zinc-300 transition-colors"
+              >
+                LX3.ai
+              </a>
+            </p>
+            <p className="text-[10px]">Última actualización: {new Date().toLocaleString('es-CL')}</p>
           </footer>
         </div>
       )}

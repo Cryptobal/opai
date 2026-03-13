@@ -139,10 +139,10 @@ export function EntityDetailLayout({
       >
         {/* ── Header ── */}
         <div className="pt-4 lg:pt-3 pb-2">
-          {/* Breadcrumb (hidden on desktop — sidebar provides context) */}
+          {/* Breadcrumb — siempre visible para facilitar navegación */}
           <nav
             aria-label="Breadcrumb"
-            className="flex items-center gap-1 text-xs text-muted-foreground mb-3 min-h-[28px] sm:min-h-0 flex-wrap lg:hidden"
+            className="flex items-center gap-1 text-xs text-muted-foreground mb-3 min-h-[28px] sm:min-h-0 flex-wrap"
           >
             {breadcrumb.map((segment, i) => {
               const isLast = i === breadcrumb.length - 1;

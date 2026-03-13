@@ -5,7 +5,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { sendEmailToGuardia } from "@/lib/email/onboarding-email-service";
-export async function handleGuardActivation(guardiaId: string, tenantId: string) {
+export type GuardActivationResult =
+  | { ok: true }
+  | { ok: false; reason: "no_guardia" | "no_email" | "no_template" | "send_error"; detail?: string };
+
+export async function handleGuardActivation(guardiaId: string, tenantId: string): Promise<GuardActivationResult> {
   try {
     const guardia = await prisma.opsGuardia.findUnique({
       where: { id: guardiaId },
@@ -14,7 +18,7 @@ export async function handleGuardActivation(guardiaId: string, tenantId: string)
       },
     });
 
-    if (!guardia) return;
+    if (!guardia) return { ok: false, reason: "no_guardia" };
 
     const email =
       guardia.personalEmail ??
@@ -23,7 +27,7 @@ export async function handleGuardActivation(guardiaId: string, tenantId: string)
 
     if (!email) {
       console.warn(`[ONBOARDING] Guardia ${guardiaId} sin email, omitiendo envío`);
-      return;
+      return { ok: false, reason: "no_email" };
     }
 
     // Buscar o crear OnboardingStatus
@@ -43,7 +47,7 @@ export async function handleGuardActivation(guardiaId: string, tenantId: string)
 
     if (status.emailEnviado) {
       console.log(`[ONBOARDING] Guardia ${guardiaId} ya recibió onboarding, omitiendo`);
-      return;
+      return { ok: true }; // Ya enviado, considerar éxito
     }
 
     // Buscar plantilla ONBOARDING default
@@ -58,7 +62,7 @@ export async function handleGuardActivation(guardiaId: string, tenantId: string)
 
     if (!template) {
       console.warn("[ONBOARDING] No hay plantilla ONBOARDING default configurada");
-      return;
+      return { ok: false, reason: "no_template" };
     }
 
     const contenido = template.contenido as Array<{
@@ -88,10 +92,13 @@ export async function handleGuardActivation(guardiaId: string, tenantId: string)
         },
       });
       console.log(`[ONBOARDING] Email enviado a guardia ${guardiaId}`);
+      return { ok: true };
     } else {
       console.error(`[ONBOARDING] Error enviando a ${guardiaId}:`, result.error);
+      return { ok: false, reason: "send_error", detail: result.error ?? undefined };
     }
   } catch (err) {
     console.error("[ONBOARDING] Error en handleGuardActivation:", err);
+    return { ok: false, reason: "send_error", detail: (err as Error).message };
   }
 }

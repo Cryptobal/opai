@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { X, Loader2, Ticket } from 'lucide-react'
-import { ClienteSession } from '@/lib/portal-cliente'
+import { ClienteSession } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
 
 interface Props {
