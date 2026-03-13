@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, X, Send, Loader2, Camera } from "lucide-react";
+import { X, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
 
@@ -55,15 +55,6 @@ export function SupervisorNovedadRapida({ installations, defaultInstallationId, 
 
   return (
     <>
-      {/* FAB */}
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full bg-amber-600 text-white shadow-lg shadow-amber-900/50 flex items-center justify-center hover:bg-amber-500 transition-colors"
-        aria-label="Registrar novedad rápida"
-      >
-        <Plus size={24} />
-      </button>
-
       {/* Sheet/Modal */}
       {open && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
