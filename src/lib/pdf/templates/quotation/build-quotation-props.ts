@@ -24,9 +24,14 @@ import type { ProposalTemplateSections } from '@/types/cpq';
 import type { QuotationPDFProps, AdditionalLinePDF, LaborBreakdownPDF } from './render-quotation';
 import { DEFAULT_TEMPLATE_SECTIONS, DEFAULT_COMPLIANCE_ITEMS } from './render-quotation';
 
+export interface BuildQuotationOptions {
+  templateSectionsOverride?: Partial<ProposalTemplateSections>;
+}
+
 export async function buildQuotationProps(
   quoteId: string,
   tenantId: string,
+  options?: BuildQuotationOptions,
 ): Promise<QuotationPDFProps & { fileName: string }> {
   // Load quote with relations
   const quote = await prisma.cpqQuote.findFirst({
@@ -300,7 +305,7 @@ export async function buildQuotationProps(
   }
 
   /* ── Template sections ── */
-  const rawSections = (quote.proposalTemplate?.sections ?? {}) as Partial<ProposalTemplateSections>;
+  const rawSections = (options?.templateSectionsOverride ?? quote.proposalTemplate?.sections ?? {}) as Partial<ProposalTemplateSections>;
   const templateSections: ProposalTemplateSections = { ...DEFAULT_TEMPLATE_SECTIONS, ...rawSections };
 
   /* ── CostsByCategory from summary ── */

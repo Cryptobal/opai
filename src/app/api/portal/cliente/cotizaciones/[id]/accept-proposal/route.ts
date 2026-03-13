@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 export async function POST(
   request: Request,
@@ -110,16 +111,18 @@ export async function POST(
       }
     }
 
-    // 7. Send email to comercial@gard.cl notifying acceptance
+    // 7. Send email notifying acceptance
     const account = await prisma.crmAccount.findUnique({
       where: { id: session.accountId },
       select: { name: true, rut: true },
     });
 
+    const tenantConfig = await getTenantCompanyConfig(session.tenantId);
+
     try {
       await resend.emails.send({
-        from: EMAIL_CONFIG.from,
-        to: "comercial@gard.cl",
+        from: tenantConfig.emailFrom || EMAIL_CONFIG.from,
+        to: tenantConfig.email,
         subject: `Propuesta aceptada: ${account?.name} - ${quote.code}`,
         html: `
           <h2>Propuesta Aceptada</h2>

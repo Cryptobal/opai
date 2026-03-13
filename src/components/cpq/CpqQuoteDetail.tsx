@@ -42,13 +42,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Eye } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
 import { FinancialPanel } from "@/components/cpq/FinancialPanel";
 import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
 import { FollowUpDecisionModal, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
+import { TemplatePreviewModal } from "@/components/cpq/TemplatePreviewModal";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
@@ -152,6 +153,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   });
   const [proposalTemplates, setProposalTemplates] = useState<{ id: string; name: string; slug: string; description?: string }[]>([]);
   const [proposalTemplateId, setProposalTemplateId] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [tenantBranding, setTenantBranding] = useState<{
     companyName: string;
     brandNameUpper: string;
@@ -1143,25 +1145,38 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               </div>
               <div className="space-y-1">
                 <Label className="text-[11px] text-muted-foreground">Propuesta económica</Label>
-                <select
-                  value={proposalTemplateId ?? ""}
-                  onChange={(e) => {
-                    const val = e.target.value || null;
-                    setProposalTemplateId(val);
-                    fetch(`/api/cpq/quotes/${quoteId}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ proposalTemplateId: val }),
-                    }).catch(() => {});
-                  }}
-                  disabled={isLocked}
-                  className="flex h-8 w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value="">Sin template</option>
-                  {proposalTemplates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name} — {t.description}</option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={proposalTemplateId ?? ""}
+                    onChange={(e) => {
+                      const val = e.target.value || null;
+                      setProposalTemplateId(val);
+                      fetch(`/api/cpq/quotes/${quoteId}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ proposalTemplateId: val }),
+                      }).catch(() => {});
+                    }}
+                    disabled={isLocked}
+                    className="flex h-8 w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="">Sin template</option>
+                    {proposalTemplates.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name} — {t.description}</option>
+                    ))}
+                  </select>
+                  {proposalTemplates.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPreviewOpen(true)}
+                      className="h-8 px-2 shrink-0"
+                      title="Vista previa de templates"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1922,6 +1937,23 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         title="Eliminar cotizacion"
         description="La cotizacion sera eliminada permanentemente. Esta accion no se puede deshacer."
         onConfirm={handleDelete}
+      />
+
+      <TemplatePreviewModal
+        quoteId={quoteId}
+        currentTemplateId={proposalTemplateId}
+        templates={proposalTemplates}
+        isOpen={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        onSelectTemplate={(id) => {
+          setProposalTemplateId(id);
+          fetch(`/api/cpq/quotes/${quoteId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ proposalTemplateId: id }),
+          }).catch(() => {});
+          setPreviewOpen(false);
+        }}
       />
     </div>
   );

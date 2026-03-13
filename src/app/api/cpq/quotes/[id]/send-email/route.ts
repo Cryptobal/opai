@@ -14,6 +14,7 @@ import { formatCurrency } from "@/lib/utils";
 import { CpqQuoteEmail } from "@/emails/CpqQuoteEmail";
 import { buildQuotationProps } from "@/lib/pdf/templates/quotation/build-quotation-props";
 import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-quotation";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 export async function POST(
   _request: NextRequest,
@@ -120,8 +121,10 @@ export async function POST(
         portalEnabled: true,
       },
     });
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://app.gardsecurity.cl";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "https://opai.gard.cl";
     portalUrl = `${baseUrl}/portal/cliente/setup?token=${magicToken}`;
+
+    const tenantConfig = await getTenantCompanyConfig(ctx.tenantId);
 
     // Render email HTML
     const emailHtml = await render(
@@ -143,10 +146,10 @@ export async function POST(
 
     // Send email via Resend with real PDF attachment
     const emailResult = await resend.emails.send({
-      from: EMAIL_CONFIG.from,
+      from: tenantConfig.emailFrom || EMAIL_CONFIG.from,
       to: contact.email,
-      replyTo: EMAIL_CONFIG.replyTo,
-      subject: `Propuesta económica ${quote.code} - Gard Security`,
+      replyTo: tenantConfig.emailReplyTo || EMAIL_CONFIG.replyTo,
+      subject: `Propuesta económica ${quote.code} - ${tenantConfig.commercialName}`,
       html: emailHtml,
       attachments: [
         {

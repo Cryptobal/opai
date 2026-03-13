@@ -387,6 +387,7 @@ export async function POST(
     }
 
     // 7. Send portal invite email with PIN
+    const tenantConfig = await getTenantCompanyConfig(ctx.tenantId);
     const basePortalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/cliente`;
     const portalUrl = contact.email
       ? `${basePortalUrl}?email=${encodeURIComponent(contact.email)}`
@@ -411,10 +412,10 @@ export async function POST(
     const emailResult = await resend.emails.send({
       from: EMAIL_CONFIG.from,
       to: contact.email,
-      cc: [...new Set(["comercial@gard.cl", ...ccEmails])],
+      cc: [...new Set([tenantConfig.email, ...ccEmails])],
       bcc: bccEmails.length ? bccEmails : undefined,
-      replyTo: EMAIL_CONFIG.replyTo,
-      subject: `Propuesta comercial para ${account.name} - Gard Security`,
+      replyTo: tenantConfig.emailReplyTo || EMAIL_CONFIG.replyTo,
+      subject: `Propuesta comercial para ${account.name} - ${tenantConfig.commercialName}`,
       html: emailHtml,
       tags: [
         { name: "type", value: "portal-prospecto-invite" },
@@ -549,6 +550,7 @@ export async function POST(
           portalUrl,
           proposalLink: proposalLinkForEmail,
           ejecutivoName,
+          brandName: tenantConfig.commercialName,
         }),
       },
     });
@@ -583,16 +585,17 @@ interface WhatsAppMsgParams {
   portalUrl: string;
   proposalLink: string | null;
   ejecutivoName: string;
+  brandName: string;
 }
 
 function buildWhatsAppMessage(params: WhatsAppMsgParams): string {
-  const { contactName, companyName, email, pin, portalUrl, proposalLink, ejecutivoName } = params;
+  const { contactName, companyName, email, pin, portalUrl, proposalLink, ejecutivoName, brandName } = params;
   const firstName = contactName.split(" ")[0];
 
   const lines = [
     `Hola ${firstName},`,
     ``,
-    `Soy *${ejecutivoName}* de *Gard Security*. Te envi\u00e9 por correo una propuesta de seguridad personalizada para *${companyName}*.`,
+    `Soy *${ejecutivoName}* de *${brandName}*. Te envi\u00e9 por correo una propuesta de seguridad personalizada para *${companyName}*.`,
     ``,
     `*Accede a tu portal privado* donde podr\u00e1s:`,
     `- Revisar tu propuesta en detalle`,
