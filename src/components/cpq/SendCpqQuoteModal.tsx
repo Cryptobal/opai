@@ -174,9 +174,9 @@ export function SendCpqQuoteModal({
       }}
     >
       <DialogTrigger asChild>
-        <Button className="w-full h-11 gap-2 text-sm font-semibold" disabled={disabled}>
-          <Send className="h-4 w-4" />
-          Enviar cotización
+        <Button variant="outline" className="w-full h-9 gap-2 text-xs font-medium text-muted-foreground" disabled={disabled}>
+          <Send className="h-3.5 w-3.5" />
+          Enviar cotización por email
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">

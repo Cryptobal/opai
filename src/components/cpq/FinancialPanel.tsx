@@ -961,18 +961,6 @@ function PreviewTab({
 
       {/* ── Action buttons (sticky at bottom) ── */}
       <div className="border-t border-border/40 p-3 space-y-2">
-        <SendCpqQuoteModal
-          quoteId={quoteId}
-          quoteCode={quoteCode}
-          clientName={quote.clientName || undefined}
-          disabled={!quote || positions.length === 0 || quote.status === "sent"}
-          hasAccount={hasAccount}
-          hasContact={hasContact}
-          hasDeal={hasDeal}
-          dealId={dealId}
-          contactName={contactName}
-          contactEmail={contactEmail}
-        />
         <Button
           className="w-full h-11 gap-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white"
           disabled={
@@ -1001,6 +989,18 @@ function PreviewTab({
           companyName={quote.clientName || undefined}
           disabled={!contactEmail}
           dealId={dealId}
+        />
+        <SendCpqQuoteModal
+          quoteId={quoteId}
+          quoteCode={quoteCode}
+          clientName={quote.clientName || undefined}
+          disabled={!quote || positions.length === 0 || quote.status === "sent"}
+          hasAccount={hasAccount}
+          hasContact={hasContact}
+          hasDeal={hasDeal}
+          dealId={dealId}
+          contactName={contactName}
+          contactEmail={contactEmail}
         />
       </div>
     </div>
