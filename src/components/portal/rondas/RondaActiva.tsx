@@ -736,7 +736,8 @@ export function RondaActiva({
         {!isAdHocFreeForm && (
           <button
             onClick={() => setMapCollapsed((v) => !v)}
-            className="absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 translate-y-1/2 items-center gap-1 rounded-full border border-gray-700 bg-gray-900 px-3 py-1 text-xs text-gray-400 shadow-lg transition-colors hover:bg-gray-800"
+            className="absolute bottom-0 left-1/2 z-10 flex min-h-[44px] -translate-x-1/2 translate-y-1/2 items-center gap-1 rounded-full border border-gray-700 bg-gray-900 px-4 py-2.5 text-xs text-gray-400 shadow-lg transition-colors hover:bg-gray-800 active:bg-gray-800"
+            aria-label={mapCollapsed ? "Expandir mapa" : "Colapsar mapa"}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

@@ -184,6 +184,15 @@ export async function marcarCheckpoint(
       : 0;
   const speed = prev ? speedKmh(prevDistance, elapsedSec) : 0;
 
+  // 5.2. Bloqueo por geo: GEOFENCE y BOTH exigen estar en rango; QR-only no
+  if (!isAdHocGps && checkpoint) {
+    const vt = checkpoint.verificationType;
+    const hasCoords = checkpoint.lat != null && checkpoint.lng != null;
+    if ((vt === "GEOFENCE" || vt === "BOTH") && hasCoords && !geo.valid) {
+      throw new MarcarCheckpointError("Debe estar en el rango del checkpoint para marcar", 400, "geo_fuera_rango");
+    }
+  }
+
   // 5.5. Fetch alert config for configurable thresholds
   const fullConfig = await getFullAlertConfig(execution.tenantId);
   const speedThreshold = fullConfig.velocidad_anomala?.thresholds?.speedAnomalyKmh ?? DEFAULT_SPEED_THRESHOLD_KMH;

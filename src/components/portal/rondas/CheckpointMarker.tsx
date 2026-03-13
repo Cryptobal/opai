@@ -318,8 +318,18 @@ export function CheckpointMarker({
   const withinRadius =
     distanceM != null && distanceM <= checkpoint.geoRadiusM;
 
+  // Geo bloqueo: GEOFENCE y BOTH exigen estar en rango; QR-only no (el escaneo es prueba)
+  const requiresGeoInRange =
+    !checkpoint.id.startsWith("ad-hoc") &&
+    (checkpoint.verificationType === "GEOFENCE" || checkpoint.verificationType === "BOTH");
+  const geoOk = !requiresGeoInRange || withinRadius;
+
   const canSubmit =
-    gpsStatus === "success" && !submitting && (needsQr ? qrCode != null : true) && requiredTasksComplete;
+    gpsStatus === "success" &&
+    !submitting &&
+    (needsQr ? qrCode != null : true) &&
+    requiredTasksComplete &&
+    geoOk;
 
   // ------------------------------------------------------------------
   // Photo handlers
@@ -364,6 +374,14 @@ export function CheckpointMarker({
     setSubmitError("");
 
     try {
+      // Validación geo antes de enviar (defensa en profundidad)
+      if (requiresGeoInRange && !withinRadius) {
+        setSubmitError("Acércate al punto para poder marcar");
+        submittingRef.current = false;
+        setSubmitting(false);
+        return;
+      }
+
       // 1. Upload photo if present
       let fotoEvidenciaUrl: string | null = null;
       if (photo) {
@@ -468,6 +486,10 @@ export function CheckpointMarker({
         // Network error (offline) — save to IndexedDB for later sync
         // TypeError is the standard fetch failure across all browsers (Chrome, Firefox, Safari)
         if (networkErr instanceof TypeError) {
+          // No guardar offline si está fuera de rango (GEOFENCE/BOTH)
+          if (requiresGeoInRange && !withinRadius) {
+            throw new Error("Acércate al punto para poder marcar. Sin conexión.");
+          }
           try {
             await savePendingMark({ ...body, isOfflineSync: true });
             console.log("[Rondas] Mark saved offline for later sync");
@@ -513,8 +535,10 @@ export function CheckpointMarker({
     ejecucionId,
     guardiaId,
     checkpoint.id,
+    checkpoint.verificationType,
     qrCode,
     note,
+    requiresGeoInRange,
     withinRadius,
     distanceM,
     onComplete,
@@ -1349,8 +1373,9 @@ export function CheckpointMarker({
             {!canSubmit && !submitting && (
               <p className="mt-1.5 text-center text-xs text-gray-500">
                 {gpsStatus !== "success" && "Esperando ubicacion GPS"}
-                {gpsStatus === "success" && needsQr && !qrCode && "Escanea el codigo QR del punto"}
-                {gpsStatus === "success" && (needsQr ? qrCode != null : true) && !requiredTasksComplete && "Completa las tareas obligatorias"}
+                {gpsStatus === "success" && requiresGeoInRange && !withinRadius && "Acercate al punto para poder marcar"}
+                {gpsStatus === "success" && !(requiresGeoInRange && !withinRadius) && needsQr && !qrCode && "Escanea el codigo QR del punto"}
+                {gpsStatus === "success" && !(requiresGeoInRange && !withinRadius) && (needsQr ? qrCode != null : true) && !requiredTasksComplete && "Completa las tareas obligatorias"}
               </p>
             )}
           </div>

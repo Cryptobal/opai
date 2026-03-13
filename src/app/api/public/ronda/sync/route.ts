@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
           const sortedMarcaciones = [...round.marcaciones].sort(
             (a, b) => new Date(a.marcadoAt).getTime() - new Date(b.marcadoAt).getTime(),
           );
+          const createdMarks: Array<{ status: "COMPLETED"; timestamp: Date; checkpointId: string }> = [];
 
           for (let i = 0; i < sortedMarcaciones.length; i++) {
             const m = sortedMarcaciones[i];
@@ -72,11 +73,20 @@ export async function POST(request: NextRequest) {
 
             const checkpoint = await tx.opsCheckpoint.findFirst({
               where: { id: m.checkpointId, installationId: round.installationId },
-              select: { id: true, lat: true, lng: true, geoRadiusM: true, name: true },
+              select: { id: true, lat: true, lng: true, geoRadiusM: true, name: true, verificationType: true },
             });
             if (!checkpoint) continue;
 
             const geo = validateGeofenceWithAccuracy(m.lat, m.lng, checkpoint.lat, checkpoint.lng, checkpoint.geoRadiusM, m.gpsAccuracy);
+
+            // Bloqueo geo: GEOFENCE/BOTH exigen estar en rango; QR-only no
+            const vt = checkpoint.verificationType;
+            const hasCoords = checkpoint.lat != null && checkpoint.lng != null;
+            if (vt === "QR") {
+              // QR-only: escaneo es prueba, no validar geo
+            } else if ((vt === "GEOFENCE" || vt === "BOTH") && hasCoords && !geo.valid) {
+              continue; // Skip mark: fuera de rango
+            }
             const elapsedSec = prevM
               ? Math.max(1, (new Date(m.marcadoAt).getTime() - new Date(prevM.marcadoAt).getTime()) / 1000)
               : 0;
@@ -132,6 +142,7 @@ export async function POST(request: NextRequest) {
                 isOfflineSync: true,
               },
             });
+            createdMarks.push({ status: "COMPLETED", timestamp: new Date(m.marcadoAt), checkpointId: m.checkpointId });
 
             if (alertAnomalies.length > 0) {
               const baseAlertSeveridad = toAlertSeverityFromAnomalies(alertAnomalies);
@@ -175,12 +186,6 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          const allMarks = sortedMarcaciones.map((m, i) => ({
-            status: "COMPLETED" as const,
-            timestamp: new Date(m.marcadoAt),
-            checkpointId: m.checkpointId,
-          }));
-
           const trustResult = calculateRondaTrustScore({
             ejecucion: {
               startedAt: new Date(round.startedAt),
@@ -188,14 +193,19 @@ export async function POST(request: NextRequest) {
               scheduledAt: new Date(round.startedAt),
               checkpointsTotal: template.checkpoints.length,
             },
-            marcaciones: allMarks,
+            marcaciones: createdMarks,
             template: { estimatedDurationMin: template.estimatedDurationMin, orderMode: template.orderMode },
             templateCheckpoints: template.checkpoints,
           });
 
+          const pct = template.checkpoints.length > 0
+            ? (createdMarks.length / template.checkpoints.length) * 100
+            : 0;
           await tx.opsRondaEjecucion.update({
             where: { id: ejecucion.id },
             data: {
+              checkpointsCompletados: createdMarks.length,
+              porcentajeCompletado: pct,
               trustScore: trustResult.score,
               trustBreakdown: trustResult.breakdown as any,
               durationMinutes: Math.round(
