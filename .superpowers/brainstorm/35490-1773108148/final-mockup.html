@@ -1,0 +1,125 @@
+<h2>Diseño final: Popover de notificaciones</h2>
+<p class="subtitle">Así se vería el popover al clickear la campana. ¿Se ve bien?</p>
+
+<div class="mockup">
+  <div class="mockup-header">Popover de Notificaciones (~380px ancho, max 70vh alto)</div>
+  <div class="mockup-body" style="max-width:380px; margin:0 auto; background:#0d1117; border-radius:12px; border:1px solid #30363d; overflow:hidden; font-family:system-ui,-apple-system,sans-serif; box-shadow:0 16px 48px rgba(0,0,0,0.4);">
+
+    <!-- Header -->
+    <div style="padding:12px 16px; border-bottom:1px solid #21262d; display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#e6edf3;">Notificaciones</div>
+        <div style="font-size:11px; color:#8b949e; margin-top:1px;">9 sin leer</div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button style="background:none;border:1px solid #30363d;border-radius:6px;padding:4px 8px;font-size:10px;color:#8b949e;cursor:pointer;display:flex;align-items:center;gap:4px;">
+          <span style="color:#58a6ff">✓✓</span> Leídas
+        </button>
+        <button style="background:none;border:1px solid #30363d;border-radius:6px;padding:4px 8px;font-size:10px;color:#f85149;cursor:pointer;display:flex;align-items:center;gap:4px;">
+          🗑 Eliminar
+        </button>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div style="padding:8px 16px; border-bottom:1px solid #21262d;">
+      <div style="display:flex; gap:6px; margin-bottom:6px;">
+        <span style="font-size:11px; background:#238636; color:#fff; padding:2px 10px; border-radius:12px; font-weight:500;">Todas</span>
+        <span style="font-size:11px; background:#21262d; color:#8b949e; padding:2px 10px; border-radius:12px; cursor:pointer;">No leídas</span>
+      </div>
+      <div style="display:flex; gap:4px; flex-wrap:wrap;">
+        <span style="font-size:10px; background:#161b22; color:#58a6ff; padding:2px 8px; border-radius:10px; border:1px solid #1f6feb40;">Todos</span>
+        <span style="font-size:10px; background:#161b22; color:#8b949e; padding:2px 8px; border-radius:10px; border:1px solid #30363d; cursor:pointer;">Lead</span>
+        <span style="font-size:10px; background:#161b22; color:#8b949e; padding:2px 8px; border-radius:10px; border:1px solid #30363d; cursor:pointer;">Ops</span>
+        <span style="font-size:10px; background:#161b22; color:#8b949e; padding:2px 8px; border-radius:10px; border:1px solid #30363d; cursor:pointer;">Negocio</span>
+        <span style="font-size:10px; background:#161b22; color:#8b949e; padding:2px 8px; border-radius:10px; border:1px solid #30363d; cursor:pointer;">CRM</span>
+      </div>
+    </div>
+
+    <!-- Notification list -->
+    <div style="max-height:340px; overflow-y:auto;">
+
+      <!-- Unread notification -->
+      <div style="padding:10px 16px; border-bottom:1px solid #161b22; background:#1c2128; display:flex; gap:10px; align-items:flex-start; cursor:pointer;">
+        <div style="width:8px; height:8px; border-radius:50%; background:#58a6ff; margin-top:5px; flex-shrink:0;"></div>
+        <div style="font-size:16px; margin-top:1px;">🚨</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:12px; font-weight:600; color:#e6edf3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">SLA vencido: TK-202603-0009 <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#58a6ff;margin-left:4px;vertical-align:middle;"></span></div>
+          <div style="font-size:11px; color:#8b949e; margin-top:2px; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden;">El ticket "[CRÍTICO] Documentación — Polpaico quilicura" (P1)...</div>
+          <div style="display:flex; gap:4px; margin-top:4px; align-items:center;">
+            <span style="font-size:9px; background:#6e40c940; color:#a371f7; padding:1px 6px; border-radius:8px; border:1px solid #6e40c940;">Operaciones: TK-202603-0009</span>
+            <span style="font-size:9px; color:#484f58;">hace 3h</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Unread notification 2 -->
+      <div style="padding:10px 16px; border-bottom:1px solid #161b22; background:#1c2128; display:flex; gap:10px; align-items:flex-start; cursor:pointer;">
+        <div style="width:8px; height:8px; border-radius:50%; background:#58a6ff; margin-top:5px; flex-shrink:0;"></div>
+        <div style="font-size:16px; margin-top:1px;">💬</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:12px; font-weight:600; color:#e6edf3;">Mención en nota <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#58a6ff;margin-left:4px;vertical-align:middle;"></span></div>
+          <div style="font-size:11px; color:#8b949e; margin-top:2px;">@Carlos te mencionó en "Revisión contrato Acme Corp"</div>
+          <div style="display:flex; gap:4px; margin-top:4px; align-items:center; flex-wrap:wrap;">
+            <span style="font-size:9px; background:#1f6feb20; color:#58a6ff; padding:1px 6px; border-radius:8px; border:1px solid #1f6feb40;">CRM: Acme Corp</span>
+            <span style="font-size:9px; color:#484f58;">hace 5h</span>
+          </div>
+          <button style="margin-top:6px; background:#1f6feb15; border:1px solid #1f6feb30; border-radius:12px; padding:3px 10px; font-size:10px; color:#58a6ff; cursor:pointer; display:flex; align-items:center; gap:4px;">
+            ↩ Responder en CRM: Acme Corp
+          </button>
+        </div>
+      </div>
+
+      <!-- Read notification -->
+      <div style="padding:10px 16px; border-bottom:1px solid #161b22; display:flex; gap:10px; align-items:flex-start; cursor:pointer; opacity:0.7;">
+        <div style="width:8px; height:8px; border-radius:50%; background:transparent; border:1px solid #30363d; margin-top:5px; flex-shrink:0;"></div>
+        <div style="font-size:16px; margin-top:1px;">⏳</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:12px; font-weight:500; color:#e6edf3;">SLA próximo a vencer: TK-202603-0010</div>
+          <div style="font-size:11px; color:#8b949e; margin-top:2px;">El ticket "[CRÍTICO] Documentación" vence en ~50 minutos</div>
+          <div style="display:flex; gap:4px; margin-top:4px; align-items:center;">
+            <span style="font-size:9px; background:#6e40c940; color:#a371f7; padding:1px 6px; border-radius:8px; border:1px solid #6e40c940;">Operaciones: TK-202603-0010</span>
+            <span style="font-size:9px; color:#484f58;">hace 4h</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Read notification 2 -->
+      <div style="padding:10px 16px; border-bottom:1px solid #161b22; display:flex; gap:10px; align-items:flex-start; cursor:pointer; opacity:0.7;">
+        <div style="width:8px; height:8px; border-radius:50%; background:transparent; border:1px solid #30363d; margin-top:5px; flex-shrink:0;"></div>
+        <div style="font-size:16px; margin-top:1px;">🔔</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:12px; font-weight:500; color:#e6edf3;">Nuevo lead: Empresa XYZ</div>
+          <div style="font-size:11px; color:#8b949e; margin-top:2px;">Se asignó un nuevo lead comercial a tu equipo</div>
+          <div style="display:flex; gap:4px; margin-top:4px; align-items:center;">
+            <span style="font-size:9px; background:#0ea5e920; color:#7dd3fc; padding:1px 6px; border-radius:8px; border:1px solid #0ea5e940;">Lead: Empresa XYZ</span>
+            <span style="font-size:9px; color:#484f58;">ayer</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:10px 16px; border-top:1px solid #21262d; text-align:center;">
+      <a style="font-size:12px; color:#58a6ff; text-decoration:none; cursor:pointer;">Ver todas las notificaciones →</a>
+    </div>
+
+  </div>
+</div>
+
+<div class="options" style="margin-top:24px;">
+  <div class="option" data-choice="approve" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content">
+      <h3>Se ve bien, dale</h3>
+      <p>Pasar a implementar con este diseño.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="changes" onclick="toggleSelect(this)">
+    <div class="letter">✎</div>
+    <div class="content">
+      <h3>Necesita cambios</h3>
+      <p>Quiero ajustar algo antes de implementar (dime qué en el terminal).</p>
+    </div>
+  </div>
+</div>

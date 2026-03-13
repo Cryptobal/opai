@@ -248,13 +248,13 @@ async function downloadLogoToR2(logoUrl: string): Promise<string | null> {
   const spec = allowed[mime];
   if (!spec) return null;
 
-  let buffer = Buffer.from(await response.arrayBuffer());
+  let buffer: Buffer = Buffer.from(await response.arrayBuffer());
   if (buffer.byteLength <= 0 || buffer.byteLength > 5 * 1024 * 1024) {
     return null;
   }
 
   const hash = createHash("sha1").update(logoUrl).digest("hex").slice(0, 12);
-  let uploadBuffer = buffer;
+  let uploadBuffer: Buffer = buffer;
   let fileName = `logo-${Date.now()}-${hash}${spec.ext}`;
   let mimeType = spec.mime;
 

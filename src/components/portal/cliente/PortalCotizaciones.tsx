@@ -1,102 +1,72 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  CheckCircle, XCircle, ChevronDown, ChevronUp, FileText, Loader2, AlertTriangle,
-} from "lucide-react";
-import { cn, formatCurrency } from "@/lib/utils";
+import { useState, useEffect, useMemo } from "react";
+import { FileText, Loader2, XCircle, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PortalContractForm } from "./PortalContractForm";
+import {
+  QuoteSummary, QuoteDetail, DealGroup,
+  getDisplayStatus, isActionable, groupByDeal,
+} from "./cotizaciones/types";
+import { CotizacionCard } from "./cotizaciones/CotizacionCard";
+import { CotizacionApproveDialog } from "./cotizaciones/CotizacionApproveDialog";
+import { CotizacionRejectDialog } from "./cotizaciones/CotizacionRejectDialog";
+import { WhatsAppButton } from "./cotizaciones/WhatsAppButton";
 
-/* ── Types ── */
+/* ── Filter tabs ── */
 
-type QuoteSummary = {
-  id: string;
-  code: string;
-  name: string | null;
-  status: string;
-  monthlyCost: number;
-  validUntil: string | null;
-  totalPositions: number;
-  totalGuards: number;
-  currency: string;
-  createdAt: string;
-};
+type FilterTab = "todas" | "pendientes" | "aprobadas" | "rechazadas";
 
-type Position = {
-  id: string;
-  customName: string | null;
-  numGuards: number | null;
-  numPuestos: number | null;
-  startTime: string | null;
-  endTime: string | null;
-  weekdays: string | null;
-  monthlyPositionCost: number;
-};
+const FILTER_TABS: { key: FilterTab; label: string }[] = [
+  { key: "todas", label: "Todas" },
+  { key: "pendientes", label: "Pendientes" },
+  { key: "aprobadas", label: "Aprobadas" },
+  { key: "rechazadas", label: "Rechazadas" },
+];
 
-type QuoteDetail = QuoteSummary & {
-  positions: Position[];
-  notes: string | null;
-  aiDescription: string | null;
-};
-
-/* ── Status config ── */
-
-const STATUS_BADGE: Record<string, string> = {
-  draft:    "bg-zinc-800 text-zinc-400",
-  sent:     "bg-blue-900/60 text-blue-300",
-  approved: "bg-emerald-900/60 text-emerald-300",
-  rejected: "bg-red-900/60 text-red-400",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  draft:    "Borrador",
-  sent:     "Enviada",
-  approved: "Aprobada",
-  rejected: "Rechazada",
-};
-
-/* ── Helpers ── */
-
-function formatDate(d: string | null): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("es-CL", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatHorario(start: string | null, end: string | null): string {
-  if (!start && !end) return "—";
-  return `${start ?? ""}–${end ?? ""}`;
-}
-
-function seemsCurrencyWrong(amount: number, currency: string): boolean {
-  return (currency === "UF" && amount > 5000) || (currency === "CLP" && amount > 0 && amount < 1000);
+function filterQuotes(quotes: QuoteSummary[], tab: FilterTab): QuoteSummary[] {
+  switch (tab) {
+    case "pendientes":
+      return quotes.filter((q) => q.status === "sent" || q.status === "draft");
+    case "aprobadas":
+      return quotes.filter((q) => q.status === "approved");
+    case "rechazadas":
+      return quotes.filter((q) => q.status === "rejected");
+    default:
+      return quotes;
+  }
 }
 
 /* ══════════════════════════════════════════════════════ */
 
 interface Props {
   session: ClienteSession;
+  isProspect?: boolean;
+  onNavigate?: (section: string) => void;
 }
 
-export function PortalCotizaciones({ session }: Props) {
+export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
   const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<FilterTab>("todas");
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<QuoteDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const [actionLoading, setActionLoading] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
-  const [showRejectInput, setShowRejectInput] = useState(false);
-  const [confirmingApprove, setConfirmingApprove] = useState(false);
+  // Dialogs
+  const [approveQuoteId, setApproveQuoteId] = useState<string | null>(null);
+  const [rejectQuoteId, setRejectQuoteId] = useState<string | null>(null);
 
+  // Contract form (client only, after approval)
   const [showContractForm, setShowContractForm] = useState<string | null>(null);
+
+  // Deal collapse (prospect only)
+  const [collapsedDeals, setCollapsedDeals] = useState<Set<string>>(new Set());
+
+  const context = isProspect ? "prospect" : "client";
 
   /* ── Load list ── */
   useEffect(() => {
@@ -106,24 +76,27 @@ export function PortalCotizaciones({ session }: Props) {
         if (json.success) setQuotes(json.data);
         else setError(json.error ?? "Error al cargar cotizaciones");
       })
-      .catch(() => setError("Error de conexion"))
+      .catch(() => setError("Error de conexión"))
       .finally(() => setLoading(false));
   }, []);
+
+  /* ── Filtered + grouped quotes ── */
+  const filtered = useMemo(() => filterQuotes(quotes, activeTab), [quotes, activeTab]);
+  const dealGroups = useMemo<DealGroup[]>(() => {
+    if (!isProspect) return [];
+    return groupByDeal(filtered);
+  }, [filtered, isProspect]);
 
   /* ── Load detail ── */
   async function loadDetail(id: string) {
     if (expandedId === id) {
       setExpandedId(null);
       setDetail(null);
-      setShowRejectInput(false);
-      setConfirmingApprove(false);
       return;
     }
     setExpandedId(id);
     setDetail(null);
     setDetailLoading(true);
-    setShowRejectInput(false);
-    setConfirmingApprove(false);
     try {
       const res = await fetch(`/api/portal/cliente/cotizaciones/${id}`);
       const json = await res.json();
@@ -134,52 +107,72 @@ export function PortalCotizaciones({ session }: Props) {
   }
 
   /* ── Approve ── */
-  async function handleApprove(id: string) {
-    setActionLoading(true);
-    try {
-      const res = await fetch(`/api/portal/cliente/cotizaciones/${id}/approve`, {
-        method: "POST",
-      });
-      const json = await res.json();
-      if (json.success) {
-        setQuotes((prev) =>
-          prev.map((q) => (q.id === id ? { ...q, status: "approved" } : q))
-        );
-        if (detail?.id === id) {
-          setDetail((prev) => prev ? { ...prev, status: "approved" } : prev);
-        }
-        setConfirmingApprove(false);
+  async function handleApprove() {
+    const id = approveQuoteId;
+    if (!id) return;
+    const endpoint = isProspect
+      ? `/api/portal/cliente/cotizaciones/${id}/accept-proposal`
+      : `/api/portal/cliente/cotizaciones/${id}/approve`;
+
+    const res = await fetch(endpoint, { method: "POST" });
+    const json = await res.json();
+    if (json.success) {
+      setQuotes((prev) =>
+        prev.map((q) => (q.id === id ? { ...q, status: "approved" } : q))
+      );
+      if (detail?.id === id) {
+        setDetail((prev) => prev ? { ...prev, status: "approved" } : prev);
+      }
+      setApproveQuoteId(null);
+      // Client: show contract form after approval
+      if (!isProspect) {
         setShowContractForm(id);
       }
-    } finally {
-      setActionLoading(false);
+    } else {
+      throw new Error(json.error ?? "Error");
     }
   }
 
   /* ── Reject ── */
-  async function handleReject(id: string) {
-    setActionLoading(true);
-    try {
-      const res = await fetch(`/api/portal/cliente/cotizaciones/${id}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: rejectReason || undefined }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        setQuotes((prev) =>
-          prev.map((q) => (q.id === id ? { ...q, status: "rejected" } : q))
-        );
-        if (detail?.id === id) {
-          setDetail((prev) => prev ? { ...prev, status: "rejected" } : prev);
-        }
-        setShowRejectInput(false);
-        setRejectReason("");
+  async function handleReject(reason?: string) {
+    const id = rejectQuoteId;
+    if (!id) return;
+    const res = await fetch(`/api/portal/cliente/cotizaciones/${id}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: reason || undefined }),
+    });
+    const json = await res.json();
+    if (json.success) {
+      setQuotes((prev) =>
+        prev.map((q) => (q.id === id ? { ...q, status: "rejected" } : q))
+      );
+      if (detail?.id === id) {
+        setDetail((prev) => prev ? { ...prev, status: "rejected" } : prev);
       }
-    } finally {
-      setActionLoading(false);
+      setRejectQuoteId(null);
+    } else {
+      throw new Error(json.error ?? "Error");
     }
   }
+
+  /* ── Toggle deal collapse ── */
+  function toggleDealCollapse(dealId: string) {
+    setCollapsedDeals((prev) => {
+      const next = new Set(prev);
+      if (next.has(dealId)) next.delete(dealId);
+      else next.add(dealId);
+      return next;
+    });
+  }
+
+  /* ── Get approve dialog quote info ── */
+  const approveQuote = approveQuoteId
+    ? quotes.find((q) => q.id === approveQuoteId)
+    : null;
+  const rejectQuote = rejectQuoteId
+    ? quotes.find((q) => q.id === rejectQuoteId)
+    : null;
 
   /* ── Render ── */
 
@@ -187,7 +180,7 @@ export function PortalCotizaciones({ session }: Props) {
     return (
       <div className="flex items-center justify-center h-40 gap-2 text-zinc-400">
         <Loader2 className="w-5 h-5 animate-spin" />
-        <span className="text-sm">Cargando cotizaciones...</span>
+        <span className="text-sm">Cargando {isProspect ? "propuestas" : "cotizaciones"}...</span>
       </div>
     );
   }
@@ -203,237 +196,214 @@ export function PortalCotizaciones({ session }: Props) {
 
   return (
     <div className="pb-24 space-y-4">
+      {/* Header */}
       <div className="flex items-center gap-2 mb-2">
         <FileText className="w-5 h-5 text-teal-400" />
-        <h2 className="text-base font-semibold">Cotizaciones</h2>
-        <span className="ml-auto text-xs text-zinc-500">{quotes.length} cotizacion{quotes.length !== 1 ? "es" : ""}</span>
+        <h2 className="text-base font-semibold">
+          {isProspect ? "Propuestas" : "Cotizaciones"}
+        </h2>
+        <span className="ml-auto text-xs text-zinc-500">
+          {quotes.length} cotización{quotes.length !== 1 ? "es" : ""}
+        </span>
       </div>
 
-      {quotes.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-32 gap-2 text-zinc-500">
-          <FileText className="w-8 h-8" />
-          <p className="text-sm">No hay cotizaciones disponibles</p>
+      {/* Filter tabs */}
+      {quotes.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {FILTER_TABS.map((tab) => {
+            const count = filterQuotes(quotes, tab.key).length;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
+                  activeTab === tab.key
+                    ? "bg-teal-600 text-white"
+                    : "bg-white/5 text-zinc-400 hover:bg-white/10",
+                )}
+              >
+                {tab.label} ({count})
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {quotes.map((quote) => {
-        const isExpanded = expandedId === quote.id;
-        const statusBadge = STATUS_BADGE[quote.status] ?? STATUS_BADGE.draft;
-        const statusLabel = STATUS_LABEL[quote.status] ?? quote.status;
+      {/* Empty states */}
+      {quotes.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-zinc-500">
+          <FileText className="w-10 h-10 opacity-40" />
+          {isProspect ? (
+            <>
+              <p className="text-sm font-medium">Aún no tienes propuestas</p>
+              <p className="text-xs text-center max-w-xs">
+                Tu ejecutivo Gard está preparando una propuesta personalizada para tu empresa.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-medium">No hay cotizaciones activas</p>
+              <p className="text-xs text-center max-w-xs">
+                ¿Necesitas ampliar o modificar tu servicio?
+              </p>
+            </>
+          )}
+          <div className="flex gap-2 mt-2">
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate("chat")}
+                className="flex items-center gap-2 px-4 h-9 rounded-lg border border-white/10 text-zinc-300 hover:text-white text-sm transition-colors"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Hablar con ejecutivo
+              </button>
+            )}
+            <WhatsAppButton variant="compact" context={context} />
+          </div>
+        </div>
+      )}
+
+      {filtered.length === 0 && quotes.length > 0 && (
+        <div className="flex flex-col items-center justify-center py-12 gap-2 text-zinc-500">
+          <p className="text-sm">No hay cotizaciones en esta categoría</p>
+        </div>
+      )}
+
+      {/* ── Prospect: Deal-grouped view ── */}
+      {isProspect && dealGroups.map((group) => {
+        const hasMultiple = group.quotes.length > 1;
+        const isCollapsed = collapsedDeals.has(group.dealId);
+        const activeQuote = group.quotes[0];
+        const olderQuotes = group.quotes.slice(1);
 
         return (
-          <div
-            key={quote.id}
-            className="rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden"
-          >
-            {/* Card header — clickable */}
-            <button
-              onClick={() => loadDetail(quote.id)}
-              className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-zinc-800/40 transition-colors"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-semibold truncate">
-                    {quote.name ?? quote.code}
-                  </span>
-                  <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full", statusBadge)}>
-                    {statusLabel}
-                  </span>
-                </div>
-                <p className="text-xs text-zinc-500 mt-0.5">{quote.code}</p>
-                <div className="flex items-center gap-4 mt-2 flex-wrap">
-                  <span className="text-sm font-semibold text-teal-400">
-                    {formatCurrency(quote.monthlyCost, quote.currency === "UF" ? "UF" : "CLP")}
-                    <span className="text-xs font-normal text-zinc-500">/mes</span>
-                    {seemsCurrencyWrong(quote.monthlyCost, quote.currency) && (
-                      <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-amber-400" title="El monto parece no corresponder a la moneda indicada">
-                        <AlertTriangle className="h-3 w-3" />
-                        Verificar moneda
-                      </span>
-                    )}
-                  </span>
-                  {quote.validUntil && (
-                    <span className="text-xs text-zinc-500">
-                      Valida hasta {formatDate(quote.validUntil)}
-                    </span>
-                  )}
-                  <span className="text-xs text-zinc-600">
-                    {quote.totalPositions} puesto{quote.totalPositions !== 1 ? "s" : ""} · {quote.totalGuards} guardia{quote.totalGuards !== 1 ? "s" : ""}
-                  </span>
-                </div>
+          <div key={group.dealId} className="space-y-3">
+            {hasMultiple && (
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-zinc-300">{group.dealTitle}</h3>
+                <span className="text-[10px] text-zinc-600">
+                  {group.quotes.length} versión{group.quotes.length !== 1 ? "es" : ""}
+                </span>
               </div>
-              <div className="shrink-0 mt-1">
-                {isExpanded
-                  ? <ChevronUp className="w-4 h-4 text-zinc-500" />
-                  : <ChevronDown className="w-4 h-4 text-zinc-500" />}
-              </div>
-            </button>
+            )}
 
-            {/* Expanded detail */}
-            {isExpanded && (
-              <div className="border-t border-zinc-800 px-4 py-4 space-y-4">
-                {detailLoading && (
-                  <div className="flex items-center gap-2 text-zinc-400 text-sm">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Cargando detalle...
+            {/* Active quote */}
+            <CotizacionCard
+              cotizacion={activeQuote}
+              detail={expandedId === activeQuote.id ? detail : null}
+              detailLoading={expandedId === activeQuote.id && detailLoading}
+              variant="full"
+              context="prospect"
+              isExpanded={expandedId === activeQuote.id}
+              onToggleExpand={() => loadDetail(activeQuote.id)}
+              onApprove={() => setApproveQuoteId(activeQuote.id)}
+              onReject={() => setRejectQuoteId(activeQuote.id)}
+              onConsult={() => onNavigate?.("chat")}
+              onViewProposal={
+                (() => {
+                  const link = (expandedId === activeQuote.id && detail?.proposalLink) || activeQuote.proposalLink;
+                  return link ? () => window.open(link, "_blank") : undefined;
+                })()
+              }
+            />
+
+            {/* Older versions */}
+            {hasMultiple && olderQuotes.length > 0 && (
+              <>
+                <button
+                  onClick={() => toggleDealCollapse(group.dealId)}
+                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors ml-1"
+                >
+                  {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                  {isCollapsed
+                    ? `Ver ${olderQuotes.length} versión${olderQuotes.length !== 1 ? "es" : ""} anterior${olderQuotes.length !== 1 ? "es" : ""}`
+                    : "Ocultar versiones anteriores"}
+                </button>
+
+                {!isCollapsed && (
+                  <div className="space-y-2 ml-3 border-l border-zinc-800 pl-3">
+                    {olderQuotes.map((q) => (
+                      <CotizacionCard
+                        key={q.id}
+                        cotizacion={q}
+                        detail={expandedId === q.id ? detail : null}
+                        detailLoading={expandedId === q.id && detailLoading}
+                        variant="full"
+                        context="prospect"
+                        isExpanded={expandedId === q.id}
+                        onToggleExpand={() => loadDetail(q.id)}
+                        onApprove={() => setApproveQuoteId(q.id)}
+                        onReject={() => setRejectQuoteId(q.id)}
+                        onConsult={() => onNavigate?.("chat")}
+                        onViewProposal={
+                          (() => {
+                            const link = (expandedId === q.id && detail?.proposalLink) || q.proposalLink;
+                            return link ? () => window.open(link, "_blank") : undefined;
+                          })()
+                        }
+                      />
+                    ))}
                   </div>
                 )}
-
-                {detail && (
-                  <>
-                    {/* Positions table */}
-                    {detail.positions.length > 0 && (
-                      <div className="overflow-x-auto -mx-4 px-4">
-                        <table className="w-full text-xs min-w-[480px]">
-                          <thead>
-                            <tr className="text-zinc-500 border-b border-zinc-800">
-                              <th className="text-left py-2 pr-3 font-medium">Puesto</th>
-                              <th className="text-center py-2 pr-3 font-medium">Guardias</th>
-                              <th className="text-left py-2 pr-3 font-medium">Horario</th>
-                              <th className="text-left py-2 pr-3 font-medium">Dias</th>
-                              <th className="text-right py-2 font-medium">Costo mensual</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {detail.positions.map((pos) => (
-                              <tr key={pos.id} className="border-b border-zinc-800/50 last:border-0">
-                                <td className="py-2 pr-3 text-zinc-200">
-                                  {pos.customName ?? `Puesto ${pos.numPuestos ?? ""}`}
-                                </td>
-                                <td className="py-2 pr-3 text-center text-zinc-300">
-                                  {pos.numGuards ?? "—"}
-                                </td>
-                                <td className="py-2 pr-3 text-zinc-400">
-                                  {formatHorario(pos.startTime, pos.endTime)}
-                                </td>
-                                <td className="py-2 pr-3 text-zinc-400">
-                                  {pos.weekdays ?? "—"}
-                                </td>
-                                <td className="py-2 text-right text-teal-400 font-medium">
-                                  {formatCurrency(pos.monthlyPositionCost, detail.currency === "UF" ? "UF" : "CLP")}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr className="border-t border-zinc-700">
-                              <td colSpan={4} className="py-2 pr-3 text-xs font-semibold text-zinc-400">
-                                Total mensual
-                              </td>
-                              <td className="py-2 text-right text-sm font-bold text-teal-300">
-                                {formatCurrency(detail.monthlyCost, detail.currency === "UF" ? "UF" : "CLP")}
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    )}
-
-                    {detail.positions.length === 0 && (
-                      <p className="text-xs text-zinc-500">Sin posiciones detalladas.</p>
-                    )}
-
-                    {/* Actions for sent quotes */}
-                    {detail.status === "sent" && (
-                      <div className="space-y-3 pt-2">
-                        {!showRejectInput && !confirmingApprove && (
-                          <div className="flex gap-3">
-                            <button
-                              onClick={() => setConfirmingApprove(true)}
-                              className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                              Aprobar cotizacion
-                            </button>
-                            <button
-                              onClick={() => setShowRejectInput(true)}
-                              className="px-4 h-10 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 text-sm transition-colors"
-                            >
-                              Rechazar
-                            </button>
-                          </div>
-                        )}
-
-                        {confirmingApprove && (
-                          <div className="rounded-lg border border-emerald-700/50 bg-emerald-900/20 p-4 space-y-3">
-                            <p className="text-sm text-emerald-300 font-medium">
-                              Confirmar aprobacion
-                            </p>
-                            <p className="text-xs text-zinc-400">
-                              Al aprobar esta cotizacion, nuestro equipo iniciara el proceso de
-                              contratacion y te contactara para coordinar los detalles.
-                            </p>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleApprove(detail.id)}
-                                disabled={actionLoading}
-                                className="flex items-center gap-2 px-4 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
-                              >
-                                {actionLoading
-                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  : <CheckCircle className="w-3.5 h-3.5" />}
-                                Confirmar
-                              </button>
-                              <button
-                                onClick={() => setConfirmingApprove(false)}
-                                disabled={actionLoading}
-                                className="px-4 h-9 rounded-lg border border-zinc-700 text-zinc-400 text-sm hover:text-zinc-200 transition-colors"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {showRejectInput && (
-                          <div className="rounded-lg border border-red-800/50 bg-red-900/10 p-4 space-y-3">
-                            <p className="text-sm text-red-400 font-medium">Rechazar cotizacion</p>
-                            <textarea
-                              value={rejectReason}
-                              onChange={(e) => setRejectReason(e.target.value)}
-                              placeholder="Motivo de rechazo (opcional)..."
-                              rows={2}
-                              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-red-600 resize-none"
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleReject(detail.id)}
-                                disabled={actionLoading}
-                                className="flex items-center gap-2 px-4 h-9 rounded-lg bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
-                              >
-                                {actionLoading
-                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  : <XCircle className="w-3.5 h-3.5" />}
-                                Rechazar
-                              </button>
-                              <button
-                                onClick={() => { setShowRejectInput(false); setRejectReason(""); }}
-                                disabled={actionLoading}
-                                className="px-4 h-9 rounded-lg border border-zinc-700 text-zinc-400 text-sm hover:text-zinc-200 transition-colors"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Approved: show contract form */}
-                    {(detail.status === "approved" || showContractForm === detail.id) && (
-                      <PortalContractForm
-                        quoteId={detail.id}
-                        accountName={session.accountName}
-                        onComplete={() => setShowContractForm(null)}
-                      />
-                    )}
-                  </>
-                )}
-              </div>
+              </>
             )}
           </div>
         );
       })}
+
+      {/* ── Client: Flat list view ── */}
+      {!isProspect && filtered.map((quote) => (
+        <div key={quote.id} className="space-y-0">
+          <CotizacionCard
+            cotizacion={quote}
+            detail={expandedId === quote.id ? detail : null}
+            detailLoading={expandedId === quote.id && detailLoading}
+            variant="full"
+            context="client"
+            isExpanded={expandedId === quote.id}
+            onToggleExpand={() => loadDetail(quote.id)}
+            onApprove={() => setApproveQuoteId(quote.id)}
+            onReject={() => setRejectQuoteId(quote.id)}
+            onConsult={() => onNavigate?.("chat")}
+          />
+
+          {/* Contract form: shown inline after client approval */}
+          {(showContractForm === quote.id || (quote.status === "approved" && expandedId === quote.id)) && (
+            <div className="mt-2">
+              <PortalContractForm
+                quoteId={quote.id}
+                accountName={session.accountName}
+                onComplete={() => setShowContractForm(null)}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* ── Approve dialog ── */}
+      {approveQuote && (
+        <CotizacionApproveDialog
+          quoteName={approveQuote.name ?? approveQuote.code}
+          monthlyCost={approveQuote.monthlyCost}
+          currency={approveQuote.currency}
+          open={!!approveQuoteId}
+          onOpenChange={(open) => { if (!open) setApproveQuoteId(null); }}
+          onConfirm={handleApprove}
+          isProspect={isProspect}
+        />
+      )}
+
+      {/* ── Reject dialog ── */}
+      {rejectQuote && (
+        <CotizacionRejectDialog
+          quoteName={rejectQuote.name ?? rejectQuote.code}
+          open={!!rejectQuoteId}
+          onOpenChange={(open) => { if (!open) setRejectQuoteId(null); }}
+          onConfirm={handleReject}
+        />
+      )}
     </div>
   );
 }

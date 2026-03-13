@@ -1,0 +1,381 @@
+"use client";
+
+import { useState } from "react";
+import {
+  ChevronDown, ChevronUp, FileDown, FileText, MessageSquare,
+  Loader2, AlertTriangle, Check, XCircle,
+} from "lucide-react";
+import { cn, formatCurrency } from "@/lib/utils";
+import {
+  QuoteSummary, QuoteDetail,
+  STATUS_BADGE, STATUS_LABEL,
+  formatDate, formatHorario, formatWeekdays,
+  seemsCurrencyWrong, getDisplayStatus, isActionable,
+} from "./types";
+import { GardServiceIncludes } from "./GardServiceIncludes";
+import { WhatsAppButton } from "./WhatsAppButton";
+
+/* ══════════════════════════════════════════════════════ */
+
+interface CotizacionCardProps {
+  cotizacion: QuoteSummary;
+  detail?: QuoteDetail | null;
+  detailLoading?: boolean;
+  variant: "dashboard" | "full";
+  context: "prospect" | "client";
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+  onApprove?: () => void;
+  onReject?: () => void;
+  onConsult?: () => void;
+  onViewProposal?: () => void;
+  className?: string;
+}
+
+export function CotizacionCard({
+  cotizacion,
+  detail,
+  detailLoading,
+  variant,
+  context,
+  isExpanded,
+  onToggleExpand,
+  onApprove,
+  onReject,
+  onConsult,
+  onViewProposal,
+  className,
+}: CotizacionCardProps) {
+  const displayStatus = getDisplayStatus(cotizacion);
+  const statusBadge = STATUS_BADGE[displayStatus] ?? STATUS_BADGE.draft;
+  const statusLabel = STATUS_LABEL[displayStatus] ?? cotizacion.status;
+  const canAct = isActionable(cotizacion);
+
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  async function handleDownloadPdf() {
+    if (pdfLoading) return;
+    setPdfLoading(true);
+    try {
+      const res = await fetch(`/api/portal/cliente/cotizaciones/${cotizacion.id}/pdf`);
+      if (!res.ok) throw new Error("Error al generar PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const disposition = res.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="?([^"]+)"?/);
+      a.download = match?.[1] ?? `cotizacion-${cotizacion.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Silent — PDF generation may not be available
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
+  /* ── Dashboard variant ── */
+  if (variant === "dashboard") {
+    return (
+      <div
+        className={cn(
+          "rounded-xl border border-white/[0.06] overflow-hidden transition-all hover:border-teal-500/30",
+          className,
+        )}
+        style={{ background: "linear-gradient(145deg, #1E293B, #1A2332)" }}
+      >
+        <button
+          onClick={onToggleExpand}
+          className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-white/[0.02] transition-colors"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full", statusBadge)}>
+                {statusLabel}
+              </span>
+              <span className="text-sm font-semibold truncate">
+                {cotizacion.name ?? cotizacion.code}
+              </span>
+            </div>
+            <div className="flex items-center gap-4 mt-1.5 flex-wrap">
+              <span className="text-sm font-semibold text-teal-400">
+                {formatCurrency(cotizacion.monthlyCost, cotizacion.currency === "UF" ? "UF" : "CLP")}
+                <span className="text-xs font-normal text-zinc-500"> /mes</span>
+                {seemsCurrencyWrong(cotizacion.monthlyCost, cotizacion.currency) && (
+                  <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-amber-400">
+                    <AlertTriangle className="h-3 w-3" />
+                  </span>
+                )}
+              </span>
+              <span className="text-xs text-zinc-600">
+                {cotizacion.totalPositions} puesto{cotizacion.totalPositions !== 1 ? "s" : ""} · {cotizacion.totalGuards} guardia{cotizacion.totalGuards !== 1 ? "s" : ""}
+              </span>
+              {cotizacion.validUntil && (
+                <span className="text-xs text-zinc-500">
+                  Válida hasta {formatDate(cotizacion.validUntil)}
+                </span>
+              )}
+            </div>
+          </div>
+          <span className="text-xs text-teal-400 shrink-0 mt-1">Ver detalle →</span>
+        </button>
+      </div>
+    );
+  }
+
+  /* ── Full variant ── */
+  return (
+    <div
+      className={cn(
+        "rounded-xl overflow-hidden transition-all",
+        canAct
+          ? "border border-teal-500/30 shadow-lg shadow-teal-500/5"
+          : "border border-white/[0.06]",
+        "hover:border-teal-500/30",
+        className,
+      )}
+      style={{ background: "linear-gradient(145deg, #1E293B, #1A2332)" }}
+    >
+      {/* Card header — clickable */}
+      <button
+        onClick={onToggleExpand}
+        className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-white/[0.02] transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold truncate">
+              {cotizacion.name ?? cotizacion.code}
+            </span>
+            <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full", statusBadge)}>
+              {statusLabel}
+            </span>
+            {canAct && (
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-teal-900/40 text-teal-300">
+                Requiere acción
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-zinc-500 mt-0.5">{cotizacion.code}</p>
+          <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <span className="text-sm font-semibold text-teal-400">
+              {formatCurrency(cotizacion.monthlyCost, cotizacion.currency === "UF" ? "UF" : "CLP")}
+              <span className="text-xs font-normal text-zinc-500"> /mes</span>
+              {seemsCurrencyWrong(cotizacion.monthlyCost, cotizacion.currency) && (
+                <span className="inline-flex items-center gap-0.5 ml-1.5 text-[10px] text-amber-400" title="El monto parece no corresponder a la moneda indicada">
+                  <AlertTriangle className="h-3 w-3" />
+                  Verificar moneda
+                </span>
+              )}
+            </span>
+            {cotizacion.validUntil && (
+              <span className="text-xs text-zinc-500">
+                Válida hasta {formatDate(cotizacion.validUntil)}
+              </span>
+            )}
+            <span className="text-xs text-zinc-600">
+              {cotizacion.totalPositions} puesto{cotizacion.totalPositions !== 1 ? "s" : ""} · {cotizacion.totalGuards} guardia{cotizacion.totalGuards !== 1 ? "s" : ""}
+            </span>
+          </div>
+        </div>
+        <div className="shrink-0 mt-1">
+          {isExpanded
+            ? <ChevronUp className="w-4 h-4 text-zinc-500" />
+            : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+        </div>
+      </button>
+
+      {/* Expanded detail */}
+      {isExpanded && (
+        <div className="border-t border-white/[0.06] px-4 py-4 space-y-4">
+          {detailLoading && (
+            <div className="flex items-center gap-2 text-zinc-400 text-sm">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Cargando detalle...
+            </div>
+          )}
+
+          {detail && (
+            <>
+              {/* Service detail / AI description */}
+              {(detail.serviceDetail || detail.aiDescription) && (
+                <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      Detalle del servicio
+                    </h4>
+                    {detail.aiDescription && (
+                      <span className="text-[10px] uppercase tracking-wider bg-teal-500/10 text-teal-400/70 rounded-full px-2 py-0.5 font-medium">
+                        Análisis OPAI AI
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-line">
+                    {detail.serviceDetail ?? detail.aiDescription}
+                  </p>
+                </div>
+              )}
+
+              {/* Gard service includes */}
+              <GardServiceIncludes variant="full" />
+
+              {/* Positions + additional lines table */}
+              {(detail.positions.length > 0 || (detail.additionalLines && detail.additionalLines.length > 0)) && (
+                <div className="overflow-x-auto -mx-4 px-4">
+                  <table className="w-full text-xs min-w-[480px]">
+                    <thead>
+                      <tr className="text-zinc-500 border-b border-white/[0.06]">
+                        <th className="text-left py-2 pr-3 font-medium">Descripción</th>
+                        <th className="text-center py-2 pr-3 font-medium">Guardias</th>
+                        <th className="text-left py-2 pr-3 font-medium">Horario</th>
+                        <th className="text-left py-2 pr-3 font-medium">Días</th>
+                        <th className="text-right py-2 font-medium">Costo mensual</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detail.positions.map((pos) => (
+                        <tr key={pos.id} className="border-b border-white/[0.03] last:border-0">
+                          <td className="py-2 pr-3 text-zinc-200">
+                            {pos.customName ?? `Puesto ${pos.numPuestos ?? ""}`}
+                          </td>
+                          <td className="py-2 pr-3 text-center text-zinc-300">
+                            {pos.numGuards ?? "—"}
+                          </td>
+                          <td className="py-2 pr-3 text-zinc-400">
+                            {formatHorario(pos.startTime, pos.endTime)}
+                          </td>
+                          <td className="py-2 pr-3 text-zinc-400">
+                            {formatWeekdays(pos.weekdays)}
+                          </td>
+                          <td className="py-2 text-right text-teal-400 font-medium">
+                            {formatCurrency(pos.monthlyPositionCost, detail.currency === "UF" ? "UF" : "CLP")}
+                          </td>
+                        </tr>
+                      ))}
+                      {detail.additionalLines?.map((line) => (
+                        <tr key={line.id} className="border-b border-white/[0.03] last:border-0">
+                          <td className="py-2 pr-3 text-zinc-200">
+                            {line.nombre}
+                            {line.descripcion && (
+                              <span className="block text-[10px] text-zinc-500 mt-0.5">{line.descripcion}</span>
+                            )}
+                          </td>
+                          <td className="py-2 pr-3 text-center text-zinc-500">—</td>
+                          <td className="py-2 pr-3 text-zinc-500">—</td>
+                          <td className="py-2 pr-3 text-zinc-500">—</td>
+                          <td className="py-2 text-right text-teal-400 font-medium">
+                            {formatCurrency(line.precio, detail.currency === "UF" ? "UF" : "CLP")}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-zinc-700">
+                        <td colSpan={4} className="py-2 pr-3 text-xs font-semibold text-zinc-400">
+                          Total mensual
+                        </td>
+                        <td className="py-2 text-right text-sm font-bold text-teal-300">
+                          {formatCurrency(detail.monthlyCost, detail.currency === "UF" ? "UF" : "CLP")}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
+              {detail.positions.length === 0 && !detail.additionalLines?.length && (
+                <p className="text-xs text-zinc-500">Sin posiciones detalladas.</p>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap gap-2 pt-2">
+                {canAct && onApprove && (
+                  <button
+                    type="button"
+                    onClick={onApprove}
+                    className="flex items-center gap-2 px-4 h-9 rounded-lg text-sm font-semibold text-white transition-colors"
+                    style={{ background: "linear-gradient(135deg, #0d9488, #14b8a6)" }}
+                  >
+                    <Check className="w-4 h-4" />
+                    {context === "prospect" ? "Aceptar propuesta" : "Aprobar cotización"}
+                  </button>
+                )}
+
+                {canAct && onReject && (
+                  <button
+                    type="button"
+                    onClick={onReject}
+                    className="flex items-center gap-2 px-4 h-9 rounded-lg border border-red-700/50 text-red-400 hover:bg-red-500/10 text-sm transition-colors"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Rechazar
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={pdfLoading}
+                  className="flex items-center gap-2 px-4 h-9 rounded-lg border border-white/10 text-zinc-300 hover:text-white hover:border-white/20 text-sm transition-colors disabled:opacity-50"
+                >
+                  {pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                  {pdfLoading ? "Generando..." : "Descargar PDF"}
+                </button>
+
+                {onViewProposal && (
+                  <button
+                    type="button"
+                    onClick={onViewProposal}
+                    className="flex items-center gap-2 px-4 h-9 rounded-lg text-sm font-semibold transition-all"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(20,184,166,0.18), rgba(6,182,212,0.12))",
+                      border: "1px solid rgba(45,212,191,0.4)",
+                      color: "#5eead4",
+                    }}
+                  >
+                    <FileText className="w-4 h-4" />
+                    Propuesta técnica
+                  </button>
+                )}
+
+                {onConsult && (
+                  <button
+                    type="button"
+                    onClick={onConsult}
+                    className="flex items-center gap-2 px-4 h-9 rounded-lg border border-white/10 text-zinc-300 hover:text-white hover:border-white/20 text-sm transition-colors"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Consultar
+                  </button>
+                )}
+
+                <WhatsAppButton
+                  variant="compact"
+                  context={context}
+                  cotizacionCode={cotizacion.code}
+                />
+              </div>
+
+              {/* Brand footer */}
+              <div className="text-center pt-3 border-t border-white/[0.04]">
+                <p className="text-[10px] text-zinc-600">
+                  Propuesta generada en plataforma OPAI ·{" "}
+                  <a
+                    href="https://lx3.ai"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-zinc-400 transition-colors"
+                  >
+                    lx3.ai
+                  </a>
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

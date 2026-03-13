@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 import { ClienteSession } from '@/lib/portal-cliente-types'
 import { DEMO_SUMMARY, DEMO_CHART_DATA, DEMO_GUARDIAS_RANKING, DEMO_ACTIVITY } from '@/lib/portal/demo-data'
 import { PreviewBadge } from './PreviewBadge'
-import { ProspectCotizacionCarousel } from './ProspectCotizacionCarousel'
+import { DashboardCotizacionesPendientes } from './cotizaciones/DashboardCotizacionesPendientes'
 
 /* ── Types ── */
 
@@ -186,12 +186,10 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
         </div>
       )}
 
-      {isProspect && (
-        <ProspectCotizacionCarousel
-          onViewDetail={() => onNavigate?.("propuesta")}
-          onChat={() => onNavigate?.("chat")}
-        />
-      )}
+      <DashboardCotizacionesPendientes
+        isProspect={!!isProspect}
+        onNavigateToDetail={(section) => onNavigate?.(section)}
+      />
 
       {summary && (
         <div className="space-y-4">

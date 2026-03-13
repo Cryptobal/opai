@@ -28,7 +28,7 @@ import { PortalComparativa } from "@/components/portal/cliente/PortalComparativa
 import { PortalEncuestas } from "@/components/portal/cliente/PortalEncuestas";
 import { PortalEmpresa } from "@/components/portal/cliente/PortalEmpresa";
 import { PortalPersonal } from "@/components/portal/cliente/PortalPersonal";
-import { PortalPropuesta } from "@/components/portal/cliente/PortalPropuesta";
+
 import { PortalNosotros } from "@/components/portal/cliente/PortalNosotros";
 import { PortalAccessControl } from "@/components/portal/cliente/PortalAccessControl";
 import { PortalDesempeno } from "@/components/portal/cliente/PortalDesempeno";
@@ -175,7 +175,11 @@ export function PortalClienteClient() {
       case "cotizaciones":
         return (
           <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
-            <PortalCotizaciones session={session} />
+            <PortalCotizaciones
+              session={session}
+              isProspect={false}
+              onNavigate={(s) => setActiveSection(s as PortalSection)}
+            />
           </div>
         );
       case "documentacion":
@@ -190,10 +194,13 @@ export function PortalClienteClient() {
         return <PortalPersonal isProspect={session?.isProspect} />;
       case "propuesta":
         return (
-          <PortalPropuesta
-            isProspect={session?.isProspect}
-            onNavigate={(s) => setActiveSection(s as PortalSection)}
-          />
+          <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
+            <PortalCotizaciones
+              session={session}
+              isProspect={true}
+              onNavigate={(s) => setActiveSection(s as PortalSection)}
+            />
+          </div>
         );
       case "nosotros":
         return <PortalNosotros onNavigate={(s) => setActiveSection(s as PortalSection)} />;
