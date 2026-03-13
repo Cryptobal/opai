@@ -4,8 +4,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock } from "lucide-react";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
+import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ export type InstallationDetail = {
   commune?: string | null;
   lat?: number | null;
   lng?: number | null;
-  isActive?: boolean;
+  status?: "prospect" | "active" | "inactive";
   teMontoClp?: number | string | null;
   notes?: string | null;
   marcacionCode?: string | null;
@@ -1652,9 +1653,9 @@ export function CrmInstallationDetailClient({
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
-  const [statusNextValue, setStatusNextValue] = useState(false);
+  const [statusNextValue, setStatusNextValue] = useState<"prospect" | "active" | "inactive">("prospect");
   const [statusActivateAccount, setStatusActivateAccount] = useState(false);
-  const isActive = useMemo(() => installation.isActive === true, [installation.isActive]);
+  const isActive = useMemo(() => installation.status === "active", [installation.status]);
 
   const dotacionDesdeCotizacion = (
     installation.metadata &&
@@ -1695,12 +1696,12 @@ export function CrmInstallationDetailClient({
   };
 
   const openToggleInstallationStatus = () => {
-    const next = !isActive;
+    const next = isActive ? "inactive" : "active";
     setStatusNextValue(next);
     const accountNeedsActivation =
       installation.account &&
       (installation.account.isActive === false || installation.account.type === "prospect");
-    setStatusActivateAccount(next && !!accountNeedsActivation);
+    setStatusActivateAccount(next === "active" && !!accountNeedsActivation);
     setStatusConfirmOpen(true);
   };
 
@@ -1711,7 +1712,7 @@ export function CrmInstallationDetailClient({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          isActive: statusNextValue,
+          status: statusNextValue,
           activateAccount: Boolean(statusActivateAccount),
         }),
       });
@@ -1719,7 +1720,7 @@ export function CrmInstallationDetailClient({
       if (!res.ok || !payload.success) throw new Error(payload.error || "No se pudo actualizar estado");
 
       setStatusConfirmOpen(false);
-      toast.success(statusNextValue ? "Instalación activada" : "Instalación desactivada");
+      toast.success(statusNextValue === "active" ? "Instalación activada" : "Instalación desactivada");
       router.refresh();
     } catch (error) {
       console.error(error);
@@ -1923,6 +1924,7 @@ export function CrmInstallationDetailClient({
     { id: "dotacion", label: "Dotación", icon: ClipboardList },
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
     { id: "rondas", label: "Rondas", icon: Route },
+    { id: "marcaciones", label: "Marcaciones", icon: Clock },
     { id: "access-control", label: "Control Acceso", icon: Shield },
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
@@ -2166,16 +2168,6 @@ export function CrmInstallationDetailClient({
 
   const associatedSections: AssociatedSection[] = [
     {
-      id: "marcaciones-faceid",
-      label: "Marcaciones",
-      icon: Fingerprint,
-      content: (
-        <div className="py-6 text-center text-sm text-muted-foreground">
-          Historial de marcaciones de todos los guardias próximamente.
-        </div>
-      ),
-    },
-    {
       id: "account",
       label: "Cuenta",
       icon: AccountIcon,
@@ -2307,7 +2299,7 @@ export function CrmInstallationDetailClient({
         header={{
           avatar: { initials: installation.name.charAt(0).toUpperCase() },
           title: installation.name,
-          status: isActive ? { label: "Activa", variant: "success" } : { label: "Inactiva", variant: "warning" },
+          status: installation.status === "active" ? { label: "Activa", variant: "success" } : installation.status === "inactive" ? { label: "Inactiva", variant: "warning" } : { label: "Prospecto", variant: "secondary" },
           actions: headerActions,
           extra: (
             <Button
@@ -2393,6 +2385,9 @@ export function CrmInstallationDetailClient({
         )}
         {activeTab === "rondas" && (
           <InstalacionRondasTab installationId={installation.id} />
+        )}
+        {activeTab === "marcaciones" && (
+          <InstalacionMarcacionesTab installationId={installation.id} />
         )}
         {activeTab === "activity" && (
           <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
@@ -2553,7 +2548,7 @@ export function CrmInstallationDetailClient({
       <ConfirmDialog
         open={statusConfirmOpen}
         onOpenChange={setStatusConfirmOpen}
-        title={statusNextValue ? "Activar instalación" : "Desactivar instalación"}
+        title={statusNextValue === "active" ? "Activar instalación" : "Desactivar instalación"}
         description={
           statusNextValue
             ? statusActivateAccount
@@ -2561,7 +2556,7 @@ export function CrmInstallationDetailClient({
               : "La instalación quedará activa."
             : "La instalación quedará inactiva."
         }
-        confirmLabel={statusNextValue ? "Activar" : "Desactivar"}
+        confirmLabel={statusNextValue === "active" ? "Activar" : "Desactivar"}
         variant="default"
         loading={statusUpdating}
         loadingLabel="Guardando..."
