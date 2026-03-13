@@ -161,7 +161,7 @@ export default async function RondasMonitoreoPage() {
 
   try {
     installations = await prisma.crmInstallation.findMany({
-      where: { tenantId, isActive: true, nocturnoEnabled: true },
+      where: { tenantId, status: "active", nocturnoEnabled: true },
       select: { id: true, name: true, lat: true, lng: true },
       orderBy: { name: "asc" },
     });

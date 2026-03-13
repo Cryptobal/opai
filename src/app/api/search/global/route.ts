@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
         prisma.crmInstallation.findMany({
           where: {
             tenantId,
-            ...(isSupervisorHub ? { isActive: true } : {}),
+            ...(isSupervisorHub ? { status: "active" } : {}),
             OR: [
               { name: contains },
               { address: contains },

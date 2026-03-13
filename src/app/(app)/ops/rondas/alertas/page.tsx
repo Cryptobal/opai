@@ -43,7 +43,7 @@ export default async function RondasAlertasPage() {
         })
       : [],
     prisma.crmInstallation.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId, status: "active" },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

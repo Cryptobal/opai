@@ -57,7 +57,7 @@ export default async function RondasReportesPage() {
       take: 2000,
     }),
     prisma.crmInstallation.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId, status: "active" },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

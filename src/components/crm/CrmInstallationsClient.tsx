@@ -196,7 +196,7 @@ export function CrmInstallationsClient({
         {installations.map((inst) => (
           <div key={inst.id} className="rounded-lg border p-3 hover:bg-accent/30 transition-colors">
             <div className="flex items-start gap-3">
-              {/* Datos de la instalaci?n (clickeable ÿÿÿ ficha) */}
+              {/* Datos de la instalaci?n (clickeable ? ficha) */}
               <Link
                 href={`/crm/installations/${inst.id}`}
                 className="flex-1 min-w-0 group"

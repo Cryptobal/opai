@@ -5,6 +5,9 @@ import {
   Archive,
   ArchiveRestore,
   ArrowLeft,
+  Bell,
+  BellOff,
+  AtSign,
   Building2,
   ChevronDown,
   ChevronRight,
@@ -318,16 +321,15 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               />
             )}
 
-            {/* Groups */}
+            {/* Groups — con subgrupos y menú de notificaciones por grupo */}
             {groupChannels.length > 0 && (
-              <ChannelSection
-                label="Grupos"
-                icon={<Users className="h-3.5 w-3.5 text-amber-500" />}
-                channels={groupChannels}
+              <GroupChannelsSection
+                groupChannels={groupChannels}
                 collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["group"]}
                 onToggle={() => toggleSection("group")}
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={getChannelDisplayName}
+                onBulkNotifPref={ctx.refreshChannels}
               />
             )}
 
@@ -583,6 +585,159 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
         }}
       />
     </>
+  );
+}
+
+/* ─── Group Channels Section (con subgrupos y notificaciones por grupo) ─── */
+
+type NotifPreference = "ALL" | "MENTIONS_ONLY" | "MUTED";
+
+function GroupChannelsSection({
+  groupChannels,
+  collapsed,
+  onToggle,
+  onSelectChannel,
+  getDisplayName,
+  onBulkNotifPref,
+}: {
+  groupChannels: ChatSidePanelChannel[];
+  collapsed: boolean;
+  onToggle: () => void;
+  onSelectChannel: (id: string) => void;
+  getDisplayName: (ch: ChatSidePanelChannel) => string;
+  onBulkNotifPref?: () => void;
+}) {
+  const sectionUnread = groupChannels.reduce((sum, ch) => sum + ch.unreadCount, 0);
+
+  // Agrupar por groupId (channels con mismo group.id)
+  const groups = useMemo(() => {
+    const byGroup = new Map<string, ChatSidePanelChannel[]>();
+    const noGroup: ChatSidePanelChannel[] = [];
+    for (const ch of groupChannels) {
+      const gid = ch.groupId ?? ch.group?.id ?? "";
+      if (gid) {
+        if (!byGroup.has(gid)) byGroup.set(gid, []);
+        byGroup.get(gid)!.push(ch);
+      } else {
+        noGroup.push(ch);
+      }
+    }
+    const result: { key: string; label: string; color: string; channels: ChatSidePanelChannel[] }[] = [];
+    byGroup.forEach((channels, gid) => {
+      const first = channels[0];
+      const label = first?.group?.slug
+        ? first.group.slug.charAt(0).toUpperCase() + first.group.slug.slice(1).replace(/-/g, " ")
+        : first?.name ?? "Grupo";
+      const color = first?.group?.color ?? "#6B7280";
+      result.push({ key: gid, label, color, channels });
+    });
+    if (noGroup.length > 0) {
+      result.push({ key: "_none", label: "Otros", color: "#6B7280", channels: noGroup });
+    }
+    return result;
+  }, [groupChannels]);
+
+  const applyBulkPref = useCallback(
+    async (channelIds: string[], preference: NotifPreference) => {
+      try {
+        const res = await fetch("/api/chat/channels/notification-preference-bulk", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ channelIds, preference }),
+        });
+        if (res.ok) onBulkNotifPref?.();
+      } catch {
+        /* ignore */
+      }
+    },
+    [onBulkNotifPref]
+  );
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex-1 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors w-full"
+      >
+        {collapsed ? (
+          <ChevronRight className="h-3 w-3 shrink-0" />
+        ) : (
+          <ChevronDown className="h-3 w-3 shrink-0" />
+        )}
+        <Users className="h-3.5 w-3.5 text-amber-500" />
+        <span className="flex-1 text-left">Grupos</span>
+        <span className="min-w-[20px] text-right text-[10px] font-normal normal-case tracking-normal tabular-nums text-muted-foreground/70">
+          {groupChannels.length}
+        </span>
+        {sectionUnread > 0 && (
+          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600 px-1 text-[9px] font-bold text-white">
+            {sectionUnread > 99 ? "99+" : sectionUnread}
+          </span>
+        )}
+      </button>
+      {!collapsed && (
+        <div className="divide-y divide-border/20">
+          {groups.map((grp) => (
+            <div key={grp.key}>
+              <div className="flex items-center group/sub">
+                <div className="flex-1 flex items-center gap-2 px-4 py-2 pl-6 text-[11px] font-medium text-muted-foreground/80">
+                  <div
+                    className="h-2 w-2 rounded-full shrink-0"
+                    style={{ backgroundColor: grp.color }}
+                  />
+                  <span className="capitalize">{grp.label}</span>
+                  <span className="text-[10px] text-muted-foreground/60">({grp.channels.length})</span>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="opacity-0 group-hover/sub:opacity-100 mr-2 h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="Notificaciones del grupo"
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="z-[70] w-52">
+                    <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                      Notificaciones para {grp.channels.length} canal{grp.channels.length !== 1 ? "es" : ""}
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => applyBulkPref(grp.channels.map((c) => c.id), "ALL")}>
+                      <Bell className="h-3.5 w-3.5 mr-2" />
+                      Notificar todo
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => applyBulkPref(grp.channels.map((c) => c.id), "MENTIONS_ONLY")}>
+                      <AtSign className="h-3.5 w-3.5 mr-2" />
+                      Solo menciones
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => applyBulkPref(grp.channels.map((c) => c.id), "MUTED")}>
+                      <BellOff className="h-3.5 w-3.5 mr-2" />
+                      Silenciar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <div className="divide-y divide-border/20">
+                {grp.channels.map((ch) => (
+                  <div key={ch.id} className="relative group flex items-center">
+                    <div className="flex-1 min-w-0">
+                      <ChannelListItem
+                        channel={ch}
+                        displayName={getDisplayName(ch)}
+                        onClick={() => onSelectChannel(ch.id)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
