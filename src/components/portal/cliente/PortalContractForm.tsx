@@ -29,7 +29,7 @@ type ContactoData = { name: string; email: string; phone: string; role: string }
 
 const STEPS: { key: Step; label: string; icon: React.ReactNode }[] = [
   { key: "empresa", label: "Empresa", icon: <Building2 className="w-4 h-4" /> },
-  { key: "facturacion", label: "Facturacion", icon: <Receipt className="w-4 h-4" /> },
+  { key: "facturacion", label: "Facturación", icon: <Receipt className="w-4 h-4" /> },
   { key: "contactos", label: "Contactos", icon: <Users className="w-4 h-4" /> },
 ];
 
@@ -196,8 +196,8 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
           <PortalSignContract signatureToken={signatureToken} />
         ) : (
           <p className="text-sm text-zinc-400">
-            Un ejecutivo revisara tu informacion y te contactara pronto para continuar el proceso de
-            contratacion.
+            Un ejecutivo revisará tu información y te contactará pronto para continuar el proceso de
+            contratación.
           </p>
         )}
       </div>
@@ -231,7 +231,7 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
               onChange={(e) => setEmpresa((p) => ({ ...p, legalName: e.target.value }))}
             />
           </Field>
-          <Field label="Direccion legal" required>
+          <Field label="Dirección legal" required>
             <input
               type="text"
               className={inputCls}
@@ -253,10 +253,10 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
         </div>
       )}
 
-      {/* ── Step 2: Facturacion ── */}
+      {/* ── Step 2: Facturación ── */}
       {step === "facturacion" && (
         <div className="space-y-4">
-          <Field label="Email de facturacion" required>
+          <Field label="Email de facturación" required>
             <input
               type="email"
               className={inputCls}
@@ -265,7 +265,7 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
               onChange={(e) => setFacturacion((p) => ({ ...p, email: e.target.value }))}
             />
           </Field>
-          <Field label="Contacto de facturacion" required>
+          <Field label="Contacto de facturación" required>
             <input
               type="text"
               className={inputCls}
@@ -274,15 +274,15 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
               onChange={(e) => setFacturacion((p) => ({ ...p, contact: e.target.value }))}
             />
           </Field>
-          <Field label="Condicion de pago">
+          <Field label="Condición de pago">
             <select
               className={inputCls}
               value={facturacion.paymentMethod}
               onChange={(e) => setFacturacion((p) => ({ ...p, paymentMethod: e.target.value }))}
             >
               <option value="transferencia">Transferencia bancaria</option>
-              <option value="30_dias">30 dias</option>
-              <option value="60_dias">60 dias</option>
+              <option value="30_dias">30 días</option>
+              <option value="60_dias">60 días</option>
               <option value="contado">Contado</option>
             </select>
           </Field>
@@ -390,10 +390,10 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
               <span className="text-zinc-500">Empresa:</span> {empresa.legalName} ({empresa.rut})
             </p>
             <p>
-              <span className="text-zinc-500">Direccion:</span> {empresa.address}
+              <span className="text-zinc-500">Dirección:</span> {empresa.address}
             </p>
             <p>
-              <span className="text-zinc-500">Facturacion:</span> {facturacion.email} —{" "}
+              <span className="text-zinc-500">Facturación:</span> {facturacion.email} —{" "}
               {facturacion.paymentMethod}
             </p>
           </div>
