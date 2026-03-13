@@ -85,6 +85,7 @@ export async function PATCH(
     if (body.serviceStartDays !== undefined) updateData.serviceStartDays = Number(body.serviceStartDays) || 5;
     if (body.contractDuration !== undefined) updateData.contractDuration = Number(body.contractDuration) || 12;
     if (body.includedItems !== undefined) updateData.includedItems = { set: Array.isArray(body.includedItems) ? body.includedItems : [] };
+    if (body.proposalTemplateId !== undefined) updateData.proposalTemplateId = body.proposalTemplateId || null;
 
     // Verify ownership first, then use update (updateMany doesn't support array fields)
     const existing = await prisma.cpqQuote.findFirst({

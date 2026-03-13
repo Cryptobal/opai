@@ -153,6 +153,8 @@ export interface CpqQuote {
   serviceStartDays?: number;
   contractDuration?: number;
   includedItems?: string[];
+  /** Proposal template */
+  proposalTemplateId?: string | null;
 }
 
 export interface CpqCatalogItem {
@@ -189,6 +191,7 @@ export interface CpqQuoteParameters {
   contractMonths: number;
   contractAmount: number;
   marginPct: number;
+  marginMode?: MarginMode;
 }
 
 export interface CpqQuoteUniformItem {

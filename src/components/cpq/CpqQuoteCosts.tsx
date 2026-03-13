@@ -28,6 +28,7 @@ import type {
 } from "@/types/cpq";
 import { ChevronRight, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { CpqQuickAddCost } from "@/components/cpq/CpqQuickAddCost";
 
 /* ── Types ── */
 
@@ -158,6 +159,7 @@ export function CpqQuoteCosts({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState<"directos" | "indirectos" | "financieros">("directos");
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     uniforms: true,
     exams: true,
@@ -851,19 +853,19 @@ export function CpqQuoteCosts({
         type="button"
         onClick={() => toggle(key)}
         className={cn(
-          "flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-accent/30",
+          "flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-accent/30",
           dimmed && "opacity-40"
         )}
       >
-        <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform", expanded && "rotate-90")} />
-        <span className="text-sm">{meta.icon}</span>
-        <span className="text-[13px] font-medium">{meta.label}</span>
+        <span className="text-[13px]">{meta.icon}</span>
+        <span className="text-[12px] font-medium">{meta.label}</span>
         {count > 0 && (
-          <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{count}</Badge>
+          <span className="text-[10px] text-muted-foreground">({count})</span>
         )}
-        <span className={cn("ml-auto text-[13px] font-semibold tabular-nums", total > 0 ? "text-foreground" : "text-muted-foreground")}>
+        <span className={cn("ml-auto text-[12px] font-semibold tabular-nums", total > 0 ? "text-foreground" : "text-muted-foreground")}>
           {formatCurrency(total)}
         </span>
+        <ChevronRight className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", expanded && "rotate-90")} />
       </button>
     );
   };
@@ -989,11 +991,73 @@ export function CpqQuoteCosts({
   const costForm = loading ? (
     <div className="text-sm text-muted-foreground py-8 text-center">Cargando costos...</div>
   ) : (
+    <div className="space-y-2">
+      {/* Quick Add */}
+      {!readOnly && !showQuickAdd && (
+        <button
+          type="button"
+          onClick={() => setShowQuickAdd(true)}
+          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-emerald-500/30 py-2 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/5 transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" /> Agregar costo
+        </button>
+      )}
+      {showQuickAdd && (
+        <CpqQuickAddCost
+          catalog={catalog}
+          contractDuration={parameters.contractMonths || 12}
+          onClose={() => setShowQuickAdd(false)}
+          onAdd={(item) => {
+            setCostItems((prev) => [
+              ...prev,
+              {
+                catalogItemId: item.catalogItemId,
+                customName: item.customName || null,
+                customType: item.customType || null,
+                calcMode: item.calcMode,
+                quantity: item.quantity,
+                unitPriceOverride: item.unitPriceOverride,
+                isEnabled: true,
+                visibility: "visible",
+                notes: item.investmentAmount
+                  ? JSON.stringify({ investmentAmount: item.investmentAmount, investmentMonths: item.investmentMonths })
+                  : "",
+              },
+            ]);
+            setShowQuickAdd(false);
+          }}
+          onSaveToCatalog={async (payload) => {
+            try {
+              const res = await fetch("/api/cpq/catalog", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  type: "other",
+                  name: payload.name.trim(),
+                  unit: payload.unit || "mes",
+                  basePrice: payload.basePrice ?? 0,
+                  isDefault: false,
+                  active: true,
+                }),
+              });
+              const data = await res.json();
+              if (data?.success) {
+                setCatalog((prev) => [...prev, data.data]);
+                return data.data;
+              }
+              return null;
+            } catch {
+              return null;
+            }
+          }}
+        />
+      )}
+
     <div className="rounded-xl border bg-card overflow-hidden">
       {/* ── DIRECTOS ── */}
-      <div className="px-4 py-2.5 flex justify-between items-center bg-emerald-500/5">
-        <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-500">Directos</span>
-        <span className="text-[13px] font-bold tabular-nums text-emerald-500">{formatCurrency(directosTotal)}</span>
+      <div className="px-3 py-1.5 flex justify-between items-center bg-emerald-500/5">
+        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-500">Directos</span>
+        <span className="text-[12px] font-bold tabular-nums text-emerald-500">{formatCurrency(directosTotal)}</span>
       </div>
 
       {/* Uniformes */}
@@ -1112,12 +1176,11 @@ export function CpqQuoteCosts({
 
       {/* Feriados (static, non-expandible) */}
       <div className="border-t border-border/30" />
-      <div className="flex items-center gap-2.5 px-4 py-2.5">
-        <span className="w-3.5" />
-        <span className="text-sm">{"\u{1F4C5}"}</span>
-        <span className="text-[13px] font-medium">Ajuste feriados</span>
-        <Badge variant="secondary" className="text-[9px] h-4 px-1.5 uppercase">Auto</Badge>
-        <span className={cn("ml-auto text-[13px] font-semibold tabular-nums", holidayAdjustment > 0 ? "text-foreground" : "text-muted-foreground")}>
+      <div className="flex items-center gap-2 px-3 py-1.5">
+        <span className="text-[13px]">{"\u{1F4C5}"}</span>
+        <span className="text-[12px] font-medium">Ajuste feriados</span>
+        <span className="text-[9px] font-semibold uppercase text-amber-400 bg-amber-500/10 rounded px-1.5 py-0.5">Auto</span>
+        <span className={cn("ml-auto text-[12px] font-semibold tabular-nums", holidayAdjustment > 0 ? "text-foreground" : "text-muted-foreground")}>
           {formatCurrency(holidayAdjustment)}
         </span>
       </div>
@@ -1126,9 +1189,9 @@ export function CpqQuoteCosts({
       <div className="h-[3px] bg-border" />
 
       {/* ── INDIRECTOS ── */}
-      <div className="px-4 py-2.5 flex justify-between items-center bg-amber-400/5">
-        <span className="text-[11px] font-extrabold uppercase tracking-widest text-amber-400">Indirectos</span>
-        <span className="text-[13px] font-bold tabular-nums text-amber-400">{formatCurrency(indirectosTotal)}</span>
+      <div className="px-3 py-1.5 flex justify-between items-center bg-amber-400/5">
+        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-400">Indirectos</span>
+        <span className="text-[12px] font-bold tabular-nums text-amber-400">{formatCurrency(indirectosTotal)}</span>
       </div>
 
       {/* Equipos operativos */}
@@ -1243,10 +1306,11 @@ export function CpqQuoteCosts({
       )}
 
       {/* ── TOTAL FOOTER ── */}
-      <div className="border-t-2 border-primary bg-primary/5 px-4 py-3 flex justify-between items-center">
-        <span className="text-[11px] font-extrabold text-primary uppercase tracking-widest">Total costos adicionales</span>
-        <span className="text-base font-extrabold text-primary tabular-nums">{formatCurrency(grandTotal)}</span>
+      <div className="border-t-2 border-primary bg-primary/5 px-3 py-2 flex justify-between items-center">
+        <span className="text-[10px] font-bold text-primary uppercase tracking-[0.08em]">Total costos adicionales</span>
+        <span className="text-sm font-extrabold text-primary tabular-nums">{formatCurrency(grandTotal)}</span>
       </div>
+    </div>
     </div>
   );
 

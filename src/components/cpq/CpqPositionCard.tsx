@@ -88,53 +88,54 @@ export function CpqPositionCard({
   };
 
   const title = position.customName
-    || [position.cargo?.name, position.puestoTrabajo?.name].filter(Boolean).join(" - ")
+    || position.puestoTrabajo?.name
     || "Puesto";
   const shiftType = getShiftType(position.startTime);
-  const compactBadge = "h-5 rounded-full border px-1.5 text-[10px] font-medium leading-none truncate max-w-[120px]";
+  const badgeBase = "h-5 rounded-md border px-1.5 text-[10px] font-semibold leading-none";
 
   const totalGuards = position.numGuards * (position.numPuestos || 1);
   const rotationLabel = (position.weekdays?.length ?? 7) >= 6 ? "6x1" : (position.weekdays?.length ?? 5) === 5 ? "5x2" : `${position.weekdays?.length ?? 0}x${7 - (position.weekdays?.length ?? 0)}`;
 
   return (
-    <Card className="overflow-hidden border border-muted/40 group">
+    <Card className="overflow-hidden border border-muted/40 group hover:border-muted/60 transition-colors">
       {/* ── Collapsed row: always visible ── */}
       <div
-        className="flex items-center gap-3 px-2.5 py-2 cursor-pointer hover:bg-muted/10 transition-colors"
+        className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/5 transition-colors"
         onClick={() => setExpanded((v) => !v)}
       >
-        {/* Circular badge with total guards */}
-        <div className="h-10 w-10 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0 text-sm font-bold">
-          {totalGuards}
-        </div>
-
-        {/* Center: title + tags */}
+        {/* Center: title + badges */}
         <div className="flex-1 min-w-0">
-          <span className="font-semibold text-sm text-foreground truncate block">{title}</span>
-          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+          <div className="text-[13px] font-bold text-foreground truncate">{title}</div>
+          <div className="flex items-center gap-1 flex-wrap mt-1">
+            <Badge
+              variant="outline"
+              className={cn(badgeBase, "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400")}
+            >
+              {totalGuards} {totalGuards === 1 ? "guardia" : "guardias"}
+            </Badge>
             <Badge
               variant="outline"
               className={cn(
-                compactBadge,
+                badgeBase,
                 shiftType === "night"
-                  ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-400"
-                  : "border-yellow-500/30 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+                  ? "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400"
+                  : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
               )}
             >
               {shiftType === "night" ? <Moon className="mr-0.5 h-2.5 w-2.5 inline" /> : <Sun className="mr-0.5 h-2.5 w-2.5 inline" />}
-              {position.startTime}-{position.endTime}
+              {shiftType === "night" ? "Nocturno" : "Diurno"}
             </Badge>
-            <Badge variant="outline" className={cn(compactBadge, "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-400")}>
+            <Badge variant="outline" className={cn(badgeBase, "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400")}>
               {formatWeekdaysShort(position.weekdays)}
             </Badge>
-            <Badge variant="outline" className={cn(compactBadge, "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400")}>
-              {position.startTime}-{position.endTime} · {rotationLabel}
-            </Badge>
+          </div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">
+            {position.startTime}-{position.endTime} · {rotationLabel}{position.cargo?.name ? ` · ${position.cargo.name}` : ""}
           </div>
         </div>
 
         {/* Right: total monthly cost */}
-        <span className="text-sm font-bold tabular-nums text-foreground shrink-0">
+        <span className="text-[14px] font-bold tabular-nums text-foreground shrink-0">
           {formatCurrency(Number(position.monthlyPositionCost))}
         </span>
       </div>

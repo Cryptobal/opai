@@ -31,6 +31,7 @@ import type {
   CpqQuoteMeal,
   CpqQuoteVehicle,
   CpqQuoteInfrastructure,
+  MarginMode,
 } from "@/types/cpq";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -102,6 +103,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [infrastructure, setInfrastructure] = useState<CpqQuoteInfrastructure[]>([]);
   const [additionalLines, setAdditionalLines] = useState<CpqQuoteAdditionalLine[]>([]);
   const [marginPct, setMarginPct] = useState(13);
+  const [marginMode, setMarginMode] = useState<MarginMode>("margin_on_sale");
   const [cloning, setCloning] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -115,7 +117,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [whatsappSentTo, setWhatsappSentTo] = useState<string>("");
-  const [portalEmailCc, setPortalEmailCc] = useState("comercial@gard.cl");
+  const [portalEmailCc, setPortalEmailCc] = useState("");
   const [portalEmailBcc, setPortalEmailBcc] = useState("");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savingFinancials, setSavingFinancials] = useState(false);
@@ -148,6 +150,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     dealId: "" as string,
     currency: "CLP" as string,
   });
+  const [proposalTemplates, setProposalTemplates] = useState<{ id: string; name: string; slug: string; description?: string }[]>([]);
+  const [proposalTemplateId, setProposalTemplateId] = useState<string | null>(null);
+  const [tenantBranding, setTenantBranding] = useState<{
+    companyName: string;
+    brandNameUpper: string;
+    website: string;
+    contactEmail: string;
+  }>({ companyName: "", brandNameUpper: "", website: "", contactEmail: "" });
   const [generatingAi, setGeneratingAi] = useState(false);
   const [generatingServiceDetail, setGeneratingServiceDetail] = useState(false);
   const [ufValue, setUfValue] = useState<number | null>(null);
@@ -221,6 +231,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           costsData.data.parameters ?? null
         );
         setMarginPct(costsData.data.parameters?.marginPct ?? 13);
+        setMarginMode((costsData.data.parameters?.marginMode as MarginMode) ?? "margin_on_sale");
         setCostItems(costsData.data.costItems || []);
         setUniforms(costsData.data.uniforms || []);
         setExams(costsData.data.exams || []);
@@ -306,14 +317,34 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       dealId: quote.dealId ?? "",
       currency: quote.currency ?? "CLP",
     });
+    setProposalTemplateId(quote.proposalTemplateId ?? null);
     setQuoteDirty(false);
   }, [quote]);
 
-  // Load UF value for CLP/UF display
   useEffect(() => {
     fetch("/api/fx/uf")
       .then((r) => r.json())
       .then((d) => { if (d.success) setUfValue(d.value); })
+      .catch(() => {});
+    fetch("/api/cpq/proposal-templates")
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setProposalTemplates(d.data); })
+      .catch(() => {});
+    fetch("/api/branding")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setTenantBranding({
+            companyName: d.data.companyName || "",
+            brandNameUpper: d.data.brandNameUpper || "",
+            website: d.data.website || "",
+            contactEmail: d.data.contactEmail || "",
+          });
+          if (d.data.contactEmail && !portalEmailCc) {
+            setPortalEmailCc(d.data.contactEmail);
+          }
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -879,18 +910,31 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     ? `Guardado ${formatTime(lastSavedAt)}`
     : "Sin cambios";
 
-  // Margin change handler (used by MarginSection)
   const handleMarginChange = async (newMargin: number) => {
     setMarginPct(newMargin);
     try {
       await fetch(`/api/cpq/quotes/${quoteId}/margin`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ marginPct: newMargin }),
+        body: JSON.stringify({ marginPct: newMargin, marginMode }),
       });
       await refresh();
     } catch (error) {
       console.error("Error saving margin:", error);
+    }
+  };
+
+  const handleMarginModeChange = async (newMode: MarginMode) => {
+    setMarginMode(newMode);
+    try {
+      await fetch(`/api/cpq/quotes/${quoteId}/margin`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ marginPct, marginMode: newMode }),
+      });
+      await refresh();
+    } catch (error) {
+      console.error("Error saving margin mode:", error);
     }
   };
 
@@ -994,10 +1038,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </div>{/* end sticky header */}
 
       {/* -- 2-column layout: scrollable editor + sticky sidebar -- */}
-      <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-0">
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-0">
 
       {/* -- Editor: scrollable left column -- */}
-      <div className="space-y-3 min-w-0 lg:pr-6">
+      <div className="space-y-2 min-w-0 lg:pr-5">
 
       {/* -- Section: Datos -- */}
       <Card className="shadow-sm overflow-visible">
@@ -1039,8 +1083,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </Card>
 
       {/* -- Section: Condiciones Comerciales -- */}
-      <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
-        <button type="button" onClick={() => setSecCondiciones(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+      <Card className="shadow-sm overflow-hidden" inert={isLocked ? true : undefined}>
+        <button type="button" onClick={() => setSecCondiciones(v => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Condiciones comerciales</h2>
             {!secCondiciones && (
@@ -1053,7 +1097,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         </button>
         {secCondiciones && (
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="space-y-1">
                 <Label className="text-[11px] text-muted-foreground">Forma de pago</Label>
                 <select
@@ -1097,14 +1141,36 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                   <span className="text-[10px] text-muted-foreground">meses</span>
                 </div>
               </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Propuesta económica</Label>
+                <select
+                  value={proposalTemplateId ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value || null;
+                    setProposalTemplateId(val);
+                    fetch(`/api/cpq/quotes/${quoteId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ proposalTemplateId: val }),
+                    }).catch(() => {});
+                  }}
+                  disabled={isLocked}
+                  className="flex h-8 w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">Sin template</option>
+                  {proposalTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} — {t.description}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         )}
       </Card>
 
       {/* -- Section: Puestos -- */}
-      <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
-        <div role="button" tabIndex={0} onClick={() => setSecPuestos(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors cursor-pointer">
+      <Card className="shadow-sm overflow-hidden" inert={isLocked ? true : undefined}>
+        <div role="button" tabIndex={0} onClick={() => setSecPuestos(v => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors cursor-pointer">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Puestos</h2>
             {!secPuestos && positions.length > 0 && (
@@ -1130,7 +1196,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                 compact
               />
             ) : (
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
                 {positions.map((position) => (
                   <CpqPositionCard
                     key={position.id}
@@ -1157,8 +1223,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </Card>
 
       {/* -- Section: Costos -- */}
-      <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
-        <button type="button" onClick={() => setSecCostos(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+      <Card className="shadow-sm overflow-hidden" inert={isLocked ? true : undefined}>
+        <button type="button" onClick={() => setSecCostos(v => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Costos adicionales</h2>
             {!secCostos && costSummary && (costSummary.monthlyExtras ?? 0) > 0 && (
@@ -1177,8 +1243,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </Card>
 
       {/* -- Section: Líneas adicionales -- */}
-      <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
-        <button type="button" onClick={() => setSecLineas(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+      <Card className="shadow-sm overflow-hidden" inert={isLocked ? true : undefined}>
+        <button type="button" onClick={() => setSecLineas(v => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Líneas adicionales</h2>
             {!secLineas && additionalLines.length > 0 && (
@@ -1191,60 +1257,155 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         </button>
         {secLineas && (
           <div className="px-4 pb-4 space-y-2">
-            <p className="text-[11px] text-muted-foreground">
-              Productos o servicios adicionales (casetas, radios, arriendos). Se cobran sin margen.
-            </p>
-            {additionalLines.map((line, idx) => (
-              <div
-                key={idx}
-                className="grid grid-cols-[1fr_1fr_120px_32px] gap-2 items-start rounded-md border border-border/50 bg-muted/10 p-2"
-              >
-                <Input
-                  placeholder="Nombre"
-                  value={line.nombre}
-                  onChange={(e) => {
-                    const updated = [...additionalLines];
-                    updated[idx] = { ...updated[idx], nombre: e.target.value };
-                    setAdditionalLines(updated);
-                  }}
-                  className="h-8 bg-card text-foreground border-border text-xs"
-                  disabled={isLocked}
-                />
-                <Input
-                  placeholder="Descripción"
-                  value={line.descripcion}
-                  onChange={(e) => {
-                    const updated = [...additionalLines];
-                    updated[idx] = { ...updated[idx], descripcion: e.target.value };
-                    setAdditionalLines(updated);
-                  }}
-                  className="h-8 bg-card text-foreground border-border text-xs"
-                  disabled={isLocked}
-                />
-                <Input
-                  placeholder="Precio"
-                  type="text"
-                  inputMode="numeric"
-                  value={formatNumber(Number(line.precio || 0), { minDecimals: 0, maxDecimals: 0 })}
-                  onChange={(e) => {
-                    const updated = [...additionalLines];
-                    updated[idx] = { ...updated[idx], precio: parseLocalizedNumber(e.target.value) || 0 };
-                    setAdditionalLines(updated);
-                  }}
-                  className="h-8 bg-card text-foreground border-border text-xs text-right font-mono"
-                  disabled={isLocked}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                  onClick={() => setAdditionalLines((prev) => prev.filter((_, i) => i !== idx))}
-                  disabled={isLocked}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
+            {additionalLines.map((line, idx) => {
+              const precioBase = Number(line.precio || 0) * Number(line.cantidad || 1);
+              const mPct = Number(line.marginPct || 0);
+              const precioVenta = mPct > 0 && mPct < 100 ? precioBase / (1 - mPct / 100) : precioBase;
+              const isUnico = line.recurrencia === "unico";
+              const precioMensual = isUnico && quoteForm.contractDuration > 0 ? precioVenta / quoteForm.contractDuration : precioVenta;
+
+              return (
+                <div key={idx} className="rounded-lg border border-border/50 bg-muted/5 p-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <Input
+                        placeholder="Nombre del servicio/producto"
+                        value={line.nombre}
+                        onChange={(e) => {
+                          const updated = [...additionalLines];
+                          updated[idx] = { ...updated[idx], nombre: e.target.value };
+                          setAdditionalLines(updated);
+                        }}
+                        className="h-7 bg-transparent border-none text-[13px] font-semibold p-0 focus-visible:ring-0 placeholder:text-muted-foreground/50"
+                        disabled={isLocked}
+                      />
+                      <Input
+                        placeholder="Descripción (opcional)"
+                        value={line.descripcion}
+                        onChange={(e) => {
+                          const updated = [...additionalLines];
+                          updated[idx] = { ...updated[idx], descripcion: e.target.value };
+                          setAdditionalLines(updated);
+                        }}
+                        className="h-6 bg-transparent border-none text-[11px] text-muted-foreground p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40"
+                        disabled={isLocked}
+                      />
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        {/* Tipo badges */}
+                        {(["servicio", "arriendo", "producto", "asesoria", "equipamiento"] as const).map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            disabled={isLocked}
+                            onClick={() => {
+                              const updated = [...additionalLines];
+                              updated[idx] = { ...updated[idx], tipo: t };
+                              setAdditionalLines(updated);
+                            }}
+                            className={cn(
+                              "h-5 rounded px-1.5 text-[10px] font-semibold capitalize transition-colors",
+                              (line.tipo || "servicio") === t
+                                ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                                : "bg-muted/30 text-muted-foreground border border-transparent hover:bg-muted/50",
+                            )}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                        <div className="w-px h-4 bg-border mx-0.5" />
+                        {/* Recurrencia */}
+                        {([
+                          { value: "mensual", label: "Mensual" },
+                          { value: "unico", label: "Único" },
+                          { value: "por_evento", label: "Por evento" },
+                        ] as const).map((r) => (
+                          <button
+                            key={r.value}
+                            type="button"
+                            disabled={isLocked}
+                            onClick={() => {
+                              const updated = [...additionalLines];
+                              updated[idx] = { ...updated[idx], recurrencia: r.value };
+                              setAdditionalLines(updated);
+                            }}
+                            className={cn(
+                              "h-5 rounded px-1.5 text-[10px] font-semibold transition-colors",
+                              (line.recurrencia || "mensual") === r.value
+                                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                : "bg-muted/30 text-muted-foreground border border-transparent hover:bg-muted/50",
+                            )}
+                          >
+                            {r.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Precio"
+                          value={formatNumber(Number(line.precio || 0), { minDecimals: 0, maxDecimals: 0 })}
+                          onChange={(e) => {
+                            const updated = [...additionalLines];
+                            updated[idx] = { ...updated[idx], precio: parseLocalizedNumber(e.target.value) || 0 };
+                            setAdditionalLines(updated);
+                          }}
+                          className="h-7 w-24 bg-card text-foreground border-border text-xs text-right font-mono"
+                          disabled={isLocked}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-400/60 hover:text-red-400 hover:bg-red-500/10"
+                          onClick={() => setAdditionalLines((prev) => prev.filter((_, i) => i !== idx))}
+                          disabled={isLocked}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground">Margen:</span>
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={line.marginPct ? String(line.marginPct) : ""}
+                            onChange={(e) => {
+                              const updated = [...additionalLines];
+                              const val = parseLocalizedNumber(e.target.value);
+                              updated[idx] = { ...updated[idx], marginPct: val || null };
+                              setAdditionalLines(updated);
+                            }}
+                            className="h-6 w-12 bg-card text-foreground border-border text-[10px] text-right font-mono px-1"
+                            disabled={isLocked}
+                          />
+                          <span className="text-[10px] text-muted-foreground">%</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[13px] font-bold tabular-nums">
+                          {formatCurrency(precioMensual)}
+                          <span className="text-[10px] text-muted-foreground font-normal">/mes</span>
+                        </span>
+                        {isUnico && (
+                          <div className="text-[10px] text-muted-foreground">
+                            Inv: {formatCurrency(precioVenta)} ÷ {quoteForm.contractDuration}m
+                          </div>
+                        )}
+                        {mPct > 0 && (
+                          <div className="text-[10px] text-emerald-400">
+                            Venta: {formatCurrency(precioVenta)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
             {!isLocked && (
               <Button
                 variant="outline"
@@ -1253,7 +1414,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                 onClick={() =>
                   setAdditionalLines((prev) => [
                     ...prev,
-                    { nombre: "", descripcion: "", precio: 0, orden: prev.length },
+                    { nombre: "", descripcion: "", precio: 0, orden: prev.length, tipo: "servicio", recurrencia: "mensual", cantidad: 1, marginPct: null },
                   ])
                 }
               >
@@ -1264,7 +1425,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               <div className="flex items-center justify-between pt-1 border-t border-purple-500/20">
                 <span className="text-[11px] font-medium text-purple-300">Total líneas adicionales</span>
                 <span className="text-sm font-bold font-mono text-purple-300">
-                  {formatCurrency(additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0))}
+                  {formatCurrency(additionalLinesTotal)}
                 </span>
               </div>
             )}
@@ -1273,8 +1434,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </Card>
 
       {/* -- Section: Financials -- */}
-      <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
-        <button type="button" onClick={() => setSecFinancieros(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+      <Card className="shadow-sm overflow-hidden" inert={isLocked ? true : undefined}>
+        <button type="button" onClick={() => setSecFinancieros(v => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Gastos financieros</h2>
             {!secFinancieros && costSummary && ((costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0)) > 0 && (
@@ -1444,8 +1605,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </Card>
 
       {/* -- Section: Margen -- */}
-      <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
-        <button type="button" onClick={() => setSecMargen(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+      <Card className="shadow-sm overflow-hidden" inert={isLocked ? true : undefined}>
+        <button type="button" onClick={() => setSecMargen(v => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Margen de venta</h2>
             {!secMargen && (
@@ -1464,6 +1625,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               onMarginChange={handleMarginChange}
               marginAmount={marginAmount}
               isLocked={isLocked}
+              marginMode={marginMode}
+              onMarginModeChange={handleMarginModeChange}
             />
           </div>
         )}
@@ -1496,6 +1659,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           crmInstallations={crmInstallations}
           crmDeals={crmDeals}
           additionalLines={additionalLines}
+          tenantBranding={tenantBranding}
           onGenerateAiDescription={generateAiDescription}
           generatingAi={generatingAi}
           aiCustomInstruction={aiCustomInstruction}
@@ -1559,6 +1723,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         additionalLinesTotal={additionalLinesTotal}
         marginPct={marginPct}
         ufValue={ufValue}
+        totalGuards={stats.totalGuards}
         financialPanelContent={
           <FinancialPanel
             positionsCount={positions.length}
@@ -1580,6 +1745,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             crmInstallations={crmInstallations}
             crmDeals={crmDeals}
             additionalLines={additionalLines}
+            tenantBranding={tenantBranding}
             onGenerateAiDescription={generateAiDescription}
             generatingAi={generatingAi}
             aiCustomInstruction={aiCustomInstruction}

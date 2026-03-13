@@ -89,6 +89,13 @@ export interface FinancialPanelProps {
   // Included items
   includedItems: string[];
   onIncludedItemsChange: (items: string[]) => void;
+  // Tenant branding
+  tenantBranding?: {
+    companyName: string;
+    brandNameUpper: string;
+    website: string;
+    contactEmail: string;
+  };
   // Send modal props
   hasAccount: boolean;
   hasContact: boolean;
@@ -247,6 +254,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
     dealId,
     contactName,
     contactEmail,
+    tenantBranding,
   } = props;
 
   const [activeTab, setActiveTab] = useState<"desglose" | "preview">("desglose");
@@ -268,6 +276,19 @@ export function FinancialPanel(props: FinancialPanelProps) {
         ufValue,
       )
     : null;
+
+  const positionsCount = props.positionsCount;
+  const totalGuards = props.totalGuards;
+
+  const totalFact = salePriceMonthly + additionalLinesTotal;
+  const ufTotal = ufValue && ufValue > 0 ? salePriceMonthly / ufValue : null;
+
+  const laborCost = costSummary?.monthlyPositions ?? 0;
+  const directCosts = (costSummary?.monthlyUniforms ?? 0) + (costSummary?.monthlyExams ?? 0) + (costSummary?.monthlyMeals ?? 0) + (costSummary?.monthlyHolidayAdjustment ?? 0);
+  const indirectCosts = (costSummary?.monthlyCostItems ?? 0) + (costSummary?.monthlyVehicles ?? 0) + (costSummary?.monthlyInfrastructure ?? 0);
+  const financialCosts = (costSummary?.monthlyFinancial ?? 0) + (costSummary?.monthlyPolicy ?? 0);
+  const totalBase = laborCost + directCosts + indirectCosts + financialCosts + marginAmount;
+  const pctOf = (v: number) => totalBase > 0 ? Math.round((v / totalBase) * 100) : 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -302,13 +323,84 @@ export function FinancialPanel(props: FinancialPanelProps) {
       {/* ── Tab content ── */}
       <div className="overflow-y-auto flex-1">
         {activeTab === "desglose" && (
-          <div className="p-3">
-            {breakdownData ? (
-              <QuoteBreakdownPanel data={breakdownData} variant="default" />
-            ) : (
-              <p className="text-xs text-muted-foreground text-center py-8">
-                Agrega puestos para ver el desglose de costos.
-              </p>
+          <div className="p-3 space-y-3">
+            {/* Hero Card */}
+            <div className="rounded-xl bg-gradient-to-br from-emerald-950 to-card border border-emerald-500/20 p-4">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-400 mb-1.5">
+                Precio de venta mensual
+              </div>
+              <div className="text-2xl font-extrabold text-white tabular-nums transition-all duration-300">
+                {formatCurrency(salePriceMonthly)}
+              </div>
+              {ufTotal !== null && (
+                <div className="text-[12px] text-emerald-400 mt-0.5">{ufTotal.toFixed(2)} UF</div>
+              )}
+              <div className="flex gap-5 mt-3 pt-3 border-t border-emerald-500/20">
+                <div>
+                  <div className="text-[10px] text-muted-foreground">Puestos</div>
+                  <div className="text-[15px] font-bold text-foreground">{positionsCount}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground">Guardias</div>
+                  <div className="text-[15px] font-bold text-foreground">{totalGuards}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground">Margen</div>
+                  <div className="text-[15px] font-bold text-emerald-400">{marginPct}%</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Breakdown with progress bars */}
+            <div className="rounded-xl border border-border bg-card p-3">
+              <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-2.5">Desglose</div>
+              {[
+                { label: "Mano de obra", amount: laborCost, color: "bg-emerald-500" },
+                { label: "Directos", amount: directCosts, color: "bg-blue-500" },
+                { label: "Indirectos", amount: indirectCosts, color: "bg-purple-500" },
+                { label: "Financiero", amount: financialCosts, color: "bg-amber-500" },
+                { label: "Margen", amount: marginAmount, color: "bg-foreground/60" },
+              ].map((item) => (
+                <div key={item.label} className="mb-2 last:mb-0">
+                  <div className="flex justify-between mb-0.5">
+                    <span className="text-[11px] text-muted-foreground">{item.label}</span>
+                    <span className="text-[11px] font-semibold tabular-nums transition-all duration-300">{formatCurrency(item.amount)}</span>
+                  </div>
+                  <div className="h-1 bg-border rounded-full overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full opacity-70 transition-all duration-500", item.color)}
+                      style={{ width: `${pctOf(item.amount)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Additional lines summary */}
+            {additionalLinesTotal > 0 && (
+              <div className="rounded-xl border border-border bg-card p-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1">Líneas adicionales</div>
+                <div className="text-lg font-bold text-amber-400 tabular-nums transition-all duration-300">{formatCurrency(additionalLinesTotal)}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {additionalLines.length} {additionalLines.length === 1 ? "servicio/producto" : "servicios/productos"}
+                </div>
+                <div className="mt-2 pt-2 border-t border-border">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-0.5">Total facturación</div>
+                  <div className="text-xl font-extrabold text-white tabular-nums transition-all duration-300">{formatCurrency(totalFact)}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Detailed breakdown panel */}
+            {breakdownData && (
+              <details className="group">
+                <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                  Ver desglose detallado
+                </summary>
+                <div className="mt-2">
+                  <QuoteBreakdownPanel data={breakdownData} variant="default" />
+                </div>
+              </details>
             )}
           </div>
         )}
@@ -353,6 +445,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
             dealId={dealId}
             contactName={contactName}
             contactEmail={contactEmail}
+            tenantBranding={tenantBranding}
           />
         )}
       </div>
@@ -397,6 +490,7 @@ interface PreviewTabProps {
   isLocked: boolean;
   includedItems: string[];
   onIncludedItemsChange: (items: string[]) => void;
+  tenantBranding?: FinancialPanelProps["tenantBranding"];
   hasAccount: boolean;
   hasContact: boolean;
   hasDeal: boolean;
@@ -438,6 +532,7 @@ function PreviewTab({
   isLocked,
   includedItems,
   onIncludedItemsChange,
+  tenantBranding,
   hasAccount,
   hasContact,
   hasDeal,
@@ -474,7 +569,7 @@ function PreviewTab({
             style={{ background: "#0f172a", margin: "-12px -12px 8px -12px", padding: "10px 12px", borderRadius: "4px 4px 0 0" }}
           >
             <div className="text-sm font-bold" style={{ color: "#14b8a6" }}>
-              GARD SECURITY
+              {tenantBranding?.brandNameUpper || "EMPRESA"}
             </div>
             <div className="text-right text-[10px]" style={{ color: "#94a3b8" }}>
               <p className="font-bold text-xs" style={{ color: "#14b8a6" }}>
@@ -672,7 +767,7 @@ function PreviewTab({
           )}
 
           <div className="text-center text-[9px] text-gray-400 border-t pt-1">
-            Generado el {new Date().toLocaleDateString("es-CL")} · www.gard.cl
+            Generado el {new Date().toLocaleDateString("es-CL")}{tenantBranding?.website ? ` · ${tenantBranding.website}` : ""}
           </div>
         </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronUp } from "lucide-react";
+import { ChevronUp, Send } from "lucide-react";
 import { formatCLP, formatUFSuffix, cn } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import {
@@ -19,6 +19,7 @@ interface MobileBottomBarProps {
   ufValue: number | null;
   financialPanelContent: React.ReactNode;
   sendButton: React.ReactNode;
+  totalGuards?: number;
   className?: string;
 }
 
@@ -29,6 +30,7 @@ export function MobileBottomBar({
   ufValue,
   financialPanelContent,
   sendButton,
+  totalGuards,
   className,
 }: MobileBottomBarProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -42,38 +44,34 @@ export function MobileBottomBar({
         className={cn(
           "fixed bottom-14 left-0 right-0 z-50",
           "bg-background/95 backdrop-blur-xl border-t border-border/60",
-          "px-4 py-2.5",
-          "flex items-center justify-between gap-3",
+          "px-4 py-2",
+          "flex items-center justify-between gap-2",
           className
         )}
       >
         {/* Left: price info */}
-        <div className="flex flex-col min-w-0">
-          <span className="text-sm font-bold font-mono text-emerald-400 truncate">
+        <button
+          type="button"
+          onClick={() => setSheetOpen(true)}
+          className="flex flex-col min-w-0 text-left"
+        >
+          <span className="text-base font-extrabold font-mono text-white truncate">
             {formatCLP(total)}
           </span>
-          {ufTotal !== null && (
-            <span className="text-[11px] text-emerald-400/60">
-              {formatUFSuffix(ufTotal)}
-            </span>
-          )}
-        </div>
-
-        {/* Right: margin badge + ver detalle + send */}
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="bg-emerald-500/15 text-emerald-400 text-[11px] font-semibold rounded-md px-2 py-0.5">
-            {Number(marginPct || 0).toFixed(0)}%
+          <span className="text-[10px] text-emerald-400">
+            Margen {Number(marginPct || 0).toFixed(0)}%{totalGuards ? ` · ${totalGuards} guardias` : ""}
           </span>
+        </button>
 
+        {/* Right: send button */}
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
-            className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           >
-            Ver detalle
             <ChevronUp className="h-3 w-3" />
           </button>
-
           {sendButton}
         </div>
       </div>

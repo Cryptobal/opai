@@ -15,10 +15,14 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     const marginPct = body?.marginPct ?? 13;
+    const marginMode = body?.marginMode;
+
+    const updateData: Record<string, unknown> = { marginPct };
+    if (marginMode) updateData.marginMode = marginMode;
 
     await prisma.cpqQuoteParameters.upsert({
       where: { quoteId: id },
-      update: { marginPct },
+      update: updateData,
       create: {
         quoteId: id,
         monthlyHoursStandard: 180,
@@ -33,6 +37,7 @@ export async function PUT(
         contractMonths: 12,
         contractAmount: 0,
         marginPct,
+        ...(marginMode ? { marginMode } : {}),
       },
     });
 

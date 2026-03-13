@@ -26,6 +26,9 @@ export async function GET() {
         appName: config.brandingAppName,
         tagline: config.brandingTagline,
         companyName: config.commercialName || config.companyName,
+        brandNameUpper: config.brandNameUpper,
+        website: config.website,
+        contactEmail: config.email,
       },
     });
   } catch (error) {
