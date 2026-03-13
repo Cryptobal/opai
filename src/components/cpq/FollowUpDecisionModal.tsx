@@ -21,11 +21,14 @@ import {
   ArrowRightLeft,
   AlertTriangle,
   Loader2,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 
 export interface FollowUpDecision {
   includeFollowUp: boolean;
   targetStageId: string | null;
+  sendWhatsApp?: boolean;
 }
 
 interface PipelineStage {
@@ -44,6 +47,7 @@ interface FollowUpDecisionContentProps {
   onConfirm: (decision: FollowUpDecision) => void;
   onCancel: () => void;
   loading?: boolean;
+  showWhatsApp?: boolean;
 }
 
 export function FollowUpDecisionContent({
@@ -51,6 +55,7 @@ export function FollowUpDecisionContent({
   onConfirm,
   onCancel,
   loading,
+  showWhatsApp = false,
 }: FollowUpDecisionContentProps) {
   const [choice, setChoice] = useState<"yes" | "no">("yes");
   const [selectedStageId, setSelectedStageId] = useState("");
@@ -85,12 +90,13 @@ export function FollowUpDecisionContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealId]);
 
-  const handleConfirm = () => {
-    onConfirm({
-      includeFollowUp: choice === "yes",
-      targetStageId: choice === "no" ? selectedStageId || null : null,
-    });
-  };
+  const buildDecision = (sendWhatsApp: boolean): FollowUpDecision => ({
+    includeFollowUp: choice === "yes",
+    targetStageId: choice === "no" ? selectedStageId || null : null,
+    sendWhatsApp,
+  });
+
+  const isDisabled = loading || (choice === "no" && !selectedStageId);
 
   if (loadingData) {
     return (
@@ -187,23 +193,55 @@ export function FollowUpDecisionContent({
       )}
 
       {/* Actions */}
-      <div className="flex gap-2 pt-2">
-        <Button variant="outline" onClick={onCancel} className="flex-1">
-          Cancelar
-        </Button>
+      <div className="flex flex-col gap-2 pt-2">
+        {showWhatsApp ? (
+          <>
+            {/* Primary: email + WhatsApp */}
+            <Button
+              onClick={() => onConfirm(buildDecision(true))}
+              disabled={isDisabled}
+              className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white h-11"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MessageCircle className="h-4 w-4" />
+              )}
+              {loading ? "Enviando..." : "Enviar + abrir WhatsApp"}
+            </Button>
+            {/* Secondary: email only */}
+            <Button
+              variant="outline"
+              onClick={() => onConfirm(buildDecision(false))}
+              disabled={isDisabled}
+              className="w-full gap-2"
+            >
+              <Send className="h-4 w-4" />
+              Solo enviar por email
+            </Button>
+          </>
+        ) : (
+          <Button
+            onClick={() => onConfirm(buildDecision(false))}
+            disabled={isDisabled}
+            className="w-full gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Enviando...
+              </>
+            ) : (
+              "Confirmar y enviar"
+            )}
+          </Button>
+        )}
         <Button
-          onClick={handleConfirm}
-          disabled={loading || (choice === "no" && !selectedStageId)}
-          className="flex-1 gap-2"
+          variant="ghost"
+          onClick={onCancel}
+          className="w-full text-muted-foreground text-xs h-8"
         >
-          {loading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Enviando...
-            </>
-          ) : (
-            "Confirmar y enviar"
-          )}
+          Cancelar
         </Button>
       </div>
     </div>
@@ -218,6 +256,7 @@ interface FollowUpDecisionModalProps {
   dealId: string;
   onConfirm: (decision: FollowUpDecision) => void;
   loading?: boolean;
+  showWhatsApp?: boolean;
 }
 
 export function FollowUpDecisionModal({
@@ -226,6 +265,7 @@ export function FollowUpDecisionModal({
   dealId,
   onConfirm,
   loading,
+  showWhatsApp = false,
 }: FollowUpDecisionModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -241,6 +281,7 @@ export function FollowUpDecisionModal({
           onConfirm={onConfirm}
           onCancel={() => onOpenChange(false)}
           loading={loading}
+          showWhatsApp={showWhatsApp}
         />
       </DialogContent>
     </Dialog>

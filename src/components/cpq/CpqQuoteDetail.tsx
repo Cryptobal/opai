@@ -666,6 +666,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const handleSendPortalConfirmed = async (decision: FollowUpDecision) => {
     setPortalFollowUpModalOpen(false);
     setSendingPortal(true);
+
+    // Capture sendWhatsApp intent BEFORE any async — must be in same user gesture tick
+    const wantsWhatsApp = decision.sendWhatsApp === true;
+
     try {
       const response = await fetch(`/api/cpq/quotes/${quoteId}/send-portal`, {
         method: "POST",
@@ -687,8 +691,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         `Invitacion enviada a ${payload.data.sentTo}. ${payload.data.pinGenerated ? "Se genero PIN de acceso." : "PIN existente."}`
       );
 
-      // Always show WhatsApp modal — window.open after async is always blocked on desktop
-      if (payload.data.whatsappUrl) {
+      // Show WhatsApp modal if user chose it and there's a phone number
+      if (wantsWhatsApp && payload.data.whatsappUrl) {
         setWhatsappUrl(payload.data.whatsappUrl);
         setWhatsappSentTo(payload.data.sentTo);
         setWhatsappModalOpen(true);
@@ -1640,6 +1644,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           dealId={crmContext.dealId}
           onConfirm={handleSendPortalConfirmed}
           loading={sendingPortal}
+          showWhatsApp
         />
       )}
 
