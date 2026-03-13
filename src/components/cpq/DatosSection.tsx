@@ -257,11 +257,11 @@ export function DatosSection({
                 }}
               />
               {crmContext.accountId && (
-                <Link href={`/crm/accounts/${crmContext.accountId}`} target="_blank">
-                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver cuenta">
+                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver cuenta" asChild>
+                  <Link href={`/crm/accounts/${crmContext.accountId}`} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               )}
               <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { resetInlineForm(); setInlineCreateType("account"); }}>
                 <Plus className="h-3.5 w-3.5" />
@@ -279,11 +279,11 @@ export function DatosSection({
                 onChange={(val) => saveCrmContext({ installationId: val })}
               />
               {crmContext.installationId && (
-                <Link href={`/crm/installations/${crmContext.installationId}`} target="_blank">
-                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver instalación">
+                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver instalación" asChild>
+                  <Link href={`/crm/installations/${crmContext.installationId}`} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               )}
               <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { resetInlineForm(); setInlineCreateType("installation"); }}>
                 <Plus className="h-3.5 w-3.5" />
@@ -301,11 +301,11 @@ export function DatosSection({
                 onChange={(val) => saveCrmContext({ contactId: val })}
               />
               {crmContext.contactId && (
-                <Link href={`/crm/contacts/${crmContext.contactId}`} target="_blank">
-                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver contacto">
+                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver contacto" asChild>
+                  <Link href={`/crm/contacts/${crmContext.contactId}`} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               )}
               <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { resetInlineForm(); setInlineCreateType("contact"); }}>
                 <Plus className="h-3.5 w-3.5" />
@@ -323,11 +323,11 @@ export function DatosSection({
                 onChange={(val) => saveCrmContext({ dealId: val })}
               />
               {crmContext.dealId && (
-                <Link href={`/crm/deals/${crmContext.dealId}`} target="_blank">
-                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver negocio">
+                <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver negocio" asChild>
+                  <Link href={`/crm/deals/${crmContext.dealId}`} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               )}
               <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { resetInlineForm(); setInlineCreateType("deal"); }}>
                 <Plus className="h-3.5 w-3.5" />
