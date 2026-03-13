@@ -687,15 +687,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         `Invitacion enviada a ${payload.data.sentTo}. ${payload.data.pinGenerated ? "Se genero PIN de acceso." : "PIN existente."}`
       );
 
-      // Open WhatsApp if contact has a phone number
+      // Always show WhatsApp modal — window.open after async is always blocked on desktop
       if (payload.data.whatsappUrl) {
-        // Try to open automatically; if blocked by browser, show modal
-        const opened = window.open(payload.data.whatsappUrl, "_blank");
-        if (!opened) {
-          setWhatsappUrl(payload.data.whatsappUrl);
-          setWhatsappSentTo(payload.data.sentTo);
-          setWhatsappModalOpen(true);
-        }
+        setWhatsappUrl(payload.data.whatsappUrl);
+        setWhatsappSentTo(payload.data.sentTo);
+        setWhatsappModalOpen(true);
       }
 
       refresh();
@@ -1647,7 +1643,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         />
       )}
 
-      {/* Modal de WhatsApp — se abre si el browser bloqueó el popup automático */}
+      {/* Modal de WhatsApp — se muestra siempre tras envio exitoso si hay telefono */}
       <Dialog open={whatsappModalOpen} onOpenChange={setWhatsappModalOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -1658,11 +1654,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           </DialogHeader>
           <div className="py-2 space-y-3">
             <p className="text-sm text-muted-foreground">
-              El email fue enviado a <strong>{whatsappSentTo}</strong>. Ahora envía el mismo mensaje por WhatsApp para asegurar que lo reciba.
+              Email enviado a <strong className="text-foreground">{whatsappSentTo}</strong>. Ahora envíale el mismo mensaje por WhatsApp para asegurar que lo reciba.
             </p>
-            <p className="text-xs text-muted-foreground">
-              El mensaje incluye sus credenciales de acceso, el link al portal y los beneficios del servicio.
-            </p>
+            <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-1">
+              <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">El mensaje incluye</p>
+              <p className="text-xs text-muted-foreground">✅ Credenciales de acceso al portal (email + PIN)</p>
+              <p className="text-xs text-muted-foreground">✅ Link directo al portal y a la propuesta técnica</p>
+              <p className="text-xs text-muted-foreground">✅ Beneficios del portal explicados</p>
+            </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" size="sm" onClick={() => setWhatsappModalOpen(false)}>
