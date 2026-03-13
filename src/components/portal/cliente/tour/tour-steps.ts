@@ -19,61 +19,53 @@ export function buildTourSteps(data?: PersonalizationData): TourStep[] {
 
   return [
     {
-      title: name ? `Bienvenido, ${name}` : "Bienvenido a su portal de seguridad",
-      subtitle: company ? `Portal exclusivo para ${company}` : "Visibilidad total, control real",
+      title: name ? `Bienvenido, ${name}` : "Bienvenido a Gard Security",
+      subtitle: "El único portal con tecnología propia en Chile",
       icon: "Shield",
       content:
-        "Este portal le da acceso directo a toda la operación de seguridad de su instalación. Sin intermediarios, sin esperas — información en tiempo real, las 24 horas.",
+        "Estás accediendo al único portal de seguridad con tecnología propia en Chile. Aquí podrás ver en tiempo real todo lo que ocurre con tu servicio.",
       accent: "from-teal-500/20 to-teal-600/5",
     },
     {
-      title: "Propuestas claras y transparentes",
-      subtitle: "Decida con información completa",
+      title: "Tu propuesta personalizada",
+      subtitle: "Revisa los detalles de tu servicio",
       icon: "FileCheck",
       content: company
-        ? `Revise la propuesta preparada para ${company}: puestos, horarios, costos desglosados. Descargue el PDF, visualice la propuesta técnica completa o acepte directamente desde aquí.`
-        : "Revise cada propuesta en detalle: puestos, horarios, costos desglosados. Compare versiones, descargue el PDF o visualice la propuesta técnica completa. Acepte directamente desde aquí.",
+        ? `Revisa tu propuesta de seguridad para ${company}. Incluye todos los servicios exclusivos que Gard ofrece gracias a la plataforma OPAI.`
+        : "Revisa tu propuesta de seguridad. Incluye todos los servicios exclusivos que Gard ofrece gracias a la plataforma OPAI.",
       accent: "from-blue-500/20 to-blue-600/5",
     },
     {
-      title: "Dashboard con métricas reales",
-      subtitle: "Sepa exactamente cómo va su servicio",
-      icon: "BarChart3",
-      content:
-        "Cumplimiento de rondas, puntualidad de guardias, incidentes resueltos, trust score. Todo medido, todo documentado. Usted define los estándares, nosotros los cumplimos.",
-      accent: "from-violet-500/20 to-violet-600/5",
-    },
-    {
-      title: "Monitoreo de rondas en vivo",
-      subtitle: "Cada recorrido, verificado en tiempo real",
+      title: "Rondas GPS en tiempo real",
+      subtitle: "Verificación automática de recorridos",
       icon: "MapPin",
       content:
-        "Siga en vivo las rondas de cada guardia en el mapa. Checkpoints verificados por GPS, notificaciones instantáneas y evidencia fotográfica de cada punto recorrido. Usted ve lo que pasa, cuando pasa.",
+        "Monitorea las rondas de tus guardias con verificación GPS y geofencing. Si una ronda no se completa, recibes una alerta automática.",
       accent: "from-emerald-500/20 to-emerald-600/5",
     },
     {
-      title: "Comunicación directa",
-      subtitle: "Chat, tickets y alertas en un solo lugar",
+      title: "Trust Score de guardias",
+      subtitle: "Transparencia total basada en datos",
+      icon: "BarChart3",
+      content:
+        "Cada guardia tiene un puntaje basado en datos reales: asistencia, rondas completadas, capacitación. Transparencia total.",
+      accent: "from-violet-500/20 to-violet-600/5",
+    },
+    {
+      title: "Chat directo",
+      subtitle: "Comunicación sin intermediarios",
       icon: "MessageSquare",
       content:
-        "Canal directo con su ejecutivo, supervisores y equipo operativo. Sistema de tickets con SLA garantizado. Notificaciones en tiempo real de todo lo que importa.",
+        "Comunícate directamente con tu equipo Gard sin salir del portal. Sin WhatsApps personales, sin correos perdidos.",
       accent: "from-sky-500/20 to-sky-600/5",
     },
     {
-      title: "Documentación y reportes",
-      subtitle: "Todo organizado y descargable",
-      icon: "FileBarChart",
-      content:
-        "Contratos, protocolos, reportes mensuales automáticos con métricas de desempeño. Evaluación de guardias, historial de incidentes. Todo en PDF descargable.",
-      accent: "from-amber-500/20 to-amber-600/5",
-    },
-    {
-      title: "Comience a operar con visibilidad total",
-      subtitle: "Su seguridad, bajo su control",
+      title: "Todo tu servicio en un lugar",
+      subtitle: "Esto es OPAI",
       icon: "Rocket",
       content: ejecutivo !== "su ejecutivo"
-        ? `Lo que ve ahora son datos de demostración. Al contratar, se reemplazan por datos reales. Explore el portal, revise su propuesta y hable con ${ejecutivo}.`
-        : "Lo que ve ahora son datos de demostración. Al contratar, se reemplazan por datos reales actualizados en tiempo real. Explore el portal, revise su propuesta y hable con su ejecutivo.",
+        ? `Documentación, reportes, encuestas, control de acceso — todo integrado en una sola plataforma. Esto es OPAI. Explore el portal y hable con ${ejecutivo}.`
+        : "Documentación, reportes, encuestas, control de acceso — todo integrado en una sola plataforma. Esto es OPAI.",
       accent: "from-teal-500/20 to-teal-600/5",
     },
   ];

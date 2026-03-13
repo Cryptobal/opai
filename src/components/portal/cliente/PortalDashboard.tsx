@@ -6,13 +6,16 @@ import {
 } from 'recharts'
 import {
   TrendingUp, TrendingDown, Minus, CheckCircle2, AlertTriangle, XCircle,
-  Clock, Loader2, BarChart3,
+  Clock, Loader2, BarChart3, MapPin, Star, FileText, Bot, ShieldCheck,
+  MessageSquare, ArrowRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ClienteSession } from '@/lib/portal-cliente-types'
 import { DEMO_SUMMARY, DEMO_CHART_DATA, DEMO_GUARDIAS_RANKING, DEMO_ACTIVITY } from '@/lib/portal/demo-data'
 import { PreviewBadge } from './PreviewBadge'
+import { OpaiBadge } from './OpaiBadge'
 import { DashboardCotizacionesPendientes } from './cotizaciones/DashboardCotizacionesPendientes'
+import { WhatsAppButton } from './cotizaciones/WhatsAppButton'
 
 /* ── Types ── */
 
@@ -86,7 +89,72 @@ function KpiCard({ label, value, trend, color }: { label: string; value: string;
   )
 }
 
+function trustScoreColor(score: number): string {
+  if (score >= 80) return 'text-emerald-400'
+  if (score >= 60) return 'text-amber-400'
+  return 'text-red-400'
+}
+
 const MEDALS = ['🥇', '🥈', '🥉']
+
+/* ── Prospect Capability Cards ── */
+
+const CAPABILITY_CARDS = [
+  {
+    icon: MapPin,
+    title: 'Rondas GPS en vivo',
+    desc: 'Ve dónde está tu guardia ahora mismo con verificación por geofencing',
+    section: 'rondas',
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/15',
+  },
+  {
+    icon: Star,
+    title: 'Trust Score',
+    desc: 'Guardias evaluados con datos reales: asistencia, rondas, capacitación',
+    section: 'desempeno',
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/15',
+  },
+  {
+    icon: FileText,
+    title: 'Documentación digital',
+    desc: 'Contratos, OS-10, antecedentes — todo en un click',
+    section: 'documentacion',
+    color: 'text-blue-400',
+    bg: 'bg-blue-500/10',
+    border: 'border-blue-500/15',
+  },
+  {
+    icon: Bot,
+    title: 'IA predictiva',
+    desc: 'Protocolos y análisis automáticos con inteligencia artificial',
+    section: 'desempeno',
+    color: 'text-violet-400',
+    bg: 'bg-violet-500/10',
+    border: 'border-violet-500/15',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Control de acceso',
+    desc: 'QR, lectura de cédula, registro digital en tiempo real',
+    section: 'control-acceso',
+    color: 'text-sky-400',
+    bg: 'bg-sky-500/10',
+    border: 'border-sky-500/15',
+  },
+  {
+    icon: MessageSquare,
+    title: 'Chat directo',
+    desc: 'Habla con tu equipo Gard 24/7 sin salir del portal',
+    section: 'chat',
+    color: 'text-teal-400',
+    bg: 'bg-teal-500/10',
+    border: 'border-teal-500/15',
+  },
+]
 
 /* ── Component ── */
 
@@ -174,6 +242,132 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
     [compliance, daysRange],
   )
 
+  /* ── Prospect Dashboard ── */
+  if (isProspect) {
+    return (
+      <div className="px-4 py-4 pb-24 max-w-6xl mx-auto w-full space-y-6">
+        {loadingData && !summary && (
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+          </div>
+        )}
+
+        {/* Hero Section */}
+        <div className="text-center py-6">
+          <h1 className="text-2xl font-bold text-white mb-2">
+            {session.firstName ? `Bienvenido, ${session.firstName}` : 'Bienvenido a Gard Security'}
+          </h1>
+          <p className="text-sm text-zinc-400 mb-3">
+            Este es tu centro de comando de seguridad
+          </p>
+          <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
+            Gard es la única empresa en Chile con un sistema operativo completo de seguridad.
+          </p>
+          <div className="mt-3">
+            <OpaiBadge text="19 capacidades integradas" />
+          </div>
+        </div>
+
+        {/* Cotizaciones Carousel */}
+        <DashboardCotizacionesPendientes
+          isProspect
+          onNavigateToDetail={(section) => onNavigate?.(section)}
+        />
+
+        {/* Métricas de servicio (demo) */}
+        {summary && (
+          <>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-sm font-semibold">Métricas de servicio</h3>
+              <PreviewBadge />
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <KpiCard label="Cumplimiento mensual" value={`${summary.compliance}%`} trend={<TrendBadge value={summary.complianceTrend} suffix="%" />} color="emerald" />
+              <KpiCard label="Rondas completadas" value={`${summary.completedRounds}/${summary.totalRounds}`} trend={<span className="text-[10px] text-zinc-500">este mes</span>} color="blue" />
+              <KpiCard label="Trust Score promedio" value={String(summary.trustScore)} trend={<TrendBadge value={summary.trustTrend} />} color="blue" />
+              <KpiCard label="Alertas del mes" value={String(summary.alerts)} trend={<TrendBadge value={-summary.alertsTrend} />} color={summary.alerts > 5 ? 'red' : 'emerald'} />
+            </div>
+          </>
+        )}
+
+        {/* Preview de capacidades */}
+        <div>
+          <h3 className="text-sm font-semibold mb-3">Lo que incluye tu servicio con Gard</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {CAPABILITY_CARDS.map((card) => {
+              const Icon = card.icon
+              return (
+                <button
+                  key={card.section + card.title}
+                  onClick={() => onNavigate?.(card.section)}
+                  className={cn(
+                    'rounded-xl border p-4 text-left transition-all hover:scale-[1.01] active:scale-[0.99]',
+                    card.border, 'bg-white/[0.02]',
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center shrink-0', card.bg)}>
+                      <Icon className={cn('w-5 h-5', card.color)} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white mb-0.5">{card.title}</p>
+                      <p className="text-xs text-zinc-400 leading-relaxed">{card.desc}</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-zinc-600 shrink-0 mt-1" />
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Diferenciador final */}
+        <div className="rounded-2xl border border-white/[0.06] p-6 text-center" style={{ background: 'linear-gradient(145deg, rgba(30,41,59,0.8), rgba(26,35,50,0.8))' }}>
+          <h3 className="text-base font-bold text-white mb-2">
+            ¿Por qué ninguna otra empresa tiene esto?
+          </h3>
+          <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed mb-5">
+            Porque Gard desarrolló su propia tecnología. No usamos software genérico.
+            OPAI fue diseñado exclusivamente para seguridad privada.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={() => onNavigate?.('propuesta')}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
+              style={{
+                background: 'linear-gradient(135deg, #0d9488, #14b8a6, #2dd4bf)',
+                color: '#042f2e',
+                boxShadow: '0 4px 20px rgba(45,212,191,0.3)',
+              }}
+            >
+              Aprobar mi propuesta
+              <ArrowRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onNavigate?.('chat')}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors"
+            >
+              Hablar con mi ejecutivo
+            </button>
+            <WhatsAppButton variant="compact" />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <footer className="text-center text-xs text-zinc-500 pt-4 pb-8 space-y-1">
+          <p>
+            Gard Security · Plataforma{' '}
+            <span className="font-medium text-zinc-400">OPAI</span> · Desarrollado por{' '}
+            <a href="https://lx3.ai" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-zinc-300 transition-colors">
+              LX3.ai
+            </a>
+          </p>
+        </footer>
+      </div>
+    )
+  }
+
+  /* ── Active Client Dashboard ── */
   return (
     <div className="px-4 py-4 pb-24 max-w-6xl mx-auto w-full">
       {selectedInstallation && instName && (
@@ -187,33 +381,37 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
       )}
 
       <DashboardCotizacionesPendientes
-        isProspect={!!isProspect}
+        isProspect={false}
         onNavigateToDetail={(section) => onNavigate?.(section)}
       />
 
       {summary && (
         <div className="space-y-4">
           {/* KPIs */}
-          {isProspect && (
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-sm font-semibold">Metricas de servicio</h3>
-              <PreviewBadge />
-            </div>
-          )}
-          {!isProspect && summary.totalRounds === 0 && (
+          {summary.totalRounds === 0 && (
             <div className="col-span-full flex flex-col items-center justify-center py-12 text-muted-foreground">
               <BarChart3 className="h-10 w-10 mb-3 opacity-40" />
               <p className="text-sm font-medium">Sin datos operacionales este mes</p>
               <p className="text-xs opacity-60 mt-1">Los datos aparecerán cuando se registren rondas</p>
             </div>
           )}
-          {(isProspect || summary.totalRounds > 0) && (
+          {summary.totalRounds > 0 && (
             <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KpiCard label="Cumplimiento mensual" value={`${summary.compliance}%`} trend={<TrendBadge value={summary.complianceTrend} suffix="%" />} color="emerald" />
             <KpiCard label="Rondas completadas" value={`${summary.completedRounds}/${summary.totalRounds}`} trend={<span className="text-[10px] text-zinc-500">este mes</span>} color="blue" />
-            <KpiCard label="Trust Score promedio" value={String(summary.trustScore)} trend={<TrendBadge value={summary.trustTrend} />} color="blue" />
-            <KpiCard label="Alertas del mes" value={String(summary.alerts)} trend={<TrendBadge value={-summary.alertsTrend} />} color={summary.alerts > 5 ? 'red' : 'emerald'} />
+            <KpiCard
+              label="Trust Score promedio"
+              value={String(summary.trustScore)}
+              trend={<TrendBadge value={summary.trustTrend} />}
+              color={summary.trustScore >= 80 ? 'emerald' : summary.trustScore >= 60 ? 'blue' : 'red'}
+            />
+            <KpiCard
+              label="Alertas del mes"
+              value={String(summary.alerts)}
+              trend={<TrendBadge value={-summary.alertsTrend} />}
+              color={summary.alerts > 5 ? 'red' : 'emerald'}
+            />
           </div>
 
           {/* Chart + Guards */}
@@ -254,7 +452,10 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
             </div>
 
             <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-              <h3 className="text-sm font-semibold mb-3">Mejores guardias del mes</h3>
+              <div className="flex items-center gap-2 mb-3">
+                <h3 className="text-sm font-semibold">Mejores guardias del mes</h3>
+                <OpaiBadge text="Trust Score OPAI" variant="default" className="hidden sm:inline-flex" />
+              </div>
               {guards.length === 0 ? (
                 <p className="text-xs text-zinc-500 py-4 text-center">Sin datos</p>
               ) : (
@@ -266,9 +467,7 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
                         <p className="text-sm font-medium truncate">{g.name}</p>
                         <p className="text-[10px] text-zinc-400">{g.rounds} rondas · Trust {g.trustAvg}</p>
                       </div>
-                      <span className={cn('text-sm font-bold tabular-nums',
-                        g.trustAvg >= 85 ? 'text-emerald-400' : g.trustAvg >= 70 ? 'text-blue-400' : 'text-amber-400'
-                      )}>
+                      <span className={cn('text-sm font-bold tabular-nums', trustScoreColor(g.trustAvg))}>
                         {g.trustAvg}
                       </span>
                     </div>
@@ -308,17 +507,41 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
             </>
           )}
 
+          {/* Tu ejecutivo */}
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <h3 className="text-sm font-semibold mb-3">Tu ejecutivo</h3>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-teal-600/30 border border-teal-500/30 flex items-center justify-center">
+                <span className="text-sm font-semibold text-teal-300">
+                  {session.ejecutivoName ? session.ejecutivoName.charAt(0).toUpperCase() : 'G'}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{session.ejecutivoName || 'Equipo Gard'}</p>
+                <p className="text-xs text-zinc-500">Ejecutivo asignado</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onNavigate?.('chat')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-600/20 text-teal-400 hover:bg-teal-600/30 transition-colors"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Chat
+                </button>
+                <WhatsAppButton variant="compact" />
+              </div>
+            </div>
+          </div>
+
           {/* Footer */}
           <footer className="text-center text-xs text-zinc-500 pt-4 pb-8 space-y-1">
             <p>
+              Estás usando el sistema operativo de seguridad más completo de Chile
+            </p>
+            <p>
               Gard Security · Plataforma{' '}
               <span className="font-medium text-zinc-400">OPAI</span> · Desarrollado por{' '}
-              <a
-                href="https://lx3.ai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline underline-offset-2 hover:text-zinc-300 transition-colors"
-              >
+              <a href="https://lx3.ai" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-zinc-300 transition-colors">
                 LX3.ai
               </a>
             </p>

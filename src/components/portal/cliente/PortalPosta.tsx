@@ -63,12 +63,19 @@ export function PortalPosta({ session, selectedInstallation, isProspect }: Props
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto">
-      <h2 className="text-white font-semibold text-lg mb-4 flex items-center gap-2">
-        <BookOpen className="h-5 w-5 text-blue-400" /> Posta / Bitacora
-        {isProspect && <PreviewBadge />}
-      </h2>
+      <div className="mb-4">
+        <h2 className="text-white font-semibold text-lg flex items-center gap-2">
+          <BookOpen className="h-5 w-5 text-blue-400" /> Bitácora digital
+          {isProspect && <PreviewBadge />}
+        </h2>
+        <p className="text-xs text-zinc-500 mt-1 ml-7">Registro digital de novedades — Adiós al cuaderno</p>
+      </div>
       {records.length === 0 ? (
-        <p className="text-zinc-500 text-sm text-center py-12">Sin registros de posta recientes</p>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <BookOpen className="h-8 w-8 text-zinc-700 mb-3" />
+          <p className="text-sm font-medium text-zinc-400">Sin novedades registradas</p>
+          <p className="text-xs text-zinc-600 mt-1">La bitácora digital reemplaza el cuaderno físico con trazabilidad completa.</p>
+        </div>
       ) : (
         <div className="space-y-3">
           {records.map(r => {

@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PreviewBadge } from "./PreviewBadge";
+import { OpaiBadge } from "./OpaiBadge";
 import { DEMO_RONDAS } from "@/lib/portal/demo-data";
 
 interface Ejecucion {
@@ -329,16 +330,26 @@ export function PortalRondas({ session, selectedInstallation, isProspect }: Prop
   /* ── List view ── */
   return (
     <div className="max-w-lg mx-auto px-4 py-4 pb-24">
-      <div className="flex items-center gap-2 mb-4">
-        <MapPin className="h-4 w-4 text-teal-400" />
-        <h2 className="text-base font-semibold">Rondas</h2>
-        {isProspect && <PreviewBadge />}
-        <span className="text-xs text-zinc-500 ml-auto">{rondas.length} registros</span>
+      <div className="mb-4">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-teal-400" />
+          <h2 className="text-base font-semibold">Rondas en tiempo real</h2>
+          {isProspect && <PreviewBadge />}
+          <OpaiBadge variant="live" />
+          <span className="text-xs text-zinc-500 ml-auto">{rondas.length} registros</span>
+        </div>
+        {isProspect ? (
+          <p className="text-xs text-zinc-500 mt-1 ml-6">Monitoreo GPS con geofencing automático — Solo con Gard</p>
+        ) : (
+          <p className="text-xs text-zinc-500 mt-1 ml-6">Monitoreo GPS en vivo de tus instalaciones</p>
+        )}
       </div>
 
       {rondas.length === 0 ? (
-        <div className="text-center py-12 text-zinc-600 text-sm">
-          Sin rondas registradas
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <MapPin className="h-8 w-8 text-zinc-700 mb-3" />
+          <p className="text-sm font-medium text-zinc-400">No hay rondas registradas aún</p>
+          <p className="text-xs text-zinc-600 mt-1">Las rondas se actualizan en tiempo real con verificación GPS.</p>
         </div>
       ) : (
         <div className="space-y-2">

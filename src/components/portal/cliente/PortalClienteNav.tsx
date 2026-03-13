@@ -36,10 +36,10 @@ const ALL_NAV_ITEMS: Array<{
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, configKey: 'dashboard' },
   { id: 'instalaciones', label: 'Instalaciones', icon: Building2, configKey: 'guardias' },
   { id: 'rondas', label: 'Rondas', icon: MapPin, configKey: 'rondas' },
-  { id: 'posta', label: 'Posta', icon: BookOpen, configKey: 'posta' },
+  { id: 'posta', label: 'Bitácora', icon: BookOpen, configKey: 'posta' },
   { id: 'chat', label: 'Chat', icon: MessageSquare, configKey: 'chat_instalacion', group: 'comunicacion' },
   { id: 'tickets', label: 'Tickets', icon: Ticket, configKey: 'tickets', group: 'comunicacion' },
-  { id: 'alertas', label: 'Notificaciones', icon: Bell, configKey: 'alertas', group: 'comunicacion' },
+  { id: 'alertas', label: 'Alertas', icon: Bell, configKey: 'alertas', group: 'comunicacion' },
   { id: 'reportes', label: 'Reportes', icon: BarChart3, configKey: 'reportes', group: 'operaciones' },
   { id: 'comparativa', label: 'Comparativa', icon: GitCompare, configKey: 'comparativa', group: 'operaciones' },
   { id: 'desempeno', label: 'Desempeño', icon: TrendingUp, configKey: 'gamificacion', group: 'operaciones' },
@@ -50,7 +50,7 @@ const ALL_NAV_ITEMS: Array<{
   { id: 'empresa', label: 'Empresa', icon: Briefcase, group: 'administracion' },
   { id: 'control-acceso', label: 'Accesos', icon: ShieldCheck, group: 'administracion' },
   { id: 'propuesta', label: 'Propuesta', icon: FileCheck2, prospectOnly: true },
-  { id: 'nosotros', label: 'Nosotros', icon: Building, prospectOnly: true },
+  { id: 'nosotros', label: 'Gard', icon: Building, prospectOnly: true },
 ]
 
 interface Props {

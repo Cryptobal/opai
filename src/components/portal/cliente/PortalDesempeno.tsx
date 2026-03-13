@@ -10,6 +10,7 @@ import { LoadingState } from "@/components/opai/LoadingState";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PreviewBadge } from "./PreviewBadge";
+import { OpaiBadge } from "./OpaiBadge";
 
 /* ─── Types ─── */
 
@@ -152,10 +153,19 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
 
   return (
     <div className="max-w-6xl mx-auto w-full px-4 py-4 pb-24 space-y-4">
-      {isProspect && (
+      {isProspect ? (
         <div className="flex items-center gap-2 mb-1">
-          <h3 className="text-sm font-semibold">Desempeño del servicio</h3>
+          <h3 className="text-sm font-semibold">Desempeño y gamificación</h3>
           <PreviewBadge />
+          <OpaiBadge variant="exclusive" />
+        </div>
+      ) : (
+        <div className="mb-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">Desempeño y gamificación</h3>
+            <OpaiBadge variant="exclusive" />
+          </div>
+          <p className="text-xs text-zinc-500 mt-1">Sistema de evaluación continua — Tus guardias compiten por ser los mejores</p>
         </div>
       )}
 

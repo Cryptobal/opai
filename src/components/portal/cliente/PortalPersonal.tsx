@@ -67,16 +67,20 @@ export function PortalPersonal({ isProspect }: Props) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <UserCheck className="h-5 w-5 text-teal-400" />
-          <h2 className="text-lg font-semibold">Personal asignado</h2>
+          <h2 className="text-lg font-semibold">Tu equipo de guardias</h2>
         </div>
         {isProspect && <PreviewBadge />}
       </div>
+      <p className="text-xs text-zinc-500 -mt-3 mb-4">
+        {isProspect
+          ? "Cada guardia evaluado con Trust Score y programa de capacitación certificado"
+          : "Guardias asignados a tus instalaciones — Con Trust Score"}
+      </p>
 
       {isProspect && (
         <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 px-4 py-3 mb-4">
           <p className="text-xs text-teal-300/80">
-            Visualiza los guardias asignados a tus instalaciones con el estado de sus documentos
-            clave (OS-10, antecedentes). En modo activo veras datos en tiempo real.
+            Cada guardia asignado cuenta con Trust Score, documentación verificada y programa de capacitación certificado por OPAI.
           </p>
         </div>
       )}
@@ -85,6 +89,7 @@ export function PortalPersonal({ isProspect }: Props) {
         <div className="flex flex-col items-center justify-center h-48 gap-2 text-zinc-500">
           <UserCheck className="h-8 w-8" />
           <p className="text-sm">No hay guardias asignados</p>
+          <p className="text-xs text-zinc-500">Los guardias aparecerán aquí cuando sean asignados a tus instalaciones.</p>
         </div>
       ) : (
         <div className="space-y-3">

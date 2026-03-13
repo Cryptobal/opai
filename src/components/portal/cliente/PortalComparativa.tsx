@@ -48,16 +48,17 @@ export function PortalComparativa({ session, isProspect }: Props) {
       <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24 space-y-4">
         <div className="flex items-center gap-2">
           <GitCompare className="h-5 w-5 text-blue-400" />
-          <h2 className="text-base font-semibold">Vista Comparativa</h2>
+          <h2 className="text-base font-semibold">Comparativa de desempeño</h2>
           <PreviewBadge />
         </div>
+        <p className="text-xs text-zinc-500">Compara el rendimiento entre tus instalaciones</p>
         <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
           <p className="text-sm text-zinc-300 font-medium">Benchmarks del servicio</p>
           <ul className="space-y-2 text-xs text-zinc-400">
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Compara rendimiento entre instalaciones</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Metricas de rondas, asistencia y tickets</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Ranking automatico de instalaciones</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Graficos interactivos por periodo</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Métricas de rondas, asistencia y tickets</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Ranking automático de instalaciones</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Gráficos interactivos por periodo</li>
           </ul>
         </div>
       </div>
@@ -98,7 +99,7 @@ export function PortalComparativa({ session, isProspect }: Props) {
         setError(json.error ?? 'Error al cargar datos')
       }
     } catch {
-      setError('Error de conexion')
+      setError('Error de conexión')
     } finally {
       setLoading(false)
     }
@@ -110,9 +111,9 @@ export function PortalComparativa({ session, isProspect }: Props) {
       <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
         <div className="flex flex-col items-center justify-center h-64 gap-3 text-zinc-500">
           <GitCompare className="h-10 w-10 text-zinc-600" />
-          <p className="text-sm font-medium">Vista Comparativa</p>
+          <p className="text-sm font-medium">Comparativa de desempeño</p>
           <p className="text-xs text-zinc-600 text-center max-w-xs">
-            Necesitas 2 o mas instalaciones para comparar el rendimiento entre ellas.
+            Comparativa disponible cuando tengas más de una instalación activa.
           </p>
         </div>
       </div>
@@ -127,8 +128,8 @@ export function PortalComparativa({ session, isProspect }: Props) {
       {/* Header */}
       <div className="flex items-center gap-2">
         <GitCompare className="h-5 w-5 text-blue-400" />
-        <h2 className="text-base font-semibold">Vista Comparativa</h2>
-        <span className="text-xs text-zinc-500 ml-auto">Ultimos 30 dias</span>
+        <h2 className="text-base font-semibold">Comparativa de desempeño</h2>
+        <span className="text-xs text-zinc-500 ml-auto">Últimos 30 días</span>
       </div>
 
       {/* Metric selector */}

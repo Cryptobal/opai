@@ -56,18 +56,18 @@ export function PortalReportes({ session, isProspect }: Props) {
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24 space-y-3">
         <div className="mb-4">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold">Reportes Mensuales</h2>
+            <h2 className="text-base font-semibold">Reportes</h2>
             <PreviewBadge />
           </div>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Historial de reportes de cumplimiento y operacion
+            Informes detallados de tu servicio de seguridad
           </p>
         </div>
         <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
-          <p className="text-sm text-zinc-300 font-medium">Reportes mensuales automaticos</p>
+          <p className="text-sm text-zinc-300 font-medium">Reportes mensuales automáticos</p>
           <ul className="space-y-2 text-xs text-zinc-400">
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Metricas de cumplimiento y operacion</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Evaluacion de guardias y desempeno</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Métricas de cumplimiento y operación</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Evaluación de guardias y desempeño</li>
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Recomendaciones de mejora</li>
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Descarga en PDF</li>
           </ul>
@@ -151,10 +151,10 @@ export function PortalReportes({ session, isProspect }: Props) {
         <BarChart3 className="h-10 w-10 text-zinc-700" />
         <div className="text-center">
           <p className="text-sm font-medium text-zinc-400">
-            No hay reportes disponibles
+            Sin reportes disponibles aún
           </p>
           <p className="text-xs mt-1">
-            Los reportes se generan el 1 de cada mes automaticamente
+            Los reportes se generan automáticamente cada período.
           </p>
         </div>
       </div>
@@ -165,9 +165,9 @@ export function PortalReportes({ session, isProspect }: Props) {
   return (
     <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24 space-y-3">
       <div className="mb-4">
-        <h2 className="text-base font-semibold">Reportes Mensuales</h2>
+        <h2 className="text-base font-semibold">Reportes</h2>
         <p className="text-xs text-zinc-400 mt-0.5">
-          Historial de reportes de cumplimiento y operacion
+          Informes detallados de tu servicio de seguridad
         </p>
       </div>
 

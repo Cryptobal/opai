@@ -356,13 +356,22 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
 
   return (
     <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 pb-24 space-y-4">
+      {/* ── Header ── */}
+      <div>
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <Building2 className="h-5 w-5 text-teal-400" />
+          Datos de tu empresa
+        </h2>
+        <p className="text-xs text-zinc-500 mt-1">Información comercial y de contacto</p>
+      </div>
+
       {/* ── 1. Datos de la empresa ── */}
       <Card>
         <SectionHeader icon={Building2} title="Datos de la empresa" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <InputField label="Razon social" value={legalName} onChange={setLegalName} placeholder="Razon social" />
+          <InputField label="Razón social" value={legalName} onChange={setLegalName} placeholder="Razón social" />
           <InputField label="RUT" value={rut} onChange={setRut} placeholder="12.345.678-9" />
-          <InputField label="Direccion" value={address} onChange={setAddress} placeholder="Direccion" />
+          <InputField label="Dirección" value={address} onChange={setAddress} placeholder="Dirección" />
           <InputField label="Comuna" value={commune} onChange={setCommune} placeholder="Comuna" />
         </div>
         <div className="flex justify-end mt-3">
@@ -435,7 +444,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
 
       {/* ── 3. Personeria ── */}
       <Card>
-        <SectionHeader icon={FileText} title="Personeria" />
+        <SectionHeader icon={FileText} title="Personería" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <InputField
             label="Fecha escritura"
@@ -451,12 +460,12 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
               className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:border-teal-400 transition-colors appearance-none"
             >
               <option value="">Seleccionar...</option>
-              <option value="Escritura publica">Escritura publica</option>
+              <option value="Escritura pública">Escritura pública</option>
               <option value="Sociedad">Sociedad</option>
-              <option value="Empresa en un dia">Empresa en un dia</option>
+              <option value="Empresa en un día">Empresa en un día</option>
             </select>
           </div>
-          <InputField label="Notaria" value={notaria} onChange={setNotaria} placeholder="Nombre de la notaria" />
+          <InputField label="Notaría" value={notaria} onChange={setNotaria} placeholder="Nombre de la notaría" />
         </div>
         <div className="flex justify-end mt-3">
           <SaveButton saving={savingPersoneria} saved={savedPersoneria} onClick={savePersoneria} />
@@ -528,7 +537,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
                   onChange={(v) => updateInstallation(inst.id, 'name', v)}
                 />
                 <InputField
-                  label="Direccion"
+                  label="Dirección"
                   value={inst.address ?? ''}
                   onChange={(v) => updateInstallation(inst.id, 'address', v)}
                 />

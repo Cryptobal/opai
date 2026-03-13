@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Shield, Award, Smartphone, Clock, CheckCircle2, Star,
   MapPin, BarChart3, Users, Zap, Radio, Eye,
+  Bot, FileText, ShieldCheck, MessageSquare, GraduationCap,
+  Fingerprint, ClipboardList, Gauge, Globe, Ticket,
 } from "lucide-react";
+import { OpaiBadge } from "./OpaiBadge";
+import { WhatsAppButton } from "./cotizaciones/WhatsAppButton";
 
 /* ── Animated counter ── */
 function AnimatedNumber({ target, suffix = "" }: { target: string; suffix?: string }) {
@@ -95,38 +99,47 @@ const STATS = [
   { value: "96%", label: "Tasa de retención", color: "text-amber-400", bg: "from-amber-500/15 to-amber-600/5" },
 ];
 
-const DIFFERENTIATORS = [
+/* ── 19 Diferenciadores agrupados por tier ── */
+
+const DIFFERENTIATOR_TIERS = [
   {
-    icon: Star,
-    title: "Tecnología propia (OPAI)",
-    desc: "Sistema de gestión operacional con IA integrada. Control total de tu servicio de seguridad.",
-    iconColor: "text-teal-400",
-    iconBg: "rgba(45,212,191,0.12)",
-    borderColor: "rgba(45,212,191,0.15)",
+    tier: "Tier 1 — Tecnología única",
+    items: [
+      { icon: Star, title: "Sistema Operativo Completo (OPAI)", desc: "Plataforma propia de gestión operacional con IA integrada. Control total de tu servicio de seguridad." },
+      { icon: MapPin, title: "Rondas en Tiempo Real", desc: "Monitoreo GPS con geofencing automático. Si una ronda no se completa, recibes una alerta." },
+      { icon: Gauge, title: "Trust Score de Guardias", desc: "Cada guardia tiene un puntaje basado en datos reales: asistencia, rondas, capacitación." },
+      { icon: Smartphone, title: "Portal del Cliente en Tiempo Real", desc: "Monitorea tu servicio desde tu celular. KPIs, rondas, bitácora y más — 24/7." },
+    ],
   },
   {
-    icon: Award,
-    title: "Gamificación de guardias",
-    desc: "Motivamos a nuestros guardias con ranking, premios y evaluación continua de desempeño.",
-    iconColor: "text-amber-400",
-    iconBg: "rgba(251,191,36,0.12)",
-    borderColor: "rgba(251,191,36,0.15)",
+    tier: "Tier 2 — Inteligencia y capacitación",
+    items: [
+      { icon: GraduationCap, title: "Programa de Capacitación Integral (LMS)", desc: "Plataforma de aprendizaje con cursos certificados para cada guardia." },
+      { icon: ShieldCheck, title: "Control de Acceso Digital", desc: "Registro de ingresos con QR, lectura de cédula y patentes. Sin papel." },
+      { icon: MessageSquare, title: "Chat Directo con el Equipo", desc: "Canal de comunicación directa con tu ejecutivo y equipo operativo." },
+      { icon: FileText, title: "Documentación Digital Completa", desc: "Contratos, OS-10, antecedentes — todo digital con trazabilidad completa." },
+    ],
   },
   {
-    icon: Smartphone,
-    title: "Portal del Cliente",
-    desc: "Monitorea tu servicio en tiempo real desde tu celular. KPIs, rondas, bitácora y más.",
-    iconColor: "text-blue-400",
-    iconBg: "rgba(96,165,250,0.12)",
-    borderColor: "rgba(96,165,250,0.15)",
+    tier: "Tier 3 — IA y automatización",
+    items: [
+      { icon: Bot, title: "Protocolos con IA", desc: "Generación y verificación automática de protocolos operacionales." },
+      { icon: Zap, title: "Centro IA (Inteligencia Predictiva)", desc: "Análisis predictivo de incidentes y recomendaciones automáticas." },
+      { icon: BarChart3, title: "Cotizaciones Interactivas", desc: "Propuestas digitales con desglose completo y aceptación en línea." },
+      { icon: Fingerprint, title: "Control Anti-Doble Turno", desc: "Verificación biométrica para evitar fraudes en turnos de guardia." },
+    ],
   },
   {
-    icon: Clock,
-    title: "Respuesta inmediata",
-    desc: "Equipo de supervisión 24/7 con respuesta en menos de 30 minutos ante cualquier incidente.",
-    iconColor: "text-rose-400",
-    iconBg: "rgba(251,113,133,0.12)",
-    borderColor: "rgba(251,113,133,0.15)",
+    tier: "Tier 4 — Ecosistema completo",
+    items: [
+      { icon: CheckCircle2, title: "Cumplimiento Normativo Automático", desc: "Ley 21.659 y D.S. 44 verificados automáticamente en cada operación." },
+      { icon: Award, title: "Sistema de Exámenes con IA", desc: "Evaluaciones automáticas de conocimiento y competencias." },
+      { icon: Globe, title: "Ecosistema Multi-Portal (6 portales)", desc: "Portales para clientes, guardias, supervisores, RRHH, administración y candidatos." },
+      { icon: ClipboardList, title: "Encuestas de Satisfacción Integradas", desc: "Feedback directo del servicio con métricas de NPS." },
+      { icon: Eye, title: "Reportes de Visita de Supervisor", desc: "Informes detallados de cada visita de supervisión a tus instalaciones." },
+      { icon: Ticket, title: "Sistema de Tickets/Incidentes", desc: "Seguimiento completo de incidentes con SLA y trazabilidad." },
+      { icon: Radio, title: "PWA Mobile-First", desc: "Aplicación web progresiva que funciona como app nativa en tu celular." },
+    ],
   },
 ];
 
@@ -140,8 +153,15 @@ const RONDAS_FEATURES = [
 const CERTS = [
   { name: "OS-10", desc: "Autorización vigente" },
   { name: "D.S. 44", desc: "Cumplimiento normativo" },
-  { name: "ISO 45001", desc: "Seguridad y salud" },
+  { name: "Ley 21.659", desc: "Seguridad privada" },
   { name: "ACHS", desc: "Prevención de riesgos" },
+];
+
+const TIER_COLORS = [
+  { iconColor: "text-teal-400", iconBg: "rgba(45,212,191,0.12)", borderColor: "rgba(45,212,191,0.15)" },
+  { iconColor: "text-blue-400", iconBg: "rgba(96,165,250,0.12)", borderColor: "rgba(96,165,250,0.15)" },
+  { iconColor: "text-violet-400", iconBg: "rgba(139,92,246,0.12)", borderColor: "rgba(139,92,246,0.15)" },
+  { iconColor: "text-amber-400", iconBg: "rgba(251,191,36,0.12)", borderColor: "rgba(251,191,36,0.15)" },
 ];
 
 interface Props {
@@ -175,7 +195,8 @@ export function PortalNosotros({ onNavigate }: Props) {
           >
             Gard Security
           </h1>
-          <p className="text-zinc-400 text-sm">Seguridad privada diseñada para continuidad operacional</p>
+          <p className="text-zinc-400 text-sm mb-2">El único sistema operativo completo de seguridad en Chile</p>
+          <OpaiBadge text="19 capacidades integradas" />
         </div>
       </FadeIn>
 
@@ -201,36 +222,41 @@ export function PortalNosotros({ onNavigate }: Props) {
         </div>
       </div>
 
-      {/* ── Differentiators ── */}
-      <div>
-        <FadeIn>
-          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-1">¿Por qué Gard?</h2>
-        </FadeIn>
-        <div className="space-y-3">
-          {DIFFERENTIATORS.map(({ icon: Icon, title, desc, iconColor, iconBg, borderColor }, i) => (
-            <FadeIn key={title} delay={i * 100}>
-              <div
-                className="rounded-xl p-4 flex gap-4 transition-all hover:scale-[1.01]"
-                style={{
-                  background: "linear-gradient(145deg, rgba(30,41,59,0.8), rgba(26,35,50,0.8))",
-                  border: `1px solid ${borderColor}`,
-                }}
-              >
-                <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: iconBg }}
-                >
-                  <Icon className={`w-5 h-5 ${iconColor}`} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-white mb-1">{title}</h3>
-                  <p className="text-xs text-zinc-400 leading-relaxed">{desc}</p>
-                </div>
-              </div>
+      {/* ── 19 Diferenciadores por Tier ── */}
+      {DIFFERENTIATOR_TIERS.map((tier, tIdx) => {
+        const colors = TIER_COLORS[tIdx % TIER_COLORS.length];
+        return (
+          <div key={tier.tier}>
+            <FadeIn>
+              <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-1">{tier.tier}</h2>
             </FadeIn>
-          ))}
-        </div>
-      </div>
+            <div className="space-y-3">
+              {tier.items.map(({ icon: Icon, title, desc }, i) => (
+                <FadeIn key={title} delay={i * 80}>
+                  <div
+                    className="rounded-xl p-4 flex gap-4 transition-all hover:scale-[1.01]"
+                    style={{
+                      background: "linear-gradient(145deg, rgba(30,41,59,0.8), rgba(26,35,50,0.8))",
+                      border: `1px solid ${colors.borderColor}`,
+                    }}
+                  >
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: colors.iconBg }}
+                    >
+                      <Icon className={`w-5 h-5 ${colors.iconColor}`} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-white mb-1">{title}</h3>
+                      <p className="text-xs text-zinc-400 leading-relaxed">{desc}</p>
+                    </div>
+                  </div>
+                </FadeIn>
+              ))}
+            </div>
+          </div>
+        );
+      })}
 
       {/* ── Rondas en vivo ── */}
       <FadeIn>
@@ -285,22 +311,44 @@ export function PortalNosotros({ onNavigate }: Props) {
 
       {/* ── CTA ── */}
       <FadeIn delay={200}>
-        <div className="text-center pt-2">
-          <p className="text-xs text-zinc-500 mb-3">¿Tienes preguntas sobre nuestros servicios?</p>
-          {onNavigate && (
-            <button
-              onClick={() => onNavigate("chat")}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
-              style={{
-                background: "linear-gradient(135deg, rgba(45,212,191,0.15), rgba(45,212,191,0.05))",
-                border: "1px solid rgba(45,212,191,0.25)",
-                color: "#2dd4bf",
-              }}
+        <div className="text-center pt-2 space-y-4">
+          <p className="text-xs text-zinc-500">¿Tienes preguntas sobre nuestros servicios?</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            {onNavigate && (
+              <button
+                onClick={() => onNavigate("chat")}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
+                style={{
+                  background: "linear-gradient(135deg, rgba(45,212,191,0.15), rgba(45,212,191,0.05))",
+                  border: "1px solid rgba(45,212,191,0.25)",
+                  color: "#2dd4bf",
+                }}
+              >
+                <Users className="w-4 h-4" />
+                Hablar con tu ejecutivo
+              </button>
+            )}
+            <WhatsAppButton variant="compact" />
+          </div>
+        </div>
+      </FadeIn>
+
+      {/* ── Footer ── */}
+      <FadeIn>
+        <div className="text-center pt-4 pb-4 space-y-1">
+          <p className="text-xs text-zinc-500">
+            Plataforma{" "}
+            <span className="font-medium text-zinc-400">OPAI</span>
+            {" · Desarrollado por "}
+            <a
+              href="https://lx3.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-zinc-300 transition-colors text-zinc-400"
             >
-              <Users className="w-4 h-4" />
-              Hablar con tu ejecutivo
-            </button>
-          )}
+              LX3.ai
+            </a>
+          </p>
         </div>
       </FadeIn>
     </div>

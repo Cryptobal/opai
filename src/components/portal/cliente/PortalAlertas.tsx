@@ -5,6 +5,7 @@ import { Bell, Loader2, Mail, Smartphone, Inbox, Settings2, MessageSquare, Recei
 import { cn } from "@/lib/utils";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PreviewBadge } from "./PreviewBadge";
+import { OpaiBadge } from "./OpaiBadge";
 
 /* ─── Notification Types ─── */
 
@@ -93,10 +94,11 @@ export function PortalAlertas({ session, isProspect }: Props) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-zinc-100">Notificaciones</h2>
+              <h2 className="text-base font-semibold text-zinc-100">Centro de alertas</h2>
               <PreviewBadge />
+              <OpaiBadge text="Alertas inteligentes OPAI" variant="ai" />
             </div>
-            <p className="text-xs text-zinc-500">Historial y configuración de alertas</p>
+            <p className="text-xs text-zinc-500">Alertas automáticas en tiempo real — Nunca te pierdas nada</p>
           </div>
         </div>
 
@@ -148,8 +150,8 @@ export function PortalAlertas({ session, isProspect }: Props) {
           <Bell className="h-5 w-5 text-amber-400" />
         </div>
         <div>
-          <h2 className="text-base font-semibold text-zinc-100">Notificaciones</h2>
-          <p className="text-xs text-zinc-500">Historial y configuración de alertas</p>
+          <h2 className="text-base font-semibold text-zinc-100">Centro de alertas</h2>
+          <p className="text-xs text-zinc-500">Alertas automáticas en tiempo real — Nunca te pierdas nada</p>
         </div>
       </div>
 

@@ -82,19 +82,20 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
   if (isProspect) {
     return (
       <div className="px-4 py-4 pb-28 max-w-lg mx-auto">
-        <h2 className="text-white font-semibold text-lg mb-4 flex items-center gap-2">
+        <h2 className="text-white font-semibold text-lg mb-1 flex items-center gap-2">
           <Ticket className="h-5 w-5 text-blue-400" />
           Tickets de Soporte
           <PreviewBadge />
         </h2>
+        <p className="text-xs text-zinc-500 mb-4 ml-7">Seguimiento de incidentes con trazabilidad completa</p>
         <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
           <p className="text-sm text-zinc-300 font-medium">Sistema de tickets disponible</p>
           <ul className="space-y-2 text-xs text-zinc-400">
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Crea solicitudes y reporta incidencias</li>
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Seguimiento en tiempo real del estado</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Comunicacion directa con el equipo Gard</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Comunicación directa con el equipo Gard</li>
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Historial completo de todas tus solicitudes</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Prioridades y SLA automaticos</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Prioridades y SLA automáticos</li>
           </ul>
         </div>
       </div>
@@ -213,7 +214,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
               <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
             </div>
           ) : (selectedTicket.comments ?? []).length === 0 ? (
-            <p className="text-zinc-600 text-sm text-center py-6">Sin comentarios aun</p>
+            <p className="text-zinc-600 text-sm text-center py-6">Sin comentarios aún</p>
           ) : (
             (selectedTicket.comments ?? []).map((comment) => (
               <div key={comment.id} className="bg-zinc-800/40 border border-zinc-700/30 rounded-xl p-3">
@@ -287,7 +288,8 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
       ) : tickets.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 gap-2 text-zinc-600">
           <Ticket className="h-8 w-8" />
-          <p className="text-sm">Sin tickets{activeStatus ? ' en este estado' : ''}</p>
+          <p className="text-sm font-medium text-zinc-400">{activeStatus ? 'Sin tickets en este estado' : 'No hay tickets abiertos'}</p>
+          <p className="text-xs text-zinc-600">¿Necesitas reportar algo? Crea un ticket y nuestro equipo responderá.</p>
         </div>
       ) : (
         <div className="space-y-3">

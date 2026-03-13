@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ShieldCheck, Eye, History, CalendarClock, Shield } from "lucide-react";
+import { OpaiBadge } from "./OpaiBadge";
 import { ClientAccessControlLive } from "@/components/access-control/ClientAccessControlLive";
 import { ClientAccessControlHistory } from "@/components/access-control/ClientAccessControlHistory";
 import { ClientPreregistration } from "@/components/access-control/ClientPreregistration";
@@ -43,13 +44,15 @@ export function PortalAccessControl({ session, selectedInstallation, isProspect 
   if (isProspect) {
     return (
       <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
-        <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2 mb-4">
+        <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2 mb-1">
           <ShieldCheck className="h-5 w-5 text-blue-400" />
           Control de Acceso
+          <OpaiBadge variant="default" />
         </h2>
+        <p className="text-xs text-zinc-500 mb-4">Control de acceso digital con lectura de cédula y patentes — Sin papel</p>
         <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: "linear-gradient(145deg, #1E293B, #1A2332)" }}>
           <div className="px-4 py-3 border-b border-white/[0.06]">
-            <p className="text-xs text-zinc-400">Registro de accesos en tiempo real — Datos de demostración</p>
+            <p className="text-xs text-zinc-400">Registro digital de ingresos — QR, OCR, tiempo real — Datos de demostración</p>
           </div>
           <div className="divide-y divide-white/[0.04]">
             {DEMO_ACCESS_LOG.map((entry, i) => (
@@ -91,10 +94,12 @@ export function PortalAccessControl({ session, selectedInstallation, isProspect 
 
   return (
     <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
-      <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2 mb-4">
+      <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2 mb-1">
         <ShieldCheck className="h-5 w-5 text-blue-400" />
         Control de Acceso
+        <OpaiBadge variant="default" />
       </h2>
+      <p className="text-xs text-zinc-500 mb-4">Registro digital de ingresos — QR, OCR, tiempo real</p>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4 overflow-x-auto">
