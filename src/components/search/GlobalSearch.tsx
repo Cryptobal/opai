@@ -37,6 +37,8 @@ type SearchResult = {
   href: string;
   badgeLabel?: string;
   badgeClass?: string;
+  /** Photo/logo URL for guardias and accounts - shown in result icon */
+  imageUrl?: string;
 };
 
 const TYPE_CONFIG: Record<
@@ -309,6 +311,9 @@ export function GlobalSearch({
               {items.map((result) => {
                 const Icon = config.icon;
                 const globalIdx = results.indexOf(result);
+                const showImage =
+                  (result.type === "guardia" || result.type === "account") &&
+                  result.imageUrl;
                 return (
                   <button
                     key={`${result.type}-${result.id}`}
@@ -323,11 +328,31 @@ export function GlobalSearch({
                   >
                     <div
                       className={cn(
-                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                        "relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg",
                         config.bgColor
                       )}
+                      title={result.title}
                     >
-                      <Icon className={cn("h-4 w-4", config.color)} />
+                      {showImage && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={result.imageUrl}
+                          alt={result.title}
+                          className="h-8 w-8 rounded-lg object-cover"
+                          onError={(e) => {
+                            e.currentTarget.classList.add("hidden");
+                            e.currentTarget.nextElementSibling?.classList.remove("hidden");
+                          }}
+                        />
+                      )}
+                      <span
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center",
+                          showImage && "hidden"
+                        )}
+                      >
+                        <Icon className={cn("h-4 w-4", config.color)} />
+                      </span>
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{result.title}</p>

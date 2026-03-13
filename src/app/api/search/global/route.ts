@@ -19,6 +19,8 @@ export type GlobalSearchResult = {
   /** Badge override for guardias: label + Tailwind classes (e.g. "Contratado" + "bg-emerald-500/20 text-emerald-400") */
   badgeLabel?: string;
   badgeClass?: string;
+  /** Photo/logo URL for guardias (faceIdPhotoUrl) and accounts (logoUrl) - shown in search result icon */
+  imageUrl?: string;
 };
 
 const LIFECYCLE_BADGE: Record<string, { label: string; class: string }> = {
@@ -126,6 +128,8 @@ export async function GET(request: NextRequest) {
             type: true,
             industry: true,
             rut: true,
+            logoUrl: true,
+            notes: true,
           },
         }),
         prisma.crmContact.findMany({
@@ -218,7 +222,19 @@ export async function GET(request: NextRequest) {
           href: "/crm/leads",
         });
       }
+      const ACCOUNT_LOGO_PREFIX = "[[ACCOUNT_LOGO_URL:";
+      const ACCOUNT_LOGO_SUFFIX = "]]";
+      function extractAccountLogoUrl(notes: string | null | undefined): string | null {
+        if (!notes) return null;
+        const start = notes.indexOf(ACCOUNT_LOGO_PREFIX);
+        if (start === -1) return null;
+        const end = notes.indexOf(ACCOUNT_LOGO_SUFFIX, start);
+        if (end === -1) return null;
+        const raw = notes.slice(start + ACCOUNT_LOGO_PREFIX.length, end).trim();
+        return raw || null;
+      }
       for (const acc of accounts) {
+        const imageUrl = acc.logoUrl || extractAccountLogoUrl(acc.notes) || undefined;
         results.push({
           id: acc.id,
           type: "account",
@@ -227,6 +243,7 @@ export async function GET(request: NextRequest) {
             .filter(Boolean)
             .join(" · "),
           href: `/crm/accounts/${acc.id}`,
+          imageUrl,
         });
       }
       for (const contact of contacts) {
@@ -348,6 +365,7 @@ export async function GET(request: NextRequest) {
             lifecycleStatus: true,
             marcacionPin: true,
             marcacionPinVisible: true,
+            faceIdPhotoUrl: true,
             persona: {
               select: { firstName: true, lastName: true, rut: true },
             },
@@ -380,6 +398,7 @@ export async function GET(request: NextRequest) {
             href: `/personas/guardias/${g.id}`,
             badgeLabel: hasPin ? lifecycleBadge.label : "PIN No creado",
             badgeClass: hasPin ? lifecycleBadge.class : "bg-rose-500/20 text-rose-400",
+            imageUrl: g.faceIdPhotoUrl ?? undefined,
           });
         }
       }
