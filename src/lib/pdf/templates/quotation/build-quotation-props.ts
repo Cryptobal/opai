@@ -64,10 +64,6 @@ export async function buildQuotationProps(
     where: { quoteId: quoteId },
     orderBy: { orden: 'asc' },
   });
-  const totalAdditionalLines = additionalLines.reduce(
-    (sum, l) => sum + Number(l.precio),
-    0,
-  );
 
   // Costs
   let summary: Awaited<ReturnType<typeof computeCpqQuoteCosts>> | null = null;
@@ -76,6 +72,10 @@ export async function buildQuotationProps(
   } catch {
     // proceed without summary
   }
+
+  const totalAdditionalLines = summary
+    ? summary.additionalLinesTotalWithMargin
+    : additionalLines.reduce((sum, l) => sum + Number(l.precio), 0);
 
   // Pricing parameters
   const marginPct = Number(quote.parameters?.marginPct ?? 13);

@@ -560,7 +560,6 @@ export async function PUT(
         });
       }
 
-      // Additional lines (pass-through, no margin)
       await tx.cpqQuoteAdditionalLine.deleteMany({ where: { quoteId: id } });
       if (additionalLines.length) {
         await tx.cpqQuoteAdditionalLine.createMany({
@@ -570,6 +569,10 @@ export async function PUT(
             descripcion: line.descripcion || null,
             precio: Number(line.precio) || 0,
             orden: line.orden ?? idx,
+            tipo: String(line.tipo || "servicio").slice(0, 30),
+            recurrencia: String(line.recurrencia || "mensual").slice(0, 20),
+            cantidad: Number(line.cantidad) || 1,
+            marginPct: line.marginPct != null ? Number(line.marginPct) : null,
           })),
         });
       }
