@@ -178,7 +178,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
       });
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload?.error || "Error creando cuenta");
+        throw new Error(typeof payload?.error === "string" ? payload.error : "Error creando cuenta");
       }
       setAccounts((prev) => [
         { ...payload.data, _count: { contacts: 0, deals: 0 } },
@@ -193,7 +193,8 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
       );
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo crear la cuenta.");
+      const msg = error instanceof Error ? error.message : "No se pudo crear la cuenta.";
+      toast.error(msg);
     } finally {
       setCreating(false);
     }

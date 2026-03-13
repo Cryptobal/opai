@@ -12,7 +12,7 @@ import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
 import { AuthTextInput } from "@/components/auth/AuthTextInput";
 import { AuthPinInput } from "@/components/auth/AuthPinInput";
 import { AuthButton } from "@/components/auth/AuthButton";
-import { IdCardIcon } from "@/components/auth/icons";
+import { MailIcon } from "@/components/auth/icons";
 import { ChatClientePortal } from "@/components/portal/cliente/ChatClientePortal";
 import { PortalDocumentos } from "@/components/portal/cliente/PortalDocumentos";
 import { PortalClienteNav, PortalSection } from "@/components/portal/cliente/PortalClienteNav";
@@ -39,14 +39,6 @@ import { TourOverlay } from "@/components/portal/cliente/tour/TourOverlay";
 
 /* ── Helpers ── */
 
-function formatRut(v: string): string {
-  const clean = v.replace(/[^0-9kK]/g, "").toUpperCase();
-  if (clean.length <= 1) return clean;
-  const body = clean.slice(0, -1);
-  const dv = clean.slice(-1);
-  const formatted = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `${formatted}-${dv}`;
-}
 
 /* ══════════════════════════════════════════════════════ */
 
@@ -60,8 +52,8 @@ export function PortalClienteClient() {
   const [activeSection, setActiveSection] = useState<PortalSection>(initialSection || "dashboard");
 
   /* ── Login state ── */
-  const initialRut = searchParams.get("rut") ?? "";
-  const [rut, setRut] = useState(initialRut ? formatRut(initialRut) : "");
+  const initialEmail = searchParams.get("email") ?? "";
+  const [email, setEmail] = useState(initialEmail);
   const [pin, setPin] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
@@ -117,7 +109,7 @@ export function PortalClienteClient() {
       const res = await fetch("/api/portal/cliente/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rut: rut.replace(/[.\-]/g, ""), pin }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), pin }),
       });
       const json = await res.json();
       if (json.success) {
@@ -260,13 +252,13 @@ export function PortalClienteClient() {
 
         <div>
           <AuthTextInput
-            label="RUT de la empresa"
+            label="Correo electrónico"
             accent={ACCENT}
-            icon={<IdCardIcon />}
-            value={rut}
-            onChange={(e) => setRut(formatRut(e.target.value))}
-            placeholder="76.123.456-7"
-            maxLength={12}
+            icon={<MailIcon />}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="tu@empresa.com"
+            type="email"
           />
 
           <label
@@ -287,7 +279,7 @@ export function PortalClienteClient() {
             accent={ACCENT}
             label="Ingresar al Portal"
             onClick={handleLogin}
-            disabled={loggingIn || !rut || !pin}
+            disabled={loggingIn || !email.trim() || !pin}
             loading={loggingIn}
           />
 

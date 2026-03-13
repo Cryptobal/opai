@@ -61,7 +61,7 @@ export function TourOverlay({ onComplete, session }: Props) {
       if (transitioning || target === step || target < 0 || target >= steps.length) return;
       setSlideDir(target > step ? "next" : "prev");
       setTransitioning(true);
-      clearTimeout(timeoutRef.current);
+      clearTimeout(timeoutRef.current ?? undefined);
       timeoutRef.current = setTimeout(() => {
         setDisplayStep(target);
         setStep(target);
@@ -86,7 +86,7 @@ export function TourOverlay({ onComplete, session }: Props) {
   }, [isFirst, goTo, step]);
 
   useEffect(() => {
-    return () => clearTimeout(timeoutRef.current);
+    return () => clearTimeout(timeoutRef.current ?? undefined);
   }, []);
 
   useEffect(() => {

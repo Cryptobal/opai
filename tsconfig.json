@@ -40,7 +40,9 @@
     "node_modules_bad_1771520600",
     ".claude",
     ".next_old",
+    ".next_broken_*",
     "terminals",
+    "scripts",
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/__tests__/*"

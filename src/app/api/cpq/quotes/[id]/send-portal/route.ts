@@ -106,13 +106,6 @@ export async function POST(
       );
     }
 
-    if (!account.rut) {
-      return NextResponse.json(
-        { success: false, error: "La cuenta no tiene RUT. Agrega el RUT antes de enviar por portal." },
-        { status: 400 }
-      );
-    }
-
     // Get ejecutivo name for the email template
     const ejecutivo = await prisma.admin.findUnique({
       where: { id: ctx.userId },
@@ -123,7 +116,7 @@ export async function POST(
     // 3. Generate PIN if contact doesn't have one
     let pin: string;
     if (!contact.portalPin) {
-      pin = String(Math.floor(100000 + Math.random() * 900000));
+      pin = String(Math.floor(1000 + Math.random() * 9000));
       const pinHash = await bcrypt.hash(pin, 10);
 
       await prisma.crmContact.update({
@@ -136,7 +129,7 @@ export async function POST(
       });
     } else {
       // Contact already has a PIN — use the visible one
-      pin = contact.portalPinVisible || "******";
+      pin = contact.portalPinVisible || "****";
     }
 
     // 5. Update account: status = 'prospect' (if not active), portalEjecutivoId
@@ -163,8 +156,8 @@ export async function POST(
 
     // 7. Send portal invite email with PIN
     const basePortalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/cliente`;
-    const portalUrl = account.rut
-      ? `${basePortalUrl}?rut=${encodeURIComponent(account.rut)}`
+    const portalUrl = contact.email
+      ? `${basePortalUrl}?email=${encodeURIComponent(contact.email)}`
       : basePortalUrl;
     const contactName = `${contact.firstName} ${contact.lastName}`.trim();
 
@@ -172,7 +165,7 @@ export async function POST(
       PortalProspectoInviteEmail({
         contactName,
         companyName: account.name,
-        rut: account.rut,
+        email: contact.email,
         pin,
         portalUrl,
         ejecutivoName,

@@ -36,7 +36,20 @@ export const approveLeadSchema = z.object({
   legalRepresentativeRut: z.string().trim().max(20).optional(),
   industry: z.string().trim().max(100).optional(),
   segment: z.string().trim().max(100).optional(),
-  website: z.string().trim().url("URL inválida").max(500).optional().or(z.literal("")),
+  website: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .transform((v) => {
+      if (v == null || v === "") return null;
+      const s = String(v).trim();
+      if (!s) return null;
+      if (/^https?:\/\//i.test(s)) return s;
+      if (/^[a-z0-9][-a-z0-9.]*\.[a-z]{2,}/i.test(s)) return `https://${s}`;
+      return s;
+    })
+    .refine((v) => v == null || /^https?:\/\/[^\s]+$/i.test(v), "URL inválida"),
   address: z.string().trim().max(500).optional(),
   roleTitle: z.string().trim().max(100).optional(),
   accountNotes: z.string().trim().max(2000).optional(),
@@ -70,7 +83,21 @@ export const createAccountSchema = z.object({
     .enum(["prospect", "client_active", "client_inactive", "active", "inactive"])
     .default("prospect"),
   isActive: z.boolean().default(false),
-  website: z.string().trim().url("URL inválida").max(500).optional().nullable().or(z.literal("")),
+  website: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .nullable()
+    .transform((v) => {
+      if (v == null || v === "") return null;
+      const s = v.trim();
+      if (!s) return null;
+      if (/^https?:\/\//i.test(s)) return s;
+      if (/^[a-z0-9][-a-z0-9.]*\.[a-z]{2,}/i.test(s)) return `https://${s}`;
+      return s;
+    })
+    .refine((v) => v == null || v === "" || /^https?:\/\/[^\s]+$/i.test(v), "URL inválida"),
   address: z.string().trim().max(500).optional().nullable(),
   commune: z.string().trim().max(200).optional().nullable(),
   notaryName: z.string().trim().max(500).optional().nullable(),

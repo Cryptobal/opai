@@ -24,51 +24,23 @@ export function sanitizeGuardName(firstName: string, lastName: string): string {
   return lastInitial ? `${lastInitial}. ${first}` : first;
 }
 
-export async function validateClienteSession(rut: string, pin: string, ip?: string): Promise<{
+/** Valida sesión por email + PIN. Busca contactos con portal habilitado por email (case-insensitive). */
+export async function validateClienteSession(email: string, pin: string, ip?: string): Promise<{
   success: boolean;
   error?: string;
   session?: ClienteSession;
 }> {
   const bcrypt = await import("bcryptjs");
-  const cleanRut = rut.replace(/[.\-\s]/g, "").toUpperCase();
-  const rutBody = cleanRut.slice(0, -1);
-  const rutDv = cleanRut.slice(-1);
-  const rutWithDash = `${rutBody}-${rutDv}`;
-
-  let rutWithDots = rutWithDash;
-  if (rutBody.length >= 2) {
-    const reversed = rutBody.split("").reverse();
-    const groups: string[] = [];
-    for (let i = 0; i < reversed.length; i += 3) {
-      groups.push(reversed.slice(i, i + 3).reverse().join(""));
-    }
-    rutWithDots = `${groups.reverse().join(".")}-${rutDv}`;
-  }
-
-  let accountIdsByRut: { id: string }[] = [];
-  try {
-    if (cleanRut.length >= 2) {
-      accountIdsByRut =
-        (await prisma.$queryRaw<{ id: string }[]>`
-          SELECT id FROM crm.accounts
-          WHERE REPLACE(REPLACE(REPLACE(UPPER(COALESCE(rut, '')), '.', ''), '-', ''), ' ', '') = ${cleanRut}
-        `) ?? [];
-    }
-  } catch {
-    // Raw puede fallar; seguimos con variantes exactas de RUT
+  const emailNorm = email.trim().toLowerCase();
+  if (!emailNorm) {
+    return { success: false, error: "Email es requerido." };
   }
 
   // Select explícito: no pedir portalConfig ni columnas que puedan no existir en prod.
   const contacts = await prisma.crmContact.findMany({
     where: {
       portalEnabled: true,
-      OR: [
-        { account: { rut: cleanRut } },
-        { account: { rut: rutWithDash } },
-        { account: { rut: rutWithDots } },
-        { account: { rut: rut.trim() } },
-        ...(accountIdsByRut.length > 0 ? [{ accountId: { in: accountIdsByRut.map((r) => r.id) } }] : []),
-      ],
+      email: { equals: emailNorm, mode: "insensitive" },
     },
     select: {
       id: true,
@@ -96,7 +68,7 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
   });
 
   if (contacts.length === 0) {
-    return { success: false, error: "RUT no encontrado o acceso al portal no habilitado." };
+    return { success: false, error: "Email no encontrado o acceso al portal no habilitado." };
   }
 
   const activeContacts = contacts.filter(

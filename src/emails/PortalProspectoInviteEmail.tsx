@@ -24,7 +24,7 @@ import * as React from 'react';
 interface PortalProspectoInviteEmailProps {
   contactName: string;
   companyName: string;
-  rut: string;
+  email: string;
   pin: string;
   portalUrl: string;
   ejecutivoName: string;
@@ -33,7 +33,7 @@ interface PortalProspectoInviteEmailProps {
 export const PortalProspectoInviteEmail = ({
   contactName = 'Cliente',
   companyName = 'Empresa Demo',
-  rut = '12.345.678-9',
+  email = 'cliente@empresa.com',
   pin = '1234',
   portalUrl = 'https://opai.gard.cl/portal/cliente',
   ejecutivoName = 'Ejecutivo Comercial',
@@ -69,8 +69,8 @@ export const PortalProspectoInviteEmail = ({
             <Section style={credentialsBox}>
               <Text style={credentialsTitle}>Tus credenciales de acceso</Text>
 
-              <Text style={credentialLabel}>RUT de empresa</Text>
-              <Text style={credentialValue}>{rut}</Text>
+              <Text style={credentialLabel}>Correo electrónico</Text>
+              <Text style={credentialValue}>{email}</Text>
 
               <Text style={credentialLabel}>PIN</Text>
               <Text style={credentialValue}>{pin}</Text>
