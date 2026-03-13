@@ -1097,7 +1097,7 @@ export async function POST(
 
       return { account, contact, deal, quotes: createdQuotes };
       },
-      { timeout: 30_000 }
+      { timeout: 60_000 }
     );
 
     return NextResponse.json({ success: true, data: result });
