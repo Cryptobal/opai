@@ -1,9 +1,12 @@
 /**
  * Extracción estructurada de datos de lead desde el contenido de un email
  * (solicitudes de servicio de seguridad en Chile).
+ *
+ * Usa AIService (proveedores configurados en Configuración > IA) en lugar de
+ * OPENAI_API_KEY del entorno, para respetar las API keys que el tenant configura.
  */
 
-import { openai } from "@/lib/openai";
+import { aiService } from "@/lib/ai-service";
 
 export type ExtractedLeadData = {
   companyName: string | null;
@@ -28,66 +31,6 @@ export type ExtractedLeadData = {
   summary: string | null;
   industry: string | null;
   website: string | null;
-};
-
-const EXTRACTOR_SCHEMA = {
-  type: "json_schema" as const,
-  json_schema: {
-    name: "extracted_lead_data",
-    strict: true,
-    schema: {
-      type: "object",
-      properties: {
-        companyName: { type: "string", description: "Nombre comercial de la empresa solicitante" },
-        rut: { type: "string", description: "RUT de la empresa (formato XX.XXX.XXX-X o sin puntos)" },
-        legalName: { type: "string", description: "Razón social / nombre legal de la empresa" },
-        businessActivity: { type: "string", description: "Giro o actividad comercial de la empresa" },
-        legalRepresentativeName: { type: "string", description: "Nombre del representante legal" },
-        contactFirstName: { type: "string", description: "Nombre de pila del contacto que solicita" },
-        contactLastName: { type: "string", description: "Apellido del contacto que solicita" },
-        contactEmail: { type: "string", description: "Email del contacto" },
-        contactPhone: { type: "string", description: "Teléfono o celular del contacto" },
-        contactRole: { type: "string", description: "Cargo o rol del contacto (ej. Encargado de Adquisiciones, Jefe de Prevención)" },
-        address: { type: "string", description: "Dirección de la instalación o sede donde se requiere el servicio" },
-        city: { type: "string", description: "Ciudad" },
-        commune: { type: "string", description: "Comuna (Chile)" },
-        serviceType: { type: "string", description: "Tipo de servicio (ej. guardias, seguridad 24x7, resguardo de obra)" },
-        serviceDuration: { type: "string", description: "Duración estimada del servicio (ej. 6 meses, indefinido)" },
-        coverageDetails: { type: "string", description: "Detalles de cobertura (turnos, 24x7, fines de semana, festivos)" },
-        guardsPerShift: { type: "string", description: "Cantidad de guardias por turno o total solicitados" },
-        numberOfLocations: { type: "string", description: "Cantidad de puntos/instalaciones a cubrir" },
-        startDate: { type: "string", description: "Fecha estimada de inicio del servicio (ej. 02 de marzo, inmediato)" },
-        summary: { type: "string", description: "Resumen ejecutivo de la solicitud en 2-4 oraciones" },
-        industry: { type: "string", description: "Industria o rubro del cliente (construcción, minería, retail, inmobiliaria, etc.)" },
-        website: { type: "string", description: "Sitio web de la empresa solicitante (URL encontrada en firma, cuerpo del correo o datos de contacto, ej. www.empresa.cl)" },
-      },
-      required: [
-        "companyName",
-        "rut",
-        "legalName",
-        "businessActivity",
-        "legalRepresentativeName",
-        "contactFirstName",
-        "contactLastName",
-        "contactEmail",
-        "contactPhone",
-        "contactRole",
-        "address",
-        "city",
-        "commune",
-        "serviceType",
-        "serviceDuration",
-        "coverageDetails",
-        "guardsPerShift",
-        "numberOfLocations",
-        "startDate",
-        "summary",
-        "industry",
-        "website",
-      ],
-      additionalProperties: false,
-    },
-  },
 };
 
 function buildSystemPrompt(companyName: string, domain: string): string {
@@ -126,7 +69,9 @@ Campos a extraer:
 - industry: rubro del cliente solicitante (construcción, minería, retail, inmobiliaria, energía, etc.)
 - website: sitio web de la empresa solicitante. Buscar URLs en la firma del contacto, cuerpo del correo o datos de la empresa (ej. www.empresa.cl, https://empresa.cl). NO usar sitios de ${companyName} (${domain}). Si encuentras una URL sin protocolo (ej. "www.empresa.cl"), devuélvela con https:// (ej. "https://www.empresa.cl")
 
-Cuando el texto incluye "MENSAJE ORIGINAL" y "CONTEXTO DE LA CONVERSACIÓN": extrae contacto, empresa y datos estructurados SOLO del mensaje original (primer reenvío). El resumen (summary) puede incorporar también lo relevante del contexto de la conversación.`;
+Cuando el texto incluye "MENSAJE ORIGINAL" y "CONTEXTO DE LA CONVERSACIÓN": extrae contacto, empresa y datos estructurados SOLO del mensaje original (primer reenvío). El resumen (summary) puede incorporar también lo relevante del contexto de la conversación.
+
+Responde ÚNICAMENTE con un objeto JSON válido. Todos estos campos son obligatorios (usa "" si no hay dato): companyName, rut, legalName, businessActivity, legalRepresentativeName, contactFirstName, contactLastName, contactEmail, contactPhone, contactRole, address, city, commune, serviceType, serviceDuration, coverageDetails, guardsPerShift, numberOfLocations, startDate, summary, industry, website.`;
 }
 
 /**
@@ -176,6 +121,20 @@ const FORWARD_PATTERNS: RegExp[] = [
 
 const NEXT_BLOCK_REGEX = /\n\s*(?:----------\s*.+|-----\s*(?:Original\s+Message|Mensaje\s+original)\s*-----)/i;
 
+/**
+ * Patrones de respuesta citada (reply, no forward):
+ * - Gmail: "On Wed, Mar 12, 2025 at 1:06 PM X <x@y.com> wrote:"
+ * - Gmail ES: "El 12 mar 2025 13:06, X <x@y.com> escribió:"
+ * - Outlook: "-----Original Message-----" (ya cubierto en FORWARD)
+ */
+const REPLY_QUOTE_PATTERNS: RegExp[] = [
+  /On\s+.+?wrote:/i,
+  /El\s+.+?escribió:/i,
+  /Le\s+.+?écrivit:/i,
+  /Il\s+.+?ha\s+scritto:/i,
+  /Em\s+.+?escreveu:/i,
+];
+
 const MAX_CONTEXT_CHARS = 2500;
 
 /**
@@ -184,6 +143,32 @@ const MAX_CONTEXT_CHARS = 2500;
  */
 export function detectForwardInBody(body: string): boolean {
   return FORWARD_PATTERNS.some((pattern) => pattern.test(body));
+}
+
+/**
+ * Extrae el bloque citado en una respuesta (reply) cuando no hay marcador de forward.
+ * Ej: "Cordialmente, Carlos...\n\nOn Wed, X wrote:\n> texto original"
+ * → devuelve "texto original" (sin los ">" si los hay).
+ */
+function extractQuotedReplyBlock(body: string): string | null {
+  const trimmed = body.trim();
+  if (!trimmed) return null;
+
+  for (const pattern of REPLY_QUOTE_PATTERNS) {
+    const m = trimmed.match(pattern);
+    if (m && m.index !== undefined) {
+      const start = m.index + m[0].length;
+      const quoted = trimmed.slice(start).replace(/^\s*\n?/, "");
+      // Quitar prefijos ">" de líneas citadas
+      const cleaned = quoted
+        .split("\n")
+        .map((line) => line.replace(/^>\s?/, ""))
+        .join("\n")
+        .trim();
+      if (cleaned.length > 30) return cleaned;
+    }
+  }
+  return null;
 }
 
 /**
@@ -197,6 +182,10 @@ const GARBAGE_PATTERNS: RegExp[] = [
   /menú de 1Password/i,
   /Insertar.*tabulador/i,
   /hacia abajo para seleccionar/i,
+  /Press (?:the )?tab to insert/i,
+  /Press (?:the )?(?:down )?arrow to select/i,
+  /autocomplete|autocompletar/i,
+  /sugerencia de .* disponible/i,
 ];
 
 const MIN_VALID_BODY_LENGTH = 50;
@@ -303,9 +292,14 @@ export async function extractLeadFromEmail(params: {
   let conversationContext = "";
   if (isForwarded && textBody) {
     const { firstBlock, conversationContext: ctx } = extractFirstForwardedBlockAndContext(textBody);
-    if (firstBlock) {
+    if (firstBlock && bodyHasForwardMarkers) {
       textBody = firstBlock;
       conversationContext = ctx;
+    } else if (!bodyHasForwardMarkers && fromDomainIsOwn) {
+      const quoted = extractQuotedReplyBlock(textBody);
+      if (quoted && quoted.length > 50) {
+        textBody = quoted;
+      }
     }
   }
 
@@ -333,7 +327,7 @@ export async function extractLeadFromEmail(params: {
     return emptyResult(params.fromEmail || null, "Correo sin contenido extraíble.");
   }
 
-  console.log("[email-lead-extractor] Sending to AI:", {
+  console.log("[email-lead-extractor] Sending to AI (AIService):", {
     subject: params.subject,
     isForwarded,
     fromDomainIsOwn,
@@ -342,32 +336,25 @@ export async function extractLeadFromEmail(params: {
     textBodyLength: textBody.length,
   });
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: buildSystemPrompt(ownCompanyName, ownDomain) },
-      { role: "user", content },
-    ],
-    response_format: EXTRACTOR_SCHEMA,
-    max_tokens: 1500,
-    temperature: 0.2,
-  });
+  const systemPrompt = buildSystemPrompt(ownCompanyName, ownDomain);
+  const fullPrompt = `${systemPrompt}\n\n--- CONTENIDO DEL CORREO ---\n\n${content}`;
 
-  const raw = completion.choices[0]?.message?.content;
-  const finishReason = completion.choices[0]?.finish_reason;
+  let parsed: Record<string, string>;
+  try {
+    const result = await aiService.generateJSON(fullPrompt, 1500);
+    parsed = result && typeof result === "object" ? (result as Record<string, string>) : {};
+  } catch (err) {
+    console.warn("[email-lead-extractor] AIService error (NO_AI_CONFIGURED?):", err);
+    throw err;
+  }
 
-  if (!raw) {
-    console.warn("[email-lead-extractor] No content in AI response, finish_reason:", finishReason);
+  if (!parsed || Object.keys(parsed).length === 0) {
+    console.warn("[email-lead-extractor] No content in AI response");
     return emptyResult(params.fromEmail || null, "No se pudo extraer información.");
   }
 
-  if (finishReason === "length") {
-    console.warn("[email-lead-extractor] AI response truncated (finish_reason=length), raw length:", raw.length);
-  }
-
   try {
-    const parsed = JSON.parse(raw) as Record<string, string>;
-    const str = (key: string) => parsed[key]?.trim() || null;
+    const str = (key: string) => (parsed[key] != null ? String(parsed[key]).trim() : "") || null;
 
     const result: ExtractedLeadData = {
       companyName: str("companyName"),
@@ -396,13 +383,13 @@ export async function extractLeadFromEmail(params: {
 
     const criticalEmpty = !result.contactFirstName && !result.contactEmail && !result.companyName && !result.summary;
     if (criticalEmpty) {
-      console.warn("[email-lead-extractor] AI returned all critical fields empty. Raw:", raw.slice(0, 500));
+      console.warn("[email-lead-extractor] AI returned all critical fields empty. Raw:", JSON.stringify(parsed).slice(0, 500));
     }
 
     return result;
   } catch (parseErr) {
-    console.error("[email-lead-extractor] JSON parse failed:", parseErr, "raw:", raw.slice(0, 500));
-    return emptyResult(params.fromEmail || null, raw.slice(0, 500));
+    console.error("[email-lead-extractor] Parse failed:", parseErr, "parsed:", JSON.stringify(parsed).slice(0, 500));
+    return emptyResult(params.fromEmail || null, JSON.stringify(parsed).slice(0, 500));
   }
 }
 

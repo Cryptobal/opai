@@ -56,9 +56,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const normalizedInbound = INBOUND_LEADS_TO.toLowerCase().replace(/\s/g, "");
+    const targetEmail = INBOUND_LEADS_TO.toLowerCase().trim();
+    const extractEmail = (addr: string): string => {
+      const s = (addr || "").trim();
+      const match = s.match(/<([^>]+)>/);
+      return match ? match[1].toLowerCase().trim() : s.toLowerCase();
+    };
     const isForLeads = allRecipients.some(
-      (addr: string) => (addr || "").toLowerCase().replace(/\s/g, "") === normalizedInbound
+      (addr: string) => extractEmail(addr) === targetEmail
     );
     if (!isForLeads) {
       console.log("[inbound-email] Skipped: recipient not matched", {
@@ -66,9 +71,12 @@ export async function POST(request: NextRequest) {
         cc: ccList,
         bcc: bccList,
         expected: INBOUND_LEADS_TO,
+        hint: "Si envías a 'Leads' como contacto, verifica que el email sea leads@inbound.gard.cl",
       });
       return NextResponse.json({ success: true, skipped: "wrong_recipient" });
     }
+
+    console.log("[inbound-email] Processing for leads", { from, subject, to: toList });
 
     const tenantId = await getDefaultTenantId();
 
@@ -89,7 +97,7 @@ export async function POST(request: NextRequest) {
     const attachments = email.attachments || [];
 
     if (isGarbageEmail({ textBody: text, htmlBody: html, subject })) {
-      console.log("[inbound-email] Skipped: garbage content (autocomplete, 1Password, etc.)");
+      console.log("[inbound-email] Skipped: garbage content", { from, subject });
       return NextResponse.json({ success: true, skipped: "garbage_content" });
     }
 

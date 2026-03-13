@@ -97,3 +97,28 @@ En la doc de Resend Inbound: avisar que no se deben enviar correos de prueba, au
 1. **Fase 1**: Añadir `isGarbageEmail()` en `email-lead-extractor.ts` con los patrones de basura.
 2. **Fase 2**: En `inbound-email/route.ts`, llamar a `isGarbageEmail()` antes de `extractLeadFromEmail`; si es basura → `return { success: true, skipped: "garbage_content" }`.
 3. **Fase 3** (opcional): Añadir umbral de longitud mínima del cuerpo.
+
+---
+
+## Correcciones adicionales (análisis profundo)
+
+### Problema: matching de destinatario fallaba
+
+Cuando se envía a **"Leads"** como contacto, el campo `to` puede venir como `"Leads <leads@inbound.gard.cl>"`. La comparación anterior hacía `replace(/\s/g, "")` y comparaba con `"leads@inbound.gard.cl"`, resultando en `"leads<leads@inbound.gard.cl>" !== "leads@inbound.gard.cl"` → **skipped: wrong_recipient** para todos los correos.
+
+**Fix**: Extraer el email de direcciones tipo `"Name <email>"` antes de comparar.
+
+### Problema: respuestas (reply) vs reenvíos (forward)
+
+Si Carlos **responde** al correo de Jaime añadiendo "Leads" como destinatario (en lugar de reenviar), el formato es distinto:
+- No hay "---------- Forwarded message ----------"
+- Hay "On [date], [name] wrote:" o "El [date], [name] escribió:"
+- El mensaje original está citado con ">"
+
+**Fix**: Añadir `extractQuotedReplyBlock()` para detectar y extraer el bloque citado en respuestas.
+
+### Problema: patrones de basura incompletos
+
+Solo teníamos patrones en español. Clientes en inglés (1Password, etc.) usan "Press tab to insert", "Press arrow to select".
+
+**Fix**: Ampliar `GARBAGE_PATTERNS` con variantes en inglés.
