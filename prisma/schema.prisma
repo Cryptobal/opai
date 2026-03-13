@@ -1416,7 +1416,8 @@ model CrmInstallation {
   lat             Float?
   lng             Float?
   status          CrmInstallationStatus  @default(prospect)
-  geoRadiusM      Int       @default(100) @map("geo_radius_m")
+  isActive        Boolean   @default(true) @map("is_active") // legacy compat, synced from status via trigger
+  geoRadiusM      Int       @default(1000) @map("geo_radius_m")
   marcacionCode   String?   @unique @map("marcacion_code") // código único 8 chars para URL/QR
   pairingCode     String?   @unique @map("pairing_code")
   teMontoClp      Decimal   @default(0) @map("te_monto_clp") @db.Decimal(12, 2)
@@ -1485,6 +1486,7 @@ model CrmInstallation {
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
   @@index([status], map: "idx_crm_installations_status")
+  @@index([isActive], map: "idx_crm_installations_is_active")
   @@index([leadId], map: "idx_crm_installations_lead")
   @@map("installations")
   @@schema("crm")

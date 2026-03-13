@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
+import { MapCoordinatePicker } from "@/components/ui/MapCoordinatePicker";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
@@ -403,7 +404,7 @@ function MarcacionRondasSection({ installation }: { installation: InstallationDe
       <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
         <MapPin className="h-4 w-4 text-blue-400 shrink-0" />
         <p className="text-xs text-blue-300">
-          Radio de validación GPS: <strong>{installation.geoRadiusM ?? 100}m</strong>.
+          Radio de validación GPS: <strong>{installation.geoRadiusM ?? 1000}m</strong>.
           Las marcaciones fuera de este radio se registran con advertencia.
         </p>
       </div>
@@ -1812,12 +1813,18 @@ export function CrmInstallationDetailClient({
     commune: installation.commune || "",
     lat: installation.lat ?? null as number | null,
     lng: installation.lng ?? null as number | null,
+    geoRadiusM: installation.geoRadiusM ?? 1000,
     teMontoClp: Number(installation.teMontoClp) || 0,
     notes: installation.notes || "",
     startDate: installation.startDate ? new Date(installation.startDate).toISOString().slice(0, 10) : "",
     endDate: installation.endDate ? new Date(installation.endDate).toISOString().slice(0, 10) : "",
   });
   const [saving, setSaving] = useState(false);
+
+  // ── Map modal (ajustar georreferencia) ──
+  const [mapModalOpen, setMapModalOpen] = useState(false);
+  const [mapModalCoords, setMapModalCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapModalSaving, setMapModalSaving] = useState(false);
 
   const openEdit = () => {
     setEditForm({
@@ -1827,12 +1834,43 @@ export function CrmInstallationDetailClient({
       commune: installation.commune || "",
       lat: installation.lat ?? null,
       lng: installation.lng ?? null,
+      geoRadiusM: installation.geoRadiusM ?? 1000,
       teMontoClp: Number(installation.teMontoClp) || 0,
       notes: installation.notes || "",
       startDate: installation.startDate ? new Date(installation.startDate).toISOString().slice(0, 10) : "",
       endDate: installation.endDate ? new Date(installation.endDate).toISOString().slice(0, 10) : "",
     });
     setEditOpen(true);
+  };
+
+  const openMapModal = () => {
+    if (installation.lat != null && installation.lng != null) {
+      setMapModalCoords({ lat: installation.lat, lng: installation.lng });
+    } else {
+      setMapModalCoords({ lat: -33.4489, lng: -70.6693 });
+    }
+    setMapModalOpen(true);
+  };
+
+  const saveMapCoords = async () => {
+    if (!mapModalCoords) return;
+    setMapModalSaving(true);
+    try {
+      const res = await fetch(`/api/crm/installations/${installation.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat: mapModalCoords.lat, lng: mapModalCoords.lng }),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) throw new Error(payload?.error || "No se pudo guardar");
+      toast.success("Ubicación actualizada");
+      setMapModalOpen(false);
+      router.refresh();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar la ubicación.");
+    } finally {
+      setMapModalSaving(false);
+    }
   };
 
   const handleAddressChange = (result: AddressResult) => {
@@ -1976,6 +2014,11 @@ export function CrmInstallationDetailClient({
             fullWidth
           />
         )}
+        <DetailField
+          label="Radio validación GPS"
+          value={`${installation.geoRadiusM ?? 1000} m`}
+          icon={<MapPin className="h-3 w-3" />}
+        />
         <DetailField label="Fecha creación" value={installation.createdAt ? new Date(installation.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
         <DetailField label="Última modificación" value={installation.updatedAt ? new Date(installation.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
         {/* Control Nocturno toggle */}
@@ -2030,29 +2073,40 @@ export function CrmInstallationDetailClient({
         </div>
       </DetailFieldGrid>
 
-      {/* Mapa */}
-      {hasCoords && MAPS_KEY ? (
-        <a
-          href={`https://www.google.com/maps/@${installation.lat},${installation.lng},17z`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4 lg:mt-0 shrink-0 block rounded-lg overflow-hidden border border-border hover:opacity-95 transition-opacity lg:w-[220px] lg:h-[160px]"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`https://maps.googleapis.com/maps/api/staticmap?center=${installation.lat},${installation.lng}&zoom=16&size=440x320&scale=2&markers=color:red%7C${installation.lat},${installation.lng}&key=${MAPS_KEY}`}
-            alt={`Mapa de ${installation.name}`}
-            className="w-full h-[140px] lg:h-[130px] object-cover"
-          />
-          <div className="flex items-center justify-center gap-1 py-1.5 text-xs text-muted-foreground hover:text-foreground">
-            <ExternalLink className="h-3 w-3" />
-            Google Maps
-          </div>
-        </a>
+      {/* Mapa (clic para abrir modal y ajustar pin) */}
+      {MAPS_KEY ? (
+        hasCoords ? (
+          <button
+            type="button"
+            onClick={openMapModal}
+            className="mt-4 lg:mt-0 shrink-0 block rounded-lg overflow-hidden border border-border hover:opacity-95 hover:ring-2 hover:ring-primary/50 transition-all lg:w-[220px] lg:h-[160px] text-left"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`https://maps.googleapis.com/maps/api/staticmap?center=${installation.lat},${installation.lng}&zoom=16&size=440x320&scale=2&markers=color:red%7C${installation.lat},${installation.lng}&key=${MAPS_KEY}`}
+              alt={`Mapa de ${installation.name}`}
+              className="w-full h-[140px] lg:h-[130px] object-cover"
+            />
+            <div className="flex items-center justify-center gap-1 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+              <MapPin className="h-3 w-3" />
+              Clic para ajustar ubicación
+            </div>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={openMapModal}
+            className="mt-4 lg:mt-0 shrink-0 lg:w-[220px] flex flex-col items-center justify-center rounded-lg border border-dashed border-border p-4 hover:border-primary/50 hover:bg-muted/30 transition-colors"
+          >
+            <MapPin className="h-8 w-8 text-muted-foreground mb-2" />
+            <p className="text-xs text-muted-foreground text-center">Sin ubicación</p>
+            <p className="text-xs text-primary mt-1">Clic para definir</p>
+          </button>
+        )
       ) : (
         <div className="mt-4 lg:mt-0 shrink-0 lg:w-[220px] flex items-center justify-center rounded-lg border border-dashed border-border p-4">
           <p className="text-xs text-muted-foreground text-center">
-            {hasCoords && !MAPS_KEY ? "Configura GOOGLE_MAPS_API_KEY" : "Sin ubicación"}
+            Configura GOOGLE_MAPS_API_KEY para el mapa
           </p>
         </div>
       )}
@@ -2480,6 +2534,25 @@ export function CrmInstallationDetailClient({
               </div>
             </div>
             <div className="space-y-2">
+              <Label>Radio validación GPS (metros)</Label>
+              <Input
+                type="number"
+                min={10}
+                max={1000}
+                value={editForm.geoRadiusM}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  setEditForm((p) => ({ ...p, geoRadiusM: Number.isNaN(v) ? 1000 : Math.min(1000, Math.max(10, v)) }));
+                }}
+                placeholder="1000"
+                className="bg-background text-foreground border-input"
+                disabled={saving}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Rango de tolerancia para visitas de supervisores, marcaciones y rondas (10–1000 m). Por defecto 1000 m.
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label>Valor turno extra (CLP)</Label>
               <Input
                 type="text"
@@ -2537,6 +2610,39 @@ export function CrmInstallationDetailClient({
             <Button onClick={saveEdit} disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal mapa: ajustar georreferencia arrastrando el pin */}
+      <Dialog open={mapModalOpen} onOpenChange={setMapModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Ajustar ubicación de la instalación</DialogTitle>
+            <DialogDescription>
+              Arrastra el pin o haz clic en el mapa para fijar la georreferencia exacta. Usada para validar visitas de supervisores, marcaciones y rondas.
+            </DialogDescription>
+          </DialogHeader>
+          {mapModalCoords && (
+            <div className="space-y-3">
+              <MapCoordinatePicker
+                lat={mapModalCoords.lat}
+                lng={mapModalCoords.lng}
+                onChange={(c) => setMapModalCoords(c)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Coordenadas: {mapModalCoords.lat.toFixed(6)}, {mapModalCoords.lng.toFixed(6)}
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMapModalOpen(false)} disabled={mapModalSaving}>
+              Cancelar
+            </Button>
+            <Button onClick={saveMapCoords} disabled={mapModalSaving || !mapModalCoords}>
+              {mapModalSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Guardar ubicación
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         lat: body.lat || null,
         lng: body.lng || null,
         status: body.status ?? "prospect",
-        geoRadiusM: body.geoRadiusM ?? 100,
+        geoRadiusM: body.geoRadiusM ?? 1000,
         teMontoClp: body.teMontoClp ?? 0,
         notes: body.notes || null,
       },
