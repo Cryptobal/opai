@@ -9,8 +9,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DOCUMENT_TYPES } from "@/lib/personas";
 import { cn } from "@/lib/utils";
 import { FilePreviewModal } from "@/components/ui/FilePreviewModal";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
