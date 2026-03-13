@@ -366,7 +366,7 @@ export async function getChatChannelRecipients(
 
   if (channel.channelType === 'INSTALLATION' && channel.installationId) {
     const guards = await prisma.opsAsignacionGuardia.findMany({
-      where: { tenantId, installationId: channel.installationId, status: "active" },
+      where: { tenantId, installationId: channel.installationId, isActive: true },
       select: { guardiaId: true },
       distinct: ['guardiaId'],
     });
