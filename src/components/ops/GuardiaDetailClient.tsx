@@ -9,6 +9,7 @@ import {
   Briefcase,
   CalendarDays,
   ChevronDown,
+  Clock,
   FileText,
   History,
   Loader2,
@@ -70,6 +71,7 @@ import RondasSection from "@/components/ops/guardia-sections/RondasSection";
 import DocumentosSection from "@/components/ops/guardia-sections/DocumentosSection";
 import { FileAttachments } from "@/components/crm/FileAttachments";
 import { GuardiaDesempenoTab } from "@/components/gamification";
+import { GuardiaMarcacionesTab } from "./GuardiaMarcacionesTab";
 import CommunicationSection from "@/components/ops/guardia-sections/CommunicationSection";
 import DiasTrabajadesSection from "@/components/ops/guardia-sections/DiasTrabajadesSection";
 import TurnosExtraSection from "@/components/ops/guardia-sections/TurnosExtraSection";
@@ -222,7 +224,7 @@ const LIFECYCLE_COLORS: Record<string, string> = {
   inactivo: "bg-red-500/20 text-red-400 border-red-500/30",
 };
 
-type TabKey = "perfil" | "operaciones" | "contractual" | "eventos_laborales" | "documentos" | "actividad" | "desempeno";
+type TabKey = "perfil" | "operaciones" | "contractual" | "eventos_laborales" | "documentos" | "actividad" | "desempeno" | "marcaciones";
 
 const TABS: { key: TabKey; label: string; icon: typeof User }[] = [
   { key: "perfil", label: "Perfil", icon: User },
@@ -232,6 +234,7 @@ const TABS: { key: TabKey; label: string; icon: typeof User }[] = [
   { key: "documentos", label: "Documentos", icon: FileText },
   { key: "actividad", label: "Actividad", icon: History },
   { key: "desempeno", label: "Desempe\u00f1o", icon: TrendingUp },
+  { key: "marcaciones", label: "Marcaciones", icon: Clock },
 ];
 
 function toDateInput(val: string | Date | undefined | null): string {
@@ -652,19 +655,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         );
       case "desempeno":
         return <GuardiaDesempenoTab guardiaId={guardia.id} />;
+      case "marcaciones":
+        return <GuardiaMarcacionesTab guardiaId={guardia.id} />;
     }
   };
 
   const associatedSections: AssociatedSection[] = [
-    {
-      id: "marcaciones",
-      label: "Marcaciones",
-      content: (
-        <div className="py-6 text-center text-sm text-muted-foreground">
-          Historial de marcaciones próximamente.
-        </div>
-      ),
-    },
     {
       id: "asignacion",
       label: "Asignación",
