@@ -880,46 +880,45 @@ model PayrollAttendancePeriod {
 // ============================================
 
 model CpqQuote {
-  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId          String    @map("tenant_id")
-  code              String    @unique @map("code")
-  name              String?   @map("name")
-  status            String    @default("draft")
-  clientName        String?   @map("client_name")
-  validUntil        DateTime? @map("valid_until") @db.Date
-  notes             String?
-  totalPositions    Int       @default(0) @map("total_positions")
-  totalGuards       Int       @default(0) @map("total_guards")
-  monthlyCost       Decimal   @default(0) @map("monthly_cost") @db.Decimal(12, 2)
-  // CRM context (optional - a quote can exist without CRM)
-  accountId         String?   @map("account_id") @db.Uuid
-  contactId         String?   @map("contact_id") @db.Uuid
-  dealId            String?   @map("deal_id") @db.Uuid
-  installationId    String?   @map("installation_id") @db.Uuid
-  createdFromLeadId String?   @map("created_from_lead_id") @db.Uuid
-  // Currency & AI
-  currency          String    @default("CLP") // "CLP" | "UF"
-  aiDescription     String?   @map("ai_description")
-  serviceDetail     String?   @map("service_detail")
-  // Commercial conditions
-  paymentTerms      String    @default("contrafactura") @map("payment_terms")
-  serviceStartDays  Int       @default(5) @map("service_start_days")
-  contractDuration  Int       @default(12) @map("contract_duration")
-  includedItems     String[]  @default([]) @map("included_items")
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId            String    @map("tenant_id")
+  code                String    @unique @map("code")
+  name                String?   @map("name")
+  status              String    @default("draft")
+  clientName          String?   @map("client_name")
+  validUntil          DateTime? @map("valid_until") @db.Date
+  notes               String?
+  totalPositions      Int       @default(0) @map("total_positions")
+  totalGuards         Int       @default(0) @map("total_guards")
+  monthlyCost         Decimal   @default(0) @map("monthly_cost") @db.Decimal(12, 2)
+  accountId           String?   @map("account_id") @db.Uuid
+  contactId           String?   @map("contact_id") @db.Uuid
+  dealId              String?   @map("deal_id") @db.Uuid
+  installationId      String?   @map("installation_id") @db.Uuid
+  createdFromLeadId   String?   @map("created_from_lead_id") @db.Uuid
+  proposalTemplateId  String?   @map("proposal_template_id") @db.Uuid
+  currency            String    @default("CLP")
+  aiDescription       String?   @map("ai_description")
+  serviceDetail       String?   @map("service_detail")
+  paymentTerms        String    @default("contrafactura") @map("payment_terms")
+  serviceStartDays    Int       @default(5) @map("service_start_days")
+  contractDuration    Int       @default(12) @map("contract_duration")
+  includedItems       String[]  @default([]) @map("included_items")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  positions      CpqPosition[]
-  parameters     CpqQuoteParameters?
-  uniformItems   CpqQuoteUniformItem[]
-  examItems      CpqQuoteExamItem[]
-  costItems      CpqQuoteCostItem[]
-  meals          CpqQuoteMeal[]
+  positions        CpqPosition[]
+  parameters       CpqQuoteParameters?
+  uniformItems     CpqQuoteUniformItem[]
+  examItems        CpqQuoteExamItem[]
+  costItems        CpqQuoteCostItem[]
+  meals            CpqQuoteMeal[]
   vehicles         CpqQuoteVehicle[]
   infrastructure   CpqQuoteInfrastructure[]
   additionalLines  CpqQuoteAdditionalLine[]
-  attachments     CpqQuoteAttachment[]
+  attachments      CpqQuoteAttachment[]
   installation     CrmInstallation?         @relation(fields: [installationId], references: [id], onDelete: SetNull)
+  proposalTemplate CpqProposalTemplate?     @relation(fields: [proposalTemplateId], references: [id])
 
   @@index([tenantId], map: "idx_cpq_quotes_tenant")
   @@index([status], map: "idx_cpq_quotes_status")
@@ -927,7 +926,45 @@ model CpqQuote {
   @@index([accountId], map: "idx_cpq_quotes_account")
   @@index([dealId], map: "idx_cpq_quotes_deal")
   @@index([installationId], map: "idx_cpq_quotes_installation")
+  @@index([proposalTemplateId], map: "idx_cpq_quotes_proposal_template")
   @@map("quotes")
+  @@schema("cpq")
+}
+
+model CpqProposalTemplate {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String?  @map("tenant_id")
+  name        String   @db.VarChar(100)
+  slug        String   @db.VarChar(50)
+  description String?  @db.Text
+  sections    Json     @default("{}") @db.JsonB
+  isDefault   Boolean  @default(false) @map("is_default")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  quotes CpqQuote[]
+
+  @@unique([tenantId, slug], map: "uq_cpq_proposal_template_tenant_slug")
+  @@index([tenantId], map: "idx_cpq_proposal_templates_tenant")
+  @@map("proposal_templates")
+  @@schema("cpq")
+}
+
+model CpqCostCategory {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String?  @map("tenant_id")
+  name      String   @db.VarChar(100)
+  slug      String   @db.VarChar(50)
+  type      String   @default("direct") @db.VarChar(20)
+  icon      String?  @db.VarChar(30)
+  sortOrder Int      @default(0) @map("sort_order")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, slug], map: "uq_cpq_cost_category_tenant_slug")
+  @@index([tenantId], map: "idx_cpq_cost_categories_tenant")
+  @@map("cost_categories")
   @@schema("cpq")
 }
 
@@ -972,7 +1009,8 @@ model CpqPosition {
 
 model CpqPuestoTrabajo {
   id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name      String   @unique
+  tenantId  String?  @map("tenant_id")
+  name      String
   colorHex  String?  @map("color_hex")
   active    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -981,6 +1019,7 @@ model CpqPuestoTrabajo {
   positions  CpqPosition[]
   opsPuestos OpsPuestoOperativo[]
 
+  @@unique([tenantId, name], map: "uq_cpq_puesto_tenant_name")
   @@index([active], map: "idx_cpq_puestos_active")
   @@map("puestos_trabajo")
   @@schema("cpq")
@@ -988,7 +1027,8 @@ model CpqPuestoTrabajo {
 
 model CpqCargo {
   id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name        String   @unique
+  tenantId    String?  @map("tenant_id")
+  name        String
   description String?
   colorHex    String?  @map("color_hex")
   active      Boolean  @default(true)
@@ -998,6 +1038,7 @@ model CpqCargo {
   positions  CpqPosition[]
   opsPuestos OpsPuestoOperativo[]
 
+  @@unique([tenantId, name], map: "uq_cpq_cargo_tenant_name")
   @@index([active], map: "idx_cpq_cargos_active")
   @@map("cargos")
   @@schema("cpq")
@@ -1005,7 +1046,8 @@ model CpqCargo {
 
 model CpqRol {
   id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name        String   @unique
+  tenantId    String?  @map("tenant_id")
+  name        String
   description String?
   colorHex    String?  @map("color_hex")
   patternWork Int?     @map("pattern_work")
@@ -1017,6 +1059,7 @@ model CpqRol {
   positions  CpqPosition[]
   opsPuestos OpsPuestoOperativo[]
 
+  @@unique([tenantId, name], map: "uq_cpq_rol_tenant_name")
   @@index([active], map: "idx_cpq_roles_active")
   @@map("roles")
   @@schema("cpq")
@@ -1065,6 +1108,7 @@ model CpqQuoteParameters {
   contractMonths        Int      @default(12) @map("contract_months")
   contractAmount        Decimal  @default(0) @map("contract_amount") @db.Decimal(14, 2)
   marginPct             Decimal  @default(13) @map("margin_pct") @db.Decimal(6, 2)
+  marginMode            String   @default("margin_on_sale") @map("margin_mode") @db.VarChar(30)
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -1111,20 +1155,26 @@ model CpqQuoteExamItem {
 }
 
 model CpqQuoteCostItem {
-  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  quoteId           String   @map("quote_id") @db.Uuid
-  catalogItemId     String   @map("catalog_item_id") @db.Uuid
-  calcMode          String   @default("per_month") @map("calc_mode")
-  quantity          Decimal  @default(1) @db.Decimal(12, 2)
-  unitPriceOverride Decimal? @map("unit_price_override") @db.Decimal(12, 2)
-  isEnabled         Boolean  @default(true) @map("is_enabled")
-  visibility        String   @default("visible")
-  notes             String?
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  quoteId            String   @map("quote_id") @db.Uuid
+  catalogItemId      String?  @map("catalog_item_id") @db.Uuid
+  calcMode           String   @default("per_month") @map("calc_mode")
+  quantity           Decimal  @default(1) @db.Decimal(12, 2)
+  unitPriceOverride  Decimal? @map("unit_price_override") @db.Decimal(12, 2)
+  isEnabled          Boolean  @default(true) @map("is_enabled")
+  visibility         String   @default("visible")
+  notes              String?
+  customName         String?  @map("custom_name") @db.VarChar(200)
+  customType         String?  @map("custom_type") @db.VarChar(50)
+  customCategory     String?  @map("custom_category") @db.VarChar(50)
+  isAmortizable      Boolean  @default(false) @map("is_amortizable")
+  investmentAmount   Decimal? @map("investment_amount") @db.Decimal(14, 2)
+  amortizationMonths Int?     @map("amortization_months")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  quote       CpqQuote       @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  catalogItem CpqCatalogItem @relation(fields: [catalogItemId], references: [id])
+  quote       CpqQuote        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  catalogItem CpqCatalogItem? @relation(fields: [catalogItemId], references: [id])
 
   @@index([quoteId], map: "idx_cpq_cost_quote")
   @@index([catalogItemId], map: "idx_cpq_cost_catalog")
@@ -1204,6 +1254,10 @@ model CpqQuoteAdditionalLine {
   descripcion String?  @db.Text
   precio      Decimal  @default(0) @db.Decimal(12, 0)
   orden       Int      @default(0)
+  tipo        String   @default("servicio") @db.VarChar(30)
+  recurrencia String   @default("mensual") @db.VarChar(20)
+  cantidad    Int      @default(1)
+  marginPct   Decimal? @map("margin_pct") @db.Decimal(6, 2)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -1255,6 +1309,11 @@ model CrmLead {
   website            String?
   serviceType        String?   @map("service_type")
   metadata           Json?     @db.JsonB
+  geographicZone     String?   @map("geographic_zone") @db.VarChar(30)
+  industryType       String?   @map("industry_type") @db.VarChar(30)
+  requiredEquipment  String[]  @default([]) @map("required_equipment")
+  preferredShift     String?   @map("preferred_shift") @db.VarChar(20)
+  estimatedDuration  Int?      @map("estimated_duration")
   approvedAt         DateTime? @map("approved_at") @db.Timestamptz(6)
   approvedBy         String?   @map("approved_by")
   convertedAccountId String?   @map("converted_account_id") @db.Uuid

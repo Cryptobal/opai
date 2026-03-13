@@ -550,11 +550,12 @@ export async function POST(
 
       // ── Instalaciones + Cotización CPQ ──
       // Obtener defaults y catálogos CPQ activos
-      const defaultCargo = await tx.cpqCargo.findFirst({ where: { active: true }, orderBy: { name: "asc" } });
-      const defaultRol = await tx.cpqRol.findFirst({ where: { active: true }, orderBy: { name: "asc" } });
+      const tenantOrShared = { OR: [{ tenantId: ctx.tenantId }, { tenantId: null }] };
+      const defaultCargo = await tx.cpqCargo.findFirst({ where: { active: true, ...tenantOrShared }, orderBy: { name: "asc" } });
+      const defaultRol = await tx.cpqRol.findFirst({ where: { active: true, ...tenantOrShared }, orderBy: { name: "asc" } });
       const [activeCargos, activeRoles] = await Promise.all([
-        tx.cpqCargo.findMany({ where: { active: true }, select: { id: true } }),
-        tx.cpqRol.findMany({ where: { active: true }, select: { id: true } }),
+        tx.cpqCargo.findMany({ where: { active: true, ...tenantOrShared }, select: { id: true } }),
+        tx.cpqRol.findMany({ where: { active: true, ...tenantOrShared }, select: { id: true } }),
       ]);
       const activeCargoIds = new Set(activeCargos.map((c) => c.id));
       const activeRolIds = new Set(activeRoles.map((r) => r.id));
@@ -696,7 +697,7 @@ export async function POST(
 
               if (requestedPuestoTrabajoId) {
                 const existingPuesto = await tx.cpqPuestoTrabajo.findFirst({
-                  where: { id: requestedPuestoTrabajoId, active: true },
+                  where: { id: requestedPuestoTrabajoId, active: true, ...tenantOrShared },
                   select: { id: true, name: true },
                 });
                 if (existingPuesto) {
@@ -704,7 +705,7 @@ export async function POST(
                   puestoNameToUse = existingPuesto.name;
                 } else {
                   const fallbackPuesto = await tx.cpqPuestoTrabajo.findFirst({
-                    where: { name: { equals: fallbackPuestoName, mode: "insensitive" } },
+                    where: { name: { equals: fallbackPuestoName, mode: "insensitive" }, ...tenantOrShared },
                     select: { id: true, name: true },
                   });
                   if (fallbackPuesto) {
@@ -712,7 +713,7 @@ export async function POST(
                     puestoNameToUse = fallbackPuesto.name;
                   } else {
                     const createdPuesto = await tx.cpqPuestoTrabajo.create({
-                      data: { name: fallbackPuestoName, active: true },
+                      data: { tenantId: ctx.tenantId, name: fallbackPuestoName, active: true },
                       select: { id: true, name: true },
                     });
                     puestoIdToUse = createdPuesto.id;
@@ -721,7 +722,7 @@ export async function POST(
                 }
               } else {
                 const fallbackPuesto = await tx.cpqPuestoTrabajo.findFirst({
-                  where: { name: { equals: fallbackPuestoName, mode: "insensitive" } },
+                  where: { name: { equals: fallbackPuestoName, mode: "insensitive" }, ...tenantOrShared },
                   select: { id: true, name: true },
                 });
                 if (fallbackPuesto) {
@@ -729,7 +730,7 @@ export async function POST(
                   puestoNameToUse = fallbackPuesto.name;
                 } else {
                   const createdPuesto = await tx.cpqPuestoTrabajo.create({
-                    data: { name: fallbackPuestoName, active: true },
+                    data: { tenantId: ctx.tenantId, name: fallbackPuestoName, active: true },
                     select: { id: true, name: true },
                   });
                   puestoIdToUse = createdPuesto.id;

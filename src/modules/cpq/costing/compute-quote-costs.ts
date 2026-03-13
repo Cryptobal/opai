@@ -11,6 +11,8 @@ interface QuoteCostSummary {
   monthlyVehicles: number;
   monthlyInfrastructure: number;
   monthlyCostItems: number;
+  costsBase: number;
+  baseWithMargin: number;
   monthlyFinancial: number;
   monthlyPolicy: number;
   monthlyExtras: number;
@@ -302,7 +304,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   const marginPct = normalizePct(safeNumber(parameters?.marginPct ?? 13));
   const baseWithMargin = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
 
-  const financialEnabled = true;
+  const financialEnabled = parameters?.financialEnabled ?? false;
   const policyEnabled = parameters?.policyEnabled ?? false;
   const salePriceBase = safeNumber(parameters?.salePriceBase ?? 0);
   const effectiveSalePriceBase = salePriceBase > 0 ? salePriceBase : baseWithMargin;
@@ -348,6 +350,8 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     monthlyVehicles,
     monthlyInfrastructure,
     monthlyCostItems,
+    costsBase,
+    baseWithMargin,
     monthlyFinancial,
     monthlyPolicy,
     monthlyExtras,

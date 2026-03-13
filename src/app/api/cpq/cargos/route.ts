@@ -26,7 +26,10 @@ export async function GET(request: NextRequest) {
     const active = searchParams.get("active");
 
     const cargos = await prisma.cpqCargo.findMany({
-      where: active ? { active: active === "true" } : undefined,
+      where: {
+        OR: [{ tenantId: ctx.tenantId }, { tenantId: null }],
+        ...(active ? { active: active === "true" } : {}),
+      },
       orderBy: { name: "asc" },
     });
 
@@ -57,6 +60,7 @@ export async function POST(request: NextRequest) {
 
     const cargo = await prisma.cpqCargo.create({
       data: {
+        tenantId: ctx.tenantId,
         name: body.name.trim(),
         description: body.description?.trim() || null,
         colorHex: normalizeColorHex(body.colorHex),

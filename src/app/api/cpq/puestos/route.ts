@@ -26,7 +26,10 @@ export async function GET(request: NextRequest) {
     const active = searchParams.get("active");
 
     const puestos = await prisma.cpqPuestoTrabajo.findMany({
-      where: active ? { active: active === "true" } : undefined,
+      where: {
+        OR: [{ tenantId: ctx.tenantId }, { tenantId: null }],
+        ...(active ? { active: active === "true" } : {}),
+      },
       orderBy: { name: "asc" },
     });
 
@@ -57,6 +60,7 @@ export async function POST(request: NextRequest) {
 
     const puesto = await prisma.cpqPuestoTrabajo.create({
       data: {
+        tenantId: ctx.tenantId,
         name: body.name.trim(),
         colorHex: normalizeColorHex(body.colorHex),
         active: body.active ?? true,

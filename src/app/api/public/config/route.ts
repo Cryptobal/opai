@@ -26,7 +26,7 @@ export async function GET() {
     // Fetch active puestos de trabajo and industries from catalogs
     const [puestos, industries] = await Promise.all([
       prisma.cpqPuestoTrabajo.findMany({
-        where: { active: true },
+        where: { active: true, tenantId: null },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),

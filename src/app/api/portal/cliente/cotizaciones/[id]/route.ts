@@ -179,10 +179,11 @@ export async function GET(
         costItems.reduce((sum, item) => {
           if (!item.isEnabled) return sum;
           const cat = item.catalogItem;
-          if (!cat || !types.includes(cat.type)) return sum;
-          const base = Number(cat.basePrice || 0);
+          const itemType = item.customType ?? cat?.type;
+          if (!itemType || !types.includes(itemType)) return sum;
+          const base = Number(cat?.basePrice || 0);
           const override = item.unitPriceOverride != null ? Number(item.unitPriceOverride) : null;
-          const unitPrice = normalizeUnit(override ?? base, cat.unit);
+          const unitPrice = normalizeUnit(override ?? base, cat?.unit);
           const quantity = Number(item.quantity ?? 1);
           if (item.calcMode === "per_guard") return sum + unitPrice * quantity * totalGuards;
           return sum + unitPrice * quantity;

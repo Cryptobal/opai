@@ -27,6 +27,16 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const { id } = await params;
     const body = await request.json();
 
+    const existing = await prisma.cpqRol.findFirst({
+      where: { id, OR: [{ tenantId: ctx.tenantId }, { tenantId: null }] },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Rol no encontrado" },
+        { status: 404 }
+      );
+    }
+
     if (!body.name?.trim()) {
       return NextResponse.json(
         { success: false, error: "Nombre es requerido" },
@@ -84,6 +94,16 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     if (forbiddenMod) return forbiddenMod;
 
     const { id } = await params;
+
+    const existing = await prisma.cpqRol.findFirst({
+      where: { id, OR: [{ tenantId: ctx.tenantId }, { tenantId: null }] },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Rol no encontrado" },
+        { status: 404 }
+      );
+    }
 
     await prisma.cpqRol.update({
       where: { id },

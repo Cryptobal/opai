@@ -148,20 +148,10 @@ export async function buildQuotationProps(
     },
   );
 
-  // Total sale price
   let totalSalePrice = 0;
   if (summary) {
-    const costsBase =
-      summary.monthlyPositions +
-      (summary.monthlyUniforms ?? 0) +
-      (summary.monthlyExams ?? 0) +
-      (summary.monthlyMeals ?? 0) +
-      (summary.monthlyVehicles ?? 0) +
-      (summary.monthlyInfrastructure ?? 0) +
-      (summary.monthlyCostItems ?? 0);
-    const baseWithMargin = margin < 1 ? costsBase / (1 - margin) : costsBase;
     totalSalePrice =
-      baseWithMargin +
+      (summary.baseWithMargin ?? 0) +
       (summary.monthlyFinancial ?? 0) +
       (summary.monthlyPolicy ?? 0);
   }
@@ -205,7 +195,7 @@ export async function buildQuotationProps(
           return sum + unitPrice * qty;
         }, 0);
 
-      const subtotalBase =
+      const subtotalBase = summary.costsBase ?? (
         summary.monthlyPositions +
         summary.monthlyHolidayAdjustment +
         summary.monthlyUniforms +
@@ -213,7 +203,8 @@ export async function buildQuotationProps(
         summary.monthlyMeals +
         summary.monthlyVehicles +
         summary.monthlyInfrastructure +
-        summary.monthlyCostItems;
+        summary.monthlyCostItems
+      );
       const marginAmount = totalSalePrice - subtotalBase - summary.monthlyFinancial - summary.monthlyPolicy;
 
       const totalPositionCosts = quote.positions.reduce(

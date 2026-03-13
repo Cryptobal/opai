@@ -39,27 +39,28 @@ export async function seedCpqData() {
   ];
 
   for (const cargo of cargos) {
-    await prisma.cpqCargo.upsert({
-      where: { name: cargo.name },
-      update: { description: cargo.description },
-      create: cargo,
-    });
+    const existing = await prisma.cpqCargo.findFirst({ where: { name: cargo.name } });
+    if (existing) {
+      await prisma.cpqCargo.update({ where: { id: existing.id }, data: { description: cargo.description } });
+    } else {
+      await prisma.cpqCargo.create({ data: cargo });
+    }
   }
 
   for (const rol of roles) {
-    await prisma.cpqRol.upsert({
-      where: { name: rol.name },
-      update: { description: rol.description },
-      create: rol,
-    });
+    const existing = await prisma.cpqRol.findFirst({ where: { name: rol.name } });
+    if (existing) {
+      await prisma.cpqRol.update({ where: { id: existing.id }, data: { description: rol.description } });
+    } else {
+      await prisma.cpqRol.create({ data: rol });
+    }
   }
 
   for (const puesto of puestos) {
-    await prisma.cpqPuestoTrabajo.upsert({
-      where: { name: puesto.name },
-      update: {},
-      create: puesto,
-    });
+    const existing = await prisma.cpqPuestoTrabajo.findFirst({ where: { name: puesto.name } });
+    if (!existing) {
+      await prisma.cpqPuestoTrabajo.create({ data: puesto });
+    }
   }
 
   const catalogItems = [

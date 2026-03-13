@@ -162,6 +162,9 @@ export async function POST(
           data: source.costItems.map((item) => ({
             quoteId: newQuote.id,
             catalogItemId: item.catalogItemId,
+            customName: item.customName,
+            customType: item.customType,
+            customCategory: item.customCategory,
             calcMode: item.calcMode,
             quantity: item.quantity,
             unitPriceOverride: item.unitPriceOverride,

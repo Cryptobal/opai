@@ -706,15 +706,15 @@ export function CpqQuoteCosts({
 
   const otherCostItems = useMemo(() => {
     return costItems.filter((item) => {
-      const catalogItem = catalogById.get(item.catalogItemId);
-      return catalogItem?.type === "system";
+      const type = item.customType ?? (item.catalogItemId ? catalogById.get(item.catalogItemId)?.type : undefined);
+      return type === "system";
     });
   }, [costItems, catalogById]);
 
   const financialCostItems = useMemo(() => {
     return costItems.filter((item) => {
-      const catalogItem = catalogById.get(item.catalogItemId);
-      return catalogItem && FINANCIAL_TYPES.includes(catalogItem.type);
+      const type = item.customType ?? (item.catalogItemId ? catalogById.get(item.catalogItemId)?.type : undefined);
+      return type != null && FINANCIAL_TYPES.includes(type);
     });
   }, [costItems, catalogById]);
 
@@ -735,14 +735,15 @@ export function CpqQuoteCosts({
   const sumCostItemsByType = (types: string[]) =>
     costItems.reduce((sum, item) => {
       if (!item.isEnabled) return sum;
-      const catalogItem = item.catalogItem ?? catalogById.get(item.catalogItemId);
-      if (!catalogItem || !types.includes(catalogItem.type)) return sum;
-      const base = Number(catalogItem.basePrice || 0);
+      const catalogItem = item.catalogItem ?? (item.catalogItemId ? catalogById.get(item.catalogItemId) : undefined);
+      const itemType = item.customType ?? catalogItem?.type;
+      if (!itemType || !types.includes(itemType)) return sum;
+      const base = Number(catalogItem?.basePrice || 0);
       const override =
         item.unitPriceOverride !== null && item.unitPriceOverride !== undefined
           ? Number(item.unitPriceOverride)
           : null;
-      const unitPrice = normalizeUnitPrice(override ?? base, catalogItem.unit);
+      const unitPrice = normalizeUnitPrice(override ?? base, catalogItem?.unit);
       const quantity = Number(item.quantity ?? 1);
       const calcMode = item.calcMode || "per_month";
       if (calcMode === "per_guard") {
@@ -823,10 +824,10 @@ export function CpqQuoteCosts({
   const uniformCount = uniforms.filter((u) => u.active).length;
   const examCount = exams.filter((e) => e.active).length;
   const mealCount = meals.filter((m) => m.isEnabled).length;
-  const operationalCount = costItems.filter((c) => c.isEnabled && OPERATIONAL_TYPES.includes(catalogById.get(c.catalogItemId)?.type || "")).length;
-  const transportCount = costItems.filter((c) => c.isEnabled && TRANSPORT_TYPES.includes(catalogById.get(c.catalogItemId)?.type || "")).length;
-  const vehicleCount = costItems.filter((c) => c.isEnabled && VEHICLE_TYPES.includes(catalogById.get(c.catalogItemId)?.type || "")).length;
-  const infraCount = costItems.filter((c) => c.isEnabled && INFRA_TYPES.includes(catalogById.get(c.catalogItemId)?.type || "")).length;
+  const operationalCount = costItems.filter((c) => c.isEnabled && OPERATIONAL_TYPES.includes(c.customType ?? (c.catalogItemId ? catalogById.get(c.catalogItemId)?.type : undefined) ?? "")).length;
+  const transportCount = costItems.filter((c) => c.isEnabled && TRANSPORT_TYPES.includes(c.customType ?? (c.catalogItemId ? catalogById.get(c.catalogItemId)?.type : undefined) ?? "")).length;
+  const vehicleCount = costItems.filter((c) => c.isEnabled && VEHICLE_TYPES.includes(c.customType ?? (c.catalogItemId ? catalogById.get(c.catalogItemId)?.type : undefined) ?? "")).length;
+  const infraCount = costItems.filter((c) => c.isEnabled && INFRA_TYPES.includes(c.customType ?? (c.catalogItemId ? catalogById.get(c.catalogItemId)?.type : undefined) ?? "")).length;
   const systemCount = otherCostItems.filter((c) => c.isEnabled).length;
 
   // ── Toggle helper ──
@@ -1204,23 +1205,26 @@ export function CpqQuoteCosts({
         <div className="px-4 pb-3">
           <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
             {otherCostItems.filter((item) => item.isEnabled).map((item) => {
-              const ci = catalogById.get(item.catalogItemId);
-              if (!ci) return null;
+              const ci = item.catalogItemId ? catalogById.get(item.catalogItemId) : undefined;
+              const itemName = item.customName ?? ci?.name ?? "Sin nombre";
               return (
-                <div key={item.catalogItemId} className="p-2.5 rounded-lg bg-card border border-border/50">
+                <div key={item.id ?? item.catalogItemId ?? itemName} className="p-2.5 rounded-lg bg-card border border-border/50">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[13px] font-semibold truncate">{ci.name}</span>
-                    <button type="button" onClick={() => upsertCostItem(ci, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
+                    <span className="text-[13px] font-semibold truncate">{itemName}</span>
+                    <button type="button" onClick={() => {
+                      if (ci) upsertCostItem(ci, { isEnabled: false });
+                      else setCostItems((prev) => prev.map((c) => c.id === item.id ? { ...c, isEnabled: false } : c));
+                    }} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
-                  <div className="text-[11px] text-muted-foreground mb-1.5">Base: {formatCurrency(Number(ci.basePrice))}</div>
+                  <div className="text-[11px] text-muted-foreground mb-1.5">Base: {formatCurrency(Number(ci?.basePrice ?? 0))}</div>
                   <Input
                     type="text"
                     inputMode="numeric"
                     placeholder="Precio mensual"
                     value={item.unitPriceOverride != null ? fmtN(Number(item.unitPriceOverride)) : ""}
-                    onChange={(e) => setCostItems((prev) => prev.map((c) => c.catalogItemId === item.catalogItemId ? { ...c, unitPriceOverride: toNumber(e.target.value) } : c))}
+                    onChange={(e) => setCostItems((prev) => prev.map((c) => (item.id ? c.id === item.id : c.catalogItemId === item.catalogItemId) ? { ...c, unitPriceOverride: toNumber(e.target.value) } : c))}
                     className={inputClass}
                   />
                 </div>
@@ -1259,16 +1263,21 @@ export function CpqQuoteCosts({
         </div>
         <div className="px-4 pb-3 grid gap-2 grid-cols-2 lg:grid-cols-3">
           {financialCostItems.filter((item) => item.isEnabled).map((item) => {
-            const ci = catalogById.get(item.catalogItemId);
-            if (!ci) return null;
-            const isPolicy = ci.type === "policy";
+            const ci = item.catalogItemId ? catalogById.get(item.catalogItemId) : undefined;
+            const itemName = item.customName ?? ci?.name ?? "Sin nombre";
+            const itemType = item.customType ?? ci?.type ?? "";
+            if (!ci && !item.customType) return null;
+            const isPolicy = itemType === "policy";
             return (
-              <div key={item.catalogItemId} className={cn("p-2.5 rounded-lg bg-muted/10 border border-border/50 space-y-2", isPolicy && "col-span-full")}>
+              <div key={item.id ?? item.catalogItemId} className={cn("p-2.5 rounded-lg bg-muted/10 border border-border/50 space-y-2", isPolicy && "col-span-full")}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[13px] font-semibold">{ci.name}</span>
+                  <span className="text-[13px] font-semibold">{itemName}</span>
                   <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                    <span>Tasa base: {formatNumber(Number(ci.basePrice || 0), { minDecimals: 2, maxDecimals: 2 })}%</span>
-                    <button type="button" className="w-5 h-5 rounded flex items-center justify-center hover:text-destructive hover:bg-destructive/10" onClick={() => upsertCostItem(ci, { isEnabled: false })}>
+                    <span>Tasa base: {formatNumber(Number(ci?.basePrice || 0), { minDecimals: 2, maxDecimals: 2 })}%</span>
+                    <button type="button" className="w-5 h-5 rounded flex items-center justify-center hover:text-destructive hover:bg-destructive/10" onClick={() => {
+                      if (ci) upsertCostItem(ci, { isEnabled: false });
+                      else setCostItems((prev) => prev.map((c) => c.id === item.id ? { ...c, isEnabled: false } : c));
+                    }}>
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
@@ -1280,14 +1289,15 @@ export function CpqQuoteCosts({
                       type="text"
                       inputMode="decimal"
                       placeholder="Ej: 2,50"
-                      value={getDecimalValue(`rate:${item.catalogItemId}`, item.unitPriceOverride ?? null, 2, true)}
-                      onChange={(e) => setDecimalValue(`rate:${item.catalogItemId}`, e.target.value)}
+                      value={getDecimalValue(`rate:${item.id ?? item.catalogItemId}`, item.unitPriceOverride ?? null, 2, true)}
+                      onChange={(e) => setDecimalValue(`rate:${item.id ?? item.catalogItemId}`, e.target.value)}
                       onBlur={() => {
-                        const raw = decimalDrafts[`rate:${item.catalogItemId}`];
+                        const rateKey = item.id ?? item.catalogItemId;
+                        const raw = decimalDrafts[`rate:${rateKey}`];
                         if (raw === undefined) return;
                         const parsed = raw.trim() ? parseLocalizedNumber(raw) : null;
-                        setCostItems((prev) => prev.map((c) => c.catalogItemId === item.catalogItemId ? { ...c, unitPriceOverride: parsed } : c));
-                        clearDecimalValue(`rate:${item.catalogItemId}`);
+                        setCostItems((prev) => prev.map((c) => (item.id ? c.id === item.id : c.catalogItemId === item.catalogItemId) ? { ...c, unitPriceOverride: parsed } : c));
+                        clearDecimalValue(`rate:${rateKey}`);
                       }}
                       className={inputClass}
                     />

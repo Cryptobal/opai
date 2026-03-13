@@ -11,23 +11,10 @@ import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { isDefaultUniform } from "@/lib/cpq-constants";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
-const safeNumber = (value: unknown) => Number(value || 0);
-const normalizePct = (value: number) => value / 100;
 const normalizeDecimal = (value: unknown) => {
   if (value instanceof Prisma.Decimal) return value;
   if (value === null || value === undefined) return new Prisma.Decimal(0);
   return new Prisma.Decimal(Number(value));
-};
-const normalizeUnitPrice = (value: number, unit?: string | null) => {
-  if (!unit) return value;
-  const normalized = unit.toLowerCase();
-  if (normalized.includes("año") || normalized.includes("year")) {
-    return value / 12;
-  }
-  if (normalized.includes("semestre") || normalized.includes("semester")) {
-    return value / 6;
-  }
-  return value;
 };
 
 export async function GET(
@@ -52,9 +39,9 @@ export async function GET(
       );
     }
     const tenantId = quote?.tenantId ?? null;
+    const skipDefaultCosts = Boolean(quote?.createdFromLeadId);
 
     const [
-      positions,
       parameters,
       uniforms,
       exams,
@@ -64,39 +51,36 @@ export async function GET(
       infrastructure,
       catalogItems,
       additionalLines,
+      summary,
     ] = await Promise.all([
-      prisma.cpqPosition.findMany({
+      prisma.cpqQuoteParameters.findUnique({ where: { quoteId: id } }),
+      prisma.cpqQuoteUniformItem.findMany({
         where: { quoteId: id },
-        select: { numGuards: true, numPuestos: true, monthlyPositionCost: true },
+        include: { catalogItem: true },
+        orderBy: { createdAt: "asc" },
       }),
-        prisma.cpqQuoteParameters.findUnique({ where: { quoteId: id } }),
-        prisma.cpqQuoteUniformItem.findMany({
-          where: { quoteId: id },
-          include: { catalogItem: true },
-          orderBy: { createdAt: "asc" },
-        }),
-        prisma.cpqQuoteExamItem.findMany({
-          where: { quoteId: id },
-          include: { catalogItem: true },
-          orderBy: { createdAt: "asc" },
-        }),
-        prisma.cpqQuoteCostItem.findMany({
-          where: { quoteId: id },
-          include: { catalogItem: true },
-          orderBy: { createdAt: "asc" },
-        }),
-        prisma.cpqQuoteMeal.findMany({
-          where: { quoteId: id },
-          orderBy: { createdAt: "asc" },
-        }),
-        prisma.cpqQuoteVehicle.findMany({
-          where: { quoteId: id },
-          orderBy: { createdAt: "asc" },
-        }),
-        prisma.cpqQuoteInfrastructure.findMany({
-          where: { quoteId: id },
-          orderBy: { createdAt: "asc" },
-        }),
+      prisma.cpqQuoteExamItem.findMany({
+        where: { quoteId: id },
+        include: { catalogItem: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.cpqQuoteCostItem.findMany({
+        where: { quoteId: id },
+        include: { catalogItem: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.cpqQuoteMeal.findMany({
+        where: { quoteId: id },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.cpqQuoteVehicle.findMany({
+        where: { quoteId: id },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.cpqQuoteInfrastructure.findMany({
+        where: { quoteId: id },
+        orderBy: { createdAt: "asc" },
+      }),
       prisma.cpqCatalogItem.findMany({
         where: {
           OR: [{ tenantId }, { tenantId: null }],
@@ -107,8 +91,10 @@ export async function GET(
         where: { quoteId: id },
         orderBy: { orden: "asc" },
       }),
-      ]);
+      computeCpqQuoteCosts(id),
+    ]);
 
+    // Merge defaults for UI display (the summary already accounts for them)
     const defaultCatalog = catalogItems.filter((item) => item.isDefault);
     const uniformCatalog = catalogItems.filter((item) => item.type === "uniform");
     const uniformDefaultIds = new Set(
@@ -121,7 +107,7 @@ export async function GET(
     const costDefaultIds = new Set(
       defaultCatalog
         .filter((item) =>
-          ["phone", "radio", "flashlight", "infrastructure", "fuel", "transport", "system"].includes(
+          ["phone", "radio", "flashlight", "infrastructure", "fuel", "transport", "system", "financial", "policy"].includes(
             item.type
           )
         )
@@ -132,8 +118,6 @@ export async function GET(
     const existingExamIds = new Set(exams.map((item) => item.catalogItemId));
     const existingCostIds = new Set(costItems.map((item) => item.catalogItemId));
     const existingMealTypes = new Set(meals.map((meal) => meal.mealType.toLowerCase()));
-
-    const skipDefaultCosts = Boolean(quote?.createdFromLeadId);
 
     const defaultUniforms = skipDefaultCosts
       ? []
@@ -197,200 +181,6 @@ export async function GET(
     const mergedCostItems = [...costItems, ...defaultCostItems];
     const mergedMeals = [...meals, ...defaultMeals];
 
-    const totalGuards = positions.reduce(
-      (sum, p) => sum + Number(p.numGuards || 0) * Number(p.numPuestos || 1),
-      0
-    );
-    const monthlyPositions = positions.reduce(
-      (sum, p) => sum + safeNumber(p.monthlyPositionCost),
-      0
-    );
-
-    const uniformChangesPerYear = parameters?.uniformChangesPerYear ?? 3;
-    const avgStayMonths = parameters?.avgStayMonths ?? 4;
-    const holidaySettings = await prisma.setting.findMany({
-      where: {
-        key: {
-          in: [
-            "cpq.holidayAnnualCount",
-            "cpq.holidayCommercialBufferPct",
-          ],
-        },
-        tenantId,
-      },
-      select: {
-        key: true,
-        value: true,
-      },
-    });
-    const holidayAnnualCount = safeNumber(
-      holidaySettings.find((item) => item.key === "cpq.holidayAnnualCount")?.value ?? 12
-    );
-    const holidayCommercialBufferPct = safeNumber(
-      holidaySettings.find((item) => item.key === "cpq.holidayCommercialBufferPct")?.value ?? 10
-    );
-    const holidayMonthlyFactor = holidayAnnualCount / 12;
-    const holidayCommercialFactor = 1 + holidayCommercialBufferPct / 100;
-    const monthlyHolidayAdjustment =
-      (monthlyPositions / 30) *
-      0.5 *
-      holidayMonthlyFactor *
-      holidayCommercialFactor;
-
-    const uniformSetCost = mergedUniforms.reduce((sum, item) => {
-      if (!item.active) return sum;
-      const override = item.unitPriceOverride ? safeNumber(item.unitPriceOverride) : null;
-      const base = safeNumber(item.catalogItem?.basePrice);
-      const unitPrice = normalizeUnitPrice(override ?? base, item.catalogItem?.unit);
-      return sum + unitPrice;
-    }, 0);
-    const monthlyUniforms =
-      totalGuards > 0
-        ? ((uniformSetCost * uniformChangesPerYear) / 12) * totalGuards
-        : 0;
-
-    const examSetCost = mergedExams.reduce((sum, item) => {
-      if (!item.active) return sum;
-      const override = item.unitPriceOverride ? safeNumber(item.unitPriceOverride) : null;
-      const base = safeNumber(item.catalogItem?.basePrice);
-      const unitPrice = normalizeUnitPrice(override ?? base, item.catalogItem?.unit);
-      return sum + unitPrice;
-    }, 0);
-    const examEntriesPerYear = avgStayMonths > 0 ? 12 / avgStayMonths : 0;
-    const examFrequency = Math.max(examEntriesPerYear, uniformChangesPerYear);
-    const monthlyExams =
-      totalGuards > 0 ? ((examSetCost * examFrequency) / 12) * totalGuards : 0;
-
-    const mealMap = new Map(
-      catalogItems
-        .filter((item) => item.type === "meal")
-        .map((meal) => [meal.name.toLowerCase(), meal])
-    );
-    const monthlyMeals = mergedMeals.reduce((sum, meal) => {
-      if (!meal.isEnabled) return sum;
-      const override = meal.priceOverride ? safeNumber(meal.priceOverride) : null;
-      const catalogItem = mealMap.get(meal.mealType.toLowerCase());
-      const base = safeNumber(catalogItem?.basePrice ?? 0);
-      const price = normalizeUnitPrice(override ?? base, catalogItem?.unit);
-      return sum + price * meal.mealsPerDay * meal.daysOfService;
-    }, 0);
-
-    const financialItems = mergedCostItems.filter((item) =>
-      ["financial", "policy"].includes(item.catalogItem?.type || "")
-    );
-    const nonFinancialItems = mergedCostItems.filter(
-      (item) => !["financial", "policy"].includes(item.catalogItem?.type || "")
-    );
-
-    const monthlyCostItems = nonFinancialItems.reduce((sum, item) => {
-      if (!item.isEnabled) return sum;
-      const override = item.unitPriceOverride ? safeNumber(item.unitPriceOverride) : null;
-      const base = safeNumber(item.catalogItem?.basePrice ?? 0);
-      const unitPrice = normalizeUnitPrice(override ?? base, item.catalogItem?.unit);
-      const quantity = safeNumber(item.quantity);
-      const calcMode = item.calcMode || "per_month";
-      if (calcMode === "per_guard") {
-        return sum + unitPrice * quantity * totalGuards;
-      }
-      return sum + unitPrice * quantity;
-    }, 0);
-
-    const monthlyVehicles = vehicles.reduce((sum, vehicle) => {
-      if (!vehicle.isEnabled) return sum;
-      const kmPerDay = safeNumber(vehicle.kmPerDay);
-      const daysPerMonth = safeNumber(vehicle.daysPerMonth);
-      const kmPerLiter = safeNumber(vehicle.kmPerLiter);
-      const liters =
-        kmPerLiter > 0 ? (kmPerDay * daysPerMonth) / kmPerLiter : 0;
-      const fuelCost = liters * safeNumber(vehicle.fuelPrice);
-      const vehicleMonthly =
-        safeNumber(vehicle.rentMonthly) +
-        safeNumber(vehicle.maintenanceMonthly) +
-        fuelCost;
-      return sum + vehicleMonthly * vehicle.vehiclesCount;
-    }, 0);
-
-    const monthlyInfrastructure = infrastructure.reduce((sum, infra) => {
-      if (!infra.isEnabled) return sum;
-      const base = safeNumber(infra.rentMonthly);
-      let fuelCost = 0;
-      if (infra.hasFuel) {
-        const liters =
-          safeNumber(infra.fuelLitersPerHour) *
-          safeNumber(infra.fuelHoursPerDay) *
-          safeNumber(infra.fuelDaysPerMonth);
-        fuelCost = liters * safeNumber(infra.fuelPrice);
-      }
-      return sum + (base + fuelCost) * infra.quantity;
-    }, 0);
-
-    const costsBase =
-      monthlyPositions +
-      monthlyHolidayAdjustment +
-      monthlyUniforms +
-      monthlyExams +
-      monthlyMeals +
-      monthlyVehicles +
-      monthlyInfrastructure +
-      monthlyCostItems;
-
-    const marginPct = normalizePct(safeNumber(parameters?.marginPct ?? 13));
-    const baseWithMargin = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
-
-    const financialEnabled = true;
-    const policyEnabled = parameters?.policyEnabled ?? false;
-    const salePriceBase = safeNumber(parameters?.salePriceBase ?? 0);
-    const effectiveSalePriceBase = salePriceBase > 0 ? salePriceBase : baseWithMargin;
-
-    const financialRatePctRaw = safeNumber(parameters?.financialRatePct ?? 2.5);
-    const financialRatePct = normalizePct(financialRatePctRaw);
-    const policyRatePctRaw = safeNumber(parameters?.policyRatePct ?? 0);
-    const policyRatePct = normalizePct(policyRatePctRaw);
-
-    const policyContractMonths = parameters?.policyContractMonths ?? 12;
-    const policyContractPct = normalizePct(safeNumber(parameters?.policyContractPct ?? 20));
-
-    const monthlyFinancial =
-      financialEnabled && effectiveSalePriceBase > 0
-        ? effectiveSalePriceBase * financialRatePct
-        : 0;
-
-    const montoAnual = effectiveSalePriceBase * policyContractMonths;
-    const valorGarantia = montoAnual * policyContractPct;
-    const monthlyPolicy =
-      policyEnabled && effectiveSalePriceBase > 0
-        ? (valorGarantia * policyRatePct) / 12
-        : 0;
-
-    const baseExtras =
-      monthlyHolidayAdjustment +
-      monthlyUniforms +
-      monthlyExams +
-      monthlyMeals +
-      monthlyVehicles +
-      monthlyInfrastructure +
-      monthlyCostItems;
-    const monthlyExtras = baseExtras + monthlyFinancial + monthlyPolicy;
-    const monthlyTotal = monthlyPositions + monthlyExtras;
-
-    const summary = {
-      totalGuards,
-      monthlyPositions,
-      monthlyHolidayAdjustment,
-      monthlyUniforms,
-      monthlyExams,
-      monthlyMeals,
-      monthlyVehicles,
-      monthlyInfrastructure,
-      monthlyCostItems,
-      monthlyFinancial,
-      monthlyPolicy,
-      monthlyExtras,
-      monthlyTotal,
-      financialRatePct: financialRatePctRaw,
-      policyRatePct: policyRatePctRaw,
-    };
-
     return NextResponse.json({
       success: true,
       data: {
@@ -409,7 +199,7 @@ export async function GET(
           orden: l.orden,
         })),
         summary,
-        skipDefaultCosts: skipDefaultCosts,
+        skipDefaultCosts,
       },
     });
   } catch (error) {
@@ -486,7 +276,7 @@ export async function PUT(
             monthlyHoursStandard: parameters.monthlyHoursStandard,
             avgStayMonths: parameters.avgStayMonths,
             uniformChangesPerYear: parameters.uniformChangesPerYear,
-            financialEnabled: true,
+            financialEnabled: parameters.financialEnabled ?? false,
             financialRatePct: parameters.financialRatePct,
             salePriceBase: parameters.salePriceBase,
             salePriceMonthly: parameters.salePriceMonthly,
@@ -504,7 +294,7 @@ export async function PUT(
             monthlyHoursStandard: parameters.monthlyHoursStandard ?? 180,
             avgStayMonths: parameters.avgStayMonths ?? 4,
             uniformChangesPerYear: parameters.uniformChangesPerYear ?? 3,
-            financialEnabled: true,
+            financialEnabled: parameters.financialEnabled ?? false,
             financialRatePct: parameters.financialRatePct ?? 2.5,
             salePriceBase: parameters.salePriceBase ?? 0,
             salePriceMonthly: parameters.salePriceMonthly ?? 0,

@@ -26,7 +26,10 @@ export async function GET(request: NextRequest) {
     const active = searchParams.get("active");
 
     const roles = await prisma.cpqRol.findMany({
-      where: active ? { active: active === "true" } : undefined,
+      where: {
+        OR: [{ tenantId: ctx.tenantId }, { tenantId: null }],
+        ...(active ? { active: active === "true" } : {}),
+      },
       orderBy: { name: "asc" },
     });
 
@@ -60,6 +63,7 @@ export async function POST(request: NextRequest) {
 
     const rol = await prisma.cpqRol.create({
       data: {
+        tenantId: ctx.tenantId,
         name: body.name.trim(),
         description: body.description?.trim() || null,
         colorHex: normalizeColorHex(body.colorHex),

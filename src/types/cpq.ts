@@ -161,7 +161,10 @@ export interface CpqQuoteExamItem {
 export interface CpqQuoteCostItem {
   id?: string;
   quoteId?: string;
-  catalogItemId: string;
+  catalogItemId?: string | null;
+  customName?: string | null;
+  customType?: string | null;
+  customCategory?: string | null;
   calcMode: string;
   quantity: number;
   unitPriceOverride?: number | null;

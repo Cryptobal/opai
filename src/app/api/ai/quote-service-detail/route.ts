@@ -89,32 +89,32 @@ export async function POST(request: NextRequest) {
     // Cost items (operational, transport, system, etc.)
     const activeCostItems = quote.costItems.filter((c) => c.isEnabled);
     const operationalItems = activeCostItems.filter((c) =>
-      ["phone", "radio", "flashlight"].includes(c.catalogItem?.type || "")
+      ["phone", "radio", "flashlight"].includes(c.customType ?? c.catalogItem?.type ?? "")
     );
     if (operationalItems.length > 0) {
-      const opNames = operationalItems.map((c) => c.catalogItem?.name || "Equipo").join(", ");
+      const opNames = operationalItems.map((c) => c.customName ?? c.catalogItem?.name ?? "Equipo").join(", ");
       includedItems.push(`Equipos operativos: ${opNames}`);
     }
 
-    const transportItems = activeCostItems.filter((c) => c.catalogItem?.type === "transport");
+    const transportItems = activeCostItems.filter((c) => (c.customType ?? c.catalogItem?.type) === "transport");
     if (transportItems.length > 0) {
-      const tNames = transportItems.map((c) => c.catalogItem?.name || "Transporte").join(", ");
+      const tNames = transportItems.map((c) => c.customName ?? c.catalogItem?.name ?? "Transporte").join(", ");
       includedItems.push(`Transporte: ${tNames}`);
     }
 
-    const systemItems = activeCostItems.filter((c) => c.catalogItem?.type === "system");
+    const systemItems = activeCostItems.filter((c) => (c.customType ?? c.catalogItem?.type) === "system");
     if (systemItems.length > 0) {
-      const sNames = systemItems.map((c) => c.catalogItem?.name || "Sistema").join(", ");
+      const sNames = systemItems.map((c) => c.customName ?? c.catalogItem?.name ?? "Sistema").join(", ");
       includedItems.push(`Sistemas: ${sNames}`);
     }
 
     // Vehicles
     const vehicleCostItems = activeCostItems.filter((c) =>
-      ["vehicle_rent", "vehicle_fuel", "vehicle_tag"].includes(c.catalogItem?.type || "")
+      ["vehicle_rent", "vehicle_fuel", "vehicle_tag"].includes(c.customType ?? c.catalogItem?.type ?? "")
     );
     const activeVehicles = quote.vehicles.filter((v) => v.isEnabled);
     if (vehicleCostItems.length > 0 || activeVehicles.length > 0) {
-      const vNames = vehicleCostItems.map((c) => c.catalogItem?.name || "Vehículo").join(", ");
+      const vNames = vehicleCostItems.map((c) => c.customName ?? c.catalogItem?.name ?? "Vehículo").join(", ");
       const vCount = activeVehicles.length;
       const vehicleDesc = vNames || (vCount > 0 ? `${vCount} vehículo(s)` : "Vehículo");
       includedItems.push(`Vehículos: ${vehicleDesc}`);
@@ -129,19 +129,19 @@ export async function POST(request: NextRequest) {
 
     // Infrastructure cost items (stored as CpqQuoteCostItem with type "infrastructure" or "fuel")
     const infraCostItems = activeCostItems.filter((c) =>
-      ["infrastructure", "fuel"].includes(c.catalogItem?.type || "")
+      ["infrastructure", "fuel"].includes(c.customType ?? c.catalogItem?.type ?? "")
     );
     if (infraCostItems.length > 0 && activeInfra.length === 0) {
-      const iNames = infraCostItems.map((c) => c.catalogItem?.name || "Infraestructura").join(", ");
+      const iNames = infraCostItems.map((c) => c.customName ?? c.catalogItem?.name ?? "Infraestructura").join(", ");
       includedItems.push(`Infraestructura: ${iNames}`);
     }
 
     // Other/custom items
     const otherItems = activeCostItems.filter((c) =>
-      !["phone", "radio", "flashlight", "transport", "system", "vehicle_rent", "vehicle_fuel", "vehicle_tag", "infrastructure", "fuel", "financial", "policy"].includes(c.catalogItem?.type || "")
+      !["phone", "radio", "flashlight", "transport", "system", "vehicle_rent", "vehicle_fuel", "vehicle_tag", "infrastructure", "fuel", "financial", "policy"].includes(c.customType ?? c.catalogItem?.type ?? "")
     );
     if (otherItems.length > 0) {
-      const oNames = otherItems.map((c) => c.catalogItem?.name || "Otro").join(", ");
+      const oNames = otherItems.map((c) => c.customName ?? c.catalogItem?.name ?? "Otro").join(", ");
       includedItems.push(`Otros: ${oNames}`);
     }
 
