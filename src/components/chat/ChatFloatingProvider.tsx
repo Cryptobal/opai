@@ -66,6 +66,7 @@ interface ChatSidePanelContextValue {
   fetchArchivedChannels: () => Promise<void>;
   markChannelAsRead: (channelId: string) => Promise<void>;
   markAllChannelsAsRead: () => Promise<void>;
+  markAllChannelsAsReadLoading: boolean;
   updateChannelNotifPref: (channelId: string, preference: NotifPreference) => Promise<void>;
 }
 
@@ -98,6 +99,7 @@ export function ChatSidePanelProvider({
   const [loading, setLoading] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [archivedChannels, setArchivedChannels] = useState<ChatSidePanelChannel[]>([]);
+  const [markAllLoading, setMarkAllLoading] = useState(false);
   const fetchedRef = useRef(false);
 
   // Expose unread increment for InAppNotificationProvider
@@ -189,12 +191,17 @@ export function ChatSidePanelProvider({
   }, []);
 
   const markAllChannelsAsRead = useCallback(async () => {
+    setMarkAllLoading(true);
     try {
       const res = await fetch("/api/chat/read-all", { method: "POST" });
       if (!res.ok) return;
       setChannels((prev) => prev.map((ch) => ({ ...ch, unreadCount: 0 })));
       await fetchChannels();
-    } catch {}
+    } catch {
+      /* ignore */
+    } finally {
+      setMarkAllLoading(false);
+    }
   }, [fetchChannels]);
 
   const updateChannelNotifPref = useCallback(async (channelId: string, preference: NotifPreference) => {
@@ -286,6 +293,7 @@ export function ChatSidePanelProvider({
     fetchArchivedChannels,
     markChannelAsRead,
     markAllChannelsAsRead,
+    markAllChannelsAsReadLoading: markAllLoading,
     updateChannelNotifPref,
   };
 
