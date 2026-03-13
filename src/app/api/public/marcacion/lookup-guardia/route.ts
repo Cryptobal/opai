@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 
     // Find installation
     const installation = await prisma.crmInstallation.findFirst({
-      where: { id: installationId, isActive: true },
+      where: { id: installationId, status: "active" },
       select: { id: true, tenantId: true },
     });
 

@@ -86,7 +86,7 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
           status: true,
           isActive: true,
           installations: {
-            where: { isActive: true },
+            where: { status: "active" },
             select: { id: true, name: true },
             orderBy: { name: "asc" },
           },

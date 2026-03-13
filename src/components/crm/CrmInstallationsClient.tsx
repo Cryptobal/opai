@@ -30,7 +30,7 @@ type InstallationRow = {
   lat?: number | null;
   lng?: number | null;
   notes?: string | null;
-  isActive?: boolean;
+  status?: "prospect" | "active" | "inactive";
 };
 
 type FormState = {
@@ -64,7 +64,7 @@ export function CrmInstallationsClient({
   accountId: string;
   accountIsActive: boolean;
   initialInstallations: InstallationRow[];
-  /** Ref para exponer openCreate al padre (ej. botón en header de sección) */
+  /** Ref para exponer openCreate al padre (ej. bot?n en header de secci?n) */
   createRef?: React.MutableRefObject<{ open: () => void } | null>;
 }) {
   const [installations, setInstallations] = useState<InstallationRow[]>(initialInstallations);
@@ -125,17 +125,17 @@ export function CrmInstallationsClient({
       setInstallations((prev) => [payload.data, ...prev]);
       setOpen(false);
       setForm(DEFAULT_FORM);
-      toast.success("Instalación creada");
+      toast.success("Instalaci?n creada");
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo guardar la instalación.");
+      toast.error("No se pudo guardar la instalaci?n.");
     } finally {
       setLoading(false);
     }
   };
 
   const openToggleInstallationStatus = (inst: InstallationRow) => {
-    const current = inst.isActive === true;
+    const current = inst.status === "active";
     const next = !current;
     setStatusConfirm({
       open: true,
@@ -154,7 +154,7 @@ export function CrmInstallationsClient({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          isActive: statusConfirm.next,
+          status: statusConfirm.next ? "active" : "inactive",
           activateAccount: Boolean(statusConfirm.activateAccount),
         }),
       });
@@ -164,10 +164,10 @@ export function CrmInstallationsClient({
       setInstallations((prev) => prev.map((i) => (i.id === inst.id ? payload.data : i)));
       if (payload.data?.account?.isActive === true) setAccountActiveState(true);
       setStatusConfirm({ open: false, id: "", next: false, activateAccount: false });
-      toast.success(statusConfirm.next ? "Instalación activada" : "Instalación desactivada");
+      toast.success(statusConfirm.next ? "Instalaci?n activada" : "Instalaci?n desactivada");
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo cambiar el estado de la instalación.");
+      toast.error("No se pudo cambiar el estado de la instalaci?n.");
     } finally {
       setStatusUpdatingIds((prev) => {
         const nextSet = new Set(prev);
@@ -181,7 +181,7 @@ export function CrmInstallationsClient({
     <>
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs text-muted-foreground">
-          {installations.length} instalación(es)
+          {installations.length} instalaci?n(es)
         </p>
         {!createRef && <CrmSectionCreateButton onClick={openCreate} />}
       </div>
@@ -196,7 +196,7 @@ export function CrmInstallationsClient({
         {installations.map((inst) => (
           <div key={inst.id} className="rounded-lg border p-3 hover:bg-accent/30 transition-colors">
             <div className="flex items-start gap-3">
-              {/* Datos de la instalación (clickeable → ficha) */}
+              {/* Datos de la instalaci?n (clickeable ��� ficha) */}
               <Link
                 href={`/crm/installations/${inst.id}`}
                 className="flex-1 min-w-0 group"
@@ -209,12 +209,14 @@ export function CrmInstallationsClient({
                       </p>
                       <span
                         className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          inst.isActive
+                          inst.status === "active"
                             ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                            : "border border-amber-500/30 bg-amber-500/10 text-amber-300"
+                            : inst.status === "inactive"
+                              ? "border border-amber-500/30 bg-amber-500/10 text-amber-300"
+                              : "border border-zinc-500/30 bg-zinc-500/10 text-zinc-400"
                         }`}
                       >
-                        {inst.isActive ? "Activa" : "Inactiva"}
+                        {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
                       </span>
                     </div>
                     {inst.address && (
@@ -251,14 +253,14 @@ export function CrmInstallationsClient({
             <div className="mt-3 flex items-center justify-end gap-2 border-t pt-2">
               <Button
                 size="sm"
-                variant={inst.isActive ? "outline" : "secondary"}
+                variant={inst.status === "active" ? "outline" : "secondary"}
                 className="h-8"
                 onClick={() => openToggleInstallationStatus(inst)}
                 disabled={statusUpdatingIds.has(inst.id)}
               >
                 {statusUpdatingIds.has(inst.id)
                   ? "Guardando..."
-                  : inst.isActive
+                  : inst.status === "active"
                   ? "Desactivar"
                   : "Activar"}
               </Button>
@@ -270,9 +272,9 @@ export function CrmInstallationsClient({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Nueva instalación</DialogTitle>
+            <DialogTitle>Nueva instalaci?n</DialogTitle>
             <DialogDescription>
-              Agrega nombre y dirección de la instalación.
+              Agrega nombre y direcci?n de la instalaci?n.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -286,11 +288,11 @@ export function CrmInstallationsClient({
               />
             </div>
             <div className="space-y-2">
-              <Label>Dirección</Label>
+              <Label>Direcci?n</Label>
               <AddressAutocomplete
                 value={form.address}
                 onChange={handleAddressChange}
-                placeholder="Buscar dirección en Google Maps..."
+                placeholder="Buscar direcci?n en Google Maps..."
                 showMap={true}
               />
               <MapsUrlPasteInput onResolve={handleAddressChange} />
@@ -338,13 +340,13 @@ export function CrmInstallationsClient({
       <ConfirmDialog
         open={statusConfirm.open}
         onOpenChange={(open) => setStatusConfirm((prev) => ({ ...prev, open }))}
-        title={statusConfirm.next ? "Activar instalación" : "Desactivar instalación"}
+        title={statusConfirm.next ? "Activar instalaci?n" : "Desactivar instalaci?n"}
         description={
           statusConfirm.next
             ? statusConfirm.activateAccount
-              ? "La instalación quedará activa y también se activará la cuenta asociada."
-              : "La instalación quedará activa."
-            : "La instalación quedará inactiva."
+              ? "La instalaci?n quedar? activa y tambi?n se activar? la cuenta asociada."
+              : "La instalaci?n quedar? activa."
+            : "La instalaci?n quedar? inactiva."
         }
         confirmLabel={statusConfirm.next ? "Activar" : "Desactivar"}
         variant="default"

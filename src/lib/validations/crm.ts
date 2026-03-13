@@ -119,6 +119,8 @@ export const updateContactSchema = z.object({
 });
 
 // ── Installation ──
+export const installationStatusSchema = z.enum(["prospect", "active", "inactive"]);
+
 export const createInstallationSchema = z.object({
   accountId: z.string().uuid("accountId inválido"),
   name: z.string().trim().min(1, "Nombre es requerido").max(200),
@@ -127,7 +129,7 @@ export const createInstallationSchema = z.object({
   commune: z.string().trim().max(100).optional().nullable(),
   lat: z.number().optional().nullable(),
   lng: z.number().optional().nullable(),
-  isActive: z.boolean().optional(),
+  status: installationStatusSchema.optional().default("prospect"),
   geoRadiusM: z.number().int().min(10).max(1000).optional(),
   teMontoClp: z.number().min(0).optional(),
   notes: z.string().trim().max(2000).optional().nullable(),
@@ -140,7 +142,7 @@ export const updateInstallationSchema = z.object({
   commune: z.string().trim().max(100).optional().nullable(),
   lat: z.number().optional().nullable(),
   lng: z.number().optional().nullable(),
-  isActive: z.boolean().optional(),
+  status: installationStatusSchema.optional(),
   geoRadiusM: z.number().int().min(10).max(1000).optional(),
   teMontoClp: z.number().min(0).optional(),
   notes: z.string().trim().max(2000).optional().nullable(),

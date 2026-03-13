@@ -527,9 +527,11 @@ export function CrmContactDetailClient({
                   subtitle={[inst.commune, inst.city].filter(Boolean).join(", ") || undefined}
                   meta={inst.address || undefined}
                   badge={
-                    inst.isActive
+                    inst.status === "active"
                       ? { label: "Activa", variant: "success" }
-                      : { label: "Inactiva", variant: "warning" }
+                      : inst.status === "inactive"
+                        ? { label: "Inactiva", variant: "warning" }
+                        : { label: "Prospecto", variant: "secondary" }
                   }
                   href={`/crm/installations/${inst.id}`}
                 />

@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
           ...(isSupervisorHub
             ? {
                 installations: {
-                  some: { isActive: true },
+                  some: { status: "active" },
                 },
               }
             : {}),
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
             ? {
                 account: {
                   installations: {
-                    some: { isActive: true },
+                    some: { status: "active" },
                   },
                 },
               }
@@ -191,7 +191,7 @@ export async function GET(request: NextRequest) {
       prisma.crmInstallation.findMany({
         where: {
           tenantId,
-          ...(isSupervisorHub ? { isActive: true } : {}),
+          ...(isSupervisorHub ? { status: "active" } : {}),
           OR: [
             { name: contains },
             { address: contains },

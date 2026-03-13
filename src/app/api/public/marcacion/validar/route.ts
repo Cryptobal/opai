@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     // Buscar instalación por código de marcación
     const installation = await prisma.crmInstallation.findFirst({
-      where: { marcacionCode: code, isActive: true },
+      where: { marcacionCode: code, status: "active" },
       select: {
         id: true,
         tenantId: true,

@@ -28,7 +28,7 @@ export async function GET() {
       where: {
         tenantId: ctx.tenantId,
         account: { type: "client", isActive: true },
-        isActive: true,
+        status: "active",
       },
       select: {
         id: true,
@@ -38,7 +38,7 @@ export async function GET() {
         commune: true,
         lat: true,
         lng: true,
-        isActive: true,
+        status: true,
         geoRadiusM: true,
         teMontoClp: true,
         notes: true,
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
         commune: true,
         lat: true,
         lng: true,
-        isActive: true,
+        status: true,
         geoRadiusM: true,
         teMontoClp: true,
         notes: true,

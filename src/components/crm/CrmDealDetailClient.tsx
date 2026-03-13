@@ -165,7 +165,7 @@ export type DealDetail = {
   updatedAt?: string | null;
 };
 
-type InstallationRow = { id: string; name: string; address?: string | null; city?: string | null; commune?: string | null; isActive?: boolean };
+type InstallationRow = { id: string; name: string; address?: string | null; city?: string | null; commune?: string | null; status?: "prospect" | "active" | "inactive" };
 type DocTemplateMail = { id: string; name: string; content: any };
 type DocTemplateWhatsApp = { id: string; name: string; content: any };
 

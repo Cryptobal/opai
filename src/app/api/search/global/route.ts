@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
         prisma.crmAccount.findMany({
           where: {
             tenantId,
-            ...(isSupervisorHub ? { installations: { some: { isActive: true } } } : {}),
+            ...(isSupervisorHub ? { installations: { some: { status: "active" } } } : {}),
             OR: [{ name: contains }, { rut: contains }, { industry: contains }],
           },
           take: CRM_TYPE_LIMIT,
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
           where: {
             tenantId,
             ...(isSupervisorHub
-              ? { account: { installations: { some: { isActive: true } } } }
+              ? { account: { installations: { some: { status: "active" } } } }
               : {}),
             OR: [
               { firstName: contains },

@@ -27,7 +27,7 @@ type AccountResult = {
 
 type ContactRow = { id: string; firstName: string; lastName: string; email?: string | null; phone?: string | null; roleTitle?: string | null; isPrimary?: boolean };
 type DealRow = { id: string; title: string; status: string; amount: number; stage?: { name: string } | null };
-type InstallationRow = { id: string; name: string; address?: string | null; commune?: string | null; isActive: boolean };
+type InstallationRow = { id: string; name: string; address?: string | null; commune?: string | null; status?: "prospect" | "active" | "inactive" };
 type QuoteRow = { id: string; code: string; status: string; clientName?: string | null; monthlyCost: number; createdAt: string };
 
 type PreviewAccount = AccountResult & {
@@ -358,7 +358,7 @@ function RecordsStep({ preview, excludeContactIds, setExcludeContactIds, exclude
         alertMap={dupInstallationAlerts}
         renderItem={(i: InstallationRow) => (
           <>
-            <p className="font-medium">{i.name} {i.isActive ? <span className="text-emerald-400">(Activa)</span> : <span className="text-muted-foreground">(Inactiva)</span>}</p>
+            <p className="font-medium">{i.name} {i.status === "active" ? <span className="text-emerald-400">(Activa)</span> : i.status === "inactive" ? <span className="text-muted-foreground">(Inactiva)</span> : <span className="text-amber-400">(Prospecto)</span>}</p>
             {i.address && <p className="text-muted-foreground">{i.address}{i.commune ? `, ${i.commune}` : ""}</p>}
           </>
         )}

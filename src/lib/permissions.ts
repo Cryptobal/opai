@@ -44,6 +44,7 @@ export const MODULE_KEYS = [
   "cpq",
   "config",
   "finance",
+  "reportes_dt",
 ] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
@@ -66,6 +67,7 @@ export const SUBMODULE_KEYS = {
     "inventario",
     "eventos_laborales",
     "gamificacion",
+    "installations",
   ] as const,
   crm: [
     "leads",
@@ -103,6 +105,7 @@ export const SUBMODULE_KEYS = {
     "facturacion",
     "proveedores",
   ] as const,
+  reportes_dt: [] as readonly string[],
 } as const satisfies Record<ModuleKey, readonly string[]>;
 
 // ── Capability keys (acciones especiales no-CRUD) ──
@@ -193,6 +196,7 @@ export const MODULE_META: ModuleMeta[] = [
   { key: "cpq", label: "CPQ" },
   { key: "config", label: "Configuración" },
   { key: "finance", label: "Finanzas" },
+  { key: "reportes_dt", label: "Reportes DT" },
 ];
 
 export const SUBMODULE_META: SubmoduleMeta[] = [
@@ -211,6 +215,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "ops.inventario", module: "ops", submodule: "inventario", label: "Inventario", href: "/ops/inventario" },
   { key: "ops.eventos_laborales", module: "ops", submodule: "eventos_laborales", label: "Eventos laborales", href: "/personas/guardias" },
   { key: "ops.gamificacion", module: "ops", submodule: "gamificacion", label: "Gamificación", href: "/ops/gamificacion" },
+  { key: "ops.installations", module: "ops", submodule: "installations", label: "Instalaciones", href: "/crm/installations" },
   // ── CRM ──
   { key: "crm.leads", module: "crm", submodule: "leads", label: "Leads", href: "/crm/leads" },
   { key: "crm.accounts", module: "crm", submodule: "accounts", label: "Cuentas", href: "/crm/accounts" },
@@ -383,7 +388,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       config: "none",
       finance: "view",
     },
-    submodules: { "crm.installations": "view", "crm.dotacion": "view", "ops.gamificacion": "edit" },
+    submodules: { "crm.installations": "view", "crm.dotacion": "view", "ops.installations": "view", "ops.gamificacion": "edit" },
     capabilities: { rendicion_view_all: true, ticket_approve: true, gamificacion_bonos_aprobar: true },
   },
 
@@ -398,7 +403,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       config: "none",
       finance: "edit",
     },
-    submodules: { "finance.pagos": "none", "finance.configuracion": "none", "crm.installations": "view", "crm.dotacion": "edit" },
+    submodules: { "finance.pagos": "none", "finance.configuracion": "none", "crm.installations": "view", "crm.dotacion": "edit", "ops.installations": "view" },
     capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, monitoreo_cerrar_turno: true, control_nocturno_approve: true, rendicion_submit: true, rendicion_approve: true, ticket_approve: true, gamificacion_bonos_aprobar: true },
   },
 
@@ -421,6 +426,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "crm.contacts": "view",
       "crm.deals": "view",
       "crm.quotes": "none",
+      "ops.installations": "view",
       "finance.rendiciones": "edit",
       "finance.aprobaciones": "view",
       "finance.pagos": "none",
@@ -458,7 +464,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       config: "none",
       finance: "none",
     },
-    submodules: { "ops.rondas": "none", "crm.installations": "view", "crm.dotacion": "edit" },
+    submodules: { "ops.rondas": "none", "crm.installations": "view", "crm.dotacion": "edit", "ops.installations": "view" },
     capabilities: {},
   },
 
@@ -473,7 +479,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       config: "none",
       finance: "none",
     },
-    submodules: { "crm.installations": "view", "crm.dotacion": "edit" },
+    submodules: { "crm.installations": "view", "crm.dotacion": "edit", "ops.installations": "view" },
     capabilities: {},
   },
 
@@ -561,6 +567,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "crm.contacts": "view",
       "crm.deals": "none",
       "crm.quotes": "none",
+      "ops.installations": "view",
       "finance.rendiciones": "edit",
       "finance.aprobaciones": "none",
       "finance.pagos": "none",
@@ -612,6 +619,21 @@ export function canView(
   submodule?: string,
 ): boolean {
   return LEVEL_RANK[getEffectiveLevel(perms, module, submodule)] >= LEVEL_RANK.view;
+}
+
+/** ¿Puede ver Instalaciones? (crm.installations O ops.installations) */
+export function canViewInstallations(perms: RolePermissions): boolean {
+  return canView(perms, "crm", "installations") || canView(perms, "ops", "installations");
+}
+
+/** ¿Puede editar Instalaciones? (crm.installations O ops.installations) */
+export function canEditInstallations(perms: RolePermissions): boolean {
+  return canEdit(perms, "crm", "installations") || canEdit(perms, "ops", "installations");
+}
+
+/** ¿Puede eliminar Instalaciones? (crm.installations O ops.installations) */
+export function canDeleteInstallations(perms: RolePermissions): boolean {
+  return canDelete(perms, "crm", "installations") || canDelete(perms, "ops", "installations");
 }
 
 /** ¿Puede crear/editar? (edit o full) */

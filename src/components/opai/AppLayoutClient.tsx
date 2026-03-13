@@ -29,9 +29,10 @@ import {
   Shield,
   Trophy,
   ScanLine,
+  FileBarChart,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
-import { type RolePermissions, hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
+import { type RolePermissions, hasModuleAccess, canView, canViewInstallations, hasCapability } from '@/lib/permissions';
 import { RoleSimulationProvider, useRoleSimulation } from '@/contexts/RoleSimulationContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { ChatSidePanelProvider } from '@/components/chat/ChatFloatingProvider';
@@ -128,7 +129,6 @@ function AppLayoutClientInner({
       children: [
         canView(permissions, 'crm', 'leads') && { href: '/crm/leads', label: 'Leads', icon: Users, badge: notesByModule.lead },
         canView(permissions, 'crm', 'accounts') && { href: '/crm/accounts', label: 'Cuentas', icon: Building2, badge: notesByModule.account },
-        canView(permissions, 'crm', 'installations') && { href: '/crm/installations', label: 'Instalaciones', icon: MapPin, badge: notesByModule.installation },
         canView(permissions, 'crm', 'deals') && { href: '/crm/deals', label: 'Negocios', icon: TrendingUp, badge: notesByModule.deal },
         canView(permissions, 'crm', 'contacts') && { href: '/crm/contacts', label: 'Contactos', icon: Contact, badge: notesByModule.contact },
         canView(permissions, 'crm', 'quotes') && { href: '/crm/cotizaciones', label: 'Cotizaciones', icon: DollarSign, badge: notesByModule.quotation },
@@ -149,6 +149,7 @@ function AppLayoutClientInner({
           badge: notesByModule.marcacion,
         },
         // ── Ítems individuales ──
+        canViewInstallations(permissions) && { href: '/crm/installations', label: 'Instalaciones', icon: MapPin, badge: notesByModule.installation },
         canView(permissions, 'ops', 'supervision') && { href: '/ops/supervision', label: 'Supervisión', icon: ClipboardCheck, badge: notesByModule.supervision_visit },
         canView(permissions, 'ops', 'tickets') && { href: '/ops/tickets', label: 'Tickets', icon: Ticket, badge: notesByModule.ticket },
         canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas', label: 'Rondas', icon: Route },
@@ -205,6 +206,18 @@ function AppLayoutClientInner({
       children: [
         { href: '/opai/inicio', label: 'Envíos', icon: FileText },
         { href: '/opai/documentos', label: 'Gestión', icon: FolderOpen, badge: notesByModule.document },
+      ],
+    },
+    {
+      href: '/reportes/dt',
+      label: 'Reportes DT',
+      icon: FileBarChart,
+      show: canView(permissions, 'reportes_dt'),
+      children: [
+        { href: '/reportes/dt/asistencia-diaria', label: 'Asistencia Diaria', icon: FileBarChart },
+        { href: '/reportes/dt/jornada-diaria', label: 'Jornada Diaria', icon: FileBarChart },
+        { href: '/reportes/dt/domingos-festivos', label: 'Domingos y Festivos', icon: FileBarChart },
+        { href: '/reportes/dt/modificaciones-turnos', label: 'Modificaciones', icon: FileBarChart },
       ],
     },
     // ── Portales (solo owner/admin) ──

@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     if (!ctx) return unauthorized();
 
     const installations = await prisma.crmInstallation.findMany({
-      where: { tenantId: ctx.tenantId, isActive: true, chatEnabled: true },
+      where: { tenantId: ctx.tenantId, status: "active", chatEnabled: true },
       select: { id: true, name: true },
     });
 

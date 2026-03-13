@@ -36,7 +36,7 @@ export type InstallationRow = {
   lng?: number | null;
   createdAt?: string | null;
   updatedAt?: string | null;
-  isActive?: boolean;
+  status?: "prospect" | "active" | "inactive";
   nocturnoEnabled?: boolean;
   totalSlots?: number;
   assignedGuards?: number;
@@ -96,8 +96,8 @@ export function CrmInstallationsListClient({
   const filteredInstallations = useMemo(() => {
     const q = search.trim().toLowerCase();
     return installations.filter((inst) => {
-      if (statusFilter === "active" && inst.isActive !== true) return false;
-      if (statusFilter === "inactive" && inst.isActive !== false) return false;
+      if (statusFilter === "active" && inst.status !== "active") return false;
+      if (statusFilter === "inactive" && inst.status !== "inactive" && inst.status !== "prospect") return false;
       if (q) {
         const searchable = `${inst.name} ${inst.address || ""} ${inst.city || ""} ${inst.commune || ""} ${inst.account?.name || ""}`.toLowerCase();
         if (!searchable.includes(q)) return false;
@@ -314,17 +314,19 @@ export function CrmInstallationsListClient({
                         )}
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            inst.isActive === true
+                            inst.status === "active"
                               ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                              : "border border-amber-500/30 bg-amber-500/10 text-amber-300"
+                              : inst.status === "inactive"
+                                ? "border border-amber-500/30 bg-amber-500/10 text-amber-300"
+                                : "border border-zinc-500/30 bg-zinc-500/10 text-zinc-400"
                           }`}
                         >
-                          {inst.isActive ? "Activa" : "Inactiva"}
+                          {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
                         </span>
                         {inst.nocturnoEnabled !== false && (
                           <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-indigo-400" /></span>
                         )}
-                        {inst.isActive && (inst.totalSlots ?? 0) > 0 ? (
+                        {inst.status === "active" && (inst.totalSlots ?? 0) > 0 ? (
                           <>
                             <span className="text-[10px] text-muted-foreground flex items-center gap-0.5" title="Guardias asignados / Slots requeridos">
                               <Users className="h-3 w-3" />
@@ -336,7 +338,7 @@ export function CrmInstallationsListClient({
                               </span>
                             )}
                           </>
-                        ) : inst.isActive && (inst.totalSlots ?? 0) === 0 ? (
+                        ) : inst.status === "active" && (inst.totalSlots ?? 0) === 0 ? (
                           <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-400">Sin puestos</span>
                         ) : null}
                       </div>
@@ -386,12 +388,14 @@ export function CrmInstallationsListClient({
                             )}
                             <span
                               className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                inst.isActive === true
+                                inst.status === "active"
                                   ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                  : "border border-amber-500/30 bg-amber-500/10 text-amber-300"
+                                  : inst.status === "inactive"
+                                    ? "border border-amber-500/30 bg-amber-500/10 text-amber-300"
+                                    : "border border-zinc-500/30 bg-zinc-500/10 text-zinc-400"
                               }`}
                             >
-                              {inst.isActive ? "Activa" : "Inactiva"}
+                              {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
                             </span>
                             {inst.nocturnoEnabled !== false && (
                               <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-indigo-400" /></span>
@@ -411,7 +415,7 @@ export function CrmInstallationsListClient({
                           {[inst.commune, inst.city].filter(Boolean).join(", ")}
                         </p>
                       )}
-                      {inst.isActive && (inst.totalSlots ?? 0) > 0 ? (
+                      {inst.status === "active" && (inst.totalSlots ?? 0) > 0 ? (
                         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
                           <span className="text-[10px] text-muted-foreground flex items-center gap-1" title="Guardias asignados / Slots requeridos">
                             <Users className="h-3 w-3" />
@@ -424,7 +428,7 @@ export function CrmInstallationsListClient({
                             </span>
                           )}
                         </div>
-                      ) : inst.isActive && (inst.totalSlots ?? 0) === 0 ? (
+                      ) : inst.status === "active" && (inst.totalSlots ?? 0) === 0 ? (
                         <div className="mt-2 pt-2 border-t border-border/50">
                           <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-400">Sin puestos creados</span>
                         </div>

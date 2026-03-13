@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck } from "lucide-react";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
@@ -43,6 +43,7 @@ import { AccessControlConfigTab } from "@/components/access-control/AccessContro
 import { AccessControlListsManager } from "@/components/access-control/AccessControlListsManager";
 import { UnifiedDevicesSection } from "@/components/devices/UnifiedDevicesSection";
 import { InstallationPhoneLines } from "@/components/inventario/InstallationPhoneLines";
+import { InstalacionDocumentosGuardiasTab } from "./InstalacionDocumentosGuardiasTab";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -1925,6 +1926,7 @@ export function CrmInstallationDetailClient({
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
     { id: "rondas", label: "Rondas", icon: Route },
     { id: "marcaciones", label: "Marcaciones", icon: Clock },
+    { id: "documentos-guardias", label: "Documentos de Guardias", icon: FileCheck },
     { id: "access-control", label: "Control Acceso", icon: Shield },
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
@@ -2388,6 +2390,9 @@ export function CrmInstallationDetailClient({
         )}
         {activeTab === "marcaciones" && (
           <InstalacionMarcacionesTab installationId={installation.id} />
+        )}
+        {activeTab === "documentos-guardias" && (
+          <InstalacionDocumentosGuardiasTab installationId={installation.id} />
         )}
         {activeTab === "activity" && (
           <div className="rounded-lg border border-border bg-card p-4 sm:p-5">

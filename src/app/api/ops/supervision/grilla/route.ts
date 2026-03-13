@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     // 2. Fetch installations sorted A-Z
     const installations = await prisma.crmInstallation.findMany({
-      where: { id: { in: installationIds }, isActive: true },
+      where: { id: { in: installationIds }, status: "active" },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });

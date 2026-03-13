@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         name: true,
         portalConfig: true,
         installations: {
-          where: { isActive: true },
+          where: { status: "active" },
           select: { id: true, name: true },
         },
       },

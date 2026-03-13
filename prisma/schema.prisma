@@ -1374,18 +1374,26 @@ model AccountPersoneria {
   @@schema("crm")
 }
 
+enum CrmInstallationStatus {
+  prospect
+  active
+  inactive
+
+  @@schema("crm")
+}
+
 model CrmInstallation {
-  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId        String    @map("tenant_id")
-  accountId       String?   @map("account_id") @db.Uuid
-  leadId          String?   @map("lead_id") @db.Uuid
+  id              String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String                 @map("tenant_id")
+  accountId       String?                @map("account_id") @db.Uuid
+  leadId          String?                @map("lead_id") @db.Uuid
   name            String
   address         String?
   city            String?
   commune         String?
   lat             Float?
   lng             Float?
-  isActive        Boolean   @default(false) @map("is_active")
+  status          CrmInstallationStatus  @default(prospect)
   geoRadiusM      Int       @default(100) @map("geo_radius_m")
   marcacionCode   String?   @unique @map("marcacion_code") // código único 8 chars para URL/QR
   pairingCode     String?   @unique @map("pairing_code")
@@ -1454,7 +1462,7 @@ model CrmInstallation {
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
-  @@index([isActive], map: "idx_crm_installations_is_active")
+  @@index([status], map: "idx_crm_installations_status")
   @@index([leadId], map: "idx_crm_installations_lead")
   @@map("installations")
   @@schema("crm")

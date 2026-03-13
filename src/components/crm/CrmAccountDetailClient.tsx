@@ -116,7 +116,7 @@ type InstallationRow = {
   lat?: number | null;
   lng?: number | null;
   notes?: string | null;
-  isActive?: boolean;
+  status?: "prospect" | "active" | "inactive";
 };
 
 type QuoteRow = {
@@ -456,7 +456,7 @@ export function CrmAccountDetailClient({
         status: data.data.status,
         installations: prev.installations.map((inst) => ({
           ...inst,
-          isActive: data.data.type === "prospect" ? false : inst.isActive,
+          status: data.data.type === "prospect" ? "prospect" : inst.status ?? "active",
         })),
       }));
 
@@ -492,7 +492,7 @@ export function CrmAccountDetailClient({
         status: data.data.status,
         installations: prev.installations.map((inst) => ({
           ...inst,
-          isActive: data.data.isActive ? inst.isActive : false,
+          status: data.data.isActive ? inst.status ?? "active" : "inactive",
         })),
       }));
       setAccountStatusConfirmOpen(false);

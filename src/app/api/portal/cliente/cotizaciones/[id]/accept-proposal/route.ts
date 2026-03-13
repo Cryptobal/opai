@@ -73,7 +73,7 @@ export async function POST(
 
     // 6. Create chat channels for active installations
     const installations = await prisma.crmInstallation.findMany({
-      where: { accountId: session.accountId, isActive: true },
+      where: { accountId: session.accountId, status: "active" },
       select: { id: true, name: true },
     });
 

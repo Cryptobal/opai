@@ -44,7 +44,7 @@ export async function GET() {
         orderBy: { createdAt: "asc" },
       },
       installations: {
-        where: { isActive: true },
+        where: { status: "active" },
         select: {
           id: true,
           name: true,

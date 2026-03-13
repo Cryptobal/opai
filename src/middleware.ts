@@ -15,6 +15,9 @@ import {
   canView,
   canEdit,
   canDelete,
+  canViewInstallations,
+  canEditInstallations,
+  canDeleteInstallations,
   apiPathToModule,
   apiPathToSubmodule,
   type RolePermissions,
@@ -174,35 +177,59 @@ export default auth((req) => {
     if (perms) {
       const method = req.method;
       const isWrite = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE';
-
-      // Verificar acceso al módulo
-      if (!hasModuleAccess(perms, apiModule)) {
-        return Response.json(
-          { success: false, error: `Sin permisos para módulo ${apiModule.toUpperCase()}` },
-          { status: 403 }
-        );
-      }
-
-      // Verificar acceso al submódulo (si se puede mapear)
       const apiSub = apiPathToSubmodule(pathname);
-      if (apiSub) {
-        if (method === 'DELETE' && !canDelete(perms, apiSub.module, apiSub.submodule)) {
+
+      // Caso especial: instalaciones acepta crm.installations O ops.installations
+      const isInstallationsPath = apiSub?.module === 'crm' && apiSub?.submodule === 'installations';
+
+      // Verificar acceso al módulo (salvo instalaciones: acepta ops.installations)
+      if (isInstallationsPath) {
+        if (!canViewInstallations(perms)) {
           return Response.json(
-            { success: false, error: `Sin permisos para eliminar en ${apiSub.module}.${apiSub.submodule}` },
+            { success: false, error: 'Sin permisos para Instalaciones' },
             { status: 403 }
           );
         }
-        if (method !== 'DELETE' && isWrite && !canEdit(perms, apiSub.module, apiSub.submodule)) {
+        if (method === 'DELETE' && !canDeleteInstallations(perms)) {
           return Response.json(
-            { success: false, error: `Sin permisos de escritura para ${apiSub.module}.${apiSub.submodule}` },
+            { success: false, error: 'Sin permisos para eliminar Instalaciones' },
             { status: 403 }
           );
         }
-        if (!isWrite && !canView(perms, apiSub.module, apiSub.submodule)) {
+        if (method !== 'DELETE' && isWrite && !canEditInstallations(perms)) {
           return Response.json(
-            { success: false, error: `Sin permisos de lectura para ${apiSub.module}.${apiSub.submodule}` },
+            { success: false, error: 'Sin permisos de escritura para Instalaciones' },
             { status: 403 }
           );
+        }
+      } else {
+        if (!hasModuleAccess(perms, apiModule)) {
+          return Response.json(
+            { success: false, error: `Sin permisos para módulo ${apiModule.toUpperCase()}` },
+            { status: 403 }
+          );
+        }
+
+        // Verificar acceso al submódulo (si se puede mapear)
+        if (apiSub) {
+          if (method === 'DELETE' && !canDelete(perms, apiSub.module, apiSub.submodule)) {
+            return Response.json(
+              { success: false, error: `Sin permisos para eliminar en ${apiSub.module}.${apiSub.submodule}` },
+              { status: 403 }
+            );
+          }
+          if (method !== 'DELETE' && isWrite && !canEdit(perms, apiSub.module, apiSub.submodule)) {
+            return Response.json(
+              { success: false, error: `Sin permisos de escritura para ${apiSub.module}.${apiSub.submodule}` },
+              { status: 403 }
+            );
+          }
+          if (!isWrite && !canView(perms, apiSub.module, apiSub.submodule)) {
+            return Response.json(
+              { success: false, error: `Sin permisos de lectura para ${apiSub.module}.${apiSub.submodule}` },
+              { status: 403 }
+            );
+          }
         }
       }
     }

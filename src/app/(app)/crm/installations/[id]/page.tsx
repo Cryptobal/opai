@@ -4,7 +4,7 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
+import { resolvePagePerms, canView, canEdit, canViewInstallations } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { CrmInstallationDetailClient } from "@/components/crm";
@@ -19,7 +19,7 @@ export default async function CrmInstallationDetailPage({
     redirect(`/opai/login?callbackUrl=/crm/installations/${id}`);
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "crm", "installations")) redirect("/crm");
+  if (!canViewInstallations(perms)) redirect("/crm");
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const prismaAny = prisma as unknown as {
     opsRefuerzoSolicitud?: {
@@ -38,7 +38,7 @@ export default async function CrmInstallationDetailPage({
         commune: true,
         lat: true,
         lng: true,
-        isActive: true,
+        status: true,
         geoRadiusM: true,
         teMontoClp: true,
         marcacionCode: true,

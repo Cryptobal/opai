@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       installations = await prisma.crmInstallation.findMany({
         where: {
           account: { tenantId: ctx.tenantId },
-          isActive: true,
+          status: "active",
           nocturnoEnabled: true,
         },
         select: { id: true, name: true },

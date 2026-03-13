@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const installations = await prisma.crmInstallation.findMany({
     where: {
       tenantId: admin.tenantId,
-      isActive: false,
+      status: "prospect",
       ...(q
         ? {
             OR: [
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     address: i.address,
     accountId: i.account?.id ?? "",
     accountName: i.account?.name ?? "",
-    isActive: false,
+    status: "prospect",
     pairingCode: null,
     lat: null,
     lng: null,

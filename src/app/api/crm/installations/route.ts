@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         commune: true,
         lat: true,
         lng: true,
-        isActive: true,
+        status: true,
         createdAt: true,
         updatedAt: true,
         geoRadiusM: true,
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-    if (body.isActive === true && !account.isActive) {
+    if (body.status === "active" && !account.isActive) {
       return NextResponse.json(
         {
           success: false,
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
         commune: body.commune || null,
         lat: body.lat || null,
         lng: body.lng || null,
-        isActive: body.isActive ?? false,
+        status: body.status ?? "prospect",
         geoRadiusM: body.geoRadiusM ?? 100,
         teMontoClp: body.teMontoClp ?? 0,
         notes: body.notes || null,
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
         commune: true,
         lat: true,
         lng: true,
-        isActive: true,
+        status: true,
         createdAt: true,
         updatedAt: true,
         geoRadiusM: true,
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
       details: {
         name: installation.name,
         accountId: installation.accountId,
-        isActive: installation.isActive,
+        status: installation.status,
       },
       createdBy: ctx.userId,
     });

@@ -76,7 +76,7 @@ export async function POST() {
     // 3) If no CN exists at all for today, auto-create one
     if (!cn) {
       const installations = await prisma.crmInstallation.findMany({
-        where: { tenantId: ctx.tenantId, isActive: true, nocturnoEnabled: true },
+        where: { tenantId: ctx.tenantId, status: "active", nocturnoEnabled: true },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       });

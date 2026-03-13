@@ -65,7 +65,7 @@ export async function validateSupervisorSession(session: {
     lat: a.installation.lat ?? null,
     lng: a.installation.lng ?? null,
     geoRadiusM: a.installation.geoRadiusM,
-    isActive: a.installation.isActive,
+    status: a.installation.status,
     pairingCode: a.installation.pairingCode ?? null,
     teMontoClp: a.installation.teMontoClp ? Number(a.installation.teMontoClp) : 0,
   }));

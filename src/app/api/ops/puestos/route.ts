@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (!installation.isActive) {
+    if (installation.status !== "active") {
       return NextResponse.json(
         { success: false, error: "La instalación debe estar activa para crear puestos" },
         { status: 400 }

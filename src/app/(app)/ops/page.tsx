@@ -38,7 +38,7 @@ export default async function OpsDashboardPage() {
       _sum: { requiredGuards: true },
     }),
     prisma.opsAsignacionGuardia.count({ where: { tenantId, isActive: true } }),
-    prisma.crmInstallation.count({ where: { tenantId, isActive: true } }),
+    prisma.crmInstallation.count({ where: { tenantId, status: "active" } }),
     prisma.opsTurnoExtra.count({ where: { tenantId, status: "pending" } }),
     prisma.opsPautaMensual.count({
       where: {

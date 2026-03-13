@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     const installation = await prisma.crmInstallation.findFirst({
-      where: { id: installationId, isActive: true },
+      where: { id: installationId, status: "active" },
       select: { id: true, tenantId: true, name: true },
     });
     if (!installation) {

@@ -60,6 +60,7 @@ import {
   getDefaultPermissions,
   hasModuleAccess,
   canView,
+  canViewInstallations,
 } from "./permissions";
 
 /* ── Types ── */
@@ -100,6 +101,7 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
 /* ── Ops sub-items ── */
 
 const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
+  { key: "ops-installations", href: "/crm/installations", label: "Instalaciones", icon: MapPin, subKey: "installations" },
   { key: "ops-pauta-mensual", href: "/ops/pauta-mensual", label: "Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
   { key: "ops-pauta-diaria", href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
   { key: "ops-refuerzos", href: "/ops/refuerzos", label: "Refuerzo", icon: Clock3, subKey: "turnos_extra" },
@@ -191,12 +193,20 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   {
     test: (p) => p === "/crm" || p.startsWith("/crm/"),
     getItems: (perms) =>
-      CRM_ITEMS.filter((item) => canView(perms, "crm", item.subKey)),
+      CRM_ITEMS.filter((item) =>
+        item.subKey === "installations"
+          ? canViewInstallations(perms)
+          : canView(perms, "crm", item.subKey)
+      ),
   },
   {
     test: (p) => p === "/ops" || p.startsWith("/ops/"),
     getItems: (perms) =>
-      OPS_ITEMS.filter((item) => canView(perms, "ops", item.subKey)),
+      OPS_ITEMS.filter((item) =>
+        item.subKey === "installations"
+          ? canViewInstallations(perms)
+          : canView(perms, "ops", item.subKey)
+      ),
   },
   {
     test: (p) => p === "/te" || p.startsWith("/te/"),

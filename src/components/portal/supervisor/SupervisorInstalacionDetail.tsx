@@ -105,12 +105,12 @@ export function SupervisorInstalacionDetail({ installation, onBack, onAction }: 
         </div>
         <span
           className={`ml-auto flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full ${
-            installation.isActive
+            installation.status === "active"
               ? "bg-emerald-500/15 text-emerald-400"
               : "bg-zinc-700 text-zinc-400"
           }`}
         >
-          {installation.isActive ? "Activa" : "Prospecto"}
+          {installation.status === "active" ? "Activa" : installation.status === "inactive" ? "Inactiva" : "Prospecto"}
         </span>
       </div>
 

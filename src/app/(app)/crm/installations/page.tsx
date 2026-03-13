@@ -4,7 +4,7 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { resolvePagePerms, canView, canViewInstallations } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
@@ -16,12 +16,12 @@ export default async function CrmInstallationsPage() {
     redirect("/opai/login?callbackUrl=/crm/installations");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "crm", "installations")) redirect("/crm");
+  if (!canViewInstallations(perms)) redirect("/crm");
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const canSeeDeals = canView(perms, "crm", "deals");
   const [installations, accounts, puestosData, asignacionesData] = await Promise.all([
     prisma.crmInstallation.findMany({
-      where: { tenantId, ...(!canSeeDeals ? { isActive: true } : {}) },
+      where: { tenantId, ...(!canSeeDeals ? { status: "active" } : {}) },
       select: {
         id: true,
         name: true,
@@ -30,13 +30,13 @@ export default async function CrmInstallationsPage() {
         commune: true,
         lat: true,
         lng: true,
-        isActive: true,
+        status: true,
         nocturnoEnabled: true,
         createdAt: true,
         updatedAt: true,
         account: { select: { id: true, name: true, type: true, isActive: true } },
       },
-      orderBy: [{ isActive: "desc" }, { name: "asc" }],
+      orderBy: [{ name: "asc" }],
     }),
     prisma.crmAccount.findMany({
       where: { tenantId },

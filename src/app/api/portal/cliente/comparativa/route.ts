@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     where: {
       accountId: session.accountId,
       tenantId: session.tenantId,
-      isActive: true,
+      status: "active",
     },
     select: { id: true, name: true },
     orderBy: { name: "asc" },

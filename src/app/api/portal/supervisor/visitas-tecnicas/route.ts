@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   // Allow active assigned installations OR any prospecto (isActive=false) in the tenant
   if (!installationIds.includes(installationId)) {
     const installation = await prisma.crmInstallation.findFirst({
-      where: { id: installationId, tenantId, isActive: false },
+      where: { id: installationId, tenantId, status: "prospect" },
       select: { id: true },
     });
     if (!installation) {

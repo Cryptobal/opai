@@ -91,7 +91,7 @@ export default async function CRMPage() {
     prisma.crmLead.count({ where: { tenantId, status: 'approved', createdAt: { gte: twelveMonthsAgo } } }),
     prisma.crmLead.count({ where: { tenantId, status: 'rejected', createdAt: { gte: twelveMonthsAgo } } }),
     prisma.crmAccount.count({ where: { tenantId, status: 'client_active' } }),
-    prisma.crmInstallation.count({ where: { tenantId, isActive: true } }),
+    prisma.crmInstallation.count({ where: { tenantId, status: "active" } }),
     prisma.crmDeal.count({ where: { tenantId, status: 'open' } }),
     prisma.crmDeal.aggregate({ where: { tenantId, status: 'open' }, _sum: { amount: true } }),
     prisma.crmLead.count({ where: { tenantId, createdAt: { gte: thirtyDaysAgo } } }),

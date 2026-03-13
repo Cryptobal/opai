@@ -165,8 +165,8 @@ export async function PATCH(
       // Invariant: no account out of operation can keep active installations.
       if (legacy.isActive === false) {
         await tx.crmInstallation.updateMany({
-          where: { tenantId: ctx.tenantId, accountId: id, isActive: true },
-          data: { isActive: false },
+          where: { tenantId: ctx.tenantId, accountId: id, status: "active" },
+          data: { status: "inactive" },
         });
       }
 

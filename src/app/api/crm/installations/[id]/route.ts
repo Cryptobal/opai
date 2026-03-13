@@ -33,7 +33,7 @@ export async function GET(
         commune: true,
         lat: true,
         lng: true,
-        isActive: true,
+        status: true,
         geoRadiusM: true,
         teMontoClp: true,
         marcacionCode: true,
@@ -89,7 +89,7 @@ export async function PATCH(
         commune: true,
         lat: true,
         lng: true,
-        isActive: true,
+        status: true,
         geoRadiusM: true,
         teMontoClp: true,
         notes: true,
@@ -125,10 +125,12 @@ export async function PATCH(
         : null;
     }
 
+    // Map status to data (remove activateAccount from Prisma data)
+    const { activateAccount: _activateAccount, ...prismaData } = installationData as Record<string, unknown> & { activateAccount?: boolean };
     const normalizedData =
       payload.name === undefined
-        ? installationData
-        : { ...installationData, name: toSentenceCase(payload.name) ?? payload.name };
+        ? prismaData
+        : { ...prismaData, name: toSentenceCase(payload.name) ?? payload.name };
     const installation = await prisma.$transaction(async (tx) => {
       const updatedInstallation = await tx.crmInstallation.update({
         where: { id },
@@ -141,7 +143,7 @@ export async function PATCH(
           commune: true,
           lat: true,
           lng: true,
-          isActive: true,
+          status: true,
           geoRadiusM: true,
           teMontoClp: true,
           notes: true,
@@ -160,7 +162,7 @@ export async function PATCH(
           updatedInstallation.account.type === "prospect");
 
       if (
-        payload.isActive === true &&
+        payload.status === "active" &&
         payload.activateAccount === true &&
         updatedInstallation.accountId &&
         accountNeedsActivation
@@ -178,7 +180,7 @@ export async function PATCH(
       }
 
       if (
-        payload.isActive === true &&
+        payload.status === "active" &&
         updatedInstallation.accountId &&
         accountNeedsActivation &&
         payload.activateAccount !== true
@@ -291,7 +293,7 @@ export async function DELETE(
 
     const existing = await prisma.crmInstallation.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true, name: true, accountId: true, isActive: true },
+      select: { id: true, name: true, accountId: true, status: true },
     });
     if (!existing) {
       return NextResponse.json(
@@ -309,7 +311,7 @@ export async function DELETE(
       details: {
         name: existing.name,
         accountId: existing.accountId,
-        isActive: existing.isActive,
+        status: existing.status,
       },
       createdBy: ctx.userId,
     });

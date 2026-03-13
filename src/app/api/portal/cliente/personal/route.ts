@@ -20,7 +20,7 @@ export async function GET() {
 
   // Active mode: query real data
   const installations = await prisma.crmInstallation.findMany({
-    where: { accountId: session.accountId, tenantId: session.tenantId, isActive: true },
+    where: { accountId: session.accountId, tenantId: session.tenantId, status: "active" },
     select: { id: true, name: true },
   });
 

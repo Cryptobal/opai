@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     const installation = await prisma.crmInstallation.findFirst({
-      where: { marcacionCode: code, isActive: true },
+      where: { marcacionCode: code, status: "active" },
       select: { id: true, tenantId: true },
     });
     if (!installation) return NextResponse.json({ success: false, error: "Código inválido" }, { status: 404 });

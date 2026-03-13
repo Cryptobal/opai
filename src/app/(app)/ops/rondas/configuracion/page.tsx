@@ -17,7 +17,7 @@ export default async function RondasConfiguracionPage() {
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
   const [installations, accounts, checkpointCounts] = await Promise.all([
     prisma.crmInstallation.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId, status: "active" },
       select: {
         id: true, name: true, address: true, commune: true, lat: true, lng: true,
         accountId: true,
@@ -27,7 +27,7 @@ export default async function RondasConfiguracionPage() {
     prisma.crmAccount.findMany({
       where: {
         tenantId,
-        installations: { some: { isActive: true } },
+        installations: { some: { status: "active" } },
       },
       select: { id: true, name: true },
       orderBy: { name: "asc" },

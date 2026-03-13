@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     // Buscar instalación
     const installation = await prisma.crmInstallation.findFirst({
-      where: { marcacionCode: code, isActive: true },
+      where: { marcacionCode: code, status: "active" },
       select: { id: true, tenantId: true, name: true },
     });
 

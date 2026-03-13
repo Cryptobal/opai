@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { canView, canEdit } from "@/lib/permissions";
+import { canViewInstallations, canEditInstallations } from "@/lib/permissions";
 
 type Params = { id: string };
 
@@ -14,7 +14,7 @@ export async function GET(
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
 
-    if (!canView(perms, "crm", "installations")) {
+    if (!canViewInstallations(perms)) {
       return NextResponse.json(
         { success: false, error: "Sin permisos para ver protocolos" },
         { status: 403 },
@@ -67,7 +67,7 @@ export async function POST(
     if (!ctx) return unauthorized();
     const perms = await resolveApiPerms(ctx);
 
-    if (!canEdit(perms, "crm", "installations")) {
+    if (!canEditInstallations(perms)) {
       return NextResponse.json(
         { success: false, error: "Sin permisos para editar protocolos" },
         { status: 403 },

@@ -92,7 +92,7 @@ export async function GET(
             address: channel.installation.address,
             city: channel.installation.city,
             commune: channel.installation.commune,
-            isActive: channel.installation.isActive,
+            status: channel.installation.status,
             account: channel.installation.account
               ? {
                   id: channel.installation.account.id,
