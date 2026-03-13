@@ -5,6 +5,7 @@ import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { getUfValue } from "@/lib/uf";
 import { clpToUf } from "@/lib/uf-utils";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
+import type { QuoteBreakdownData, PositionBreakdownItem } from "@/types/cpq-breakdown";
 
 export async function GET(
   _request: Request,
@@ -21,7 +22,18 @@ export async function GET(
   const quote = await prisma.cpqQuote.findFirst({
     where: { id, accountId: session.accountId, tenantId: session.tenantId },
     include: {
-      parameters: { select: { salePriceMonthly: true, marginPct: true, financialRatePct: true, policyRatePct: true, policyContractMonths: true, policyContractPct: true, contractMonths: true } },
+      parameters: {
+        select: {
+          salePriceMonthly: true,
+          marginPct: true,
+          financialRatePct: true,
+          policyRatePct: true,
+          policyContractMonths: true,
+          policyContractPct: true,
+          contractMonths: true,
+          monthlyHoursStandard: true,
+        },
+      },
       positions: {
         select: {
           id: true,
@@ -32,6 +44,8 @@ export async function GET(
           endTime: true,
           weekdays: true,
           monthlyPositionCost: true,
+          baseSalary: true,
+          payrollSnapshot: true,
         },
         orderBy: { createdAt: "asc" },
       },
@@ -77,51 +91,186 @@ export async function GET(
     } catch {}
   }
 
-  // Precio venta mensual neto: salePriceMonthly + líneas adicionales (igual que CPQ)
+  /* ── Compute costs ── */
   let salePriceClp = quote.parameters?.salePriceMonthly != null
     ? Number(quote.parameters.salePriceMonthly)
     : 0;
-  if (salePriceClp <= 0) {
-    try {
-      const costSummary = await computeCpqQuoteCosts(id);
-      const marginPct = Number(quote.parameters?.marginPct ?? 13) / 100;
-      const costsBase =
-        costSummary.monthlyPositions +
-        (costSummary.monthlyHolidayAdjustment ?? 0) +
-        (costSummary.monthlyUniforms ?? 0) +
-        (costSummary.monthlyExams ?? 0) +
-        (costSummary.monthlyMeals ?? 0) +
-        (costSummary.monthlyVehicles ?? 0) +
-        (costSummary.monthlyInfrastructure ?? 0) +
-        (costSummary.monthlyCostItems ?? 0);
-      const bwm = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
-      salePriceClp = bwm + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
-    } catch {
-      salePriceClp = quote.monthlyCost?.toNumber() ?? 0;
-    }
+
+  let costSummary: Awaited<ReturnType<typeof computeCpqQuoteCosts>> | null = null;
+  try {
+    costSummary = await computeCpqQuoteCosts(id);
+  } catch {}
+
+  if (salePriceClp <= 0 && costSummary) {
+    const marginPct = Number(quote.parameters?.marginPct ?? 13) / 100;
+    const costsBase =
+      costSummary.monthlyPositions +
+      (costSummary.monthlyHolidayAdjustment ?? 0) +
+      (costSummary.monthlyUniforms ?? 0) +
+      (costSummary.monthlyExams ?? 0) +
+      (costSummary.monthlyMeals ?? 0) +
+      (costSummary.monthlyVehicles ?? 0) +
+      (costSummary.monthlyInfrastructure ?? 0) +
+      (costSummary.monthlyCostItems ?? 0);
+    const bwm = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
+    salePriceClp = bwm + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
   }
+  if (salePriceClp <= 0) {
+    salePriceClp = quote.monthlyCost?.toNumber() ?? 0;
+  }
+
   const additionalLinesTotal = quote.additionalLines.reduce(
     (s, l) => s + Number(l.precio || 0),
     0
   );
-  const baseSaleClp = salePriceClp > 0 ? salePriceClp : (quote.monthlyCost?.toNumber() ?? 0);
-  const rawMonthly = baseSaleClp + additionalLinesTotal;
+  const rawMonthly = salePriceClp + additionalLinesTotal;
 
-  // Asignar precio venta a cada posición (proporción del base, sin líneas adicionales)
+  /* ── Assign sale price to each position ── */
   const positionCosts = quote.positions.map((p) => Number(p.monthlyPositionCost ?? 0));
   const totalPositionCosts = positionCosts.reduce((s, c) => s + c, 0);
   const fallbackProportion = quote.positions.length > 0 ? 1 / quote.positions.length : 0;
 
-  const positionsWithPrice = quote.positions.map((p) => {
+  const positionsWithPrice = quote.positions.map((p, i) => {
     const costClp = Number(p.monthlyPositionCost ?? 0);
     const proportion = totalPositionCosts > 0 ? costClp / totalPositionCosts : fallbackProportion;
-    const allocatedSaleClp = baseSaleClp * proportion;
+    const allocatedSaleClp = salePriceClp * proportion;
     return {
       ...p,
       monthlyPositionCost: convertCost(costClp),
       displayPrice: convertCost(allocatedSaleClp),
     };
   });
+
+  /* ── Build cost breakdown ── */
+  let costBreakdown: QuoteBreakdownData | undefined;
+  try {
+    if (costSummary) {
+      const marginPct = Number(quote.parameters?.marginPct ?? 13);
+      const financialRatePct = Number(quote.parameters?.financialRatePct ?? 2.5);
+      const policyRatePct = Number(quote.parameters?.policyRatePct ?? 0);
+      const monthlyHoursStandard = Number(quote.parameters?.monthlyHoursStandard ?? 180);
+
+      const subtotalBase =
+        costSummary.monthlyPositions +
+        costSummary.monthlyHolidayAdjustment +
+        costSummary.monthlyUniforms +
+        costSummary.monthlyExams +
+        costSummary.monthlyMeals +
+        costSummary.monthlyVehicles +
+        costSummary.monthlyInfrastructure +
+        costSummary.monthlyCostItems;
+
+      const marginAmount = salePriceClp - subtotalBase - costSummary.monthlyFinancial - costSummary.monthlyPolicy;
+
+      /* ── Cost category breakdown (equipment / transport / systems) ── */
+      const costItems = await prisma.cpqQuoteCostItem.findMany({
+        where: { quoteId: id },
+        include: { catalogItem: true },
+      });
+      const totalGuards = costSummary.totalGuards;
+      const normalizeUnit = (value: number, unit?: string | null) => {
+        if (!unit) return value;
+        const n = unit.toLowerCase();
+        if (n.includes("año") || n.includes("year")) return value / 12;
+        if (n.includes("semestre") || n.includes("semester")) return value / 6;
+        return value;
+      };
+      const sumByType = (types: string[]) =>
+        costItems.reduce((sum, item) => {
+          if (!item.isEnabled) return sum;
+          const cat = item.catalogItem;
+          if (!cat || !types.includes(cat.type)) return sum;
+          const base = Number(cat.basePrice || 0);
+          const override = item.unitPriceOverride != null ? Number(item.unitPriceOverride) : null;
+          const unitPrice = normalizeUnit(override ?? base, cat.unit);
+          const quantity = Number(item.quantity ?? 1);
+          if (item.calcMode === "per_guard") return sum + unitPrice * quantity * totalGuards;
+          return sum + unitPrice * quantity;
+        }, 0);
+
+      const equipment = sumByType(["phone", "radio", "flashlight"]);
+      const transport = sumByType(["transport"]);
+      const systems = sumByType(["system"]);
+
+      /* ── Per-position breakdown ── */
+      const positionItems: PositionBreakdownItem[] = quote.positions.map((pos) => {
+        const snap = pos.payrollSnapshot as Record<string, unknown> | null;
+        const bd = (snap?.breakdown ?? {}) as Record<string, unknown>;
+        const costClp = Number(pos.monthlyPositionCost ?? 0);
+        const proportion = totalPositionCosts > 0 ? costClp / totalPositionCosts : fallbackProportion;
+        const positionSaleClp = salePriceClp * proportion;
+        const totalGuardsInPos = (pos.numGuards ?? 1) * (pos.numPuestos ?? 1);
+
+        const getNum = (key: string) => Number((bd as Record<string, unknown>)[key] ?? 0) * totalGuardsInPos;
+        const getNestedNum = (key: string, sub: string) => {
+          const val = bd[key] as Record<string, unknown> | undefined;
+          return Number(val?.[sub] ?? 0) * totalGuardsInPos;
+        };
+
+        const baseSalary = getNum("base_salary") || (Number(pos.baseSalary ?? 0) * totalGuardsInPos);
+        const gratification = getNum("gratification");
+        const totalImponible = getNum("total_taxable_income") || (baseSalary + gratification);
+        const sisEmployer = getNum("sis_employer");
+        const afcEmployer = getNestedNum("afc_employer", "total");
+        const mutualEmployer = getNestedNum("work_injury_employer", "amount");
+        const vacationProvision = getNum("vacation_provision");
+        const severanceProvision = getNum("severance_provision");
+
+        const hourlyRateSale =
+          totalGuardsInPos > 0 && monthlyHoursStandard > 0
+            ? positionSaleClp / (totalGuardsInPos * monthlyHoursStandard)
+            : 0;
+
+        return {
+          id: pos.id,
+          name: pos.customName ?? "Puesto",
+          numGuards: pos.numGuards ?? 1,
+          numPuestos: pos.numPuestos ?? 1,
+          totalGuardsInPosition: totalGuardsInPos,
+          baseSalary,
+          gratification,
+          totalImponible,
+          sisEmployer,
+          afcEmployer,
+          mutualEmployer,
+          vacationProvision,
+          severanceProvision,
+          totalLaborCost: costClp,
+          salePrice: positionSaleClp,
+          hourlyRateSale,
+        };
+      });
+
+      costBreakdown = {
+        positions: positionItems,
+        totalLaborCost: costSummary.monthlyPositions,
+        holidayAdjustment: costSummary.monthlyHolidayAdjustment,
+        uniforms: costSummary.monthlyUniforms,
+        exams: costSummary.monthlyExams,
+        meals: costSummary.monthlyMeals,
+        vehicles: costSummary.monthlyVehicles,
+        infrastructure: costSummary.monthlyInfrastructure,
+        equipment,
+        transport,
+        systems,
+        subtotalBase,
+        marginPct,
+        marginAmount,
+        financial: costSummary.monthlyFinancial,
+        financialRatePct,
+        policy: costSummary.monthlyPolicy,
+        policyRatePct,
+        totalSalePrice: salePriceClp,
+        additionalLines: additionalLinesTotal,
+        grandTotal: rawMonthly,
+        monthlyHoursStandard,
+        currency,
+        ufValue: ufValue > 0 ? ufValue : undefined,
+      };
+    }
+  } catch {
+    // Non-critical — return quote without breakdown
+  }
 
   return NextResponse.json({
     success: true,
@@ -141,6 +290,7 @@ export async function GET(
         size: a.size,
         publicUrl: a.publicUrl,
       })) ?? [],
+      costBreakdown,
     },
   });
 }

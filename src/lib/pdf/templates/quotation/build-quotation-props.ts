@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import type { QuoteBreakdownData, PositionBreakdownItem } from '@/types/cpq-breakdown';
 
 /** Remove common AI artifacts from aiDescription (headers, metadata) for display */
 function sanitizeAiDescription(text: string | null | undefined): string | undefined {
@@ -170,6 +171,140 @@ export async function buildQuotationProps(
   // Company config
   const companyConfig = await getTenantCompanyConfig(tenantId);
 
+  /* ── Cost category breakdown ── */
+  let breakdown: QuoteBreakdownData | undefined;
+  try {
+    if (summary) {
+      const marginPct = Number(quote.parameters?.marginPct ?? 13);
+      const margin = marginPct / 100;
+      const financialRatePctVal = Number(quote.parameters?.financialRatePct ?? 2.5);
+      const policyRatePctVal = Number(quote.parameters?.policyRatePct ?? 0);
+      const monthlyHoursStandard = Number(quote.parameters?.monthlyHoursStandard ?? 180);
+
+      const costItemsForBd = await prisma.cpqQuoteCostItem.findMany({
+        where: { quoteId: quoteId },
+        include: { catalogItem: true },
+      });
+      const normalizeUnit = (value: number, unit?: string | null) => {
+        if (!unit) return value;
+        const n = unit.toLowerCase();
+        if (n.includes('año') || n.includes('year')) return value / 12;
+        if (n.includes('semestre') || n.includes('semester')) return value / 6;
+        return value;
+      };
+      const sumByType = (types: string[]) =>
+        costItemsForBd.reduce((sum, item) => {
+          if (!item.isEnabled) return sum;
+          const cat = item.catalogItem;
+          if (!cat || !types.includes(cat.type)) return sum;
+          const base = Number(cat.basePrice || 0);
+          const override = item.unitPriceOverride != null ? Number(item.unitPriceOverride) : null;
+          const unitPrice = normalizeUnit(override ?? base, cat.unit);
+          const qty = Number(item.quantity ?? 1);
+          if (item.calcMode === 'per_guard') return sum + unitPrice * qty * totalGuards;
+          return sum + unitPrice * qty;
+        }, 0);
+
+      const subtotalBase =
+        summary.monthlyPositions +
+        summary.monthlyHolidayAdjustment +
+        summary.monthlyUniforms +
+        summary.monthlyExams +
+        summary.monthlyMeals +
+        summary.monthlyVehicles +
+        summary.monthlyInfrastructure +
+        summary.monthlyCostItems;
+      const marginAmount = totalSalePrice - subtotalBase - summary.monthlyFinancial - summary.monthlyPolicy;
+
+      const totalPositionCosts = quote.positions.reduce(
+        (s: number, p: { monthlyPositionCost: unknown }) => s + Number(p.monthlyPositionCost ?? 0),
+        0,
+      );
+      const fallback = quote.positions.length > 0 ? 1 / quote.positions.length : 0;
+
+      const positionItems: PositionBreakdownItem[] = quote.positions.map(
+        (pos: {
+          id: string;
+          customName?: string | null;
+          puestoTrabajo?: { name: string } | null;
+          numGuards: number;
+          numPuestos?: number;
+          monthlyPositionCost: unknown;
+          baseSalary: unknown;
+          payrollSnapshot?: unknown;
+        }) => {
+          const snap = pos.payrollSnapshot as Record<string, unknown> | null;
+          const bd = (snap?.breakdown ?? {}) as Record<string, unknown>;
+          const costClp = Number(pos.monthlyPositionCost ?? 0);
+          const proportion = totalPositionCosts > 0 ? costClp / totalPositionCosts : fallback;
+          const salePrice = totalSalePrice * proportion;
+          const totalGuardsInPos = Math.max(1, pos.numGuards) * Math.max(1, pos.numPuestos ?? 1);
+
+          const getNum = (key: string) => Number(bd[key] ?? 0) * totalGuardsInPos;
+          const getNestedNum = (key: string, sub: string) => {
+            const val = bd[key] as Record<string, unknown> | undefined;
+            return Number(val?.[sub] ?? 0) * totalGuardsInPos;
+          };
+
+          const baseSalary = getNum('base_salary') || Number(pos.baseSalary ?? 0) * totalGuardsInPos;
+          const gratification = getNum('gratification');
+          const totalImponible = getNum('total_taxable_income') || baseSalary + gratification;
+
+          return {
+            id: pos.id,
+            name: pos.customName || pos.puestoTrabajo?.name || 'Puesto',
+            numGuards: pos.numGuards,
+            numPuestos: pos.numPuestos ?? 1,
+            totalGuardsInPosition: totalGuardsInPos,
+            baseSalary,
+            gratification,
+            totalImponible,
+            sisEmployer: getNum('sis_employer'),
+            afcEmployer: getNestedNum('afc_employer', 'total'),
+            mutualEmployer: getNestedNum('work_injury_employer', 'amount'),
+            vacationProvision: getNum('vacation_provision'),
+            severanceProvision: getNum('severance_provision'),
+            totalLaborCost: costClp,
+            salePrice,
+            hourlyRateSale:
+              totalGuardsInPos > 0 && monthlyHoursStandard > 0
+                ? salePrice / (totalGuardsInPos * monthlyHoursStandard)
+                : 0,
+          };
+        },
+      );
+
+      breakdown = {
+        positions: positionItems,
+        totalLaborCost: summary.monthlyPositions,
+        holidayAdjustment: summary.monthlyHolidayAdjustment,
+        uniforms: summary.monthlyUniforms,
+        exams: summary.monthlyExams,
+        meals: summary.monthlyMeals,
+        vehicles: summary.monthlyVehicles,
+        infrastructure: summary.monthlyInfrastructure,
+        equipment: sumByType(['phone', 'radio', 'flashlight']),
+        transport: sumByType(['transport']),
+        systems: sumByType(['system']),
+        subtotalBase,
+        marginPct,
+        marginAmount,
+        financial: summary.monthlyFinancial,
+        financialRatePct: financialRatePctVal,
+        policy: summary.monthlyPolicy,
+        policyRatePct: policyRatePctVal,
+        totalSalePrice,
+        additionalLines: totalAdditionalLines,
+        grandTotal,
+        monthlyHoursStandard,
+        currency,
+        ufValue: ufVal > 0 ? ufVal : undefined,
+      };
+    }
+  } catch {
+    // Non-critical
+  }
+
   const props: QuotationPDFProps = {
     quote: {
       code: quote.code,
@@ -210,6 +345,7 @@ export async function buildQuotationProps(
     includedItems: quote.includedItems || [],
     aiDescription: sanitizeAiDescription(quote.aiDescription),
     serviceDetail: quote.serviceDetail || undefined,
+    breakdown,
   };
 
   const fileName = `${quote.code}-propuesta.pdf`;

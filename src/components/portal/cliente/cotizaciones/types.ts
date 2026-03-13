@@ -57,6 +57,8 @@ export interface QuoteDetail extends QuoteSummary {
   notes: string | null;
   aiDescription: string | null;
   serviceDetail: string | null;
+  /** Full transparent cost breakdown for client display */
+  costBreakdown?: import("@/types/cpq-breakdown").QuoteBreakdownData;
 }
 
 export interface DealGroup {

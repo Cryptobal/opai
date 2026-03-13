@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   ChevronDown, ChevronUp, FileDown, FileText, MessageSquare,
   Loader2, AlertTriangle, Check, XCircle, Paperclip, Download, ExternalLink,
+  BarChart3,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import {
@@ -14,6 +15,7 @@ import {
 } from "./types";
 import { GardServiceIncludes } from "./GardServiceIncludes";
 import { WhatsAppButton } from "./WhatsAppButton";
+import { QuoteBreakdownPanel } from "@/components/cpq/QuoteBreakdownPanel";
 
 /* ══════════════════════════════════════════════════════ */
 
@@ -52,6 +54,7 @@ export function CotizacionCard({
   const canAct = isActionable(cotizacion);
 
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   async function handleDownloadPdf() {
     if (pdfLoading) return;
@@ -329,6 +332,41 @@ export function CotizacionCard({
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {/* Cost breakdown */}
+              {detail.costBreakdown && (
+                <div className="rounded-xl border border-white/[0.07] overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowBreakdown((v) => !v)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.03] transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-teal-400" />
+                      <span className="text-sm font-semibold text-teal-300">
+                        Estructura de costos
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-400 font-medium">
+                        Transparente
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 text-zinc-500 transition-transform",
+                        showBreakdown ? "rotate-180" : "",
+                      )}
+                    />
+                  </button>
+                  {showBreakdown && (
+                    <div className="border-t border-white/[0.06] px-4 py-4">
+                      <QuoteBreakdownPanel
+                        data={detail.costBreakdown}
+                        variant="dark"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 

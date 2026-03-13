@@ -20,6 +20,8 @@ import type {
   CpqQuoteCostSummary,
   CpqQuoteAdditionalLine,
 } from "@/types/cpq";
+import { QuoteBreakdownPanel } from "@/components/cpq/QuoteBreakdownPanel";
+import type { QuoteBreakdownData, PositionBreakdownItem } from "@/types/cpq-breakdown";
 
 /* ── Props ── */
 
@@ -45,6 +47,7 @@ export interface FinancialPanelProps {
   positions: CpqPosition[];
   positionSalePrices: Map<string, number>;
   positionHourlyRates: Map<string, number>;
+  monthlyHoursStandard?: number;
   // Preview tab - quote data
   quote: CpqQuote;
   crmContext: {
@@ -95,60 +98,106 @@ export interface FinancialPanelProps {
   contactEmail?: string;
 }
 
-/* ── Helpers ── */
+/* ── Build breakdown data from props ── */
 
-interface WaterfallCategory {
-  label: string;
-  amount: number;
-  color: string; // tailwind bg class
-  barColor: string; // filled bar color
-  isSeparator?: boolean; // subtotal separator
-  pctLabel?: string; // show % next to label
-}
-
-function buildWaterfallCategories(
+function buildBreakdownData(
   costSummary: CpqQuoteCostSummary,
-  breakdown: FinancialPanelProps["costCategoryBreakdown"],
+  costCategoryBreakdown: FinancialPanelProps["costCategoryBreakdown"],
+  positions: CpqPosition[],
+  positionSalePrices: Map<string, number>,
+  marginPct: number,
+  marginAmount: number,
+  salePriceMonthly: number,
   additionalLinesTotal: number,
-): WaterfallCategory[] {
-  const cats: WaterfallCategory[] = [];
+  monthlyHoursStandard: number,
+  currency: string,
+  ufValue: number | null,
+): QuoteBreakdownData {
+  const subtotalBase =
+    costSummary.monthlyPositions +
+    costSummary.monthlyHolidayAdjustment +
+    costSummary.monthlyUniforms +
+    costSummary.monthlyExams +
+    costSummary.monthlyMeals +
+    costSummary.monthlyVehicles +
+    costSummary.monthlyInfrastructure +
+    costSummary.monthlyCostItems;
 
-  const push = (label: string, amount: number, color: string, barColor: string, extra?: Partial<WaterfallCategory>) => {
-    if (amount > 0) cats.push({ label, amount, color, barColor, ...extra });
+  const totalPositionCosts = positions.reduce((s, p) => s + Number(p.monthlyPositionCost), 0);
+  const fallback = positions.length > 0 ? 1 / positions.length : 0;
+
+  const positionItems: PositionBreakdownItem[] = positions.map((pos) => {
+    const snap = pos.payrollSnapshot as Record<string, unknown> | null;
+    const bd = (snap?.breakdown ?? {}) as Record<string, unknown>;
+    const costClp = Number(pos.monthlyPositionCost ?? 0);
+    const proportion = totalPositionCosts > 0 ? costClp / totalPositionCosts : fallback;
+    const salePrice = positionSalePrices.get(pos.id) ?? (salePriceMonthly * proportion);
+    const totalGuardsInPos = Math.max(1, pos.numGuards) * Math.max(1, pos.numPuestos);
+
+    const getNum = (key: string) => Number((bd as Record<string, unknown>)[key] ?? 0) * totalGuardsInPos;
+    const getNestedNum = (key: string, sub: string) => {
+      const val = bd[key] as Record<string, unknown> | undefined;
+      return Number(val?.[sub] ?? 0) * totalGuardsInPos;
+    };
+
+    const baseSalary = getNum("base_salary") || (Number(pos.baseSalary ?? 0) * totalGuardsInPos);
+    const gratification = getNum("gratification");
+    const totalImponible = getNum("total_taxable_income") || baseSalary + gratification;
+    const sisEmployer = getNum("sis_employer");
+    const afcEmployer = getNestedNum("afc_employer", "total");
+    const mutualEmployer = getNestedNum("work_injury_employer", "amount");
+    const vacationProvision = getNum("vacation_provision");
+    const severanceProvision = getNum("severance_provision");
+
+    return {
+      id: pos.id,
+      name: pos.customName || pos.puestoTrabajo?.name || "Puesto",
+      numGuards: pos.numGuards,
+      numPuestos: pos.numPuestos,
+      totalGuardsInPosition: totalGuardsInPos,
+      baseSalary,
+      gratification,
+      totalImponible,
+      sisEmployer,
+      afcEmployer,
+      mutualEmployer,
+      vacationProvision,
+      severanceProvision,
+      totalLaborCost: costClp,
+      salePrice,
+      hourlyRateSale:
+        totalGuardsInPos > 0 && monthlyHoursStandard > 0
+          ? salePrice / (totalGuardsInPos * monthlyHoursStandard)
+          : 0,
+    };
+  });
+
+  return {
+    positions: positionItems,
+    totalLaborCost: costSummary.monthlyPositions,
+    holidayAdjustment: costSummary.monthlyHolidayAdjustment,
+    uniforms: costSummary.monthlyUniforms,
+    exams: costSummary.monthlyExams,
+    meals: costSummary.monthlyMeals,
+    vehicles: costSummary.monthlyVehicles,
+    infrastructure: costSummary.monthlyInfrastructure,
+    equipment: costCategoryBreakdown.equipment,
+    transport: costCategoryBreakdown.transport,
+    systems: costCategoryBreakdown.system,
+    subtotalBase,
+    marginPct,
+    marginAmount,
+    financial: costSummary.monthlyFinancial,
+    financialRatePct: costSummary.financialRatePct ?? 0,
+    policy: costSummary.monthlyPolicy,
+    policyRatePct: costSummary.policyRatePct ?? 0,
+    totalSalePrice: salePriceMonthly,
+    additionalLines: additionalLinesTotal,
+    grandTotal: salePriceMonthly + additionalLinesTotal,
+    monthlyHoursStandard,
+    currency,
+    ufValue: ufValue ?? undefined,
   };
-
-  // Labor
-  push("Mano de obra", costSummary.monthlyPositions, "bg-blue-500/20", "bg-blue-500");
-  push("Feriados", costSummary.monthlyHolidayAdjustment, "bg-blue-400/20", "bg-blue-400");
-
-  // Direct costs
-  push("Uniformes", costSummary.monthlyUniforms, "bg-teal-500/20", "bg-teal-500");
-  push("Exámenes", costSummary.monthlyExams, "bg-teal-400/20", "bg-teal-400");
-  push("Alimentación", costSummary.monthlyMeals, "bg-teal-600/20", "bg-teal-600");
-
-  // Indirect costs
-  push("Equipo", breakdown.equipment, "bg-amber-500/20", "bg-amber-500");
-  push("Transporte", breakdown.transport, "bg-amber-400/20", "bg-amber-400");
-  push("Vehículos", breakdown.vehicle, "bg-amber-600/20", "bg-amber-600");
-  push("Infraestructura", breakdown.infra, "bg-amber-500/20", "bg-amber-500");
-  push("Sistemas", breakdown.system, "bg-amber-400/20", "bg-amber-400");
-
-  // Subtotal base separator
-  const subtotalBase = cats.reduce((s, c) => s + c.amount, 0);
-  cats.push({ label: "Subtotal base", amount: subtotalBase, color: "", barColor: "", isSeparator: true });
-
-  // Financial (percentage-based)
-  push("Financiero", costSummary.monthlyFinancial, "bg-orange-500/20", "bg-orange-500", {
-    pctLabel: costSummary.financialRatePct ? `${costSummary.financialRatePct}%` : undefined,
-  });
-  push("Póliza", costSummary.monthlyPolicy, "bg-purple-500/20", "bg-purple-500", {
-    pctLabel: costSummary.policyRatePct ? `${costSummary.policyRatePct}%` : undefined,
-  });
-
-  // Additional lines
-  push("Líneas adicionales", additionalLinesTotal, "bg-purple-400/20", "bg-purple-400");
-
-  return cats;
 }
 
 /* ── Component ── */
@@ -167,6 +216,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
     positions,
     positionSalePrices,
     positionHourlyRates,
+    monthlyHoursStandard = 180,
     quote,
     crmContext,
     crmContacts,
@@ -201,18 +251,24 @@ export function FinancialPanel(props: FinancialPanelProps) {
   } = props;
 
   const [activeTab, setActiveTab] = useState<"desglose" | "preview">("desglose");
-  const [showHourly, setShowHourly] = useState(false);
   const [docAiTab, setDocAiTab] = useState<"description" | "service">("description");
 
-  const totalSale = salePriceMonthly + additionalLinesTotal;
-
-  /* ── Waterfall data ── */
-  const categories = costSummary
-    ? buildWaterfallCategories(costSummary, costCategoryBreakdown, additionalLinesTotal)
-    : [];
-  const realCategories = categories.filter((c) => !c.isSeparator);
-  const totalCosts = realCategories.reduce((s, c) => s + c.amount, 0);
-  const maxCategoryAmount = Math.max(...realCategories.map((c) => c.amount), 1);
+  /* ── Build breakdown data ── */
+  const breakdownData = costSummary
+    ? buildBreakdownData(
+        costSummary,
+        costCategoryBreakdown,
+        positions,
+        positionSalePrices,
+        marginPct,
+        marginAmount,
+        salePriceMonthly,
+        additionalLinesTotal,
+        monthlyHoursStandard,
+        crmContext.currency || "CLP",
+        ufValue,
+      )
+    : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -247,23 +303,15 @@ export function FinancialPanel(props: FinancialPanelProps) {
       {/* ── Tab content ── */}
       <div className="overflow-y-auto flex-1">
         {activeTab === "desglose" && (
-          <DesgloseTab
-            totalSale={totalSale}
-            salePriceMonthly={salePriceMonthly}
-            additionalLinesTotal={additionalLinesTotal}
-            ufValue={ufValue}
-            positionsCount={positionsCount}
-            totalGuards={totalGuards}
-            marginPct={marginPct}
-            categories={categories}
-            totalCosts={totalCosts}
-            maxCategoryAmount={maxCategoryAmount}
-            marginAmount={marginAmount}
-            positions={positions}
-            positionHourlyRates={positionHourlyRates}
-            showHourly={showHourly}
-            setShowHourly={setShowHourly}
-          />
+          <div className="p-3">
+            {breakdownData ? (
+              <QuoteBreakdownPanel data={breakdownData} variant="default" />
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-8">
+                Agrega puestos para ver el desglose de costos.
+              </p>
+            )}
+          </div>
         )}
 
         {activeTab === "preview" && (
@@ -309,168 +357,6 @@ export function FinancialPanel(props: FinancialPanelProps) {
           />
         )}
       </div>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════
-   Tab: Desglose
-   ══════════════════════════════════════════════════════════════ */
-
-interface DesgloseTabProps {
-  totalSale: number;
-  salePriceMonthly: number;
-  additionalLinesTotal: number;
-  ufValue: number | null;
-  positionsCount: number;
-  totalGuards: number;
-  marginPct: number;
-  categories: WaterfallCategory[];
-  totalCosts: number;
-  maxCategoryAmount: number;
-  marginAmount: number;
-  positions: CpqPosition[];
-  positionHourlyRates: Map<string, number>;
-  showHourly: boolean;
-  setShowHourly: (v: boolean) => void;
-}
-
-function DesgloseTab({
-  totalSale,
-  salePriceMonthly,
-  additionalLinesTotal,
-  ufValue,
-  positionsCount,
-  totalGuards,
-  marginPct,
-  categories,
-  totalCosts,
-  maxCategoryAmount,
-  marginAmount,
-  positions,
-  positionHourlyRates,
-  showHourly,
-  setShowHourly,
-}: DesgloseTabProps) {
-  return (
-    <div className="p-3 space-y-3">
-      {/* ── Sale hero ── */}
-      <div className="bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 text-center">
-        <div className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-semibold mb-1">
-          Venta Mensual
-        </div>
-        <div className="font-bold text-2xl text-foreground">
-          {formatCLP(totalSale)}
-        </div>
-        {ufValue && ufValue > 0 && (
-          <div className="text-sm text-emerald-400/60 mt-0.5">
-            {formatUFSuffix(clpToUf(totalSale, ufValue))}
-          </div>
-        )}
-        <div className="flex items-center justify-center gap-3 mt-2 text-xs text-muted-foreground">
-          <span>P:{positionsCount}</span>
-          <span>G:{totalGuards}</span>
-          <span>M:{marginPct}%</span>
-        </div>
-      </div>
-
-      {/* ── Waterfall bars ── */}
-      {categories.length > 0 && (
-        <div className="space-y-1.5">
-          {categories.map((cat) => {
-            if (cat.isSeparator) {
-              return (
-                <div key={cat.label} className="flex items-center justify-between border-t border-dashed border-border/60 pt-1.5 mt-1">
-                  <span className="text-[10px] font-semibold text-muted-foreground">{cat.label}</span>
-                  <span className="font-mono text-[11px] font-semibold">{formatCurrency(cat.amount)}</span>
-                </div>
-              );
-            }
-            const pct = totalSale > 0 ? (cat.amount / totalSale) * 100 : 0;
-            const barWidthPct =
-              maxCategoryAmount > 0
-                ? (cat.amount / maxCategoryAmount) * 100
-                : 0;
-            return (
-              <div key={cat.label}>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    {cat.label}
-                    {cat.pctLabel && <span className="ml-1 text-[10px] opacity-60">{cat.pctLabel}</span>}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground text-[10px]">
-                      {pct.toFixed(0)}%
-                    </span>
-                    <span className="font-mono text-xs">
-                      {formatCurrency(cat.amount)}
-                    </span>
-                  </div>
-                </div>
-                <div className={cn("h-1.5 rounded-full w-full mt-0.5", cat.color)}>
-                  <div
-                    className={cn("h-1.5 rounded-full transition-all", cat.barColor)}
-                    style={{ width: `${Math.max(barWidthPct, 0.5)}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── Totals ── */}
-      <div className="border-t border-border/40 pt-2 space-y-1">
-        <div className="flex justify-between items-center text-xs">
-          <span className="text-muted-foreground font-semibold">Total costos</span>
-          <span className="font-mono font-semibold">{formatCurrency(totalCosts)}</span>
-        </div>
-        <div className="flex justify-between items-center text-xs text-emerald-700 dark:text-emerald-400">
-          <span className="font-semibold">Margen ({marginPct}%)</span>
-          <span className="font-mono font-semibold">{formatCurrency(marginAmount)}</span>
-        </div>
-      </div>
-
-      {/* ── Value per hour ── */}
-      {positions.length > 0 && (
-        <div className="border-t border-emerald-500/20 pt-2">
-          <button
-            type="button"
-            className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors w-full"
-            onClick={() => setShowHourly(!showHourly)}
-          >
-            <ChevronDown
-              className={cn(
-                "h-3 w-3 transition-transform",
-                showHourly ? "rotate-0" : "-rotate-90",
-              )}
-            />
-            Valor hora por puesto
-          </button>
-          {showHourly && (
-            <div className="mt-1.5 space-y-1">
-              {positions.map((pos) => {
-                const name =
-                  pos.customName || pos.puestoTrabajo?.name || "Puesto";
-                const rate = positionHourlyRates.get(pos.id) ?? 0;
-                return (
-                  <div
-                    key={pos.id}
-                    className="flex items-center justify-between pl-2 text-[11px]"
-                  >
-                    <span className="text-muted-foreground truncate">
-                      {name}
-                    </span>
-                    <span className="font-mono text-emerald-700 dark:text-emerald-400 shrink-0 ml-2">
-                      {formatCurrency(rate)}/hr
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

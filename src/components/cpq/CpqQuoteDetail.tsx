@@ -1488,6 +1488,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           positions={positions}
           positionSalePrices={positionSalePrices}
           positionHourlyRates={positionHourlyRates}
+          monthlyHoursStandard={monthlyHours}
           quote={quote}
           crmContext={crmContext}
           crmContacts={crmContacts}
@@ -1571,6 +1572,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             positions={positions}
             positionSalePrices={positionSalePrices}
             positionHourlyRates={positionHourlyRates}
+            monthlyHoursStandard={monthlyHours}
             quote={quote}
             crmContext={crmContext}
             crmContacts={crmContacts}
