@@ -268,7 +268,7 @@ export function CheckpointMapCreator({
       const marker = new gm.Marker({
         position: pos,
         map,
-        title: cp.name,
+        title: `${idx + 1}. ${cp.name}`,
         label: {
           text: String(idx + 1),
           color: "#fff",
@@ -296,16 +296,8 @@ export function CheckpointMapCreator({
         strokeWeight: 1,
       });
 
-      // Info window on click
-      const infoWindow = new gm.InfoWindow({
-        content: `<div style="font-family:system-ui;font-size:13px;max-width:200px">
-          <strong>${cp.name}</strong><br/>
-          <span style="color:#666">${cp.verificationType === "GEOFENCE" ? "📍 Geocerca" : cp.verificationType === "QR" ? "🔲 QR" : "📍🔲 Ambos"}</span><br/>
-          <span style="color:#666">Radio: ${cp.geoRadiusM}m</span>
-          ${cp.isCritical ? '<br/><span style="color:#ef4444">⚠ Crítico</span>' : ""}
-        </div>`,
-      });
-      marker.addListener("click", () => infoWindow.open(map, marker));
+      // Click on marker opens edit panel
+      marker.addListener("click", () => startEditing(cp));
 
       markersRef.current.push(marker);
       circlesRef.current.push(circle);
@@ -328,8 +320,7 @@ export function CheckpointMapCreator({
       // cleanup if effect re-runs before idle fires
       return () => gm.event.removeListener(listener);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapReady, checkpoints]);
+  }, [mapReady, checkpoints, startEditing]);
 
   // Show user position as blue dot + auto-center on first fix
   useEffect(() => {
