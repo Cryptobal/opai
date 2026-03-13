@@ -30,6 +30,8 @@ export interface Position {
   endTime: string | null;
   weekdays: string | null;
   monthlyPositionCost: number;
+  /** Precio venta asignado (cuando viene del API); usa esto para mostrar en vez de monthlyPositionCost */
+  displayPrice?: number;
 }
 
 export interface AdditionalLine {

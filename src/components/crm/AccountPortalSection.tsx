@@ -266,7 +266,7 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                     )}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium truncate">
                           {c.firstName} {c.lastName}
                         </p>
@@ -276,29 +276,18 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                         {portalEnabled && (
                           <Badge className="text-[9px] bg-emerald-500/15 text-emerald-400">Portal activo</Badge>
                         )}
+                        {hasPin && (
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                            PIN: {c.portalPinVisible}
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {c.email ?? "Sin email"} {c.phone ? `· ${c.phone}` : ""}
                       </p>
-                      {hasPin && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-muted-foreground">PIN:</span>
-                          <code className="text-[11px] font-mono bg-muted/30 px-1.5 py-0.5 rounded">
-                            {c.portalPinVisible}
-                          </code>
-                        </div>
-                      )}
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      {hasPin && (
-                        <span className="flex items-center gap-1.5 text-xs">
-                          <span className="text-muted-foreground">PIN:</span>
-                          <code className="font-mono bg-muted px-2 py-1 rounded text-foreground">
-                            {c.portalPinVisible}
-                          </code>
-                        </span>
-                      )}
                       {isLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                       ) : (

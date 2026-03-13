@@ -477,6 +477,46 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         return (
           <div className="space-y-3">
             <CollapsibleSection title="Identificación y contacto" defaultOpen>
+              {/* PIN de marcación — primera cosa visible, badge verde + Recargar */}
+              <div className="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-border/40">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider shrink-0">PIN de marcación</span>
+                <span className="shrink-0 rounded px-2.5 py-1 text-sm font-semibold tabular-nums bg-emerald-500/25 text-emerald-400 border border-emerald-500/30">
+                  {guardia.marcacionPinVisible ?? (guardia.marcacionPin ? "••••" : "—")}
+                </span>
+                {canManageGuardias && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    disabled={pinReloading}
+                    onClick={async () => {
+                      setPinReloading(true);
+                      try {
+                        const res = await fetch("/api/ops/marcacion/pin", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ guardiaId: guardia.id }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) {
+                          toast.error(data.error || "Error al recargar PIN");
+                          return;
+                        }
+                        setGuardia((prev) => ({ ...prev, marcacionPin: "[configurado]", marcacionPinVisible: data.data.pin }));
+                        toast.success("PIN recargado correctamente");
+                      } catch {
+                        toast.error("Error de conexión");
+                      } finally {
+                        setPinReloading(false);
+                      }
+                    }}
+                  >
+                    {pinReloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                    Recargar
+                  </Button>
+                )}
+              </div>
               <DatosPersonalesSection
                 guardiaId={guardia.id} persona={guardia.persona} hiredAt={guardia.hiredAt}
                 availableExtraShifts={guardia.availableExtraShifts} recibeAnticipo={guardia.recibeAnticipo}
@@ -492,47 +532,6 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Última modificación</p>
                   <p className="text-sm">{guardia.updatedAt ? new Date(guardia.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</p>
-                </div>
-                <div className="col-span-2 flex flex-wrap items-center gap-2 pt-1">
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">PIN de marcación</p>
-                    <p className="text-sm font-mono tracking-wider">
-                      {guardia.marcacionPinVisible ?? (guardia.marcacionPin ? "••••" : "—")}
-                    </p>
-                  </div>
-                  {canManageGuardias && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mt-4 h-8"
-                      disabled={pinReloading}
-                      onClick={async () => {
-                        setPinReloading(true);
-                        try {
-                          const res = await fetch("/api/ops/marcacion/pin", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ guardiaId: guardia.id }),
-                          });
-                          const data = await res.json();
-                          if (!res.ok || !data.success) {
-                            toast.error(data.error || "Error al recargar PIN");
-                            return;
-                          }
-                          setGuardia((prev) => ({ ...prev, marcacionPin: "[configurado]", marcacionPinVisible: data.data.pin }));
-                          toast.success("PIN recargado correctamente");
-                        } catch {
-                          toast.error("Error de conexión");
-                        } finally {
-                          setPinReloading(false);
-                        }
-                      }}
-                    >
-                      {pinReloading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
-                      Recargar
-                    </Button>
-                  )}
                 </div>
               </div>
             </CollapsibleSection>

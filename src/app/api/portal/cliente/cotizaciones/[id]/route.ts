@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { getUfValue } from "@/lib/uf";
 import { clpToUf } from "@/lib/uf-utils";
+import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
 export async function GET(
   _request: Request,
@@ -20,7 +21,7 @@ export async function GET(
   const quote = await prisma.cpqQuote.findFirst({
     where: { id, accountId: session.accountId, tenantId: session.tenantId },
     include: {
-      parameters: { select: { salePriceMonthly: true } },
+      parameters: { select: { salePriceMonthly: true, marginPct: true, financialRatePct: true, policyRatePct: true, policyContractMonths: true, policyContractPct: true, contractMonths: true } },
       positions: {
         select: {
           id: true,
@@ -72,11 +73,45 @@ export async function GET(
     } catch {}
   }
 
-  // Precio venta mensual neto cuando existe; sino monthlyCost
-  const salePriceClp = quote.parameters?.salePriceMonthly != null
+  // Precio venta mensual neto: salePriceMonthly en parameters, o computar desde costos
+  let salePriceClp = quote.parameters?.salePriceMonthly != null
     ? Number(quote.parameters.salePriceMonthly)
     : 0;
+  if (salePriceClp <= 0) {
+    try {
+      const costSummary = await computeCpqQuoteCosts(id);
+      const marginPct = Number(quote.parameters?.marginPct ?? 13) / 100;
+      const costsBase =
+        costSummary.monthlyPositions +
+        (costSummary.monthlyUniforms ?? 0) +
+        (costSummary.monthlyExams ?? 0) +
+        (costSummary.monthlyMeals ?? 0) +
+        (costSummary.monthlyVehicles ?? 0) +
+        (costSummary.monthlyInfrastructure ?? 0) +
+        (costSummary.monthlyCostItems ?? 0);
+      const bwm = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
+      salePriceClp = bwm + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
+    } catch {
+      salePriceClp = quote.monthlyCost?.toNumber() ?? 0;
+    }
+  }
   const rawMonthly = salePriceClp > 0 ? salePriceClp : (quote.monthlyCost?.toNumber() ?? 0);
+
+  // Asignar precio venta a cada posición (proporción por costo)
+  const positionCosts = quote.positions.map((p) => Number(p.monthlyPositionCost ?? 0));
+  const totalPositionCosts = positionCosts.reduce((s, c) => s + c, 0);
+  const fallbackProportion = quote.positions.length > 0 ? 1 / quote.positions.length : 0;
+
+  const positionsWithPrice = quote.positions.map((p, idx) => {
+    const costClp = Number(p.monthlyPositionCost ?? 0);
+    const proportion = totalPositionCosts > 0 ? costClp / totalPositionCosts : fallbackProportion;
+    const allocatedSaleClp = rawMonthly * proportion;
+    return {
+      ...p,
+      monthlyPositionCost: convertCost(costClp),
+      displayPrice: convertCost(allocatedSaleClp),
+    };
+  });
 
   return NextResponse.json({
     success: true,
@@ -84,10 +119,7 @@ export async function GET(
       ...quote,
       monthlyCost: convertCost(rawMonthly),
       proposalLink,
-      positions: quote.positions.map((p) => ({
-        ...p,
-        monthlyPositionCost: convertCost(p.monthlyPositionCost?.toNumber() ?? 0),
-      })),
+      positions: positionsWithPrice,
       additionalLines: quote.additionalLines.map((l) => ({
         ...l,
         precio: convertCost(Number(l.precio) || 0),

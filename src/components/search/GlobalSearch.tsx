@@ -316,7 +316,7 @@ export function GlobalSearch({
                 const showImage =
                   (result.type === "guardia" || result.type === "account") &&
                   result.imageUrl;
-                const isGuardia = result.type === "guardia";
+                const showPinBadge = (result.type === "guardia" || result.type === "contact") && result.pinDisplay;
                 return (
                   <button
                     key={`${result.type}-${result.id}`}
@@ -360,7 +360,7 @@ export function GlobalSearch({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium truncate">{result.title}</p>
-                        {isGuardia && result.pinDisplay && (
+                        {showPinBadge && (
                           <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
                             {result.pinDisplay}
                           </span>

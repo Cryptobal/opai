@@ -35,6 +35,7 @@ type ContactRow = {
   phone?: string | null;
   roleTitle?: string | null;
   isPrimary?: boolean;
+  portalPinVisible?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   account?: {
@@ -106,7 +107,7 @@ export function CrmContactsClient({
     // Search
     if (q) {
       result = result.filter((c) => {
-        const searchable = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.account?.name || ""}`.toLowerCase();
+        const searchable = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.account?.name || ""} ${c.portalPinVisible || ""}`.toLowerCase();
         return searchable.includes(q);
       });
     }
@@ -429,7 +430,7 @@ export function CrmContactsClient({
                 >
                   <Link href={`/crm/contacts/${contact.id}`} className="flex flex-1 items-center justify-between min-w-0">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-sm group-hover:text-primary transition-colors">{contactName(contact)}</p>
                         {unreadNoteIds.has(contact.id) && (
                           <span className="relative shrink-0" title="Notas no leídas">
@@ -439,6 +440,11 @@ export function CrmContactsClient({
                         )}
                         {contact.isPrimary && (
                           <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Principal</Badge>
+                        )}
+                        {contact.portalPinVisible && (
+                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                            PIN: {contact.portalPinVisible}
+                          </span>
                         )}
                       </div>
                       <p className="mt-0.5 text-xs text-muted-foreground">
@@ -468,12 +474,17 @@ export function CrmContactsClient({
                     <Link href={`/crm/contacts/${contact.id}`} className="flex-1 min-w-0">
                       <div className="flex items-start justify-between">
                         <div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="font-medium text-sm group-hover:text-primary transition-colors">{contactName(contact)}</p>
                             {unreadNoteIds.has(contact.id) && (
                               <span className="relative shrink-0" title="Notas no leídas">
                                 <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
                                 <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+                              </span>
+                            )}
+                            {contact.portalPinVisible && (
+                              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                                PIN: {contact.portalPinVisible}
                               </span>
                             )}
                           </div>

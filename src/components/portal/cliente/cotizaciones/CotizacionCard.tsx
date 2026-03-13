@@ -231,7 +231,7 @@ export function CotizacionCard({
                         <th className="text-center py-2 pr-3 font-medium">Guardias</th>
                         <th className="text-left py-2 pr-3 font-medium">Horario</th>
                         <th className="text-left py-2 pr-3 font-medium">Días</th>
-                        <th className="text-right py-2 font-medium">Costo mensual</th>
+                        <th className="text-right py-2 font-medium">Precio mensual</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -250,7 +250,7 @@ export function CotizacionCard({
                             {formatWeekdays(pos.weekdays)}
                           </td>
                           <td className="py-2 text-right text-teal-400 font-medium">
-                            {formatCurrency(pos.monthlyPositionCost, detail.currency === "UF" ? "UF" : "CLP")}
+                            {formatCurrency(pos.displayPrice ?? pos.monthlyPositionCost, detail.currency === "UF" ? "UF" : "CLP")}
                           </td>
                         </tr>
                       ))}

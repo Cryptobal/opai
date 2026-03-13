@@ -11,6 +11,7 @@ type SearchResult = {
   title: string;
   subtitle: string;
   href: string;
+  pinDisplay?: string;
 };
 
 const TYPE_CONFIG: Record<
@@ -168,13 +169,14 @@ export function CrmGlobalSearch({ className }: { className?: string }) {
                 {items.map((result) => {
                   const Icon = config.icon;
                   const globalIdx = results.indexOf(result);
+                  const showPinBadge = result.type === "contact" && result.pinDisplay;
                   return (
                     <button
                       key={result.id}
                       type="button"
                       onClick={() => selectResult(result)}
                       className={cn(
-                        "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
+                        "flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors",
                         globalIdx === activeIndex
                           ? "bg-accent text-foreground"
                           : "hover:bg-accent/50"
@@ -184,9 +186,16 @@ export function CrmGlobalSearch({ className }: { className?: string }) {
                         <Icon className={cn("h-4 w-4", config.color)} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{result.title}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium truncate">{result.title}</p>
+                          {showPinBadge && (
+                            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                              {result.pinDisplay}
+                            </span>
+                          )}
+                        </div>
                         {result.subtitle && (
-                          <p className="text-xs text-muted-foreground truncate">{result.subtitle}</p>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{result.subtitle}</p>
                         )}
                       </div>
                       <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium", config.bgColor, config.color)}>

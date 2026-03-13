@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { getUfValue } from "@/lib/uf";
 import { clpToUf } from "@/lib/uf-utils";
+import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -16,7 +17,7 @@ export async function GET() {
     where: { accountId: session.accountId, tenantId: session.tenantId },
     include: {
       positions: { select: { id: true, numGuards: true } },
-      parameters: { select: { salePriceMonthly: true } },
+      parameters: { select: { salePriceMonthly: true, marginPct: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -50,12 +51,40 @@ export async function GET() {
     }
   } catch {}
 
+  // Para cotizaciones sin salePriceMonthly guardado, computar desde costos
+  const computedSalePrices = new Map<string, number>();
+  const toCompute = quotes.filter((q) => {
+    const sp = q.parameters?.salePriceMonthly != null ? Number(q.parameters.salePriceMonthly) : 0;
+    return sp <= 0;
+  });
+  await Promise.all(
+    toCompute.map(async (q) => {
+      try {
+        const costSummary = await computeCpqQuoteCosts(q.id);
+        const marginPct = Number(q.parameters?.marginPct ?? 13) / 100;
+        const costsBase =
+          costSummary.monthlyPositions +
+          (costSummary.monthlyUniforms ?? 0) +
+          (costSummary.monthlyExams ?? 0) +
+          (costSummary.monthlyMeals ?? 0) +
+          (costSummary.monthlyVehicles ?? 0) +
+          (costSummary.monthlyInfrastructure ?? 0) +
+          (costSummary.monthlyCostItems ?? 0);
+        const bwm = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
+        const salePrice = bwm + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
+        computedSalePrices.set(q.id, salePrice);
+      } catch {
+        // ignorar
+      }
+    })
+  );
+
   const data = quotes.map((q) => {
     const deal = q.dealId ? dealMap.get(q.dealId) : null;
-    // Precio venta mensual neto (salePriceMonthly) cuando existe; sino monthlyCost (costo)
-    const salePriceClp = q.parameters?.salePriceMonthly != null
-      ? Number(q.parameters.salePriceMonthly)
-      : 0;
+    const salePriceClp =
+      (q.parameters?.salePriceMonthly != null ? Number(q.parameters.salePriceMonthly) : 0) ||
+      computedSalePrices.get(q.id) ||
+      0;
     const rawCost = salePriceClp > 0 ? salePriceClp : (q.monthlyCost?.toNumber() ?? 0);
     const currency = (q.currency || "CLP") as string;
     const monthlyCost = currency === "UF" && ufValue > 0 ? clpToUf(rawCost, ufValue) : rawCost;

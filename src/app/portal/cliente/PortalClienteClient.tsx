@@ -70,7 +70,10 @@ export function PortalClienteClient() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/portal/cliente/auth", { method: "GET" });
+        const res = await fetch("/api/portal/cliente/auth", {
+          method: "GET",
+          credentials: "include",
+        });
         const json = await res.json();
         if (cancelled || !json.success || !json.data) return;
         setSession(json.data);
@@ -108,6 +111,7 @@ export function PortalClienteClient() {
     try {
       const res = await fetch("/api/portal/cliente/auth", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim().toLowerCase(), pin }),
       });
