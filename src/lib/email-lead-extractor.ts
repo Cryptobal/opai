@@ -187,6 +187,43 @@ export function detectForwardInBody(body: string): boolean {
 }
 
 /**
+ * Patrones que indican correo basura (autocompletado, 1Password, accesibilidad, etc.).
+ * Estos correos no deben crear leads.
+ */
+const GARBAGE_PATTERNS: RegExp[] = [
+  /1Password/i,
+  /Pulsa el tabulador/i,
+  /Pulsa la fecha/i,
+  /menú de 1Password/i,
+  /Insertar.*tabulador/i,
+  /hacia abajo para seleccionar/i,
+];
+
+const MIN_VALID_BODY_LENGTH = 50;
+
+/**
+ * Detecta si el contenido del email es basura (autocompletado, 1Password, etc.)
+ * y no debe crear un lead.
+ */
+export function isGarbageEmail(params: {
+  textBody?: string | null;
+  htmlBody?: string | null;
+  subject?: string | null;
+}): boolean {
+  const text = (params.textBody?.trim() || "").trim() || stripHtml(params.htmlBody || "").trim();
+  if (!text) return true;
+
+  // Contiene patrones de basura (1Password, accesibilidad, etc.) → rechazar
+  const hasGarbage = GARBAGE_PATTERNS.some((p) => p.test(text));
+  if (hasGarbage) return true;
+
+  // Cuerpo muy corto sin contenido sustancial
+  if (text.length < MIN_VALID_BODY_LENGTH) return true;
+
+  return false;
+}
+
+/**
  * En correos reenviados con historial, extrae el primer mensaje reenviado (el del cliente real)
  * y el resto de la conversación como contexto para el resumen.
  */

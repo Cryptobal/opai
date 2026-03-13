@@ -17,7 +17,7 @@ import { resend } from "@/lib/resend";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
-import { extractLeadFromEmail, parseFromHeader } from "@/lib/email-lead-extractor";
+import { extractLeadFromEmail, parseFromHeader, isGarbageEmail } from "@/lib/email-lead-extractor";
 
 import { toSentenceCase } from "@/lib/text-format";
 
@@ -87,6 +87,11 @@ export async function POST(request: NextRequest) {
     const html = email.html ?? null;
     const text = email.text ?? null;
     const attachments = email.attachments || [];
+
+    if (isGarbageEmail({ textBody: text, htmlBody: html, subject })) {
+      console.log("[inbound-email] Skipped: garbage content (autocomplete, 1Password, etc.)");
+      return NextResponse.json({ success: true, skipped: "garbage_content" });
+    }
 
     let extracted: Awaited<ReturnType<typeof extractLeadFromEmail>>;
     try {
