@@ -86,6 +86,7 @@ export async function POST(
         firstName: true,
         lastName: true,
         email: true,
+        phone: true,
         portalEnabled: true,
         portalPin: true,
         portalPinVisible: true,
@@ -346,6 +347,8 @@ export async function POST(
       ? `${basePortalUrl}?email=${encodeURIComponent(contact.email)}`
       : basePortalUrl;
     const contactName = `${contact.firstName} ${contact.lastName}`.trim();
+    const siteUrl2 = process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
+    const proposalLinkForEmail = presentationUniqueId ? `${siteUrl2}/p/${presentationUniqueId}` : null;
 
     const emailHtml = await render(
       PortalProspectoInviteEmail({
@@ -355,6 +358,8 @@ export async function POST(
         pin,
         portalUrl,
         ejecutivoName,
+        quoteCode: quote.code,
+        proposalLink: proposalLinkForEmail,
       })
     );
 
@@ -486,6 +491,15 @@ export async function POST(
         proposalLink: presentationUniqueId
           ? `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/p/${presentationUniqueId}`
           : null,
+        whatsappUrl: buildWhatsAppUrl(contact.phone, {
+          contactName,
+          companyName: account.name,
+          email: contact.email,
+          pin,
+          portalUrl,
+          proposalLink: proposalLinkForEmail,
+          ejecutivoName,
+        }),
       },
     });
   } catch (error) {
@@ -495,4 +509,67 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+// ─── Helpers ───────────────────────────────────────────────
+
+function normalizePhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  // Strip everything except digits and leading +
+  const cleaned = raw.replace(/[^\d+]/g, "");
+  if (!cleaned) return null;
+  // If starts with 9 (Chilean mobile without country code), prepend +56
+  if (/^9\d{8}$/.test(cleaned)) return `56${cleaned}`;
+  // If starts with +56 or 56
+  if (cleaned.startsWith("+")) return cleaned.slice(1);
+  return cleaned;
+}
+
+interface WhatsAppMsgParams {
+  contactName: string;
+  companyName: string;
+  email: string;
+  pin: string;
+  portalUrl: string;
+  proposalLink: string | null;
+  ejecutivoName: string;
+}
+
+function buildWhatsAppUrl(
+  phone: string | null | undefined,
+  params: WhatsAppMsgParams
+): string | null {
+  const normalized = normalizePhone(phone);
+  if (!normalized) return null;
+
+  const { contactName, companyName, email, pin, portalUrl, proposalLink, ejecutivoName } = params;
+
+  const firstName = contactName.split(" ")[0];
+
+  const lines = [
+    `Hola ${firstName} 👋`,
+    ``,
+    `Soy *${ejecutivoName}* de *Gard Security*. Te envié por correo una propuesta de seguridad personalizada para *${companyName}*.`,
+    ``,
+    `🔐 *Accede a tu portal privado* donde podrás:`,
+    `✅ Revisar tu propuesta en detalle`,
+    `📄 Ver la propuesta técnica completa`,
+    `💬 Chatear directamente conmigo`,
+    `📊 Monitorear el servicio una vez activo`,
+    ``,
+    `📧 *Correo:* ${email}`,
+    `🔑 *PIN:* ${pin}`,
+    ``,
+    `👉 *Ingresar al portal:*`,
+    portalUrl,
+  ];
+
+  if (proposalLink) {
+    lines.push(``, `📋 *Ver propuesta técnica directamente:*`, proposalLink);
+  }
+
+  lines.push(``, `¿Tienes alguna consulta? Responde aquí mismo 🙌`);
+
+  const message = lines.join("\n");
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }

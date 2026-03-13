@@ -41,7 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { FinancialPanel } from "@/components/cpq/FinancialPanel";
@@ -111,6 +111,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [sendingDotacion, setSendingDotacion] = useState(false);
   const [sendingPortal, setSendingPortal] = useState(false);
   const [portalFollowUpModalOpen, setPortalFollowUpModalOpen] = useState(false);
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
+  const [whatsappSentTo, setWhatsappSentTo] = useState<string>("");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savingFinancials, setSavingFinancials] = useState(false);
   const [financialError, setFinancialError] = useState<string | null>(null);
@@ -683,6 +686,18 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       toast.success(
         `Invitacion enviada a ${payload.data.sentTo}. ${payload.data.pinGenerated ? "Se genero PIN de acceso." : "PIN existente."}`
       );
+
+      // Open WhatsApp if contact has a phone number
+      if (payload.data.whatsappUrl) {
+        // Try to open automatically; if blocked by browser, show modal
+        const opened = window.open(payload.data.whatsappUrl, "_blank");
+        if (!opened) {
+          setWhatsappUrl(payload.data.whatsappUrl);
+          setWhatsappSentTo(payload.data.sentTo);
+          setWhatsappModalOpen(true);
+        }
+      }
+
       refresh();
     } catch (error) {
       console.error("Error sending via portal:", error);
@@ -1631,6 +1646,42 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           loading={sendingPortal}
         />
       )}
+
+      {/* Modal de WhatsApp — se abre si el browser bloqueó el popup automático */}
+      <Dialog open={whatsappModalOpen} onOpenChange={setWhatsappModalOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-green-400" />
+              Enviar por WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              El email fue enviado a <strong>{whatsappSentTo}</strong>. Ahora envía el mismo mensaje por WhatsApp para asegurar que lo reciba.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              El mensaje incluye sus credenciales de acceso, el link al portal y los beneficios del servicio.
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setWhatsappModalOpen(false)}>
+              Omitir
+            </Button>
+            <Button
+              size="sm"
+              className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => {
+                if (whatsappUrl) window.open(whatsappUrl, "_blank");
+                setWhatsappModalOpen(false);
+              }}
+            >
+              <MessageCircle className="h-4 w-4" />
+              Abrir WhatsApp
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmacion Volver a borrador */}
       <Dialog open={statusChangePending === "draft"} onOpenChange={(v) => !v && setStatusChangePending(null)}>
