@@ -60,6 +60,7 @@ const ROLE_CRM_SUBMODULE_ACCESS: Record<Role, CrmSubmoduleKey[]> = {
   solo_payroll: ROLE_POLICIES.solo_payroll.crmSubmodules,
   supervisor: ROLE_POLICIES.supervisor.crmSubmodules,
   viewer: ROLE_POLICIES.viewer.crmSubmodules,
+  inspector_dt: ROLE_POLICIES.inspector_dt.crmSubmodules,
 };
 
 const ROLE_CONFIG_SUBMODULE_ACCESS: Record<Role, ConfigSubmoduleKey[]> = {
@@ -77,6 +78,7 @@ const ROLE_CONFIG_SUBMODULE_ACCESS: Record<Role, ConfigSubmoduleKey[]> = {
   solo_payroll: ROLE_POLICIES.solo_payroll.configSubmodules,
   supervisor: ROLE_POLICIES.supervisor.configSubmodules,
   viewer: ROLE_POLICIES.viewer.configSubmodules,
+  inspector_dt: ROLE_POLICIES.inspector_dt.configSubmodules,
 };
 
 const ROLE_DOCS_SUBMODULE_ACCESS: Record<Role, DocsSubmoduleKey[]> = {
@@ -94,6 +96,7 @@ const ROLE_DOCS_SUBMODULE_ACCESS: Record<Role, DocsSubmoduleKey[]> = {
   solo_payroll: ROLE_POLICIES.solo_payroll.docsSubmodules,
   supervisor: ROLE_POLICIES.supervisor.docsSubmodules,
   viewer: ROLE_POLICIES.viewer.docsSubmodules,
+  inspector_dt: ROLE_POLICIES.inspector_dt.docsSubmodules,
 };
 
 function hasRoleSubmoduleAccess<K extends string>(

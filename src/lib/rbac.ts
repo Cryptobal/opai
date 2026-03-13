@@ -29,6 +29,7 @@ const ROLE_HIERARCHY: Record<Role, number> = {
   solo_payroll: ROLE_POLICIES.solo_payroll.rank,
   supervisor: ROLE_POLICIES.supervisor.rank,
   viewer: ROLE_POLICIES.viewer.rank,
+  inspector_dt: ROLE_POLICIES.inspector_dt.rank,
 };
 
 /**
