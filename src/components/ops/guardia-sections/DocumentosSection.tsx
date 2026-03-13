@@ -205,7 +205,7 @@ export default function DocumentosSection({
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, name: data.data.name } : f)));
-      onDocumentsChange(documents.map((d) => (d.folderId === folderId && d.folder) ? { ...d, folder: { ...d.folder, name: data.data.name } } : d)));
+      onDocumentsChange(documents.map((d) => (d.folderId === folderId && d.folder) ? { ...d, folder: { ...d.folder, name: data.data.name } } : d));
       setRenamingFolderId(null);
       setRenameValue("");
       toast.success("Carpeta renombrada");
