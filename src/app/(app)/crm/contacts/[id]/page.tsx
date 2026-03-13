@@ -61,7 +61,7 @@ export default async function CrmContactDetailPage({
           address: true,
           city: true,
           commune: true,
-          isActive: true,
+          status: true,
         },
       })
     : [];
