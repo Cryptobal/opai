@@ -52,22 +52,18 @@ export default async function GuardiaDetailPage({
     }),
     prisma.admin.findMany({
       where: { tenantId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, email: true },
     }),
     getGuardiaDocumentosConfig(tenantId),
   ]);
 
   if (!guardia) notFound();
 
-  // Try to find matching Admin for this persona (by email) for rendiciones link
-  let personaAdminId: string | null = null;
-  if (guardia.persona.email) {
-    const matchingAdmin = await prisma.admin.findFirst({
-      where: { tenantId, email: guardia.persona.email },
-      select: { id: true },
-    });
-    if (matchingAdmin) personaAdminId = matchingAdmin.id;
-  }
+  // Find matching Admin for this persona (by email) for rendiciones link - use adminUsers to avoid extra DB query
+  const personaAdminId =
+    guardia.persona.email
+      ? adminUsers.find((a) => a.email === guardia.persona.email)?.id ?? null
+      : null;
 
   // Enrich history events and comments with user names
   const userMap = new Map(adminUsers.map((u) => [u.id, u.name]));
