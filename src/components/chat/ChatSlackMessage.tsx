@@ -66,7 +66,10 @@ export function ChatSlackMessage({
               <p className="text-xs text-zinc-500 line-clamp-1">{message.replyTo.content}</p>
             </div>
           )}
-          <div className="text-sm text-[rgba(255,255,255,0.88)] leading-[1.55] break-words whitespace-pre-wrap">
+          <div
+            className="text-sm text-[rgba(255,255,255,0.88)] leading-[1.55] break-words whitespace-pre-wrap select-none"
+            style={{ WebkitUserSelect: "none", userSelect: "none" as const, WebkitTouchCallout: "none" as const }}
+          >
             {renderContent ? renderContent(message.content) : message.content}
           </div>
           {message.isEdited && (
@@ -111,7 +114,10 @@ export function ChatSlackMessage({
         )}
 
         {/* Content */}
-        <div className="text-sm text-[rgba(255,255,255,0.88)] leading-[1.55] break-words whitespace-pre-wrap">
+        <div
+          className="text-sm text-[rgba(255,255,255,0.88)] leading-[1.55] break-words whitespace-pre-wrap select-none"
+          style={{ WebkitUserSelect: "none", userSelect: "none" as const, WebkitTouchCallout: "none" as const }}
+        >
           {renderContent ? renderContent(message.content) : message.content}
         </div>
         {message.isEdited && (

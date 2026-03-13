@@ -63,6 +63,11 @@ export interface CpqPosition {
   rol?: CpqRol;
 }
 
+export type AdditionalLineType = "producto" | "servicio" | "arriendo" | "asesoria" | "equipamiento";
+export type AdditionalLineRecurrence = "mensual" | "unico" | "por_evento";
+export type CostItemCalcMode = "per_month" | "per_guard";
+export type MarginMode = "margin_on_sale" | "markup" | "margin_on_labor";
+
 export interface CpqQuoteAdditionalLine {
   id?: string;
   quoteId?: string;
@@ -70,6 +75,52 @@ export interface CpqQuoteAdditionalLine {
   descripcion: string;
   precio: number;
   orden: number;
+  tipo?: string;
+  recurrencia?: string;
+  cantidad?: number;
+  marginPct?: number | null;
+}
+
+export interface AdditionalLineDetail {
+  id: string;
+  nombre: string;
+  tipo: string;
+  recurrencia: string;
+  precioBase: number;
+  marginPct: number;
+  precioConMargen: number;
+}
+
+export interface CostByCategoryItem {
+  name: string;
+  amount: number;
+  calcMode: string;
+}
+
+export interface CostByCategory {
+  category: string;
+  categorySlug: string;
+  categoryType: "direct" | "indirect";
+  items: CostByCategoryItem[];
+  subtotal: number;
+}
+
+export interface ProposalTemplateSections {
+  showCoverPage: boolean;
+  showCompanyIntro: boolean;
+  showPositionsTable: boolean;
+  showCostBreakdown: boolean;
+  showCostSummaryByCategory: boolean;
+  showLaborDetail: boolean;
+  showEquipmentDetail: boolean;
+  showVehicleDetail: boolean;
+  showAdditionalServices: boolean;
+  showConditions: boolean;
+  showIncludedItems: boolean;
+  showSignature: boolean;
+  showComplianceSection: boolean;
+  numberedSections: boolean;
+  headerStyle: "standard" | "detailed" | "formal";
 }
 
 export interface CpqQuote {
@@ -224,12 +275,20 @@ export interface CpqQuoteCostSummary {
   monthlyVehicles: number;
   monthlyInfrastructure: number;
   monthlyCostItems: number;
+  costsBase: number;
+  baseWithMargin: number;
   monthlyFinancial: number;
   monthlyPolicy: number;
   monthlyExtras: number;
   monthlyTotal: number;
   financialRatePct?: number;
   policyRatePct?: number;
+  additionalLinesDetails: AdditionalLineDetail[];
+  additionalLinesTotalBase: number;
+  additionalLinesTotalWithMargin: number;
+  costsByCategory: CostByCategory[];
+  marginMode: string;
+  laborCost: number;
 }
 
 export interface CreateQuoteInput {

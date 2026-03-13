@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   ArchiveRestore,
-  ArrowLeft,
   Bell,
   BellOff,
   AtSign,
@@ -904,12 +903,12 @@ function GroupChannelsSection({
                       />
                     </div>
                     {(onMarkAsRead || onUpdateNotifPref) && (
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 pl-2">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
-                              className="opacity-0 group-hover:opacity-100 h-5 w-5 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                              className="opacity-0 group-hover:opacity-100 h-8 w-8 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent/50"
                               onClick={(e) => e.stopPropagation()}
                               aria-label="Más opciones"
                             >
@@ -1114,12 +1113,12 @@ function ChannelSection({
                   />
                 </div>
                 {hasMenu && (
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 pl-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="opacity-0 group-hover:opacity-100 h-5 w-5 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                          className="opacity-0 group-hover:opacity-100 h-8 w-8 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent/50"
                           onClick={(e) => e.stopPropagation()}
                           aria-label="Más opciones"
                         >
@@ -1338,8 +1337,6 @@ function ChannelListItem({
           </p>
         )}
       </div>
-
-      <ArrowLeft className="h-4 w-4 text-muted-foreground/40 rotate-180 shrink-0" />
     </button>
   );
 }

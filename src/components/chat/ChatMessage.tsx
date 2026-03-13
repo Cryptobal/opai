@@ -287,11 +287,15 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
           </div>
         ) : message.contentHtml ? (
           <div
-            className="break-words whitespace-pre-wrap chat-html-content text-sm leading-relaxed text-zinc-200"
+            className="break-words whitespace-pre-wrap chat-html-content text-sm leading-relaxed text-zinc-200 select-none"
+            style={{ WebkitUserSelect: "none", userSelect: "none" as const, WebkitTouchCallout: "none" as const }}
             dangerouslySetInnerHTML={{ __html: message.contentHtml }}
           />
         ) : (
-          <p className="break-words whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
+          <p
+            className="break-words whitespace-pre-wrap text-sm leading-relaxed text-zinc-200 select-none"
+            style={{ WebkitUserSelect: "none", userSelect: "none" as const, WebkitTouchCallout: "none" as const }}
+          >
             {renderContent(message.content, currentUserId, mentionDisplayMap)}
           </p>
         )}

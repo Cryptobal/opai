@@ -251,8 +251,8 @@ export function ChatPortalWrapper({
         {...(isMobile && onBack ? swipeDown : {})}
       >
         {isMobile && onBack && (
-          <div className="flex justify-center pt-2 pb-1">
-            <div className="w-10 h-1 rounded-full bg-[rgba(255,255,255,0.2)]" />
+          <div className="flex justify-center pt-2 pb-2">
+            <div className="w-12 h-1.5 rounded-full bg-[rgba(255,255,255,0.25)]" />
           </div>
         )}
         <div className="flex items-center justify-between h-12 px-4 pb-2">
