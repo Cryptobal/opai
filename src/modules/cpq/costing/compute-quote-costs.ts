@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { isDefaultUniform } from "@/lib/cpq-constants";
+import type {
+  AdditionalLineDetail,
+  CostByCategory,
+} from "@/types/cpq";
 
 interface QuoteCostSummary {
   totalGuards: number;
@@ -19,6 +23,12 @@ interface QuoteCostSummary {
   monthlyTotal: number;
   financialRatePct?: number;
   policyRatePct?: number;
+  additionalLinesDetails: AdditionalLineDetail[];
+  additionalLinesTotalBase: number;
+  additionalLinesTotalWithMargin: number;
+  costsByCategory: CostByCategory[];
+  marginMode: string;
+  laborCost: number;
 }
 
 const safeNumber = (value: unknown) => Number(value || 0);
@@ -35,12 +45,90 @@ const normalizeUnitPrice = (value: number, unit?: string | null) => {
 };
 const normalizePct = (value: number) => value / 100;
 
+/* ── Additional Lines with margin & proration ── */
+
+function calculateAdditionalLines(
+  lines: Array<{
+    id: string;
+    nombre: string;
+    precio: unknown;
+    tipo?: string | null;
+    recurrencia?: string | null;
+    cantidad?: number | null;
+    marginPct?: unknown;
+  }>,
+  contractDuration: number,
+): {
+  totalBase: number;
+  totalWithMargin: number;
+  details: AdditionalLineDetail[];
+} {
+  const details: AdditionalLineDetail[] = [];
+  let totalBase = 0;
+  let totalWithMargin = 0;
+
+  for (const line of lines) {
+    let monthlyBase = safeNumber(line.precio) * (line.cantidad ?? 1);
+
+    if (line.recurrencia === "unico" && contractDuration > 0) {
+      monthlyBase = monthlyBase / contractDuration;
+    }
+
+    let monthlyWithMargin = monthlyBase;
+    const marginPct = line.marginPct ? safeNumber(line.marginPct) : 0;
+    if (marginPct > 0 && marginPct < 100) {
+      monthlyWithMargin = monthlyBase / (1 - marginPct / 100);
+    }
+
+    details.push({
+      id: line.id,
+      nombre: line.nombre,
+      tipo: line.tipo ?? "servicio",
+      recurrencia: line.recurrencia ?? "mensual",
+      precioBase: monthlyBase,
+      marginPct,
+      precioConMargen: monthlyWithMargin,
+    });
+
+    totalBase += monthlyBase;
+    totalWithMargin += monthlyWithMargin;
+  }
+
+  return { totalBase, totalWithMargin, details };
+}
+
+/* ── Category slug matcher ── */
+
+function matchesCategorySlug(
+  itemType: string | undefined,
+  categorySlug: string,
+): boolean {
+  const mapping: Record<string, string[]> = {
+    uniform: ["uniform"],
+    exam: ["exam"],
+    meal: ["meal"],
+    operational: ["phone", "radio", "flashlight"],
+    system: ["system"],
+    transport: ["transport"],
+    vehicle: ["vehicle_rent", "vehicle_fuel", "vehicle_tag"],
+    infrastructure: ["infrastructure", "fuel"],
+    communications: ["radio", "phone"],
+    other: ["other"],
+  };
+  return mapping[categorySlug]?.includes(itemType ?? "") ?? false;
+}
+
 export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSummary> {
   const quote = await prisma.cpqQuote.findUnique({
     where: { id: quoteId },
-    select: { tenantId: true, createdFromLeadId: true },
+    select: {
+      tenantId: true,
+      createdFromLeadId: true,
+      contractDuration: true,
+    },
   });
   const tenantId = quote?.tenantId ?? null;
+  const contractDuration = quote?.contractDuration ?? 12;
 
   const [
     positions,
@@ -52,6 +140,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     vehicles,
     infrastructure,
     catalogItems,
+    additionalLines,
   ] = await Promise.all([
     prisma.cpqPosition.findMany({
       where: { quoteId },
@@ -85,6 +174,10 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
         OR: [{ tenantId }, { tenantId: null }],
       },
     }),
+    prisma.cpqQuoteAdditionalLine.findMany({
+      where: { quoteId },
+      orderBy: { orden: "asc" },
+    }),
   ]);
 
   const totalGuards = positions.reduce(
@@ -98,7 +191,6 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
 
   const uniformChangesPerYear = parameters?.uniformChangesPerYear ?? 3;
   const avgStayMonths = parameters?.avgStayMonths ?? 4;
-  const monthlyHoursStandard = parameters?.monthlyHoursStandard ?? 180;
   const holidaySettingKeys = [
     "cpq.holidayAnnualCount",
     "cpq.holidayCommercialBufferPct",
@@ -126,6 +218,8 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     0.5 *
     holidayMonthlyFactor *
     holidayCommercialFactor;
+
+  /* ── Default cost merging ── */
 
   const defaultCatalog = catalogItems.filter((item) => item.isDefault);
   const uniformCatalog = catalogItems.filter((item) => item.type === "uniform");
@@ -182,10 +276,15 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
         .filter((item) => !existingCostIds.has(item.id))
         .map((item) => ({
           catalogItemId: item.id,
-          calcMode: "per_month",
+          calcMode: "per_month" as const,
           quantity: 1,
           unitPriceOverride: null,
           isEnabled: true,
+          isAmortizable: false,
+          investmentAmount: null as unknown,
+          amortizationMonths: null as number | null,
+          customName: null as string | null,
+          customType: null as string | null,
           catalogItem: item,
         }));
   const defaultMeals = skipDefaultCosts
@@ -205,6 +304,8 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   const mergedCostItems = [...costItems, ...defaultCostItems];
   const mergedMeals = [...meals, ...defaultMeals];
 
+  /* ── Uniforms ── */
+
   const uniformSetCost = mergedUniforms.reduce((sum, item) => {
     if (!item.active) return sum;
     const base = safeNumber(item.catalogItem?.basePrice ?? 0);
@@ -216,6 +317,8 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     totalGuards > 0
       ? ((uniformSetCost * uniformChangesPerYear) / 12) * totalGuards
       : 0;
+
+  /* ── Exams ── */
 
   const examSetCost = mergedExams.reduce((sum, item) => {
     if (!item.active) return sum;
@@ -229,6 +332,8 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   const monthlyExams =
     totalGuards > 0 ? ((examSetCost * examFrequency) / 12) * totalGuards : 0;
 
+  /* ── Cost items (with amortization support) ── */
+
   const financialItems = mergedCostItems.filter((item) =>
     ["financial", "policy"].includes(item.catalogItem?.type ?? "")
   );
@@ -238,6 +343,19 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
 
   const monthlyCostItems = nonFinancialItems.reduce((sum, item) => {
     if (!item.isEnabled) return sum;
+
+    // §2.2 — Amortizable items use investmentAmount / months, NOT normalizeUnitPrice
+    if (item.isAmortizable && item.investmentAmount && Number(item.investmentAmount) > 0) {
+      const months = item.amortizationMonths ?? contractDuration;
+      const monthlyAmort = Number(item.investmentAmount) / months;
+      const quantity = safeNumber(item.quantity);
+      const calcMode = item.calcMode || "per_month";
+      if (calcMode === "per_guard") {
+        return sum + monthlyAmort * quantity * totalGuards;
+      }
+      return sum + monthlyAmort * quantity;
+    }
+
     const base = safeNumber(item.catalogItem?.basePrice ?? 0);
     const override = item.unitPriceOverride ? safeNumber(item.unitPriceOverride) : null;
     const unitPrice = normalizeUnitPrice(override ?? base, item.catalogItem?.unit);
@@ -248,6 +366,8 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     }
     return sum + unitPrice * quantity;
   }, 0);
+
+  /* ── Meals ── */
 
   const mealCatalog = catalogItems.filter((item) => item.type === "meal");
   const mealMap = new Map(
@@ -261,6 +381,8 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     const price = normalizeUnitPrice(override ?? base, catalogItem?.unit);
     return sum + price * meal.mealsPerDay * meal.daysOfService;
   }, 0);
+
+  /* ── Vehicles ── */
 
   const monthlyVehicles = vehicles.reduce((sum, vehicle) => {
     if (!vehicle.isEnabled) return sum;
@@ -277,6 +399,8 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     return sum + vehicleMonthly * vehicle.vehiclesCount;
   }, 0);
 
+  /* ── Infrastructure ── */
+
   const monthlyInfrastructure = infrastructure.reduce((sum, infra) => {
     if (!infra.isEnabled) return sum;
     const base = safeNumber(infra.rentMonthly);
@@ -291,6 +415,8 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     return sum + (base + fuelCost) * infra.quantity;
   }, 0);
 
+  /* ── Costs base ── */
+
   const costsBase =
     monthlyPositions +
     monthlyHolidayAdjustment +
@@ -301,8 +427,34 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     monthlyInfrastructure +
     monthlyCostItems;
 
-  const marginPct = normalizePct(safeNumber(parameters?.marginPct ?? 13));
-  const baseWithMargin = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
+  /* ── §2.4 — Margin mode ── */
+
+  const marginMode = (parameters as any)?.marginMode ?? "margin_on_sale";
+  const marginPctRaw = safeNumber(parameters?.marginPct ?? 13);
+  const marginPct = normalizePct(marginPctRaw);
+  const laborCost = monthlyPositions + monthlyHolidayAdjustment;
+
+  let baseWithMargin: number;
+
+  switch (marginMode) {
+    case "markup":
+      baseWithMargin = costsBase * (1 + marginPct);
+      break;
+
+    case "margin_on_labor": {
+      const laborWithMargin = marginPct < 1 ? laborCost / (1 - marginPct) : laborCost;
+      const nonLaborCosts = costsBase - laborCost;
+      baseWithMargin = laborWithMargin + nonLaborCosts;
+      break;
+    }
+
+    case "margin_on_sale":
+    default:
+      baseWithMargin = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
+      break;
+  }
+
+  /* ── Financial & Policy ── */
 
   const financialEnabled = parameters?.financialEnabled ?? false;
   const policyEnabled = parameters?.policyEnabled ?? false;
@@ -329,6 +481,12 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
       ? (valorGarantia * policyRatePct) / 12
       : 0;
 
+  /* ── §2.3 — Additional lines with margin & proration ── */
+
+  const addlResult = calculateAdditionalLines(additionalLines, contractDuration);
+
+  /* ── Monthly totals ── */
+
   const baseExtras =
     monthlyHolidayAdjustment +
     monthlyUniforms +
@@ -339,6 +497,66 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     monthlyCostItems;
   const monthlyExtras = baseExtras + monthlyFinancial + monthlyPolicy;
   const monthlyTotal = monthlyPositions + monthlyExtras;
+
+  /* ── §2.5 — Group costs by category ── */
+
+  let costsByCategory: CostByCategory[] = [];
+  try {
+    const categories = await prisma.cpqCostCategory.findMany({
+      where: { OR: [{ tenantId }, { tenantId: null }], active: true },
+      orderBy: { sortOrder: "asc" },
+    });
+
+    const allCostItems = nonFinancialItems;
+
+    const calculateItemAmount = (item: typeof allCostItems[number]): number => {
+      if (!item.isEnabled) return 0;
+
+      if (item.isAmortizable && item.investmentAmount && Number(item.investmentAmount) > 0) {
+        const months = item.amortizationMonths ?? contractDuration;
+        const monthlyAmort = Number(item.investmentAmount) / months;
+        const qty = safeNumber(item.quantity);
+        if ((item.calcMode || "per_month") === "per_guard") {
+          return monthlyAmort * qty * totalGuards;
+        }
+        return monthlyAmort * qty;
+      }
+
+      const base = safeNumber(item.catalogItem?.basePrice ?? 0);
+      const override = item.unitPriceOverride ? safeNumber(item.unitPriceOverride) : null;
+      const unitPrice = normalizeUnitPrice(override ?? base, item.catalogItem?.unit);
+      const qty = safeNumber(item.quantity);
+      if ((item.calcMode || "per_month") === "per_guard") {
+        return unitPrice * qty * totalGuards;
+      }
+      return unitPrice * qty;
+    };
+
+    costsByCategory = categories
+      .map((cat) => {
+        const items = allCostItems
+          .filter((item) => {
+            const itemType = (item as any).customType ?? item.catalogItem?.type;
+            return matchesCategorySlug(itemType, cat.slug);
+          })
+          .map((item) => ({
+            name: (item as any).customName ?? item.catalogItem?.name ?? "Sin nombre",
+            amount: calculateItemAmount(item),
+            calcMode: item.isAmortizable ? "amortizable" : item.calcMode,
+          }));
+
+        return {
+          category: cat.name,
+          categorySlug: cat.slug,
+          categoryType: cat.type as "direct" | "indirect",
+          items,
+          subtotal: items.reduce((sum, i) => sum + i.amount, 0),
+        };
+      })
+      .filter((cat) => cat.items.length > 0 || cat.subtotal > 0);
+  } catch {
+    // Non-critical: if CpqCostCategory table doesn't exist yet, return empty
+  }
 
   return {
     totalGuards,
@@ -358,6 +576,12 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     monthlyTotal,
     financialRatePct: financialRatePctRaw,
     policyRatePct: policyRatePctRaw,
+    additionalLinesDetails: addlResult.details,
+    additionalLinesTotalBase: addlResult.totalBase,
+    additionalLinesTotalWithMargin: addlResult.totalWithMargin,
+    costsByCategory,
+    marginMode,
+    laborCost,
   };
 }
 

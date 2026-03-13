@@ -197,6 +197,10 @@ export async function GET(
           descripcion: l.descripcion || "",
           precio: Number(l.precio),
           orden: l.orden,
+          tipo: l.tipo ?? "servicio",
+          recurrencia: l.recurrencia ?? "mensual",
+          cantidad: l.cantidad ?? 1,
+          marginPct: l.marginPct != null ? Number(l.marginPct) : null,
         })),
         summary,
         skipDefaultCosts,
@@ -288,6 +292,7 @@ export async function PUT(
             contractMonths: parameters.contractMonths,
             contractAmount: parameters.contractAmount,
             marginPct: parameters.marginPct,
+            marginMode: parameters.marginMode ?? "margin_on_sale",
           },
           create: {
             quoteId: id,
@@ -306,6 +311,7 @@ export async function PUT(
             contractMonths: parameters.contractMonths ?? 12,
             contractAmount: parameters.contractAmount ?? 0,
             marginPct: parameters.marginPct ?? 13,
+            marginMode: parameters.marginMode ?? "margin_on_sale",
           },
         });
       }
