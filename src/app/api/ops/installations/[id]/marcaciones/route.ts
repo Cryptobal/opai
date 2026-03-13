@@ -66,55 +66,58 @@ export async function GET(
       orderBy: { timestamp: "asc" },
     });
 
-    // Agrupar por guardia
-    const byGuardia = new Map<string, { guardiaId: string; guardiaName: string; marcaciones: typeof marcaciones }>();
+    // Agrupar por guardia con entrada/salida separadas
+    const byGuardia = new Map<string, {
+      guardiaId: string;
+      guardiaName: string;
+      entradas: typeof marcaciones;
+      salidas: typeof marcaciones;
+    }>();
+
     for (const m of marcaciones) {
-      const gId = m.guardia.id;
-      if (!byGuardia.has(gId)) {
-        byGuardia.set(gId, {
-          guardiaId: gId,
+      const key = m.guardia.id;
+      if (!byGuardia.has(key)) {
+        byGuardia.set(key, {
+          guardiaId: m.guardia.id,
           guardiaName: `${m.guardia.persona.firstName} ${m.guardia.persona.lastName}`,
-          marcaciones: [],
+          entradas: [],
+          salidas: [],
         });
       }
-      byGuardia.get(gId)!.marcaciones.push(m);
+      const g = byGuardia.get(key)!;
+      if (m.tipo === "entrada") g.entradas.push(m);
+      else g.salidas.push(m);
     }
 
-    // Summary stats
-    const totalGuardias = byGuardia.size;
-    const totalEntradas = marcaciones.filter(m => m.tipo === "entrada").length;
-    const totalSalidas = marcaciones.filter(m => m.tipo === "salida").length;
-    const totalModificadas = marcaciones.filter(m => m.isModified).length;
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        date: dateStr,
-        installationName: installation.name,
-        guardias: Array.from(byGuardia.values()).map(g => ({
-          ...g,
-          marcaciones: g.marcaciones.map(m => ({
-            id: m.id,
-            tipo: m.tipo,
-            timestamp: m.timestamp.toISOString(),
-            metodoId: m.metodoId,
-            gpsStatus: m.gpsStatus,
-            atrasoMinutos: m.atrasoMinutos,
-            isModified: m.isModified,
-            modifiedAt: m.modifiedAt?.toISOString() ?? null,
-            modificationReason: m.modificationReason,
-            opposedAt: m.opposedAt?.toISOString() ?? null,
-            consolidatedAt: m.consolidatedAt?.toISOString() ?? null,
-          })),
-        })),
-        stats: {
-          totalGuardias,
-          totalEntradas,
-          totalSalidas,
-          totalModificadas,
-        },
-      },
+    const serializeMarcacion = (m: typeof marcaciones[number]) => ({
+      id: m.id,
+      timestamp: m.timestamp.toISOString(),
+      metodoId: m.metodoId,
+      gpsStatus: m.gpsStatus,
+      atrasoMinutos: m.atrasoMinutos,
+      isModified: m.isModified,
+      modificationReason: m.modificationReason,
+      opposedAt: m.opposedAt?.toISOString() ?? null,
+      consolidatedAt: m.consolidatedAt?.toISOString() ?? null,
     });
+
+    const rows = Array.from(byGuardia.values()).map((g) => ({
+      guardiaId: g.guardiaId,
+      guardiaName: g.guardiaName,
+      entrada: g.entradas[0] ? serializeMarcacion(g.entradas[0]) : null,
+      salida: g.salidas[0] ? serializeMarcacion(g.salidas[0]) : null,
+    }));
+
+    const summary = {
+      totalGuardias: rows.length,
+      conEntrada: rows.filter((r) => r.entrada).length,
+      conSalida: rows.filter((r) => r.salida).length,
+      sinSalida: rows.filter((r) => r.entrada && !r.salida).length,
+      conAtraso: rows.filter((r) => (r.entrada?.atrasoMinutos ?? 0) > 0).length,
+      modificadas: marcaciones.filter((m) => m.isModified).length,
+    };
+
+    return NextResponse.json({ success: true, data: { rows, summary, date: dateStr } });
   } catch (error) {
     console.error("[OPS] Error fetching installation marcaciones:", error);
     return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
