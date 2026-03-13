@@ -854,6 +854,24 @@ model PayrollAttendanceRecord {
   @@schema("payroll")
 }
 
+model PayrollAttendancePeriod {
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String    @map("tenant_id")
+  year      Int
+  month     Int
+  status    String    @default("open") // "open" | "closed"
+  lockedAt  DateTime? @map("locked_at") @db.Timestamptz(6)
+  lockedBy  String?   @map("locked_by")
+  summary   Json?     @db.JsonB
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, year, month], map: "uq_payroll_attendance_period_tenant_year_month")
+  @@index([tenantId], map: "idx_payroll_attendance_period_tenant")
+  @@map("attendance_periods")
+  @@schema("payroll")
+}
+
 // ============================================
 // CPQ MODULE (Configure, Price, Quote)
 // ============================================

@@ -45,6 +45,21 @@ export async function runMonthlyPayroll(options: RunPayrollOptions): Promise<Run
   if (!period) throw new Error("Período no encontrado");
   if (period.status === "PAID") throw new Error("El período ya está pagado");
 
+  const attendancePeriod = await prisma.payrollAttendancePeriod.findUnique({
+    where: {
+      tenantId_year_month: {
+        tenantId,
+        year: period.year,
+        month: period.month,
+      },
+    },
+  });
+  if (!attendancePeriod || attendancePeriod.status !== "closed") {
+    throw new Error(
+      "Debe cerrar el período de asistencia antes de procesar nómina",
+    );
+  }
+
   // Get guards to process
   const guardsWhere: any = {
     tenantId,

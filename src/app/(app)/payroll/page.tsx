@@ -5,7 +5,7 @@
 import { PageHeader, ModuleCard } from "@/components/opai";
 import { PayrollSubnav } from "@/components/payroll/PayrollSubnav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calculator, FileText, Settings, CalendarDays, Wallet } from "lucide-react";
+import { Calculator, FileText, Settings, CalendarDays, Wallet, ClipboardCheck } from "lucide-react";
 
 export default function PayrollDashboard() {
   const modules = [
@@ -15,6 +15,13 @@ export default function PayrollDashboard() {
       description: "Liquidaciones mensuales, asistencias y generación de archivos.",
       icon: CalendarDays,
       color: "text-emerald-400 bg-emerald-400/10",
+    },
+    {
+      href: "/payroll/asistencia",
+      title: "Cierre de Asistencia",
+      description: "Verifica y cierra el período de asistencia previo a procesar nómina.",
+      icon: ClipboardCheck,
+      color: "text-cyan-400 bg-cyan-400/10",
     },
     {
       href: "/payroll/anticipos",
