@@ -257,3 +257,111 @@ export async function sendAvisoMarcaManual(data: AvisoMarcaManual): Promise<void
     html,
   });
 }
+
+/* ─── Aviso de Modificación con Link de Oposición ─── */
+
+export interface AvisoModificacionMarcacion {
+  guardiaName: string;
+  guardiaEmail: string;
+  guardiaRut: string;
+  installationName: string;
+  tipo: "entrada" | "salida";
+  timestampOriginal: Date;
+  timestampNuevo: Date;
+  motivo: string;
+  registradoPor: string;
+  oppositionUrl: string; // https://opai.gard.cl/marcacion/oposicion/[token]
+}
+
+/**
+ * Envía aviso de modificación de marcación con link único para que el
+ * trabajador pueda oponerse dentro del plazo de 48 horas (Res. N°38 Art. 5).
+ */
+export async function sendAvisoModificacionMarcacion(data: AvisoModificacionMarcacion): Promise<void> {
+  const tipoLabel = data.tipo === "entrada" ? "Entrada" : "Salida";
+
+  const fmt = (d: Date) =>
+    d.toLocaleString("es-CL", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      timeZone: "America/Santiago",
+    });
+
+  const subject = `Aviso de Modificación de Marcación — ${data.installationName}`;
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; background: #ffffff;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="display: inline-block; width: 48px; height: 48px; background: #d97706; border-radius: 50%; line-height: 48px; text-align: center;">
+          <span style="color: white; font-size: 20px;">✏️</span>
+        </div>
+        <h2 style="margin: 12px 0 4px; color: #0f172a; font-size: 18px;">Modificación de Marcación</h2>
+        <p style="color: #64748b; font-size: 13px; margin: 0;">Su registro de asistencia fue modificado</p>
+      </div>
+
+      <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+        <p style="color: #92400e; font-size: 13px; margin: 0; line-height: 1.6;">
+          Estimado/a <strong>${data.guardiaName}</strong>, su marcación de <strong>${tipoLabel}</strong>
+          en <strong>${data.installationName}</strong> fue modificada por <strong>${data.registradoPor}</strong>.
+        </p>
+        <p style="color: #92400e; font-size: 12px; margin: 8px 0 0;">
+          Motivo: ${data.motivo}
+        </p>
+      </div>
+
+      <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; width: 150px;">Tipo</td>
+            <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">${tipoLabel}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Instalación</td>
+            <td style="padding: 6px 0; color: #0f172a;">${data.installationName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Marca original</td>
+            <td style="padding: 6px 0; color: #ef4444; text-decoration: line-through;">${fmt(data.timestampOriginal)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Nueva marca</td>
+            <td style="padding: 6px 0; color: #059669; font-weight: 700;">${fmt(data.timestampNuevo)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Modificado por</td>
+            <td style="padding: 6px 0; color: #0f172a;">${data.registradoPor}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-bottom: 16px; text-align: center;">
+        <p style="color: #991b1b; font-size: 13px; margin: 0 0 12px; font-weight: 600;">
+          ¿No está de acuerdo con esta modificación?
+        </p>
+        <p style="color: #7f1d1d; font-size: 12px; margin: 0 0 16px; line-height: 1.5;">
+          Tiene <strong>48 horas</strong> para oponerse. Si no lo hace, la modificación quedará consolidada.
+        </p>
+        <a href="${data.oppositionUrl}"
+           style="display: inline-block; background: #dc2626; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
+          Oponerme a esta modificación
+        </a>
+      </div>
+
+      <div style="text-align: center; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+        <p style="color: #94a3b8; font-size: 10px; margin: 0;">
+          ${EMAIL_CONFIG.companyName} — Conforme a Res. Exenta N°38, DT Chile
+        </p>
+        <p style="color: #94a3b8; font-size: 10px; margin: 4px 0 0;">
+          Este link es único e intransferible. Expira en 48 horas.
+        </p>
+      </div>
+    </div>
+  `;
+
+  await resend.emails.send({
+    from: EMAIL_CONFIG.from,
+    to: data.guardiaEmail,
+    subject,
+    html,
+  });
+}
