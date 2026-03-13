@@ -1335,6 +1335,7 @@ model CrmAccount {
   website                 String?
   address                 String?
   commune                 String?
+  logoUrl                 String?   @map("logo_url")
   notes                   String?
   startDate               DateTime? @map("start_date") @db.Date
   endDate                 DateTime? @map("end_date") @db.Date

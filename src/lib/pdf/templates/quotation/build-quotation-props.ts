@@ -4,6 +4,17 @@
  */
 
 import { prisma } from '@/lib/prisma';
+
+/** Remove common AI artifacts from aiDescription (headers, metadata) for display */
+function sanitizeAiDescription(text: string | null | undefined): string | undefined {
+  if (!text?.trim()) return undefined;
+  return text
+    .replace(/^#\s*RESUMEN\s*EJECUTIVO\s*\n?/i, '')
+    .replace(/^Resumen\s*Ejecutivo\s*\n?/i, '')
+    .replace(/\n?\*\*Caracteres:\s*[\d.,]+\s*\|\s*Palabras:\s*[\d.]+\*\*\s*$/i, '')
+    .replace(/\n?Caracteres:\s*[\d.,]+\s*\|\s*Palabras:\s*[\d.]+\s*$/i, '')
+    .trim() || undefined;
+}
 import { formatCurrency, formatUFSuffix } from '@/lib/utils';
 import { getUfValue, clpToUf } from '@/lib/uf';
 import { computeCpqQuoteCosts } from '@/modules/cpq/costing/compute-quote-costs';
@@ -197,7 +208,7 @@ export async function buildQuotationProps(
       repLegalNombre: companyConfig.repLegalNombre || undefined,
     },
     includedItems: quote.includedItems || [],
-    aiDescription: quote.aiDescription || undefined,
+    aiDescription: sanitizeAiDescription(quote.aiDescription),
     serviceDetail: quote.serviceDetail || undefined,
   };
 

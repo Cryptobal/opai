@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState, LoadingSpinner } from "@/components/opai";
-import { CalendarCheck2, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, RotateCcw, MapPin, Clock, X } from "lucide-react";
+import { CalendarCheck2, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info, Loader2, RotateCcw, MapPin, Clock, X } from "lucide-react";
 import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
 import {
   Dialog,
@@ -100,6 +100,9 @@ type AsistenciaItem = {
     id: string;
     status: string;
     amountClp: string | number;
+    amountJustification?: string | null;
+    tipo?: string;
+    horasExtra?: string | number | null;
   }>;
   marcaciones?: MarcacionItem[];
 };
@@ -719,8 +722,14 @@ export function OpsPautaDiariaClient({
                                 </span>
                               )}
                               {te && (
-                                <span className="text-xs text-amber-400 ml-2">
-                                  TE {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
+                                <span className="text-xs text-amber-400 ml-2 inline-flex items-center gap-1">
+                                  {te.tipo === "hora_extra" ? `HHEE ${te.horasExtra ?? "?"}h` : "TE"}{" "}
+                                  {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
+                                  {te.amountJustification && (
+                                    <span title={te.amountJustification}>
+                                      <Info className="h-3 w-3 text-amber-300 inline" />
+                                    </span>
+                                  )}
                                 </span>
                               )}
                             </div>
@@ -1017,7 +1026,7 @@ export function OpsPautaDiariaClient({
                               className="h-8 text-xs px-2 text-muted-foreground"
                               disabled={savingId === item.id || isLocked || !canExecuteOps}
                               onClick={() => {
-                                const te2 = item.turnosExtra?.[0];
+                                const te2 = item.turnosExtra?.filter((t: { status: string }) => t.status !== "rejected").sort((a: { status: string }, b: { status: string }) => (TE_PRIORITY[a.status] ?? 9) - (TE_PRIORITY[b.status] ?? 9))[0];
                                 if (!te2) {
                                   void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null }, "Estado reseteado");
                                   return;

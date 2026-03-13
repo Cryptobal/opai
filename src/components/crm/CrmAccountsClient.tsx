@@ -53,6 +53,10 @@ function extractAccountLogoUrl(notes?: string | null): string | null {
   return raw || null;
 }
 
+function getAccountLogo(account: Pick<AccountRow, "logoUrl" | "notes">): string | null {
+  return account.logoUrl || extractAccountLogoUrl(account.notes);
+}
+
 type AccountRow = {
   id: string;
   name: string;
@@ -64,6 +68,7 @@ type AccountRow = {
   industry?: string | null;
   website?: string | null;
   notes?: string | null;
+  logoUrl?: string | null;
   type: "prospect" | "client";
   status: "prospect" | "client_active" | "client_inactive" | string;
   isActive: boolean;
@@ -369,9 +374,9 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                         className="flex flex-1 flex-col gap-2 min-w-0 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex flex-1 items-start gap-3 min-w-0">
-                          {extractAccountLogoUrl(account.notes) ? (
+                          {getAccountLogo(account) ? (
                             <img
-                              src={extractAccountLogoUrl(account.notes)!}
+                              src={getAccountLogo(account)!}
                               alt=""
                               className="mt-0.5 h-8 w-8 shrink-0 rounded-lg border border-border bg-background object-contain"
                             />
@@ -446,9 +451,9 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                     <div className="flex items-start justify-between gap-2 p-4">
                       <Link href={`/crm/accounts/${account.id}`} className="flex flex-1 min-w-0">
                         <div className="flex items-center gap-2.5">
-                          {extractAccountLogoUrl(account.notes) ? (
+                          {getAccountLogo(account) ? (
                             <img
-                              src={extractAccountLogoUrl(account.notes)!}
+                              src={getAccountLogo(account)!}
                               alt=""
                               className="h-9 w-9 shrink-0 rounded-lg border border-border bg-background object-contain"
                             />

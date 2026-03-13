@@ -60,7 +60,8 @@ export function PortalClienteClient() {
   const [activeSection, setActiveSection] = useState<PortalSection>(initialSection || "dashboard");
 
   /* ── Login state ── */
-  const [rut, setRut] = useState("");
+  const initialRut = searchParams.get("rut") ?? "";
+  const [rut, setRut] = useState(initialRut ? formatRut(initialRut) : "");
   const [pin, setPin] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
@@ -102,8 +103,9 @@ export function PortalClienteClient() {
     }
   }, [session]);
 
-  const handleTourComplete = async () => {
+  const handleTourComplete = async (navigateTo?: string) => {
     setShowTour(false);
+    if (navigateTo) setActiveSection(navigateTo as PortalSection);
     try { await fetch("/api/portal/cliente/tour", { method: "POST" }); } catch {}
   };
 
@@ -138,7 +140,7 @@ export function PortalClienteClient() {
     if (!session) return null;
     switch (activeSection) {
       case "dashboard":
-        return <PortalDashboard session={session} selectedInstallation={selectedInstallation} isProspect={session?.isProspect} />;
+        return <PortalDashboard session={session} selectedInstallation={selectedInstallation} isProspect={session?.isProspect} onNavigate={(s) => setActiveSection(s as PortalSection)} />;
       case "instalaciones":
         return (
           <PortalInstallations
@@ -201,7 +203,7 @@ export function PortalClienteClient() {
           />
         );
       case "nosotros":
-        return <PortalNosotros />;
+        return <PortalNosotros onNavigate={(s) => setActiveSection(s as PortalSection)} />;
       case "empresa":
         return <PortalEmpresa session={session} />;
       case "desempeno":
@@ -271,9 +273,9 @@ export function PortalClienteClient() {
             className="block text-xs font-medium text-[#9ca3af] mb-[7px]"
             style={{ letterSpacing: "0.02em", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
-            PIN de acceso (4 d&iacute;gitos)
+            PIN de acceso (6 d&iacute;gitos)
           </label>
-          <AuthPinInput length={4} accent={ACCENT} value={pin} onChange={setPin} />
+          <AuthPinInput length={6} accent={ACCENT} value={pin} onChange={setPin} />
 
           {loginError && (
             <div className="rounded-xl px-4 py-3 mb-4" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
@@ -312,7 +314,11 @@ export function PortalClienteClient() {
       {activeSection !== "chat" && (
       <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/50">
         <div className="flex items-center gap-3">
-          <Shield className="h-6 w-6 text-teal-400" />
+          {session?.accountLogoUrl ? (
+            <img src={session.accountLogoUrl} alt="" className="h-8 w-8 rounded-lg border border-white/10 bg-white/5 object-contain" />
+          ) : (
+            <Shield className="h-6 w-6 text-teal-400" />
+          )}
           <div>
             <h1 className="text-base font-semibold">Portal de Seguridad</h1>
             <p className="text-xs text-zinc-400">{session?.accountName}</p>
@@ -394,7 +400,7 @@ export function PortalClienteClient() {
       )}
 
       {/* Tour overlay */}
-      {showTour && <TourOverlay onComplete={handleTourComplete} />}
+      {showTour && <TourOverlay onComplete={handleTourComplete} session={session} />}
     </div>
   );
 }

@@ -87,6 +87,8 @@ export async function POST(req: Request) {
     date: string;
     tipo?: "turno_extra" | "hora_extra";
     horasExtra?: number;
+    amountClp?: number;
+    amountJustification?: string;
   };
 
   try {
@@ -95,7 +97,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: "Body inválido" }, { status: 400 });
   }
 
-  const { installationId, guardiaId, puestoId, date, tipo = "turno_extra", horasExtra } = body;
+  const {
+    installationId,
+    guardiaId,
+    puestoId,
+    date,
+    tipo = "turno_extra",
+    horasExtra,
+    amountClp: customAmountClp,
+    amountJustification,
+  } = body;
 
   if (!installationId || !guardiaId || !date)
     return NextResponse.json(
@@ -115,6 +126,9 @@ export async function POST(req: Request) {
     select: { teMontoClp: true },
   });
 
+  const defaultAmount = Number(inst?.teMontoClp ?? 0);
+  const finalAmountClp = customAmountClp != null ? customAmountClp : defaultAmount;
+
   const te = await prisma.opsTurnoExtra.create({
     data: {
       tenantId,
@@ -124,7 +138,8 @@ export async function POST(req: Request) {
       date: new Date(date),
       tipo,
       horasExtra: horasExtra ? horasExtra : undefined,
-      amountClp: inst?.teMontoClp ?? 0,
+      amountClp: finalAmountClp,
+      amountJustification: amountJustification?.trim() || null,
       isManual: true,
       status: "pending",
       createdBy: adminId,

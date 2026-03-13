@@ -5,14 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Eye,
+  EyeOff,
   FileText,
   Folder,
+  FolderInput,
   FolderPlus,
   Loader2,
   Paperclip,
+  Search,
   Trash2,
   Download,
-  EyeOff,
   ChevronDown,
   ChevronRight,
   Pencil,
@@ -249,6 +251,28 @@ export function FileAttachments({
     }
   }, [renameValue]);
 
+  const handleMoveToFolder = useCallback(
+    async (fileId: string, folderId: string | null) => {
+      try {
+        const res = await fetch(`/api/crm/files/${fileId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ folderId, entityType, entityId }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        const folderName = folderId ? folders.find((f) => f.id === folderId)?.name ?? null : null;
+        setFiles((prev) =>
+          prev.map((f) => (f.id === fileId ? { ...f, folderId, folderName } : f))
+        );
+        toast.success(folderId ? `Movido a "${folderName}"` : "Movido fuera de carpeta");
+      } catch {
+        toast.error("Error al mover archivo");
+      }
+    },
+    [entityType, entityId, folders]
+  );
+
   const handleDeleteFolder = useCallback(
     async (folderId: string) => {
       try {
@@ -389,7 +413,7 @@ export function FileAttachments({
               title="Ver archivo"
               onClick={() => setPreviewFile(file)}
             >
-              <Eye className="h-4 w-4" />
+              <Search className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
               <a
@@ -404,6 +428,38 @@ export function FileAttachments({
         )}
         {!readOnly && (
           <>
+            {folders.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Mover a carpeta"
+                  >
+                    <FolderInput className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {file.folderId && (
+                    <DropdownMenuItem onClick={() => handleMoveToFolder(file.id, null)}>
+                      Sin carpeta
+                    </DropdownMenuItem>
+                  )}
+                  {folders
+                    .filter((f) => f.id !== file.folderId)
+                    .map((f) => (
+                      <DropdownMenuItem
+                        key={f.id}
+                        onClick={() => handleMoveToFolder(file.id, f.id)}
+                      >
+                        <Folder className="h-3.5 w-3.5 mr-1.5" />
+                        {f.name}
+                      </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <ConfirmDialog
               open={deleteId === file.id}
               onOpenChange={(open) => setDeleteId(open ? file.id : null)}

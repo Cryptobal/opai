@@ -294,6 +294,7 @@ export async function POST(
             website: accountWebsite,
             address: body?.address?.trim() || null,
             notes: accountNotesWithLogo,
+            logoUrl: accountLogoUrl,
             ownerId: ctx.userId,
           },
         });

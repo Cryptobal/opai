@@ -46,6 +46,8 @@ export interface EntityDetailLayoutProps {
       color?: string;
       /** Custom icon instead of initials */
       icon?: LucideIcon;
+      /** Photo/logo URL — renders as image instead of initials */
+      photoUrl?: string | null;
     };
     /** Main title */
     title: string;
@@ -77,6 +79,8 @@ export interface EntityDetailLayoutProps {
   rightPanel?: ReactNode;
   /** Optional pipeline bar rendered between header and tabs */
   pipelineBar?: ReactNode;
+  /** Called when the avatar is clicked (e.g. to upload a photo/logo) */
+  onAvatarClick?: () => void;
   /** Additional class on the root container */
   className?: string;
 }
@@ -109,6 +113,7 @@ export function EntityDetailLayout({
   subTabs,
   rightPanel,
   pipelineBar,
+  onAvatarClick,
   className,
 }: EntityDetailLayoutProps) {
   const visibleTabs = tabs.filter((t) => !t.hidden);
@@ -177,25 +182,41 @@ export function EntityDetailLayout({
             <div className="flex items-start gap-3 min-w-0">
               {/* Avatar */}
               {header.avatar && (
-                <div
-                  className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
-                    header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
-                      ? "text-white"
-                      : header.avatar.color || "bg-primary/10 text-primary"
-                  )}
-                  style={
-                    header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
-                      ? { backgroundColor: header.avatar.color }
-                      : undefined
-                  }
+                <button
+                  type="button"
+                  onClick={onAvatarClick}
+                  disabled={!onAvatarClick}
+                  className={cn("shrink-0", onAvatarClick && "cursor-pointer hover:opacity-80 transition-opacity")}
+                  title={onAvatarClick ? "Cambiar logo" : undefined}
                 >
-                  {AvatarIcon ? (
-                    <AvatarIcon className="h-5 w-5" />
+                  {header.avatar.photoUrl ? (
+                    <img
+                      src={header.avatar.photoUrl}
+                      alt=""
+                      className="h-10 w-10 rounded-full border border-border bg-background object-contain"
+                    />
                   ) : (
-                    header.avatar.initials || "?"
+                    <div
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold",
+                        header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
+                          ? "text-white"
+                          : header.avatar.color || "bg-primary/10 text-primary"
+                      )}
+                      style={
+                        header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
+                          ? { backgroundColor: header.avatar.color }
+                          : undefined
+                      }
+                    >
+                      {AvatarIcon ? (
+                        <AvatarIcon className="h-5 w-5" />
+                      ) : (
+                        header.avatar.initials || "?"
+                      )}
+                    </div>
                   )}
-                </div>
+                </button>
               )}
 
               {/* Info */}

@@ -202,7 +202,8 @@ export function CrmAccountDetailClient({
   const chatCtx = useChatSidePanelContext();
   const [account, setAccount] = useState(initialAccount);
   const [accountLogoUrl, setAccountLogoUrl] = useState<string | null>(
-    extractAccountLogoUrl(initialAccount.notes)
+    (initialAccount as Record<string, unknown>).logoUrl as string | null
+    ?? extractAccountLogoUrl(initialAccount.notes)
   );
 
   // ── Account edit state ──
@@ -231,6 +232,38 @@ export function CrmAccountDetailClient({
     endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
     notes: stripAccountLogoMarker(account.notes),
   });
+
+  // ── Logo upload ──
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("entityType", "account");
+      formData.append("entityId", account.id);
+      const res = await fetch("/api/crm/files/upload", { method: "POST", body: formData });
+      const json = await res.json();
+      if (json.success && json.data?.url) {
+        const logoUrl = json.data.url;
+        await fetch(`/api/crm/accounts/${account.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ logoUrl }),
+        });
+        setAccountLogoUrl(logoUrl);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  }
 
   // ── Chat modal state ──
   const [chatModalOpen, setChatModalOpen] = useState(false);
@@ -1026,11 +1059,21 @@ export function CrmAccountDetailClient({
 
   return (
     <>
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        className="hidden"
+        onChange={handleLogoUpload}
+      />
       <EntityDetailLayout
         breadcrumb={["CRM", "Cuentas", account.name]}
         breadcrumbHrefs={["/crm", "/crm/accounts"]}
         header={{
-          avatar: { initials: account.name.charAt(0).toUpperCase() },
+          avatar: {
+            initials: account.name.charAt(0).toUpperCase(),
+            photoUrl: accountLogoUrl,
+          },
           title: account.name,
           status: lifecycleBadge,
           actions: headerActions,
@@ -1039,6 +1082,7 @@ export function CrmAccountDetailClient({
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={handleTabChange}
+        onAvatarClick={() => logoInputRef.current?.click()}
         rightPanel={<AssociatedRecordsPanel sections={associatedSections} />}
       >
         {activeTab === "general" && generalContent}

@@ -19,6 +19,7 @@ import { SupervisorMiEquipo } from "./SupervisorMiEquipo";
 import { SupervisorNovedadRapida } from "./SupervisorNovedadRapida";
 import { SupervisorTurnosExtra } from "./SupervisorTurnosExtra";
 import { SupervisorCrearTE } from "./SupervisorCrearTE";
+import { SupervisorIngresoTE } from "./SupervisorIngresoTE";
 import { SupervisorRendiciones } from "./SupervisorRendiciones";
 import { SupervisorCrearRendicion } from "./SupervisorCrearRendicion";
 import { SupervisorRefuerzos } from "./SupervisorRefuerzos";
@@ -44,6 +45,7 @@ export function PortalSupervisorClient() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [activeInstallationId, setActiveInstallationId] = useState<string | undefined>();
   const [showCrearTE, setShowCrearTE] = useState(false);
+  const [showIngresoTE, setShowIngresoTE] = useState(false);
   const [showCrearRendicion, setShowCrearRendicion] = useState(false);
   const [visitaTecnicaMode, setVisitaTecnicaMode] = useState<"list" | "form" | "detail">("list");
   const [selectedVisitaTecnicaId, setSelectedVisitaTecnicaId] = useState<string | undefined>();
@@ -142,7 +144,7 @@ export function PortalSupervisorClient() {
         break;
       case "turno-extra":
         setActiveSection("turnos-extra");
-        setShowCrearTE(true);
+        setShowIngresoTE(true);
         break;
       case "rendicion":
         setActiveSection("rendiciones");
@@ -206,6 +208,14 @@ export function PortalSupervisorClient() {
         return <SupervisorMiEquipo installations={session!.installations} />;
 
       case "turnos-extra":
+        if (showIngresoTE) {
+          return (
+            <SupervisorIngresoTE
+              onBack={() => setShowIngresoTE(false)}
+              onCreated={() => { setShowIngresoTE(false); }}
+            />
+          );
+        }
         if (showCrearTE) {
           return (
             <SupervisorCrearTE
@@ -216,7 +226,10 @@ export function PortalSupervisorClient() {
           );
         }
         return (
-          <SupervisorTurnosExtra onCreateTE={() => setShowCrearTE(true)} />
+          <SupervisorTurnosExtra
+            onCreateTE={() => setShowCrearTE(true)}
+            onIngresoTE={() => setShowIngresoTE(true)}
+          />
         );
 
       case "rendiciones":

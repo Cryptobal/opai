@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CalendarDays, Check, Clock, Download, Eye, EyeOff, FilePlus2, Folder, FolderPlus, ChevronDown, ChevronRight, Pencil, Trash2, Upload, X } from "lucide-react";
+import { CalendarDays, Check, Clock, Download, Eye, EyeOff, FilePlus2, Folder, FolderInput, FolderPlus, ChevronDown, ChevronRight, Pencil, Search, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -210,6 +210,22 @@ export default function DocumentosSection({
     } catch { toast.error("Error al renombrar"); }
   };
 
+  const handleMoveToFolder = async (docId: string, folderId: string | null) => {
+    try {
+      const res = await fetch(
+        `/api/personas/guardias/${guardiaId}/documents?documentId=${encodeURIComponent(docId)}`,
+        { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folderId }) }
+      );
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error);
+      const folderObj = folderId ? folders.find((f) => f.id === folderId) : null;
+      onDocumentsChange(documents.map((d) =>
+        d.id === docId ? { ...d, folderId, folder: folderObj ? { id: folderObj.id, name: folderObj.name, portalVisible: folderObj.portalVisible } : null } : d
+      ));
+      toast.success(folderId ? `Movido a "${folderObj?.name}"` : "Movido fuera de carpeta");
+    } catch { toast.error("Error al mover documento"); }
+  };
+
   const handleDeleteFolder = async (folderId: string) => {
     try {
       const res = await fetch(`/api/crm/folders/${folderId}`, { method: "DELETE" });
@@ -409,7 +425,7 @@ export default function DocumentosSection({
                     {doc.fileUrl ? (
                       <>
                         <Button variant="ghost" size="icon" className="h-7 w-7" title="Ver documento" onClick={() => setPreviewDoc(doc)}>
-                          <Eye className="h-3.5 w-3.5" />
+                          <Search className="h-3.5 w-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
                           <a href={`${doc.fileUrl}?download=true`} download={DOC_LABEL[doc.type] || doc.type} title="Descargar">
@@ -422,6 +438,28 @@ export default function DocumentosSection({
                     )}
                     {canManageDocs && (
                       <>
+                        {folders.length > 0 && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Mover a carpeta">
+                                <FolderInput className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {doc.folderId && (
+                                <DropdownMenuItem onClick={() => handleMoveToFolder(doc.id, null)}>
+                                  Sin carpeta
+                                </DropdownMenuItem>
+                              )}
+                              {folders.filter((f) => f.id !== doc.folderId).map((f) => (
+                                <DropdownMenuItem key={f.id} onClick={() => handleMoveToFolder(doc.id, f.id)}>
+                                  <Folder className="h-3.5 w-3.5 mr-1.5" />
+                                  {f.name}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                         <ConfirmDialog
                           open={confirmDeleteId === doc.id}
                           onOpenChange={(open) => setConfirmDeleteId(open ? doc.id : null)}

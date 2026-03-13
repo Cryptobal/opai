@@ -145,18 +145,29 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
         // Tabla puede no existir en prod
       }
 
-      // Fetch account-level portal fields (portalTourShown, portalEjecutivoId)
       let portalTourShown = false
       let ejecutivoId: string | null = null
       let ejecutivoName: string | null = null
+      let accountLogoUrl: string | null = null
+      let accountRut: string | null = contact.account.rut ?? null
       try {
         const account = await prisma.crmAccount.findUnique({
           where: { id: contact.accountId },
-          select: { portalTourShown: true, portalEjecutivoId: true },
+          select: { portalTourShown: true, portalEjecutivoId: true, logoUrl: true, rut: true, notes: true },
         })
         if (account) {
           portalTourShown = account.portalTourShown ?? false
           ejecutivoId = account.portalEjecutivoId ?? null
+          accountRut = account.rut ?? null
+          accountLogoUrl = account.logoUrl ?? null
+          if (!accountLogoUrl && account.notes) {
+            const marker = "[[ACCOUNT_LOGO_URL:";
+            const start = account.notes.indexOf(marker);
+            if (start >= 0) {
+              const end = account.notes.indexOf("]]", start);
+              if (end >= 0) accountLogoUrl = account.notes.slice(start + marker.length, end).trim() || null;
+            }
+          }
           if (ejecutivoId) {
             const ejecutivo = await prisma.admin.findUnique({
               where: { id: ejecutivoId },
@@ -178,6 +189,8 @@ export async function validateClienteSession(rut: string, pin: string, ip?: stri
           tenantId: contact.tenantId,
           accountId: contact.accountId,
           accountName: contact.account.name,
+          accountRut,
+          accountLogoUrl,
           firstName: contact.firstName,
           lastName: contact.lastName,
           email: contact.email,

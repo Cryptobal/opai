@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Clock, Plus, CheckCircle2, XCircle, Loader2, ChevronRight } from "lucide-react";
+import { Clock, Plus, UserPlus, CheckCircle2, XCircle, Loader2, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/opai/EmptyState";
 
@@ -20,6 +20,7 @@ type Tab = "pendientes" | "aprobados" | "rechazados";
 
 interface Props {
   onCreateTE: () => void;
+  onIngresoTE?: () => void;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -29,7 +30,7 @@ const STATUS_LABEL: Record<string, string> = {
   paid: "Pagado",
 };
 
-export function SupervisorTurnosExtra({ onCreateTE }: Props) {
+export function SupervisorTurnosExtra({ onCreateTE, onIngresoTE }: Props) {
   const [items, setItems] = useState<TE[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("pendientes");
@@ -91,13 +92,24 @@ export function SupervisorTurnosExtra({ onCreateTE }: Props) {
     <div className="flex flex-col gap-3 px-4 py-4 pb-24">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Turnos Extra</h2>
-        <button
-          onClick={onCreateTE}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-500 transition-colors"
-        >
-          <Plus size={14} />
-          Crear TE
-        </button>
+        <div className="flex items-center gap-2">
+          {onIngresoTE && (
+            <button
+              onClick={onIngresoTE}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-500 transition-colors"
+            >
+              <UserPlus size={14} />
+              Persona nueva
+            </button>
+          )}
+          <button
+            onClick={onCreateTE}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-500 transition-colors"
+          >
+            <Plus size={14} />
+            Crear TE
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-1 bg-zinc-900 rounded-lg p-1">

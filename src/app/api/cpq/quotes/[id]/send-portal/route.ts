@@ -162,8 +162,10 @@ export async function POST(
     } catch {}
 
     // 7. Send portal invite email with PIN
-    const portalUrl =
-      `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/cliente`;
+    const basePortalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/cliente`;
+    const portalUrl = account.rut
+      ? `${basePortalUrl}?rut=${encodeURIComponent(account.rut)}`
+      : basePortalUrl;
     const contactName = `${contact.firstName} ${contact.lastName}`.trim();
 
     const emailHtml = await render(

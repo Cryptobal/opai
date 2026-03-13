@@ -36,8 +36,17 @@ type Position = {
   monthlyPositionCost: number;
 };
 
+type AdditionalLine = {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  precio: number;
+  orden: number;
+};
+
 type QuoteDetail = QuoteSummary & {
   positions: Position[];
+  additionalLines?: AdditionalLine[];
   notes: string | null;
   aiDescription: string | null;
   serviceDetail: string | null;
@@ -81,6 +90,21 @@ function formatDate(d: string | null): string {
 function formatHorario(start: string | null, end: string | null): string {
   if (!start && !end) return "—";
   return `${start ?? ""}–${end ?? ""}`;
+}
+
+const FULL_WEEK = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const WEEKDAYS_ONLY = ["Lun", "Mar", "Mié", "Jue", "Vie"];
+const WEEKEND_ONLY = ["Sáb", "Dom"];
+
+function formatWeekdays(days: string[] | string | null): string {
+  if (!days) return "—";
+  const arr = Array.isArray(days) ? days : [days];
+  if (arr.length === 0) return "—";
+  if (arr.length === 7 || FULL_WEEK.every((d) => arr.includes(d))) return "Lun-Dom";
+  if (arr.length === 5 && WEEKDAYS_ONLY.every((d) => arr.includes(d))) return "Lun-Vie";
+  if (arr.length === 2 && WEEKEND_ONLY.every((d) => arr.includes(d))) return "Sáb-Dom";
+  if (arr.length === 6 && WEEKDAYS_ONLY.every((d) => arr.includes(d)) && arr.includes("Sáb")) return "Lun-Sáb";
+  return arr.join(", ");
 }
 
 function seemsCurrencyWrong(amount: number, currency: string): boolean {
@@ -202,8 +226,30 @@ export function PortalPropuesta({ isProspect, onNavigate }: Props) {
   }
 
   /* ── PDF download ── */
-  function handleDownloadPdf(id: string) {
-    window.open(`/api/portal/cliente/cotizaciones/${id}/pdf`, "_blank");
+  const [pdfLoading, setPdfLoading] = useState<string | null>(null);
+
+  async function handleDownloadPdf(id: string) {
+    if (pdfLoading) return;
+    setPdfLoading(id);
+    try {
+      const res = await fetch(`/api/portal/cliente/cotizaciones/${id}/pdf`);
+      if (!res.ok) throw new Error("Error al generar PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const disposition = res.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="?([^"]+)"?/);
+      a.download = match?.[1] ?? `cotizacion-${id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("No se pudo descargar el PDF. Intente nuevamente.");
+    } finally {
+      setPdfLoading(null);
+    }
   }
 
   /* ── Toggle deal collapse ── */
@@ -284,7 +330,11 @@ export function PortalPropuesta({ isProspect, onNavigate }: Props) {
               isProspect={isProspect}
               onToggleExpand={() => loadDetail(activeQuote.id)}
               onDownloadPdf={() => handleDownloadPdf(activeQuote.id)}
-              onViewProposal={activeQuote.proposalLink ? () => window.open(activeQuote.proposalLink!, "_blank") : undefined}
+              pdfLoading={pdfLoading === activeQuote.id}
+              onViewProposal={(() => {
+                const link = (expandedQuoteId === activeQuote.id && detail?.proposalLink) || activeQuote.proposalLink;
+                return link ? () => window.open(link, "_blank") : undefined;
+              })()}
               onAccept={() => setConfirmAcceptId(activeQuote.id)}
               onConsult={() => onNavigate?.("chat")}
             />
@@ -319,7 +369,11 @@ export function PortalPropuesta({ isProspect, onNavigate }: Props) {
                         isProspect={isProspect}
                         onToggleExpand={() => loadDetail(q.id)}
                         onDownloadPdf={() => handleDownloadPdf(q.id)}
-                        onViewProposal={q.proposalLink ? () => window.open(q.proposalLink!, "_blank") : undefined}
+                        pdfLoading={pdfLoading === q.id}
+                        onViewProposal={(() => {
+                          const link = (expandedQuoteId === q.id && detail?.proposalLink) || q.proposalLink;
+                          return link ? () => window.open(link, "_blank") : undefined;
+                        })()}
                         onAccept={() => setConfirmAcceptId(q.id)}
                         onConsult={() => onNavigate?.("chat")}
                       />
@@ -416,6 +470,7 @@ function QuoteCard({
   isProspect,
   onToggleExpand,
   onDownloadPdf,
+  pdfLoading,
   onViewProposal,
   onAccept,
   onConsult,
@@ -428,6 +483,7 @@ function QuoteCard({
   isProspect?: boolean;
   onToggleExpand: () => void;
   onDownloadPdf: () => void;
+  pdfLoading?: boolean;
   onViewProposal?: () => void;
   onAccept: () => void;
   onConsult: () => void;
@@ -505,22 +561,23 @@ function QuoteCard({
               {/* AI description / service detail */}
               {(detail.serviceDetail || detail.aiDescription) && (
                 <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
-                  <p className="text-xs text-zinc-300 leading-relaxed">
+                  <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Detalle del servicio</h4>
+                  <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-line">
                     {detail.serviceDetail ?? detail.aiDescription}
                   </p>
                 </div>
               )}
 
               {/* Positions table */}
-              {detail.positions.length > 0 && (
+              {(detail.positions.length > 0 || (detail.additionalLines && detail.additionalLines.length > 0)) && (
                 <div className="overflow-x-auto -mx-4 px-4">
                   <table className="w-full text-xs min-w-[480px]">
                     <thead>
                       <tr className="text-zinc-500 border-b border-white/[0.06]">
-                        <th className="text-left py-2 pr-3 font-medium">Puesto</th>
+                        <th className="text-left py-2 pr-3 font-medium">Descripción</th>
                         <th className="text-center py-2 pr-3 font-medium">Guardias</th>
                         <th className="text-left py-2 pr-3 font-medium">Horario</th>
-                        <th className="text-left py-2 pr-3 font-medium">Dias</th>
+                        <th className="text-left py-2 pr-3 font-medium">Días</th>
                         <th className="text-right py-2 font-medium">Costo mensual</th>
                       </tr>
                     </thead>
@@ -537,10 +594,26 @@ function QuoteCard({
                             {formatHorario(pos.startTime, pos.endTime)}
                           </td>
                           <td className="py-2 pr-3 text-zinc-400">
-                            {pos.weekdays ?? ""}
+                            {formatWeekdays(pos.weekdays)}
                           </td>
                           <td className="py-2 text-right text-teal-400 font-medium">
                             {formatCurrency(pos.monthlyPositionCost, detail.currency === "UF" ? "UF" : "CLP")}
+                          </td>
+                        </tr>
+                      ))}
+                      {detail.additionalLines?.map((line) => (
+                        <tr key={line.id} className="border-b border-white/[0.03] last:border-0">
+                          <td className="py-2 pr-3 text-zinc-200" colSpan={1}>
+                            {line.nombre}
+                            {line.descripcion && (
+                              <span className="block text-[10px] text-zinc-500 mt-0.5">{line.descripcion}</span>
+                            )}
+                          </td>
+                          <td className="py-2 pr-3 text-center text-zinc-500">—</td>
+                          <td className="py-2 pr-3 text-zinc-500">—</td>
+                          <td className="py-2 pr-3 text-zinc-500">—</td>
+                          <td className="py-2 text-right text-teal-400 font-medium">
+                            {formatCurrency(line.precio, detail.currency === "UF" ? "UF" : "CLP")}
                           </td>
                         </tr>
                       ))}
@@ -567,10 +640,11 @@ function QuoteCard({
               <div className="flex flex-wrap gap-2 pt-2">
                 <button
                   onClick={onDownloadPdf}
-                  className="flex items-center gap-2 px-4 h-9 rounded-lg border border-white/10 text-zinc-300 hover:text-white hover:border-white/20 text-sm transition-colors"
+                  disabled={pdfLoading}
+                  className="flex items-center gap-2 px-4 h-9 rounded-lg border border-white/10 text-zinc-300 hover:text-white hover:border-white/20 text-sm transition-colors disabled:opacity-50"
                 >
-                  <FileDown className="w-4 h-4" />
-                  Descargar PDF
+                  {pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                  {pdfLoading ? "Generando..." : "Descargar PDF"}
                 </button>
 
                 {onViewProposal && (
@@ -579,7 +653,7 @@ function QuoteCard({
                     className="flex items-center gap-2 px-4 h-9 rounded-lg border border-teal-500/30 text-teal-300 hover:text-teal-200 hover:border-teal-500/50 text-sm transition-colors"
                   >
                     <Eye className="w-4 h-4" />
-                    Visualizar propuesta técnica
+                    Ver propuesta técnica
                   </button>
                 )}
 

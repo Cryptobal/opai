@@ -11,6 +11,7 @@ import {
   Loader2,
   Briefcase,
   LayoutGrid,
+  UserPlus,
 } from "lucide-react";
 import { KpiCard } from "@/components/opai/KpiCard";
 import { SupervisorSession } from "@/lib/portal-supervisor";
@@ -142,8 +143,8 @@ export function SupervisorDashboard({ session, onAction, onMoreOpen }: Props) {
             onClick={() => onAction("novedad")}
           />
           <QuickAction
-            label="Turno Extra"
-            icon={<Plus size={18} />}
+            label="Ingreso TE"
+            icon={<UserPlus size={18} />}
             color="bg-purple-600 hover:bg-purple-500"
             onClick={() => onAction("turno-extra")}
           />

@@ -31,12 +31,16 @@ interface GuardiaTeIngresoFormProps {
   userRole: string;
   onSuccess?: () => void;
   compact?: boolean;
+  apiUrl?: string;
+  navigateOnSuccess?: boolean;
 }
 
 export function GuardiaTeIngresoForm({
   userRole,
   onSuccess,
   compact = false,
+  apiUrl = "/api/personas/guardias/te",
+  navigateOnSuccess = true,
 }: GuardiaTeIngresoFormProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -107,7 +111,7 @@ export function GuardiaTeIngresoForm({
     setSaving(true);
     setRutError(null);
     try {
-      const res = await fetch("/api/personas/guardias/te", {
+      const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -167,7 +171,7 @@ export function GuardiaTeIngresoForm({
         comentarioEvaluacion: "",
       });
       onSuccess?.();
-      if (payload.data?.id) {
+      if (navigateOnSuccess && payload.data?.id) {
         router.push(`/personas/guardias/${payload.data.id}`);
       }
     } catch (err) {

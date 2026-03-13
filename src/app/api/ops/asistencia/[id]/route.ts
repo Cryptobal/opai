@@ -346,121 +346,129 @@ export async function PATCH(
       }).catch(() => { /* no-op si no existía */ });
     }
 
-    const updatedAsistencia = await prisma.opsAsistenciaDiaria.update({
-      where: { id: asistencia.id },
-      data: {
-        attendanceStatus: nextStatus,
-        actualGuardiaId: nextActualGuardiaId,
-        replacementGuardiaId: nextReplacementGuardiaId,
-        plannedGuardiaId: nextPlannedGuardiaId,
-        notes: body.notes !== undefined ? body.notes : asistencia.notes,
-        checkInAt: nextCheckInAt,
-        checkOutAt: nextCheckOutAt,
-        checkInSource: nextCheckInSource,
-        checkOutSource: nextCheckOutSource,
-        plannedMinutes: metrics.plannedMinutes,
-        workedMinutes: metrics.workedMinutes,
-        overtimeMinutes: metrics.overtimeMinutes,
-        lateMinutes: metrics.lateMinutes,
-        hoursCalculatedAt: new Date(),
-      },
-    });
-
-    let teId: string | null = existingTe?.id ?? null;
-    const shouldGenerateTe =
-      nextStatus === "reemplazo" && Boolean(updatedAsistencia.replacementGuardiaId);
-
-    if (shouldGenerateTe && updatedAsistencia.replacementGuardiaId) {
-      const amountClp =
-        decimalToNumber(asistencia.puesto.teMontoClp) ||
-        decimalToNumber(asistencia.installation.teMontoClp) ||
-        0;
-
-      const date = parseDateOnly(updatedAsistencia.date.toISOString().slice(0, 10));
-
-      const te = existingTe
-        ? await prisma.opsTurnoExtra.update({
-            where: { id: existingTe.id },
-            data: {
-              installationId: asistencia.installationId,
-              puestoId: asistencia.puestoId,
-              guardiaId: updatedAsistencia.replacementGuardiaId,
-              date,
-              amountClp,
-              status: existingTe.status === "paid" ? "paid" : "pending",
-              rejectedAt: null,
-              rejectedBy: null,
-              rejectionReason: null,
-            },
-          })
-        : await prisma.opsTurnoExtra.create({
-            data: {
-              tenantId: ctx.tenantId,
-              asistenciaId: asistencia.id,
-              installationId: asistencia.installationId,
-              puestoId: asistencia.puestoId,
-              guardiaId: updatedAsistencia.replacementGuardiaId,
-              date,
-              amountClp,
-              status: "pending",
-              createdBy: ctx.userId,
-            },
-          });
-
-      teId = te.id;
-
-      await prisma.opsAsistenciaDiaria.update({
+    // ── Transacción atómica: actualizar asistencia + manejar TE en una sola operación ──
+    // Evita fantasmas: si la eliminación del TE falla, la asistencia se revierte también.
+    const { updatedAsistencia, teId } = await prisma.$transaction(async (tx) => {
+      const updatedAsistencia = await tx.opsAsistenciaDiaria.update({
         where: { id: asistencia.id },
-        data: { teGenerated: true },
+        data: {
+          attendanceStatus: nextStatus,
+          actualGuardiaId: nextActualGuardiaId,
+          replacementGuardiaId: nextReplacementGuardiaId,
+          plannedGuardiaId: nextPlannedGuardiaId,
+          notes: body.notes !== undefined ? body.notes : asistencia.notes,
+          checkInAt: nextCheckInAt,
+          checkOutAt: nextCheckOutAt,
+          checkInSource: nextCheckInSource,
+          checkOutSource: nextCheckOutSource,
+          plannedMinutes: metrics.plannedMinutes,
+          workedMinutes: metrics.workedMinutes,
+          overtimeMinutes: metrics.overtimeMinutes,
+          lateMinutes: metrics.lateMinutes,
+          hoursCalculatedAt: new Date(),
+        },
       });
-    } else if (existingTe) {
-      const canDeleteTeOnReset =
-        isResetToInitial &&
-        (existingTe.status === "pending" ||
-          existingTe.status === "approved" ||
-          (existingTe.status === "paid" && forceDeletePaidTe));
-      const canDeleteTeByRegularFlow = !isResetToInitial && existingTe.status === "pending";
 
-      if (canDeleteTeOnReset || canDeleteTeByRegularFlow) {
-        await prisma.$transaction(async (tx) => {
-          if (existingTe.paymentItems.length > 0) {
-            const loteIds = [...new Set(existingTe.paymentItems.map((item) => item.loteId))];
-            await tx.opsPagoTeItem.deleteMany({
-              where: {
+      let teId: string | null = existingTe?.id ?? null;
+      const shouldGenerateTe =
+        nextStatus === "reemplazo" && Boolean(updatedAsistencia.replacementGuardiaId);
+
+      if (shouldGenerateTe && updatedAsistencia.replacementGuardiaId) {
+        const amountClp =
+          decimalToNumber(asistencia.puesto.teMontoClp) ||
+          decimalToNumber(asistencia.installation.teMontoClp) ||
+          0;
+
+        const date = parseDateOnly(updatedAsistencia.date.toISOString().slice(0, 10));
+
+        const te = existingTe
+          ? await tx.opsTurnoExtra.update({
+              where: { id: existingTe.id },
+              data: {
+                installationId: asistencia.installationId,
+                puestoId: asistencia.puestoId,
+                guardiaId: updatedAsistencia.replacementGuardiaId,
+                date,
+                amountClp,
+                status: existingTe.status === "paid" ? "paid" : "pending",
+                rejectedAt: null,
+                rejectedBy: null,
+                rejectionReason: null,
+              },
+            })
+          : await tx.opsTurnoExtra.create({
+              data: {
                 tenantId: ctx.tenantId,
-                turnoExtraId: existingTe.id,
+                asistenciaId: asistencia.id,
+                installationId: asistencia.installationId,
+                puestoId: asistencia.puestoId,
+                guardiaId: updatedAsistencia.replacementGuardiaId,
+                date,
+                amountClp,
+                status: "pending",
+                createdBy: ctx.userId,
               },
             });
 
-            for (const loteId of loteIds) {
-              const remainingItems = await tx.opsPagoTeItem.findMany({
-                where: { tenantId: ctx.tenantId, loteId },
-                select: { amountClp: true },
+        teId = te.id;
+
+        await tx.opsAsistenciaDiaria.update({
+          where: { id: asistencia.id },
+          data: { teGenerated: true },
+        });
+      } else if (allActiveTes.length > 0) {
+        const canDeleteTeOnReset =
+          isResetToInitial &&
+          (existingTe!.status === "pending" ||
+            existingTe!.status === "approved" ||
+            (existingTe!.status === "paid" && forceDeletePaidTe));
+        const canDeleteTeByRegularFlow = !isResetToInitial && existingTe!.status === "pending";
+
+        if (canDeleteTeOnReset || canDeleteTeByRegularFlow) {
+          // Eliminar TODOS los TEs activos vinculados (defensivo ante inconsistencias)
+          for (const teToDelete of allActiveTes) {
+            if (teToDelete.paymentItems.length > 0) {
+              const loteIds = [...new Set(teToDelete.paymentItems.map((item) => item.loteId))];
+              await tx.opsPagoTeItem.deleteMany({
+                where: {
+                  tenantId: ctx.tenantId,
+                  turnoExtraId: teToDelete.id,
+                },
               });
-              if (remainingItems.length === 0) {
-                await tx.opsPagoTeLote.delete({ where: { id: loteId } });
-                continue;
+
+              for (const loteId of loteIds) {
+                const remainingItems = await tx.opsPagoTeItem.findMany({
+                  where: { tenantId: ctx.tenantId, loteId },
+                  select: { amountClp: true },
+                });
+                if (remainingItems.length === 0) {
+                  await tx.opsPagoTeLote.delete({ where: { id: loteId } });
+                  continue;
+                }
+                const totalAmountClp = remainingItems.reduce(
+                  (acc, item) => acc + Number(item.amountClp),
+                  0
+                );
+                await tx.opsPagoTeLote.update({
+                  where: { id: loteId },
+                  data: { totalAmountClp },
+                });
               }
-              const totalAmountClp = remainingItems.reduce(
-                (acc, item) => acc + Number(item.amountClp),
-                0
-              );
-              await tx.opsPagoTeLote.update({
-                where: { id: loteId },
-                data: { totalAmountClp },
-              });
             }
+
+            await tx.opsTurnoExtra.delete({ where: { id: teToDelete.id } });
           }
 
-          await tx.opsTurnoExtra.delete({ where: { id: existingTe.id } });
           await tx.opsAsistenciaDiaria.update({
             where: { id: asistencia.id },
             data: { teGenerated: false },
           });
-        });
-        teId = null;
+          teId = null;
+        }
       }
-    }
+
+      return { updatedAsistencia, teId };
+    });
 
     const result = await prisma.opsAsistenciaDiaria.findFirst({
       where: { id: asistencia.id, tenantId: ctx.tenantId },
@@ -481,7 +489,15 @@ export async function PATCH(
           select: { id: true, code: true, persona: { select: { firstName: true, lastName: true, rut: true } } },
         },
         turnosExtra: {
-          select: { id: true, status: true, amountClp: true, guardiaId: true },
+          select: {
+            id: true,
+            status: true,
+            amountClp: true,
+            amountJustification: true,
+            tipo: true,
+            horasExtra: true,
+            guardiaId: true,
+          },
         },
       },
     });

@@ -115,7 +115,12 @@ export async function POST(request: NextRequest) {
 
     const prompt = `Eres el Gerente de Operaciones de Gard Security (https://gard.cl), empresa líder en seguridad privada profesional en Chile.
 
-CONTEXTO: Este texto irá en la página 2 (Resumen Ejecutivo) de una propuesta comercial. Debe ser breve, directo y contundente.
+CONTEXTO: Este texto irá en la propuesta comercial, justo antes de la tabla de puestos. Debe ser breve, directo y contundente.
+
+IMPORTANTE - FORMATO DE SALIDA:
+- NO incluyas encabezados ni títulos al inicio (ej: "Resumen Ejecutivo", "# Resumen Ejecutivo"). Comienza directamente con el texto narrativo.
+- NO incluyas metadata al final (caracteres, palabras, conteo). Solo el texto narrativo.
+- Usa texto plano, sin markdown. Separa párrafos con doble salto de línea para legibilidad.
 
 PASO 1: Contexto del cliente
 - Cliente: ${accountName}
@@ -160,9 +165,17 @@ Estructura ideal:
         : ""
     }`;
 
-    const description = (
+    let description = (
       await aiService.generateText(prompt, { maxTokens: 500, temperature: 0.7 })
     ).trim();
+
+    // Sanitize: remove common AI artifacts (headers, metadata)
+    description = description
+      .replace(/^#\s*RESUMEN\s*EJECUTIVO\s*\n?/i, "")
+      .replace(/^Resumen\s*Ejecutivo\s*\n?/i, "")
+      .replace(/\n?\*\*Caracteres:\s*[\d.,]+\s*\|\s*Palabras:\s*[\d.]+\*\*\s*$/i, "")
+      .replace(/\n?Caracteres:\s*[\d.,]+\s*\|\s*Palabras:\s*[\d.]+\s*$/i, "")
+      .trim();
 
     // Save to quote
     await prisma.cpqQuote.update({

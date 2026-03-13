@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import { getUfValue } from "@/lib/uf";
+import { clpToUf } from "@/lib/uf-utils";
 
 export async function GET(
   _request: Request,
@@ -29,6 +31,11 @@ export async function GET(
           weekdays: true,
           monthlyPositionCost: true,
         },
+        orderBy: { createdAt: "asc" },
+      },
+      additionalLines: {
+        select: { id: true, nombre: true, descripcion: true, precio: true, orden: true },
+        orderBy: { orden: "asc" },
       },
     },
   });
@@ -37,14 +44,46 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const currency = (quote.currency || "CLP") as string;
+  const ufValue = currency === "UF" ? await getUfValue() : 0;
+  const convertCost = (clp: number) =>
+    currency === "UF" && ufValue > 0 ? clpToUf(clp, ufValue) : clp;
+
+  let proposalLink: string | null = null;
+  try {
+    const presentation = await prisma.presentation.findFirst({
+      where: { quoteId: id, status: { not: "draft" } },
+      select: { uniqueId: true },
+      orderBy: { createdAt: "desc" },
+    });
+    if (presentation) {
+      const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
+      proposalLink = `${siteUrl}/p/${presentation.uniqueId}`;
+    }
+  } catch {}
+  if (!proposalLink && quote.dealId) {
+    try {
+      const deal = await prisma.crmDeal.findUnique({
+        where: { id: quote.dealId },
+        select: { proposalLink: true },
+      });
+      proposalLink = deal?.proposalLink ?? null;
+    } catch {}
+  }
+
   return NextResponse.json({
     success: true,
     data: {
       ...quote,
-      monthlyCost: quote.monthlyCost?.toNumber() ?? 0,
+      monthlyCost: convertCost(quote.monthlyCost?.toNumber() ?? 0),
+      proposalLink,
       positions: quote.positions.map((p) => ({
         ...p,
-        monthlyPositionCost: p.monthlyPositionCost?.toNumber() ?? 0,
+        monthlyPositionCost: convertCost(p.monthlyPositionCost?.toNumber() ?? 0),
+      })),
+      additionalLines: quote.additionalLines.map((l) => ({
+        ...l,
+        precio: convertCost(Number(l.precio) || 0),
       })),
     },
   });

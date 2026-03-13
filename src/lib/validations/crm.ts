@@ -96,6 +96,7 @@ export const updateAccountSchema = z.object({
   notaryName: z.string().trim().max(500).optional().nullable(),
   notaryDate: z.string().trim().max(50).optional().nullable(),
   notes: z.string().trim().max(20000).optional().nullable(),
+  logoUrl: z.string().trim().max(1000).optional().nullable(),
 });
 
 // ── Contact ──

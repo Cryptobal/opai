@@ -48,6 +48,8 @@ export interface ClienteSession {
   tenantId: string;
   accountId: string;
   accountName: string;
+  accountRut: string | null;
+  accountLogoUrl: string | null;
   firstName: string;
   lastName: string;
   email: string | null;
