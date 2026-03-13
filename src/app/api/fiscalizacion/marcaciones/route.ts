@@ -85,7 +85,7 @@ export async function GET(request: Request) {
       lat: m.lat,
       lng: m.lng,
       geoValidada: m.geoValidada,
-      integrityHash: m.integrityHash,
+      integrityHash: m.hashIntegridad,
       employerRut: m.employerRut,
       employerName: m.employerName,
       gpsStatus: m.gpsStatus,

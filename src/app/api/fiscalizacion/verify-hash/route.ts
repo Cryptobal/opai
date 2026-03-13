@@ -65,7 +65,7 @@ export async function GET(request: Request) {
   }
 
   const expectedHash = computeExpectedHash(marcacion);
-  const storedHash = marcacion.integrityHash;
+  const storedHash = marcacion.hashIntegridad;
   const isValid = storedHash === expectedHash;
 
   return NextResponse.json({
