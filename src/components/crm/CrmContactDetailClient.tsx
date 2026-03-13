@@ -132,7 +132,7 @@ type InstallationRow = {
   address?: string | null;
   city?: string | null;
   commune?: string | null;
-  isActive?: boolean;
+  status?: "prospect" | "active" | "inactive";
 };
 
 type QuoteRow = {
