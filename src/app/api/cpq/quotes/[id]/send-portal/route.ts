@@ -546,45 +546,29 @@ function buildWhatsAppMessage(params: WhatsAppMsgParams): string {
   const { contactName, companyName, email, pin, portalUrl, proposalLink, ejecutivoName } = params;
   const firstName = contactName.split(" ")[0];
 
-  const W = {
-    wave:      "\uD83D\uDC4B", // 👋
-    lock:      "\uD83D\uDD10", // 🔐
-    check:     "\u2705",       // ✅
-    doc:       "\uD83D\uDCC4", // 📄
-    chat:      "\uD83D\uDCAC", // 💬
-    chart:     "\uD83D\uDCCA", // 📊
-    mail:      "\uD83D\uDCE7", // 📧
-    key:       "\uD83D\uDD11", // 🔑
-    point:     "\uD83D\uDC49", // 👉
-    clipboard: "\uD83D\uDCCB", // 📋
-    hands:     "\uD83D\uDE4C", // 🙌
-  };
-
   const lines = [
-    `Hola ${firstName} ${W.wave}`,
+    `Hola ${firstName},`,
     ``,
     `Soy *${ejecutivoName}* de *Gard Security*. Te envi\u00e9 por correo una propuesta de seguridad personalizada para *${companyName}*.`,
     ``,
-    `${W.lock} *Accede a tu portal privado* donde podr\u00e1s:`,
-    `${W.check} Revisar tu propuesta en detalle`,
-    `${W.doc} Ver la propuesta t\u00e9cnica completa`,
-    `${W.chat} Chatear directamente conmigo`,
-    `${W.chart} Monitorear el servicio una vez activo`,
+    `*Accede a tu portal privado* donde podr\u00e1s:`,
+    `- Revisar tu propuesta en detalle`,
+    `- Ver la propuesta t\u00e9cnica completa`,
+    `- Chatear directamente conmigo`,
+    `- Monitorear el servicio una vez activo`,
     ``,
-    `${W.mail} *Correo:* ${email}`,
-    `${W.key} *PIN:* ${pin}`,
+    `*Correo:* ${email}`,
+    `*PIN:* ${pin}`,
     ``,
-    `${W.point} *Ingresar al portal:*`,
+    `*Ingresar al portal:*`,
     portalUrl,
   ];
 
   if (proposalLink) {
-    lines.push(``, `${W.clipboard} *Ver propuesta t\u00e9cnica directamente:*`, proposalLink);
+    lines.push(``, `*Ver propuesta t\u00e9cnica:*`, proposalLink);
   }
 
-  lines.push(``, `\u00bfTienes alguna consulta? Responde aqu\u00ed mismo ${W.hands}`);
+  lines.push(``, `\u00bfTienes alguna consulta? Responde aqu\u00ed mismo.`);
 
-  // Return plain text — client builds the wa.me URL so the browser's
-  // encodeURIComponent preserves emojis correctly (server-side encoding can garble them)
   return lines.join("\n");
 }
