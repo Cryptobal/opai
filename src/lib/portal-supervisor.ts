@@ -11,6 +11,7 @@ export interface SupervisorInstallation {
   geoRadiusM: number;
   isActive: boolean;
   pairingCode: string | null;
+  teMontoClp: number;
 }
 
 export interface SupervisorSession {
@@ -66,6 +67,7 @@ export async function validateSupervisorSession(session: {
     geoRadiusM: a.installation.geoRadiusM,
     isActive: a.installation.isActive,
     pairingCode: a.installation.pairingCode ?? null,
+    teMontoClp: a.installation.teMontoClp ? Number(a.installation.teMontoClp) : 0,
   }));
 
   return {

@@ -141,7 +141,8 @@ export function PortalSupervisorClient() {
         setWizardOpen(true);
         break;
       case "turno-extra":
-        window.open("/personas/guardias/ingreso-te", "_blank");
+        setActiveSection("turnos-extra");
+        setShowCrearTE(true);
         break;
       case "rendicion":
         setActiveSection("rendiciones");

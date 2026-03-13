@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
         isManual: true,
         horasExtra: body.horasExtra ?? null,
         amountClp,
+        amountJustification: body.amountJustification ?? null,
         status: "pending",
         createdBy: ctx.userId,
       },

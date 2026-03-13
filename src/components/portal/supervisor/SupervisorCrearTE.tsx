@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
@@ -24,8 +24,24 @@ export function SupervisorCrearTE({ installations, onBack, onCreated }: Props) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [tipo, setTipo] = useState<"turno_extra" | "hora_extra">("turno_extra");
   const [horasExtra, setHorasExtra] = useState("2");
+  const [amountClp, setAmountClp] = useState("");
+  const [amountJustification, setAmountJustification] = useState("");
   const [loadingGuards, setLoadingGuards] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Base value from the selected installation
+  const baseAmount = useMemo(() => {
+    const inst = installations.find((i) => i.id === installationId);
+    return inst?.teMontoClp ?? 0;
+  }, [installations, installationId]);
+
+  // Pre-fill amountClp when installation changes
+  useEffect(() => {
+    setAmountClp(baseAmount > 0 ? String(baseAmount) : "");
+  }, [baseAmount]);
+
+  // Check if monto was modified from the base
+  const amountModified = amountClp !== "" && Number(amountClp) !== baseAmount;
 
   useEffect(() => {
     if (!installationId) return;
@@ -48,9 +64,12 @@ export function SupervisorCrearTE({ installations, onBack, onCreated }: Props) {
       toast.error("Completa todos los campos requeridos.");
       return;
     }
+    if (amountModified && !amountJustification.trim()) {
+      toast.error("Debes justificar el cambio de monto.");
+      return;
+    }
     setSubmitting(true);
     try {
-      // /api/te = registro directo de persona en TE (sin flujo de aprobación)
       const res = await fetch("/api/te", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -60,6 +79,8 @@ export function SupervisorCrearTE({ installations, onBack, onCreated }: Props) {
           date,
           tipo,
           horasExtra: tipo === "hora_extra" ? Number(horasExtra) : undefined,
+          amountClp: amountClp ? Number(amountClp) : undefined,
+          amountJustification: amountModified ? amountJustification.trim() : undefined,
         }),
       });
       const json = await res.json();
@@ -165,9 +186,35 @@ export function SupervisorCrearTE({ installations, onBack, onCreated }: Props) {
         </Field>
       )}
 
+      {/* Monto */}
+      <Field label={`Monto CLP${baseAmount > 0 ? ` (base: $${baseAmount.toLocaleString("es-CL")})` : ""}`}>
+        <input
+          type="number"
+          min="0"
+          value={amountClp}
+          onChange={(e) => setAmountClp(e.target.value)}
+          placeholder={baseAmount > 0 ? String(baseAmount) : "Monto a pagar"}
+          className="input-field"
+        />
+      </Field>
+
+      {/* Justificación obligatoria si el monto fue modificado */}
+      {amountModified && (
+        <Field label="Justificación del cambio de monto *">
+          <textarea
+            value={amountJustification}
+            onChange={(e) => setAmountJustification(e.target.value)}
+            placeholder="Explica por qué se modifica el monto base..."
+            className="input-field"
+            rows={2}
+            style={{ resize: "vertical", minHeight: 60 }}
+          />
+        </Field>
+      )}
+
       <button
         onClick={handleSubmit}
-        disabled={submitting || !guardiaId}
+        disabled={submitting || !guardiaId || (amountModified && !amountJustification.trim())}
         className="flex items-center justify-center gap-2 py-3 rounded-xl bg-purple-600 text-white font-medium text-sm hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mt-2"
       >
         {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

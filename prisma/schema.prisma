@@ -53,6 +53,7 @@ model Tenant {
   aiProviders                 AiProvider[]
   globalDocuments             ProtocolDocument[]           @relation("protocol_document_tenant")
   gamificacionConfig          GamificacionConfig?
+  defaultMaxRondaDurationMinutes Int @default(120) @map("default_max_ronda_duration_minutes")
 
   @@index([slug])
   @@index([active])
@@ -1389,6 +1390,7 @@ model CrmInstallation {
   marcacionCode   String?   @unique @map("marcacion_code") // código único 8 chars para URL/QR
   pairingCode     String?   @unique @map("pairing_code")
   teMontoClp      Decimal   @default(0) @map("te_monto_clp") @db.Decimal(12, 2)
+  maxRondaDurationMinutes Int? @map("max_ronda_duration_minutes")
   notes           String?
   metadata        Json?     @db.JsonB // dotacion sugerida, datos extra
   nocturnoEnabled Boolean   @default(true) @map("nocturno_enabled") // incluir en control nocturno
@@ -3067,6 +3069,7 @@ model OpsTurnoExtra {
   isManual        Boolean   @default(false) @map("is_manual")
   horasExtra      Decimal?  @map("horas_extra") @db.Decimal(4, 1)
   amountClp       Decimal   @default(0) @map("amount_clp") @db.Decimal(12, 2)
+  amountJustification String? @map("amount_justification")
   approvedBy      String?   @map("approved_by")
   approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
   rejectedBy      String?   @map("rejected_by")
@@ -3433,6 +3436,7 @@ model OpsRondaEjecucion {
   isOfflineSync          Boolean   @default(false) @map("is_offline_sync")
   syncedAt               DateTime? @map("synced_at") @db.Timestamptz(6)
   notes                  String?
+  penalizacionMotivo     String?   @map("penalizacion_motivo")
   installationId         String?   @map("installation_id") @db.Uuid
   deviceInfo             Json?     @map("device_info") @db.JsonB
   walkRoute              Json?     @map("walk_route") @db.JsonB     // GPS trail walked by guard: [{lat, lng}]

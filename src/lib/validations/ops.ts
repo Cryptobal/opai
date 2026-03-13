@@ -416,6 +416,7 @@ export const createTeManualSchema = z.object({
   date: z.string().regex(dateRegexYmd, "date debe tener formato YYYY-MM-DD"),
   tipo: z.enum(["turno_extra", "hora_extra"], "tipo debe ser turno_extra o hora_extra"),
   amountClp: z.number().min(0).optional(),
+  amountJustification: z.string().trim().max(500).optional().nullable(),
   horasExtra: z.number().min(0).max(24).optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
 });

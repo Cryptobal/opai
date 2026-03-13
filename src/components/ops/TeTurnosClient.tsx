@@ -26,6 +26,7 @@ type TeItem = {
   date: string;
   status: string;
   amountClp: number | string;
+  amountJustification?: string | null;
   tipo?: string;
   isManual?: boolean;
   horasExtra?: number | string | null;
@@ -740,6 +741,11 @@ export function TeTurnosClient({
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Monto: ${toNumber(item.amountClp).toLocaleString("es-CL")}
+                        {item.amountJustification && (
+                          <span className="ml-1 text-amber-400" title={item.amountJustification}>
+                            (monto modificado)
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
