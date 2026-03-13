@@ -60,7 +60,7 @@ interface Props {
   isProspect?: boolean
 }
 
-// Fixed 4 tabs for prospect mode per spec: Inicio, Propuesta, Nosotros, Chat
+// Fixed 4 bottom-nav tabs for prospect mode; remaining modules go to "Más"
 const PROSPECT_MAIN_IDS: PortalSection[] = ['dashboard', 'propuesta', 'nosotros', 'chat']
 
 const GROUP_ORDER: NavGroup[] = ['operaciones', 'comunicacion', 'documentacion', 'administracion']
@@ -76,12 +76,12 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
     return true
   })
 
-  // Prospect mode: fixed 4 tabs with no "More" menu
+  // Prospect mode: fixed 4 tabs + "Más" with all other modules (demo)
   const mainItems = isProspect
     ? ALL_NAV_ITEMS.filter(item => PROSPECT_MAIN_IDS.includes(item.id))
     : visibleItems.slice(0, 4)
   const extraItems = isProspect
-    ? []
+    ? ALL_NAV_ITEMS.filter(item => !PROSPECT_MAIN_IDS.includes(item.id) && !item.prospectOnly)
     : visibleItems.slice(4)
   const hasExtra = extraItems.length > 0
 

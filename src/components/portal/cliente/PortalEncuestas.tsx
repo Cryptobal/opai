@@ -163,18 +163,57 @@ function EncuestaCard({
 
 /* ── Main component ── */
 
+const DEMO_ENCUESTAS: Encuesta[] = [
+  {
+    id: 'demo-1',
+    installationId: 'demo',
+    contactName: 'Evaluación mensual',
+    serviceQuality: 4.5,
+    scheduleCompliance: 5,
+    personalPresentation: 4,
+    professionalism: 4.5,
+    supervisionPresence: 4,
+    incidentResponse: 5,
+    npsScore: 9,
+    additionalComments: 'Excelente servicio. Los guardias son puntuales y profesionales.',
+    averageScore: 4.5,
+    createdAt: new Date(Date.now() - 15 * 86400000).toISOString(),
+  },
+  {
+    id: 'demo-2',
+    installationId: 'demo',
+    contactName: 'Evaluación trimestral',
+    serviceQuality: 4,
+    scheduleCompliance: 4.5,
+    personalPresentation: 4.5,
+    professionalism: 4,
+    supervisionPresence: 3.5,
+    incidentResponse: 4,
+    npsScore: 8,
+    additionalComments: null,
+    averageScore: 4.1,
+    createdAt: new Date(Date.now() - 45 * 86400000).toISOString(),
+  },
+]
+
 interface Props {
   session: ClienteSession
+  isProspect?: boolean
 }
 
-export function PortalEncuestas({ session }: Props) {
+export function PortalEncuestas({ session, isProspect }: Props) {
   const [encuestas, setEncuestas] = useState<Encuesta[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (isProspect) {
+      setEncuestas(DEMO_ENCUESTAS)
+      setLoading(false)
+      return
+    }
     loadEncuestas()
-  }, [])
+  }, [isProspect])
 
   async function loadEncuestas() {
     setLoading(true)

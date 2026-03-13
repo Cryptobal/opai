@@ -6,6 +6,8 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  Eye,
+  EyeOff,
   FileText,
   Loader2,
   Pencil,
@@ -53,6 +55,7 @@ type ProtocolSection = {
   title: string;
   icon: string;
   order: number;
+  portalVisible?: boolean;
   items: ProtocolItem[];
 };
 
@@ -382,6 +385,22 @@ export function ProtocolSectionsSubTab({
       await fetchProtocol();
     } catch {
       toast.error("Error al actualizar la sección");
+    }
+  };
+
+  const handleTogglePortalVisible = async (sectionId: string, currentValue: boolean) => {
+    try {
+      const res = await fetch(`${base}/sections/${sectionId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ portalVisible: !currentValue }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message);
+      toast.success(!currentValue ? "Sección visible en portal" : "Sección oculta del portal");
+      await fetchProtocol();
+    } catch {
+      toast.error("Error al cambiar visibilidad");
     }
   };
 
@@ -1065,8 +1084,28 @@ export function ProtocolSectionsSubTab({
                   {section.items.length} ítems
                 </Badge>
 
+                {section.portalVisible === false && (
+                  <Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground border-muted-foreground/30">
+                    Oculta en portal
+                  </Badge>
+                )}
+
                 {!isEditingThisSection && (
                   <div className="flex gap-1 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0"
+                      title={section.portalVisible !== false ? "Ocultar del portal cliente" : "Mostrar en portal cliente"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleTogglePortalVisible(section.id, section.portalVisible !== false);
+                      }}
+                    >
+                      {section.portalVisible !== false
+                        ? <Eye className="h-3.5 w-3.5 text-emerald-500" />
+                        : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"

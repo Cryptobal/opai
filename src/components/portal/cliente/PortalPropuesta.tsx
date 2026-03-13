@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   FileDown, Check, MessageSquare, ChevronDown, ChevronUp,
-  FileText, Loader2, XCircle, AlertTriangle,
+  FileText, Loader2, XCircle, AlertTriangle, Eye,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -20,6 +20,7 @@ type QuoteSummary = {
   totalGuards: number;
   dealId: string | null;
   dealTitle: string | null;
+  proposalLink: string | null;
   validUntil: string | null;
   createdAt: string;
 };
@@ -283,6 +284,7 @@ export function PortalPropuesta({ isProspect, onNavigate }: Props) {
               isProspect={isProspect}
               onToggleExpand={() => loadDetail(activeQuote.id)}
               onDownloadPdf={() => handleDownloadPdf(activeQuote.id)}
+              onViewProposal={activeQuote.proposalLink ? () => window.open(activeQuote.proposalLink!, "_blank") : undefined}
               onAccept={() => setConfirmAcceptId(activeQuote.id)}
               onConsult={() => onNavigate?.("chat")}
             />
@@ -317,6 +319,7 @@ export function PortalPropuesta({ isProspect, onNavigate }: Props) {
                         isProspect={isProspect}
                         onToggleExpand={() => loadDetail(q.id)}
                         onDownloadPdf={() => handleDownloadPdf(q.id)}
+                        onViewProposal={q.proposalLink ? () => window.open(q.proposalLink!, "_blank") : undefined}
                         onAccept={() => setConfirmAcceptId(q.id)}
                         onConsult={() => onNavigate?.("chat")}
                       />
@@ -413,6 +416,7 @@ function QuoteCard({
   isProspect,
   onToggleExpand,
   onDownloadPdf,
+  onViewProposal,
   onAccept,
   onConsult,
 }: {
@@ -424,6 +428,7 @@ function QuoteCard({
   isProspect?: boolean;
   onToggleExpand: () => void;
   onDownloadPdf: () => void;
+  onViewProposal?: () => void;
   onAccept: () => void;
   onConsult: () => void;
 }) {
@@ -567,6 +572,16 @@ function QuoteCard({
                   <FileDown className="w-4 h-4" />
                   Descargar PDF
                 </button>
+
+                {onViewProposal && (
+                  <button
+                    onClick={onViewProposal}
+                    className="flex items-center gap-2 px-4 h-9 rounded-lg border border-teal-500/30 text-teal-300 hover:text-teal-200 hover:border-teal-500/50 text-sm transition-colors"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Visualizar propuesta técnica
+                  </button>
+                )}
 
                 {canAccept && (
                   <button

@@ -42,9 +42,9 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Also get current sections directly
+    // Also get current sections directly (only portal-visible ones)
     const sections = await prisma.protocolSection.findMany({
-      where: { installationId },
+      where: { installationId, portalVisible: true },
       orderBy: { order: "asc" },
       include: {
         items: {

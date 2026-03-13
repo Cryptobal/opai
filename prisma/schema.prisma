@@ -1974,6 +1974,7 @@ model ProtocolSection {
   title          String
   icon           String   @default("📋")
   order          Int      @default(0)
+  portalVisible  Boolean  @default(true) @map("portal_visible")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

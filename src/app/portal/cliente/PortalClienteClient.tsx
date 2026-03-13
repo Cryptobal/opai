@@ -176,7 +176,7 @@ export function PortalClienteClient() {
       case "chat":
         return null; // Rendered outside <main> for proper height constraint
       case "alertas":
-        return <PortalAlertas session={session} />;
+        return <PortalAlertas session={session} isProspect={session?.isProspect} />;
       case "cotizaciones":
         return (
           <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
@@ -186,11 +186,11 @@ export function PortalClienteClient() {
       case "documentacion":
         return <PortalDocumentos session={session} isProspect={session?.isProspect} />;
       case "reportes":
-        return <PortalReportes session={session} />;
+        return <PortalReportes session={session} isProspect={session?.isProspect} />;
       case "comparativa":
-        return <PortalComparativa session={session} />;
+        return <PortalComparativa session={session} isProspect={session?.isProspect} />;
       case "encuestas":
-        return <PortalEncuestas session={session} />;
+        return <PortalEncuestas session={session} isProspect={session?.isProspect} />;
       case "personal":
         return <PortalPersonal isProspect={session?.isProspect} />;
       case "propuesta":
@@ -211,6 +211,7 @@ export function PortalClienteClient() {
           <PortalAccessControl
             session={session}
             selectedInstallation={selectedInstallation}
+            isProspect={session?.isProspect}
           />
         );
       default:

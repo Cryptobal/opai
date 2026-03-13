@@ -1,58 +1,66 @@
 export interface TourStep {
   title: string;
+  subtitle: string;
   icon: string;
   content: string;
+  accent: string; // tailwind gradient from color
 }
 
 export const TOUR_STEPS_PROSPECT: TourStep[] = [
   {
-    title: "Bienvenido a tu portal",
-    icon: "Layout",
-    content: "Este es tu centro de control personalizado. Desde aqui podras monitorear en tiempo real, gestionar cotizaciones y comunicarte con tu equipo Gard.",
+    title: "Bienvenido a su portal de seguridad",
+    subtitle: "Visibilidad total, control real",
+    icon: "Shield",
+    content:
+      "Este portal le da acceso directo a toda la operación de seguridad de su instalación. Sin intermediarios, sin esperas — información en tiempo real, las 24 horas.",
+    accent: "from-teal-500/20 to-teal-600/5",
   },
   {
-    title: "Tus cotizaciones",
+    title: "Propuestas claras y transparentes",
+    subtitle: "Decida con información completa",
     icon: "FileCheck",
-    content: "Revisa tus propuestas activas. Puedes comparar, consultar y aceptar sin intermediarios, todo desde aqui.",
+    content:
+      "Revise cada propuesta en detalle: puestos, horarios, costos desglosados. Compare versiones, descargue el PDF o visualice la propuesta técnica completa. Acepte directamente desde aquí.",
+    accent: "from-blue-500/20 to-blue-600/5",
   },
   {
-    title: "Dashboard operacional",
+    title: "Dashboard con métricas reales",
+    subtitle: "Sepa exactamente cómo va su servicio",
     icon: "BarChart3",
-    content: "KPIs en tiempo real: cumplimiento, rondas, trust score, alertas. Cuando estes activo, estos seran datos reales de tu instalacion.",
+    content:
+      "Cumplimiento de rondas, puntualidad de guardias, incidentes resueltos, trust score. Todo medido, todo documentado. Usted define los estándares, nosotros los cumplimos.",
+    accent: "from-violet-500/20 to-violet-600/5",
   },
   {
-    title: "Gamificacion de guardias",
-    icon: "Trophy",
-    content: "Scorecard individual por guardia: puntualidad, rondas, presentacion, desempeno. Ranking mensual con premios para los mejores.",
+    title: "Rondas verificadas por GPS",
+    subtitle: "Cada recorrido queda registrado",
+    icon: "MapPin",
+    content:
+      "Vea en mapa los recorridos de cada guardia con checkpoints verificados por geolocalización. Sepa exactamente cuándo y dónde se hizo cada ronda.",
+    accent: "from-emerald-500/20 to-emerald-600/5",
   },
   {
-    title: "Bitacora digital",
-    icon: "BookOpen",
-    content: "Registro digital de novedades: cambios de turno, incidentes, hallazgos. Con hora exacta y responsable identificado.",
-  },
-  {
-    title: "Chat directo",
+    title: "Comunicación directa",
+    subtitle: "Chat, tickets y alertas en un solo lugar",
     icon: "MessageSquare",
-    content: "Comunicacion directa con tu ejecutivo, guardias en instalacion y equipo Gard: operaciones, RRHH, finanzas, administracion.",
+    content:
+      "Canal directo con su ejecutivo, supervisores y equipo operativo. Sistema de tickets con SLA garantizado. Notificaciones en tiempo real de todo lo que importa.",
+    accent: "from-sky-500/20 to-sky-600/5",
   },
   {
-    title: "Sistema de tickets",
-    icon: "Ticket",
-    content: "Solicitudes con SLA garantizado. Cambios de guardia, reportes especiales, consultas. Trazabilidad completa.",
-  },
-  {
-    title: "Reportes mensuales",
+    title: "Documentación y reportes",
+    subtitle: "Todo organizado y descargable",
     icon: "FileBarChart",
-    content: "Informes automaticos con metricas, evaluacion de guardias, y recomendaciones. Descargables en PDF.",
+    content:
+      "Contratos, protocolos, reportes mensuales automáticos con métricas de desempeño. Evaluación de guardias, historial de incidentes. Todo en PDF descargable.",
+    accent: "from-amber-500/20 to-amber-600/5",
   },
   {
-    title: "Datos de muestra",
-    icon: "Info",
-    content: "Lo que ves ahora son datos de demostracion. Cuando contrates, se reemplazaran por datos reales actualizados en tiempo real.",
-  },
-  {
-    title: "Comienza ahora",
+    title: "Comience a operar con visibilidad total",
+    subtitle: "Su seguridad, bajo su control",
     icon: "Rocket",
-    content: "Explora el portal, revisa tus cotizaciones y contacta a tu ejecutivo. Este sera tu herramienta diaria para gestionar la seguridad de tu operacion.",
+    content:
+      "Lo que ve ahora son datos de demostración. Al contratar, se reemplazan por datos reales actualizados en tiempo real. Explore el portal, revise su propuesta y hable con su ejecutivo.",
+    accent: "from-teal-500/20 to-teal-600/5",
   },
 ];

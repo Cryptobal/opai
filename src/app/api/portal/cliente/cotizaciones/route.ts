@@ -23,25 +23,29 @@ export async function GET() {
   const deals = dealIds.length
     ? await prisma.crmDeal.findMany({
         where: { id: { in: dealIds } },
-        select: { id: true, title: true },
+        select: { id: true, title: true, proposalLink: true },
       })
     : [];
-  const dealMap = new Map(deals.map((d) => [d.id, d.title]));
+  const dealMap = new Map(deals.map((d) => [d.id, d]));
 
-  const data = quotes.map((q) => ({
-    id: q.id,
-    code: q.code,
-    name: q.clientName,
-    status: q.status,
-    monthlyCost: q.monthlyCost?.toNumber() ?? 0,
-    validUntil: q.validUntil,
-    totalPositions: q.positions.length,
-    totalGuards: q.positions.reduce((s, p) => s + (p.numGuards ?? 0), 0),
-    currency: q.currency,
-    createdAt: q.createdAt,
-    dealId: q.dealId ?? null,
-    dealTitle: q.dealId ? (dealMap.get(q.dealId) ?? null) : null,
-  }));
+  const data = quotes.map((q) => {
+    const deal = q.dealId ? dealMap.get(q.dealId) : null;
+    return {
+      id: q.id,
+      code: q.code,
+      name: q.clientName,
+      status: q.status,
+      monthlyCost: q.monthlyCost?.toNumber() ?? 0,
+      validUntil: q.validUntil,
+      totalPositions: q.positions.length,
+      totalGuards: q.positions.reduce((s, p) => s + (p.numGuards ?? 0), 0),
+      currency: q.currency,
+      createdAt: q.createdAt,
+      dealId: q.dealId ?? null,
+      dealTitle: deal?.title ?? null,
+      proposalLink: deal?.proposalLink ?? null,
+    };
+  });
 
   return NextResponse.json({ success: true, data });
 }

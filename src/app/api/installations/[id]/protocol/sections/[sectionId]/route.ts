@@ -10,6 +10,7 @@ const updateSectionSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   icon: z.string().max(10).optional(),
   order: z.number().int().min(0).optional(),
+  portalVisible: z.boolean().optional(),
 });
 
 export async function PUT(
@@ -50,6 +51,7 @@ export async function PUT(
         ...(data.title !== undefined && { title: data.title }),
         ...(data.icon !== undefined && { icon: data.icon }),
         ...(data.order !== undefined && { order: data.order }),
+        ...(data.portalVisible !== undefined && { portalVisible: data.portalVisible }),
       },
     });
 

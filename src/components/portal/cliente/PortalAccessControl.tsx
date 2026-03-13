@@ -17,16 +17,67 @@ interface Props {
     installations: Array<{ id: string; name: string }>;
   };
   selectedInstallation: string;
+  isProspect?: boolean;
 }
 
-export function PortalAccessControl({ session, selectedInstallation }: Props) {
+const DEMO_ACCESS_LOG = [
+  { time: "08:12", name: "Juan Pérez", type: "Ingreso", method: "Cédula", status: "Autorizado" },
+  { time: "08:45", name: "Proveedor TI", type: "Ingreso", method: "Pre-registro", status: "Autorizado" },
+  { time: "09:30", name: "María González", type: "Salida", method: "Cédula", status: "Autorizado" },
+  { time: "10:15", name: "Courier MercadoLibre", type: "Ingreso", method: "QR temporal", status: "Autorizado" },
+  { time: "11:00", name: "Persona no identificada", type: "Ingreso", method: "—", status: "Rechazado" },
+];
+
+export function PortalAccessControl({ session, selectedInstallation, isProspect }: Props) {
   const [activeTab, setActiveTab] = useState<ACTab>("live");
 
-  if (!selectedInstallation) {
+  if (!selectedInstallation && !isProspect) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3 text-zinc-600 px-4 py-6">
         <ShieldCheck className="h-12 w-12" />
         <p className="text-sm">Selecciona una instalación para ver el control de acceso</p>
+      </div>
+    );
+  }
+
+  if (isProspect) {
+    return (
+      <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
+        <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2 mb-4">
+          <ShieldCheck className="h-5 w-5 text-blue-400" />
+          Control de Acceso
+        </h2>
+        <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: "linear-gradient(145deg, #1E293B, #1A2332)" }}>
+          <div className="px-4 py-3 border-b border-white/[0.06]">
+            <p className="text-xs text-zinc-400">Registro de accesos en tiempo real — Datos de demostración</p>
+          </div>
+          <div className="divide-y divide-white/[0.04]">
+            {DEMO_ACCESS_LOG.map((entry, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3">
+                <span className="text-xs text-zinc-500 w-12 shrink-0">{entry.time}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-zinc-200 truncate">{entry.name}</p>
+                  <p className="text-xs text-zinc-500">{entry.type} · {entry.method}</p>
+                </div>
+                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                  entry.status === "Autorizado"
+                    ? "bg-emerald-900/40 text-emerald-300"
+                    : "bg-red-900/40 text-red-400"
+                }`}>
+                  {entry.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 space-y-2">
+          {["Pre-registro de visitas online", "Lista blanca de autorizados permanentes", "Historial completo de accesos", "Alertas de accesos no autorizados"].map((feat) => (
+            <div key={feat} className="flex items-center gap-2 text-xs text-zinc-400">
+              <ShieldCheck className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+              {feat}
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
