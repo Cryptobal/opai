@@ -92,7 +92,7 @@ export async function POST(
     const monthlyPositionCost = employerCost * Number(numGuards) * safeNumPuestos;
 
     const result = await prisma.$transaction(async (tx) => {
-      const position = await tx.cpqPosition.create({
+      return tx.cpqPosition.create({
         data: {
           quoteId: id,
           puestoTrabajoId,
@@ -117,10 +117,9 @@ export async function POST(
           calculatedAt: new Date(payroll.computed_at),
         },
       });
-
-      await refreshQuoteTotals(id);
-      return position;
     });
+
+    await refreshQuoteTotals(id);
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
