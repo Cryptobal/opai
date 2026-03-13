@@ -73,7 +73,7 @@ export async function GET(
     } catch {}
   }
 
-  // Precio venta mensual neto: salePriceMonthly en parameters, o computar desde costos
+  // Precio venta mensual neto: salePriceMonthly + líneas adicionales (igual que CPQ)
   let salePriceClp = quote.parameters?.salePriceMonthly != null
     ? Number(quote.parameters.salePriceMonthly)
     : 0;
@@ -83,6 +83,7 @@ export async function GET(
       const marginPct = Number(quote.parameters?.marginPct ?? 13) / 100;
       const costsBase =
         costSummary.monthlyPositions +
+        (costSummary.monthlyHolidayAdjustment ?? 0) +
         (costSummary.monthlyUniforms ?? 0) +
         (costSummary.monthlyExams ?? 0) +
         (costSummary.monthlyMeals ?? 0) +
@@ -95,17 +96,22 @@ export async function GET(
       salePriceClp = quote.monthlyCost?.toNumber() ?? 0;
     }
   }
-  const rawMonthly = salePriceClp > 0 ? salePriceClp : (quote.monthlyCost?.toNumber() ?? 0);
+  const additionalLinesTotal = quote.additionalLines.reduce(
+    (s, l) => s + Number(l.precio || 0),
+    0
+  );
+  const baseSaleClp = salePriceClp > 0 ? salePriceClp : (quote.monthlyCost?.toNumber() ?? 0);
+  const rawMonthly = baseSaleClp + additionalLinesTotal;
 
-  // Asignar precio venta a cada posición (proporción por costo)
+  // Asignar precio venta a cada posición (proporción del base, sin líneas adicionales)
   const positionCosts = quote.positions.map((p) => Number(p.monthlyPositionCost ?? 0));
   const totalPositionCosts = positionCosts.reduce((s, c) => s + c, 0);
   const fallbackProportion = quote.positions.length > 0 ? 1 / quote.positions.length : 0;
 
-  const positionsWithPrice = quote.positions.map((p, idx) => {
+  const positionsWithPrice = quote.positions.map((p) => {
     const costClp = Number(p.monthlyPositionCost ?? 0);
     const proportion = totalPositionCosts > 0 ? costClp / totalPositionCosts : fallbackProportion;
-    const allocatedSaleClp = rawMonthly * proportion;
+    const allocatedSaleClp = baseSaleClp * proportion;
     return {
       ...p,
       monthlyPositionCost: convertCost(costClp),

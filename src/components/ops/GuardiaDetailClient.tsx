@@ -480,8 +480,15 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               {/* PIN de marcación — primera cosa visible, badge verde + Recargar */}
               <div className="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-border/40">
                 <span className="text-[10px] text-muted-foreground uppercase tracking-wider shrink-0">PIN de marcación</span>
-                <span className="shrink-0 rounded px-2.5 py-1 text-sm font-semibold tabular-nums bg-emerald-500/25 text-emerald-400 border border-emerald-500/30">
-                  {guardia.marcacionPinVisible ?? (guardia.marcacionPin ? "••••" : "—")}
+                <span className={cn(
+                  "shrink-0 rounded px-2.5 py-1 text-sm font-semibold tabular-nums",
+                  guardia.marcacionPinVisible
+                    ? "bg-emerald-500/25 text-emerald-400 border border-emerald-500/30"
+                    : guardia.marcacionPin
+                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                      : "bg-muted text-muted-foreground border border-border"
+                )}>
+                  {guardia.marcacionPinVisible ?? (guardia.marcacionPin ? "Recargar para generar" : "—")}
                 </span>
                 {canManageGuardias && (
                   <Button

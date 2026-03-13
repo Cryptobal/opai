@@ -154,11 +154,30 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const [contractDateModal, setContractDateModal] = useState<{ item: GuardiaItem; nextStatus: string } | null>(null);
   const [contractDate, setContractDate] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [bulkPinLoading, setBulkPinLoading] = useState(false);
 
   const handleRefresh = () => {
     setRefreshing(true);
     router.refresh();
     setTimeout(() => setRefreshing(false), 500);
+  };
+
+  const handleBulkPinVisible = async () => {
+    setBulkPinLoading(true);
+    try {
+      const res = await fetch("/api/ops/marcacion/pin/bulk", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        toast.error(data.error || "Error generando PINs visibles");
+        return;
+      }
+      toast.success(data.message ?? `PINs visibles generados para ${data.data?.updated ?? 0} guardias`);
+      router.refresh();
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setBulkPinLoading(false);
+    }
   };
 
   const ACCOUNT_TYPE_LABELS: Record<string, string> = {
@@ -391,7 +410,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
 
   const pinDisplay = (item: GuardiaItem) => {
     if (item.marcacionPinVisible) return `PIN: ${item.marcacionPinVisible}`;
-    if (item.marcacionPin) return "PIN: Configurado";
+    if (item.marcacionPin) return "Recargar para generar";
     return null;
   };
 
@@ -410,6 +429,20 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
           {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
           Recargar
         </Button>
+        {canManageGuardias && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 px-2 text-xs"
+            onClick={() => void handleBulkPinVisible()}
+            disabled={bulkPinLoading}
+            title="Generar PINs visibles para todos los guardias activos que no lo tienen"
+          >
+            {bulkPinLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+            Generar PINs visibles
+          </Button>
+        )}
         {canIngresoTe && (
           <Button
             type="button"

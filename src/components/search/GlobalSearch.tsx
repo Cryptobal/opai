@@ -16,6 +16,7 @@ import {
   File,
   CalendarDays,
   MessageCircle,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -119,6 +120,31 @@ const TYPE_CONFIG: Record<
   },
 };
 
+const SEARCH_HISTORY_KEY = "opai-global-search-history";
+const SEARCH_HISTORY_MAX = 5;
+
+function getSearchHistory(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(SEARCH_HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSearchHistory(query: string) {
+  if (typeof window === "undefined" || !query.trim()) return;
+  const prev = getSearchHistory();
+  const filtered = prev.filter((q) => q !== query);
+  const next = [query.trim(), ...filtered].slice(0, SEARCH_HISTORY_MAX);
+  try {
+    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next));
+  } catch {
+    return;
+  }
+}
+
 interface GlobalSearchProps {
   className?: string;
   /** Listen to Cmd+K / Ctrl+K to focus the input */
@@ -147,10 +173,15 @@ export function GlobalSearch({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    setSearchHistory(getSearchHistory());
+  }, []);
 
   // Cmd+K / Ctrl+K keyboard shortcut to focus search
   useEffect(() => {
@@ -183,6 +214,8 @@ export function GlobalSearch({
       }
       if (data.success) {
         setResults(data.data ?? []);
+        saveSearchHistory(q);
+        setSearchHistory(getSearchHistory());
       }
     } catch {
       // silently fail
@@ -206,6 +239,11 @@ export function GlobalSearch({
   };
 
   const selectResult = (result: SearchResult) => {
+    const q = query.trim();
+    if (q.length >= 2) {
+      saveSearchHistory(q);
+      setSearchHistory(getSearchHistory());
+    }
     setQuery("");
     setResults([]);
     setOpen(false);
@@ -215,6 +253,12 @@ export function GlobalSearch({
     } else {
       router.push(result.href);
     }
+  };
+
+  const selectHistoryItem = (item: string) => {
+    setQuery(item);
+    setOpen(true);
+    search(item);
   };
 
   useEffect(() => {
@@ -258,6 +302,7 @@ export function GlobalSearch({
   }, {});
 
   const showDropdown = open && query.trim().length >= 2;
+  const showHistoryDropdown = open && query.trim().length < 2 && searchHistory.length > 0 && !loading;
 
   // Posición del dropdown (para portal)
   const [dropdownRect, setDropdownRect] = useState<{
@@ -267,17 +312,17 @@ export function GlobalSearch({
   } | null>(null);
 
   useLayoutEffect(() => {
-    if (!showDropdown || !containerRef.current) return;
+    if ((!showDropdown && !showHistoryDropdown) || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     setDropdownRect({
       top: rect.bottom + 4,
       left: rect.left,
       width: rect.width,
     });
-  }, [showDropdown, results.length, loading]);
+  }, [showDropdown, showHistoryDropdown, results.length, loading]);
 
   const dropdownContent =
-    showDropdown &&
+    (showDropdown || showHistoryDropdown) &&
     typeof document !== "undefined" &&
     dropdownRect && (
       <div
@@ -289,19 +334,35 @@ export function GlobalSearch({
           width: Math.max(dropdownRect.width, 360),
         }}
       >
-        {results.length === 0 && !loading && (
+        {showHistoryDropdown ? (
+          <div className="py-2">
+            <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 flex items-center gap-1.5">
+              <History className="h-3 w-3" />
+              Últimas búsquedas
+            </div>
+            {searchHistory.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => selectHistoryItem(item)}
+                className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-accent/50 transition-colors"
+              >
+                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="truncate">{item}</span>
+              </button>
+            ))}
+          </div>
+        ) : results.length === 0 && !loading ? (
           <div className="px-4 py-6 text-center text-sm text-muted-foreground">
             Sin resultados para &ldquo;{query}&rdquo;
           </div>
-        )}
-
-        {results.length === 0 && loading && (
+        ) : results.length === 0 && loading ? (
           <div className="px-4 py-6 text-center text-sm text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
             Buscando...
           </div>
-        )}
-
+        ) : (
+          <>
         {Object.entries(grouped).map(([type, items]) => {
           const config = TYPE_CONFIG[type];
           if (!config) return null;
@@ -388,6 +449,8 @@ export function GlobalSearch({
             </div>
           );
         })}
+          </>
+        )}
       </div>
     );
 
@@ -400,7 +463,7 @@ export function GlobalSearch({
           type="text"
           value={query}
           onChange={(e) => handleChange(e.target.value)}
-          onFocus={() => query.trim().length >= 2 && setOpen(true)}
+          onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={compact ? "Buscar..." : "Buscar en CRM, operaciones, documentos..."}
           className={cn(

@@ -18,6 +18,7 @@ export async function GET() {
     include: {
       positions: { select: { id: true, numGuards: true } },
       parameters: { select: { salePriceMonthly: true, marginPct: true } },
+      additionalLines: { select: { precio: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -64,6 +65,7 @@ export async function GET() {
         const marginPct = Number(q.parameters?.marginPct ?? 13) / 100;
         const costsBase =
           costSummary.monthlyPositions +
+          (costSummary.monthlyHolidayAdjustment ?? 0) +
           (costSummary.monthlyUniforms ?? 0) +
           (costSummary.monthlyExams ?? 0) +
           (costSummary.monthlyMeals ?? 0) +
@@ -85,7 +87,9 @@ export async function GET() {
       (q.parameters?.salePriceMonthly != null ? Number(q.parameters.salePriceMonthly) : 0) ||
       computedSalePrices.get(q.id) ||
       0;
-    const rawCost = salePriceClp > 0 ? salePriceClp : (q.monthlyCost?.toNumber() ?? 0);
+    const additionalLinesTotal =
+      q.additionalLines?.reduce((s, l) => s + Number(l.precio || 0), 0) ?? 0;
+    const rawCost = (salePriceClp > 0 ? salePriceClp : (q.monthlyCost?.toNumber() ?? 0)) + additionalLinesTotal;
     const currency = (q.currency || "CLP") as string;
     const monthlyCost = currency === "UF" && ufValue > 0 ? clpToUf(rawCost, ufValue) : rawCost;
 

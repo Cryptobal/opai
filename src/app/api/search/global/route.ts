@@ -398,7 +398,7 @@ export async function GET(request: NextRequest) {
           const pinDisplay = g.marcacionPinVisible
             ? `PIN: ${g.marcacionPinVisible}`
             : g.marcacionPin
-              ? "PIN: Configurado"
+              ? "Recargar para generar"
               : "Sin PIN";
           const subtitleParts = [
             g.currentInstallation?.name,
