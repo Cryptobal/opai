@@ -9,6 +9,7 @@ import {
   BellOff,
   AtSign,
   Building2,
+  CheckCheck,
   ChevronDown,
   ChevronRight,
   Handshake,
@@ -24,7 +25,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useChatSidePanelContext, type ChatSidePanelChannel } from "./ChatFloatingProvider";
+import { useChatSidePanelContext, type ChatSidePanelChannel, type NotifPreference } from "./ChatFloatingProvider";
 import { ChatConversation } from "./ChatConversation";
 import { NewExternalChatModal } from "./NewExternalChatModal";
 import { usePusher } from "./hooks/usePusher";
@@ -318,6 +319,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onToggle={() => toggleSection("direct")}
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={getChannelDisplayName}
+                onMarkAsRead={ctx.markChannelAsRead}
+                onUpdateNotifPref={ctx.updateChannelNotifPref}
               />
             )}
 
@@ -330,6 +333,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={getChannelDisplayName}
                 onBulkNotifPref={ctx.refreshChannels}
+                onMarkAsRead={ctx.markChannelAsRead}
+                onUpdateNotifPref={ctx.updateChannelNotifPref}
               />
             )}
 
@@ -346,6 +351,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onArchive={(id) => ctx.archiveChannel(id)}
                 canDelete={canDeleteChannels}
                 onDelete={handleDeleteChannel}
+                onMarkAsRead={ctx.markChannelAsRead}
+                onUpdateNotifPref={ctx.updateChannelNotifPref}
               />
             )}
 
@@ -362,6 +369,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 onArchive={(id) => ctx.archiveChannel(id)}
                 canDelete={canDeleteChannels}
                 onDelete={handleDeleteChannel}
+                onMarkAsRead={ctx.markChannelAsRead}
+                onUpdateNotifPref={ctx.updateChannelNotifPref}
               />
             )}
 
@@ -379,6 +388,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 canDelete={canDeleteChannels}
                 onDelete={handleDeleteChannel}
                 onNewChat={() => setNewChatModal({ open: true, defaultStatus: "prospect" })}
+                onMarkAsRead={ctx.markChannelAsRead}
+                onUpdateNotifPref={ctx.updateChannelNotifPref}
               />
             )}
 
@@ -396,6 +407,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 canDelete={canDeleteChannels}
                 onDelete={handleDeleteChannel}
                 onNewChat={() => setNewChatModal({ open: true, defaultStatus: "client_active" })}
+                onMarkAsRead={ctx.markChannelAsRead}
+                onUpdateNotifPref={ctx.updateChannelNotifPref}
               />
             )}
 
@@ -590,8 +603,6 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
 
 /* ─── Group Channels Section (con subgrupos y notificaciones por grupo) ─── */
 
-type NotifPreference = "ALL" | "MENTIONS_ONLY" | "MUTED";
-
 function GroupChannelsSection({
   groupChannels,
   collapsed,
@@ -599,6 +610,8 @@ function GroupChannelsSection({
   onSelectChannel,
   getDisplayName,
   onBulkNotifPref,
+  onMarkAsRead,
+  onUpdateNotifPref,
 }: {
   groupChannels: ChatSidePanelChannel[];
   collapsed: boolean;
@@ -606,6 +619,8 @@ function GroupChannelsSection({
   onSelectChannel: (id: string) => void;
   getDisplayName: (ch: ChatSidePanelChannel) => string;
   onBulkNotifPref?: () => void;
+  onMarkAsRead?: (channelId: string) => void;
+  onUpdateNotifPref?: (channelId: string, pref: NotifPreference) => void;
 }) {
   const sectionUnread = groupChannels.reduce((sum, ch) => sum + ch.unreadCount, 0);
 
@@ -730,6 +745,53 @@ function GroupChannelsSection({
                         onClick={() => onSelectChannel(ch.id)}
                       />
                     </div>
+                    {(onMarkAsRead || onUpdateNotifPref) && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="opacity-0 group-hover:opacity-100 h-5 w-5 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label="Más opciones"
+                            >
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="z-[70] w-52">
+                            {onMarkAsRead && ch.unreadCount > 0 && (
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMarkAsRead(ch.id); }}>
+                                <CheckCheck className="h-3.5 w-3.5 mr-2" />
+                                Marcar como leído
+                              </DropdownMenuItem>
+                            )}
+                            {onUpdateNotifPref && (
+                              <>
+                                {(onMarkAsRead && ch.unreadCount > 0) && <DropdownMenuSeparator />}
+                                <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                                  Notificaciones
+                                </div>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "ALL"); }}>
+                                  <Bell className="h-3.5 w-3.5 mr-2" />
+                                  Notificar todo
+                                  {ch.notificationPreference === "ALL" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MENTIONS_ONLY"); }}>
+                                  <AtSign className="h-3.5 w-3.5 mr-2" />
+                                  Solo menciones
+                                  {ch.notificationPreference === "MENTIONS_ONLY" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MUTED"); }}>
+                                  <BellOff className="h-3.5 w-3.5 mr-2" />
+                                  Silenciar
+                                  {ch.notificationPreference === "MUTED" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -757,6 +819,8 @@ function ChannelSection({
   onDelete,
   isArchivedSection,
   onNewChat,
+  onMarkAsRead,
+  onUpdateNotifPref,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -771,6 +835,8 @@ function ChannelSection({
   onDelete?: (channelId: string) => void;
   isArchivedSection?: boolean;
   onNewChat?: () => void;
+  onMarkAsRead?: (channelId: string) => void;
+  onUpdateNotifPref?: (channelId: string, pref: NotifPreference) => void;
 }) {
   const sectionUnread = channels.reduce((sum, ch) => sum + ch.unreadCount, 0);
 
@@ -811,63 +877,93 @@ function ChannelSection({
       </div>
       {!collapsed && (
         <div className="divide-y divide-border/20">
-          {channels.map((ch) => (
-            <div key={ch.id} className="relative group flex items-center">
-              <div className="flex-1 min-w-0">
-                <ChannelListItem
-                  channel={ch}
-                  displayName={getDisplayName(ch)}
-                  onClick={() => onSelectChannel(ch.id)}
-                />
-              </div>
-              {(onArchive || onUnarchive || (canDelete && onDelete)) && (
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="opacity-0 group-hover:opacity-100 h-5 w-5 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label="Más opciones"
-                      >
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="z-[70] w-48">
-                      {!isArchivedSection && onArchive && (
-                        <DropdownMenuItem
-                          onClick={(e) => { e.stopPropagation(); onArchive(ch.id); }}
-                        >
-                          <Archive className="h-3.5 w-3.5 mr-2" />
-                          Archivar conversación
-                        </DropdownMenuItem>
-                      )}
-                      {isArchivedSection && onUnarchive && (
-                        <DropdownMenuItem
-                          onClick={(e) => { e.stopPropagation(); onUnarchive(ch.id); }}
-                        >
-                          <ArchiveRestore className="h-3.5 w-3.5 mr-2" />
-                          Desarchivar
-                        </DropdownMenuItem>
-                      )}
-                      {canDelete && onDelete && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={(e) => { e.stopPropagation(); onDelete(ch.id); }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 mr-2" />
-                            Eliminar permanentemente
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+          {channels.map((ch) => {
+            const hasMenu = onArchive || onUnarchive || (canDelete && onDelete) || onMarkAsRead || onUpdateNotifPref;
+            return (
+              <div key={ch.id} className="relative group flex items-center">
+                <div className="flex-1 min-w-0">
+                  <ChannelListItem
+                    channel={ch}
+                    displayName={getDisplayName(ch)}
+                    onClick={() => onSelectChannel(ch.id)}
+                  />
                 </div>
-              )}
-            </div>
-          ))}
+                {hasMenu && (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="opacity-0 group-hover:opacity-100 h-5 w-5 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label="Más opciones"
+                        >
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="z-[70] w-52">
+                        {onMarkAsRead && ch.unreadCount > 0 && (
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMarkAsRead(ch.id); }}>
+                            <CheckCheck className="h-3.5 w-3.5 mr-2" />
+                            Marcar como leído
+                          </DropdownMenuItem>
+                        )}
+                        {onUpdateNotifPref && (
+                          <>
+                            {(onMarkAsRead && ch.unreadCount > 0) && <DropdownMenuSeparator />}
+                            <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                              Notificaciones
+                            </div>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "ALL"); }}>
+                              <Bell className="h-3.5 w-3.5 mr-2" />
+                              Notificar todo
+                              {ch.notificationPreference === "ALL" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MENTIONS_ONLY"); }}>
+                              <AtSign className="h-3.5 w-3.5 mr-2" />
+                              Solo menciones
+                              {ch.notificationPreference === "MENTIONS_ONLY" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MUTED"); }}>
+                              <BellOff className="h-3.5 w-3.5 mr-2" />
+                              Silenciar
+                              {ch.notificationPreference === "MUTED" && <span className="ml-auto text-teal-400 text-xs">✓</span>}
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        {(onArchive || onUnarchive || (canDelete && onDelete)) && (
+                          <>
+                            <DropdownMenuSeparator />
+                            {!isArchivedSection && onArchive && (
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(ch.id); }}>
+                                <Archive className="h-3.5 w-3.5 mr-2" />
+                                Archivar conversación
+                              </DropdownMenuItem>
+                            )}
+                            {isArchivedSection && onUnarchive && (
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUnarchive(ch.id); }}>
+                                <ArchiveRestore className="h-3.5 w-3.5 mr-2" />
+                                Desarchivar
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete && onDelete && (
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); onDelete(ch.id); }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                Eliminar permanentemente
+                              </DropdownMenuItem>
+                            )}
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -986,8 +1082,14 @@ function ChannelListItem({
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <span className="text-sm font-medium truncate">{displayName}</span>
+          {channel.notificationPreference === "MENTIONS_ONLY" && (
+            <AtSign className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+          )}
+          {channel.notificationPreference === "MUTED" && (
+            <BellOff className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+          )}
           {channel.unreadCount > 0 && (
             <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-teal-600 px-1.5 text-[10px] font-bold text-white shrink-0">
               {channel.unreadCount > 99 ? "99+" : channel.unreadCount}

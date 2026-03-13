@@ -12,6 +12,8 @@ import {
 
 /* ─── Types ─── */
 
+export type NotifPreference = "ALL" | "MENTIONS_ONLY" | "MUTED";
+
 export type ChatSidePanelChannel = {
   id: string;
   name: string;
@@ -23,6 +25,7 @@ export type ChatSidePanelChannel = {
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   unreadCount: number;
+  notificationPreference: NotifPreference;
   isArchivedByMe: boolean;
   group: { id: string; color: string; slug: string } | null;
   installation: {
@@ -61,6 +64,8 @@ interface ChatSidePanelContextValue {
   deleteChannel: (channelId: string) => Promise<void>;
   archivedChannels: ChatSidePanelChannel[];
   fetchArchivedChannels: () => Promise<void>;
+  markChannelAsRead: (channelId: string) => Promise<void>;
+  updateChannelNotifPref: (channelId: string, preference: NotifPreference) => Promise<void>;
 }
 
 export const ChatSidePanelContext = createContext<ChatSidePanelContextValue | null>(null);
@@ -111,9 +116,11 @@ export function ChatSidePanelProvider({
     };
   }, []);
 
+  const initialLoadDone = useRef(false);
+
   const fetchChannels = useCallback(async () => {
     if (!currentUserId) return;
-    setLoading(true);
+    if (!initialLoadDone.current) setLoading(true);
     try {
       const res = await fetch("/api/chat/channels");
       if (!res.ok) {
@@ -136,6 +143,7 @@ export function ChatSidePanelProvider({
       setChannels([]);
     } finally {
       setLoading(false);
+      initialLoadDone.current = true;
     }
   }, [currentUserId]);
 
@@ -164,6 +172,32 @@ export function ChatSidePanelProvider({
     const res = await fetch(`/api/chat/channels/${channelId}`, { method: "DELETE" });
     if (!res.ok) return;
     setChannels((prev) => prev.filter((c) => c.id !== channelId));
+  }, []);
+
+  const markChannelAsRead = useCallback(async (channelId: string) => {
+    setChannels((prev) =>
+      prev.map((ch) => (ch.id === channelId ? { ...ch, unreadCount: 0 } : ch))
+    );
+    try {
+      await fetch(`/api/chat/channels/${channelId}/read`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+    } catch {}
+  }, []);
+
+  const updateChannelNotifPref = useCallback(async (channelId: string, preference: NotifPreference) => {
+    setChannels((prev) =>
+      prev.map((ch) => (ch.id === channelId ? { ...ch, notificationPreference: preference } : ch))
+    );
+    try {
+      await fetch(`/api/chat/channels/${channelId}/notification-preference`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preference }),
+      });
+    } catch {}
   }, []);
 
   // Fetch channels on first panel open
@@ -240,6 +274,8 @@ export function ChatSidePanelProvider({
     deleteChannel,
     archivedChannels,
     fetchArchivedChannels,
+    markChannelAsRead,
+    updateChannelNotifPref,
   };
 
   return (
