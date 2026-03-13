@@ -368,7 +368,7 @@ export async function POST(
     const emailResult = await resend.emails.send({
       from: EMAIL_CONFIG.from,
       to: contact.email,
-      cc: ccEmails.length ? ccEmails : undefined,
+      cc: [...new Set(["comercial@gard.cl", ...ccEmails])],
       bcc: bccEmails.length ? bccEmails : undefined,
       replyTo: EMAIL_CONFIG.replyTo,
       subject: `Propuesta comercial para ${account.name} - Gard Security`,

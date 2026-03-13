@@ -114,7 +114,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [whatsappSentTo, setWhatsappSentTo] = useState<string>("");
-  const [portalEmailCc, setPortalEmailCc] = useState("");
+  const [portalEmailCc, setPortalEmailCc] = useState("comercial@gard.cl");
   const [portalEmailBcc, setPortalEmailBcc] = useState("");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savingFinancials, setSavingFinancials] = useState(false);
