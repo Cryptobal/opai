@@ -215,6 +215,115 @@ export function CheckpointMapCreator({
     };
   }, [mapReady]);
 
+  // Place draft marker (must be before startEditing and the useEffect that draws checkpoints)
+  const placeDraftMarker = useCallback((lat: number, lng: number, gm?: any, map?: any) => {
+    const w = window as unknown as { google?: { maps?: any } };
+    const googleMaps = gm ?? w.google?.maps;
+    const mapInstance = map ?? mapRef.current;
+    if (!googleMaps || !mapInstance) return;
+
+    // Remove previous draft
+    draftMarkerRef.current?.setMap(null);
+    draftCircleRef.current?.setMap(null);
+
+    const pos = new googleMaps.LatLng(lat, lng);
+
+    const marker = new googleMaps.Marker({
+      position: pos,
+      map: mapInstance,
+      draggable: true,
+      icon: {
+        path: googleMaps.SymbolPath.CIRCLE,
+        fillColor: "#f59e0b",
+        fillOpacity: 1,
+        strokeColor: "#fff",
+        strokeWeight: 2,
+        scale: 14,
+      },
+      label: {
+        text: "+",
+        color: "#fff",
+        fontSize: "16px",
+        fontWeight: "bold",
+      },
+      zIndex: 999,
+    });
+
+    const circle = new googleMaps.Circle({
+      center: pos,
+      radius: draftRadius,
+      map: mapInstance,
+      fillColor: "#f59e0b",
+      fillOpacity: 0.12,
+      strokeColor: "#f59e0b",
+      strokeOpacity: 0.4,
+      strokeWeight: 1,
+    });
+
+    marker.addListener("dragend", (ev: any) => {
+      if (!ev.latLng) return;
+      setDraftLat(ev.latLng.lat());
+      setDraftLng(ev.latLng.lng());
+      circle.setCenter(ev.latLng);
+    });
+
+    draftMarkerRef.current = marker;
+    draftCircleRef.current = circle;
+    setDraftLat(lat);
+    setDraftLng(lng);
+    setIsCreating(true);
+  }, [draftRadius]);
+
+  // Start editing an existing checkpoint (must be before the useEffect that draws checkpoints)
+  const startEditing = useCallback((cp: ExistingCheckpoint) => {
+    // Cancel any current draft first
+    draftMarkerRef.current?.setMap(null);
+    draftCircleRef.current?.setMap(null);
+    draftMarkerRef.current = null;
+    draftCircleRef.current = null;
+
+    setEditingCheckpointId(cp.id);
+    setDraftName(cp.name);
+    setDraftVerificationType(cp.verificationType);
+    setDraftRadius(cp.geoRadiusM);
+    setDraftCritical(cp.isCritical);
+    setDraftInstrucciones(cp.instrucciones ?? "");
+    setDraftLat(cp.lat ?? null);
+    setDraftLng(cp.lng ?? null);
+    setDraftTasks([]);
+    setIsCreating(true);
+
+    // Load existing tasks for this checkpoint
+    fetch(`/api/ops/rondas/checkpoints/${cp.id}/tasks`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setDraftTasks(
+            json.data.map((t: any) => ({
+              id: t.id,
+              label: t.label,
+              type: t.type,
+              required: t.required,
+              options: t.options ?? undefined,
+              config: t.config ?? undefined,
+            })),
+          );
+        }
+      })
+      .catch(() => {});
+
+    // Place draft marker on the checkpoint's position
+    if (cp.lat != null && cp.lng != null) {
+      const w = window as unknown as { google?: { maps?: any } };
+      const gm = w.google?.maps;
+      const map = mapRef.current;
+      if (gm && map) {
+        placeDraftMarker(cp.lat, cp.lng, gm, map);
+        map.panTo(new gm.LatLng(cp.lat, cp.lng));
+      }
+    }
+  }, [placeDraftMarker]);
+
   // Draw existing checkpoints on map
   useEffect(() => {
     if (!mapReady) return;
@@ -374,65 +483,6 @@ export function CheckpointMapCreator({
     }
   }, [mapReady, geoPos, installationLat, installationLng]);
 
-  // Place draft marker
-  const placeDraftMarker = useCallback((lat: number, lng: number, gm?: any, map?: any) => {
-    const w = window as unknown as { google?: { maps?: any } };
-    const googleMaps = gm ?? w.google?.maps;
-    const mapInstance = map ?? mapRef.current;
-    if (!googleMaps || !mapInstance) return;
-
-    // Remove previous draft
-    draftMarkerRef.current?.setMap(null);
-    draftCircleRef.current?.setMap(null);
-
-    const pos = new googleMaps.LatLng(lat, lng);
-
-    const marker = new googleMaps.Marker({
-      position: pos,
-      map: mapInstance,
-      draggable: true,
-      icon: {
-        path: googleMaps.SymbolPath.CIRCLE,
-        fillColor: "#f59e0b",
-        fillOpacity: 1,
-        strokeColor: "#fff",
-        strokeWeight: 2,
-        scale: 14,
-      },
-      label: {
-        text: "+",
-        color: "#fff",
-        fontSize: "16px",
-        fontWeight: "bold",
-      },
-      zIndex: 999,
-    });
-
-    const circle = new googleMaps.Circle({
-      center: pos,
-      radius: draftRadius,
-      map: mapInstance,
-      fillColor: "#f59e0b",
-      fillOpacity: 0.12,
-      strokeColor: "#f59e0b",
-      strokeOpacity: 0.4,
-      strokeWeight: 1,
-    });
-
-    marker.addListener("dragend", (ev: any) => {
-      if (!ev.latLng) return;
-      setDraftLat(ev.latLng.lat());
-      setDraftLng(ev.latLng.lng());
-      circle.setCenter(ev.latLng);
-    });
-
-    draftMarkerRef.current = marker;
-    draftCircleRef.current = circle;
-    setDraftLat(lat);
-    setDraftLng(lng);
-    setIsCreating(true);
-  }, [draftRadius]);
-
   // Update draft circle radius
   useEffect(() => {
     if (draftCircleRef.current) {
@@ -457,56 +507,6 @@ export function CheckpointMapCreator({
     setDraftInstrucciones("");
     setDraftTasks([]);
   };
-
-  // Start editing an existing checkpoint
-  const startEditing = useCallback((cp: ExistingCheckpoint) => {
-    // Cancel any current draft first
-    draftMarkerRef.current?.setMap(null);
-    draftCircleRef.current?.setMap(null);
-    draftMarkerRef.current = null;
-    draftCircleRef.current = null;
-
-    setEditingCheckpointId(cp.id);
-    setDraftName(cp.name);
-    setDraftVerificationType(cp.verificationType);
-    setDraftRadius(cp.geoRadiusM);
-    setDraftCritical(cp.isCritical);
-    setDraftInstrucciones(cp.instrucciones ?? "");
-    setDraftLat(cp.lat ?? null);
-    setDraftLng(cp.lng ?? null);
-    setDraftTasks([]);
-    setIsCreating(true);
-
-    // Load existing tasks for this checkpoint
-    fetch(`/api/ops/rondas/checkpoints/${cp.id}/tasks`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.success && Array.isArray(json.data)) {
-          setDraftTasks(
-            json.data.map((t: any) => ({
-              id: t.id,
-              label: t.label,
-              type: t.type,
-              required: t.required,
-              options: t.options ?? undefined,
-              config: t.config ?? undefined,
-            })),
-          );
-        }
-      })
-      .catch(() => {});
-
-    // Place draft marker on the checkpoint's position
-    if (cp.lat != null && cp.lng != null) {
-      const w = window as unknown as { google?: { maps?: any } };
-      const gm = w.google?.maps;
-      const map = mapRef.current;
-      if (gm && map) {
-        placeDraftMarker(cp.lat, cp.lng, gm, map);
-        map.panTo(new gm.LatLng(cp.lat, cp.lng));
-      }
-    }
-  }, [placeDraftMarker]);
 
   // Save tasks for a checkpoint (sync: delete removed, update existing, create new)
   const saveTasks = async (checkpointId: string, tasks: TaskDraft[]) => {
