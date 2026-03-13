@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     const lastName = toSentenceCaseWords(extracted.contactLastName?.trim() || "") ?? null;
     const companyName = toSentenceCaseWords(extracted.companyName?.trim() || "") ?? null;
     const contactRole = toSentenceCaseWords(extracted.contactRole?.trim() || "") ?? null;
-    const phone = formatChileanPhone(extracted.contactPhone) ?? extracted.contactPhone?.trim() || null;
+    const phone = formatChileanPhone(extracted.contactPhone) ?? (extracted.contactPhone?.trim() || null);
 
     console.log("[inbound-email] Extracted data:", {
       companyName: extracted.companyName,
