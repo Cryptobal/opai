@@ -128,7 +128,7 @@ export default async function CrmDealDetailPage({
             address: true,
             city: true,
             commune: true,
-            isActive: true,
+            status: true,
           },
         })
       : Promise.resolve([]),
