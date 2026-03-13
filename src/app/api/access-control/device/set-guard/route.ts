@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
 
@@ -45,6 +45,12 @@ export async function POST(request: NextRequest) {
           }),
         null
       );
+
+      after(async () => {
+        const { trackPortalAccess } = await import("@/lib/triggers/portal-access-tracker");
+        await trackPortalAccess(guardId, "acceso");
+      });
+
       return NextResponse.json({ success: true });
     }
 
@@ -64,6 +70,11 @@ export async function POST(request: NextRequest) {
     await prisma.devicePairing.update({
       where: { id: unifiedDevice.id },
       data: { lastSeenAt: new Date() },
+    });
+
+    after(async () => {
+      const { trackPortalAccess } = await import("@/lib/triggers/portal-access-tracker");
+      await trackPortalAccess(guardId, "acceso");
     });
 
     return NextResponse.json({ success: true });

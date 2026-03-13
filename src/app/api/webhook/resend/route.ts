@@ -10,9 +10,10 @@
  * - email.bounced
  * - email.complained
  * 
- * Busca en dos entidades:
+ * Busca en tres entidades:
  * 1. Presentation (emailMessageId) - presentaciones CPQ
  * 2. CrmEmailMessage (resendId) - correos CRM / follow-ups
+ * 3. OpsEmailLog (resendId) - onboarding y comunicaciones a guardias
  * 
  * Documentación: https://resend.com/docs/webhooks
  */
@@ -90,8 +91,30 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!presentation && !crmMessage) {
-      console.warn('⚠️ Ni presentación ni CRM message encontrado para emailId:', emailId);
+    // ── 3. Buscar en OpsEmailLog (onboarding/comunicaciones) ──
+    const opsEmailLog = await prisma.opsEmailLog.findFirst({
+      where: { resendId: emailId },
+      select: { id: true, guardiaId: true },
+    });
+
+    if (opsEmailLog) {
+      switch (type) {
+        case 'email.delivered':
+          await handleOpsEmailDelivered(opsEmailLog.id, data);
+          break;
+        case 'email.opened':
+          await handleOpsEmailOpened(opsEmailLog.id, opsEmailLog.guardiaId, data);
+          break;
+        case 'email.bounced':
+          await handleOpsEmailBounced(opsEmailLog.id, data);
+          break;
+        default:
+          console.log(`ℹ️ Evento no manejado (ops): ${type}`);
+      }
+    }
+
+    if (!presentation && !crmMessage && !opsEmailLog) {
+      console.warn('⚠️ Ninguna entidad encontrada para emailId:', emailId);
     }
 
     return NextResponse.json({ success: true, type });
@@ -358,5 +381,61 @@ async function handleCrmEmailComplained(messageId: string, data: any) {
     console.log('🚨 CRM spam complaint:', messageId);
   } catch (error) {
     console.error('Error al procesar crm email.complained:', error);
+  }
+}
+
+// ─── OPS EMAIL LOG HANDLERS (Onboarding / Comunicaciones) ────────────────
+
+async function handleOpsEmailDelivered(logId: string, data: any) {
+  try {
+    await prisma.opsEmailLog.update({
+      where: { id: logId },
+      data: { estado: 'ENTREGADO' },
+    });
+    console.log('✅ OpsEmailLog entregado:', logId);
+  } catch (error) {
+    console.error('Error al procesar ops email.delivered:', error);
+  }
+}
+
+async function handleOpsEmailOpened(logId: string, guardiaId: string, data: any) {
+  try {
+    await prisma.opsEmailLog.update({
+      where: { id: logId },
+      data: {
+        estado: 'ABIERTO',
+        abierto: true,
+        fechaAbierto: new Date(data.created_at),
+      },
+    });
+
+    // Actualizar OnboardingStatus si corresponde
+    await prisma.opsOnboardingStatus.updateMany({
+      where: { guardiaId },
+      data: {
+        emailAbierto: true,
+        fechaAbierto: new Date(data.created_at),
+        estado: 'EN_PROGRESO',
+      },
+    });
+
+    console.log('👀 OpsEmailLog abierto:', logId);
+  } catch (error) {
+    console.error('Error al procesar ops email.opened:', error);
+  }
+}
+
+async function handleOpsEmailBounced(logId: string, data: any) {
+  try {
+    await prisma.opsEmailLog.update({
+      where: { id: logId },
+      data: {
+        estado: 'REBOTADO',
+        rebotado: true,
+      },
+    });
+    console.log('⚠️ OpsEmailLog rebotado:', logId);
+  } catch (error) {
+    console.error('Error al procesar ops email.bounced:', error);
   }
 }

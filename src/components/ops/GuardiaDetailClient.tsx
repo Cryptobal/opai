@@ -72,6 +72,7 @@ import DocumentosSection from "@/components/ops/guardia-sections/DocumentosSecti
 import { FileAttachments } from "@/components/crm/FileAttachments";
 import { GuardiaDesempenoTab } from "@/components/gamification";
 import { GuardiaMarcacionesTab } from "./GuardiaMarcacionesTab";
+import OnboardingSection from "@/components/ops/guardia-sections/OnboardingSection";
 import CommunicationSection from "@/components/ops/guardia-sections/CommunicationSection";
 import DiasTrabajadesSection from "@/components/ops/guardia-sections/DiasTrabajadesSection";
 import TurnosExtraSection from "@/components/ops/guardia-sections/TurnosExtraSection";
@@ -224,7 +225,7 @@ const LIFECYCLE_COLORS: Record<string, string> = {
   inactivo: "bg-red-500/20 text-red-400 border-red-500/30",
 };
 
-type TabKey = "perfil" | "operaciones" | "contractual" | "eventos_laborales" | "documentos" | "actividad" | "desempeno" | "marcaciones";
+type TabKey = "perfil" | "operaciones" | "contractual" | "eventos_laborales" | "documentos" | "actividad" | "desempeno" | "marcaciones" | "onboarding";
 
 const TABS: { key: TabKey; label: string; icon: typeof User }[] = [
   { key: "perfil", label: "Perfil", icon: User },
@@ -235,6 +236,7 @@ const TABS: { key: TabKey; label: string; icon: typeof User }[] = [
   { key: "actividad", label: "Actividad", icon: History },
   { key: "desempeno", label: "Desempe\u00f1o", icon: TrendingUp },
   { key: "marcaciones", label: "Marcaciones", icon: Clock },
+  { key: "onboarding", label: "Onboarding", icon: UserPlus },
 ];
 
 function toDateInput(val: string | Date | undefined | null): string {
@@ -657,6 +659,8 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         return <GuardiaDesempenoTab guardiaId={guardia.id} />;
       case "marcaciones":
         return <GuardiaMarcacionesTab guardiaId={guardia.id} />;
+      case "onboarding":
+        return <OnboardingSection guardiaId={guardia.id} />;
     }
   };
 

@@ -132,6 +132,8 @@ const TE_ITEMS: BottomNavItem[] = [
 
 const PERSONAS_ITEMS: BottomNavItem[] = [
   { key: "personas-listado", href: "/personas/guardias", label: "Listado", icon: Shield },
+  { key: "personas-onboarding", href: "/personas/onboarding", label: "Onboarding", icon: UserRoundCheck },
+  { key: "personas-comunicaciones", href: "/personas/comunicaciones", label: "Comunicaciones", icon: Bell },
   { key: "personas-sueldos-rut", href: "/personas/guardias/sueldos-rut", label: "Sueldos RUT", icon: DollarSign },
 ];
 

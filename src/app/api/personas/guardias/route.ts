@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
@@ -238,6 +239,16 @@ export async function POST(request: NextRequest) {
       code: result?.code ?? null,
       lifecycleStatus: body.lifecycleStatus,
     });
+
+    // Trigger onboarding cuando se crea directamente como contratado
+    if (body.lifecycleStatus === "contratado" && result?.id) {
+      after(async () => {
+        const { handleGuardActivation } = await import(
+          "@/lib/triggers/onboarding-trigger"
+        );
+        await handleGuardActivation(result!.id, ctx.tenantId);
+      });
+    }
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {

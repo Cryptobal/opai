@@ -2387,6 +2387,8 @@ model OpsGuardia {
   gamificacionSugerenciasBono  GamificacionSugerenciaBono[]
   gamificacionDesafios         GamificacionDesafioParticipacion[]
   gamificacionCanjes           GamificacionCanje[]
+  emailLogs                    OpsEmailLog[]
+  onboardingStatus             OpsOnboardingStatus?
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -2415,6 +2417,147 @@ model OpsGuardiaFlag {
   @@index([guardiaId], map: "idx_ops_guardia_flags_guardia")
   @@index([active], map: "idx_ops_guardia_flags_active")
   @@map("guardia_flags")
+  @@schema("ops")
+}
+
+// ============================================
+// ONBOARDING Y COMUNICACIONES (Personas)
+// ============================================
+
+model OpsEmailTemplate {
+  id          String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String              @map("tenant_id")
+  nombre      String
+  asunto      String
+  tipo        OpsEmailTemplateType
+  contenido   Json
+  variables   String[]            @default([])
+  activo      Boolean             @default(true)
+  esDefault   Boolean             @default(false) @map("es_default")
+  createdBy   String?             @map("created_by")
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  envios OpsEmailLog[]
+
+  @@index([tenantId], map: "idx_ops_email_template_tenant")
+  @@index([tipo, activo], map: "idx_ops_email_template_tipo_activo")
+  @@map("email_templates")
+  @@schema("ops")
+}
+
+enum OpsEmailTemplateType {
+  ONBOARDING
+  BIENVENIDA_SITIO
+  RECORDATORIO
+  GENERAL
+
+  @@schema("ops")
+}
+
+model OpsEmailLog {
+  id            String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String           @map("tenant_id")
+  templateId    String?          @map("template_id") @db.Uuid
+  template      OpsEmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  guardiaId     String           @map("guardia_id") @db.Uuid
+  guardia       OpsGuardia       @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+
+  tipo          OpsEmailLogType
+  trigger       OpsEmailTrigger?
+
+  destinatario  String
+  asunto        String
+  contenido     Json?
+  adjuntos      Json?
+
+  estado        OpsEmailEstado   @default(PENDIENTE)
+  resendId      String?          @map("resend_id")
+  abierto       Boolean          @default(false)
+  fechaAbierto  DateTime?        @map("fecha_abierto") @db.Timestamptz(6)
+  rebotado      Boolean          @default(false)
+  error         String?
+
+  loteId        String?          @map("lote_id")
+
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([guardiaId, tipo], map: "idx_ops_email_log_guardia_tipo")
+  @@index([loteId], map: "idx_ops_email_log_lote")
+  @@index([estado], map: "idx_ops_email_log_estado")
+  @@index([createdAt], map: "idx_ops_email_log_created")
+  @@index([resendId], map: "idx_ops_email_log_resend")
+  @@map("email_logs")
+  @@schema("ops")
+}
+
+enum OpsEmailLogType {
+  AUTOMATICO
+  MANUAL_INDIVIDUAL
+  MANUAL_MASIVO
+
+  @@schema("ops")
+}
+
+enum OpsEmailTrigger {
+  ACTIVACION
+  CAMBIO_SITIO
+  RECORDATORIO_48H
+
+  @@schema("ops")
+}
+
+enum OpsEmailEstado {
+  PENDIENTE
+  ENVIADO
+  ENTREGADO
+  ABIERTO
+  REBOTADO
+  ERROR
+
+  @@schema("ops")
+}
+
+model OpsOnboardingStatus {
+  id              String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String              @map("tenant_id")
+  guardiaId       String              @unique @map("guardia_id") @db.Uuid
+  guardia         OpsGuardia          @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+
+  estado          OpsOnboardingEstado @default(PENDIENTE)
+
+  emailEnviado    Boolean             @default(false) @map("email_enviado")
+  fechaEnvio      DateTime?           @map("fecha_envio") @db.Timestamptz(6)
+  emailAbierto    Boolean             @default(false) @map("email_abierto")
+  fechaAbierto    DateTime?           @map("fecha_abierto") @db.Timestamptz(6)
+
+  accesoPortalGuardia   Boolean   @default(false) @map("acceso_portal_guardia")
+  fechaAccesoGuardia    DateTime?  @map("fecha_acceso_guardia") @db.Timestamptz(6)
+  accesoPortalRondas    Boolean   @default(false) @map("acceso_portal_rondas")
+  fechaAccesoRondas     DateTime? @map("fecha_acceso_rondas") @db.Timestamptz(6)
+  accesoPortalAcceso    Boolean   @default(false) @map("acceso_portal_acceso")
+  fechaAccesoAcceso     DateTime? @map("fecha_acceso_acceso") @db.Timestamptz(6)
+
+  recordatorioEnviado   Boolean   @default(false) @map("recordatorio_enviado")
+  fechaRecordatorio     DateTime? @map("fecha_recordatorio") @db.Timestamptz(6)
+
+  completadoAt    DateTime?       @map("completado_at") @db.Timestamptz(6)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([estado], map: "idx_ops_onboarding_status_estado")
+  @@index([tenantId], map: "idx_ops_onboarding_status_tenant")
+  @@map("onboarding_status")
+  @@schema("ops")
+}
+
+enum OpsOnboardingEstado {
+  PENDIENTE
+  ENVIADO
+  EN_PROGRESO
+  COMPLETADO
+
   @@schema("ops")
 }
 

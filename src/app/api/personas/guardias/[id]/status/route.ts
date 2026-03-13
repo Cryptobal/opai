@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { updateGuardiaLifecycleSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsCapability, parseDateOnly, toISODate } from "@/lib/ops";
@@ -106,6 +107,19 @@ export async function PATCH(
       next: body.lifecycleStatus,
       reason: terminationReason,
     });
+
+    // Trigger onboarding cuando guardia pasa a contratado (activo)
+    if (
+      body.lifecycleStatus === "contratado" &&
+      existing.lifecycleStatus !== "contratado"
+    ) {
+      after(async () => {
+        const { handleGuardActivation } = await import(
+          "@/lib/triggers/onboarding-trigger"
+        );
+        await handleGuardActivation(id, ctx.tenantId);
+      });
+    }
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {

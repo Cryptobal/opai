@@ -15,6 +15,7 @@ import { seedGroupsAndTicketTypes } from './seeds/ops-groups-ticket-types';
 import { seedAiProviders } from './seeds/ai-providers-initial-data';
 import { seedGamification } from './seeds/gamification-seed';
 import { seedConfigJornada } from './seeds/config-jornada-seed';
+import { seedOnboardingEmailTemplates } from './seeds/onboarding-email-templates';
 
 const prisma = new PrismaClient();
 
@@ -121,6 +122,9 @@ async function main() {
 
   // 10. Seed ConfigJornada (Ley 42 horas)
   await seedConfigJornada(prisma, tenant.id);
+
+  // 11. Seed plantillas de email para onboarding
+  await seedOnboardingEmailTemplates(prisma, tenant.id);
 
   console.log('🎉 Seeding completed!');
 }

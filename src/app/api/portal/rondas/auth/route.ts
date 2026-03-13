@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatPersonName } from "@/lib/personas";
 import bcrypt from "bcryptjs";
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: {
         guardiaId: guardia.id,
@@ -148,6 +148,13 @@ export async function POST(request: NextRequest) {
         installations,
       },
     });
+
+    after(async () => {
+      const { trackPortalAccess } = await import("@/lib/triggers/portal-access-tracker");
+      await trackPortalAccess(guardia.id, "rondas");
+    });
+
+    return response;
   } catch (error) {
     console.error("[Portal Rondas] Auth error:", error);
     return NextResponse.json(

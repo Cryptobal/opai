@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import type { GuardSession } from "@/lib/guard-portal";
@@ -136,7 +136,14 @@ export async function POST(request: NextRequest) {
       authenticatedAt: new Date().toISOString(),
     };
 
-    return NextResponse.json({ success: true, data: session });
+    const response = NextResponse.json({ success: true, data: session });
+
+    after(async () => {
+      const { trackPortalAccess } = await import("@/lib/triggers/portal-access-tracker");
+      await trackPortalAccess(guardia.id, "guardia");
+    });
+
+    return response;
   } catch (error) {
     console.error("[Portal Guardia] Auth error:", error);
     return NextResponse.json(
