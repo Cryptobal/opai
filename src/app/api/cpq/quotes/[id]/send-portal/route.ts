@@ -38,6 +38,8 @@ export async function POST(
     // Parse optional body (follow-up decision)
     const body = await _request.json().catch(() => ({}));
     const followUpDecision = (body?.followUp as { include: boolean; targetStageId: string | null } | undefined);
+    const ccEmails: string[] = Array.isArray(body?.ccEmails) ? body.ccEmails.filter(Boolean) : [];
+    const bccEmails: string[] = Array.isArray(body?.bccEmails) ? body.bccEmails.filter(Boolean) : [];
 
     // 2. Fetch quote with deal, account, contact, installation
     const quote = await prisma.cpqQuote.findFirst({
@@ -366,6 +368,8 @@ export async function POST(
     const emailResult = await resend.emails.send({
       from: EMAIL_CONFIG.from,
       to: contact.email,
+      cc: ccEmails.length ? ccEmails : undefined,
+      bcc: bccEmails.length ? bccEmails : undefined,
       replyTo: EMAIL_CONFIG.replyTo,
       subject: `Propuesta comercial para ${account.name} - Gard Security`,
       html: emailHtml,
@@ -542,29 +546,43 @@ function buildWhatsAppMessage(params: WhatsAppMsgParams): string {
   const { contactName, companyName, email, pin, portalUrl, proposalLink, ejecutivoName } = params;
   const firstName = contactName.split(" ")[0];
 
+  const W = {
+    wave:      "\uD83D\uDC4B", // 👋
+    lock:      "\uD83D\uDD10", // 🔐
+    check:     "\u2705",       // ✅
+    doc:       "\uD83D\uDCC4", // 📄
+    chat:      "\uD83D\uDCAC", // 💬
+    chart:     "\uD83D\uDCCA", // 📊
+    mail:      "\uD83D\uDCE7", // 📧
+    key:       "\uD83D\uDD11", // 🔑
+    point:     "\uD83D\uDC49", // 👉
+    clipboard: "\uD83D\uDCCB", // 📋
+    hands:     "\uD83D\uDE4C", // 🙌
+  };
+
   const lines = [
-    `Hola ${firstName} 👋`,
+    `Hola ${firstName} ${W.wave}`,
     ``,
-    `Soy *${ejecutivoName}* de *Gard Security*. Te envié por correo una propuesta de seguridad personalizada para *${companyName}*.`,
+    `Soy *${ejecutivoName}* de *Gard Security*. Te envi\u00e9 por correo una propuesta de seguridad personalizada para *${companyName}*.`,
     ``,
-    `🔐 *Accede a tu portal privado* donde podrás:`,
-    `✅ Revisar tu propuesta en detalle`,
-    `📄 Ver la propuesta técnica completa`,
-    `💬 Chatear directamente conmigo`,
-    `📊 Monitorear el servicio una vez activo`,
+    `${W.lock} *Accede a tu portal privado* donde podr\u00e1s:`,
+    `${W.check} Revisar tu propuesta en detalle`,
+    `${W.doc} Ver la propuesta t\u00e9cnica completa`,
+    `${W.chat} Chatear directamente conmigo`,
+    `${W.chart} Monitorear el servicio una vez activo`,
     ``,
-    `📧 *Correo:* ${email}`,
-    `🔑 *PIN:* ${pin}`,
+    `${W.mail} *Correo:* ${email}`,
+    `${W.key} *PIN:* ${pin}`,
     ``,
-    `👉 *Ingresar al portal:*`,
+    `${W.point} *Ingresar al portal:*`,
     portalUrl,
   ];
 
   if (proposalLink) {
-    lines.push(``, `📋 *Ver propuesta técnica directamente:*`, proposalLink);
+    lines.push(``, `${W.clipboard} *Ver propuesta t\u00e9cnica directamente:*`, proposalLink);
   }
 
-  lines.push(``, `¿Tienes alguna consulta? Responde aquí mismo 🙌`);
+  lines.push(``, `\u00bfTienes alguna consulta? Responde aqu\u00ed mismo ${W.hands}`);
 
   // Return plain text — client builds the wa.me URL so the browser's
   // encodeURIComponent preserves emojis correctly (server-side encoding can garble them)

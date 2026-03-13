@@ -114,6 +114,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [whatsappSentTo, setWhatsappSentTo] = useState<string>("");
+  const [portalEmailCc, setPortalEmailCc] = useState("");
+  const [portalEmailBcc, setPortalEmailBcc] = useState("");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savingFinancials, setSavingFinancials] = useState(false);
   const [financialError, setFinancialError] = useState<string | null>(null);
@@ -679,6 +681,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             include: decision.includeFollowUp,
             targetStageId: decision.targetStageId,
           },
+          ccEmails: portalEmailCc.trim() ? [portalEmailCc.trim()] : [],
+          bccEmails: portalEmailBcc.trim() ? [portalEmailBcc.trim()] : [],
         }),
       });
       const payload = await response.json();
@@ -1650,6 +1654,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           onConfirm={handleSendPortalConfirmed}
           loading={sendingPortal}
           showWhatsApp
+          recipientEmail={(() => {
+            const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+            return c?.email || "";
+          })()}
+          ccEmail={portalEmailCc}
+          onCcChange={setPortalEmailCc}
+          bccEmail={portalEmailBcc}
+          onBccChange={setPortalEmailBcc}
         />
       )}
 

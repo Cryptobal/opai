@@ -257,6 +257,11 @@ interface FollowUpDecisionModalProps {
   onConfirm: (decision: FollowUpDecision) => void;
   loading?: boolean;
   showWhatsApp?: boolean;
+  recipientEmail?: string;
+  ccEmail?: string;
+  onCcChange?: (v: string) => void;
+  bccEmail?: string;
+  onBccChange?: (v: string) => void;
 }
 
 export function FollowUpDecisionModal({
@@ -266,6 +271,11 @@ export function FollowUpDecisionModal({
   onConfirm,
   loading,
   showWhatsApp = false,
+  recipientEmail,
+  ccEmail,
+  onCcChange,
+  bccEmail,
+  onBccChange,
 }: FollowUpDecisionModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -276,6 +286,43 @@ export function FollowUpDecisionModal({
             Configura el seguimiento antes de enviar
           </DialogDescription>
         </DialogHeader>
+
+        {/* Recipient + CC/BCC */}
+        {(recipientEmail !== undefined || onCcChange) && (
+          <div className="space-y-2 pb-2 border-b border-border/50">
+            {recipientEmail !== undefined && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground w-8 text-right shrink-0">Para</span>
+                <span className="font-medium text-foreground truncate">{recipientEmail || "—"}</span>
+              </div>
+            )}
+            {onCcChange !== undefined && (
+              <div className="flex items-center gap-2">
+                <label className="text-muted-foreground text-sm w-8 text-right shrink-0">CC</label>
+                <input
+                  type="email"
+                  value={ccEmail ?? ""}
+                  onChange={(e) => onCcChange(e.target.value)}
+                  placeholder="correo@empresa.com"
+                  className="flex-1 h-8 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+            )}
+            {onBccChange !== undefined && (
+              <div className="flex items-center gap-2">
+                <label className="text-muted-foreground text-sm w-8 text-right shrink-0">CCO</label>
+                <input
+                  type="email"
+                  value={bccEmail ?? ""}
+                  onChange={(e) => onBccChange(e.target.value)}
+                  placeholder="oculto@empresa.com"
+                  className="flex-1 h-8 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         <FollowUpDecisionContent
           dealId={dealId}
           onConfirm={onConfirm}
