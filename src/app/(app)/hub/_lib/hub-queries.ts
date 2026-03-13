@@ -928,12 +928,12 @@ export async function getOpsMetrics(
         },
       },
     }),
-    // Alerts
+    // Alerts (excluir geo_fuera_rango deprecado)
     prisma.opsAlertaRonda.count({
-      where: { tenantId, resuelta: false },
+      where: { tenantId, resuelta: false, tipo: { not: "geo_fuera_rango" } },
     }),
     prisma.opsAlertaRonda.count({
-      where: { tenantId, resuelta: false, severidad: 'critical' },
+      where: { tenantId, resuelta: false, severidad: "critical", tipo: { not: "geo_fuera_rango" } },
     }),
     hasRefuerzosModel
       ? prismaAny.opsRefuerzoSolicitud!.count({
@@ -1362,7 +1362,7 @@ export async function getSupervisionMetrics(
       select: { installationId: true },
     }),
     prisma.crmInstallation.count({
-      where: { tenantId, isActive: true },
+      where: { tenantId, status: "active" },
     }),
   ]);
 

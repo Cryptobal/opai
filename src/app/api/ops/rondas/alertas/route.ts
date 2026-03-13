@@ -37,7 +37,12 @@ export async function GET(request: NextRequest) {
       ...(onlyOpen ? { resuelta: false } : {}),
       ...(isAcknowledged === "true" ? { isAcknowledged: true } : isAcknowledged === "false" ? { isAcknowledged: false } : {}),
       ...(severidad ? { severidad } : {}),
-      ...(tipo ? { tipo } : {}),
+      // Excluir geo_fuera_rango (deprecado: rondas ya no usan geocercas)
+      ...(tipo
+        ? tipo === "geo_fuera_rango"
+          ? { tipo: "NEVER_MATCH" }
+          : { tipo }
+        : { tipo: { not: "geo_fuera_rango" } }),
       ...(!includeArchived
         ? {
             archivedAt: null,

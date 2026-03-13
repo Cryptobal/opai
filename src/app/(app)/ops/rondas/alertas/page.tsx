@@ -20,8 +20,13 @@ export default async function RondasAlertasPage() {
 
   const [rows, installations] = await Promise.all([
     activeTurnoId
-      ? prisma.opsAlertaRonda.findMany({
-          where: { tenantId, archivedAt: null, turnoId: activeTurnoId },
+        ? prisma.opsAlertaRonda.findMany({
+            where: {
+              tenantId,
+              archivedAt: null,
+              turnoId: activeTurnoId,
+              tipo: { not: "geo_fuera_rango" },
+            },
           include: {
             installation: { select: { id: true, name: true } },
             ejecucion: {

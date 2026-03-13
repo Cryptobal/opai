@@ -30,11 +30,15 @@ export async function GET(req: NextRequest) {
       take: 500,
     }),
     prisma.opsAlertaRonda.findMany({
-      where: { tenantId, createdAt: { gte: start, lte: end } },
+      where: {
+        tenantId,
+        createdAt: { gte: start, lte: end },
+        tipo: { not: "geo_fuera_rango" },
+      },
       select: { id: true, tipo: true, severidad: true, resuelta: true, installationId: true, createdAt: true },
     }),
     prisma.crmInstallation.findMany({
-      where: { tenantId, isActive: true, nocturnoEnabled: true },
+      where: { tenantId, status: "active", nocturnoEnabled: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

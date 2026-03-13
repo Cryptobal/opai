@@ -48,7 +48,7 @@ export async function GET() {
           take: 20,
         },
         alertasRows: {
-          where: { resuelta: false, archivedAt: null },
+          where: { resuelta: false, archivedAt: null, tipo: { not: "geo_fuera_rango" } },
           orderBy: { createdAt: "desc" },
           take: 3,
         },
@@ -110,7 +110,7 @@ export async function GET() {
           orderBy: { timestamp: "desc" },
         },
         alertasRows: {
-          where: { resuelta: false, archivedAt: null },
+          where: { resuelta: false, archivedAt: null, tipo: { not: "geo_fuera_rango" } },
           orderBy: { createdAt: "desc" },
           take: 3,
         },
@@ -156,7 +156,7 @@ export async function GET() {
         // Auto-create CN if none exists for today
         if (!healCN) {
           const installations = await prisma.crmInstallation.findMany({
-            where: { tenantId: ctx.tenantId, isActive: true, nocturnoEnabled: true },
+            where: { tenantId: ctx.tenantId, status: "active", nocturnoEnabled: true },
             select: { id: true, name: true },
             orderBy: { name: "asc" },
           });
