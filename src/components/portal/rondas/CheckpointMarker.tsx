@@ -590,7 +590,10 @@ export function CheckpointMarker({
           @keyframes gps-ring { 0% { transform: scale(0.8); opacity: 0.6; } 100% { transform: scale(2); opacity: 0; } }
         `}</style>
 
-        <div className="fixed inset-0 z-[9999] flex flex-col bg-zinc-950">
+        <div
+          className="fixed inset-x-0 top-0 z-[9999] flex flex-col bg-zinc-950"
+          style={{ bottom: "calc(64px + env(safe-area-inset-bottom, 0px))" }}
+        >
           {/* X flotante siempre visible (por si el header queda oculto en vista embebida) */}
           <button
             onClick={onBack}
@@ -778,7 +781,10 @@ export function CheckpointMarker({
           .animate-slide-up { animation: slide-up 0.3s ease-out; }
         `}</style>
 
-        <div className="fixed inset-0 z-[9999] flex items-end">
+        <div
+          className="fixed inset-x-0 top-0 z-[9999] flex items-end"
+          style={{ bottom: "calc(64px + env(safe-area-inset-bottom, 0px))" }}
+        >
           <div className="absolute inset-0 bg-black/30" onClick={onBack} />
           {/* X flotante para cerrar */}
           <button
@@ -914,7 +920,10 @@ export function CheckpointMarker({
         }
       `}</style>
 
-      <div className="fixed inset-0 z-[9999] flex items-end">
+      <div
+        className="fixed inset-x-0 top-0 z-[9999] flex items-end"
+        style={{ bottom: "calc(64px + env(safe-area-inset-bottom, 0px))" }}
+      >
         {/* Backdrop */}
         <div className="absolute inset-0 bg-black/30" onClick={onBack} />
         {/* X flotante para cerrar (visible en vista embebida) */}
