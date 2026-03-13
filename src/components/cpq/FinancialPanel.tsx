@@ -204,8 +204,8 @@ function buildBreakdownData(
 
 export function FinancialPanel(props: FinancialPanelProps) {
   const {
-    positionsCount,
-    totalGuards,
+    positionsCount: _positionsCount,
+    totalGuards: _totalGuards,
     marginPct,
     salePriceMonthly,
     additionalLinesTotal,
@@ -215,7 +215,6 @@ export function FinancialPanel(props: FinancialPanelProps) {
     marginAmount,
     positions,
     positionSalePrices,
-    positionHourlyRates,
     monthlyHoursStandard = 180,
     quote,
     crmContext,
