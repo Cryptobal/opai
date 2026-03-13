@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/pwa/use-is-mobile";
 import { useSwipeGesture } from "./hooks/useSwipeGesture";
 import type { ChatMessageData, SendMessagePayload, ChatSenderType } from "@/lib/chat-types";
