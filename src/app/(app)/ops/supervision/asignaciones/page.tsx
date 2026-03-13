@@ -26,7 +26,7 @@ export default async function SupervisionAsignacionesPage() {
       orderBy: { name: "asc" },
     }),
     prisma.crmInstallation.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId, status: "active" },
       select: {
         id: true,
         name: true,

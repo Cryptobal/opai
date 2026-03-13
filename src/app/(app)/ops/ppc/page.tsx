@@ -28,7 +28,7 @@ export default async function OpsPpcPage() {
       id: true,
       name: true,
       installations: {
-        where: { isActive: true },
+        where: { status: "active" },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       },

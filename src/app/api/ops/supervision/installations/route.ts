@@ -41,7 +41,7 @@ export async function GET() {
     const installations = await prisma.crmInstallation.findMany({
       where: {
         tenantId: ctx.tenantId,
-        isActive: true,
+        status: "active",
         ...(installationIds ? { id: { in: installationIds } } : {}),
       },
       select: {

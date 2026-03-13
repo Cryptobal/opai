@@ -35,7 +35,7 @@ export default async function NuevaRendicionPage() {
     prisma.crmInstallation.findMany({
       where: {
         tenantId,
-        isActive: true,
+        status: "active",
         account: {
           OR: [
             { isActive: true },

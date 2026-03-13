@@ -58,7 +58,7 @@ export async function GET(
             address: true,
             city: true,
             commune: true,
-            isActive: true,
+            status: true,
             account: {
               select: { id: true, name: true },
             },

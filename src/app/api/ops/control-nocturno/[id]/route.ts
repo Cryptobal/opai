@@ -171,7 +171,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         where: {
           id: installationId,
           tenantId: ctx.tenantId,
-          isActive: true,
+          status: "active",
         },
         select: { id: true, name: true },
       });

@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     const installations = await prisma.crmInstallation.findMany({
       where: {
         tenantId: ctx.tenantId,
-        isActive: true,
+        status: "active",
         OR: [
           { name: contains },
           { address: contains },

@@ -29,7 +29,7 @@ export default async function OpsMarcacionesPage() {
       id: true,
       name: true,
       installations: {
-        where: { isActive: true },
+        where: { status: "active" },
         select: { id: true, name: true, marcacionCode: true },
         orderBy: { name: "asc" },
       },

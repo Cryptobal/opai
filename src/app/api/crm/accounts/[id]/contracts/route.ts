@@ -271,7 +271,7 @@ export async function POST(
           where: { id: accountId, tenantId: ctx.tenantId },
           include: {
             installations: {
-              where: { isActive: true },
+              where: { status: "active" },
               select: { id: true, name: true, address: true, commune: true, city: true },
               take: 1,
             },

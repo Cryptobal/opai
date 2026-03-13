@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       select: {
         id: true,
         teMontoClp: true,
-        isActive: true,
+        status: true,
         account: { select: { type: true, isActive: true } },
       },
     });

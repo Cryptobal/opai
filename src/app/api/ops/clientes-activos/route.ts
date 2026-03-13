@@ -21,7 +21,7 @@ export async function GET() {
         name: true,
         rut: true,
         installations: {
-          where: { isActive: true },
+          where: { status: "active" },
           select: {
             id: true,
             name: true,

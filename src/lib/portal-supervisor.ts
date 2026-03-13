@@ -9,7 +9,7 @@ export interface SupervisorInstallation {
   lat: number | null;
   lng: number | null;
   geoRadiusM: number;
-  isActive: boolean;
+  status: string;
   pairingCode: string | null;
   teMontoClp: number;
 }
