@@ -1,8 +1,9 @@
 /**
- * QuotationPDF — 2-page CPQ quotation document
+ * QuotationPDF — CPQ quotation document with conditional sections per template.
  *
- * Page 1: Propuesta económica (positions table + total)
- * Page 2: Condiciones comerciales + firma
+ * Templates: Standard (default), Detailed, Tender (Licitación)
+ *
+ * IMPORTANT: Changes here MUST be replicated in render-quotation.ts
  */
 
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
@@ -19,60 +20,9 @@ import {
   PDFSignatureArea,
   PDFContactBanner,
 } from '../../core/components';
+import type { QuotationPDFProps } from './render-quotation';
 import type { QuoteBreakdownData } from '@/types/cpq-breakdown';
-
-/* ─── Props ─── */
-
-export interface QuotationPDFProps {
-  quote: {
-    code: string;
-    name?: string;
-    validUntil?: string;
-    currency: 'CLP' | 'UF';
-    createdAt: string;
-  };
-  client: {
-    name: string;
-    accountName?: string;
-    dealName?: string;
-    installationName?: string;
-  };
-  positions: Array<{
-    name: string;
-    guards: number;
-    quantity: number;
-    days: string;
-    schedule: string;
-    monthlyValue: string;
-  }>;
-  additionalServices: Array<{
-    product: string;
-    description: string;
-    monthlyValue: string;
-  }>;
-  totals: {
-    subtotalGuards: string;
-    subtotalAdditional: string;
-    totalNet: string;
-  };
-  conditions: {
-    paymentTerms: string;
-    serviceStartDays: number;
-    contractDuration: number;
-  };
-  companyConfig: {
-    commercialName: string;
-    companyName: string;
-    email: string;
-    phone: string;
-    website: string;
-    repLegalNombre?: string;
-  };
-  includedItems: string[];
-  aiDescription?: string;
-  serviceDetail?: string;
-  breakdown?: QuoteBreakdownData;
-}
+export type { QuotationPDFProps } from './render-quotation';
 
 /* ─── Local styles ─── */
 
@@ -271,7 +221,6 @@ const ls = StyleSheet.create({
     fontWeight: 700,
     color: '#9a3412',
   },
-  /* Position card in breakdown */
   posCard: {
     marginBottom: 8,
     borderWidth: 0.5,
@@ -309,6 +258,106 @@ const ls = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
   },
+  /* ── Labor detail styles ── */
+  laborRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: pdfColors.slate100,
+  },
+  laborLabel: {
+    fontFamily: pdfFonts.sans,
+    fontSize: 8.5,
+    color: pdfColors.slate700,
+  },
+  laborValue: {
+    fontFamily: pdfFonts.sans,
+    fontSize: 8.5,
+    fontWeight: 600,
+    color: pdfColors.slate700,
+  },
+  /* ── Cost category styles ── */
+  catSection: {
+    marginBottom: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  catHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    backgroundColor: pdfColors.slate100,
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  catTitle: {
+    fontFamily: pdfFonts.sans,
+    fontSize: 8.5,
+    fontWeight: 700,
+    color: pdfColors.slate700,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  catAmount: {
+    fontFamily: pdfFonts.sans,
+    fontSize: 8.5,
+    fontWeight: 700,
+    color: pdfColors.slate700,
+  },
+  catItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+    paddingHorizontal: 14,
+    borderBottomWidth: 0.5,
+    borderBottomColor: pdfColors.slate50,
+  },
+  catItemLabel: {
+    fontFamily: pdfFonts.sans,
+    fontSize: 7.5,
+    color: pdfColors.slate400,
+  },
+  catItemAmount: {
+    fontFamily: pdfFonts.sans,
+    fontSize: 7.5,
+    color: pdfColors.slate400,
+  },
+  /* ── Compliance styles ── */
+  complianceItem: {
+    flexDirection: 'row',
+    marginBottom: 4,
+    paddingLeft: 4,
+  },
+  complianceCheck: {
+    fontFamily: pdfFonts.sans,
+    fontSize: 9,
+    color: '#0d9488',
+    fontWeight: 700,
+    marginRight: 6,
+    width: 10,
+  },
+  complianceText: {
+    fontFamily: pdfFonts.sans,
+    fontSize: 9,
+    color: pdfColors.slate700,
+    flex: 1,
+  },
+  /* ── Numbered section title ── */
+  numberedTitle: {
+    fontFamily: pdfFonts.sans,
+    fontSize: 11,
+    fontWeight: 700,
+    color: pdfColors.navy || '#0f172a',
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: pdfColors.slate200,
+    marginBottom: 8,
+    marginTop: 16,
+  },
 });
 
 /* ─── Payment terms label ─── */
@@ -339,6 +388,19 @@ function fmtBreakdown(n: number, currency: string, ufValue?: number) {
   return fmtCLPPdf(n);
 }
 
+function getBrandName(companyConfig: QuotationPDFProps['companyConfig']): string {
+  return companyConfig.brandNameUpper ?? companyConfig.commercialName?.toUpperCase() ?? 'EMPRESA';
+}
+
+/* ─── Section title with optional numbering ─── */
+
+function SectionTitle({ children, numbered, num }: { children: string; numbered: boolean; num?: number }) {
+  if (numbered && num != null) {
+    return <Text style={ls.numberedTitle}>{`${num}. ${children}`}</Text>;
+  }
+  return <PDFSectionTitle>{children}</PDFSectionTitle>;
+}
+
 /* ─── Breakdown page component ─── */
 
 function BreakdownPage({
@@ -346,11 +408,13 @@ function BreakdownPage({
   companyConfig,
   quoteCode,
   dateStr,
+  pageLabel,
 }: {
   breakdown: QuoteBreakdownData;
   companyConfig: QuotationPDFProps['companyConfig'];
   quoteCode: string;
   dateStr: string;
+  pageLabel: string;
 }) {
   const fmt = (n: number) => fmtBreakdown(n, breakdown.currency, breakdown.ufValue);
 
@@ -380,7 +444,7 @@ function BreakdownPage({
   return (
     <Page size="A4" style={ls.page}>
       <PDFHeader
-        brandName={companyConfig.commercialName?.toUpperCase() || 'GARD SECURITY'}
+        brandName={getBrandName(companyConfig)}
         subtitle="Estructura de costos transparente"
         code={quoteCode}
       />
@@ -543,15 +607,158 @@ function BreakdownPage({
         </Text>
       </View>
 
-      <PDFFooter website={companyConfig.website} date={dateStr} pageLabel="3/3" />
+      <PDFFooter website={companyConfig.website} date={dateStr} pageLabel={pageLabel} />
     </Page>
+  );
+}
+
+/* ─── LaborDetailSection — Desglose de mano de obra (Detallado / Licitación) ─── */
+
+function LaborDetailSection({
+  laborBreakdown,
+  numbered,
+  sectionNum,
+}: {
+  laborBreakdown: NonNullable<QuotationPDFProps['laborBreakdown']>;
+  numbered: boolean;
+  sectionNum?: number;
+}) {
+  return (
+    <>
+      <SectionTitle numbered={numbered} num={sectionNum}>Detalle de Mano de Obra</SectionTitle>
+      <View style={{ marginBottom: 8 }}>
+        <View style={ls.laborRow}>
+          <Text style={ls.laborLabel}>Sueldo bruto promedio por guardia</Text>
+          <Text style={ls.laborValue}>{fmtCLPPdf(laborBreakdown.sueldoBrutoPromedio)}</Text>
+        </View>
+        <View style={ls.laborRow}>
+          <Text style={ls.laborLabel}>Cargas sociales empleador</Text>
+          <Text style={ls.laborValue}>{laborBreakdown.cargasSocialesPct}%</Text>
+        </View>
+        <View style={ls.laborRow}>
+          <Text style={ls.laborLabel}>Gratificación legal</Text>
+          <Text style={ls.laborValue}>{fmtCLPPdf(laborBreakdown.gratificacion)}</Text>
+        </View>
+        <View style={ls.laborRow}>
+          <Text style={ls.laborLabel}>Costo total por guardia</Text>
+          <Text style={ls.laborValue}>{fmtCLPPdf(laborBreakdown.totalPorGuardia)}</Text>
+        </View>
+        <View style={ls.laborRow}>
+          <Text style={ls.laborLabel}>Total guardias</Text>
+          <Text style={ls.laborValue}>{laborBreakdown.totalGuardias}</Text>
+        </View>
+        <View style={[ls.laborRow, { backgroundColor: pdfColors.slate50, borderBottomWidth: 0 }]}>
+          <Text style={[ls.laborLabel, { fontWeight: 700 }]}>Total mensual mano de obra</Text>
+          <Text style={[ls.laborValue, { fontWeight: 700 }]}>{fmtCLPPdf(laborBreakdown.totalMensual)}</Text>
+        </View>
+      </View>
+    </>
+  );
+}
+
+/* ─── CostBreakdownByCategory — Desglose por categoría (Detallado / Licitación) ─── */
+
+function CostBreakdownByCategory({
+  costsByCategory,
+  fmtFn,
+  numbered,
+  sectionNum,
+}: {
+  costsByCategory: QuotationPDFProps['costsByCategory'];
+  fmtFn: (n: number) => string;
+  numbered: boolean;
+  sectionNum?: number;
+}) {
+  if (!costsByCategory || costsByCategory.length === 0) return null;
+  return (
+    <>
+      <SectionTitle numbered={numbered} num={sectionNum}>Desglose de Costos por Categoría</SectionTitle>
+      {costsByCategory.map((cat, catIdx) => (
+        <View key={catIdx} style={ls.catSection}>
+          <View style={[ls.catHeader, cat.categoryType === 'indirect' ? { backgroundColor: '#fef3c7' } : {}]}>
+            <Text style={[ls.catTitle, cat.categoryType === 'indirect' ? { color: '#b45309' } : { color: '#0d9488' }]}>
+              {cat.category}
+            </Text>
+            <Text style={[ls.catAmount, cat.categoryType === 'indirect' ? { color: '#b45309' } : { color: '#0d9488' }]}>
+              {fmtFn(cat.subtotal)}
+            </Text>
+          </View>
+          {cat.items.map((item, itemIdx) => (
+            <View key={itemIdx} style={ls.catItemRow}>
+              <Text style={ls.catItemLabel}>{item.name}</Text>
+              <Text style={ls.catItemAmount}>{fmtFn(item.amount)}</Text>
+            </View>
+          ))}
+        </View>
+      ))}
+    </>
+  );
+}
+
+/* ─── ComplianceSection — Cumplimiento normativo (Licitación) ─── */
+
+function ComplianceSection({
+  items,
+  numbered,
+  sectionNum,
+}: {
+  items: string[];
+  numbered: boolean;
+  sectionNum?: number;
+}) {
+  return (
+    <>
+      <SectionTitle numbered={numbered} num={sectionNum}>Cumplimiento Normativo</SectionTitle>
+      <View style={{ marginBottom: 8 }}>
+        {items.map((item, i) => (
+          <View key={i} style={ls.complianceItem}>
+            <Text style={ls.complianceCheck}>✓</Text>
+            <Text style={ls.complianceText}>{item}</Text>
+          </View>
+        ))}
+      </View>
+    </>
+  );
+}
+
+/* ─── AdditionalServicesDetailed — Líneas adicionales con tipo y recurrencia ─── */
+
+function AdditionalServicesDetailed({
+  lines,
+  numbered,
+  sectionNum,
+}: {
+  lines: QuotationPDFProps['additionalLines'];
+  numbered: boolean;
+  sectionNum?: number;
+}) {
+  if (!lines || lines.length === 0) return null;
+
+  const headers = [
+    { label: 'Producto / Servicio', flex: 2, align: 'left' as const },
+    { label: 'Tipo', flex: 1, align: 'center' as const },
+    { label: 'Recurrencia', flex: 1, align: 'center' as const },
+    { label: 'Valor Mensual', flex: 1.5, align: 'right' as const },
+  ];
+
+  const rows = lines.map((l) => [
+    { value: l.nombre },
+    { value: l.tipo },
+    { value: l.recurrencia === 'unico' ? 'Único (prorrateado)' : l.recurrencia },
+    { value: l.precioVentaFmt, bold: true },
+  ]);
+
+  return (
+    <>
+      <SectionTitle numbered={numbered} num={sectionNum}>Servicios y Productos Adicionales</SectionTitle>
+      <PDFTable headers={headers} rows={rows} />
+    </>
   );
 }
 
 /* ─── Component ─── */
 
 export function QuotationPDF(props: QuotationPDFProps) {
-
   const {
     quote,
     client,
@@ -564,15 +771,20 @@ export function QuotationPDF(props: QuotationPDFProps) {
     aiDescription,
     serviceDetail,
     breakdown,
+    templateSections: sec,
+    costsByCategory,
+    additionalLines,
+    laborBreakdown,
+    complianceItems,
   } = props;
 
   const dateStr = new Date().toLocaleDateString('es-CL');
-  const createdStr = quote.createdAt
-    ? new Date(quote.createdAt).toLocaleDateString('es-CL')
-    : dateStr;
   const validStr = quote.validUntil
     ? new Date(quote.validUntil).toLocaleDateString('es-CL')
     : '';
+
+  const brandName = getBrandName(companyConfig);
+  const numbered = sec.numberedSections;
 
   const positionHeaders = [
     { label: 'Puesto', flex: 2.5, align: 'left' as const },
@@ -605,15 +817,10 @@ export function QuotationPDF(props: QuotationPDFProps) {
   ]);
 
   const hasAdditional = additionalServices.length > 0;
-  const totalGuards = positions.reduce(
-    (s, p) => s + p.guards * p.quantity,
-    0,
-  );
+  const hasDetailedAdditional = (additionalLines?.length ?? 0) > 0;
+  const totalGuards = positions.reduce((s, p) => s + p.guards * p.quantity, 0);
+  const paymentLabel = PAYMENT_LABELS[conditions.paymentTerms] || conditions.paymentTerms;
 
-  const paymentLabel =
-    PAYMENT_LABELS[conditions.paymentTerms] || conditions.paymentTerms;
-
-  // Default included items if none provided
   const displayItems =
     includedItems.length > 0
       ? includedItems
@@ -626,15 +833,35 @@ export function QuotationPDF(props: QuotationPDFProps) {
           'Reporteria mensual de operaciones',
         ];
 
-  const totalPages = breakdown ? '3' : '2';
+  const showDetailedAdditional = sec.showAdditionalServices && hasDetailedAdditional &&
+    (sec.showCostBreakdown || sec.showLaborDetail);
+  const showSimpleAdditional = sec.showAdditionalServices && hasAdditional && !showDetailedAdditional;
+
+  const fmtCat = (n: number) => {
+    if (breakdown) return fmtBreakdown(n, breakdown.currency, breakdown.ufValue);
+    return fmtCLPPdf(n);
+  };
+
+  /* ── Page count ── */
+  let pageCount = 1;
+  if (sec.showConditions || sec.showIncludedItems || sec.showSignature) pageCount++;
+  if (breakdown && sec.showCostBreakdown) pageCount++;
+  if (sec.showLaborDetail && laborBreakdown) pageCount = Math.max(pageCount, 3);
+  if (sec.showComplianceSection && complianceItems) pageCount = Math.max(pageCount, 3);
+
+  let currentPage = 0;
+
+  /* ── Numbered section counter ── */
+  let sectionCounter = 0;
+  const nextNum = () => ++sectionCounter;
 
   return (
     <Document>
-      {/* ─── PAGE 1: Propuesta Economica ─── */}
+      {/* ─── PAGE 1: Propuesta Económica ─── */}
       <Page size="A4" style={ls.page}>
         <PDFHeader
-          brandName={companyConfig.commercialName?.toUpperCase() || 'GARD SECURITY'}
-          subtitle="Servicios de seguridad integral"
+          brandName={brandName}
+          subtitle={sec.headerStyle === 'formal' ? `Cotización N° ${quote.code}` : 'Servicios de seguridad integral'}
           code={quote.code}
         />
         <PDFAccentLine />
@@ -649,25 +876,34 @@ export function QuotationPDF(props: QuotationPDFProps) {
         />
 
         <View style={ls.body}>
-          {aiDescription && <Text style={ls.description}>{aiDescription}</Text>}
+          {sec.showCompanyIntro && aiDescription && (
+            <Text style={ls.description}>{aiDescription}</Text>
+          )}
 
-          <PDFSectionTitle>
-            {`Puestos de trabajo · ${totalGuards} guardia(s)`}
-          </PDFSectionTitle>
-
-          <PDFTable
-            headers={positionHeaders}
-            rows={positionRows}
-            subtotalRow={
-              hasAdditional
-                ? { label: 'Subtotal guardias', value: totals.subtotalGuards }
-                : undefined
-            }
-          />
-
-          {hasAdditional && (
+          {sec.showPositionsTable && (
             <>
-              <PDFSectionTitle>Servicios y Productos Adicionales</PDFSectionTitle>
+              <SectionTitle numbered={numbered} num={nextNum()}>
+                {`Puestos de trabajo · ${totalGuards} guardia(s)`}
+              </SectionTitle>
+
+              <PDFTable
+                headers={positionHeaders}
+                rows={positionRows}
+                subtotalRow={
+                  hasAdditional
+                    ? { label: 'Subtotal guardias', value: totals.subtotalGuards }
+                    : undefined
+                }
+              />
+            </>
+          )}
+
+          {/* Standard additional services table */}
+          {showSimpleAdditional && (
+            <>
+              <SectionTitle numbered={numbered} num={nextNum()}>
+                Servicios y Productos Adicionales
+              </SectionTitle>
               <PDFTable
                 headers={additionalHeaders}
                 rows={additionalRows}
@@ -679,6 +915,15 @@ export function QuotationPDF(props: QuotationPDFProps) {
             </>
           )}
 
+          {/* Detailed additional services table (with tipo/recurrencia) */}
+          {showDetailedAdditional && (
+            <AdditionalServicesDetailed
+              lines={additionalLines}
+              numbered={numbered}
+              sectionNum={nextNum()}
+            />
+          )}
+
           <PDFGrandTotal
             label="PRECIO VENTA MENSUAL NETO"
             amount={totals.totalNet}
@@ -688,88 +933,132 @@ export function QuotationPDF(props: QuotationPDFProps) {
           </Text>
         </View>
 
-        <PDFFooter website={companyConfig.website} date={dateStr} pageLabel={`1/${totalPages}`} />
+        <PDFFooter website={companyConfig.website} date={dateStr} pageLabel={`${++currentPage}/${pageCount}`} />
       </Page>
 
-      {/* ─── PAGE 2: Condiciones Comerciales ─── */}
-      <Page size="A4" style={ls.page}>
-        <PDFHeader
-          brandName={companyConfig.commercialName?.toUpperCase() || 'GARD SECURITY'}
-          code={quote.code}
-        />
-        <PDFAccentLine />
-
-        <View style={ls.body}>
-          <PDFSectionTitle>Condiciones Comerciales</PDFSectionTitle>
-
-          <View style={ls.conditionsGrid}>
-            <View style={ls.conditionCardWrapper}>
-              <PDFConditionCard
-                label="Vigencia de la propuesta"
-                value={validStr || 'Sin definir'}
-              />
-            </View>
-            <View style={ls.conditionCardWrapper}>
-              <PDFConditionCard label="Forma de pago" value={paymentLabel} />
-            </View>
-            <View style={ls.conditionCardWrapper}>
-              <PDFConditionCard
-                label="Inicio del servicio"
-                value={`${conditions.serviceStartDays} dias habiles desde aprobacion`}
-              />
-            </View>
-            <View style={ls.conditionCardWrapper}>
-              <PDFConditionCard
-                label="Duracion del contrato"
-                value={`${conditions.contractDuration} meses`}
-              />
-            </View>
-          </View>
-
-          <PDFSectionTitle>El servicio incluye</PDFSectionTitle>
-          <View style={{ marginBottom: 8 }}>
-            {displayItems.map((item, i) => (
-              <View key={i} style={ls.bulletItem}>
-                <Text style={ls.bulletDot}>●</Text>
-                <Text style={ls.bulletText}>{item}</Text>
-              </View>
-            ))}
-          </View>
-
-          {serviceDetail && (
-            <>
-              <PDFSectionTitle>Detalle del servicio</PDFSectionTitle>
-              <Text style={ls.serviceDetail}>{serviceDetail}</Text>
-            </>
-          )}
-
-          <PDFSignatureArea
-            companyName={companyConfig.companyName}
-            clientName={client.name}
-            repLegal={companyConfig.repLegalNombre}
+      {/* ─── PAGE 2: Condiciones + Labor Detail + Cost Breakdown + Compliance ─── */}
+      {(sec.showConditions || sec.showIncludedItems || sec.showSignature ||
+        (sec.showLaborDetail && laborBreakdown) ||
+        (sec.showCostBreakdown && costsByCategory.length > 0) ||
+        (sec.showComplianceSection && complianceItems)) && (
+        <Page size="A4" style={ls.page}>
+          <PDFHeader
+            brandName={brandName}
+            code={quote.code}
           />
+          <PDFAccentLine />
 
-          <PDFContactBanner
-            email={companyConfig.email}
-            phone={companyConfig.phone}
+          <View style={ls.body}>
+            {/* Labor detail (Detailed / Tender) */}
+            {sec.showLaborDetail && laborBreakdown && (
+              <LaborDetailSection
+                laborBreakdown={laborBreakdown}
+                numbered={numbered}
+                sectionNum={nextNum()}
+              />
+            )}
+
+            {/* Cost breakdown by category (Detailed / Tender) */}
+            {sec.showCostBreakdown && costsByCategory.length > 0 && (
+              <CostBreakdownByCategory
+                costsByCategory={costsByCategory}
+                fmtFn={fmtCat}
+                numbered={numbered}
+                sectionNum={nextNum()}
+              />
+            )}
+
+            {/* Compliance (Tender only) */}
+            {sec.showComplianceSection && complianceItems && complianceItems.length > 0 && (
+              <ComplianceSection
+                items={complianceItems}
+                numbered={numbered}
+                sectionNum={nextNum()}
+              />
+            )}
+
+            {sec.showConditions && (
+              <>
+                <SectionTitle numbered={numbered} num={nextNum()}>Condiciones Comerciales</SectionTitle>
+
+                <View style={ls.conditionsGrid}>
+                  <View style={ls.conditionCardWrapper}>
+                    <PDFConditionCard
+                      label="Vigencia de la propuesta"
+                      value={validStr || 'Sin definir'}
+                    />
+                  </View>
+                  <View style={ls.conditionCardWrapper}>
+                    <PDFConditionCard label="Forma de pago" value={paymentLabel} />
+                  </View>
+                  <View style={ls.conditionCardWrapper}>
+                    <PDFConditionCard
+                      label="Inicio del servicio"
+                      value={`${conditions.serviceStartDays} dias habiles desde aprobacion`}
+                    />
+                  </View>
+                  <View style={ls.conditionCardWrapper}>
+                    <PDFConditionCard
+                      label="Duracion del contrato"
+                      value={`${conditions.contractDuration} meses`}
+                    />
+                  </View>
+                </View>
+              </>
+            )}
+
+            {sec.showIncludedItems && (
+              <>
+                <SectionTitle numbered={numbered} num={nextNum()}>El servicio incluye</SectionTitle>
+                <View style={{ marginBottom: 8 }}>
+                  {displayItems.map((item, i) => (
+                    <View key={i} style={ls.bulletItem}>
+                      <Text style={ls.bulletDot}>●</Text>
+                      <Text style={ls.bulletText}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {serviceDetail && (
+              <>
+                <SectionTitle numbered={numbered} num={nextNum()}>Detalle del servicio</SectionTitle>
+                <Text style={ls.serviceDetail}>{serviceDetail}</Text>
+              </>
+            )}
+
+            {sec.showSignature && (
+              <PDFSignatureArea
+                companyName={companyConfig.companyName}
+                clientName={client.name}
+                repLegal={companyConfig.repLegalNombre}
+              />
+            )}
+
+            <PDFContactBanner
+              email={companyConfig.email}
+              phone={companyConfig.phone}
+              website={companyConfig.website}
+            />
+          </View>
+
+          <PDFFooter
             website={companyConfig.website}
+            date={dateStr}
+            pageLabel={`${++currentPage}/${pageCount}`}
           />
-        </View>
+        </Page>
+      )}
 
-        <PDFFooter
-          website={companyConfig.website}
-          date={dateStr}
-          pageLabel={`2/${totalPages}`}
-        />
-      </Page>
-
-      {/* ─── PAGE 3: Estructura de Costos ─── */}
-      {breakdown && (
+      {/* ─── PAGE 3: Estructura de Costos (breakdown) ─── */}
+      {breakdown && sec.showCostSummaryByCategory && (
         <BreakdownPage
           breakdown={breakdown}
           companyConfig={companyConfig}
           quoteCode={quote.code}
           dateStr={dateStr}
+          pageLabel={`${++currentPage}/${pageCount}`}
         />
       )}
     </Document>

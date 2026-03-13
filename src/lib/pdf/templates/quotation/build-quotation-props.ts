@@ -20,7 +20,9 @@ import { formatCurrency, formatUFSuffix } from '@/lib/utils';
 import { getUfValue, clpToUf } from '@/lib/uf';
 import { computeCpqQuoteCosts } from '@/modules/cpq/costing/compute-quote-costs';
 import { getTenantCompanyConfig } from '@/lib/tenant-config';
-import type { QuotationPDFProps } from './render-quotation';
+import type { ProposalTemplateSections } from '@/types/cpq';
+import type { QuotationPDFProps, AdditionalLinePDF, LaborBreakdownPDF } from './render-quotation';
+import { DEFAULT_TEMPLATE_SECTIONS, DEFAULT_COMPLIANCE_ITEMS } from './render-quotation';
 
 export async function buildQuotationProps(
   quoteId: string,
@@ -35,6 +37,7 @@ export async function buildQuotationProps(
       },
       parameters: true,
       installation: true,
+      proposalTemplate: true,
     },
   });
 
@@ -296,6 +299,54 @@ export async function buildQuotationProps(
     // Non-critical
   }
 
+  /* ── Template sections ── */
+  const rawSections = (quote.proposalTemplate?.sections ?? {}) as Partial<ProposalTemplateSections>;
+  const templateSections: ProposalTemplateSections = { ...DEFAULT_TEMPLATE_SECTIONS, ...rawSections };
+
+  /* ── CostsByCategory from summary ── */
+  const costsByCategory = summary?.costsByCategory ?? [];
+
+  /* ── Additional lines with extended fields ── */
+  const additionalLinesPDF: AdditionalLinePDF[] = (summary?.additionalLinesDetails ?? []).map((d) => ({
+    nombre: d.nombre,
+    descripcion: additionalLines.find((l) => l.id === d.id)?.descripcion || undefined,
+    tipo: d.tipo,
+    recurrencia: d.recurrencia,
+    precioMensual: d.precioBase,
+    marginPct: d.marginPct,
+    precioVenta: d.precioConMargen,
+    precioVentaFmt: fmt(d.precioConMargen),
+  }));
+
+  /* ── Labor breakdown (for detailed/tender templates) ── */
+  let laborBreakdown: LaborBreakdownPDF | undefined;
+  if (templateSections.showLaborDetail && breakdown && breakdown.positions.length > 0) {
+    const totalImponible = breakdown.positions.reduce((s, p) => s + p.totalImponible, 0);
+    const totalBaseSalary = breakdown.positions.reduce((s, p) => s + p.baseSalary, 0);
+    const totalGratification = breakdown.positions.reduce((s, p) => s + p.gratification, 0);
+    const totalImpositions = breakdown.positions.reduce(
+      (s, p) => s + p.sisEmployer + p.afcEmployer + p.mutualEmployer, 0,
+    );
+    const posGuards = breakdown.positions.reduce((s, p) => s + p.totalGuardsInPosition, 0);
+    const cargasSocialesPct = totalImponible > 0 ? (totalImpositions / totalImponible) * 100 : 0;
+
+    laborBreakdown = {
+      sueldoBrutoPromedio: posGuards > 0 ? totalBaseSalary / posGuards : 0,
+      cargasSocialesPct: Math.round(cargasSocialesPct * 100) / 100,
+      gratificacion: totalGratification,
+      totalPorGuardia: posGuards > 0 ? breakdown.totalLaborCost / posGuards : 0,
+      totalGuardias: posGuards,
+      totalMensual: breakdown.totalLaborCost,
+    };
+  }
+
+  /* ── Compliance items ── */
+  let complianceItems: string[] | undefined;
+  if (templateSections.showComplianceSection) {
+    // TODO: load from tenant settings when available
+    complianceItems = DEFAULT_COMPLIANCE_ITEMS;
+  }
+
   const props: QuotationPDFProps = {
     quote: {
       code: quote.code,
@@ -332,11 +383,17 @@ export async function buildQuotationProps(
       phone: companyConfig.phone,
       website: companyConfig.website,
       repLegalNombre: companyConfig.repLegalNombre || undefined,
+      brandNameUpper: companyConfig.brandNameUpper || undefined,
     },
     includedItems: quote.includedItems || [],
     aiDescription: sanitizeAiDescription(quote.aiDescription),
     serviceDetail: quote.serviceDetail || undefined,
     breakdown,
+    templateSections,
+    costsByCategory,
+    additionalLines: additionalLinesPDF,
+    laborBreakdown,
+    complianceItems,
   };
 
   const fileName = `${quote.code}-propuesta.pdf`;

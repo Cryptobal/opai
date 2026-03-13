@@ -12,6 +12,54 @@
  */
 
 import type { QuoteBreakdownData } from '@/types/cpq-breakdown';
+import type { ProposalTemplateSections, CostByCategory } from '@/types/cpq';
+
+export interface AdditionalLinePDF {
+  nombre: string;
+  descripcion?: string;
+  tipo: string;
+  recurrencia: string;
+  precioMensual: number;
+  marginPct: number;
+  precioVenta: number;
+  precioVentaFmt: string;
+}
+
+export interface LaborBreakdownPDF {
+  sueldoBrutoPromedio: number;
+  cargasSocialesPct: number;
+  gratificacion: number;
+  totalPorGuardia: number;
+  totalGuardias: number;
+  totalMensual: number;
+}
+
+export const DEFAULT_TEMPLATE_SECTIONS: ProposalTemplateSections = {
+  showCoverPage: true,
+  showCompanyIntro: true,
+  showPositionsTable: true,
+  showCostBreakdown: false,
+  showCostSummaryByCategory: false,
+  showLaborDetail: false,
+  showEquipmentDetail: false,
+  showVehicleDetail: false,
+  showAdditionalServices: true,
+  showConditions: true,
+  showIncludedItems: true,
+  showSignature: true,
+  showComplianceSection: false,
+  numberedSections: false,
+  headerStyle: 'standard',
+};
+
+export const DEFAULT_COMPLIANCE_ITEMS = [
+  'Ley 21.659 de Seguridad Privada',
+  'Acreditación OS-10 Carabineros de Chile',
+  'DS N° 44 (2025) Marco preventivo de seguridad',
+  'Ley 16.744 Accidentes del trabajo y enfermedades profesionales',
+  'DS N° 594 Condiciones sanitarias y ambientales básicas en los lugares de trabajo',
+  'Código del Trabajo Art. 184 — Obligación de protección al trabajador',
+];
 
 export interface QuotationPDFProps {
   quote: {
@@ -57,12 +105,18 @@ export interface QuotationPDFProps {
     phone: string;
     website: string;
     repLegalNombre?: string;
+    brandNameUpper?: string;
   };
   includedItems: string[];
   aiDescription?: string;
   serviceDetail?: string;
-  /** Full transparent cost breakdown — adds page 3 to the PDF */
   breakdown?: QuoteBreakdownData;
+
+  templateSections: ProposalTemplateSections;
+  costsByCategory: CostByCategory[];
+  additionalLines: AdditionalLinePDF[];
+  laborBreakdown?: LaborBreakdownPDF;
+  complianceItems?: string[];
 }
 
 export async function renderQuotationToBuffer(
@@ -400,6 +454,11 @@ export async function renderQuotationToBuffer(
     aiDescription,
     serviceDetail,
     breakdown,
+    templateSections: sec,
+    costsByCategory,
+    additionalLines,
+    laborBreakdown,
+    complianceItems,
   } = props;
 
   const dateStr = new Date().toLocaleDateString('es-CL');
@@ -413,8 +472,17 @@ export async function renderQuotationToBuffer(
   const paymentLabel =
     PAYMENT_LABELS[conditions.paymentTerms] || conditions.paymentTerms;
   const hasAdditional = additionalServices.length > 0;
+  const hasDetailedAdditional = (additionalLines?.length ?? 0) > 0;
   const brandName =
-    companyConfig.commercialName?.toUpperCase() || 'GARD SECURITY';
+    companyConfig.brandNameUpper ?? companyConfig.commercialName?.toUpperCase() ?? 'EMPRESA';
+
+  const numbered = sec.numberedSections;
+  let sectionCounter = 0;
+  const nextNum = () => ++sectionCounter;
+
+  const showDetailedAdditional = sec.showAdditionalServices && hasDetailedAdditional &&
+    (sec.showCostBreakdown || sec.showLaborDetail);
+  const showSimpleAdditional = sec.showAdditionalServices && hasAdditional && !showDetailedAdditional;
 
   const displayItems =
     includedItems.length > 0
@@ -443,7 +511,12 @@ export async function renderQuotationToBuffer(
     }),
   );
 
-  const header = (showSub: boolean) =>
+  const sectionTitle = (text: string, num?: number) =>
+    numbered && num != null
+      ? e(Text, { style: s.sectionTitle }, `${num}. ${text}`)
+      : e(Text, { style: s.sectionTitle }, text);
+
+  const header = (subtitle?: string) =>
     e(
       View,
       null,
@@ -454,8 +527,8 @@ export async function renderQuotationToBuffer(
           View,
           null,
           e(View, { style: s.brandRow }, shield, e(Text, { style: s.brandName }, brandName)),
-          showSub
-            ? e(Text, { style: s.brandSub }, 'Servicios de seguridad integral')
+          subtitle
+            ? e(Text, { style: s.brandSub }, subtitle)
             : null,
         ),
         e(
@@ -538,18 +611,18 @@ export async function renderQuotationToBuffer(
       )
     : null;
 
-  /* ─── Additional services table ─── */
+  /* ─── Simple additional services table (standard template) ─── */
   const addHeaders = [
     { label: 'Producto / Servicio', flex: 2, align: 'left' as const },
     { label: 'Descripcion', flex: 3, align: 'left' as const },
     { label: 'Valor Mensual', flex: 1.5, align: 'right' as const },
   ];
 
-  const addTable = hasAdditional
+  const simpleAddTable = showSimpleAdditional
     ? e(
         View,
         null,
-        e(Text, { style: s.sectionTitle }, 'Servicios y Productos Adicionales'),
+        sectionTitle('Servicios y Productos Adicionales', nextNum()),
         e(
           View,
           { style: s.tblHeader },
@@ -579,12 +652,50 @@ export async function renderQuotationToBuffer(
       )
     : null;
 
-  /* ─── Footer ─── */
+  /* ─── Detailed additional services table (detailed/tender) ─── */
+  const detailedAddHeaders = [
+    { label: 'Producto / Servicio', flex: 2, align: 'left' as const },
+    { label: 'Tipo', flex: 1, align: 'center' as const },
+    { label: 'Recurrencia', flex: 1, align: 'center' as const },
+    { label: 'Valor Mensual', flex: 1.5, align: 'right' as const },
+  ];
+
+  const detailedAddTable = showDetailedAdditional
+    ? e(
+        View,
+        null,
+        sectionTitle('Servicios y Productos Adicionales', nextNum()),
+        e(
+          View,
+          { style: s.tblHeader },
+          ...detailedAddHeaders.map((h, i) =>
+            e(Text, { key: i, style: [s.tblHeaderCell, { flex: h.flex, textAlign: h.align }] }, h.label),
+          ),
+        ),
+        ...additionalLines.map((line, i) =>
+          e(
+            View,
+            { key: i, style: s.tblRow },
+            e(Text, { style: [s.tblCell, { flex: 2 }] }, line.nombre),
+            e(Text, { style: [s.tblCell, { flex: 1, textAlign: 'center' as const }] }, line.tipo),
+            e(Text, { style: [s.tblCell, { flex: 1, textAlign: 'center' as const }] }, line.recurrencia === 'unico' ? 'Unico (prorrateado)' : line.recurrencia),
+            e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, line.precioVentaFmt),
+          ),
+        ),
+      )
+    : null;
+
   /* ─── Currency format helper ─── */
   const fmtMoney = (n: number) =>
     new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Math.round(n));
 
-  const totalPages = breakdown ? '3' : '2';
+  /* ─── Page count ─── */
+  let pageCount = 1;
+  if (sec.showConditions || sec.showIncludedItems || sec.showSignature) pageCount++;
+  if (breakdown && sec.showCostSummaryByCategory) pageCount++;
+  if (sec.showLaborDetail && laborBreakdown) pageCount = Math.max(pageCount, 3);
+  if (sec.showComplianceSection && complianceItems) pageCount = Math.max(pageCount, 3);
+  let currentPage = 0;
 
   const pageFooter = (label: string) =>
     e(
@@ -608,24 +719,112 @@ export async function renderQuotationToBuffer(
       ),
     );
 
-  /* ─── BUILD DOCUMENT ─── */
-  const doc = e(
-    Document,
-    null,
+  /* ─── Labor detail sub-tree ─── */
+  const laborRow = (label: string, value: string) =>
+    e(
+      View,
+      { style: [s.tblRow, { paddingLeft: 10 }] },
+      e(Text, { style: [s.tblCell, { flex: 3 }] }, label),
+      e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, value),
+    );
 
-    // ─── PAGE 1: Propuesta Economica ───
+  const laborDetailSection = sec.showLaborDetail && laborBreakdown
+    ? e(
+        View,
+        null,
+        sectionTitle('Detalle de Mano de Obra', nextNum()),
+        e(
+          View,
+          { style: { marginBottom: 8 } },
+          laborRow('Sueldo bruto promedio por guardia', fmtMoney(laborBreakdown.sueldoBrutoPromedio)),
+          laborRow('Cargas sociales empleador', `${laborBreakdown.cargasSocialesPct}%`),
+          laborRow('Gratificacion legal', fmtMoney(laborBreakdown.gratificacion)),
+          laborRow('Costo total por guardia', fmtMoney(laborBreakdown.totalPorGuardia)),
+          laborRow('Total guardias', String(laborBreakdown.totalGuardias)),
+          e(
+            View,
+            { style: [s.tblRow, { paddingLeft: 10, backgroundColor: C.slate50 }] },
+            e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Total mensual mano de obra'),
+            e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(laborBreakdown.totalMensual)),
+          ),
+        ),
+      )
+    : null;
+
+  /* ─── Cost breakdown by category sub-tree ─── */
+  const costBreakdownSection = sec.showCostBreakdown && costsByCategory && costsByCategory.length > 0
+    ? e(
+        View,
+        null,
+        sectionTitle('Desglose de Costos por Categoria', nextNum()),
+        ...costsByCategory.map((cat, catIdx) =>
+          e(
+            View,
+            { key: catIdx, style: { marginBottom: 6 } },
+            e(
+              View,
+              { style: [s.tblRow, { backgroundColor: cat.categoryType === 'indirect' ? '#fef3c7' : C.tealLight }] },
+              e(Text, { style: [s.tblCellBold, { flex: 3, color: cat.categoryType === 'indirect' ? '#b45309' : '#0d9488' }] }, cat.category),
+              e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: cat.categoryType === 'indirect' ? '#b45309' : '#0d9488' }] }, fmtMoney(cat.subtotal)),
+            ),
+            ...cat.items.map((item, itemIdx) =>
+              e(
+                View,
+                { key: itemIdx, style: [s.tblRow, { paddingLeft: 14 }] },
+                e(Text, { style: [s.tblCell, { flex: 3, fontSize: 7.5, color: C.slate400 }] }, item.name),
+                e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const, fontSize: 7.5, color: C.slate400 }] }, fmtMoney(item.amount)),
+              ),
+            ),
+          ),
+        ),
+      )
+    : null;
+
+  /* ─── Compliance section sub-tree ─── */
+  const complianceSection = sec.showComplianceSection && complianceItems && complianceItems.length > 0
+    ? e(
+        View,
+        null,
+        sectionTitle('Cumplimiento Normativo', nextNum()),
+        e(
+          View,
+          { style: { marginBottom: 8 } },
+          ...complianceItems.map((item, i) =>
+            e(
+              View,
+              { key: i, style: s.bulletItem },
+              e(Text, { style: [s.bulletDot, { color: '#0d9488' }] }, '\u2713'),
+              e(Text, { style: s.bulletText }, item),
+            ),
+          ),
+        ),
+      )
+    : null;
+
+  /* ─── BUILD DOCUMENT ─── */
+  const pages: unknown[] = [];
+
+  // ─── PAGE 1: Propuesta Economica ───
+  pages.push(
     e(
       Page,
-      { size: 'A4', style: s.page },
-      header(true),
+      { key: 'p1', size: 'A4', style: s.page },
+      header(sec.headerStyle === 'formal' ? `Cotizacion N\u00B0 ${quote.code}` : 'Servicios de seguridad integral'),
       infoStrip,
       e(
         View,
         { style: s.body },
-        aiDescription ? e(Text, { style: s.description }, aiDescription) : null,
-        e(Text, { style: s.sectionTitle }, `Puestos de trabajo \u00B7 ${totalGuards} guardia(s)`),
-        e(View, null, posTableHeader, ...posRows, posSubtotal),
-        addTable,
+        sec.showCompanyIntro && aiDescription ? e(Text, { style: s.description }, aiDescription) : null,
+        sec.showPositionsTable
+          ? e(
+              View,
+              null,
+              sectionTitle(`Puestos de trabajo \u00B7 ${totalGuards} guardia(s)`, nextNum()),
+              e(View, null, posTableHeader, ...posRows, posSubtotal),
+            )
+          : null,
+        simpleAddTable,
+        detailedAddTable,
         e(
           View,
           { style: s.grandTotal },
@@ -634,192 +833,213 @@ export async function renderQuotationToBuffer(
         ),
         e(Text, { style: s.netNote }, 'Valores netos. IVA se factura segun ley vigente.'),
       ),
-      pageFooter(`1/${totalPages}`),
+      pageFooter(`${++currentPage}/${pageCount}`),
     ),
+  );
 
-    // ─── PAGE 2: Condiciones Comerciales ───
-    e(
-      Page,
-      { size: 'A4', style: s.page },
-      header(false),
+  // ─── PAGE 2: Conditions + Labor Detail + Cost Breakdown + Compliance ───
+  const hasPage2 = sec.showConditions || sec.showIncludedItems || sec.showSignature ||
+    laborDetailSection || costBreakdownSection || complianceSection;
+
+  if (hasPage2) {
+    pages.push(
       e(
-        View,
-        { style: s.body },
-        e(Text, { style: s.sectionTitle }, 'Condiciones Comerciales'),
+        Page,
+        { key: 'p2', size: 'A4', style: s.page },
+        header(),
         e(
           View,
-          { style: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8, marginTop: 8 } },
-          condCard('Vigencia de la propuesta', validStr || 'Sin definir'),
-          condCard('Forma de pago', paymentLabel),
-          condCard('Inicio del servicio', `${conditions.serviceStartDays} dias habiles desde aprobacion`),
-          condCard('Duracion del contrato', `${conditions.contractDuration} meses`),
-        ),
-        e(Text, { style: s.sectionTitle }, 'El servicio incluye'),
-        e(
-          View,
-          { style: { marginBottom: 8 } },
-          ...displayItems.map((item, i) =>
-            e(
-              View,
-              { key: i, style: s.bulletItem },
-              e(Text, { style: s.bulletDot }, '\u25CF'),
-              e(Text, { style: s.bulletText }, item),
-            ),
-          ),
-        ),
-        serviceDetail
-          ? e(
-              View,
-              null,
-              e(Text, { style: s.sectionTitle }, 'Detalle del servicio'),
-              e(Text, { style: s.serviceDetail }, serviceDetail),
-            )
-          : null,
-        // Signature area
-        e(
-          View,
-          { style: s.sigArea },
-          e(
-            View,
-            { style: s.sigBlock },
-            e(View, { style: s.sigLine }),
-            e(Text, { style: s.sigName }, companyConfig.companyName),
-            companyConfig.repLegalNombre
-              ? e(Text, { style: s.sigRole }, companyConfig.repLegalNombre)
-              : null,
-            e(Text, { style: s.sigRole }, 'Representante Legal'),
-          ),
-          e(
-            View,
-            { style: s.sigBlock },
-            e(View, { style: s.sigLine }),
-            e(Text, { style: s.sigName }, client.name),
-            e(Text, { style: s.sigRole }, 'Cliente'),
-          ),
-        ),
-        // Contact banner
-        e(
-          View,
-          { style: s.contactBanner },
-          e(
-            View,
-            { style: { alignItems: 'center' as const } },
-            e(Text, { style: s.contactLabel }, 'EMAIL'),
-            e(Text, { style: s.contactValue }, companyConfig.email),
-          ),
-          e(
-            View,
-            { style: { alignItems: 'center' as const } },
-            e(Text, { style: s.contactLabel }, 'TELEFONO'),
-            e(Text, { style: s.contactValue }, companyConfig.phone),
-          ),
-          companyConfig.website
+          { style: s.body },
+          laborDetailSection,
+          costBreakdownSection,
+          complianceSection,
+          sec.showConditions
             ? e(
                 View,
-                { style: { alignItems: 'center' as const } },
-                e(Text, { style: s.contactLabel }, 'WEB'),
-                e(Text, { style: s.contactValue }, companyConfig.website),
+                null,
+                sectionTitle('Condiciones Comerciales', nextNum()),
+                e(
+                  View,
+                  { style: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8, marginTop: 8 } },
+                  condCard('Vigencia de la propuesta', validStr || 'Sin definir'),
+                  condCard('Forma de pago', paymentLabel),
+                  condCard('Inicio del servicio', `${conditions.serviceStartDays} dias habiles desde aprobacion`),
+                  condCard('Duracion del contrato', `${conditions.contractDuration} meses`),
+                ),
               )
             : null,
-        ),
-      ),
-      pageFooter(`2/${totalPages}`),
-    ),
-
-    // ─── PAGE 3: Estructura de Costos (optional) ───
-    breakdown
-      ? e(
-          Page,
-          { size: 'A4', style: s.page },
-          header(false),
-          e(
-            View,
-            { style: s.body },
-            e(Text, { style: s.sectionTitle }, 'Estructura de Costos'),
-
-            // Mano de Obra
-            e(
-              View,
-              { style: { marginBottom: 8 } },
-              e(
+          sec.showIncludedItems
+            ? e(
                 View,
-                { style: [s.tblRow, { backgroundColor: '#dbeafe' }] },
-                e(Text, { style: [s.tblCellBold, { flex: 3, color: '#1d4ed8' }] }, 'Mano de Obra'),
-                e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#1d4ed8' }] }, fmtMoney(breakdown.totalLaborCost)),
-              ),
-              breakdown.positions.reduce<unknown[]>((acc, pos) => {
-                const imp = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
-                const prov = pos.vacationProvision + pos.severanceProvision;
-                if (pos.totalImponible > 0) acc.push(e(View, { key: `${pos.id}-imp`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} - Sueldo imponible`), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(pos.totalImponible))));
-                if (imp > 0) acc.push(e(View, { key: `${pos.id}-sis`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} - Imposiciones (SIS+AFC+Mutual)`), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(imp))));
-                if (prov > 0) acc.push(e(View, { key: `${pos.id}-prov`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} - Provisiones (vacac.+finiquito)`), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(prov))));
-                return acc;
-              }, []),
-            ),
-
-            // Costos Directos
-            (breakdown.holidayAdjustment + breakdown.uniforms + breakdown.exams + breakdown.meals) > 0
-              ? e(
+                null,
+                sectionTitle('El servicio incluye', nextNum()),
+                e(
                   View,
                   { style: { marginBottom: 8 } },
-                  e(View, { style: [s.tblRow, { backgroundColor: '#ccfbf1' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#0d9488' }] }, 'Costos Directos'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#0d9488' }] }, fmtMoney(breakdown.holidayAdjustment + breakdown.uniforms + breakdown.exams + breakdown.meals))),
-                  breakdown.holidayAdjustment > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Ajuste feriados legales'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.holidayAdjustment))) : null,
-                  breakdown.uniforms > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Uniformes'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.uniforms))) : null,
-                  breakdown.exams > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Examenes medicos'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.exams))) : null,
-                  breakdown.meals > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Alimentacion'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.meals))) : null,
-                )
-              : null,
-
-            // Costos Indirectos
-            (breakdown.equipment + breakdown.transport + breakdown.vehicles + breakdown.infrastructure + breakdown.systems) > 0
-              ? e(
-                  View,
-                  { style: { marginBottom: 8 } },
-                  e(View, { style: [s.tblRow, { backgroundColor: '#fef3c7' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#b45309' }] }, 'Costos Indirectos'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#b45309' }] }, fmtMoney(breakdown.equipment + breakdown.transport + breakdown.vehicles + breakdown.infrastructure + breakdown.systems))),
-                  breakdown.equipment > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Equipo operativo'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.equipment))) : null,
-                  breakdown.transport > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Transporte'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.transport))) : null,
-                  breakdown.vehicles > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Vehiculos'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.vehicles))) : null,
-                  breakdown.infrastructure > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Infraestructura'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.infrastructure))) : null,
-                  breakdown.systems > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Sistemas'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.systems))) : null,
-                )
-              : null,
-
-            // Subtotal + Margen + Financiero + Total
-            e(View, { style: [s.tblRow, { backgroundColor: C.slate100 }] }, e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Subtotal costos base'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.subtotalBase))),
-            e(View, { style: [s.tblRow, { backgroundColor: '#d1fae5' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#065f46' }] }, `Margen comercial (${breakdown.marginPct}% sobre precio venta)`), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#065f46' }] }, fmtMoney(breakdown.marginAmount))),
-            breakdown.financial > 0
-              ? e(View, { style: [s.tblRow, { backgroundColor: '#fff7ed' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, `Costo financiero (${breakdown.financialRatePct}%)`), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(breakdown.financial)))
-              : null,
-            e(
-              View,
-              { style: [s.grandTotal, { marginTop: 8 }] },
-              e(Text, { style: s.grandTotalLabel }, 'PRECIO VENTA MENSUAL NETO'),
-              e(Text, { style: s.grandTotalAmount }, fmtMoney(breakdown.grandTotal)),
-            ),
-
-            // Valor hora por puesto
-            breakdown.positions.length > 0
-              ? e(
-                  View,
-                  { style: { marginTop: 16 } },
-                  e(Text, { style: s.sectionTitle }, 'Valor Hora de Venta por Puesto'),
-                  ...breakdown.positions.map((pos, i) =>
+                  ...displayItems.map((item, i) =>
                     e(
                       View,
-                      { key: i, style: s.tblRow },
-                      e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} (${pos.totalGuardsInPosition} guardia${pos.totalGuardsInPosition !== 1 ? 's' : ''})`),
-                      e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#0d9488' }] }, `${fmtMoney(Math.round(pos.hourlyRateSale))}/hr`),
+                      { key: i, style: s.bulletItem },
+                      e(Text, { style: s.bulletDot }, '\u25CF'),
+                      e(Text, { style: s.bulletText }, item),
                     ),
                   ),
+                ),
+              )
+            : null,
+          serviceDetail
+            ? e(
+                View,
+                null,
+                sectionTitle('Detalle del servicio', nextNum()),
+                e(Text, { style: s.serviceDetail }, serviceDetail),
+              )
+            : null,
+          sec.showSignature
+            ? e(
+                View,
+                { style: s.sigArea },
+                e(
+                  View,
+                  { style: s.sigBlock },
+                  e(View, { style: s.sigLine }),
+                  e(Text, { style: s.sigName }, companyConfig.companyName),
+                  companyConfig.repLegalNombre
+                    ? e(Text, { style: s.sigRole }, companyConfig.repLegalNombre)
+                    : null,
+                  e(Text, { style: s.sigRole }, 'Representante Legal'),
+                ),
+                e(
+                  View,
+                  { style: s.sigBlock },
+                  e(View, { style: s.sigLine }),
+                  e(Text, { style: s.sigName }, client.name),
+                  e(Text, { style: s.sigRole }, 'Cliente'),
+                ),
+              )
+            : null,
+          e(
+            View,
+            { style: s.contactBanner },
+            e(
+              View,
+              { style: { alignItems: 'center' as const } },
+              e(Text, { style: s.contactLabel }, 'EMAIL'),
+              e(Text, { style: s.contactValue }, companyConfig.email),
+            ),
+            e(
+              View,
+              { style: { alignItems: 'center' as const } },
+              e(Text, { style: s.contactLabel }, 'TELEFONO'),
+              e(Text, { style: s.contactValue }, companyConfig.phone),
+            ),
+            companyConfig.website
+              ? e(
+                  View,
+                  { style: { alignItems: 'center' as const } },
+                  e(Text, { style: s.contactLabel }, 'WEB'),
+                  e(Text, { style: s.contactValue }, companyConfig.website),
                 )
               : null,
-
-            e(Text, { style: s.netNote }, 'Estructura de costos con transparencia total · Valores netos · IVA se factura segun ley vigente'),
           ),
-          pageFooter(`3/${totalPages}`),
-        )
-      : null,
-  );
+        ),
+        pageFooter(`${++currentPage}/${pageCount}`),
+      ),
+    );
+  }
+
+  // ─── PAGE 3: Estructura de Costos (optional) ───
+  if (breakdown && sec.showCostSummaryByCategory) {
+    pages.push(
+      e(
+        Page,
+        { key: 'p3', size: 'A4', style: s.page },
+        header(),
+        e(
+          View,
+          { style: s.body },
+          e(Text, { style: s.sectionTitle }, 'Estructura de Costos'),
+
+          e(
+            View,
+            { style: { marginBottom: 8 } },
+            e(
+              View,
+              { style: [s.tblRow, { backgroundColor: '#dbeafe' }] },
+              e(Text, { style: [s.tblCellBold, { flex: 3, color: '#1d4ed8' }] }, 'Mano de Obra'),
+              e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#1d4ed8' }] }, fmtMoney(breakdown.totalLaborCost)),
+            ),
+            breakdown.positions.reduce<unknown[]>((acc, pos) => {
+              const imp = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
+              const prov = pos.vacationProvision + pos.severanceProvision;
+              if (pos.totalImponible > 0) acc.push(e(View, { key: `${pos.id}-imp`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} - Sueldo imponible`), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(pos.totalImponible))));
+              if (imp > 0) acc.push(e(View, { key: `${pos.id}-sis`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} - Imposiciones (SIS+AFC+Mutual)`), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(imp))));
+              if (prov > 0) acc.push(e(View, { key: `${pos.id}-prov`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} - Provisiones (vacac.+finiquito)`), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(prov))));
+              return acc;
+            }, []),
+          ),
+
+          (breakdown.holidayAdjustment + breakdown.uniforms + breakdown.exams + breakdown.meals) > 0
+            ? e(
+                View,
+                { style: { marginBottom: 8 } },
+                e(View, { style: [s.tblRow, { backgroundColor: '#ccfbf1' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#0d9488' }] }, 'Costos Directos'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#0d9488' }] }, fmtMoney(breakdown.holidayAdjustment + breakdown.uniforms + breakdown.exams + breakdown.meals))),
+                breakdown.holidayAdjustment > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Ajuste feriados legales'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.holidayAdjustment))) : null,
+                breakdown.uniforms > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Uniformes'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.uniforms))) : null,
+                breakdown.exams > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Examenes medicos'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.exams))) : null,
+                breakdown.meals > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Alimentacion'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.meals))) : null,
+              )
+            : null,
+
+          (breakdown.equipment + breakdown.transport + breakdown.vehicles + breakdown.infrastructure + breakdown.systems) > 0
+            ? e(
+                View,
+                { style: { marginBottom: 8 } },
+                e(View, { style: [s.tblRow, { backgroundColor: '#fef3c7' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#b45309' }] }, 'Costos Indirectos'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#b45309' }] }, fmtMoney(breakdown.equipment + breakdown.transport + breakdown.vehicles + breakdown.infrastructure + breakdown.systems))),
+                breakdown.equipment > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Equipo operativo'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.equipment))) : null,
+                breakdown.transport > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Transporte'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.transport))) : null,
+                breakdown.vehicles > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Vehiculos'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.vehicles))) : null,
+                breakdown.infrastructure > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Infraestructura'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.infrastructure))) : null,
+                breakdown.systems > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Sistemas'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.systems))) : null,
+              )
+            : null,
+
+          e(View, { style: [s.tblRow, { backgroundColor: C.slate100 }] }, e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Subtotal costos base'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.subtotalBase))),
+          e(View, { style: [s.tblRow, { backgroundColor: '#d1fae5' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#065f46' }] }, `Margen comercial (${breakdown.marginPct}% sobre precio venta)`), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#065f46' }] }, fmtMoney(breakdown.marginAmount))),
+          breakdown.financial > 0
+            ? e(View, { style: [s.tblRow, { backgroundColor: '#fff7ed' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, `Costo financiero (${breakdown.financialRatePct}%)`), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(breakdown.financial)))
+            : null,
+          e(
+            View,
+            { style: [s.grandTotal, { marginTop: 8 }] },
+            e(Text, { style: s.grandTotalLabel }, 'PRECIO VENTA MENSUAL NETO'),
+            e(Text, { style: s.grandTotalAmount }, fmtMoney(breakdown.grandTotal)),
+          ),
+
+          breakdown.positions.length > 0
+            ? e(
+                View,
+                { style: { marginTop: 16 } },
+                e(Text, { style: s.sectionTitle }, 'Valor Hora de Venta por Puesto'),
+                ...breakdown.positions.map((pos, i) =>
+                  e(
+                    View,
+                    { key: i, style: s.tblRow },
+                    e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} (${pos.totalGuardsInPosition} guardia${pos.totalGuardsInPosition !== 1 ? 's' : ''})`),
+                    e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#0d9488' }] }, `${fmtMoney(Math.round(pos.hourlyRateSale))}/hr`),
+                  ),
+                ),
+              )
+            : null,
+
+          e(Text, { style: s.netNote }, 'Estructura de costos con transparencia total · Valores netos · IVA se factura segun ley vigente'),
+        ),
+        pageFooter(`${++currentPage}/${pageCount}`),
+      ),
+    );
+  }
+
+  const doc = e(Document, null, ...pages);
 
   const buffer = await renderToBuffer(doc);
   return Buffer.from(buffer);
