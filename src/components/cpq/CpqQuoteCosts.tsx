@@ -374,7 +374,7 @@ export function CpqQuoteCosts({
 
 
   const initialLoadDone = useRef(false);
-  const autoSaveTimer = useRef<NodeJS.Timeout>();
+  const autoSaveTimer = useRef<NodeJS.Timeout | undefined>(undefined);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   useEffect(() => {

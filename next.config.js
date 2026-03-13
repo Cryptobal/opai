@@ -19,9 +19,6 @@ const nextConfig = {
     '@react-pdf/textkit',
     '@react-pdf/image',
   ],
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   images: {
     formats: ["image/avif", "image/webp"],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
@@ -37,7 +34,14 @@ const nextConfig = {
         ],
       },
       {
-        source: '/:path*manifest:rest*.json',
+        source: '/:path*manifest.json',
+        headers: [
+          { key: 'Content-Type', value: 'application/manifest+json' },
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        ],
+      },
+      {
+        source: '/manifest.json',
         headers: [
           { key: 'Content-Type', value: 'application/manifest+json' },
           { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },

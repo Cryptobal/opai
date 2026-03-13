@@ -6,7 +6,7 @@
     "dev": "npm run build && npm run start",
     "dev:watch": "node ./node_modules/next/dist/bin/next dev",
     "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && node ./node_modules/next/dist/bin/next dev",
-    "build": "prisma generate && (prisma migrate resolve --applied 20260419000000_add_portal_type_to_push_subscriptions || true) && (prisma migrate resolve --applied 20260426000000_add_marcacion_opposition_fields || true) && prisma migrate deploy && next build",
+    "build": "prisma generate && (prisma migrate resolve --applied 20260419000000_add_portal_type_to_push_subscriptions || true) && (prisma migrate resolve --applied 20260426000000_add_marcacion_opposition_fields || true) && prisma migrate deploy && NODE_OPTIONS='--max-old-space-size=8192' next build",
     "start": "next start",
     "start:dev": "npm run build && npm run start",
     "lint": "next lint",
@@ -83,16 +83,16 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^0.563.0",
     "nanoid": "^5.1.6",
-    "next": "15.4.11",
+    "next": "^16.0.0",
     "next-auth": "^5.0.0-beta.30",
     "openai": "^6.18.0",
     "playwright-core": "^1.58.2",
     "pusher": "^5.3.2",
     "pusher-js": "^8.4.0",
     "qrcode": "^1.5.4",
-    "react": "^18.3.1",
+    "react": "^19.0.0",
     "react-countup": "^6.5.3",
-    "react-dom": "^18.3.1",
+    "react-dom": "^19.0.0",
     "react-email": "^5.2.6",
     "react-intersection-observer": "^10.0.2",
     "react-leaflet": "^5.0.0",
@@ -117,8 +117,8 @@
     "@types/google.maps": "^3.58.1",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^22.0.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.21",
     "csv-parse": "^6.1.0",
@@ -132,8 +132,8 @@
     "vitest": "^3.2.4"
   },
   "overrides": {
-    "next": "15.4.11",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "next": "^16.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   }
 }

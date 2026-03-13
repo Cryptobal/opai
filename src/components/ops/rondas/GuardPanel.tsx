@@ -89,7 +89,7 @@ function GuardCard({
 }) {
   const [localHora, setLocalHora] = useState(guard.horaLlegada ?? "");
   const [localNotes, setLocalNotes] = useState(guard.notes ?? "");
-  const notesSaveRef = useRef<ReturnType<typeof setTimeout>>();
+  const notesSaveRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // PPC detection
   const isPPC = guard.guardiaNombre === "PPC";

@@ -77,10 +77,10 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photos, setPhotos] = useState<string[]>([]);
   const [signatureUrl, setSignatureUrl] = useState("");
-  const canvasRef = useRef<HTMLCanvasElement>(null) as React.RefObject<HTMLCanvasElement>;
+  const canvasRef = useRef<HTMLCanvasElement>(null) as React.RefObject<HTMLCanvasElement | null>;
   const [drawing, setDrawing] = useState(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
-  const photoRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+  const photoRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement | null>;
 
   const [form, setForm] = useState<FormData>({
     installationId: installations[0]?.id ?? "",
@@ -776,7 +776,7 @@ function Step4({
   set: <K extends keyof FormData>(k: K, v: FormData[K]) => void;
   photos: string[];
   uploadingPhoto: boolean;
-  photoRef: React.RefObject<HTMLInputElement>;
+  photoRef: React.RefObject<HTMLInputElement | null>;
   onPhoto: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemovePhoto: (url: string) => void;
 }) {
@@ -868,7 +868,7 @@ function Step5({
 }: {
   form: FormData;
   set: <K extends keyof FormData>(k: K, v: FormData[K]) => void;
-  canvasRef: React.RefObject<HTMLCanvasElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
   drawing: boolean;
   signatureUrl: string;
   onStartDraw: (e: React.MouseEvent | React.TouchEvent) => void;

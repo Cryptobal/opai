@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactElement } from "react";
 import { Bot, Loader2, MessageCircle, Plus, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ type ChatMessage = {
 const MAX_VISIBLE_MESSAGES = 120;
 
 function renderBoldText(text: string, keyPrefix: string) {
-  const nodes: Array<JSX.Element | string> = [];
+  const nodes: Array<ReactElement | string> = [];
   const regex = /\*\*(.+?)\*\*/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null = regex.exec(text);
@@ -55,7 +55,7 @@ function renderMessageContent(content: string) {
 }
 
 function linkifyLine(line: string) {
-  const parts: Array<JSX.Element | string> = [];
+  const parts: Array<ReactElement | string> = [];
   const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null = regex.exec(line);
