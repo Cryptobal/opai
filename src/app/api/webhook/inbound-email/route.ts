@@ -19,7 +19,7 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
 import { extractLeadFromEmail, parseFromHeader, isGarbageEmail } from "@/lib/email-lead-extractor";
 
-import { toSentenceCase } from "@/lib/text-format";
+import { toSentenceCaseWords, formatChileanPhone } from "@/lib/text-format";
 
 const INBOUND_LEADS_TO = process.env.INBOUND_LEADS_EMAIL || "leads@inbound.gard.cl";
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB
@@ -140,8 +140,11 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    const firstName = toSentenceCase(extracted.contactFirstName?.trim() || "") ?? null;
-    const lastName = toSentenceCase(extracted.contactLastName?.trim() || "") ?? null;
+    const firstName = toSentenceCaseWords(extracted.contactFirstName?.trim() || "") ?? null;
+    const lastName = toSentenceCaseWords(extracted.contactLastName?.trim() || "") ?? null;
+    const companyName = toSentenceCaseWords(extracted.companyName?.trim() || "") ?? null;
+    const contactRole = toSentenceCaseWords(extracted.contactRole?.trim() || "") ?? null;
+    const phone = formatChileanPhone(extracted.contactPhone) ?? extracted.contactPhone?.trim() || null;
 
     console.log("[inbound-email] Extracted data:", {
       companyName: extracted.companyName,
@@ -170,8 +173,8 @@ export async function POST(request: NextRequest) {
         firstName,
         lastName,
         email: extracted.contactEmail?.trim() || null,
-        phone: extracted.contactPhone?.trim() || null,
-        companyName: extracted.companyName?.trim() || null,
+        phone,
+        companyName,
         notes,
         industry: extracted.industry?.trim() || null,
         address: extracted.address?.trim() || null,
@@ -194,7 +197,7 @@ export async function POST(request: NextRequest) {
             legalName: extracted.legalName || null,
             businessActivity: extracted.businessActivity || null,
             legalRepresentativeName: extracted.legalRepresentativeName || null,
-            contactRole: extracted.contactRole || null,
+            contactRole,
             guardsPerShift: extracted.guardsPerShift || null,
             numberOfLocations: extracted.numberOfLocations || null,
             startDate: extracted.startDate || null,
