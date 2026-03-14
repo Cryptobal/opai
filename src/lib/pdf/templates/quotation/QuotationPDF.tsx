@@ -388,8 +388,10 @@ function fmtBreakdown(n: number, currency: string, ufValue?: number) {
   return fmtCLPPdf(n);
 }
 
+/** Strip trailing "SECURITY", "SEGURIDAD" etc — only the core brand should appear next to the logo */
 function getBrandName(companyConfig: QuotationPDFProps['companyConfig']): string {
-  return companyConfig.brandNameUpper ?? companyConfig.commercialName?.toUpperCase() ?? 'EMPRESA';
+  const raw = companyConfig.brandNameUpper ?? companyConfig.commercialName?.toUpperCase() ?? 'EMPRESA';
+  return raw.replace(/\s+(SECURITY|SEGURIDAD|SEG)\b/i, '').trim();
 }
 
 /* ─── Section title with optional numbering ─── */
@@ -408,11 +410,25 @@ function BreakdownPage({
   companyConfig,
   quoteCode,
   dateStr,
+  showSignature,
+  signatureCompanyName,
+  signatureClientName,
+  signatureRepLegal,
+  contactEmail,
+  contactPhone,
+  contactWebsite,
 }: {
   breakdown: QuoteBreakdownData;
   companyConfig: QuotationPDFProps['companyConfig'];
   quoteCode: string;
   dateStr: string;
+  showSignature?: boolean;
+  signatureCompanyName?: string;
+  signatureClientName?: string;
+  signatureRepLegal?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactWebsite?: string;
 }) {
   const fmt = (n: number) => fmtBreakdown(n, breakdown.currency, breakdown.ufValue);
 
@@ -451,30 +467,40 @@ function BreakdownPage({
       <View style={ls.body}>
         <PDFSectionTitle>Estructura de Costos</PDFSectionTitle>
 
-        {/* ── Mano de Obra ── */}
+        {/* ── Mano de Obra (Fix 6: per-position detail) ── */}
         <View style={ls.bdSection}>
           <View style={ls.bdSectionHeader}>
             <Text style={[ls.bdSectionTitle, { color: '#1d4ed8' }]}>Mano de Obra</Text>
             <Text style={[ls.bdRowAmount, { color: '#1d4ed8' }]}>{fmt(breakdown.totalLaborCost)}</Text>
           </View>
-          {totalImponible > 0 && (
-            <View style={ls.bdSubRow}>
-              <Text style={ls.bdSubLabel}>Sueldos imponibles (base + gratificación)</Text>
-              <Text style={ls.bdSubAmount}>{fmt(totalImponible)}</Text>
+          {breakdown.positions.map((pos) => (
+            <View key={pos.id}>
+              <View style={ls.bdRow}>
+                <Text style={[ls.bdRowLabel, { fontWeight: 600 }]}>{pos.name} ({pos.totalGuardsInPosition}g)</Text>
+                <Text style={ls.bdRowAmount}>{fmt(pos.totalLaborCost)}</Text>
+              </View>
+              <View style={ls.bdSubRow}>
+                <Text style={ls.bdSubLabel}>Sueldo base</Text>
+                <Text style={ls.bdSubAmount}>{fmt(pos.baseSalary)}</Text>
+              </View>
+              {pos.gratification > 0 && (
+                <View style={ls.bdSubRow}>
+                  <Text style={ls.bdSubLabel}>Gratificación legal</Text>
+                  <Text style={ls.bdSubAmount}>{fmt(pos.gratification)}</Text>
+                </View>
+              )}
+              <View style={ls.bdSubRow}>
+                <Text style={ls.bdSubLabel}>Cargas sociales (SIS+AFC+Mutual)</Text>
+                <Text style={ls.bdSubAmount}>{fmt(pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer)}</Text>
+              </View>
+              {(pos.vacationProvision + pos.severanceProvision) > 0 && (
+                <View style={ls.bdSubRow}>
+                  <Text style={ls.bdSubLabel}>Provisiones (vacaciones+finiquito)</Text>
+                  <Text style={ls.bdSubAmount}>{fmt(pos.vacationProvision + pos.severanceProvision)}</Text>
+                </View>
+              )}
             </View>
-          )}
-          {imposiciones > 0 && (
-            <View style={ls.bdSubRow}>
-              <Text style={ls.bdSubLabel}>Imposiciones empleador (SIS + AFC + Mutual)</Text>
-              <Text style={ls.bdSubAmount}>{fmt(imposiciones)}</Text>
-            </View>
-          )}
-          {provisiones > 0 && (
-            <View style={ls.bdSubRow}>
-              <Text style={ls.bdSubLabel}>Provisiones (vacaciones + finiquito)</Text>
-              <Text style={ls.bdSubAmount}>{fmt(provisiones)}</Text>
-            </View>
-          )}
+          ))}
         </View>
 
         {/* ── Costos Directos ── */}
@@ -603,6 +629,24 @@ function BreakdownPage({
         <Text style={ls.netNote}>
           Estructura de costos con transparencia total · Valores netos · IVA se factura según ley vigente
         </Text>
+
+        {/* Fix 3: Signatures always at the end of the last page */}
+        {showSignature && signatureCompanyName && signatureClientName && (
+          <View wrap={false}>
+            <PDFSignatureArea
+              companyName={signatureCompanyName}
+              clientName={signatureClientName}
+              repLegal={signatureRepLegal}
+            />
+            {contactEmail && contactPhone && (
+              <PDFContactBanner
+                email={contactEmail}
+                phone={contactPhone}
+                website={contactWebsite}
+              />
+            )}
+          </View>
+        )}
       </View>
 
       <PDFFooter website={companyConfig.website} date={dateStr} dynamicPageLabel />
@@ -621,31 +665,78 @@ function LaborDetailSection({
   numbered: boolean;
   sectionNum?: number;
 }) {
+  const hasDetails = laborBreakdown.positionDetails && laborBreakdown.positionDetails.length > 0;
+
   return (
     <>
       <SectionTitle numbered={numbered} num={sectionNum}>Detalle de Mano de Obra</SectionTitle>
-      <View style={{ marginBottom: 8 }}>
+
+      {/* Per-position detailed breakdown (Fix 5) */}
+      {hasDetails && laborBreakdown.positionDetails.map((pos, idx) => {
+        const totalSocialCharges = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
+        const perGuard = pos.totalGuardsInPosition > 0 ? pos.totalLaborCost / pos.totalGuardsInPosition : 0;
+        return (
+          <View key={idx} style={{ marginBottom: 8, borderWidth: 0.5, borderColor: pdfColors.slate200, borderRadius: 4 }}>
+            <View style={{ backgroundColor: pdfColors.slate50, paddingVertical: 4, paddingHorizontal: 10, borderBottomWidth: 0.5, borderBottomColor: pdfColors.slate200 }}>
+              <Text style={[ls.laborLabel, { fontWeight: 700, fontSize: 9 }]}>
+                {pos.name} · {pos.totalGuardsInPosition} guardia{pos.totalGuardsInPosition !== 1 ? 's' : ''}
+              </Text>
+            </View>
+            <View style={ls.laborRow}>
+              <Text style={ls.laborLabel}>Sueldo base imponible</Text>
+              <Text style={ls.laborValue}>{fmtCLPPdf(pos.baseSalary / Math.max(1, pos.totalGuardsInPosition))}</Text>
+            </View>
+            <View style={ls.laborRow}>
+              <Text style={ls.laborLabel}>Gratificación legal</Text>
+              <Text style={ls.laborValue}>{fmtCLPPdf(pos.gratification / Math.max(1, pos.totalGuardsInPosition))}</Text>
+            </View>
+            <View style={ls.laborRow}>
+              <Text style={ls.laborLabel}>Total haberes imponibles</Text>
+              <Text style={ls.laborValue}>{fmtCLPPdf(pos.totalImponible / Math.max(1, pos.totalGuardsInPosition))}</Text>
+            </View>
+            <View style={ls.laborRow}>
+              <Text style={ls.laborLabel}>SIS (Seguro invalidez y sobrevivencia)</Text>
+              <Text style={ls.laborValue}>{fmtCLPPdf(pos.sisEmployer / Math.max(1, pos.totalGuardsInPosition))}</Text>
+            </View>
+            <View style={ls.laborRow}>
+              <Text style={ls.laborLabel}>AFC (Seguro cesantía empleador)</Text>
+              <Text style={ls.laborValue}>{fmtCLPPdf(pos.afcEmployer / Math.max(1, pos.totalGuardsInPosition))}</Text>
+            </View>
+            <View style={ls.laborRow}>
+              <Text style={ls.laborLabel}>Mutual / Accidentes (Ley 16.744)</Text>
+              <Text style={ls.laborValue}>{fmtCLPPdf(pos.mutualEmployer / Math.max(1, pos.totalGuardsInPosition))}</Text>
+            </View>
+            <View style={ls.laborRow}>
+              <Text style={ls.laborLabel}>Total cargas sociales empleador</Text>
+              <Text style={ls.laborValue}>{fmtCLPPdf(totalSocialCharges / Math.max(1, pos.totalGuardsInPosition))}</Text>
+            </View>
+            {pos.vacationProvision > 0 && (
+              <View style={ls.laborRow}>
+                <Text style={ls.laborLabel}>Provisión vacaciones</Text>
+                <Text style={ls.laborValue}>{fmtCLPPdf(pos.vacationProvision / Math.max(1, pos.totalGuardsInPosition))}</Text>
+              </View>
+            )}
+            {pos.severanceProvision > 0 && (
+              <View style={ls.laborRow}>
+                <Text style={ls.laborLabel}>Provisión indemnización</Text>
+                <Text style={ls.laborValue}>{fmtCLPPdf(pos.severanceProvision / Math.max(1, pos.totalGuardsInPosition))}</Text>
+              </View>
+            )}
+            <View style={[ls.laborRow, { backgroundColor: pdfColors.slate50, borderBottomWidth: 0 }]}>
+              <Text style={[ls.laborLabel, { fontWeight: 700 }]}>Costo empresa por guardia</Text>
+              <Text style={[ls.laborValue, { fontWeight: 700 }]}>{fmtCLPPdf(perGuard)}</Text>
+            </View>
+          </View>
+        );
+      })}
+
+      {/* Summary totals */}
+      <View style={{ marginBottom: 8, backgroundColor: pdfColors.slate50, borderRadius: 4, padding: 8 }}>
         <View style={ls.laborRow}>
-          <Text style={ls.laborLabel}>Sueldo bruto promedio por guardia</Text>
-          <Text style={ls.laborValue}>{fmtCLPPdf(laborBreakdown.sueldoBrutoPromedio)}</Text>
+          <Text style={[ls.laborLabel, { fontWeight: 700 }]}>Total guardias</Text>
+          <Text style={[ls.laborValue, { fontWeight: 700 }]}>{laborBreakdown.totalGuardias}</Text>
         </View>
-        <View style={ls.laborRow}>
-          <Text style={ls.laborLabel}>Cargas sociales empleador</Text>
-          <Text style={ls.laborValue}>{laborBreakdown.cargasSocialesPct}%</Text>
-        </View>
-        <View style={ls.laborRow}>
-          <Text style={ls.laborLabel}>Gratificación legal</Text>
-          <Text style={ls.laborValue}>{fmtCLPPdf(laborBreakdown.gratificacion)}</Text>
-        </View>
-        <View style={ls.laborRow}>
-          <Text style={ls.laborLabel}>Costo total por guardia</Text>
-          <Text style={ls.laborValue}>{fmtCLPPdf(laborBreakdown.totalPorGuardia)}</Text>
-        </View>
-        <View style={ls.laborRow}>
-          <Text style={ls.laborLabel}>Total guardias</Text>
-          <Text style={ls.laborValue}>{laborBreakdown.totalGuardias}</Text>
-        </View>
-        <View style={[ls.laborRow, { backgroundColor: pdfColors.slate50, borderBottomWidth: 0 }]}>
+        <View style={[ls.laborRow, { borderBottomWidth: 0 }]}>
           <Text style={[ls.laborLabel, { fontWeight: 700 }]}>Total mensual mano de obra</Text>
           <Text style={[ls.laborValue, { fontWeight: 700 }]}>{fmtCLPPdf(laborBreakdown.totalMensual)}</Text>
         </View>
@@ -777,9 +868,14 @@ export function QuotationPDF(props: QuotationPDFProps) {
   } = props;
 
   const dateStr = new Date().toLocaleDateString('es-CL');
-  const validStr = quote.validUntil
-    ? new Date(quote.validUntil).toLocaleDateString('es-CL')
-    : '';
+  // Fix 2: validUntil always has a value (default: createdAt + 60 days)
+  const validDate = quote.validUntil ? new Date(quote.validUntil) : (() => {
+    const d = new Date(quote.createdAt); d.setDate(d.getDate() + 60); return d;
+  })();
+  const dd = String(validDate.getDate()).padStart(2, '0');
+  const mm = String(validDate.getMonth() + 1).padStart(2, '0');
+  const yyyy = validDate.getFullYear();
+  const validStr = `${dd}-${mm}-${yyyy}`;
 
   const brandName = getBrandName(companyConfig);
   const numbered = sec.numberedSections;
@@ -860,7 +956,7 @@ export function QuotationPDF(props: QuotationPDFProps) {
             { label: 'Cliente', value: client.name },
             { label: 'Negocio', value: client.dealName || '-' },
             { label: 'Instalacion', value: client.installationName || '-' },
-            { label: 'Vigencia', value: validStr || 'Sin definir' },
+            { label: 'Vigencia', value: validStr },
           ]}
         />
 
@@ -974,7 +1070,7 @@ export function QuotationPDF(props: QuotationPDFProps) {
                   <View style={ls.conditionCardWrapper}>
                     <PDFConditionCard
                       label="Vigencia de la propuesta"
-                      value={validStr || 'Sin definir'}
+                      value={validStr}
                     />
                   </View>
                   <View style={ls.conditionCardWrapper}>
@@ -1017,23 +1113,32 @@ export function QuotationPDF(props: QuotationPDFProps) {
               </>
             )}
 
-            {sec.showSignature && (
+            {/* Fix 3: Signatures go on the LAST page — only render here if no breakdown page follows */}
+            {sec.showSignature && !(breakdown && sec.showCostSummaryByCategory) && (
               <View wrap={false}>
                 <PDFSignatureArea
                   companyName={companyConfig.companyName}
                   clientName={client.name}
                   repLegal={companyConfig.repLegalNombre}
                 />
+                <PDFContactBanner
+                  email={companyConfig.email}
+                  phone={companyConfig.phone}
+                  website={companyConfig.website}
+                />
               </View>
             )}
 
-            <View wrap={false}>
-              <PDFContactBanner
-                email={companyConfig.email}
-                phone={companyConfig.phone}
-                website={companyConfig.website}
-              />
-            </View>
+            {/* Contact banner without signatures if signatures are deferred to breakdown page */}
+            {!(sec.showSignature && !(breakdown && sec.showCostSummaryByCategory)) && !(breakdown && sec.showCostSummaryByCategory) && (
+              <View wrap={false}>
+                <PDFContactBanner
+                  email={companyConfig.email}
+                  phone={companyConfig.phone}
+                  website={companyConfig.website}
+                />
+              </View>
+            )}
           </View>
 
           <PDFFooter
@@ -1051,6 +1156,13 @@ export function QuotationPDF(props: QuotationPDFProps) {
           companyConfig={companyConfig}
           quoteCode={quote.code}
           dateStr={dateStr}
+          showSignature={sec.showSignature}
+          signatureCompanyName={companyConfig.companyName}
+          signatureClientName={client.name}
+          signatureRepLegal={companyConfig.repLegalNombre}
+          contactEmail={companyConfig.email}
+          contactPhone={companyConfig.phone}
+          contactWebsite={companyConfig.website}
         />
       )}
     </Document>

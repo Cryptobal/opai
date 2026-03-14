@@ -112,7 +112,11 @@ export async function POST(
           employerCost,
           netSalary,
           monthlyPositionCost,
-          payrollSnapshot: payroll.parameters_snapshot as any,
+          payrollSnapshot: {
+            breakdown: payroll.breakdown,
+            worker_breakdown_estimate: payroll.worker_breakdown_estimate,
+            parameters_snapshot: payroll.parameters_snapshot,
+          } as any,
           payrollVersionId: payroll.parameters_snapshot?.version_id || null,
           calculatedAt: new Date(payroll.computed_at),
         },
