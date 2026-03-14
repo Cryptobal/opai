@@ -111,6 +111,104 @@ export async function seedCpqData() {
     }
   }
 
+  // Proposal templates (formato canónico para PDF)
+  const tenant = await prisma.tenant.findFirst({ where: { slug: "gard" } });
+  const proposalTemplates = [
+    {
+      slug: "estandar",
+      name: "Estándar",
+      description: "Tabla de puestos, resumen y condiciones",
+      sections: {
+        showCoverPage: true,
+        showCompanyIntro: true,
+        showPositionsTable: true,
+        showCostBreakdown: false,
+        showCostSummaryByCategory: false,
+        showLaborDetail: false,
+        showEquipmentDetail: false,
+        showVehicleDetail: false,
+        showAdditionalServices: true,
+        showConditions: true,
+        showIncludedItems: true,
+        showSignature: true,
+        showComplianceSection: false,
+        numberedSections: false,
+        headerStyle: "standard",
+      },
+      isDefault: true,
+    },
+    {
+      slug: "detallado",
+      name: "Detallado",
+      description: "Incluye desglose por categoría y detalle mano de obra",
+      sections: {
+        showCoverPage: true,
+        showCompanyIntro: true,
+        showPositionsTable: true,
+        showCostBreakdown: true,
+        showCostSummaryByCategory: true,
+        showLaborDetail: true,
+        showEquipmentDetail: true,
+        showVehicleDetail: true,
+        showAdditionalServices: true,
+        showConditions: true,
+        showIncludedItems: true,
+        showSignature: true,
+        showComplianceSection: false,
+        numberedSections: false,
+        headerStyle: "detailed",
+      },
+      isDefault: false,
+    },
+    {
+      slug: "licitacion",
+      name: "Licitación",
+      description: "Secciones numeradas y cumplimiento normativo",
+      sections: {
+        showCoverPage: true,
+        showCompanyIntro: true,
+        showPositionsTable: true,
+        showCostBreakdown: true,
+        showCostSummaryByCategory: true,
+        showLaborDetail: true,
+        showEquipmentDetail: true,
+        showVehicleDetail: true,
+        showAdditionalServices: true,
+        showConditions: true,
+        showIncludedItems: true,
+        showSignature: true,
+        showComplianceSection: true,
+        numberedSections: true,
+        headerStyle: "formal",
+      },
+      isDefault: false,
+    },
+  ];
+
+  for (const tpl of proposalTemplates) {
+    const existing = await prisma.cpqProposalTemplate.findFirst({
+      where: { slug: tpl.slug, OR: [{ tenantId: tenant?.id ?? null }, { tenantId: null }] },
+    });
+    if (existing) {
+      await prisma.cpqProposalTemplate.update({
+        where: { id: existing.id },
+        data: { sections: tpl.sections as object, name: tpl.name, description: tpl.description },
+      });
+    } else {
+      await prisma.cpqProposalTemplate.create({
+        data: {
+          tenantId: tenant?.id ?? null,
+          slug: tpl.slug,
+          name: tpl.name,
+          description: tpl.description,
+          sections: tpl.sections as object,
+          isDefault: tpl.isDefault,
+          active: true,
+        },
+      });
+    }
+  }
+
   console.log("✅ CPQ data seeded successfully!");
 }
 

@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import {
   buildQuotationProps,
+  normalizeDbSectionsToProposalFormat,
   resolveCanonicalSections,
 } from '@/lib/pdf/templates/quotation/build-quotation-props';
 import { renderQuotationToBuffer } from '@/lib/pdf/templates/quotation/render-quotation';
@@ -31,9 +32,13 @@ async function resolveTemplateSections(
   });
 
   if (dbTemplate) {
-    const dbSections = (dbTemplate.sections ?? {}) as Partial<ProposalTemplateSections>;
-    if (Object.keys(dbSections).length > 0) return dbSections;
-    return resolveCanonicalSections(templateSlug) ?? dbSections;
+    const rawSections = (dbTemplate.sections ?? {}) as Record<string, unknown>;
+    if (Object.keys(rawSections).length > 0) {
+      const normalized = normalizeDbSectionsToProposalFormat(rawSections, templateSlug);
+      const canonical = resolveCanonicalSections(templateSlug);
+      return canonical ? { ...normalized, ...canonical } : normalized;
+    }
+    return resolveCanonicalSections(templateSlug) ?? null;
   }
 
   return resolveCanonicalSections(templateSlug) ?? null;

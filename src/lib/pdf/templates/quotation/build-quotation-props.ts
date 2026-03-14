@@ -58,11 +58,57 @@ const SLUG_ALIASES: Record<string, string> = {
   licitacion: 'tender', licitación: 'tender', tender: 'tender',
 };
 
+/** Mapa de nombres legacy (BD) a ProposalTemplateSections */
+const LEGACY_SECTION_MAP: Record<string, keyof ProposalTemplateSections> = {
+  coverPage: 'showCoverPage',
+  positions: 'showPositionsTable',
+  conditions: 'showConditions',
+  costSummary: 'showCostSummaryByCategory',
+  costBreakdown: 'showCostBreakdown',
+  executiveSummary: 'showCompanyIntro',
+  companyPresentation: 'showCompanyIntro',
+  additionalServices: 'showAdditionalServices',
+  annexes: 'showCostBreakdown',
+  legalAnnex: 'showComplianceSection',
+  technicalAnnex: 'showComplianceSection',
+};
+
+/**
+ * Normaliza sections en formato legacy (BD) al formato ProposalTemplateSections.
+ * Los templates en BD pueden usar coverPage, costBreakdown, etc. en vez de showCoverPage, showCostBreakdown.
+ */
+export function normalizeDbSectionsToProposalFormat(
+  raw: Record<string, unknown>,
+  slug?: string | null,
+): Partial<ProposalTemplateSections> {
+  const result: Partial<ProposalTemplateSections> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value !== 'boolean') continue;
+    const mapped = LEGACY_SECTION_MAP[key];
+    if (mapped) {
+      result[mapped] = value;
+    } else if (key.startsWith('show')) {
+      result[key as keyof ProposalTemplateSections] = value;
+    }
+  }
+  const canonical = SLUG_ALIASES[(slug ?? '').trim().toLowerCase()];
+  if (canonical === 'tender' && (raw.legalAnnex === true || raw.technicalAnnex === true)) {
+    result.showComplianceSection = true;
+    result.numberedSections = true;
+    result.headerStyle = 'formal';
+  }
+  if (canonical === 'detailed' && raw.costBreakdown === true) {
+    result.showLaborDetail = true;
+    result.showCostSummaryByCategory = true;
+  }
+  return result;
+}
+
 export function resolveCanonicalSections(
   slug: string | null | undefined,
 ): Partial<ProposalTemplateSections> | undefined {
   if (!slug) return undefined;
-  const canonical = SLUG_ALIASES[slug.toLowerCase()];
+  const canonical = SLUG_ALIASES[slug.trim().toLowerCase()];
   return canonical ? CANONICAL_SECTIONS[canonical] : undefined;
 }
 
@@ -343,14 +389,34 @@ export async function buildQuotationProps(
   }
 
   /* ── Template sections ── */
-  const dbSections = (quote.proposalTemplate?.sections ?? {}) as Partial<ProposalTemplateSections>;
-  const dbSectionsEmpty = Object.keys(dbSections).length === 0;
-  const slugFallback = resolveCanonicalSections(
-    (quote.proposalTemplate as { slug?: string } | null)?.slug
+  const rawDbSections = (quote.proposalTemplate?.sections ?? {}) as Record<string, unknown>;
+  const templateSlug = (quote.proposalTemplate as { slug?: string } | null)?.slug;
+  const slugFallback = resolveCanonicalSections(templateSlug);
+  const hasLegacyKeys = Object.keys(rawDbSections).some(
+    (k) => !k.startsWith('show') && LEGACY_SECTION_MAP[k] != null,
   );
-  const effectiveSections = options?.templateSectionsOverride
-    ?? (dbSectionsEmpty && slugFallback ? slugFallback : dbSections);
+  const hasCanonicalKeys = Object.keys(rawDbSections).some((k) => k.startsWith('show'));
+  const dbSectionsNormalized =
+    hasLegacyKeys && !hasCanonicalKeys
+      ? normalizeDbSectionsToProposalFormat(rawDbSections, templateSlug)
+      : (rawDbSections as Partial<ProposalTemplateSections>);
+  const dbSectionsEmpty = Object.keys(dbSectionsNormalized).length === 0;
+  let effectiveSections: Partial<ProposalTemplateSections> =
+    options?.templateSectionsOverride ??
+    (dbSectionsEmpty && slugFallback ? slugFallback : dbSectionsNormalized);
+  if (slugFallback && !options?.templateSectionsOverride) {
+    effectiveSections = { ...effectiveSections, ...slugFallback };
+  }
   const templateSections: ProposalTemplateSections = { ...DEFAULT_TEMPLATE_SECTIONS, ...effectiveSections };
+
+  if (process.env.NODE_ENV === 'development') {
+    const activeFlags = Object.entries(templateSections)
+      .filter(([, v]) => v === true)
+      .map(([k]) => k);
+    console.log(
+      `[PDF] Template: ${templateSlug ?? 'default'}, Active sections: ${activeFlags.join(', ')}`,
+    );
+  }
 
   /* ── CostsByCategory from summary ── */
   const costsByCategory = summary?.costsByCategory ?? [];
