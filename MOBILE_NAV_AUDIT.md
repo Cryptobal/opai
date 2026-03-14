@@ -680,3 +680,55 @@ En mobile, considerar:
 - **Sub-nav contextual:** Mantener el patrón actual de sub-tabs al entrar a un módulo
 - **CPQ:** Integrar MobileBottomBar como parte del content flow, no como fixed
 - **Unificar íconos y labels** entre sidebar y bottom bar
+
+---
+
+## 9. Resumen de cambios implementados (Rediseño Mobile Nav)
+
+### Phase 1 — Top bar redesign (`AppShell.tsx`)
+- Eliminado hamburger button y sidebar drawer en mobile
+- Eliminado RoleSwitcher y ThemeToggle del top bar
+- Nuevo top bar minimalista: Logo OPAI (izq) + Plus/Search/Chat/Notifications (der)
+- Touch targets de 44×44px, safe-area-inset support
+
+### Phase 2 — Eliminación sidebar mobile (`AppShell.tsx`)
+- Removido estado `isMobileOpen` y scroll-lock useEffect
+- Removido overlay y drawer z-40/z-50
+- Desktop sidebar sin cambios
+
+### Phase 3 — Nuevo bottom bar (`BottomNav.tsx`)
+- 5 items fijos: Inicio(Home), Comercial(Briefcase), Operaciones(Shield), Personas(Users), Más(LayoutGrid)
+- Color activo: emerald-400 con dot indicator animado
+- **"Más" drawer:** 3 secciones (Módulos 3-col grid, Herramientas con RoleSwitcher, Preferencias con theme toggle + logout con Dialog confirmación)
+- `--bottom-nav-height` CSS variable via ResizeObserver
+
+### Phase 4 — Sub-nav contextual (`BottomNav.tsx` + `module-nav.ts`)
+- **ModuleSubNav:** ChevronLeft back button + max 4 items visibles + overflow Sheet
+- **SectionNav:** IntersectionObserver para CRM detail pages, rotación de items activos desde overflow
+- Íconos unificados con sidebar: OPS (ClipboardCheck, Package), Personas (User, Trophy), Payroll (Wallet)
+- `getBottomNavItems()` retorna `[]` por defecto (BottomNav usa su propio MainNav)
+
+### Phase 5 — CPQ mobile fixes
+- **BottomNav oculto** en páginas CPQ detail (`/crm/cotizaciones/[id]`)
+- **MobileBottomBar** movido a `bottom-0` (era `bottom-14`), agregado `lg:hidden`
+- **FinancialPanel** tablas: `table-fixed`, `overflow-x-auto`, column width constraints, `truncate` en celdas largas
+- **CpqQuoteDetail** container: `overflow-x-hidden`, `min-w-0`, spacer reducido de `h-28` a `h-16`
+
+### Phase 7-8 — Animaciones y estilos visuales
+- `active:scale-95` en todos los touch targets
+- `animate-in fade-in duration-200` en dot indicator
+- `bg-background/95 backdrop-blur-xl` en nav container
+- Premium dark mode con `border-border/30`
+
+### Archivos modificados
+| Archivo | Cambios |
+|---------|---------|
+| `src/components/opai/AppShell.tsx` | Top bar redesign, sidebar drawer removal |
+| `src/components/opai/BottomNav.tsx` | Reescritura completa (MainNav, MasDrawer, ModuleSubNav, SectionNav) |
+| `src/lib/module-nav.ts` | Íconos unificados, default return `[]`, nuevos imports |
+| `src/components/cpq/MobileBottomBar.tsx` | `bottom-0`, `lg:hidden`, safe-area padding |
+| `src/components/cpq/FinancialPanel.tsx` | Table overflow fixes, column constraints |
+| `src/components/cpq/CpqQuoteDetail.tsx` | `overflow-x-hidden`, `min-w-0`, spacer `h-16` |
+
+### Portales (sin cambios)
+Los 6 portales PWA (guardia, supervisor, cliente, marcacion, acceso, rondas) no fueron modificados — cada uno tiene su propio layout independiente.

@@ -624,15 +624,15 @@ function PreviewTab({
 
           {/* Positions table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-[10px]">
+            <table className="w-full text-[10px] sm:text-xs table-fixed">
               <thead>
                 <tr style={{ background: "#f1f5f9", borderBottom: "2px solid #14b8a6" }}>
-                  <th className="text-left p-1 font-semibold" style={{ color: "#1e293b" }}>Puesto</th>
-                  <th className="text-left p-1 font-semibold" style={{ color: "#1e293b" }}>G</th>
-                  <th className="text-left p-1 font-semibold" style={{ color: "#1e293b" }}>Cant</th>
-                  <th className="text-left p-1 font-semibold" style={{ color: "#1e293b" }}>Dias</th>
-                  <th className="text-left p-1 font-semibold" style={{ color: "#1e293b" }}>Horario</th>
-                  <th className="text-right p-1 font-semibold" style={{ color: "#1e293b" }}>Precio</th>
+                  <th className="text-left p-1 font-semibold max-w-[120px] w-[30%]" style={{ color: "#1e293b" }}>Puesto</th>
+                  <th className="text-left p-1 font-semibold w-[8%]" style={{ color: "#1e293b" }}>G</th>
+                  <th className="text-left p-1 font-semibold w-[8%]" style={{ color: "#1e293b" }}>Cant</th>
+                  <th className="text-left p-1 font-semibold w-[12%]" style={{ color: "#1e293b" }}>Dias</th>
+                  <th className="text-left p-1 font-semibold w-[18%]" style={{ color: "#1e293b" }}>Horario</th>
+                  <th className="text-right p-1 font-semibold w-[24%]" style={{ color: "#1e293b" }}>Precio</th>
                 </tr>
               </thead>
               <tbody>
@@ -646,7 +646,7 @@ function PreviewTab({
                       : formatCLP(clp);
                   return (
                     <tr key={pos.id} className="border-b border-gray-100">
-                      <td className="p-1">
+                      <td className="p-1 truncate max-w-[120px]">
                         {pos.customName ||
                           pos.puestoTrabajo?.name ||
                           "Puesto"}
@@ -689,16 +689,17 @@ function PreviewTab({
               >
                 Servicios y Productos Adicionales
               </p>
-              <table className="w-full text-[10px]">
+              <div className="overflow-x-auto">
+              <table className="w-full text-[10px] sm:text-xs table-fixed">
                 <thead>
                   <tr style={{ background: "#f1f5f9", borderBottom: "2px solid #14b8a6" }}>
-                    <th className="text-left p-1 font-semibold">
+                    <th className="text-left p-1 font-semibold w-[30%]">
                       Producto / Servicio
                     </th>
-                    <th className="text-left p-1 font-semibold">
+                    <th className="text-left p-1 font-semibold w-[40%]">
                       Descripcion
                     </th>
-                    <th className="text-right p-1 font-semibold">
+                    <th className="text-right p-1 font-semibold w-[30%]">
                       Valor Mensual
                     </th>
                   </tr>
@@ -711,8 +712,8 @@ function PreviewTab({
                         key={linea.id || index}
                         className="border-b border-gray-100"
                       >
-                        <td className="p-1">{linea.nombre || "—"}</td>
-                        <td className="p-1 text-gray-600">
+                        <td className="p-1 truncate max-w-[120px]">{linea.nombre || "—"}</td>
+                        <td className="p-1 text-gray-600 truncate max-w-[150px]">
                           {linea.descripcion || "—"}
                         </td>
                         <td className="p-1 text-right">
@@ -733,6 +734,7 @@ function PreviewTab({
                   </tr>
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 

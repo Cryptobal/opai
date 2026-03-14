@@ -23,13 +23,13 @@ import {
   Landmark,
   BookText,
   MessageCircle,
-  // CRM
+  // CRM — unified with sidebar
   Users,
   MapPin,
   TrendingUp,
   Contact,
   DollarSign,
-  // Ops
+  // Ops — unified with sidebar
   CalendarDays,
   Clock3,
   UserRoundCheck,
@@ -38,17 +38,23 @@ import {
   Route,
   Radio,
   Ticket,
+  ClipboardCheck,
+  Package,
   // TE
   CheckCircle2,
   Layers,
   Banknote,
-  // Personas
+  // Personas — unified with sidebar
   Shield,
+  User,
+  Bell,
+  Trophy,
   // Docs
   FolderOpen,
+  // Payroll — unified with sidebar
+  Wallet,
   // Config
   Plug,
-  Bell,
   Sparkles,
 } from "lucide-react";
 import {
@@ -101,14 +107,12 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
 /* ── Ops sub-items ── */
 
 const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
+  { key: "ops-pautas", href: "/ops/pauta-mensual", label: "Pautas", icon: CalendarDays, subKey: "pauta_mensual" },
   { key: "ops-installations", href: "/crm/installations", label: "Instalaciones", icon: MapPin, subKey: "installations" },
-  { key: "ops-pauta-mensual", href: "/ops/pauta-mensual", label: "Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
-  { key: "ops-pauta-diaria", href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
-  { key: "ops-refuerzos", href: "/ops/refuerzos", label: "Refuerzo", icon: Clock3, subKey: "turnos_extra" },
-  { key: "ops-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
-  { key: "ops-ppc", href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
-  { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
+  { key: "ops-supervision", href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
   { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
+  { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
+  { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];
 
 const RONDAS_ITEMS: BottomNavItem[] = [
@@ -131,17 +135,18 @@ const TE_ITEMS: BottomNavItem[] = [
 /* ── Personas sub-items ── */
 
 const PERSONAS_ITEMS: BottomNavItem[] = [
-  { key: "personas-listado", href: "/personas/guardias", label: "Listado", icon: Shield },
+  { key: "personas-listado", href: "/personas/guardias", label: "Listado", icon: User },
   { key: "personas-onboarding", href: "/personas/onboarding", label: "Onboarding", icon: UserRoundCheck },
   { key: "personas-comunicaciones", href: "/personas/comunicaciones", label: "Comunicaciones", icon: Bell },
   { key: "personas-sueldos-rut", href: "/personas/guardias/sueldos-rut", label: "Sueldos RUT", icon: DollarSign },
+  { key: "personas-gamificacion", href: "/personas/gamificacion", label: "Gamificación", icon: Trophy },
 ];
 
 /* ── Payroll sub-items ── */
 
 const PAYROLL_ITEMS: BottomNavItem[] = [
   { key: "payroll-periodos", href: "/payroll/periodos", label: "Períodos", icon: CalendarDays },
-  { key: "payroll-anticipos", href: "/payroll/anticipos", label: "Anticipos", icon: Banknote },
+  { key: "payroll-anticipos", href: "/payroll/anticipos", label: "Anticipos", icon: Wallet },
   { key: "payroll-simulator", href: "/payroll/simulator", label: "Simulador", icon: Calculator },
   { key: "payroll-parameters", href: "/payroll/parameters", label: "Parámetros", icon: FileText },
 ];
@@ -332,24 +337,8 @@ export function getBottomNavItems(
     }
   }
 
-  // Default: main nav items
-  const moduleMapping: Record<string, "hub" | "docs" | "crm" | "payroll" | "ops" | "config" | "finance"> = {
-    hub: "hub",
-    docs: "docs",
-    crm: "crm",
-    payroll: "payroll",
-    ops: "ops",
-    finance: "finance",
-    admin: "config",
-  };
-
-  return MAIN_ITEMS.filter((item) => {
-    // Chat is always visible (not permission-gated)
-    if (item.app === "chat") return true;
-    const moduleKey = moduleMapping[item.app];
-    if (!moduleKey) return false;
-    return hasModuleAccess(perms, moduleKey);
-  });
+  // Default: empty array — BottomNav uses its own MainNav component
+  return [];
 }
 
 /* ── Exports para SubNav components ── */

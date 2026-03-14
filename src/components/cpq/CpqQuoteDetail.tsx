@@ -972,7 +972,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   }
 
   return (
-    <div className="space-y-2 pb-20 lg:pb-4">
+    <div className="space-y-2 pb-20 lg:pb-4 overflow-x-hidden min-w-0">
       {/* -- Compact header -- */}
       <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-5 px-5 py-2.5 mb-4">
       <div className="flex items-center gap-2 min-h-[40px]">
@@ -1084,7 +1084,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </div>{/* end sticky header */}
 
       {/* -- 2-column layout: left column scrolls, right column (desglose/preview) stays fixed -- */}
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-0 lg:h-[calc(100vh-11rem)] lg:min-h-[420px]">
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-0 lg:h-[calc(100vh-11rem)] lg:min-h-[420px] min-w-0">
 
       {/* -- Editor: scrollable left column (only this scrolls on desktop) -- */}
       <div className="space-y-2 min-w-0 lg:pr-5 overflow-y-auto lg:min-h-0 lg:overscroll-contain">
@@ -1773,7 +1773,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </div>{/* end 2-column grid */}
 
       {/* Mobile spacer for fixed bottom bar */}
-      <div className="h-28 lg:hidden" />
+      <div className="h-16 lg:hidden" />
 
       {/* -- Mobile bottom bar (replaces wizard nav) -- */}
       <MobileBottomBar
