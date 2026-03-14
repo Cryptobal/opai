@@ -7,6 +7,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
   themeColor: "#060a13",
 };
 
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function PortalAccesoLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh text-[#F9FAFB] antialiased">
+    <div className="min-h-dvh text-foreground antialiased" style={{ paddingTop: 'var(--safe-area-top)' }}>
       <ServiceWorkerRegistrar />
       <BadgeClear />
       {children}

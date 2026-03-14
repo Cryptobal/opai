@@ -15,6 +15,10 @@ export const metadata = {
   description: 'Acceso al panel OPAI',
 };
 
+export const viewport = {
+  viewportFit: 'cover' as const,
+};
+
 export default async function LoginPage() {
   const session = await auth();
   if (session?.user) redirect('/hub');

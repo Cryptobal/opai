@@ -102,8 +102,25 @@ export function Section23PropuestaEconomica({
 
   const pricingTable = (
     <div className={cn("max-w-6xl mx-auto", pdfMode ? "mb-8" : "mb-12")}>
-      <div className="glass-card rounded-2xl overflow-hidden overflow-x-auto border-2 border-white/10 shadow-2xl">
-        <table className="w-full table-fixed min-w-[480px]">
+      <div className="glass-card rounded-2xl overflow-hidden overflow-x-auto scrollbar-hide border-2 border-white/10 shadow-2xl">
+        {/* Mobile: card view for pricing items */}
+        <div className="sm:hidden p-3 space-y-3">
+          {pricing.items.map((item, index) => (
+            <div key={index} className="border-b border-white/5 pb-3 last:border-0">
+              {item.name && <div className="font-bold text-white text-sm mb-1">{item.name}</div>}
+              {item.description && <div className="text-xs text-white/50 mb-1">{item.description}</div>}
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-white/60">Cant: {item.quantity ?? 1}</span>
+                <span className="text-teal-400 font-semibold">{formatPrice(item.subtotal ?? (item.quantity ?? 1) * (item.unit_price ?? 0))}</span>
+              </div>
+            </div>
+          ))}
+          <div className="pt-3 border-t-2 border-teal-400/50 flex items-center justify-between">
+            <span className="text-sm font-bold text-white">TOTAL NETO MENSUAL</span>
+            <span className="text-xl font-black bg-gradient-to-br from-teal-400 to-blue-400 bg-clip-text text-transparent">{showTokens ? <ZohoToken token="quote.Sub_Total" inline /> : formatPrice(pricing.subtotal)}</span>
+          </div>
+        </div>
+        <table className="w-full table-fixed min-w-[480px] hidden sm:table">
           <colgroup>
             <col className="w-[50%]" />
             <col className="w-[12%]" />

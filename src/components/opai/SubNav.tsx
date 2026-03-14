@@ -4,10 +4,11 @@
  * SubNav — Refactored
  *
  * Desktop (sm+): Pills horizontales con iconos
- * Mobile: Visible (antes estaba oculto con hidden sm:block)
+ * Mobile: Visible with fade-out gradient when overflowing
  * Tab activo: borde verde + fondo sutil
  */
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -28,10 +29,31 @@ interface SubNavProps {
 
 export function SubNav({ items, className }: SubNavProps) {
   const pathname = usePathname();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showFade, setShowFade] = useState(false);
+
+  const checkOverflow = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setShowFade(el.scrollWidth > el.clientWidth && el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    checkOverflow();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', checkOverflow, { passive: true });
+    const ro = new ResizeObserver(checkOverflow);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', checkOverflow);
+      ro.disconnect();
+    };
+  }, [checkOverflow]);
 
   return (
-    <nav className={cn("mb-4", className)}>
-      <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+    <nav className={cn("mb-4 relative", className)}>
+      <div ref={scrollRef} className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
         {items.map((item) => {
           const isActive = item.exactMatch
             ? pathname === item.href
@@ -42,7 +64,7 @@ export function SubNav({ items, className }: SubNavProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors shrink-0",
+                "flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-medium transition-colors shrink-0",
                 isActive
                   ? "bg-primary/15 text-primary border border-primary/30"
                   : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent"
@@ -54,6 +76,10 @@ export function SubNav({ items, className }: SubNavProps) {
           );
         })}
       </div>
+      {/* Fade-out gradient to indicate more content */}
+      {showFade && (
+        <div className="absolute right-0 top-0 bottom-1 w-8 pointer-events-none bg-gradient-to-l from-background to-transparent" />
+      )}
     </nav>
   );
 }

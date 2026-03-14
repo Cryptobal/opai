@@ -44,7 +44,7 @@ export function MobileBottomBar({
         className={cn(
           "fixed bottom-14 left-0 right-0 z-50",
           "bg-background/95 backdrop-blur-xl border-t border-border/60",
-          "px-4 py-2",
+          "px-4 py-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]",
           "flex items-center justify-between gap-2",
           className
         )}

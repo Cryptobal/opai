@@ -99,11 +99,14 @@ const COLUMNS: DataTableColumn[] = [
     key: "entityId",
     label: "Instalación",
     render: (v: string | null) => v ? v.slice(0, 8) + "…" : "—",
+    hideOnMobile: true,
   },
   {
     key: "details",
     label: "Detalle",
+    className: "max-w-[200px] truncate",
     render: (v: unknown) => formatDetails(v),
+    hideOnMobile: true,
   },
 ];
 

@@ -7,6 +7,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
   themeColor: "#060a13",
 };
 
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function PortalRondasLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh text-[#f5f5f5] antialiased">
+    <div className="min-h-dvh text-[#f5f5f5] antialiased" style={{ paddingTop: 'var(--safe-area-top)' }}>
       <ServiceWorkerRegistrar />
       <BadgeClear />
       {children}

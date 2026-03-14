@@ -281,7 +281,7 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
               <h3 className="text-sm font-semibold">Métricas de servicio</h3>
               <PreviewBadge />
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               <KpiCard label="Cumplimiento mensual" value={`${summary.compliance}%`} trend={<TrendBadge value={summary.complianceTrend} suffix="%" />} color="emerald" />
               <KpiCard label="Rondas completadas" value={`${summary.completedRounds}/${summary.totalRounds}`} trend={<span className="text-[10px] text-zinc-500">este mes</span>} color="blue" />
               <KpiCard label="Trust Score promedio" value={String(summary.trustScore)} trend={<TrendBadge value={summary.trustTrend} />} color="blue" />
@@ -397,7 +397,7 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
           )}
           {summary.totalRounds > 0 && (
             <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             <KpiCard label="Cumplimiento mensual" value={`${summary.compliance}%`} trend={<TrendBadge value={summary.complianceTrend} suffix="%" />} color="emerald" />
             <KpiCard label="Rondas completadas" value={`${summary.completedRounds}/${summary.totalRounds}`} trend={<span className="text-[10px] text-zinc-500">este mes</span>} color="blue" />
             <KpiCard
@@ -432,7 +432,7 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
                   ))}
                 </div>
               </div>
-              <div className="h-[200px]">
+              <div className="h-[160px] sm:h-[200px]">
                 {chartData.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-xs text-zinc-500">Sin datos</div>
                 ) : (

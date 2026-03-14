@@ -47,7 +47,7 @@ export function PageHeader({
             Volver a {backLabel}
           </Link>
         )}
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-lg sm:text-xl font-semibold tracking-tight">{title}</h1>
         {description != null && (
           <div className="text-sm text-muted-foreground mt-0.5">{description}</div>
         )}

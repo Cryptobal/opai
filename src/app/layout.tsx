@@ -9,6 +9,7 @@ import { BadgeClear } from "@/components/pwa/BadgeClear";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
   themeColor: "#060a13",
 };
 

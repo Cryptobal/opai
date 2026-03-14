@@ -69,15 +69,14 @@ export function DashboardCotizacionesPendientes({
               <div className="md:hidden">
                 <div
                   ref={scrollRef}
-                  className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2"
-                  style={{ scrollbarWidth: "none" }}
+                  className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 scrollbar-hide"
                 >
                   {quotes.map((q) => (
                     <ProspectQuoteCard
                       key={q.id}
                       quote={q}
                       onView={() => onNavigateToDetail(navigateSection)}
-                      className="min-w-[280px] snap-center"
+                      className="min-w-[260px] snap-center"
                     />
                   ))}
                 </div>

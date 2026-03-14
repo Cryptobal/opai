@@ -7,6 +7,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
   themeColor: "#060a13",
 };
 
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function PortalClienteLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh text-white">
+    <div className="min-h-dvh text-white" style={{ paddingTop: 'var(--safe-area-top)' }}>
       <PwaRegistrar />
       <BadgeClear />
       {children}

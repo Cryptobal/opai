@@ -149,7 +149,7 @@ export function EntityDetailLayout({
               const href = breadcrumbHrefs?.[i];
 
               return (
-                <span key={i} className="flex items-center gap-1">
+                <span key={i} className="flex items-center gap-1 min-w-0">
                   {i > 0 && (
                     <ChevronRight className="h-3 w-3 text-muted-foreground/50 shrink-0" />
                   )}

@@ -102,7 +102,7 @@ export function PortalAccessControl({ session, selectedInstallation, isProspect 
       <p className="text-xs text-zinc-500 mb-4">Registro digital de ingresos — QR, OCR, tiempo real</p>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 overflow-x-auto">
+      <div className="flex gap-1 mb-4 overflow-x-auto scrollbar-hide">
         {tabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}

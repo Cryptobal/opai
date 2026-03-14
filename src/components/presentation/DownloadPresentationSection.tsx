@@ -73,7 +73,7 @@ export function DownloadPresentationSection({ uniqueId, className }: DownloadPre
       className
     )}>
       {/* Glow decorativo */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-teal-500/10 rounded-full blur-3xl pointer-events-none hidden sm:block" />
       
       <div className="relative z-10 max-w-2xl mx-auto px-6 text-center">
         {/* Icono */}

@@ -392,8 +392,8 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                             </div>
                           )}
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-medium text-sm">{account.name}</p>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <p className="font-medium text-sm truncate">{account.name}</p>
                               {unreadNoteIds.has(account.id) && (
                                 <span className="relative shrink-0" title="Notas no leídas">
                                   <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
@@ -479,7 +479,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                             <p className="text-[11px] text-muted-foreground">{account.industry || "Sin industria"}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap mt-2">
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap mt-2 min-w-0">
                           <Badge
                             variant="outline"
                             className={`text-[10px] ${

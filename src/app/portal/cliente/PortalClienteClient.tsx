@@ -348,12 +348,12 @@ export function PortalClienteClient() {
               className="h-8 object-contain"
             />
           )}
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h1 className="text-base font-semibold">Portal Gard</h1>
-              <span className="text-[9px] font-medium bg-teal-500/15 text-teal-400 px-1.5 py-0.5 rounded">OPAI</span>
+              <h1 className="text-base font-semibold truncate">Portal Gard</h1>
+              <span className="text-[9px] font-medium bg-teal-500/15 text-teal-400 px-1.5 py-0.5 rounded shrink-0">OPAI</span>
             </div>
-            <p className="text-xs text-zinc-400">{session?.accountName}</p>
+            <p className="text-xs text-zinc-400 truncate max-w-[200px] sm:max-w-none">{session?.accountName}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -362,7 +362,7 @@ export function PortalClienteClient() {
               <select
                 value={selectedInstallation}
                 onChange={(e) => setSelectedInstallation(e.target.value)}
-                className="h-8 rounded border border-white/10 bg-white/5 px-2 pr-7 text-xs appearance-none"
+                className="h-10 sm:h-8 rounded border border-white/10 bg-white/5 px-2 pr-8 text-xs appearance-none max-w-[160px] truncate"
               >
                 {session.installations.map((i) => (
                   <option key={i.id} value={i.id}>{i.name}</option>
@@ -401,7 +401,7 @@ export function PortalClienteClient() {
           <ChatClientePortal session={session} />
         </div>
       ) : (
-        <main className="flex-1 pb-20">
+        <main className="flex-1 pb-16 sm:pb-20">
           {session && (
             <PushPermissionPrompt
               portalType="cliente"

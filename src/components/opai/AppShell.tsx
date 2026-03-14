@@ -84,16 +84,15 @@ export function AppShell({
 
   useEffect(() => {
     if (!isMobileOpen) return;
+    const html = document.documentElement;
     const scrollY = window.scrollY;
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
-    document.body.style.overflow = 'hidden';
+    html.style.setProperty('--scroll-lock-y', `-${scrollY}px`);
+    html.classList.add('overflow-hidden');
+    html.style.touchAction = 'none';
     return () => {
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      document.body.style.overflow = '';
+      html.classList.remove('overflow-hidden');
+      html.style.touchAction = '';
+      html.style.removeProperty('--scroll-lock-y');
       window.scrollTo(0, scrollY);
     };
   }, [isMobileOpen]);
@@ -112,7 +111,7 @@ export function AppShell({
         className: cn(
           (sidebar as ReactElement<{ className?: string }>).props.className,
           'z-50 transition-transform duration-300 ease-out',
-          'top-0 h-[100dvh] max-h-[100dvh]',
+          'top-0 h-screen supports-[height:100dvh]:h-[100dvh] max-h-screen supports-[max-height:100dvh]:max-h-[100dvh]',
           isMobileOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
         ),
         onNavigate: () => setIsMobileOpen(false),
@@ -242,7 +241,7 @@ export function AppShell({
             />
             {/* Sidebar móvil: de arriba a abajo (anclado arriba), X arriba */}
             <div
-              className="fixed left-0 top-0 z-50 w-[320px] max-w-[88vw] h-[100dvh] max-h-[100dvh] shadow-xl flex flex-col pointer-events-none"
+              className="fixed left-0 top-0 z-50 w-[320px] max-w-[88vw] h-screen supports-[height:100dvh]:h-[100dvh] max-h-screen supports-[max-height:100dvh]:max-h-[100dvh] shadow-xl flex flex-col pointer-events-none"
               style={{ pointerEvents: isMobileOpen ? 'auto' : 'none' }}
             >
               {mobileSidebar}
@@ -303,7 +302,7 @@ export function AppShell({
                 {children}
               </div>
             ) : (
-              <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden pl-2 pr-4 sm:pl-3 sm:pr-6 lg:pl-4 lg:pr-8 xl:pl-5 xl:pr-10 2xl:pl-6 2xl:pr-12" role="region">
+              <div className="w-full max-w-full pt-4 pb-28 lg:pt-0 lg:pb-6 animate-in-page min-w-0 overflow-x-hidden px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12" role="region">
                 {children}
               </div>
             )}

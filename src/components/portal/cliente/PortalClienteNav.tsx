@@ -139,7 +139,7 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
               <span className="text-[10px] leading-tight font-medium">Más</span>
             </button>
             {moreOpen && groupedExtras && (
-              <div className="absolute bottom-14 right-0 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-2 min-w-[180px] max-h-[70vh] overflow-y-auto z-10">
+              <div className="absolute bottom-14 right-0 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-2 min-w-[180px] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto z-10">
                 {groupedExtras.groups.map((group, gIdx) => (
                   <div key={group.group}>
                     {gIdx > 0 && <div className="border-t border-border my-2" />}

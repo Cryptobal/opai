@@ -7,6 +7,8 @@ export interface DataTableColumn {
   key: string;
   label: string;
   className?: string;
+  /** Hide this column in mobile card view */
+  hideOnMobile?: boolean;
   render?: (value: any, row: any) => ReactNode;
 }
 
@@ -23,14 +25,16 @@ export interface DataTableProps {
   loading?: boolean;
   /** Reduce padding para tablas dentro de secciones pequeñas */
   compact?: boolean;
+  /** Show mobile card view on small screens (default: true) */
+  mobileCardView?: boolean;
   className?: string;
 }
 
 /**
  * DataTable - Tabla estandarizada reutilizable
  *
- * Reemplaza las implementaciones inline de <table> con clases inconsistentes.
- * Soporta modo compact para tablas dentro de cards/secciones pequeñas.
+ * Desktop: tabla estándar con columnas.
+ * Mobile (<md): vista de cards con key-value pairs (primeras 4 columnas visibles).
  *
  * @example
  * ```tsx
@@ -53,6 +57,7 @@ export function DataTable({
   emptyMessage = 'No hay datos para mostrar',
   loading = false,
   compact = false,
+  mobileCardView = true,
   className,
 }: DataTableProps) {
   if (loading) {
@@ -71,37 +76,77 @@ export function DataTable({
     ? 'px-3 py-2 text-sm text-foreground border-b border-border/50'
     : 'px-4 py-2.5 text-sm text-foreground border-b border-border/50';
 
+  // For mobile card view, show first 4 non-hidden columns
+  const mobileColumns = columns.filter((c) => !c.hideOnMobile).slice(0, 4);
+
   return (
-    <div className={cn('overflow-x-auto rounded-lg border border-border', className)}>
-      <table className="w-full">
-        <thead>
-          <tr>
-            {columns.map((col) => (
-              <th key={col.key} className={cn(headerCellClasses, col.className)}>
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+    <div className={cn(className)}>
+      {/* Mobile card view */}
+      {mobileCardView && (
+        <div className="md:hidden space-y-2">
           {data.map((row, rowIndex) => (
-            <tr
+            <div
               key={row.id ?? rowIndex}
               className={cn(
-                'hover:bg-muted/30 transition-colors',
+                'rounded-lg border border-border bg-card p-3 space-y-1.5 transition-colors active:bg-muted/50',
                 onRowClick && 'cursor-pointer'
               )}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
             >
+              {mobileColumns.map((col, colIdx) => {
+                const value = col.render ? col.render(row[col.key], row) : row[col.key];
+                // First column is the "title" — render larger
+                if (colIdx === 0) {
+                  return (
+                    <div key={col.key} className="text-sm font-medium text-foreground truncate min-w-0">
+                      {value}
+                    </div>
+                  );
+                }
+                return (
+                  <div key={col.key} className="flex items-center justify-between gap-2 min-w-0">
+                    <span className="text-xs text-muted-foreground shrink-0">{col.label}</span>
+                    <span className="text-xs text-foreground truncate min-w-0 text-right">{value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Desktop table view */}
+      <div className={cn('overflow-x-auto rounded-lg border border-border', mobileCardView && 'hidden md:block')}>
+        <table className="w-full min-w-0">
+          <thead>
+            <tr>
               {columns.map((col) => (
-                <td key={col.key} className={cn(dataCellClasses, col.className)}>
-                  {col.render ? col.render(row[col.key], row) : row[col.key]}
-                </td>
+                <th key={col.key} className={cn(headerCellClasses, col.className)}>
+                  {col.label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map((row, rowIndex) => (
+              <tr
+                key={row.id ?? rowIndex}
+                className={cn(
+                  'hover:bg-muted/30 active:bg-muted/50 transition-colors',
+                  onRowClick && 'cursor-pointer'
+                )}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+              >
+                {columns.map((col) => (
+                  <td key={col.key} className={cn(dataCellClasses, col.className)}>
+                    {col.render ? col.render(row[col.key], row) : row[col.key]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

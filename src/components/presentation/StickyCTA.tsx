@@ -51,10 +51,10 @@ export function StickyCTA({ cta, className }: StickyCTAProps) {
         isVisible ? 'translate-y-0' : 'translate-y-full',
         className
       )}
-      style={{ opacity: isVisible ? 1 : 0 }}
+      style={{ opacity: isVisible ? 1 : 0, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <div className="container mx-auto px-4 py-3">
-        <div className="flex gap-3">
+        <div className="flex gap-3 min-w-0">
           {/* Botón principal - Agendar */}
           <a
             href={cta.meeting_link}
