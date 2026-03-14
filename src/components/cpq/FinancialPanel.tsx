@@ -558,7 +558,7 @@ function PreviewTab({
           </span>
         </div>
         <div
-          className="p-3 space-y-2 bg-white text-black text-xs"
+          className="p-3 space-y-2 bg-white text-black text-xs overflow-hidden"
           style={{ fontFamily: "Arial, sans-serif" }}
         >
           {/* Header */}

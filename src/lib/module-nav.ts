@@ -98,10 +98,10 @@ const MAIN_ITEMS: (BottomNavItem & { app: string })[] = [
 const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "crm-leads", href: "/crm/leads", label: "Leads", icon: Users, subKey: "leads" },
   { key: "crm-accounts", href: "/crm/accounts", label: "Cuentas", icon: Building2, subKey: "accounts" },
-  { key: "crm-installations", href: "/crm/installations", label: "Instalaciones", icon: MapPin, subKey: "installations" },
   { key: "crm-deals", href: "/crm/deals", label: "Negocios", icon: TrendingUp, subKey: "deals" },
   { key: "crm-contacts", href: "/crm/contacts", label: "Contactos", icon: Contact, subKey: "contacts" },
   { key: "crm-quotes", href: "/crm/cotizaciones", label: "Cotizaciones", icon: DollarSign, subKey: "quotes" },
+  { key: "crm-installations", href: "/crm/installations", label: "Instalaciones", icon: MapPin, subKey: "installations" },
 ];
 
 /* ── Ops sub-items ── */
