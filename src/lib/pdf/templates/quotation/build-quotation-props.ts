@@ -161,8 +161,8 @@ export async function buildQuotationProps(
   let summary: Awaited<ReturnType<typeof computeCpqQuoteCosts>> | null = null;
   try {
     summary = await computeCpqQuoteCosts(quoteId);
-  } catch {
-    // proceed without summary
+  } catch (err) {
+    console.error('[PDF] computeCpqQuoteCosts failed — breakdown/labor/costsByCategory will be empty:', err);
   }
 
   const totalAdditionalLines = summary
@@ -384,8 +384,8 @@ export async function buildQuotationProps(
         ufValue: ufVal > 0 ? ufVal : undefined,
       };
     }
-  } catch {
-    // Non-critical
+  } catch (err) {
+    console.error('[PDF] breakdown build failed:', err);
   }
 
   /* ── Template sections ── */
@@ -409,7 +409,7 @@ export async function buildQuotationProps(
   }
   const templateSections: ProposalTemplateSections = { ...DEFAULT_TEMPLATE_SECTIONS, ...effectiveSections };
 
-  if (process.env.NODE_ENV === 'development') {
+  {
     const activeFlags = Object.entries(templateSections)
       .filter(([, v]) => v === true)
       .map(([k]) => k);
@@ -461,6 +461,10 @@ export async function buildQuotationProps(
     // TODO: load from tenant settings when available
     complianceItems = DEFAULT_COMPLIANCE_ITEMS;
   }
+
+  console.log(
+    `[PDF] Data: summary=${!!summary}, breakdown=${!!breakdown}, positions=${quote.positions.length}, costsByCategory=${costsByCategory.length}, laborBreakdown=${!!laborBreakdown}, additionalLinesPDF=${additionalLinesPDF.length}`,
+  );
 
   const props: QuotationPDFProps = {
     quote: {

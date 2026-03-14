@@ -411,16 +411,25 @@ export function PDFFooter({
   website,
   date,
   pageLabel,
+  dynamicPageLabel,
 }: {
   website?: string;
   date: string;
   pageLabel?: string;
+  dynamicPageLabel?: boolean;
 }) {
   return (
     <View style={s.footer} fixed>
       <Text style={s.footerText}>Confidencial · {date}</Text>
       <Text style={s.footerText}>{website || ''}</Text>
-      {pageLabel && <Text style={s.footerText}>{pageLabel}</Text>}
+      {dynamicPageLabel ? (
+        <Text
+          style={s.footerText}
+          render={({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) => `${pageNumber}/${totalPages}`}
+        />
+      ) : (
+        pageLabel && <Text style={s.footerText}>{pageLabel}</Text>
+      )}
     </View>
   );
 }

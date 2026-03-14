@@ -121,7 +121,7 @@ function LinkBottomNav({
               <span
                 className={cn(
                   "font-medium truncate max-w-full w-full text-center leading-tight",
-                  compact ? "text-[8px]" : "text-[10px]"
+                  compact ? "text-[10px]" : "text-[11px]"
                 )}
               >
                 {item.label}
@@ -263,7 +263,7 @@ function SectionBottomNav({
               <span
                 className={cn(
                   "font-medium truncate max-w-full w-full text-center leading-tight",
-                  compact ? "text-[8px]" : "text-[10px]"
+                  compact ? "text-[10px]" : "text-[11px]"
                 )}
               >
                 {item.label}
