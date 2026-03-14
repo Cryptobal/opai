@@ -845,7 +845,7 @@ export function QuotationPDF(props: QuotationPDFProps) {
   /* ── Page count ── */
   let pageCount = 1;
   if (sec.showConditions || sec.showIncludedItems || sec.showSignature) pageCount++;
-  if (breakdown && sec.showCostBreakdown) pageCount++;
+  if (breakdown && sec.showCostSummaryByCategory) pageCount++;
   if (sec.showLaborDetail && laborBreakdown) pageCount = Math.max(pageCount, 3);
   if (sec.showComplianceSection && complianceItems) pageCount = Math.max(pageCount, 3);
 

@@ -124,6 +124,19 @@ export async function getClosingHubData(
 ): Promise<ClosingHubData> {
   const sevenDaysAgo = new Date(now.getTime() - 7 * MS_PER_DAY);
 
+  // Identify negotiating stages for accurate KPI filtering
+  const negotiatingStages = await prisma.crmPipelineStage.findMany({
+    where: {
+      tenantId,
+      isActive: true,
+      isClosedWon: false,
+      isClosedLost: false,
+      name: { contains: 'negoci', mode: 'insensitive' },
+    },
+    select: { id: true },
+  });
+  const negotiatingStageIds = new Set(negotiatingStages.map((s) => s.id));
+
   // Batch 1: parallel queries
   const [
     openDeals,
@@ -294,8 +307,13 @@ export async function getClosingHubData(
     return { totalViews, lastViewedAt, proposalUniqueId };
   }
 
+  // Filter to only negotiating-stage deals for KPIs (not ALL open deals)
+  const negotiatingDeals = negotiatingStageIds.size > 0
+    ? openDeals.filter((d) => negotiatingStageIds.has(d.stageId))
+    : openDeals; // fallback: if no negotiating stages defined, use all open
+
   // Compute negotiation summaries for KPIs
-  const summaries = openDeals
+  const summaries = negotiatingDeals
     .map((d) => resolveDealActiveQuotationSummary(d, quoteById, ufValue))
     .filter(Boolean) as NonNullable<ReturnType<typeof resolveDealActiveQuotationSummary>>[];
 
@@ -418,7 +436,7 @@ export async function getClosingHubData(
     kpis: {
       openLeadsCount,
       newLeads30,
-      dealsNegotiatingCount: openDeals.length,
+      dealsNegotiatingCount: negotiatingDeals.length,
       amountNegotiatingClp,
       amountNegotiatingUf,
       guardsInNegotiation,
