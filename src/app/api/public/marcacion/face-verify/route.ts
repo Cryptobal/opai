@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
         id: true,
         tenantId: true,
         name: true,
+        address: true,
         lat: true,
         lng: true,
         geoRadiusM: true,
@@ -157,12 +158,15 @@ export async function POST(req: NextRequest) {
         isBlacklisted: true,
         faceIdRegistered: true,
         faceIdConsentRevoked: true,
+        personalEmail: true,
+        dtResolucionJornada: true,
         persona: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
             email: true,
+            personalEmail: true,
             rut: true,
           },
         },
@@ -300,6 +304,14 @@ export async function POST(req: NextRequest) {
     const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || null;
     const userAgent = req.headers.get("user-agent") || null;
 
+    // Geolocation status
+    const gpsStatus: "dentro_rango" | "fuera_rango" | "sin_gps" =
+      lat != null && lng != null ? (geoValidada ? "dentro_rango" : "fuera_rango") : "sin_gps";
+
+    // Obtener datos del empleador desde configuración del tenant
+    const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+    const tenantCfg = await getTenantCompanyConfig(installation.tenantId);
+
     // Create marcacion and update attendance in a transaction
     const result = await prisma.$transaction(async (tx) => {
       const marcacion = await tx.opsMarcacion.create({
@@ -323,6 +335,13 @@ export async function POST(req: NextRequest) {
           atrasoMinutos,
           offlineSync: isOfflineSync,
           deviceTimestamp: deviceTimestamp ? new Date(deviceTimestamp) : null,
+          // Resolución Exenta N°38 — Datos obligatorios
+          employerRut: tenantCfg.rut,
+          employerName: tenantCfg.razonSocial,
+          establishmentAddress: installation.address,
+          dtResolutionNumber: guardia.dtResolucionJornada,
+          gpsStatus,
+          distanciaMetros: geoDistanciaM,
         },
       });
 
@@ -400,24 +419,59 @@ export async function POST(req: NextRequest) {
       return marcacion;
     });
 
+    // Verificar si el email de comprobante digital está habilitado
+    let comprobanteEmailEnabled = true;
+    const marcacionConfigSetting = await prisma.setting.findFirst({
+      where: { key: `marcacion_config:${installation.tenantId}` },
+    });
+    if (marcacionConfigSetting?.value) {
+      try {
+        const cfg = JSON.parse(marcacionConfigSetting.value);
+        comprobanteEmailEnabled = cfg.emailComprobanteDigitalEnabled !== false;
+      } catch { /* use default */ }
+    }
+
     // Send comprobante email (fire-and-forget)
-    const gpsStatus: "dentro_rango" | "fuera_rango" | "sin_gps" =
-      lat != null && lng != null ? (geoValidada ? "dentro_rango" : "fuera_rango") : "sin_gps";
-    if (guardia.persona.firstName) {
-      sendMarcacionComprobante({
-        guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),
-        guardiaEmail: guardia.persona.email ?? undefined,
-        guardiaRut: guardia.persona.rut ?? "",
-        installationName: installation.name,
-        tipo,
-        timestamp: effectiveTimestamp,
-        geoValidada,
-        geoDistanciaM,
-        gpsStatus,
-        hashIntegridad,
-        lat: lat ?? null,
-        lng: lng ?? null,
-      }).catch((err) => console.error("[marcacion] Error enviando comprobante:", err));
+    // Res. N°38: preferir email personal del guardia; fallback al email corporativo
+    const guardiaEmail = guardia.personalEmail ?? guardia.persona.personalEmail ?? guardia.persona.email ?? undefined;
+    if (comprobanteEmailEnabled && guardia.persona.firstName) {
+      if (!guardiaEmail) {
+        console.warn(`[marcacion] Guardia ${formatPersonName(guardia.persona.firstName, guardia.persona.lastName)} sin email — comprobante no enviado`);
+      } else {
+        sendMarcacionComprobante({
+          guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),
+          guardiaEmail,
+          guardiaRut: guardia.persona.rut ?? "",
+          installationName: installation.name,
+          tipo,
+          timestamp: effectiveTimestamp,
+          geoValidada,
+          geoDistanciaM,
+          gpsStatus,
+          hashIntegridad,
+          lat: lat ?? null,
+          lng: lng ?? null,
+        }).catch((err) => console.error("[marcacion] Error enviando comprobante:", err));
+      }
+    }
+
+    // Notificar supervisor si está fuera de rango (fire-and-forget)
+    if (gpsStatus === "fuera_rango") {
+      import("@/lib/marcacion-email").then(({ sendNotificacionFueraDeRango }) =>
+        sendNotificacionFueraDeRango({
+          tenantId: installation.tenantId,
+          installationId: installation.id,
+          installationName: installation.name,
+          guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),
+          guardiaRut: guardia.persona.rut ?? "",
+          tipo,
+          timestamp: effectiveTimestamp,
+          geoDistanciaM,
+          geoRadiusM: installation.geoRadiusM,
+          lat: lat ?? null,
+          lng: lng ?? null,
+        }).catch((err) => console.error("[marcacion] Error notificando supervisor fuera de rango:", err))
+      );
     }
 
     return NextResponse.json({
@@ -428,6 +482,7 @@ export async function POST(req: NextRequest) {
         timestamp: result.timestamp.toISOString(),
         geoValidada,
         geoDistanciaM,
+        gpsStatus,
         guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),
         installationName: installation.name,
         hashIntegridad: result.hashIntegridad,

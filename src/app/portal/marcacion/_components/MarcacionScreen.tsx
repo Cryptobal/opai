@@ -31,6 +31,8 @@ interface MarcaResult {
   hashIntegridad: string;
   faceConfidence?: number;
   offline?: boolean;
+  gpsStatus?: "dentro_rango" | "fuera_rango" | "sin_gps";
+  geoDistanciaM?: number | null;
 }
 
 type ScreenMode =
@@ -296,6 +298,8 @@ export function MarcacionScreen({
           timestamp: data.data.timestamp,
           hashIntegridad: data.data.hashIntegridad,
           faceConfidence: data.data.faceConfidence,
+          gpsStatus: data.data.gpsStatus,
+          geoDistanciaM: data.data.geoDistanciaM,
         });
         setMode("success");
       } catch (err) {
@@ -377,6 +381,8 @@ export function MarcacionScreen({
           tipo: data.data.tipo as MarcaTipo,
           timestamp: data.data.timestamp,
           hashIntegridad: data.data.hashIntegridad,
+          gpsStatus: data.data.gpsStatus,
+          geoDistanciaM: data.data.geoDistanciaM,
         });
         setMode("success");
       } catch (err) {
@@ -574,6 +580,19 @@ export function MarcacionScreen({
                 hour12: false,
               })}
             </p>
+            {lastMarca.gpsStatus === "fuera_rango" && (
+              <div
+                className="rounded-xl p-3 mt-4 text-left"
+                style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.4)" }}
+              >
+                <p className="text-amber-400 text-sm font-semibold">
+                  ⚠ Marcación fuera de rango{lastMarca.geoDistanciaM != null ? ` (${lastMarca.geoDistanciaM}m)` : ""}
+                </p>
+                <p className="text-amber-400/70 text-xs mt-1">
+                  Tu supervisor será notificado. Esta marcación quedará registrada como fuera de rango.
+                </p>
+              </div>
+            )}
             {lastMarca.faceConfidence && (
               <p className="text-xs text-white/40 mt-2">
                 Face ID · {lastMarca.faceConfidence.toFixed(1)}% confianza

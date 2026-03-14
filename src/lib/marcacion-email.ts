@@ -7,6 +7,7 @@
  */
 
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
+import { prisma } from "@/lib/prisma";
 
 interface ComprobanteMarcacion {
   guardiaName: string;
@@ -364,4 +365,141 @@ export async function sendAvisoModificacionMarcacion(data: AvisoModificacionMarc
     subject,
     html,
   });
+}
+
+/* ─── Notificación al Supervisor: Marcación Fuera de Rango ─── */
+
+interface NotificacionFueraDeRango {
+  tenantId: string;
+  installationId: string;
+  installationName: string;
+  guardiaName: string;
+  guardiaRut: string;
+  tipo: "entrada" | "salida";
+  timestamp: Date;
+  geoDistanciaM: number | null;
+  geoRadiusM: number;
+  lat: number | null;
+  lng: number | null;
+}
+
+/**
+ * Envía notificación por email a los supervisores asignados a la instalación
+ * cuando un guardia marca fuera del rango geográfico configurado.
+ */
+export async function sendNotificacionFueraDeRango(data: NotificacionFueraDeRango): Promise<void> {
+  // Buscar supervisores asignados a esta instalación
+  const assignments = await prisma.opsAsignacionSupervisor.findMany({
+    where: {
+      installationId: data.installationId,
+      isActive: true,
+    },
+    select: {
+      supervisor: { select: { name: true, email: true } },
+    },
+  });
+
+  const supervisorEmails = assignments
+    .map((a) => a.supervisor.email)
+    .filter(Boolean);
+
+  if (supervisorEmails.length === 0) {
+    console.warn(`[marcacion] Instalación ${data.installationName} sin supervisores asignados — no se notifica fuera de rango`);
+    return;
+  }
+
+  const tipoLabel = data.tipo === "entrada" ? "Entrada" : "Salida";
+  const hora = data.timestamp.toLocaleTimeString("es-CL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZone: "America/Santiago",
+  });
+  const fecha = data.timestamp.toLocaleDateString("es-CL", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Santiago",
+  });
+  const gpsCoords = data.lat != null && data.lng != null
+    ? `${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`
+    : "No disponible";
+
+  const subject = `Alerta: Marcación fuera de rango — ${data.guardiaName} — ${data.installationName}`;
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <div style="display: inline-block; width: 48px; height: 48px; background: #d97706; border-radius: 50%; line-height: 48px; text-align: center;">
+          <span style="color: white; font-size: 20px;">⚠</span>
+        </div>
+        <h2 style="margin: 12px 0 4px; color: #0f172a; font-size: 18px;">Marcación Fuera de Rango</h2>
+        <p style="color: #64748b; font-size: 13px; margin: 0;">Un guardia marcó asistencia fuera del radio autorizado</p>
+      </div>
+
+      <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+        <p style="color: #92400e; font-size: 13px; margin: 0; line-height: 1.6;">
+          <strong>${data.guardiaName}</strong> (RUT ${data.guardiaRut}) realizó una marcación de
+          <strong>${tipoLabel}</strong> a ${data.geoDistanciaM != null ? `<strong>${data.geoDistanciaM}m</strong>` : "una distancia desconocida"}
+          de la instalación (radio permitido: ${data.geoRadiusM}m).
+        </p>
+      </div>
+
+      <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; width: 130px;">Guardia</td>
+            <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">${data.guardiaName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">RUT</td>
+            <td style="padding: 6px 0; color: #0f172a;">${data.guardiaRut}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Instalación</td>
+            <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">${data.installationName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Tipo</td>
+            <td style="padding: 6px 0; color: ${data.tipo === "entrada" ? "#059669" : "#ea580c"}; font-weight: 600;">${tipoLabel}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Hora</td>
+            <td style="padding: 6px 0; color: #0f172a; font-size: 16px; font-weight: 700;">${hora}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Fecha</td>
+            <td style="padding: 6px 0; color: #0f172a; text-transform: capitalize;">${fecha}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Distancia</td>
+            <td style="padding: 6px 0; color: #d97706; font-weight: 700;">${data.geoDistanciaM != null ? `${data.geoDistanciaM}m` : "N/A"} (máx. ${data.geoRadiusM}m)</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Coordenadas</td>
+            <td style="padding: 6px 0; color: #0f172a; font-family: monospace; font-size: 11px;">${gpsCoords}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="text-align: center; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+        <p style="color: #94a3b8; font-size: 10px; margin: 0;">
+          ${EMAIL_CONFIG.companyName} — Notificación automática de marcación fuera de rango
+        </p>
+      </div>
+    </div>
+  `;
+
+  // Enviar a todos los supervisores en paralelo
+  await Promise.allSettled(
+    supervisorEmails.map((email) =>
+      resend.emails.send({
+        from: EMAIL_CONFIG.from,
+        to: email,
+        subject,
+        html,
+      })
+    )
+  );
 }

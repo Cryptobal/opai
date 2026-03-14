@@ -410,6 +410,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Notificar supervisor si está fuera de rango (fire-and-forget)
+    if (gpsStatus === "fuera_rango") {
+      import("@/lib/marcacion-email").then(({ sendNotificacionFueraDeRango }) =>
+        sendNotificacionFueraDeRango({
+          tenantId: installation.tenantId,
+          installationId: installation.id,
+          installationName: installation.name,
+          guardiaName: formatPersonName(persona.firstName, persona.lastName),
+          guardiaRut: normalizedRut,
+          tipo,
+          timestamp: serverTimestamp,
+          geoDistanciaM,
+          geoRadiusM: installation.geoRadiusM,
+          lat: lat ?? null,
+          lng: lng ?? null,
+        }).catch((err) => console.error("[marcacion] Error notificando supervisor fuera de rango:", err))
+      );
+    }
+
     return NextResponse.json({
       success: true,
       data: {
