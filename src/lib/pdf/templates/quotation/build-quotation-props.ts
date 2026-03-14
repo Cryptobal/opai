@@ -330,7 +330,16 @@ export async function buildQuotationProps(
           };
 
           const baseSalary = getNum('base_salary') || Number(pos.baseSalary ?? 0) * totalGuardsInPos;
-          const gratification = getNum('gratification');
+          // Fix 5: compute gratification from base salary when not in snapshot
+          // Chilean law: 25% of monthly salary, capped at 4.75 IMM / 12 per month (~$193.000 approx 2025)
+          let gratification = getNum('gratification');
+          if (gratification === 0 && baseSalary > 0) {
+            const perGuardSalary = baseSalary / totalGuardsInPos;
+            const monthlyGrat = perGuardSalary * 0.25;
+            // Cap: 4.75 × IMM / 12. IMM ~$500.000 (2025) → cap ~$197.917/month
+            const monthlyCap = (500000 * 4.75) / 12;
+            gratification = Math.min(monthlyGrat, monthlyCap) * totalGuardsInPos;
+          }
           const totalImponible = getNum('total_taxable_income') || baseSalary + gratification;
 
           return {
@@ -452,6 +461,19 @@ export async function buildQuotationProps(
       totalPorGuardia: posGuards > 0 ? breakdown.totalLaborCost / posGuards : 0,
       totalGuardias: posGuards,
       totalMensual: breakdown.totalLaborCost,
+      positionDetails: breakdown.positions.map((p) => ({
+        name: p.name,
+        totalGuardsInPosition: p.totalGuardsInPosition,
+        baseSalary: p.baseSalary,
+        gratification: p.gratification,
+        totalImponible: p.totalImponible,
+        sisEmployer: p.sisEmployer,
+        afcEmployer: p.afcEmployer,
+        mutualEmployer: p.mutualEmployer,
+        vacationProvision: p.vacationProvision,
+        severanceProvision: p.severanceProvision,
+        totalLaborCost: p.totalLaborCost,
+      })),
     };
   }
 
@@ -466,11 +488,21 @@ export async function buildQuotationProps(
     `[PDF] Data: summary=${!!summary}, breakdown=${!!breakdown}, positions=${quote.positions.length}, costsByCategory=${costsByCategory.length}, laborBreakdown=${!!laborBreakdown}, additionalLinesPDF=${additionalLinesPDF.length}`,
   );
 
+  // Fix 2: Default vigencia to createdAt + 60 days when not set
+  let effectiveValidUntil: string;
+  if (quote.validUntil) {
+    effectiveValidUntil = quote.validUntil.toISOString();
+  } else {
+    const defaultDate = new Date(quote.createdAt);
+    defaultDate.setDate(defaultDate.getDate() + 60);
+    effectiveValidUntil = defaultDate.toISOString();
+  }
+
   const props: QuotationPDFProps = {
     quote: {
       code: quote.code,
       name: quote.name || undefined,
-      validUntil: quote.validUntil?.toISOString(),
+      validUntil: effectiveValidUntil,
       currency,
       createdAt: quote.createdAt.toISOString(),
     },

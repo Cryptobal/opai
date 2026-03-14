@@ -25,6 +25,20 @@ export interface AdditionalLinePDF {
   precioVentaFmt: string;
 }
 
+export interface LaborPositionDetailPDF {
+  name: string;
+  totalGuardsInPosition: number;
+  baseSalary: number;
+  gratification: number;
+  totalImponible: number;
+  sisEmployer: number;
+  afcEmployer: number;
+  mutualEmployer: number;
+  vacationProvision: number;
+  severanceProvision: number;
+  totalLaborCost: number;
+}
+
 export interface LaborBreakdownPDF {
   sueldoBrutoPromedio: number;
   cargasSocialesPct: number;
@@ -32,6 +46,8 @@ export interface LaborBreakdownPDF {
   totalPorGuardia: number;
   totalGuardias: number;
   totalMensual: number;
+  /** Per-position detailed breakdown (Fix 5) */
+  positionDetails: LaborPositionDetailPDF[];
 }
 
 export const DEFAULT_TEMPLATE_SECTIONS: ProposalTemplateSections = {
@@ -464,9 +480,14 @@ export async function renderQuotationToBuffer(
   } = props;
 
   const dateStr = new Date().toLocaleDateString('es-CL');
-  const validStr = quote.validUntil
-    ? new Date(quote.validUntil).toLocaleDateString('es-CL')
-    : '';
+  // Fix 2: validUntil always has a value (default: createdAt + 60 days)
+  const validDate = quote.validUntil ? new Date(quote.validUntil) : (() => {
+    const d = new Date(quote.createdAt); d.setDate(d.getDate() + 60); return d;
+  })();
+  const vdd = String(validDate.getDate()).padStart(2, '0');
+  const vmm = String(validDate.getMonth() + 1).padStart(2, '0');
+  const vyyyy = validDate.getFullYear();
+  const validStr = `${vdd}-${vmm}-${vyyyy}`;
   const totalGuards = positions.reduce(
     (sum, p) => sum + p.guards * p.quantity,
     0,
@@ -475,8 +496,10 @@ export async function renderQuotationToBuffer(
     PAYMENT_LABELS[conditions.paymentTerms] || conditions.paymentTerms;
   const hasAdditional = additionalServices.length > 0;
   const hasDetailedAdditional = (additionalLines?.length ?? 0) > 0;
-  const brandName =
+  // Fix 1: Strip trailing SECURITY/SEGURIDAD from brand name
+  const rawBrandName =
     companyConfig.brandNameUpper ?? companyConfig.commercialName?.toUpperCase() ?? 'EMPRESA';
+  const brandName = rawBrandName.replace(/\s+(SECURITY|SEGURIDAD|SEG)\b/i, '').trim();
 
   const numbered = sec.numberedSections;
   let sectionCounter = 0;
@@ -554,7 +577,7 @@ export async function renderQuotationToBuffer(
       { label: 'CLIENTE', value: client.name },
       { label: 'NEGOCIO', value: client.dealName || '-' },
       { label: 'INSTALACION', value: client.installationName || '-' },
-      { label: 'VIGENCIA', value: validStr || 'Sin definir' },
+      { label: 'VIGENCIA', value: validStr },
     ].map((item, i, arr) =>
       e(
         View,
@@ -730,29 +753,59 @@ export async function renderQuotationToBuffer(
     );
 
   const hasLaborDetail = !!(sec.showLaborDetail && laborBreakdown);
-  const buildLaborDetail = (num: number) =>
-    laborBreakdown
-      ? e(
-          View,
-          null,
-          sectionTitle('Detalle de Mano de Obra', num),
-          e(
+  const buildLaborDetail = (num: number) => {
+    if (!laborBreakdown) return null;
+    const hasDetails = laborBreakdown.positionDetails && laborBreakdown.positionDetails.length > 0;
+    const perGuardDivisor = (guards: number) => Math.max(1, guards);
+
+    const positionCards = hasDetails
+      ? laborBreakdown.positionDetails.map((pos, idx) => {
+          const div = perGuardDivisor(pos.totalGuardsInPosition);
+          const totalSocial = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
+          const perGuardCost = pos.totalLaborCost / div;
+          return e(
             View,
-            { style: { marginBottom: 8 } },
-            laborRow('Sueldo bruto promedio por guardia', fmtMoney(laborBreakdown.sueldoBrutoPromedio)),
-            laborRow('Cargas sociales empleador', `${laborBreakdown.cargasSocialesPct}%`),
-            laborRow('Gratificacion legal', fmtMoney(laborBreakdown.gratificacion)),
-            laborRow('Costo total por guardia', fmtMoney(laborBreakdown.totalPorGuardia)),
-            laborRow('Total guardias', String(laborBreakdown.totalGuardias)),
+            { key: idx, style: { marginBottom: 8, borderWidth: 0.5, borderColor: C.slate200, borderRadius: 4, overflow: 'hidden' as const } },
+            e(View, { style: { backgroundColor: C.slate50, paddingVertical: 4, paddingHorizontal: 10, borderBottomWidth: 0.5, borderBottomColor: C.slate200 } },
+              e(Text, { style: [s.tblCellBold, { fontSize: 9 }] }, `${pos.name} \u00B7 ${pos.totalGuardsInPosition} guardia${pos.totalGuardsInPosition !== 1 ? 's' : ''}`),
+            ),
+            laborRow('Sueldo base imponible', fmtMoney(pos.baseSalary / div)),
+            laborRow('Gratificacion legal', fmtMoney(pos.gratification / div)),
+            laborRow('Total haberes imponibles', fmtMoney(pos.totalImponible / div)),
+            laborRow('SIS (Seguro invalidez y sobrevivencia)', fmtMoney(pos.sisEmployer / div)),
+            laborRow('AFC (Seguro cesantia empleador)', fmtMoney(pos.afcEmployer / div)),
+            laborRow('Mutual / Accidentes (Ley 16.744)', fmtMoney(pos.mutualEmployer / div)),
+            laborRow('Total cargas sociales empleador', fmtMoney(totalSocial / div)),
+            pos.vacationProvision > 0 ? laborRow('Provision vacaciones', fmtMoney(pos.vacationProvision / div)) : null,
+            pos.severanceProvision > 0 ? laborRow('Provision indemnizacion', fmtMoney(pos.severanceProvision / div)) : null,
             e(
               View,
               { style: [s.tblRow, { paddingLeft: 10, backgroundColor: C.slate50 }] },
-              e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Total mensual mano de obra'),
-              e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(laborBreakdown.totalMensual)),
+              e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Costo empresa por guardia'),
+              e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(perGuardCost)),
             ),
-          ),
-        )
-      : null;
+          );
+        })
+      : [];
+
+    return e(
+      View,
+      null,
+      sectionTitle('Detalle de Mano de Obra', num),
+      ...positionCards,
+      e(
+        View,
+        { style: { marginBottom: 8, backgroundColor: C.slate50, borderRadius: 4, padding: 8 } },
+        laborRow('Total guardias', String(laborBreakdown.totalGuardias)),
+        e(
+          View,
+          { style: [s.tblRow, { paddingLeft: 10, borderBottomWidth: 0 }] },
+          e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Total mensual mano de obra'),
+          e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(laborBreakdown.totalMensual)),
+        ),
+      ),
+    );
+  };
 
   /* ─── Cost breakdown by category sub-tree (deferred numbering) ─── */
   const hasCostBreakdown = !!(sec.showCostBreakdown && costsByCategory && costsByCategory.length > 0);
@@ -868,7 +921,7 @@ export async function renderQuotationToBuffer(
                 e(
                   View,
                   { style: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8, marginTop: 8 } },
-                  condCard('Vigencia de la propuesta', validStr || 'Sin definir'),
+                  condCard('Vigencia de la propuesta', validStr),
                   condCard('Forma de pago', paymentLabel),
                   condCard('Inicio del servicio', `${conditions.serviceStartDays} dias habiles desde aprobacion`),
                   condCard('Duracion del contrato', `${conditions.contractDuration} meses`),
@@ -902,53 +955,58 @@ export async function renderQuotationToBuffer(
                 e(Text, { style: s.serviceDetail }, serviceDetail),
               )
             : null,
-          sec.showSignature
+          // Fix 3: Signatures go on the LAST page — only render here if no breakdown page follows
+          sec.showSignature && !(breakdown && sec.showCostSummaryByCategory)
             ? e(
                 View,
-                { wrap: false, style: s.sigArea },
+                { wrap: false },
                 e(
                   View,
-                  { style: s.sigBlock },
-                  e(View, { style: s.sigLine }),
-                  e(Text, { style: s.sigName }, companyConfig.companyName),
-                  companyConfig.repLegalNombre
-                    ? e(Text, { style: s.sigRole }, companyConfig.repLegalNombre)
-                    : null,
-                  e(Text, { style: s.sigRole }, 'Representante Legal'),
+                  { style: s.sigArea },
+                  e(
+                    View,
+                    { style: s.sigBlock },
+                    e(View, { style: s.sigLine }),
+                    e(Text, { style: s.sigName }, companyConfig.companyName),
+                    companyConfig.repLegalNombre
+                      ? e(Text, { style: s.sigRole }, companyConfig.repLegalNombre)
+                      : null,
+                    e(Text, { style: s.sigRole }, 'Representante Legal'),
+                  ),
+                  e(
+                    View,
+                    { style: s.sigBlock },
+                    e(View, { style: s.sigLine }),
+                    e(Text, { style: s.sigName }, client.name),
+                    e(Text, { style: s.sigRole }, 'Cliente'),
+                  ),
                 ),
                 e(
                   View,
-                  { style: s.sigBlock },
-                  e(View, { style: s.sigLine }),
-                  e(Text, { style: s.sigName }, client.name),
-                  e(Text, { style: s.sigRole }, 'Cliente'),
+                  { style: s.contactBanner },
+                  e(
+                    View,
+                    { style: { alignItems: 'center' as const } },
+                    e(Text, { style: s.contactLabel }, 'EMAIL'),
+                    e(Text, { style: s.contactValue }, companyConfig.email),
+                  ),
+                  e(
+                    View,
+                    { style: { alignItems: 'center' as const } },
+                    e(Text, { style: s.contactLabel }, 'TELEFONO'),
+                    e(Text, { style: s.contactValue }, companyConfig.phone),
+                  ),
+                  companyConfig.website
+                    ? e(
+                        View,
+                        { style: { alignItems: 'center' as const } },
+                        e(Text, { style: s.contactLabel }, 'WEB'),
+                        e(Text, { style: s.contactValue }, companyConfig.website),
+                      )
+                    : null,
                 ),
               )
             : null,
-          e(
-            View,
-            { wrap: false, style: s.contactBanner },
-            e(
-              View,
-              { style: { alignItems: 'center' as const } },
-              e(Text, { style: s.contactLabel }, 'EMAIL'),
-              e(Text, { style: s.contactValue }, companyConfig.email),
-            ),
-            e(
-              View,
-              { style: { alignItems: 'center' as const } },
-              e(Text, { style: s.contactLabel }, 'TELEFONO'),
-              e(Text, { style: s.contactValue }, companyConfig.phone),
-            ),
-            companyConfig.website
-              ? e(
-                  View,
-                  { style: { alignItems: 'center' as const } },
-                  e(Text, { style: s.contactLabel }, 'WEB'),
-                  e(Text, { style: s.contactValue }, companyConfig.website),
-                )
-              : null,
-          ),
         ),
         pageFooter(),
       ),
@@ -967,6 +1025,7 @@ export async function renderQuotationToBuffer(
           { style: s.body },
           e(Text, { style: s.sectionTitle }, 'Estructura de Costos'),
 
+          // Fix 6: Per-position labor detail in breakdown
           e(
             View,
             { style: { marginBottom: 8 } },
@@ -976,12 +1035,14 @@ export async function renderQuotationToBuffer(
               e(Text, { style: [s.tblCellBold, { flex: 3, color: '#1d4ed8' }] }, 'Mano de Obra'),
               e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#1d4ed8' }] }, fmtMoney(breakdown.totalLaborCost)),
             ),
-            breakdown.positions.reduce<unknown[]>((acc, pos) => {
-              const imp = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
+            ...breakdown.positions.reduce<unknown[]>((acc, pos) => {
+              acc.push(e(View, { key: `${pos.id}-hdr`, style: [s.tblRow, { paddingLeft: 12, backgroundColor: '#f0f9ff' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, fontSize: 8 }] }, `${pos.name} (${pos.totalGuardsInPosition}g)`), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, fontSize: 8 }] }, fmtMoney(pos.totalLaborCost))));
+              acc.push(e(View, { key: `${pos.id}-base`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Sueldo base'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(pos.baseSalary))));
+              if (pos.gratification > 0) acc.push(e(View, { key: `${pos.id}-grat`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Gratificacion legal'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(pos.gratification))));
+              const socialCharges = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
+              if (socialCharges > 0) acc.push(e(View, { key: `${pos.id}-social`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Cargas sociales (SIS+AFC+Mutual)'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(socialCharges))));
               const prov = pos.vacationProvision + pos.severanceProvision;
-              if (pos.totalImponible > 0) acc.push(e(View, { key: `${pos.id}-imp`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} - Sueldo imponible`), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(pos.totalImponible))));
-              if (imp > 0) acc.push(e(View, { key: `${pos.id}-sis`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} - Imposiciones (SIS+AFC+Mutual)`), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(imp))));
-              if (prov > 0) acc.push(e(View, { key: `${pos.id}-prov`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, `${pos.name} - Provisiones (vacac.+finiquito)`), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(prov))));
+              if (prov > 0) acc.push(e(View, { key: `${pos.id}-prov`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Provisiones (vacac.+finiquito)'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(prov))));
               return acc;
             }, []),
           ),
@@ -1040,6 +1101,59 @@ export async function renderQuotationToBuffer(
             : null,
 
           e(Text, { style: s.netNote }, 'Estructura de costos con transparencia total · Valores netos · IVA se factura segun ley vigente'),
+
+          // Fix 3: Signatures at end of last page (breakdown is the last page)
+          sec.showSignature
+            ? e(
+                View,
+                { wrap: false },
+                e(
+                  View,
+                  { style: s.sigArea },
+                  e(
+                    View,
+                    { style: s.sigBlock },
+                    e(View, { style: s.sigLine }),
+                    e(Text, { style: s.sigName }, companyConfig.companyName),
+                    companyConfig.repLegalNombre
+                      ? e(Text, { style: s.sigRole }, companyConfig.repLegalNombre)
+                      : null,
+                    e(Text, { style: s.sigRole }, 'Representante Legal'),
+                  ),
+                  e(
+                    View,
+                    { style: s.sigBlock },
+                    e(View, { style: s.sigLine }),
+                    e(Text, { style: s.sigName }, client.name),
+                    e(Text, { style: s.sigRole }, 'Cliente'),
+                  ),
+                ),
+                e(
+                  View,
+                  { style: s.contactBanner },
+                  e(
+                    View,
+                    { style: { alignItems: 'center' as const } },
+                    e(Text, { style: s.contactLabel }, 'EMAIL'),
+                    e(Text, { style: s.contactValue }, companyConfig.email),
+                  ),
+                  e(
+                    View,
+                    { style: { alignItems: 'center' as const } },
+                    e(Text, { style: s.contactLabel }, 'TELEFONO'),
+                    e(Text, { style: s.contactValue }, companyConfig.phone),
+                  ),
+                  companyConfig.website
+                    ? e(
+                        View,
+                        { style: { alignItems: 'center' as const } },
+                        e(Text, { style: s.contactLabel }, 'WEB'),
+                        e(Text, { style: s.contactValue }, companyConfig.website),
+                      )
+                    : null,
+                ),
+              )
+            : null,
         ),
         pageFooter(),
       ),
