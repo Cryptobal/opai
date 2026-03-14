@@ -408,13 +408,11 @@ function BreakdownPage({
   companyConfig,
   quoteCode,
   dateStr,
-  pageLabel,
 }: {
   breakdown: QuoteBreakdownData;
   companyConfig: QuotationPDFProps['companyConfig'];
   quoteCode: string;
   dateStr: string;
-  pageLabel: string;
 }) {
   const fmt = (n: number) => fmtBreakdown(n, breakdown.currency, breakdown.ufValue);
 
@@ -607,7 +605,7 @@ function BreakdownPage({
         </Text>
       </View>
 
-      <PDFFooter website={companyConfig.website} date={dateStr} pageLabel={pageLabel} />
+      <PDFFooter website={companyConfig.website} date={dateStr} dynamicPageLabel />
     </Page>
   );
 }
@@ -842,15 +840,6 @@ export function QuotationPDF(props: QuotationPDFProps) {
     return fmtCLPPdf(n);
   };
 
-  /* ── Page count ── */
-  let pageCount = 1;
-  if (sec.showConditions || sec.showIncludedItems || sec.showSignature) pageCount++;
-  if (breakdown && sec.showCostSummaryByCategory) pageCount++;
-  if (sec.showLaborDetail && laborBreakdown) pageCount = Math.max(pageCount, 3);
-  if (sec.showComplianceSection && complianceItems) pageCount = Math.max(pageCount, 3);
-
-  let currentPage = 0;
-
   /* ── Numbered section counter ── */
   let sectionCounter = 0;
   const nextNum = () => ++sectionCounter;
@@ -933,7 +922,7 @@ export function QuotationPDF(props: QuotationPDFProps) {
           </Text>
         </View>
 
-        <PDFFooter website={companyConfig.website} date={dateStr} pageLabel={`${++currentPage}/${pageCount}`} />
+        <PDFFooter website={companyConfig.website} date={dateStr} dynamicPageLabel />
       </Page>
 
       {/* ─── PAGE 2: Condiciones + Labor Detail + Cost Breakdown + Compliance ─── */}
@@ -1029,24 +1018,28 @@ export function QuotationPDF(props: QuotationPDFProps) {
             )}
 
             {sec.showSignature && (
-              <PDFSignatureArea
-                companyName={companyConfig.companyName}
-                clientName={client.name}
-                repLegal={companyConfig.repLegalNombre}
-              />
+              <View wrap={false}>
+                <PDFSignatureArea
+                  companyName={companyConfig.companyName}
+                  clientName={client.name}
+                  repLegal={companyConfig.repLegalNombre}
+                />
+              </View>
             )}
 
-            <PDFContactBanner
-              email={companyConfig.email}
-              phone={companyConfig.phone}
-              website={companyConfig.website}
-            />
+            <View wrap={false}>
+              <PDFContactBanner
+                email={companyConfig.email}
+                phone={companyConfig.phone}
+                website={companyConfig.website}
+              />
+            </View>
           </View>
 
           <PDFFooter
             website={companyConfig.website}
             date={dateStr}
-            pageLabel={`${++currentPage}/${pageCount}`}
+            dynamicPageLabel
           />
         </Page>
       )}
@@ -1058,7 +1051,6 @@ export function QuotationPDF(props: QuotationPDFProps) {
           companyConfig={companyConfig}
           quoteCode={quote.code}
           dateStr={dateStr}
-          pageLabel={`${++currentPage}/${pageCount}`}
         />
       )}
     </Document>

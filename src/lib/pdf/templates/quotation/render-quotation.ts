@@ -624,39 +624,38 @@ export async function renderQuotationToBuffer(
     { label: 'Valor Mensual', flex: 1.5, align: 'right' as const },
   ];
 
-  const simpleAddTable = showSimpleAdditional
-    ? e(
+  const buildSimpleAddTable = (num: number) =>
+    e(
+      View,
+      null,
+      sectionTitle('Servicios y Productos Adicionales', num),
+      e(
         View,
-        null,
-        sectionTitle('Servicios y Productos Adicionales', nextNum()),
-        e(
-          View,
-          { style: s.tblHeader },
-          ...addHeaders.map((h, i) =>
-            e(
-              Text,
-              { key: i, style: [s.tblHeaderCell, { flex: h.flex, textAlign: h.align }] },
-              h.label,
-            ),
-          ),
-        ),
-        ...additionalServices.map((svc, i) =>
+        { style: s.tblHeader },
+        ...addHeaders.map((h, i) =>
           e(
-            View,
-            { key: i, style: s.tblRow },
-            e(Text, { style: [s.tblCell, { flex: 2 }] }, svc.product),
-            e(Text, { style: [s.tblCell, { flex: 3 }] }, svc.description),
-            e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, svc.monthlyValue),
+            Text,
+            { key: i, style: [s.tblHeaderCell, { flex: h.flex, textAlign: h.align }] },
+            h.label,
           ),
         ),
+      ),
+      ...additionalServices.map((svc, i) =>
         e(
           View,
-          { style: [s.tblRow, { backgroundColor: C.slate50 }] },
-          e(Text, { style: [s.tblCellBold, { flex: 5, textAlign: 'right' as const, paddingRight: 8 }] }, 'Subtotal adicionales'),
-          e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, totals.subtotalAdditional),
+          { key: i, style: s.tblRow },
+          e(Text, { style: [s.tblCell, { flex: 2 }] }, svc.product),
+          e(Text, { style: [s.tblCell, { flex: 3 }] }, svc.description),
+          e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, svc.monthlyValue),
         ),
-      )
-    : null;
+      ),
+      e(
+        View,
+        { style: [s.tblRow, { backgroundColor: C.slate50 }] },
+        e(Text, { style: [s.tblCellBold, { flex: 5, textAlign: 'right' as const, paddingRight: 8 }] }, 'Subtotal adicionales'),
+        e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, totals.subtotalAdditional),
+      ),
+    );
 
   /* ─── Detailed additional services table (detailed/tender) ─── */
   const detailedAddHeaders = [
@@ -666,50 +665,46 @@ export async function renderQuotationToBuffer(
     { label: 'Valor Mensual', flex: 1.5, align: 'right' as const },
   ];
 
-  const detailedAddTable = showDetailedAdditional
-    ? e(
+  const buildDetailedAddTable = (num: number) =>
+    e(
+      View,
+      null,
+      sectionTitle('Servicios y Productos Adicionales', num),
+      e(
         View,
-        null,
-        sectionTitle('Servicios y Productos Adicionales', nextNum()),
+        { style: s.tblHeader },
+        ...detailedAddHeaders.map((h, i) =>
+          e(Text, { key: i, style: [s.tblHeaderCell, { flex: h.flex, textAlign: h.align }] }, h.label),
+        ),
+      ),
+      ...additionalLines.map((line, i) =>
         e(
           View,
-          { style: s.tblHeader },
-          ...detailedAddHeaders.map((h, i) =>
-            e(Text, { key: i, style: [s.tblHeaderCell, { flex: h.flex, textAlign: h.align }] }, h.label),
-          ),
+          { key: i, style: s.tblRow },
+          e(Text, { style: [s.tblCell, { flex: 2 }] }, line.nombre),
+          e(Text, { style: [s.tblCell, { flex: 1, textAlign: 'center' as const }] }, line.tipo),
+          e(Text, { style: [s.tblCell, { flex: 1, textAlign: 'center' as const }] }, line.recurrencia === 'unico' ? 'Unico (prorrateado)' : line.recurrencia),
+          e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, line.precioVentaFmt),
         ),
-        ...additionalLines.map((line, i) =>
-          e(
-            View,
-            { key: i, style: s.tblRow },
-            e(Text, { style: [s.tblCell, { flex: 2 }] }, line.nombre),
-            e(Text, { style: [s.tblCell, { flex: 1, textAlign: 'center' as const }] }, line.tipo),
-            e(Text, { style: [s.tblCell, { flex: 1, textAlign: 'center' as const }] }, line.recurrencia === 'unico' ? 'Unico (prorrateado)' : line.recurrencia),
-            e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, line.precioVentaFmt),
-          ),
-        ),
-      )
-    : null;
+      ),
+    );
 
   /* ─── Currency format helper ─── */
   const fmtMoney = (n: number) =>
     new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Math.round(n));
 
-  /* ─── Page count ─── */
-  let pageCount = 1;
-  if (sec.showConditions || sec.showIncludedItems || sec.showSignature) pageCount++;
-  if (breakdown && sec.showCostSummaryByCategory) pageCount++;
-  if (sec.showLaborDetail && laborBreakdown) pageCount = Math.max(pageCount, 3);
-  if (sec.showComplianceSection && complianceItems) pageCount = Math.max(pageCount, 3);
-  let currentPage = 0;
-
-  const pageFooter = (label: string) =>
+  /* ─── Footer with dynamic page numbers via render prop ─── */
+  const pageFooter = () =>
     e(
       View,
       { style: s.footer, fixed: true },
       e(Text, { style: s.footerText }, `Confidencial \u00B7 ${dateStr}`),
       e(Text, { style: s.footerText }, companyConfig.website || ''),
-      e(Text, { style: s.footerText }, label),
+      e(Text, {
+        style: s.footerText,
+        render: ({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) =>
+          `${pageNumber}/${totalPages}`,
+      }),
     );
 
   /* ─── Conditions cards ─── */
@@ -725,7 +720,7 @@ export async function renderQuotationToBuffer(
       ),
     );
 
-  /* ─── Labor detail sub-tree ─── */
+  /* ─── Labor detail sub-tree (deferred numbering) ─── */
   const laborRow = (label: string, value: string) =>
     e(
       View,
@@ -734,78 +729,84 @@ export async function renderQuotationToBuffer(
       e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, value),
     );
 
-  const laborDetailSection = sec.showLaborDetail && laborBreakdown
-    ? e(
-        View,
-        null,
-        sectionTitle('Detalle de Mano de Obra', nextNum()),
-        e(
+  const hasLaborDetail = !!(sec.showLaborDetail && laborBreakdown);
+  const buildLaborDetail = (num: number) =>
+    laborBreakdown
+      ? e(
           View,
-          { style: { marginBottom: 8 } },
-          laborRow('Sueldo bruto promedio por guardia', fmtMoney(laborBreakdown.sueldoBrutoPromedio)),
-          laborRow('Cargas sociales empleador', `${laborBreakdown.cargasSocialesPct}%`),
-          laborRow('Gratificacion legal', fmtMoney(laborBreakdown.gratificacion)),
-          laborRow('Costo total por guardia', fmtMoney(laborBreakdown.totalPorGuardia)),
-          laborRow('Total guardias', String(laborBreakdown.totalGuardias)),
+          null,
+          sectionTitle('Detalle de Mano de Obra', num),
           e(
             View,
-            { style: [s.tblRow, { paddingLeft: 10, backgroundColor: C.slate50 }] },
-            e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Total mensual mano de obra'),
-            e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(laborBreakdown.totalMensual)),
-          ),
-        ),
-      )
-    : null;
-
-  /* ─── Cost breakdown by category sub-tree ─── */
-  const costBreakdownSection = sec.showCostBreakdown && costsByCategory && costsByCategory.length > 0
-    ? e(
-        View,
-        null,
-        sectionTitle('Desglose de Costos por Categoria', nextNum()),
-        ...costsByCategory.map((cat, catIdx) =>
-          e(
-            View,
-            { key: catIdx, style: { marginBottom: 6 } },
+            { style: { marginBottom: 8 } },
+            laborRow('Sueldo bruto promedio por guardia', fmtMoney(laborBreakdown.sueldoBrutoPromedio)),
+            laborRow('Cargas sociales empleador', `${laborBreakdown.cargasSocialesPct}%`),
+            laborRow('Gratificacion legal', fmtMoney(laborBreakdown.gratificacion)),
+            laborRow('Costo total por guardia', fmtMoney(laborBreakdown.totalPorGuardia)),
+            laborRow('Total guardias', String(laborBreakdown.totalGuardias)),
             e(
               View,
-              { style: [s.tblRow, { backgroundColor: cat.categoryType === 'indirect' ? '#fef3c7' : C.tealLight }] },
-              e(Text, { style: [s.tblCellBold, { flex: 3, color: cat.categoryType === 'indirect' ? '#b45309' : '#0d9488' }] }, cat.category),
-              e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: cat.categoryType === 'indirect' ? '#b45309' : '#0d9488' }] }, fmtMoney(cat.subtotal)),
+              { style: [s.tblRow, { paddingLeft: 10, backgroundColor: C.slate50 }] },
+              e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Total mensual mano de obra'),
+              e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(laborBreakdown.totalMensual)),
             ),
-            ...cat.items.map((item, itemIdx) =>
+          ),
+        )
+      : null;
+
+  /* ─── Cost breakdown by category sub-tree (deferred numbering) ─── */
+  const hasCostBreakdown = !!(sec.showCostBreakdown && costsByCategory && costsByCategory.length > 0);
+  const buildCostBreakdown = (num: number) =>
+    costsByCategory && costsByCategory.length > 0
+      ? e(
+          View,
+          null,
+          sectionTitle('Desglose de Costos por Categoria', num),
+          ...costsByCategory.map((cat, catIdx) =>
+            e(
+              View,
+              { key: catIdx, style: { marginBottom: 6 } },
               e(
                 View,
-                { key: itemIdx, style: [s.tblRow, { paddingLeft: 14 }] },
-                e(Text, { style: [s.tblCell, { flex: 3, fontSize: 7.5, color: C.slate400 }] }, item.name),
-                e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const, fontSize: 7.5, color: C.slate400 }] }, fmtMoney(item.amount)),
+                { style: [s.tblRow, { backgroundColor: cat.categoryType === 'indirect' ? '#fef3c7' : C.tealLight }] },
+                e(Text, { style: [s.tblCellBold, { flex: 3, color: cat.categoryType === 'indirect' ? '#b45309' : '#0d9488' }] }, cat.category),
+                e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: cat.categoryType === 'indirect' ? '#b45309' : '#0d9488' }] }, fmtMoney(cat.subtotal)),
+              ),
+              ...cat.items.map((item, itemIdx) =>
+                e(
+                  View,
+                  { key: itemIdx, style: [s.tblRow, { paddingLeft: 14 }] },
+                  e(Text, { style: [s.tblCell, { flex: 3, fontSize: 7.5, color: C.slate400 }] }, item.name),
+                  e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const, fontSize: 7.5, color: C.slate400 }] }, fmtMoney(item.amount)),
+                ),
               ),
             ),
           ),
-        ),
-      )
-    : null;
+        )
+      : null;
 
-  /* ─── Compliance section sub-tree ─── */
-  const complianceSection = sec.showComplianceSection && complianceItems && complianceItems.length > 0
-    ? e(
-        View,
-        null,
-        sectionTitle('Cumplimiento Normativo', nextNum()),
-        e(
+  /* ─── Compliance section sub-tree (deferred numbering) ─── */
+  const hasCompliance = !!(sec.showComplianceSection && complianceItems && complianceItems.length > 0);
+  const buildCompliance = (num: number) =>
+    complianceItems && complianceItems.length > 0
+      ? e(
           View,
-          { style: { marginBottom: 8 } },
-          ...complianceItems.map((item, i) =>
-            e(
-              View,
-              { key: i, style: s.bulletItem },
-              e(Text, { style: [s.bulletDot, { color: '#0d9488' }] }, '\u2713'),
-              e(Text, { style: s.bulletText }, item),
+          null,
+          sectionTitle('Cumplimiento Normativo', num),
+          e(
+            View,
+            { style: { marginBottom: 8 } },
+            ...complianceItems.map((item, i) =>
+              e(
+                View,
+                { key: i, style: s.bulletItem },
+                e(Text, { style: [s.bulletDot, { color: '#0d9488' }] }, '\u2713'),
+                e(Text, { style: s.bulletText }, item),
+              ),
             ),
           ),
-        ),
-      )
-    : null;
+        )
+      : null;
 
   /* ─── BUILD DOCUMENT ─── */
   const pages: unknown[] = [];
@@ -829,8 +830,8 @@ export async function renderQuotationToBuffer(
               e(View, null, posTableHeader, ...posRows, posSubtotal),
             )
           : null,
-        simpleAddTable,
-        detailedAddTable,
+        showSimpleAdditional ? buildSimpleAddTable(nextNum()) : null,
+        showDetailedAdditional ? buildDetailedAddTable(nextNum()) : null,
         e(
           View,
           { style: s.grandTotal },
@@ -839,13 +840,13 @@ export async function renderQuotationToBuffer(
         ),
         e(Text, { style: s.netNote }, 'Valores netos. IVA se factura segun ley vigente.'),
       ),
-      pageFooter(`${++currentPage}/${pageCount}`),
+      pageFooter(),
     ),
   );
 
   // ─── PAGE 2: Conditions + Labor Detail + Cost Breakdown + Compliance ───
   const hasPage2 = sec.showConditions || sec.showIncludedItems || sec.showSignature ||
-    laborDetailSection || costBreakdownSection || complianceSection;
+    hasLaborDetail || hasCostBreakdown || hasCompliance;
 
   if (hasPage2) {
     pages.push(
@@ -856,9 +857,9 @@ export async function renderQuotationToBuffer(
         e(
           View,
           { style: s.body },
-          laborDetailSection,
-          costBreakdownSection,
-          complianceSection,
+          hasLaborDetail ? buildLaborDetail(nextNum()) : null,
+          hasCostBreakdown ? buildCostBreakdown(nextNum()) : null,
+          hasCompliance ? buildCompliance(nextNum()) : null,
           sec.showConditions
             ? e(
                 View,
@@ -904,7 +905,7 @@ export async function renderQuotationToBuffer(
           sec.showSignature
             ? e(
                 View,
-                { style: s.sigArea },
+                { wrap: false, style: s.sigArea },
                 e(
                   View,
                   { style: s.sigBlock },
@@ -926,7 +927,7 @@ export async function renderQuotationToBuffer(
             : null,
           e(
             View,
-            { style: s.contactBanner },
+            { wrap: false, style: s.contactBanner },
             e(
               View,
               { style: { alignItems: 'center' as const } },
@@ -949,7 +950,7 @@ export async function renderQuotationToBuffer(
               : null,
           ),
         ),
-        pageFooter(`${++currentPage}/${pageCount}`),
+        pageFooter(),
       ),
     );
   }
@@ -1040,7 +1041,7 @@ export async function renderQuotationToBuffer(
 
           e(Text, { style: s.netNote }, 'Estructura de costos con transparencia total · Valores netos · IVA se factura segun ley vigente'),
         ),
-        pageFooter(`${++currentPage}/${pageCount}`),
+        pageFooter(),
       ),
     );
   }
