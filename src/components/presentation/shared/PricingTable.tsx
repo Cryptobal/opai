@@ -27,16 +27,16 @@ export function PricingTable({ pricing, className }: PricingTableProps) {
       <table className="w-full border-collapse">
         <thead>
           <tr className={cn(theme.secondary)}>
-            <th className={cn('px-6 py-4 text-left font-semibold', theme.text)}>
+            <th className={cn('px-3 py-2 sm:px-6 sm:py-4 text-left font-semibold', theme.text)}>
               Descripción
             </th>
-            <th className={cn('px-6 py-4 text-center font-semibold', theme.text)}>
+            <th className={cn('px-3 py-2 sm:px-6 sm:py-4 text-center font-semibold', theme.text)}>
               Cantidad
             </th>
-            <th className={cn('px-6 py-4 text-right font-semibold', theme.text)}>
+            <th className={cn('px-3 py-2 sm:px-6 sm:py-4 text-right font-semibold', theme.text)}>
               Precio Unitario
             </th>
-            <th className={cn('px-6 py-4 text-right font-semibold', theme.text)}>
+            <th className={cn('px-3 py-2 sm:px-6 sm:py-4 text-right font-semibold', theme.text)}>
               Subtotal
             </th>
           </tr>
@@ -50,7 +50,7 @@ export function PricingTable({ pricing, className }: PricingTableProps) {
                 theme.border
               )}
             >
-              <td className={cn('px-6 py-4', theme.text)}>
+              <td className={cn('px-3 py-2 sm:px-6 sm:py-4', theme.text)}>
                 <div className="font-medium">{item.description}</div>
                 {item.notes && (
                   <div className={cn('text-sm mt-1', theme.textMuted)}>
@@ -58,13 +58,13 @@ export function PricingTable({ pricing, className }: PricingTableProps) {
                   </div>
                 )}
               </td>
-              <td className={cn('px-6 py-4 text-center', theme.text)}>
+              <td className={cn('px-3 py-2 sm:px-6 sm:py-4 text-center', theme.text)}>
                 {item.quantity}
               </td>
-              <td className={cn('px-6 py-4 text-right', theme.textMuted)}>
+              <td className={cn('px-3 py-2 sm:px-6 sm:py-4 text-right', theme.textMuted)}>
                 {formatPrice(item.unit_price)}
               </td>
-              <td className={cn('px-6 py-4 text-right font-semibold', theme.text)}>
+              <td className={cn('px-3 py-2 sm:px-6 sm:py-4 text-right font-semibold', theme.text)}>
                 {formatPrice(item.subtotal)}
               </td>
             </tr>
@@ -72,31 +72,31 @@ export function PricingTable({ pricing, className }: PricingTableProps) {
           
           {/* Subtotal */}
           <tr className={cn('border-t', theme.border)}>
-            <td colSpan={3} className={cn('px-6 py-4 text-right font-semibold', theme.text)}>
+            <td colSpan={3} className={cn('px-3 py-2 sm:px-6 sm:py-4 text-right font-semibold', theme.text)}>
               Subtotal
             </td>
-            <td className={cn('px-6 py-4 text-right font-semibold', theme.text)}>
+            <td className={cn('px-3 py-2 sm:px-6 sm:py-4 text-right font-semibold', theme.text)}>
               {formatPrice(pricing.subtotal)}
             </td>
           </tr>
           
           {/* IVA */}
           <tr>
-            <td colSpan={3} className={cn('px-6 py-4 text-right font-semibold', theme.text)}>
+            <td colSpan={3} className={cn('px-3 py-2 sm:px-6 sm:py-4 text-right font-semibold', theme.text)}>
               IVA (19%)
             </td>
-            <td className={cn('px-6 py-4 text-right font-semibold', theme.text)}>
+            <td className={cn('px-3 py-2 sm:px-6 sm:py-4 text-right font-semibold', theme.text)}>
               {formatPrice(pricing.tax)}
             </td>
           </tr>
           
           {/* Total */}
           <tr className={cn('border-t-2', theme.border, theme.secondary)}>
-            <td colSpan={3} className={cn('px-6 py-4 text-right text-xl font-bold', theme.text)}>
+            <td colSpan={3} className={cn('px-3 py-2 sm:px-6 sm:py-4 text-right text-xl font-bold', theme.text)}>
               TOTAL
             </td>
             <td className={cn(
-              'px-6 py-4 text-right text-2xl font-bold',
+              'px-3 py-2 sm:px-6 sm:py-4 text-right text-2xl font-bold',
               theme.accent.replace('bg-', 'text-')
             )}>
               {formatPrice(pricing.total)}

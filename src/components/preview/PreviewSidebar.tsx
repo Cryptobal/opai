@@ -44,8 +44,15 @@ export function PreviewSidebar({ sessionId, zohoData, onTabChange }: PreviewSide
       {isOpen && (
         <div className="fixed top-0 right-0 h-screen w-full sm:w-[600px] bg-slate-900 border-l border-white/10 z-40 shadow-2xl overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="bg-gradient-to-r from-teal-500 to-blue-500 p-4 flex-shrink-0">
+          <div className="bg-gradient-to-r from-teal-500 to-blue-500 p-4 flex-shrink-0 flex items-center justify-between">
             <h3 className="text-white font-bold text-lg">Opciones de Vista</h3>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="sm:hidden inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+              aria-label="Cerrar panel"
+            >
+              ✕
+            </button>
           </div>
 
           {/* Tabs */}

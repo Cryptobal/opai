@@ -52,26 +52,26 @@ export function PresentationHeader({
           <div className="py-3 border-b border-white/5">
             <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
               {/* Lado izquierdo: Propuesta + empresa + negocio + instalación */}
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-2 gap-y-1">
-                <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-2 gap-y-1 min-w-0">
+                <Sparkles className="w-3.5 h-3.5 text-teal-400 shrink-0" />
                 <span className="text-white/60">Propuesta para</span>
                 {showTokens ? (
                   <ZohoToken token="account.Account_Name" inline />
                 ) : (
-                  <span className="font-bold text-white">{companyName}</span>
+                  <span className="font-bold text-white truncate max-w-[200px] sm:max-w-none">{companyName}</span>
                 )}
                 {!showTokens && dealName && (
                   <>
-                    <span className="text-white/30">·</span>
-                    <span className="text-white/50">Negocio:</span>
-                    <span className="font-semibold text-teal-400">{dealName}</span>
+                    <span className="text-white/30 hidden sm:inline">·</span>
+                    <span className="text-white/50 hidden sm:inline">Negocio:</span>
+                    <span className="font-semibold text-teal-400 truncate max-w-[180px] sm:max-w-none hidden sm:inline">{dealName}</span>
                   </>
                 )}
                 {!showTokens && installationName && (
                   <>
-                    <span className="text-white/30">·</span>
-                    <span className="text-white/50">Instalación:</span>
-                    <span className="font-semibold text-teal-400">{installationName}</span>
+                    <span className="text-white/30 hidden sm:inline">·</span>
+                    <span className="text-white/50 hidden sm:inline">Instalación:</span>
+                    <span className="font-semibold text-teal-400 truncate max-w-[180px] sm:max-w-none hidden sm:inline">{installationName}</span>
                   </>
                 )}
               </div>
@@ -146,6 +146,7 @@ export function PresentationHeader({
               rel="noopener noreferrer"
               className="group relative"
               title="WhatsApp"
+              aria-label="Contactar por WhatsApp"
             >
               <div className="w-10 h-10 rounded-full bg-green-500/10 border border-green-500/30 hover:bg-green-500 hover:border-green-500 flex items-center justify-center transition-all hover:scale-110">
                 <MessageCircle className="w-5 h-5 text-green-500 group-hover:text-white transition-colors" />
@@ -159,6 +160,7 @@ export function PresentationHeader({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-teal-500/30 hover:bg-teal-500 hover:border-teal-500 text-white/80 hover:text-white transition-all hover:scale-105 text-sm font-semibold"
               title="Agendar visita técnica"
+              aria-label="Agendar visita técnica"
             >
               <Calendar className="w-4 h-4" />
               <span className="hidden sm:inline">Agendar</span>

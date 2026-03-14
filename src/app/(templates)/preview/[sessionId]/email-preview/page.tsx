@@ -81,7 +81,7 @@ export default async function EmailPreviewPage({ params }: EmailPreviewPageProps
           <div className="p-4">
             <iframe
               src={`/api/email-preview/${sessionId}`}
-              className="w-full h-[800px] border-0"
+              className="w-full h-[500px] md:h-[800px] border-0"
               title="Preview de Email"
             />
           </div>

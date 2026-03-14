@@ -35,19 +35,19 @@ export function ComparisonTable({ rows, className }: ComparisonTableProps) {
         <thead>
           <tr className={cn(theme.secondary)}>
             <th className={cn(
-              'px-6 py-4 text-left font-semibold',
+              'px-3 py-2 sm:px-6 sm:py-4 text-left font-semibold',
               theme.text
             )}>
               Criterio
             </th>
             <th className={cn(
-              'px-6 py-4 text-center font-semibold',
+              'px-3 py-2 sm:px-6 sm:py-4 text-center font-semibold',
               theme.textMuted
             )}>
               Mercado
             </th>
             <th className={cn(
-              'px-6 py-4 text-center font-semibold',
+              'px-3 py-2 sm:px-6 sm:py-4 text-center font-semibold',
               theme.accent.replace('bg-', 'text-')
             )}>
               GARD
@@ -65,19 +65,19 @@ export function ComparisonTable({ rows, className }: ComparisonTableProps) {
               )}
             >
               <td className={cn(
-                'px-6 py-4 font-medium',
+                'px-3 py-2 sm:px-6 sm:py-4 font-medium',
                 theme.text
               )}>
                 {row.criterion}
               </td>
               <td className={cn(
-                'px-6 py-4 text-center',
+                'px-3 py-2 sm:px-6 sm:py-4 text-center',
                 theme.textMuted
               )}>
                 {renderValue(row.market)}
               </td>
               <td className={cn(
-                'px-6 py-4 text-center font-semibold',
+                'px-3 py-2 sm:px-6 sm:py-4 text-center font-semibold',
                 theme.text
               )}>
                 {renderValue(row.gard)}

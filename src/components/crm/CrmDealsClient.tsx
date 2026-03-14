@@ -767,10 +767,10 @@ export function CrmDealsClient({
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 6 },
+      activationConstraint: { distance: 8 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 120, tolerance: 5 },
+      activationConstraint: { delay: 150, tolerance: 8 },
     })
   );
 

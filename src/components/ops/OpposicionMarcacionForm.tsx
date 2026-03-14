@@ -137,13 +137,13 @@ export function OpposicionMarcacionForm({ token }: { token: string }) {
 
       <div className="p-6 space-y-4">
         <div className="bg-slate-50 rounded-lg p-4 text-sm space-y-2">
-          <div className="flex justify-between">
-            <span className="text-slate-500">Trabajador</span>
-            <span className="font-medium">{info.guardiaName}</span>
+          <div className="flex justify-between gap-2">
+            <span className="text-slate-500 shrink-0">Trabajador</span>
+            <span className="font-medium truncate">{info.guardiaName}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Instalación</span>
-            <span className="font-medium">{info.installationName}</span>
+          <div className="flex justify-between gap-2">
+            <span className="text-slate-500 shrink-0">Instalación</span>
+            <span className="font-medium truncate">{info.installationName}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Tipo</span>

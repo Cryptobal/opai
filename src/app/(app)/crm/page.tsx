@@ -179,7 +179,7 @@ export default async function CRMPage() {
   const totalQuotes24m = quotesByMonthData.reduce((s, r) => s + r.count, 0);
 
   return (
-    <div className="space-y-6 min-w-0">
+    <div className="space-y-4 sm:space-y-6 min-w-0 overflow-x-hidden">
       <PageHeader title="CRM" description="Pipeline comercial y gestión de clientes" />
       {/* ─── Resumen ejecutivo ─── */}
       <KpiGrid columns={4}>
