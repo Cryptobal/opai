@@ -780,6 +780,19 @@ function ConfirmacionScreen({
       <p className="text-sm text-slate-500 mb-4">{data.guardiaName}</p>
 
       {/* Estado geo */}
+      {data.gpsStatus === "fuera_rango" && (
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-300 rounded-lg mb-4 text-left">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">
+              Marcación registrada fuera de rango ({data.geoDistanciaM}m)
+            </p>
+            <p className="text-xs text-amber-700 mt-1">
+              Tu supervisor será notificado. Esta marcación quedará registrada como fuera de rango.
+            </p>
+          </div>
+        </div>
+      )}
       <div
         className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium mb-4 ${
           data.gpsStatus === "dentro_rango"
