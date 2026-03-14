@@ -158,7 +158,7 @@ export function GuardPortalClient() {
           <ChatGuardPortal session={session} />
         </div>
       ) : (
-        <main className="flex-1 overflow-y-auto pb-20 px-4 sm:px-6">
+        <main className="flex-1 overflow-y-auto pb-16 sm:pb-20 px-4 sm:px-6">
           <PushPermissionPrompt
             portalType="guardia"
             userType="guardia"
@@ -962,7 +962,7 @@ function PautaSection({ session }: { session: GuardSession }) {
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="rounded-xl border bg-card shadow-sm overflow-hidden overflow-x-auto">
+        <div className="rounded-xl border bg-card shadow-sm overflow-hidden overflow-x-auto scrollbar-hide">
           <div className="min-w-[320px]">
           {/* Day header */}
           <div className="grid grid-cols-7 border-b">

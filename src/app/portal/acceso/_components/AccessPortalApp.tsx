@@ -411,7 +411,7 @@ export function AccessPortalApp() {
 
   // Main app with tabs (active or preview mode)
   return (
-    <div className="flex min-h-dvh flex-col bg-[#0A0F1C]">
+    <div className="flex min-h-dvh flex-col bg-[#0A0F1C] overflow-x-hidden">
       <InstallationHeader
         installationName={device.installationName}
         guardName={guardName}
@@ -467,7 +467,8 @@ export function AccessPortalApp() {
         <button
           type="button"
           onClick={() => setActiveTab("registro")}
-          className="fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 transition-transform active:scale-95"
+          className="fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 transition-transform active:scale-95"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 6rem)' }}
           aria-label="Registro rápido"
         >
           <Plus className="h-7 w-7" />

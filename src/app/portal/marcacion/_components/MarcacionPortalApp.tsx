@@ -114,7 +114,7 @@ export function MarcacionPortalApp() {
 
   if (appState === "loading") {
     return (
-      <div className="flex min-h-dvh items-center justify-center" style={{ background: "#060a13" }}>
+      <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-emerald-400" />
       </div>
     );

@@ -553,7 +553,8 @@ export function RondasPortalClient() {
     <div className="flex flex-col h-dvh overflow-hidden">
       {isOffline && (
         <div
-          className="fixed top-0 inset-x-0 z-50 bg-amber-600 px-4 py-2 text-center text-sm font-medium text-white"
+          className="fixed top-0 inset-x-0 z-50 bg-amber-600 px-4 text-center text-sm font-medium text-white"
+          style={{ paddingTop: 'calc(var(--safe-area-top) + 0.5rem)', paddingBottom: '0.5rem' }}
           role="status"
         >
           Sin conexion — modo offline
@@ -563,9 +564,10 @@ export function RondasPortalClient() {
 
       {panicBanner !== "off" && (
         <div
-          className={`fixed inset-x-0 top-0 z-[65] flex items-center justify-center gap-2 px-4 py-2.5 text-center text-sm font-medium text-white shadow-lg ${
+          className={`fixed inset-x-0 top-0 z-[65] flex items-center justify-center gap-2 px-4 text-center text-sm font-medium text-white shadow-lg ${
             panicBanner === "acknowledged" ? "bg-green-800" : "bg-red-900"
           }`}
+          style={{ paddingTop: 'calc(var(--safe-area-top) + 0.625rem)', paddingBottom: '0.625rem' }}
         >
           {panicBanner === "acknowledged" ? (
             <>
@@ -694,7 +696,7 @@ export function RondasPortalClient() {
 
       {/* Incident submitted toast */}
       {incidentToast && (
-        <div className="fixed top-4 inset-x-4 z-[70] flex items-center gap-3 rounded-xl border border-green-700/50 bg-green-950/90 px-4 py-3 shadow-lg backdrop-blur-sm animate-in slide-in-from-top">
+        <div className="fixed inset-x-4 z-[70] flex items-center gap-3 rounded-xl border border-green-700/50 bg-green-950/90 px-4 py-3 shadow-lg backdrop-blur-sm animate-in slide-in-from-top" style={{ top: 'calc(var(--safe-area-top) + 1rem)' }}>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-500/20">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />

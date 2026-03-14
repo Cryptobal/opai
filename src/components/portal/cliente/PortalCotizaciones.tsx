@@ -209,7 +209,7 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
 
       {/* Filter tabs */}
       {quotes.length > 0 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
           {FILTER_TABS.map((tab) => {
             const count = filterQuotes(quotes, tab.key).length;
             return (

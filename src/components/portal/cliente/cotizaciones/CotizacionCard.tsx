@@ -242,7 +242,23 @@ export function CotizacionCard({
                       {++sectionCounter}. Dotación
                     </h4>
                   )}
-                  <div className="overflow-x-auto -mx-4 px-4">
+                  {/* Mobile: card view */}
+                  <div className="md:hidden space-y-2">
+                    {detail.positions.map((pos) => (
+                      <div key={pos.id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 space-y-1">
+                        <div className="text-xs font-medium text-zinc-200">{pos.customName ?? `Puesto ${pos.numPuestos ?? ""}`}</div>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-zinc-500">Guardias: {pos.numGuards ?? "—"}</span>
+                          <span className="text-teal-400 font-medium">{formatCurrency(pos.displayPrice ?? pos.monthlyPositionCost, currencyKey)}</span>
+                        </div>
+                        <div className="text-[11px] text-zinc-500">
+                          {formatHorario(pos.startTime, pos.endTime)} · {formatWeekdays(pos.weekdays)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop: table view */}
+                  <div className="hidden md:block overflow-x-auto -mx-4 px-4">
                     <table className="w-full text-xs min-w-[480px]">
                       <thead>
                         <tr className="text-zinc-500 border-b border-white/[0.06]">

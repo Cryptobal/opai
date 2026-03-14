@@ -193,8 +193,27 @@ export function SupervisorPautaGrid({ installations }: Props) {
           compact
         />
       ) : (
-        <div className="rounded-xl border border-zinc-800 overflow-hidden">
-          <div className="overflow-x-auto">
+        <>
+        {/* Mobile: card summary view */}
+        <div className="md:hidden space-y-2">
+          {matrix.map((row, idx) => {
+            const isFirst = idx === 0 || matrix[idx - 1].puestoId !== row.puestoId;
+            const workDays = Array.from(row.cells.values()).filter(c => c.item?.shiftCode === 'T').length;
+            const totalCells = row.cells.size;
+            return (
+              <div key={`${row.puestoId}-${row.slotNumber}`} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+                {isFirst && <div className="text-[11px] font-medium text-zinc-200 truncate mb-1">{row.puestoName}</div>}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-zinc-400 truncate min-w-0">{row.guardiaName}</span>
+                  <span className="text-[10px] text-zinc-500 shrink-0">S{row.slotNumber} · {workDays}/{totalCells} días</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {/* Desktop: full grid table */}
+        <div className="hidden md:block rounded-xl border border-zinc-800 overflow-hidden">
+          <div className="overflow-x-auto scrollbar-hide">
             <table className="w-full text-[10px] border-collapse">
               <thead>
                 <tr className="border-b border-zinc-800">
@@ -323,6 +342,7 @@ export function SupervisorPautaGrid({ installations }: Props) {
             <span><span className="inline-block w-3 h-3 rounded bg-yellow-800/30 border border-yellow-600/30 align-middle mr-0.5" /> Licencia</span>
           </div>
         </div>
+        </>
       )}
 
       <p className="text-[10px] text-zinc-600 text-center">Vista de solo lectura</p>

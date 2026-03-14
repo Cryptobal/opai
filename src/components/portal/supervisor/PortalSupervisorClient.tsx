@@ -348,11 +348,11 @@ export function PortalSupervisorClient() {
       />
 
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-        <SheetContent side="bottom" className="bg-zinc-950 border-zinc-800 text-white pb-safe">
+        <SheetContent side="bottom" className="bg-zinc-950 border-zinc-800 text-white" style={{ paddingBottom: 'calc(var(--safe-area-bottom) + 1rem)' }}>
           <SheetHeader>
             <SheetTitle className="text-white text-left">Más opciones</SheetTitle>
           </SheetHeader>
-          <div className="grid grid-cols-3 gap-3 mt-4 pb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4 pb-4">
             {MORE_NAV.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
