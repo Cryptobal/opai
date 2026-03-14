@@ -55,7 +55,7 @@ export function ListToolbar({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={searchPlaceholder}
-          className="pl-9 h-9 bg-background text-foreground border-input"
+          className="pl-9 h-10 sm:h-9 bg-background text-foreground border-input"
         />
       </div>
 

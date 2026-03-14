@@ -98,7 +98,7 @@ function LinkBottomNav({
           const unread = isChatToggle && chatUnread > 0 ? chatUnread : 0;
 
           const itemClassName = cn(
-            "relative flex flex-col items-center justify-center gap-0.5 rounded-lg py-1 transition-all min-w-0 shrink-0 active:scale-95",
+            "relative flex flex-col items-center justify-center gap-0.5 rounded-lg py-1 transition-all min-w-[44px] min-h-[44px] shrink-0 active:scale-95",
             compact ? "px-1.5" : "px-3",
             isActive
               ? "text-primary"

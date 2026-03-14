@@ -9,6 +9,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
   themeColor: "#060a13",
 };
 
@@ -35,7 +36,7 @@ export default async function PortalSupervisorLayout({
     redirect("/opai/login?callbackUrl=/portal/supervisor");
   }
   return (
-    <div className="min-h-dvh text-white">
+    <div className="min-h-dvh text-white" style={{ paddingTop: 'var(--safe-area-top)' }}>
       <ServiceWorkerRegistrar />
       <BadgeClear />
       {children}

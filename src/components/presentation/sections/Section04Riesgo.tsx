@@ -22,8 +22,8 @@ export function Section04Riesgo({ data }: Section04RiesgoProps) {
   return (
     <SectionWrapper id="s04-riesgo" className="section-darker relative overflow-hidden">
       {/* Red glow effects */}
-      <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-red-500/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-orange-500/10 rounded-full blur-3xl" />
+      <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-red-500/10 rounded-full blur-3xl hidden sm:block" />
+      <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-orange-500/10 rounded-full blur-3xl hidden sm:block" />
       
       <ContainerWrapper size="xl" className="relative z-10">
         {/* Header dramático */}

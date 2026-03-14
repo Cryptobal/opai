@@ -33,7 +33,7 @@ export function FilterPills({ options, active, onChange }: FilterPillsProps) {
       {/* Móvil: Select compacto para evitar truncamiento */}
       <div className="md:hidden w-full min-w-[140px] max-w-[180px] shrink-0">
         <Select value={active} onValueChange={onChange}>
-          <SelectTrigger className="h-8 text-xs border-border bg-background">
+          <SelectTrigger className="h-10 sm:h-8 text-xs border-border bg-background">
             <SelectValue placeholder="Estado" />
           </SelectTrigger>
           <SelectContent align="start">

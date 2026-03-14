@@ -29,54 +29,79 @@ const DialogOverlay = React.forwardRef<
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+/** Hook to adjust dialog max-height when virtual keyboard is open on mobile */
+function useKeyboardAwareMaxHeight() {
+  const [keyboardOffset, setKeyboardOffset] = React.useState(0);
+
+  React.useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (!vv) return;
+
+    const handleResize = () => {
+      const offset = window.innerHeight - vv.height;
+      setKeyboardOffset(offset > 50 ? offset : 0);
+    };
+
+    vv.addEventListener('resize', handleResize);
+    return () => vv.removeEventListener('resize', handleResize);
+  }, []);
+
+  return keyboardOffset;
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, onPointerDownOutside, onInteractOutside, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      onPointerDownOutside={(e) => {
-        // Evitar que el dialog se cierre al hacer clic en el dropdown de Google Places
-        const target = e.target as HTMLElement;
-        if (target?.closest?.(".pac-container")) {
-          e.preventDefault();
-          return;
-        }
-        onPointerDownOutside?.(e);
-      }}
-      onInteractOutside={(e) => {
-        // Idem para interactOutside (cubre focus y pointer)
-        const target = e.target as HTMLElement;
-        if (target?.closest?.(".pac-container")) {
-          e.preventDefault();
-          return;
-        }
-        onInteractOutside?.(e);
-      }}
-      className={cn(
-        // Mobile: bottom sheet style
-        "fixed inset-x-0 bottom-0 z-50 grid w-full gap-4 border-t border-border bg-card p-6 shadow-xl duration-300 rounded-t-2xl max-h-[90vh] overflow-y-auto overscroll-contain",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
-        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-        // Desktop: centered modal
-        "sm:inset-auto sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-lg sm:rounded-lg sm:border sm:max-h-[85vh]",
-        "sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]",
-        "sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring disabled:pointer-events-none">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Cerrar</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPortal>
-))
+>(({ className, children, onPointerDownOutside, onInteractOutside, ...props }, ref) => {
+  const keyboardOffset = useKeyboardAwareMaxHeight();
+
+  return (
+    <DialogPortal>
+      <DialogOverlay />
+      <DialogPrimitive.Content
+        ref={ref}
+        onPointerDownOutside={(e) => {
+          // Evitar que el dialog se cierre al hacer clic en el dropdown de Google Places
+          const target = e.target as HTMLElement;
+          if (target?.closest?.(".pac-container")) {
+            e.preventDefault();
+            return;
+          }
+          onPointerDownOutside?.(e);
+        }}
+        onInteractOutside={(e) => {
+          // Idem para interactOutside (cubre focus y pointer)
+          const target = e.target as HTMLElement;
+          if (target?.closest?.(".pac-container")) {
+            e.preventDefault();
+            return;
+          }
+          onInteractOutside?.(e);
+        }}
+        style={keyboardOffset > 0 ? { maxHeight: `calc(90vh - ${keyboardOffset}px)`, bottom: `${keyboardOffset}px` } : undefined}
+        className={cn(
+          // Mobile: bottom sheet style
+          "fixed inset-x-0 bottom-0 z-50 grid w-full gap-4 border-t border-border bg-card p-6 shadow-xl duration-300 rounded-t-2xl max-h-[90vh] overflow-y-auto overscroll-contain",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+          "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+          // Desktop: centered modal
+          "sm:inset-auto sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-lg sm:rounded-lg sm:border sm:max-h-[85vh]",
+          "sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]",
+          "sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring disabled:pointer-events-none">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Cerrar</span>
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </DialogPortal>
+  );
+})
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({
