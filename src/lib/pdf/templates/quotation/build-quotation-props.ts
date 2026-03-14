@@ -86,9 +86,9 @@ export function normalizeDbSectionsToProposalFormat(
     if (typeof value !== 'boolean') continue;
     const mapped = LEGACY_SECTION_MAP[key];
     if (mapped) {
-      result[mapped] = value;
+      (result as Record<string, boolean>)[mapped] = value;
     } else if (key.startsWith('show')) {
-      result[key as keyof ProposalTemplateSections] = value;
+      (result as Record<string, boolean>)[key] = value;
     }
   }
   const canonical = SLUG_ALIASES[(slug ?? '').trim().toLowerCase()];
