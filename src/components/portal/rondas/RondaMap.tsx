@@ -62,7 +62,7 @@ function createCheckpointIcon(
   if (status === "completed") {
     inner = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M5 13l4 4L19 7"/></svg>`;
   } else if (orderIndex != null) {
-    inner = `<span style="font-size:13px;font-weight:700;color:${text};line-height:1;">${orderIndex}</span>`;
+    inner = `<span style="font-size:13px;font-weight:700;color:${text};line-height:1;">${(orderIndex ?? 0) + 1}</span>`;
   }
 
   const pulseRing =
