@@ -6,6 +6,8 @@ import type { AdditionalLine } from "./types";
 interface AdditionalServicesPortalProps {
   lines: AdditionalLine[];
   currency: string;
+  numbered?: boolean;
+  sectionNumber?: number;
   className?: string;
 }
 
@@ -27,16 +29,19 @@ const RECURRENCIA_SUFFIX: Record<string, string> = {
 export function AdditionalServicesPortal({
   lines,
   currency,
+  numbered,
+  sectionNumber,
   className,
 }: AdditionalServicesPortalProps) {
   if (!lines.length) return null;
 
   const fmt = (v: number) => formatCurrency(v, currency === "UF" ? "UF" : "CLP");
+  const prefix = numbered && sectionNumber != null ? `${sectionNumber}. ` : "";
 
   return (
     <div className={cn("space-y-2", className)}>
       <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
-        Servicios adicionales
+        {prefix}Servicios adicionales
       </h4>
       <div className="divide-y divide-white/[0.04] rounded-lg border border-white/[0.06] overflow-hidden">
         {lines.map((line) => {

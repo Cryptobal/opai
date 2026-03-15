@@ -126,6 +126,13 @@ export async function POST(
 
     const tenantConfig = await getTenantCompanyConfig(ctx.tenantId);
 
+    // Update quote status to "sent" BEFORE email — so the quote is visible
+    // in the portal even if the email delivery fails.
+    await prisma.cpqQuote.update({
+      where: { id },
+      data: { status: "sent" },
+    });
+
     // Render email HTML
     const emailHtml = await render(
       CpqQuoteEmail({
@@ -162,12 +169,6 @@ export async function POST(
         { name: "type", value: "cpq-quote" },
         { name: "quote", value: quote.code },
       ],
-    });
-
-    // Update quote status to sent
-    await prisma.cpqQuote.update({
-      where: { id },
-      data: { status: "sent" },
     });
 
     // Update deal proposalSentAt and schedule follow-ups

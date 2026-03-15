@@ -87,6 +87,12 @@ ${htmlBody.replace(/\n/g, "<br>")}
       );
     }
 
+    // Update quote status to "sent" BEFORE email — visible in portal even if email fails.
+    await prisma.cpqQuote.update({
+      where: { id },
+      data: { status: "sent" },
+    });
+
     // Build attachments: PDF + quote attachments
     const emailAttachments: { filename: string; content: Buffer; contentType: string }[] = [
       {
@@ -131,12 +137,6 @@ ${htmlBody.replace(/\n/g, "<br>")}
         { name: "type", value: "cpq-quote-pdf" },
         { name: "quote", value: quote.code },
       ],
-    });
-
-    // Update quote status to sent
-    await prisma.cpqQuote.update({
-      where: { id },
-      data: { status: "sent" },
     });
 
     // Update deal: proposalSentAt, follow-ups, stage

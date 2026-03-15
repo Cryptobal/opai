@@ -310,6 +310,8 @@ export function CotizacionCard({
                 <AdditionalServicesPortal
                   lines={detail.additionalLines}
                   currency={currencyKey}
+                  numbered={isTender}
+                  sectionNumber={isTender ? ++sectionCounter : undefined}
                 />
               )}
 
