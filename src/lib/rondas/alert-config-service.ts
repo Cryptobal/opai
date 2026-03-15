@@ -102,9 +102,6 @@ export function toLegacyAlertConfig(full: FullAlertConfig) {
     speedAnomalyEnabled: full.velocidad_anomala?.enabled ?? true,
     roundNotStartedMinutes: full.ronda_no_iniciada?.thresholds?.roundNotStartedMinutes ?? 10,
     roundNotStartedEnabled: full.ronda_no_iniciada?.enabled ?? true,
-    checkpointSkippedEnabled: full.checkpoint_saltado?.enabled ?? true,
-    routeDeviationMultiplier: full.geo_fuera_rango?.thresholds?.routeDeviationMultiplier ?? 2,
-    routeDeviationEnabled: full.geo_fuera_rango?.enabled ?? true,
   };
 }
 
@@ -151,14 +148,6 @@ async function migrateFromLegacy(tenantId: string): Promise<FullAlertConfig> {
       config.ronda_no_iniciada.enabled = legacy.roundNotStartedEnabled;
     if (legacy.roundNotStartedMinutes !== undefined)
       config.ronda_no_iniciada.thresholds.roundNotStartedMinutes = legacy.roundNotStartedMinutes;
-
-    if (legacy.checkpointSkippedEnabled !== undefined)
-      config.checkpoint_saltado.enabled = legacy.checkpointSkippedEnabled;
-
-    if (legacy.routeDeviationEnabled !== undefined)
-      config.geo_fuera_rango.enabled = legacy.routeDeviationEnabled;
-    if (legacy.routeDeviationMultiplier !== undefined)
-      config.geo_fuera_rango.thresholds.routeDeviationMultiplier = legacy.routeDeviationMultiplier;
 
     return config;
   } catch {

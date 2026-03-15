@@ -31,14 +31,11 @@ function chatCooldownKey(tenantId: string) {
 // ── Alert Type Labels ──
 
 const ALERT_TYPE_LABELS: Record<string, string> = {
-  geo_fuera_rango: "Fuera de rango",
   guardia_estatico: "Guardia estático",
   velocidad_anomala: "Velocidad anómala",
-  checkpoint_saltado: "Checkpoint saltado",
   ronda_no_iniciada: "Ronda no iniciada",
   ronda_no_realizada: "Ronda no realizada",
   ronda_libre_timeout: "Ronda libre timeout",
-  mismo_punto_repetido: "Punto repetido",
   sin_movimiento: "Sin movimiento",
   bateria_baja: "Batería baja",
   bateria_estatica: "Batería estática",

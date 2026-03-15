@@ -33,7 +33,6 @@ export async function GET(req: NextRequest) {
       where: {
         tenantId,
         createdAt: { gte: start, lte: end },
-        tipo: { not: "geo_fuera_rango" },
       },
       select: { id: true, tipo: true, severidad: true, resuelta: true, installationId: true, createdAt: true },
     }),

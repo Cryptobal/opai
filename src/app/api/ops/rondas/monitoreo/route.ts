@@ -48,7 +48,7 @@ export async function GET() {
           take: 20,
         },
         alertasRows: {
-          where: { resuelta: false, archivedAt: null, tipo: { not: "geo_fuera_rango" } },
+          where: { resuelta: false, archivedAt: null },
           orderBy: { createdAt: "desc" },
           take: 3,
         },
@@ -110,7 +110,7 @@ export async function GET() {
           orderBy: { timestamp: "desc" },
         },
         alertasRows: {
-          where: { resuelta: false, archivedAt: null, tipo: { not: "geo_fuera_rango" } },
+          where: { resuelta: false, archivedAt: null },
           orderBy: { createdAt: "desc" },
           take: 3,
         },

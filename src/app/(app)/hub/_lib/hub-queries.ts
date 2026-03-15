@@ -946,12 +946,11 @@ export async function getOpsMetrics(
         },
       },
     }),
-    // Alerts (excluir geo_fuera_rango deprecado)
     prisma.opsAlertaRonda.count({
-      where: { tenantId, resuelta: false, tipo: { not: "geo_fuera_rango" } },
+      where: { tenantId, resuelta: false },
     }),
     prisma.opsAlertaRonda.count({
-      where: { tenantId, resuelta: false, severidad: "critical", tipo: { not: "geo_fuera_rango" } },
+      where: { tenantId, resuelta: false, severidad: "critical" },
     }),
     hasRefuerzosModel
       ? prismaAny.opsRefuerzoSolicitud!.count({

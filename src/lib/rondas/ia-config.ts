@@ -10,9 +10,6 @@ export interface AlertConfig {
   speedAnomalyEnabled: boolean;
   roundNotStartedMinutes: number;
   roundNotStartedEnabled: boolean;
-  checkpointSkippedEnabled: boolean;
-  routeDeviationMultiplier: number;
-  routeDeviationEnabled: boolean;
 }
 
 export const DEFAULT_ALERT_CONFIG: AlertConfig = {
@@ -22,9 +19,6 @@ export const DEFAULT_ALERT_CONFIG: AlertConfig = {
   speedAnomalyEnabled: true,
   roundNotStartedMinutes: 10,
   roundNotStartedEnabled: true,
-  checkpointSkippedEnabled: true,
-  routeDeviationMultiplier: 2,
-  routeDeviationEnabled: true,
 };
 
 /** Read alert config (legacy shape — delegates to v2 service) */
@@ -43,9 +37,6 @@ export async function saveAlertConfig(tenantId: string, config: AlertConfig): Pr
   full.velocidad_anomala.thresholds.speedAnomalyKmh = config.speedAnomalyKmh;
   full.ronda_no_iniciada.enabled = config.roundNotStartedEnabled;
   full.ronda_no_iniciada.thresholds.roundNotStartedMinutes = config.roundNotStartedMinutes;
-  full.checkpoint_saltado.enabled = config.checkpointSkippedEnabled;
-  full.geo_fuera_rango.enabled = config.routeDeviationEnabled;
-  full.geo_fuera_rango.thresholds.routeDeviationMultiplier = config.routeDeviationMultiplier;
 
   await saveFullAlertConfig(tenantId, full);
 }
