@@ -48,6 +48,7 @@ import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
 import { FinancialPanel } from "@/components/cpq/FinancialPanel";
+import { TemplatePreviewModal } from "@/components/cpq/TemplatePreviewModal";
 import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
 import { FollowUpDecisionModal, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
 
@@ -154,6 +155,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [proposalTemplates, setProposalTemplates] = useState<{ id: string; name: string; slug: string; description?: string }[]>([]);
   const [proposalTemplateId, setProposalTemplateId] = useState<string | null>(null);
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [tenantBranding, setTenantBranding] = useState<{
     companyName: string;
     brandNameUpper: string;
@@ -1212,30 +1214,24 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                     ))}
                   </select>
                   {proposalTemplates.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={async () => {
-                        const slug = proposalTemplates.find((t) => t.id === proposalTemplateId)?.slug || proposalTemplates[0]?.slug || "standard";
-                        setPdfDownloading(true);
-                        try {
-                          const res = await fetch(`/api/cpq/quotes/${quoteId}/export-pdf?templateSlug=${encodeURIComponent(slug)}`);
-                          if (!res.ok) throw new Error("Error generando PDF");
-                          const blob = await res.blob();
-                          const url = URL.createObjectURL(blob);
-                          window.open(url, "_blank");
-                        } catch {
-                          toast.error("Error al generar el PDF");
-                        } finally {
-                          setPdfDownloading(false);
-                        }
-                      }}
-                      disabled={pdfDownloading}
-                      className="h-8 px-2 shrink-0"
-                      title="Ver PDF"
-                    >
-                      {pdfDownloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
-                    </Button>
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPdfPreviewOpen(true)}
+                        className="h-8 px-2 shrink-0"
+                        title="Ver PDF"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <TemplatePreviewModal
+                        quoteId={quoteId}
+                        templateSlug={proposalTemplates.find((t) => t.id === proposalTemplateId)?.slug || proposalTemplates[0]?.slug || "standard"}
+                        templateName={proposalTemplates.find((t) => t.id === proposalTemplateId)?.name || proposalTemplates[0]?.name || "Cotización"}
+                        isOpen={pdfPreviewOpen}
+                        onClose={() => setPdfPreviewOpen(false)}
+                      />
+                    </>
                   )}
                 </div>
               </div>

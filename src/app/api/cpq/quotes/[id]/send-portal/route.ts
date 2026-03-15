@@ -386,7 +386,14 @@ export async function POST(
       // Non-fatal: portal invite still works without the presentation link
     }
 
-    // 7. Send portal invite email with PIN
+    // 7. Update quote status to "sent" BEFORE email — so the quote is visible
+    //    in the portal even if the email delivery fails.
+    await prisma.cpqQuote.update({
+      where: { id },
+      data: { status: "sent" },
+    });
+
+    // 8. Send portal invite email with PIN
     const tenantConfig = await getTenantCompanyConfig(ctx.tenantId);
     const basePortalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/cliente`;
     const portalUrl = contact.email
@@ -421,12 +428,6 @@ export async function POST(
         { name: "type", value: "portal-prospecto-invite" },
         { name: "quote", value: quote.code },
       ],
-    });
-
-    // 8. Update quote status to "sent"
-    await prisma.cpqQuote.update({
-      where: { id },
-      data: { status: "sent" },
     });
 
     // 9. Update deal (proposalSentAt, amount, totalPuestos, stageId to "Cotizacion enviada")

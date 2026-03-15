@@ -212,9 +212,9 @@ const s = StyleSheet.create({
     marginTop: 2,
   },
   contactBanner: {
-    backgroundColor: pdfColors.teal,
-    padding: 14,
-    borderRadius: 4,
+    borderTopWidth: 1,
+    borderTopColor: pdfColors.slate200,
+    paddingTop: 12,
     marginTop: 16,
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -226,14 +226,14 @@ const s = StyleSheet.create({
   contactLabel: {
     fontFamily: pdfFonts.sans,
     fontSize: 7,
-    color: pdfColors.tealLight,
+    color: pdfColors.slate400,
     marginBottom: 2,
   },
   contactValue: {
     fontFamily: pdfFonts.sans,
     fontSize: 9,
     fontWeight: 600,
-    color: pdfColors.white,
+    color: pdfColors.navy,
   },
 });
 

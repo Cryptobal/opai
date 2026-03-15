@@ -301,6 +301,7 @@ export function CotizacionCard({
                   categories={detail.costsByCategory}
                   currency={currencyKey}
                   numbered={isTender}
+                  sectionNumber={isTender ? ++sectionCounter : undefined}
                 />
               )}
 
