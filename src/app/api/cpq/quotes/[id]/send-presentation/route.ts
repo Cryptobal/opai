@@ -271,7 +271,13 @@ export async function POST(
       },
     });
 
-    // 9. Create Presentation record
+    // 9a. Update quote status to "sent" early — visible in portal even if email fails.
+    await prisma.cpqQuote.update({
+      where: { id },
+      data: { status: "sent" },
+    });
+
+    // 9b. Create Presentation record
     const presentation = await prisma.presentation.create({
       data: {
         uniqueId,
@@ -343,13 +349,7 @@ export async function POST(
       data: { usageCount: { increment: 1 } },
     });
 
-    // 13. Update quote status
-    await prisma.cpqQuote.update({
-      where: { id },
-      data: { status: "sent" },
-    });
-
-    // 14. Log in CRM history (linked to both quote and deal)
+    // 13. Log in CRM history (linked to both quote and deal)
     await prisma.crmHistoryLog.create({
       data: {
         tenantId: ctx.tenantId,

@@ -200,54 +200,54 @@ export const CpqQuoteEmail = ({
 
 export default CpqQuoteEmail;
 
-// Styles
-const main = { backgroundColor: "#0a0a0a", fontFamily: "Arial, sans-serif" };
-const container = { maxWidth: "600px", margin: "0 auto" };
+// Styles — Gard Security brand: navy #1e3a8a, dark slate #0f172a, teal #14b8a6
+const main = { backgroundColor: "#f8fafc", fontFamily: "Arial, sans-serif" };
+const container = { maxWidth: "600px", margin: "0 auto", backgroundColor: "#ffffff" };
 const header = {
-  backgroundColor: "#111111",
-  padding: "24px 32px",
+  backgroundColor: "#1e3a8a",
+  padding: "28px 32px",
   textAlign: "center" as const,
-  borderBottom: "2px solid #14b8a6",
+  borderBottom: "3px solid #14b8a6",
 };
 const logo = { margin: "0 auto" };
-const content = { padding: "32px" };
-const heading = { color: "#ffffff", fontSize: "24px", margin: "0 0 4px", fontWeight: "bold" as const };
-const subheading = { color: "#14b8a6", fontSize: "14px", margin: "0 0 24px" };
-const text = { color: "#d4d4d4", fontSize: "14px", lineHeight: "1.6", margin: "0 0 16px" };
-const divider = { borderColor: "#333333", margin: "16px 0" };
+const content = { padding: "32px", backgroundColor: "#ffffff" };
+const heading = { color: "#0f172a", fontSize: "24px", margin: "0 0 4px", fontWeight: "bold" as const };
+const subheading = { color: "#1e3a8a", fontSize: "14px", margin: "0 0 24px" };
+const text = { color: "#334155", fontSize: "14px", lineHeight: "1.6", margin: "0 0 16px" };
+const divider = { borderColor: "#e2e8f0", margin: "16px 0" };
 const infoBox = {
-  backgroundColor: "#1a1a1a",
+  backgroundColor: "#f1f5f9",
   borderRadius: "8px",
   padding: "20px",
   margin: "20px 0",
-  border: "1px solid #333333",
+  border: "1px solid #e2e8f0",
 };
 const infoTitle = {
-  color: "#ffffff",
+  color: "#0f172a",
   fontSize: "14px",
   fontWeight: "bold" as const,
   margin: "0 0 12px",
 };
 const infoTable = { width: "100%", borderCollapse: "collapse" as const };
-const infoLabel = { color: "#888888", fontSize: "13px", padding: "6px 0" };
-const infoValue = { color: "#ffffff", fontSize: "13px", padding: "6px 0", textAlign: "right" as const };
-const signature = { color: "#888888", fontSize: "13px", lineHeight: "1.6", margin: "24px 0 0" };
+const infoLabel = { color: "#64748b", fontSize: "13px", padding: "6px 0" };
+const infoValue = { color: "#0f172a", fontSize: "13px", padding: "6px 0", textAlign: "right" as const };
+const signature = { color: "#64748b", fontSize: "13px", lineHeight: "1.6", margin: "24px 0 0" };
 const serviceDetailBox = {
-  backgroundColor: "#1a1a1a",
+  backgroundColor: "#f1f5f9",
   borderRadius: "8px",
   padding: "16px 20px",
   margin: "16px 0",
-  border: "1px solid #333333",
+  border: "1px solid #e2e8f0",
   borderLeft: "3px solid #14b8a6",
 };
 const serviceDetailTitle = {
-  color: "#14b8a6",
+  color: "#1e3a8a",
   fontSize: "13px",
   fontWeight: "bold" as const,
   margin: "0 0 8px",
 };
 const serviceDetailText = {
-  color: "#d4d4d4",
+  color: "#334155",
   fontSize: "12px",
   lineHeight: "1.6",
   margin: "0",
@@ -256,43 +256,43 @@ const serviceDetailText = {
 const footer = {
   padding: "16px 32px",
   textAlign: "center" as const,
-  borderTop: "1px solid #333333",
+  backgroundColor: "#0f172a",
 };
-const footerText = { color: "#666666", fontSize: "11px", lineHeight: "1.4" };
+const footerText = { color: "#94a3b8", fontSize: "11px", lineHeight: "1.4" };
 const contextBox = {
-  backgroundColor: "#1a1a1a",
+  backgroundColor: "#f1f5f9",
   borderRadius: "8px",
   padding: "14px 20px",
   margin: "16px 0",
-  border: "1px solid #333333",
+  border: "1px solid #e2e8f0",
   borderLeft: "3px solid #14b8a6",
 };
 const contextItem = {
-  color: "#d4d4d4",
+  color: "#334155",
   fontSize: "13px",
   lineHeight: "1.5",
   margin: "0 0 4px",
 };
 const contextLabel = {
-  color: "#14b8a6",
+  color: "#1e3a8a",
   fontWeight: "bold" as const,
 };
 const portalSection = {
   textAlign: "center" as const,
   margin: "24px 0",
   padding: "20px",
-  backgroundColor: "#1a1a1a",
+  backgroundColor: "#f1f5f9",
   borderRadius: "8px",
-  border: "1px solid #333333",
+  border: "1px solid #e2e8f0",
 };
 const portalText = {
-  color: "#d4d4d4",
+  color: "#334155",
   fontSize: "14px",
   lineHeight: "1.6",
   margin: "0 0 16px",
 };
 const portalButton = {
-  backgroundColor: "#2563eb",
+  backgroundColor: "#1e3a8a",
   color: "#ffffff",
   padding: "12px 24px",
   borderRadius: "6px",

@@ -291,18 +291,29 @@ export async function GET(
         where: { active: true, OR: [{ tenantId: session.tenantId }, { tenantId: null }] },
         orderBy: [{ type: "asc" }, { sortOrder: "asc" }],
       });
-      const catMap = new Map(categories.map((c) => [c.slug, c]));
+      const catBySlug = new Map(categories.map((c) => [c.slug, c]));
+      const catByType = new Map(categories.map((c) => [c.type, c]));
+
+      /** Fallback display names when no DB category matches */
+      const TYPE_DISPLAY: Record<string, string> = {
+        phone: "Equipamiento operativo",
+        radio: "Equipamiento operativo",
+        flashlight: "Equipamiento operativo",
+        system: "Sistemas y tecnología",
+        transport: "Transporte",
+      };
 
       const grouped = new Map<string, { category: string; slug: string; type: string; items: Array<{ name: string; value: number }>; subtotal: number }>();
       for (const item of costItems) {
         const cat = item.catalogItem;
         if (!cat) continue;
-        const catSlug = (cat as Record<string, unknown>).type as string ?? "other";
-        const catInfo = catMap.get(catSlug);
-        if (!grouped.has(catSlug)) {
-          grouped.set(catSlug, {
-            category: catInfo?.name ?? catSlug,
-            slug: catSlug,
+        const itemType = (cat as Record<string, unknown>).type as string ?? "other";
+        const catInfo = catBySlug.get(itemType) ?? catByType.get(itemType);
+        const displayName = catInfo?.name ?? TYPE_DISPLAY[itemType] ?? itemType;
+        if (!grouped.has(itemType)) {
+          grouped.set(itemType, {
+            category: displayName,
+            slug: itemType,
             type: catInfo?.type ?? "indirect",
             items: [],
             subtotal: 0,
@@ -314,7 +325,7 @@ export async function GET(
         const qty = Number(item.quantity ?? 1);
         const totalGuards = costSummary.totalGuards;
         const val = item.calcMode === "per_guard" ? unitPrice * qty * totalGuards : unitPrice * qty;
-        const entry = grouped.get(catSlug)!;
+        const entry = grouped.get(itemType)!;
         entry.items.push({ name: cat.name, value: convertCost(val) });
         entry.subtotal += val;
       }

@@ -257,33 +257,33 @@ export default PortalProspectoInviteEmail;
 // ─── ESTILOS ───────────────────────────────────────────────
 
 const main = {
-  backgroundColor: '#0a1628',
+  backgroundColor: '#f1f5f9',
   fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
 };
 
 const container = {
-  backgroundColor: '#111827',
+  backgroundColor: '#ffffff',
   margin: '0 auto',
   marginTop: '20px',
   marginBottom: '40px',
   maxWidth: '600px',
   borderRadius: '16px',
   overflow: 'hidden',
-  boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
-  border: '1px solid #1e293b',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+  border: '1px solid #e2e8f0',
 };
 
 const header = {
-  backgroundColor: '#0a1628',
+  backgroundColor: '#1e3a8a',
   padding: '32px 40px 24px',
   textAlign: 'center' as const,
-  borderBottom: '1px solid #1e293b',
+  borderBottom: '3px solid #14b8a6',
 };
 
 const logo = { margin: '0 auto', display: 'block' };
 
 const headerTagline = {
-  color: '#14b8a6',
+  color: '#93c5fd',
   fontSize: '11px',
   fontWeight: '600',
   letterSpacing: '2px',
@@ -293,11 +293,11 @@ const headerTagline = {
 
 const hero = {
   padding: '40px 40px 32px',
-  borderBottom: '1px solid #1e293b',
+  borderBottom: '1px solid #e2e8f0',
 };
 
 const heroEyebrow = {
-  color: '#14b8a6',
+  color: '#1e3a8a',
   fontSize: '11px',
   fontWeight: '700',
   letterSpacing: '2px',
@@ -306,7 +306,7 @@ const heroEyebrow = {
 };
 
 const h1 = {
-  color: '#f1f5f9',
+  color: '#0f172a',
   fontSize: '26px',
   fontWeight: '700',
   lineHeight: '1.35',
@@ -314,22 +314,22 @@ const h1 = {
 };
 
 const heroText = {
-  color: '#94a3b8',
+  color: '#475569',
   fontSize: '15px',
   lineHeight: '1.7',
   margin: '0',
 };
 
 const credentialsSection = {
-  backgroundColor: '#0a1628',
+  backgroundColor: '#f8fafc',
   margin: '0',
   padding: '28px 40px',
-  borderTop: '1px solid #1e293b',
-  borderBottom: '1px solid #1e293b',
+  borderTop: '1px solid #e2e8f0',
+  borderBottom: '1px solid #e2e8f0',
 };
 
 const credentialsTitle = {
-  color: '#f1f5f9',
+  color: '#0f172a',
   fontSize: '15px',
   fontWeight: '600',
   margin: '0 0 20px',
@@ -355,11 +355,11 @@ const credentialLabel = {
 };
 
 const credentialValue = {
-  color: '#e2e8f0',
+  color: '#0f172a',
   fontSize: '14px',
   fontWeight: '600',
   fontFamily: 'monospace',
-  backgroundColor: '#1e293b',
+  backgroundColor: '#e2e8f0',
   padding: '10px 14px',
   borderRadius: '8px',
   margin: '0',
@@ -367,11 +367,11 @@ const credentialValue = {
 };
 
 const credentialValuePin = {
-  color: '#2dd4bf',
+  color: '#1e3a8a',
   fontSize: '28px',
   fontWeight: '800',
   fontFamily: 'monospace',
-  backgroundColor: '#1e293b',
+  backgroundColor: '#e2e8f0',
   padding: '10px 14px',
   borderRadius: '8px',
   margin: '0',
@@ -380,7 +380,7 @@ const credentialValuePin = {
 };
 
 const credentialNote = {
-  color: '#475569',
+  color: '#64748b',
   fontSize: '12px',
   margin: '16px 0 0',
   lineHeight: '1.5',
@@ -392,16 +392,15 @@ const ctaSection = {
 };
 
 const ctaButton = {
-  backgroundColor: '#14b8a6',
+  backgroundColor: '#1e3a8a',
   borderRadius: '10px',
-  color: '#042f2e',
+  color: '#ffffff',
   fontSize: '16px',
   fontWeight: '700',
   textDecoration: 'none',
   textAlign: 'center' as const,
   display: 'inline-block',
   padding: '16px 40px',
-  boxShadow: '0 4px 16px rgba(20,184,166,0.4)',
 };
 
 const ctaSecondary = {
@@ -416,7 +415,7 @@ const ctaSecondaryLink = {
 };
 
 const divider = {
-  borderColor: '#1e293b',
+  borderColor: '#e2e8f0',
   margin: '0',
 };
 
@@ -425,14 +424,14 @@ const benefitsSection = {
 };
 
 const benefitsTitle = {
-  color: '#f1f5f9',
+  color: '#0f172a',
   fontSize: '18px',
   fontWeight: '700',
   margin: '0 0 8px',
 };
 
 const benefitsSubtitle = {
-  color: '#64748b',
+  color: '#475569',
   fontSize: '14px',
   margin: '0 0 28px',
   lineHeight: '1.5',
@@ -455,14 +454,14 @@ const benefitIcon = {
 };
 
 const benefitName = {
-  color: '#e2e8f0',
+  color: '#0f172a',
   fontSize: '14px',
   fontWeight: '600',
   margin: '0 0 4px',
 };
 
 const benefitDesc = {
-  color: '#64748b',
+  color: '#475569',
   fontSize: '13px',
   lineHeight: '1.6',
   margin: '0',
@@ -470,11 +469,11 @@ const benefitDesc = {
 
 const trustSection = {
   padding: '28px 40px',
-  backgroundColor: '#0a1628',
+  backgroundColor: '#f8fafc',
 };
 
 const trustTitle = {
-  color: '#94a3b8',
+  color: '#475569',
   fontSize: '12px',
   fontWeight: '600',
   textTransform: 'uppercase' as const,
@@ -489,14 +488,14 @@ const trustCol = {
 };
 
 const trustStat = {
-  color: '#14b8a6',
+  color: '#1e3a8a',
   fontSize: '22px',
   fontWeight: '800',
   margin: '0 0 4px',
 };
 
 const trustLabel = {
-  color: '#475569',
+  color: '#64748b',
   fontSize: '12px',
   margin: '0',
   lineHeight: '1.4',
@@ -507,14 +506,14 @@ const signatureSection = {
 };
 
 const signatureText = {
-  color: '#94a3b8',
+  color: '#475569',
   fontSize: '14px',
   lineHeight: '1.6',
   margin: '0 0 12px',
 };
 
 const signatureName = {
-  color: '#e2e8f0',
+  color: '#0f172a',
   fontSize: '15px',
   lineHeight: '1.5',
   margin: '0',
@@ -526,13 +525,13 @@ const signatureRole = {
 };
 
 const footer = {
-  backgroundColor: '#0a1628',
+  backgroundColor: '#0f172a',
   padding: '24px 40px',
-  borderTop: '1px solid #1e293b',
+  borderTop: '3px solid #1e3a8a',
 };
 
 const footerLinks = {
-  color: '#475569',
+  color: '#94a3b8',
   fontSize: '13px',
   margin: '0 0 10px',
   textAlign: 'center' as const,
@@ -544,7 +543,7 @@ const footerLink = {
 };
 
 const footerSmall = {
-  color: '#334155',
+  color: '#64748b',
   fontSize: '11px',
   lineHeight: '1.5',
   margin: '0 0 6px',
