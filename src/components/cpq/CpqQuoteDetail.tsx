@@ -978,7 +978,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   return (
     <div className="space-y-2 pb-4 lg:pb-4 overflow-x-hidden min-w-0">
       {/* -- Compact header -- */}
-      <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-5 px-5 py-2.5 mb-4">
+      <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-5 px-5 py-1.5 mb-1">
       <div className="flex items-center gap-2 min-h-[40px]">
         <Link href="/crm/cotizaciones">
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -1088,7 +1088,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </div>{/* end sticky header */}
 
       {/* -- 2-column layout: left column scrolls, right column (desglose/preview) stays fixed -- */}
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-0 lg:h-[calc(100vh-11rem)] lg:min-h-[420px] min-w-0 overflow-x-hidden">
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-0 lg:h-[calc(100vh-10rem)] lg:min-h-[420px] min-w-0 overflow-x-hidden">
 
       {/* -- Editor: scrollable left column (only this scrolls on desktop) -- */}
       <div className="space-y-2 min-w-0 overflow-x-hidden lg:pr-5 overflow-y-auto lg:min-h-0 lg:overscroll-contain">
@@ -1701,7 +1701,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </div>{/* end editor column */}
 
       {/* -- Sidebar: fixed right column (desktop only), stays visible while left column scrolls -- */}
-      <aside className="hidden lg:flex flex-col lg:self-start lg:h-[calc(100vh-140px)] border-l border-border/40 overflow-y-auto pl-4 min-h-0">
+      <aside className="hidden lg:flex flex-col lg:self-start lg:h-full border-l border-border/40 overflow-y-auto pl-4 min-h-0">
         <FinancialPanel
           positionsCount={positions.length}
           totalGuards={stats.totalGuards}
