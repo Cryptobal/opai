@@ -2024,19 +2024,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
 
       <TemplatePreviewModal
         quoteId={quoteId}
-        currentTemplateId={proposalTemplateId}
-        templates={proposalTemplates}
+        templateSlug={proposalTemplates.find((t) => t.id === proposalTemplateId)?.slug || proposalTemplates[0]?.slug || "standard"}
+        templateName={proposalTemplates.find((t) => t.id === proposalTemplateId)?.name || "Propuesta"}
         isOpen={previewOpen}
         onClose={() => setPreviewOpen(false)}
-        onSelectTemplate={(id) => {
-          setProposalTemplateId(id);
-          fetch(`/api/cpq/quotes/${quoteId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ proposalTemplateId: id }),
-          }).catch(() => {});
-          setPreviewOpen(false);
-        }}
       />
     </div>
   );

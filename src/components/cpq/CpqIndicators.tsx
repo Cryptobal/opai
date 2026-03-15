@@ -40,6 +40,7 @@ export function CpqIndicators({ className }: { className?: string }) {
     try {
       setLoading(true);
       const res = await fetch("/api/fx/indicators", { cache: "no-store" });
+      if (!res.ok) return;
       const json = await res.json();
       if (json.success && json.data) {
         setData(json.data);
