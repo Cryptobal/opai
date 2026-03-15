@@ -164,16 +164,6 @@ export function BottomNav({ userRole }: BottomNavProps) {
   const navConfig = useNavConfig();
   useBottomNavHeight(navRef);
 
-  if (!userRole || !pathname) return null;
-
-  // Check if we're on a CPQ detail page (BottomNav hidden there — Phase 5)
-  const isCpqDetail = /^\/crm\/cotizaciones\/[^/]+$/.test(pathname);
-  if (isCpqDetail) return null;
-
-  const permsOrRole = permissions.modules && Object.keys(permissions.modules).length > 0
-    ? permissions
-    : userRole;
-
   // State override: when user taps back in ModuleSubNav, show MainNav without navigating
   const [forceMainNav, setForceMainNav] = useState(false);
   // Reset override when route changes (user tapped a MainNav item)
@@ -184,6 +174,16 @@ export function BottomNav({ userRole }: BottomNavProps) {
       setForceMainNav(false);
     }
   }, [pathname]);
+
+  if (!userRole || !pathname) return null;
+
+  // Check if we're on a CPQ detail page (BottomNav hidden there — Phase 5)
+  const isCpqDetail = /^\/crm\/cotizaciones\/[^/]+$/.test(pathname);
+  if (isCpqDetail) return null;
+
+  const permsOrRole = permissions.modules && Object.keys(permissions.modules).length > 0
+    ? permissions
+    : userRole;
 
   // Determine which mode to show
   const activeModule = getActiveModule(pathname);
