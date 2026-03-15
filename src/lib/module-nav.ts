@@ -56,6 +56,8 @@ import {
   // Config
   Plug,
   Sparkles,
+  // Reportes DT
+  FileBarChart,
 } from "lucide-react";
 import {
   CRM_SECTIONS,
