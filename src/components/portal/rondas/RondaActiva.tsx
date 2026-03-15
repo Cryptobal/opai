@@ -511,6 +511,33 @@ export function RondaActiva({
   const showFreeRoundWarning = isAdHoc && freeRoundTimeLeftMinutes !== null && freeRoundTimeLeftMinutes <= FREE_ROUND_WARNING_MINUTES && freeRoundTimeLeftMinutes > FREE_ROUND_CRITICAL_MINUTES;
   const showFreeRoundCritical = isAdHoc && freeRoundTimeLeftMinutes !== null && freeRoundTimeLeftMinutes <= FREE_ROUND_CRITICAL_MINUTES;
 
+  // Sorted checkpoints: pending sorted by proximity, then completed
+  const sortedCheckpoints = useMemo(() => {
+    if (isAdHocFreeForm) return checkpoints;
+
+    const pending: (ApiCheckpoint & { _dist: number })[] = [];
+    const completed: ApiCheckpoint[] = [];
+
+    for (const cp of checkpoints) {
+      if (cp.completed) {
+        completed.push(cp);
+      } else {
+        const dist = guardPos
+          ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
+          : Infinity;
+        pending.push({ ...cp, _dist: dist });
+      }
+    }
+
+    // Sort pending by distance (closest first)
+    pending.sort((a, b) => a._dist - b._dist);
+
+    return [...pending, ...completed];
+  }, [checkpoints, guardPos?.lat, guardPos?.lng, isAdHocFreeForm]);
+
+  // The closest pending checkpoint is the new "active"
+  const closestPendingId = sortedCheckpoints.find((cp) => !cp.completed)?.id ?? null;
+
   // Map checkpoints (include ad-hoc marked points for libre rondas)
   const mapCheckpoints = useMemo<MapCheckpoint[]>(() => {
     const templateCps = checkpoints.map((cp) => ({
@@ -598,32 +625,7 @@ export function RondaActiva({
   // Incomplete checkpoint names (for confirmation modal)
   const incompleteCheckpoints = checkpoints.filter((c) => !c.completed);
 
-  // Sorted checkpoints: pending sorted by proximity, then completed
-  const sortedCheckpoints = useMemo(() => {
-    if (isAdHocFreeForm) return checkpoints;
-
-    const pending: (ApiCheckpoint & { _dist: number })[] = [];
-    const completed: ApiCheckpoint[] = [];
-
-    for (const cp of checkpoints) {
-      if (cp.completed) {
-        completed.push(cp);
-      } else {
-        const dist = guardPos
-          ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
-          : Infinity;
-        pending.push({ ...cp, _dist: dist });
-      }
-    }
-
-    // Sort pending by distance (closest first)
-    pending.sort((a, b) => a._dist - b._dist);
-
-    return [...pending, ...completed];
-  }, [checkpoints, guardPos?.lat, guardPos?.lng, isAdHocFreeForm]);
-
-  // The closest pending checkpoint is the new "active"
-  const closestPendingId = sortedCheckpoints.find((cp) => !cp.completed)?.id ?? null;
+  // (sortedCheckpoints & closestPendingId moved above mapCheckpoints)
 
   // Count of collapsed completed checkpoints
   const [showCompleted, setShowCompleted] = useState(false);
