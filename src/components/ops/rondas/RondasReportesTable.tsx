@@ -24,6 +24,7 @@ export interface ReporteRow {
   trustScore: number;
   trustBreakdown: TrustBreakdown | null;
   durationMinutes: number | null;
+  notes: string | null;
   walkRoute: Array<{ lat: number; lng: number }> | null;
   routeSnapshot: Array<{ id: string; name: string; lat: number; lng: number; orderIndex: number; status: string }> | null;
   marcaciones: MarcacionRow[];
@@ -225,6 +226,12 @@ function ExpandedRow({
           </div>
           <div>
             {row.trustBreakdown && <TrustBreakdownBars breakdown={row.trustBreakdown} />}
+            {row.notes && (
+              <div className="mt-3 rounded-lg border border-yellow-800/40 bg-yellow-950/20 px-3 py-2">
+                <p className="text-xs font-medium text-yellow-500/80 mb-0.5">Comentario del guardia:</p>
+                <p className="text-sm text-zinc-300 italic">&ldquo;{row.notes}&rdquo;</p>
+              </div>
+            )}
             {row.startedAt && row.completedAt && (
               <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" />

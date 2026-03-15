@@ -97,6 +97,7 @@ export async function GET(request: NextRequest) {
       trustScore: row.trustScore,
       trustBreakdown: row.trustBreakdown,
       durationMinutes: row.durationMinutes,
+      notes: row.notes ?? null,
       marcaciones: row.marcaciones.map((m) => ({
         id: m.id,
         checkpointName: m.checkpoint?.name ?? (m.checkpointId ? "Checkpoint eliminado" : "Punto GPS"),

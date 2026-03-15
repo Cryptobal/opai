@@ -660,6 +660,7 @@ export function RondasPortalClient() {
           porcentajeCompletado={completionData.porcentajeCompletado}
           durationMinutes={completionData.durationMinutes}
           missed={completionData.missed}
+          notes={completionData.notes}
           checkpoints={completionData.checkpoints}
           scheduledAt={completionData.scheduledAt}
           startedAt={completionData.startedAt}

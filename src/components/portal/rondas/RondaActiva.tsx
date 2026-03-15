@@ -75,6 +75,7 @@ export interface CompletionData {
   porcentajeCompletado: number;
   durationMinutes: number | null;
   missed: number;
+  notes?: string | null;
   checkpoints?: {
     name: string;
     status: "COMPLETED" | "MISSED";
@@ -678,6 +679,7 @@ export function RondaActiva({
         porcentajeCompletado: json.data?.porcentajeCompletado ?? 0,
         durationMinutes: json.data?.durationMinutes ?? null,
         missed: json.data?.missed ?? 0,
+        notes: incompleteNotes.trim() || null,
         checkpoints: json.data?.checkpoints,
         scheduledAt: json.data?.scheduledAt,
         startedAt: json.data?.startedAt,
@@ -1173,8 +1175,8 @@ export function RondaActiva({
               rows={3}
               className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-yellow-500 focus:outline-none"
             />
-            <p className={`mb-3 mt-1 text-xs ${incompleteNotes.trim().length > 0 && incompleteNotes.trim().length < 10 ? "text-yellow-500/70" : "text-transparent"}`}>
-              Minimo 10 caracteres
+            <p className={`mb-3 mt-1 text-xs ${incompleteNotes.trim().length > 0 && incompleteNotes.trim().length < 3 ? "text-yellow-500/70" : "text-transparent"}`}>
+              Minimo 3 caracteres
             </p>
             <div className="flex gap-3">
               <button
@@ -1185,7 +1187,7 @@ export function RondaActiva({
               </button>
               <button
                 onClick={confirmComplete}
-                disabled={incompleteNotes.trim().length < 10}
+                disabled={incompleteNotes.trim().length < 3}
                 className="flex-1 rounded-xl bg-yellow-600 py-3 text-base font-semibold text-white transition-colors hover:bg-yellow-500 disabled:opacity-40"
               >
                 Completar
