@@ -800,25 +800,8 @@ export function CheckpointMarker({
             {showSuccessFlash && (
               <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-emerald-500/20 transition-opacity" />
             )}
-            <div className="flex items-center justify-between gap-2 py-2.5 px-4 sticky top-0 bg-zinc-900 z-10">
-              <button
-                onClick={onBack}
-                className="rounded-lg bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-200 active:bg-zinc-700"
-              >
-                Cancelar
-              </button>
-              <div className="flex-1 flex justify-center">
-                <div className="w-10 h-1 bg-zinc-600 rounded-full" />
-              </div>
-              <button
-                onClick={onBack}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-white transition-colors active:bg-zinc-700"
-                aria-label="Cerrar"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+            <div className="flex justify-center py-2.5 px-4 sticky top-0 bg-zinc-900 z-10">
+              <div className="w-10 h-1 bg-zinc-600 rounded-full" />
             </div>
 
             <div className="space-y-3 px-4" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
@@ -942,32 +925,32 @@ export function CheckpointMarker({
           {showSuccessFlash && (
             <div className="pointer-events-none absolute inset-0 z-50 rounded-t-2xl bg-emerald-500/20 transition-opacity" />
           )}
-          {/* Header: Cancelar + handle + X */}
-          <div className="flex items-center justify-between gap-2 py-2.5 px-4 shrink-0 rounded-t-2xl bg-zinc-900">
-            <button
-              onClick={onBack}
-              className="rounded-lg bg-zinc-800 px-3 py-2 text-sm font-medium text-gray-200 active:bg-zinc-700"
-            >
-              Cancelar
-            </button>
-            <div className="flex-1 flex justify-center">
-              <div className="w-10 h-1 bg-zinc-600 rounded-full" />
-            </div>
-            <button
-              onClick={onBack}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-white transition-colors active:bg-zinc-700"
-              aria-label="Cerrar"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+          {/* Header: drag handle (drag-down or backdrop tap closes) */}
+          <div className="flex justify-center py-2.5 px-4 shrink-0 rounded-t-2xl bg-zinc-900">
+            <div className="w-10 h-1 bg-zinc-600 rounded-full" />
           </div>
 
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto min-h-0 px-4 space-y-3">
-            {/* ---- Checkpoint name ---- */}
-            <h2 className="text-lg font-semibold text-white">{checkpoint.name}</h2>
+            {/* ---- Checkpoint name + geo status ---- */}
+            <div className="flex items-center gap-3">
+              {isInGeofence && (
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-semibold text-white">{checkpoint.name}</h2>
+                {isInGeofence && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400">
+                    {"\u2713"} Geocerca validada
+                  </span>
+                )}
+              </div>
+            </div>
 
             {/* ---- Instructions ---- */}
             {checkpoint.instrucciones && (
@@ -1266,68 +1249,37 @@ export function CheckpointMarker({
               </div>
             )}
 
-            {/* ---- Photo ---- */}
-            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-3">
+            {/* ---- Photo + Notes (compact row) ---- */}
+            <div className="flex gap-2">
               {photoPreview ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-base font-medium text-gray-200">Foto Evidencia</p>
-                    <button
-                      onClick={removePhoto}
-                      className="rounded-lg bg-gray-800 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-gray-700"
-                    >
-                      Eliminar
-                    </button>
+                <button
+                  onClick={() => setShowCamera(true)}
+                  className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-gray-700"
+                >
+                  <img src={photoPreview} alt="Evidencia" className="h-full w-full object-cover" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
                   </div>
-                  <img
-                    src={photoPreview}
-                    alt="Evidencia"
-                    className="h-40 w-full rounded-xl object-cover"
-                  />
-                </div>
+                </button>
               ) : (
                 <button
                   onClick={() => setShowCamera(true)}
-                  className="flex w-full items-center gap-3 rounded-xl bg-gray-800/50 px-4 py-4 text-left transition-colors hover:bg-gray-800 active:bg-gray-700"
-                  style={{ minHeight: 56 }}
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-700 bg-gray-800/50 text-gray-400 transition-colors active:bg-gray-700"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 shrink-0 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  <span className="text-base text-gray-300">Agregar Foto</span>
                 </button>
               )}
-            </div>
-
-            {/* ---- Notes ---- */}
-            <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-3">
-              <label htmlFor="checkpoint-note" className="mb-2 block text-base font-medium text-gray-200">
-                Notas (opcional)
-              </label>
-              <textarea
-                id="checkpoint-note"
+              <input
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Observaciones del punto..."
-                rows={2}
+                placeholder="Nota opcional..."
                 maxLength={500}
-                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2.5 text-base text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
+                className="min-w-0 flex-1 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-teal-500 focus:outline-none"
               />
             </div>
 

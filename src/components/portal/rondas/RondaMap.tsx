@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import "@/components/portal/rondas/leaflet-setup";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Polyline, Circle, useMap } from "react-leaflet";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,6 +30,14 @@ export interface RondaMapProps {
   trailPoints?: { lat: number; lng: number }[];
   /** When set, draws a dashed teal line from guard to the marking checkpoint */
   markingCheckpointId?: string | null;
+  /** Follow mode: continuously center map on guard position */
+  isFollowing?: boolean;
+  /** Callback when user manually interacts with the map (drag/zoom) */
+  onManualInteraction?: () => void;
+  /** Callback for the re-center button */
+  onRecenter?: () => void;
+  /** GPS accuracy in meters — renders accuracy circle around guard */
+  gpsAccuracy?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,42 +202,41 @@ function DisableInteraction() {
 // AutoFollowGuard helper component — auto-pans map to keep guard visible
 // ---------------------------------------------------------------------------
 
-function AutoFollowGuard({ guardPosition }: { guardPosition: { lat: number; lng: number } }) {
+function AutoFollowGuard({
+  guardPosition,
+  isFollowing,
+  onManualInteraction,
+}: {
+  guardPosition: { lat: number; lng: number };
+  isFollowing: boolean;
+  onManualInteraction?: () => void;
+}) {
   const map = useMap();
-  const lastManualInteraction = useRef(0);
   const isFirstRender = useRef(true);
 
-  // Track user interactions to pause auto-follow
+  // Detect manual interaction and notify parent
   useEffect(() => {
-    const onInteraction = () => {
-      lastManualInteraction.current = Date.now();
-    };
-    map.on("dragstart", onInteraction);
-    map.on("zoomstart", onInteraction);
+    const handleManual = () => onManualInteraction?.();
+    map.on("dragstart", handleManual);
+    map.on("zoomstart", handleManual);
     return () => {
-      map.off("dragstart", onInteraction);
-      map.off("zoomstart", onInteraction);
+      map.off("dragstart", handleManual);
+      map.off("zoomstart", handleManual);
     };
-  }, [map]);
+  }, [map, onManualInteraction]);
 
-  // Auto-pan when guard position changes
+  // Follow mode: center on every position change when active
   useEffect(() => {
-    // Skip first render (FitBounds handles initial positioning)
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-
-    // If user interacted within last 10 seconds, don't auto-center
-    if (Date.now() - lastManualInteraction.current < 10_000) return;
-
-    // Only pan if guard is outside the visible area
-    const bounds = map.getBounds();
-    const guardLatLng = L.latLng(guardPosition.lat, guardPosition.lng);
-    if (!bounds.contains(guardLatLng)) {
-      map.panTo(guardLatLng, { animate: true, duration: 0.5 });
-    }
-  }, [map, guardPosition.lat, guardPosition.lng]);
+    if (!isFollowing) return;
+    map.panTo(
+      [guardPosition.lat, guardPosition.lng],
+      { animate: true, duration: 0.3 },
+    );
+  }, [map, guardPosition.lat, guardPosition.lng, isFollowing]);
 
   return null;
 }
@@ -238,43 +245,39 @@ function AutoFollowGuard({ guardPosition }: { guardPosition: { lat: number; lng:
 // CenterButton helper component
 // ---------------------------------------------------------------------------
 
-interface CenterButtonProps {
+function RecenterButton({
+  guardPosition,
+  onRecenter,
+}: {
   guardPosition: { lat: number; lng: number };
-  onCenterGuard?: () => void;
-}
-
-function CenterButton({ guardPosition, onCenterGuard }: CenterButtonProps) {
+  onRecenter?: () => void;
+}) {
   const map = useMap();
 
   const handleClick = useCallback(() => {
-    map.setView([guardPosition.lat, guardPosition.lng], 19, { animate: true });
-    onCenterGuard?.();
-  }, [map, guardPosition, onCenterGuard]);
+    map.setView([guardPosition.lat, guardPosition.lng], map.getZoom(), { animate: true });
+    onRecenter?.();
+  }, [map, guardPosition, onRecenter]);
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: 12,
-        right: 12,
-        zIndex: 1000,
-      }}
-    >
+    <div style={{ position: "absolute", bottom: 16, right: 12, zIndex: 1000 }}>
       <button
         onClick={handleClick}
-        title="Centrar en guardia"
+        title="Centrar en mi posicion"
+        aria-label="Centrar en mi posicion"
         style={{
-          width: 36,
-          height: 36,
-          borderRadius: 8,
-          border: "1px solid #3f3f46",
-          background: "#18181b",
+          width: 40,
+          height: 40,
+          borderRadius: "50%",
+          border: "1px solid #52525b",
+          background: "rgba(24,24,27,0.85)",
+          backdropFilter: "blur(8px)",
           color: "#d4d4d8",
-          fontSize: 18,
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
         }}
       >
         <svg
@@ -389,6 +392,10 @@ export default function RondaMap({
   onCenterGuard,
   trailPoints,
   markingCheckpointId,
+  isFollowing = true,
+  onManualInteraction,
+  onRecenter,
+  gpsAccuracy,
 }: RondaMapProps) {
   const [mounted, setMounted] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
@@ -509,6 +516,21 @@ export default function RondaMap({
           );
         })()}
 
+        {/* GPS accuracy circle */}
+        {guardPosition && gpsAccuracy != null && gpsAccuracy > 15 && (
+          <Circle
+            center={[guardPosition.lat, guardPosition.lng]}
+            radius={gpsAccuracy}
+            pathOptions={{
+              color: gpsAccuracy > 50 ? "#ef4444" : "#f59e0b",
+              fillColor: gpsAccuracy > 50 ? "#ef4444" : "#f59e0b",
+              fillOpacity: 0.08,
+              weight: 1,
+              dashArray: "4 4",
+            }}
+          />
+        )}
+
         {/* Guard position marker */}
         {guardPosition && (
           <Marker
@@ -520,14 +542,18 @@ export default function RondaMap({
 
         {/* Auto-follow guard when interactive */}
         {interactive && guardPosition && (
-          <AutoFollowGuard guardPosition={guardPosition} />
+          <AutoFollowGuard
+            guardPosition={guardPosition}
+            isFollowing={isFollowing}
+            onManualInteraction={onManualInteraction}
+          />
         )}
 
-        {/* Center button */}
-        {showCenterButton && guardPosition && (
-          <CenterButton
+        {/* Re-center button — shown when follow mode is off */}
+        {interactive && guardPosition && !isFollowing && (
+          <RecenterButton
             guardPosition={guardPosition}
-            onCenterGuard={onCenterGuard}
+            onRecenter={onRecenter ?? onCenterGuard}
           />
         )}
       </MapContainer>
