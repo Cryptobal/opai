@@ -72,7 +72,7 @@ export interface QuoteDetail extends QuoteSummary {
   serviceStartDays?: number;
   contractDuration?: number;
   includedItems?: string[];
-  proposalLink?: string | null;
+  proposalLink: string | null;
   /** Full transparent cost breakdown for client display */
   costBreakdown?: import("@/types/cpq-breakdown").QuoteBreakdownData;
   templateSlug?: string;
