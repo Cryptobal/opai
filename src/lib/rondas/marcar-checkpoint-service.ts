@@ -189,7 +189,7 @@ export async function marcarCheckpoint(
     const vt = checkpoint.verificationType;
     const hasCoords = checkpoint.lat != null && checkpoint.lng != null;
     if ((vt === "GEOFENCE" || vt === "BOTH") && hasCoords && !geo.valid) {
-      throw new MarcarCheckpointError("Debe estar en el rango del checkpoint para marcar", 400, "geo_fuera_rango");
+      throw new MarcarCheckpointError("Debe estar en el rango del checkpoint para marcar", 400, "fuera_de_rango");
     }
   }
 
@@ -201,12 +201,10 @@ export async function marcarCheckpoint(
   const anomalies = isAdHocGps
     ? []
     : detectCheckpointAnomalies({
-        geoValidada: geo.valid,
         speedFromPrevKmh: speed,
         movementScore: Number((motionData?.movementScore as number | undefined) ?? 0),
         batteryLevel: batteryLevel,
         prevBatteryLevel: prev?.batteryLevel ?? null,
-        sameGeoAsPrev: Boolean(prev && prevDistance <= 5),
         speedThresholdKmh: speedThreshold,
         movementScoreThreshold: fullConfig.sin_movimiento?.thresholds?.movementScoreMin,
         batteryLowThreshold: fullConfig.bateria_baja?.thresholds?.batteryLowPercent,
@@ -335,17 +333,7 @@ export async function marcarCheckpoint(
 
     if (alertAnomalies.length) {
       const cpName = checkpoint?.name ?? "Punto GPS";
-      const baseSeverity = toAlertSeverityFromAnomalies(alertAnomalies);
-      const severidad =
-        baseSeverity === "critical" &&
-        alertAnomalies.includes("geo_fuera_rango") &&
-        geo.confidence === "low"
-          ? "warning"
-          : baseSeverity;
-      const geoNote =
-        alertAnomalies.includes("geo_fuera_rango") && gpsAccuracy
-          ? ` — GPS accuracy: ${Math.round(gpsAccuracy)}m (${geo.confidence === "low" ? "baja confiabilidad" : "alta confiabilidad"})`
-          : "";
+      const severidad = toAlertSeverityFromAnomalies(alertAnomalies);
       await tx.opsAlertaRonda.create({
         data: {
           tenantId: execution.tenantId,
@@ -354,7 +342,7 @@ export async function marcarCheckpoint(
           turnoId,
           tipo: alertAnomalies[0],
           severidad,
-          mensaje: `Anomalía detectada en checkpoint ${cpName}: ${alertAnomalies.join(", ")}${geoNote}`,
+          mensaje: `Anomalía detectada en checkpoint ${cpName}: ${alertAnomalies.join(", ")}`,
           data: {
             checkpointId: checkpoint?.id ?? null,
             checkpointName: cpName,
@@ -378,13 +366,7 @@ export async function marcarCheckpoint(
 
   // 10. Fire-and-forget: push + chat notification for critical alerts
   if (alertAnomalies.length) {
-    const baseSeverity = toAlertSeverityFromAnomalies(alertAnomalies);
-    const severidad =
-      baseSeverity === "critical" &&
-      alertAnomalies.includes("geo_fuera_rango") &&
-      geo.confidence === "low"
-        ? "warning"
-        : baseSeverity;
+    const severidad = toAlertSeverityFromAnomalies(alertAnomalies);
     const cpName = checkpoint?.name ?? "Punto GPS";
     notifyCriticalAlert({
       tenantId: execution.tenantId,

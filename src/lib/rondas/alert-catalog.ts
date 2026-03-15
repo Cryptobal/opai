@@ -4,17 +4,13 @@
  */
 
 export type AlertTypeCode =
-  | "geo_fuera_rango"
   | "sin_movimiento"
   | "velocidad_anomala"
-  | "mismo_punto_repetido"
   | "bateria_baja"
   | "bateria_estatica"
   | "guardia_estatico"
-  | "checkpoint_saltado"
   | "ronda_no_iniciada"
-  | "panico"
-  | "breach_geocerca";
+  | "panico";
 
 export type AlertSeverity = "info" | "warning" | "critical";
 
@@ -43,17 +39,6 @@ export interface AlertTypeDef {
 }
 
 export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
-  geo_fuera_rango: {
-    code: "geo_fuera_rango",
-    label: "Fuera de rango GPS",
-    description: "Posición GPS del guardia fuera del radio del checkpoint",
-    defaultSeverity: "critical",
-    source: "anomaly_inline",
-    configurable: true,
-    thresholds: [
-      { key: "routeDeviationMultiplier", label: "Multiplicador de tolerancia", unit: "x", defaultValue: 2, min: 1.5, max: 5, step: 0.5 },
-    ],
-  },
   sin_movimiento: {
     code: "sin_movimiento",
     label: "Sin movimiento",
@@ -75,14 +60,6 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     thresholds: [
       { key: "speedAnomalyKmh", label: "Velocidad máxima", unit: "km/h", defaultValue: 15, min: 5, max: 50, step: 1 },
     ],
-  },
-  mismo_punto_repetido: {
-    code: "mismo_punto_repetido",
-    label: "Punto repetido",
-    description: "Mismas coordenadas GPS que la marcación anterior",
-    defaultSeverity: "critical",
-    source: "anomaly_inline",
-    configurable: false,
   },
   bateria_baja: {
     code: "bateria_baja",
@@ -117,14 +94,6 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
       { key: "staticGuardMinutes", label: "Minutos sin movimiento", unit: "min", defaultValue: 5, min: 2, max: 30, step: 1 },
     ],
   },
-  checkpoint_saltado: {
-    code: "checkpoint_saltado",
-    label: "Checkpoint saltado",
-    description: "Checkpoint marcado fuera del orden esperado (plantillas secuenciales)",
-    defaultSeverity: "warning",
-    source: "post_mark",
-    configurable: true,
-  },
   ronda_no_iniciada: {
     code: "ronda_no_iniciada",
     label: "Ronda no iniciada",
@@ -142,14 +111,6 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Guardia activó el botón de pánico desde el dispositivo",
     defaultSeverity: "critical",
     source: "manual",
-    configurable: false,
-  },
-  breach_geocerca: {
-    code: "breach_geocerca",
-    label: "Breach de geocerca",
-    description: "Guardia fuera del perímetro asignado (deprecado → geo_fuera_rango)",
-    defaultSeverity: "critical",
-    source: "post_mark",
     configurable: false,
   },
 };

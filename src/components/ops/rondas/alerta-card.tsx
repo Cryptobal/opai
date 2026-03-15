@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, MapPin, Shield } from "lucide-react";
+import { CheckCircle2, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPersonName } from "@/lib/personas";
-import { AlertGeofenceMap } from "./alert-geofence-map";
 
 interface Alerta {
   id: string;
@@ -58,14 +57,10 @@ const SEVERITY_CONFIG: Record<string, { dot: string; border: string; bg: string;
 
 const TIPO_LABELS: Record<string, string> = {
   guardia_estatico: "Guardia estático",
-  checkpoint_saltado: "Checkpoint saltado",
   velocidad_anomala: "Velocidad anómala",
   ronda_no_iniciada: "Ronda no iniciada",
-  breach_geocerca: "Breach de geocerca",
   panico: "Botón de pánico",
-  geo_fuera_rango: "Fuera de rango GPS",
   sin_movimiento: "Sin movimiento",
-  mismo_punto_repetido: "Punto repetido",
   bateria_baja: "Batería baja",
   bateria_estatica: "Batería estática",
   incidente_guardia: "Incidente reportado por guardia",
@@ -79,22 +74,6 @@ export function AlertaCard({ alerta, onResolve, selected, onToggleSelect }: Prop
     ? formatPersonName(alerta.ejecucion.guardia.persona.firstName, alerta.ejecucion.guardia.persona.lastName)
     : null;
 
-  // Geo data for map (populated by geo_fuera_rango alerts)
-  const geoData = alerta.data as {
-    checkpointLat?: number;
-    checkpointLng?: number;
-    checkpointRadius?: number;
-    guardiaLat?: number;
-    guardiaLng?: number;
-    guardiaAccuracy?: number | null;
-    distancia?: number | null;
-  } | null;
-  const hasGeoMap =
-    alerta.tipo === "geo_fuera_rango" &&
-    geoData?.checkpointLat != null &&
-    geoData?.guardiaLat != null;
-
-  const [showMap, setShowMap] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolveNotes, setResolveNotes] = useState("");
 
@@ -175,31 +154,9 @@ export function AlertaCard({ alerta, onResolve, selected, onToggleSelect }: Prop
         </div>
       )}
 
-      {/* Geofence map (expandable) */}
-      {hasGeoMap && showMap && (
-        <AlertGeofenceMap
-          checkpointLat={geoData!.checkpointLat!}
-          checkpointLng={geoData!.checkpointLng!}
-          checkpointRadius={geoData!.checkpointRadius!}
-          guardiaLat={geoData!.guardiaLat!}
-          guardiaLng={geoData!.guardiaLng!}
-          guardiaAccuracy={geoData!.guardiaAccuracy}
-          distancia={geoData!.distancia}
-        />
-      )}
-
       {/* Actions */}
-      {(!alerta.resuelta || hasGeoMap) && (
+      {!alerta.resuelta && (
         <div className="flex gap-1.5 pt-0.5">
-          {hasGeoMap && (
-            <button
-              onClick={() => setShowMap((v) => !v)}
-              type="button"
-              className="text-[11px] px-2.5 py-1 rounded-lg border border-[#1a1f2e] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-cyan-500/40 transition-colors flex items-center gap-1"
-            >
-              <MapPin className="h-3 w-3" /> {showMap ? "Ocultar mapa" : "Ver mapa"}
-            </button>
-          )}
           {!alerta.resuelta && onResolve && (
             <button
               onClick={() => setResolveOpen(true)}

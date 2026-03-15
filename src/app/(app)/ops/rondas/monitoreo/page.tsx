@@ -69,7 +69,7 @@ export default async function RondasMonitoreoPage() {
           take: 20,
         },
         alertasRows: {
-          where: { resuelta: false, archivedAt: null, tipo: { not: "geo_fuera_rango" } },
+          where: { resuelta: false, archivedAt: null },
           orderBy: { createdAt: "desc" },
           take: 3,
         },
@@ -143,7 +143,7 @@ export default async function RondasMonitoreoPage() {
           orderBy: { timestamp: "desc" },
         },
         alertasRows: {
-          where: { resuelta: false, archivedAt: null, tipo: { not: "geo_fuera_rango" } },
+          where: { resuelta: false, archivedAt: null },
           orderBy: { createdAt: "desc" },
           take: 3,
         },
@@ -171,7 +171,7 @@ export default async function RondasMonitoreoPage() {
 
   try {
     alertCount = await prisma.opsAlertaRonda.count({
-      where: { tenantId, resuelta: false, archivedAt: null, tipo: { not: "geo_fuera_rango" } },
+      where: { tenantId, resuelta: false, archivedAt: null },
     });
   } catch (err) {
     console.error("[RONDAS_ERROR] Failed to fetch alert count:", err);

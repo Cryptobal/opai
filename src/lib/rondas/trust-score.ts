@@ -35,7 +35,6 @@ export function trustBand(score: number): "green" | "yellow" | "red" {
 }
 
 export function toAlertSeverityFromAnomalies(anomalies: RondaAnomalyCode[]): "info" | "warning" | "critical" {
-  if (anomalies.includes("geo_fuera_rango") || anomalies.includes("mismo_punto_repetido")) return "critical";
   if (anomalies.length > 0) return "warning";
   return "info";
 }

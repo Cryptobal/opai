@@ -29,7 +29,6 @@ export async function GET() {
       where: {
         tenantId: ctx.tenantId,
         createdAt: { gte: turno.startedAt },
-        tipo: { not: "geo_fuera_rango" },
       },
     });
 
