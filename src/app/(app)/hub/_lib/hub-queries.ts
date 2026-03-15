@@ -103,10 +103,12 @@ const MS_PER_MINUTE = 60_000;
 
 function computeHeatScore(totalViews: number, lastViewedAt: Date | null, now: Date): number {
   if (totalViews === 0 || !lastViewedAt) return 0;
-  const viewScore = Math.min(totalViews * 12, 100);
-  const minutesSince = (now.getTime() - lastViewedAt.getTime()) / MS_PER_MINUTE;
-  const recencyScore = Math.max(0, 100 - minutesSince / 30);
-  return Math.round(viewScore * 0.4 + recencyScore * 0.6);
+  // View component: each view = 10pts, capped at 50
+  const viewScore = Math.min(totalViews * 10, 50);
+  // Recency component: 50 if viewed today, decays over 7 days to 0
+  const daysSince = (now.getTime() - lastViewedAt.getTime()) / MS_PER_DAY;
+  const recencyScore = Math.max(0, Math.round(50 * (1 - daysSince / 7)));
+  return Math.min(viewScore + recencyScore, 100);
 }
 
 function computeViewTrend(lastViewedAt: Date | null, now: Date): 'up' | 'down' | 'flat' {
@@ -149,6 +151,7 @@ export async function getClosingHubData(
     docsSignals,
     followUpsOverdueCount,
     ufValue,
+    quotesDraftCount,
   ] = await Promise.all([
     // All open deals with relations
     prisma.crmDeal.findMany({
@@ -223,6 +226,10 @@ export async function getClosingHubData(
     }),
     // UF value for amount conversion
     getUfValue(),
+    // Draft quotes (not yet sent)
+    prisma.cpqQuote.count({
+      where: { tenantId, status: 'draft' },
+    }),
   ]);
 
   // Batch 2: depends on open deals
@@ -446,6 +453,7 @@ export async function getClosingHubData(
       proposalsSent30: docsSignals.sent30,
       proposalsViewed30: docsSignals.viewed30,
       followUpsOverdueCount,
+      quotesDraftCount,
     },
     hotDeals,
     staleDeals,
@@ -812,7 +820,7 @@ export async function getFinanceMetrics(
       select: { amount: true },
     }),
     prisma.financeRendicion.findMany({
-      where: { tenantId, status: 'APPROVED' },
+      where: { tenantId, status: 'APPROVED', paidAt: null },
       select: { amount: true },
     }),
   ]);
@@ -880,15 +888,17 @@ export async function getOpsMetrics(
     prisma.opsTurnoExtra.count({
       where: { tenantId, status: 'pending' },
     }),
-    prisma.opsPautaMensual.count({
+    // PPC: count distinct positions without a planned guard for TODAY
+    prisma.opsPautaMensual.findMany({
       where: {
         tenantId,
-        OR: [
-          { plannedGuardiaId: null, shiftCode: { not: '-' } },
-          { shiftCode: { in: ['V', 'L', 'P', 'PCG', 'PSG'] } },
-        ],
+        date: todayDate,
+        plannedGuardiaId: null,
+        shiftCode: { notIn: ['-', 'V', 'L', 'P', 'PCG', 'PSG'] },
       },
-    }),
+      select: { puestoId: true },
+      distinct: ['puestoId'],
+    }).then((rows) => rows.length),
     // Attendance by status
     prisma.opsAsistenciaDiaria.count({
       where: { tenantId, date: todayDate, attendanceStatus: 'presente' },

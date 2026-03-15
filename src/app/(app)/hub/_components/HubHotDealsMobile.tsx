@@ -1,8 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Phone, MessageCircle, ExternalLink } from 'lucide-react';
+import { Phone, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { timeAgo } from '@/lib/utils';
 import { formatCLP, normalizeChileanPhone, whatsappUrl } from '../_lib/hub-utils';
@@ -13,9 +12,10 @@ interface Props {
 }
 
 function HeatIndicator({ score }: { score: number }) {
-  if (score >= 70) return <span className="text-red-400 font-semibold text-xs whitespace-nowrap">🔥🔥🔥 {score}</span>;
-  if (score >= 30) return <span className="text-orange-400 font-semibold text-xs whitespace-nowrap">🔥🔥 {score}</span>;
-  if (score > 0) return <span className="text-muted-foreground font-semibold text-xs whitespace-nowrap">🔥 {score}</span>;
+  const title = 'Interés: vistas de propuesta + recencia (últimos 7 días)';
+  if (score >= 70) return <span title={title} className="text-red-400 font-semibold text-xs whitespace-nowrap">🔥🔥🔥 {score}</span>;
+  if (score >= 30) return <span title={title} className="text-orange-400 font-semibold text-xs whitespace-nowrap">🔥🔥 {score}</span>;
+  if (score > 0) return <span title={title} className="text-muted-foreground font-semibold text-xs whitespace-nowrap">🔥 {score}</span>;
   return <span className="text-muted-foreground text-xs">—</span>;
 }
 
@@ -93,16 +93,6 @@ export function HubHotDealsMobile({ deals }: Props) {
                   >
                     <MessageCircle className="h-3 w-3" /> WA
                   </a>
-                )}
-                {deal.proposalLink && (
-                  <Link
-                    href={deal.proposalLink}
-                    target="_blank"
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-medium transition-colors hover:bg-primary hover:text-primary-foreground"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <ExternalLink className="h-3 w-3" /> Propuesta
-                  </Link>
                 )}
               </div>
             </div>

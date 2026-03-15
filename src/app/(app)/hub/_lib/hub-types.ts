@@ -357,6 +357,7 @@ export interface ClosingHubKpis {
   proposalsSent30: number;
   proposalsViewed30: number;
   followUpsOverdueCount: number;
+  quotesDraftCount: number;
 }
 
 export interface ClosingHotDeal {
