@@ -48,7 +48,7 @@ const MARKER_SIZE = 30;
 
 function createCheckpointIcon(
   status: "completed" | "active" | "pending",
-  orderIndex?: number,
+  label?: string,
 ): L.DivIcon {
   const colors: Record<string, { bg: string; border: string; text: string }> = {
     completed: { bg: "#22c55e", border: "#16a34a", text: "#fff" },
@@ -61,8 +61,10 @@ function createCheckpointIcon(
   let inner = "";
   if (status === "completed") {
     inner = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M5 13l4 4L19 7"/></svg>`;
-  } else if (orderIndex != null) {
-    inner = `<span style="font-size:13px;font-weight:700;color:${text};line-height:1;">${(orderIndex ?? 0) + 1}</span>`;
+  } else if (label) {
+    // Truncate label to keep it compact inside the marker circle
+    const display = label.length > 3 ? label.slice(0, 2) : label;
+    inner = `<span style="font-size:${display.length > 2 ? 10 : 13}px;font-weight:700;color:${text};line-height:1;">${display}</span>`;
   }
 
   const pulseRing =
@@ -400,13 +402,13 @@ export default function RondaMap({
   const [mounted, setMounted] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
 
-  // Memoize icons — keyed by "status-orderIndex" since each checkpoint shows its number
+  // Memoize icons — keyed by "status-name" since each checkpoint shows its name
   const checkpointIcons = useMemo(() => {
     const icons: Record<string, L.DivIcon> = {};
     for (const cp of checkpoints) {
-      const key = `${cp.status}-${cp.orderIndex}`;
+      const key = `${cp.status}-${cp.name}`;
       if (!icons[key]) {
-        icons[key] = createCheckpointIcon(cp.status, cp.orderIndex);
+        icons[key] = createCheckpointIcon(cp.status, cp.name);
       }
     }
     return icons;
@@ -478,7 +480,7 @@ export default function RondaMap({
           <Marker
             key={cp.id}
             position={[cp.lat, cp.lng]}
-            icon={checkpointIcons[`${cp.status}-${cp.orderIndex}`]}
+            icon={checkpointIcons[`${cp.status}-${cp.name}`]}
             title={cp.name}
           />
         ))}
