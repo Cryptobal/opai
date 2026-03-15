@@ -323,8 +323,7 @@ export function RondaActiva({
         !autoMarkedRef.current.has(closest.id) &&
         (closest.verificationType === "GEOFENCE" || closest.verificationType === "BOTH") &&
         !(closest.tasks && closest.tasks.length > 0 && closest.tasks.some((t) => t.required)) &&
-        !rondaData.qrRequerido &&
-        closest.verificationType !== "QR";
+        !rondaData.qrRequerido;
 
       if (canAutoMark) {
         // AUTO-MARK: fire request directly without opening bottom sheet
