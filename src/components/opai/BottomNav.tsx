@@ -9,6 +9,7 @@ import {
   ChevronLeft, MoreHorizontal,
   Landmark, Wallet, FolderOpen, FileBarChart, Clock,
   Settings, Monitor, Eye, Sun, Moon, User, LogOut,
+  Check, Receipt, Calculator, FileText,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -48,7 +49,7 @@ interface BottomNavProps {
   userRole?: string;
 }
 
-/* ── Main bottom nav items (always 5) ── */
+/* ── Main bottom nav items (configurable 4 + Más) ── */
 
 interface MainNavItem {
   key: string;
@@ -58,13 +59,61 @@ interface MainNavItem {
   isDrawer?: boolean;
 }
 
-const MAIN_NAV: MainNavItem[] = [
+/** All available nav slots the user can pick from (max 4 shown + Más) */
+const ALL_NAV_OPTIONS: MainNavItem[] = [
   { key: "home", href: "/hub", label: "Inicio", icon: Home },
   { key: "comercial", href: "/crm", label: "Comercial", icon: Briefcase },
   { key: "operaciones", href: "/ops", label: "Operaciones", icon: Shield },
   { key: "personas", href: "/personas/guardias", label: "Personas", icon: Users },
-  { key: "mas", href: "#mas", label: "Más", icon: LayoutGrid, isDrawer: true },
+  { key: "finanzas", href: "/finanzas", label: "Finanzas", icon: Receipt },
+  { key: "payroll", href: "/payroll", label: "Payroll", icon: Calculator },
+  { key: "documentos", href: "/opai/inicio", label: "Docs", icon: FileText },
 ];
+
+const MAS_ITEM: MainNavItem = { key: "mas", href: "#mas", label: "Más", icon: LayoutGrid, isDrawer: true };
+
+const DEFAULT_NAV_KEYS = ["home", "comercial", "operaciones", "personas"];
+const STORAGE_KEY = "opai-bottom-nav-config";
+
+function getStoredNavKeys(): string[] {
+  if (typeof window === "undefined") return DEFAULT_NAV_KEYS;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as string[];
+      if (Array.isArray(parsed) && parsed.length === 4) return parsed;
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_NAV_KEYS;
+}
+
+function saveNavKeys(keys: string[]) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(keys)); } catch { /* ignore */ }
+}
+
+function useNavConfig() {
+  const [navKeys, setNavKeys] = useState(DEFAULT_NAV_KEYS);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    setNavKeys(getStoredNavKeys());
+    setLoaded(true);
+  }, []);
+
+  const items: MainNavItem[] = useMemo(() => {
+    const selected = navKeys
+      .map((k: string) => ALL_NAV_OPTIONS.find((o) => o.key === k))
+      .filter(Boolean) as MainNavItem[];
+    return [...selected, MAS_ITEM];
+  }, [navKeys]);
+
+  const updateKeys = useCallback((keys: string[]) => {
+    setNavKeys(keys);
+    saveNavKeys(keys);
+  }, []);
+
+  return { items, navKeys, updateKeys, loaded };
+}
 
 /* ── Module route detection (is the user inside a specific module?) ── */
 
@@ -87,6 +136,7 @@ export function BottomNav({ userRole }: BottomNavProps) {
   const pathname = usePathname();
   const permissions = usePermissions();
   const navRef = useRef<HTMLElement>(null);
+  const navConfig = useNavConfig();
   useBottomNavHeight(navRef);
 
   if (!userRole || !pathname) return null;
@@ -126,7 +176,7 @@ export function BottomNav({ userRole }: BottomNavProps) {
         ) : isInModule ? (
           <ModuleSubNav items={moduleItems} activeModule={activeModule!} pathname={pathname} onBack={() => setForceMainNav(true)} />
         ) : (
-          <MainNav pathname={pathname} userRole={userRole} />
+          <MainNav pathname={pathname} userRole={userRole} navConfig={navConfig} />
         )}
       </div>
     </nav>
@@ -137,12 +187,12 @@ export function BottomNav({ userRole }: BottomNavProps) {
    MAIN NAV — 5 fixed items (Inicio, Comercial, Operaciones, Personas, Más)
    ════════════════════════════════════════════════════ */
 
-function MainNav({ pathname, userRole }: { pathname: string; userRole: string }) {
+function MainNav({ pathname, userRole, navConfig }: { pathname: string; userRole: string; navConfig: ReturnType<typeof useNavConfig> }) {
   const [masOpen, setMasOpen] = useState(false);
 
   return (
     <>
-      {MAIN_NAV.map((item) => {
+      {navConfig.items.map((item) => {
         if (item.isDrawer) {
           return (
             <button
@@ -177,7 +227,7 @@ function MainNav({ pathname, userRole }: { pathname: string; userRole: string })
         );
       })}
 
-      <MasDrawer open={masOpen} onOpenChange={setMasOpen} userRole={userRole} />
+      <MasDrawer open={masOpen} onOpenChange={setMasOpen} userRole={userRole} navConfig={navConfig} />
     </>
   );
 }
@@ -196,7 +246,7 @@ interface MasModuleItem {
   show: boolean;
 }
 
-function MasDrawer({ open, onOpenChange, userRole }: { open: boolean; onOpenChange: (v: boolean) => void; userRole: string }) {
+function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean; onOpenChange: (v: boolean) => void; userRole: string; navConfig: ReturnType<typeof useNavConfig> }) {
   const permissions = usePermissions();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -289,6 +339,9 @@ function MasDrawer({ open, onOpenChange, userRole }: { open: boolean; onOpenChan
             </div>
           )}
 
+          {/* Personalizar barra */}
+          <NavCustomizer navConfig={navConfig} />
+
           {/* Preferencias */}
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Preferencias</p>
@@ -332,6 +385,96 @@ function MasDrawer({ open, onOpenChange, userRole }: { open: boolean; onOpenChan
 
       <SignOutDialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog} />
     </>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   NAV CUSTOMIZER — pick which 4 items show in the bottom bar
+   ════════════════════════════════════════════════════ */
+
+function NavCustomizer({ navConfig }: { navConfig: ReturnType<typeof useNavConfig> }) {
+  const { navKeys, updateKeys } = navConfig;
+
+  const toggleItem = (key: string) => {
+    if (navKeys.includes(key)) {
+      if (navKeys.length <= 2) return; // min 2 items
+      updateKeys(navKeys.filter((k: string) => k !== key));
+    } else {
+      if (navKeys.length >= 4) return; // max 4 items
+      updateKeys([...navKeys, key]);
+    }
+  };
+
+  const moveItem = (key: string, dir: -1 | 1) => {
+    const idx = navKeys.indexOf(key);
+    if (idx < 0) return;
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= navKeys.length) return;
+    const next = [...navKeys];
+    [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+    updateKeys(next);
+  };
+
+  return (
+    <div className="mb-5">
+      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
+        Personalizar barra
+      </p>
+      <div className="space-y-1">
+        {ALL_NAV_OPTIONS.map((opt) => {
+          const isSelected = navKeys.includes(opt.key);
+          const idx = navKeys.indexOf(opt.key);
+          const Icon = opt.icon;
+          return (
+            <div
+              key={opt.key}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+                isSelected ? "bg-emerald-500/10" : "bg-transparent"
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => toggleItem(opt.key)}
+                className={cn(
+                  "flex items-center justify-center w-5 h-5 rounded border transition-colors",
+                  isSelected
+                    ? "bg-emerald-500 border-emerald-500 text-white"
+                    : "border-border text-transparent hover:border-muted-foreground"
+                )}
+              >
+                <Check className="h-3 w-3" />
+              </button>
+              <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="flex-1 text-foreground/80">{opt.label}</span>
+              {isSelected && (
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => moveItem(opt.key, -1)}
+                    disabled={idx === 0}
+                    className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5 rotate-90" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveItem(opt.key, 1)}
+                    disabled={idx === navKeys.length - 1}
+                    className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5 -rotate-90" />
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-muted-foreground mt-1.5 px-1">
+        Selecciona 2–4 accesos directos
+      </p>
+    </div>
   );
 }
 
