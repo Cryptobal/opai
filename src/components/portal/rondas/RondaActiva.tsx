@@ -4,6 +4,9 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { RondaProgress } from "./RondaProgress";
 import { CheckpointMarker } from "./CheckpointMarker";
+import { AutoMarkToast } from "./AutoMarkToast";
+import { GpsStatusIndicator } from "./GpsStatusIndicator";
+import { savePendingMark } from "@/lib/rondas-offline";
 import type { RondasSession } from "./RondasPortalClient";
 import type { MapCheckpoint } from "./RondaMap";
 
@@ -72,6 +75,7 @@ export interface CompletionData {
   porcentajeCompletado: number;
   durationMinutes: number | null;
   missed: number;
+  notes?: string | null;
   checkpoints?: {
     name: string;
     status: "COMPLETED" | "MISSED";
@@ -179,10 +183,22 @@ export function RondaActiva({
     lat: number;
     lng: number;
   } | null>(null);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
   // -- GPS trail for ad-hoc map display --
   const [trailPoints, setTrailPoints] = useState<{ lat: number; lng: number }[]>([]);
+
+  // -- Follow mode state --
+  const [isFollowing, setIsFollowing] = useState(true);
+
+  // -- Auto-mark state --
+  const autoMarkingRef = useRef<Set<string>>(new Set());
+  const autoMarkedRef = useRef<Set<string>>(new Set());
+  const [autoMarkToast, setAutoMarkToast] = useState<{
+    checkpointId: string;
+    checkpointName: string;
+  } | null>(null);
 
   // -- Live timer --
   const [now, setNow] = useState(() => Date.now());
@@ -199,6 +215,7 @@ export function RondaActiva({
       (pos) => {
         const pt = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setGuardPos(pt);
+        setGpsAccuracy(pos.coords.accuracy ?? null);
         setTrailPoints((prev) => {
           // Only add if moved >3m from last point (avoid clutter)
           if (prev.length === 0) return [pt];
@@ -263,7 +280,34 @@ export function RondaActiva({
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Geofence auto-detection: check guard proximity to unmarked checkpoints
+  // Refresh checkpoints (moved before geofence effect that depends on it)
+  // ---------------------------------------------------------------------------
+  const refreshCheckpoints = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        guardiaId: session.guardiaId,
+        installationId: session.installationId,
+        tenantId: session.tenantId,
+      });
+      const res = await fetch(
+        `/api/portal/rondas/mis-rondas?${params.toString()}`,
+      );
+      if (!res.ok) return;
+      const json = await res.json();
+      if (!json.success || !json.data) return;
+      const updated = (json.data as RondaData[]).find(
+        (r) => r.ejecucionId === rondaData.ejecucionId,
+      );
+      if (updated) {
+        setCheckpoints(updated.checkpoints);
+      }
+    } catch {
+      // Silently fail
+    }
+  }, [session, rondaData.ejecucionId]);
+
+  // ---------------------------------------------------------------------------
+  // Geofence auto-detection + auto-marking
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!guardPos || isAdHocFreeForm) return;
@@ -297,22 +341,119 @@ export function RondaActiva({
       // Vibrate on first entry
       if (lastVibratedRef.current !== closest.id) {
         lastVibratedRef.current = closest.id;
-        navigator.vibrate?.([100, 50, 100]);
+        navigator.vibrate?.([100]);
       }
 
-      // Show banner
-      setNearbyCheckpointId(closest.id);
+      // Determine if this checkpoint can be auto-marked
+      const canAutoMark =
+        !inCooldown &&
+        !autoMarkingRef.current.has(closest.id) &&
+        !autoMarkedRef.current.has(closest.id) &&
+        (closest.verificationType === "GEOFENCE" || closest.verificationType === "BOTH") &&
+        !(closest.tasks && closest.tasks.length > 0 && closest.tasks.some((t) => t.required)) &&
+        !rondaData.qrRequerido;
 
-      // Auto-open after 2s stability (skip if in cooldown or already tracking this cp)
-      if (!inCooldown && stableGeofenceIdRef.current !== closest.id) {
-        stableGeofenceIdRef.current = closest.id;
-        if (autoOpenTimerRef.current) clearTimeout(autoOpenTimerRef.current);
-        const cpId = closest.id;
-        autoOpenTimerRef.current = setTimeout(() => {
-          autoOpenTimerRef.current = null;
-          setNearbyCheckpointId(null);
-          setMarkingCheckpointId(cpId);
-        }, 2000);
+      if (canAutoMark) {
+        // AUTO-MARK: fire request directly without opening bottom sheet
+        const cpToMark = closest;
+        autoMarkingRef.current.add(cpToMark.id);
+        setNearbyCheckpointId(null);
+
+        (async () => {
+          try {
+            const body = {
+              ejecucionId: rondaData.ejecucionId,
+              checkpointId: cpToMark.id,
+              lat: guardPos.lat,
+              lng: guardPos.lng,
+              gpsAccuracy: gpsAccuracy ?? undefined,
+              batteryLevel: null as number | null,
+              motionData: null,
+              verificationMethod: "GEOFENCE",
+              isOfflineSync: false,
+              guardiaId: session.guardiaId,
+            };
+
+            // Try to read battery
+            try {
+              const batt = await (navigator as any).getBattery?.();
+              if (batt) body.batteryLevel = Math.round(batt.level * 100);
+            } catch { /* ignore */ }
+
+            const res = await fetch("/api/portal/rondas/marcar", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+
+            if (!res.ok) {
+              const errJson = await res.json().catch(() => null);
+              // If already marked, treat as success
+              if (errJson?.already_marked) {
+                autoMarkedRef.current.add(cpToMark.id);
+                setCheckpoints((prev) =>
+                  prev.map((cp) => cp.id === cpToMark.id ? { ...cp, completed: true } : cp),
+                );
+                return;
+              }
+              throw new Error(errJson?.error || "Error");
+            }
+
+            const json = await res.json();
+            if (json.success || json.already_marked) {
+              autoMarkedRef.current.add(cpToMark.id);
+              // Optimistic update
+              setCheckpoints((prev) =>
+                prev.map((cp) => cp.id === cpToMark.id ? { ...cp, completed: true } : cp),
+              );
+              // Show toast + vibrate
+              navigator.vibrate?.([100]);
+              setAutoMarkToast({ checkpointId: cpToMark.id, checkpointName: cpToMark.name });
+              refreshCheckpoints();
+            }
+          } catch {
+            // Network error — save offline
+            try {
+              await savePendingMark({
+                ejecucionId: rondaData.ejecucionId,
+                checkpointId: cpToMark.id,
+                lat: guardPos.lat,
+                lng: guardPos.lng,
+                gpsAccuracy: gpsAccuracy ?? undefined,
+                verificationMethod: "GEOFENCE",
+                isOfflineSync: true,
+                guardiaId: session.guardiaId,
+                clientTimestamp: new Date().toISOString(),
+              });
+              autoMarkedRef.current.add(cpToMark.id);
+              setCheckpoints((prev) =>
+                prev.map((cp) => cp.id === cpToMark.id ? { ...cp, completed: true } : cp),
+              );
+              navigator.vibrate?.([100]);
+              setAutoMarkToast({ checkpointId: cpToMark.id, checkpointName: cpToMark.name });
+            } catch {
+              // Failed offline too — fall back to manual
+              setMarkingCheckpointId(cpToMark.id);
+            }
+          } finally {
+            autoMarkingRef.current.delete(cpToMark.id);
+          }
+        })();
+      } else if (!autoMarkedRef.current.has(closest.id)) {
+        // Cannot auto-mark — show banner for manual marking
+        setNearbyCheckpointId(closest.id);
+
+        // Auto-open bottom sheet after 2s stability
+        if (!inCooldown && stableGeofenceIdRef.current !== closest.id) {
+          stableGeofenceIdRef.current = closest.id;
+          if (autoOpenTimerRef.current) clearTimeout(autoOpenTimerRef.current);
+          const cpId = closest.id;
+          autoOpenTimerRef.current = setTimeout(() => {
+            autoOpenTimerRef.current = null;
+            setNearbyCheckpointId(null);
+            setMarkingCheckpointId(cpId);
+          }, 2000);
+        }
       }
     } else {
       // Left geofence
@@ -323,7 +464,7 @@ export function RondaActiva({
       }
       setNearbyCheckpointId(null);
     }
-  }, [guardPos, checkpoints, isAdHocFreeForm, markingCheckpointId]);
+  }, [guardPos, checkpoints, isAdHocFreeForm, markingCheckpointId, gpsAccuracy, rondaData.ejecucionId, rondaData.qrRequerido, session.guardiaId, refreshCheckpoints]);
 
   // Cleanup auto-open timer on unmount
   useEffect(() => {
@@ -358,9 +499,6 @@ export function RondaActiva({
     : checkpoints.filter((c) => c.completed).length;
   const total = isAdHocFreeForm ? adHocMarkedPoints.length : checkpoints.length;
 
-  const activeCheckpointId =
-    checkpoints.find((c) => !c.completed)?.id ?? null;
-
   const startTime = rondaData.startedAt
     ? new Date(rondaData.startedAt).getTime()
     : undefined;
@@ -374,6 +512,33 @@ export function RondaActiva({
   const showFreeRoundWarning = isAdHoc && freeRoundTimeLeftMinutes !== null && freeRoundTimeLeftMinutes <= FREE_ROUND_WARNING_MINUTES && freeRoundTimeLeftMinutes > FREE_ROUND_CRITICAL_MINUTES;
   const showFreeRoundCritical = isAdHoc && freeRoundTimeLeftMinutes !== null && freeRoundTimeLeftMinutes <= FREE_ROUND_CRITICAL_MINUTES;
 
+  // Sorted checkpoints: pending sorted by proximity, then completed
+  const sortedCheckpoints = useMemo(() => {
+    if (isAdHocFreeForm) return checkpoints;
+
+    const pending: (ApiCheckpoint & { _dist: number })[] = [];
+    const completed: ApiCheckpoint[] = [];
+
+    for (const cp of checkpoints) {
+      if (cp.completed) {
+        completed.push(cp);
+      } else {
+        const dist = guardPos
+          ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
+          : Infinity;
+        pending.push({ ...cp, _dist: dist });
+      }
+    }
+
+    // Sort pending by distance (closest first)
+    pending.sort((a, b) => a._dist - b._dist);
+
+    return [...pending, ...completed];
+  }, [checkpoints, guardPos?.lat, guardPos?.lng, isAdHocFreeForm]);
+
+  // The closest pending checkpoint is the new "active"
+  const closestPendingId = sortedCheckpoints.find((cp) => !cp.completed)?.id ?? null;
+
   // Map checkpoints (include ad-hoc marked points for libre rondas)
   const mapCheckpoints = useMemo<MapCheckpoint[]>(() => {
     const templateCps = checkpoints.map((cp) => ({
@@ -384,7 +549,7 @@ export function RondaActiva({
       orderIndex: cp.orderIndex,
       status: cp.completed
         ? ("completed" as const)
-        : cp.id === activeCheckpointId
+        : cp.id === closestPendingId
           ? ("active" as const)
           : ("pending" as const),
     }));
@@ -402,21 +567,7 @@ export function RondaActiva({
     }));
 
     return [...templateCps, ...adHocCps];
-  }, [checkpoints, activeCheckpointId, isAdHocFreeForm, adHocMarkedPoints]);
-
-  // Distance to active checkpoint
-  const activeCheckpoint = checkpoints.find(
-    (c) => c.id === activeCheckpointId,
-  );
-  const distanceToActive =
-    guardPos && activeCheckpoint
-      ? haversineDistance(
-          guardPos.lat,
-          guardPos.lng,
-          activeCheckpoint.lat,
-          activeCheckpoint.lng,
-        )
-      : null;
+  }, [checkpoints, closestPendingId, isAdHocFreeForm, adHocMarkedPoints]);
 
   // Marking checkpoint info for bottom sheet
   const markingCheckpoint = markingCheckpointId
@@ -475,47 +626,14 @@ export function RondaActiva({
   // Incomplete checkpoint names (for confirmation modal)
   const incompleteCheckpoints = checkpoints.filter((c) => !c.completed);
 
-  // Sorted checkpoints: active first, then pending, then completed
-  const sortedCheckpoints = useMemo(() => {
-    if (isAdHocFreeForm) return checkpoints;
-    const active: ApiCheckpoint[] = [];
-    const pending: ApiCheckpoint[] = [];
-    const completed: ApiCheckpoint[] = [];
-    for (const cp of checkpoints) {
-      if (cp.completed) completed.push(cp);
-      else if (cp.id === activeCheckpointId) active.push(cp);
-      else pending.push(cp);
-    }
-    return [...active, ...pending, ...completed];
-  }, [checkpoints, activeCheckpointId, isAdHocFreeForm]);
+  // (sortedCheckpoints & closestPendingId moved above mapCheckpoints)
+
+  // Count of collapsed completed checkpoints
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Callbacks
   // ---------------------------------------------------------------------------
-
-  const refreshCheckpoints = useCallback(async () => {
-    try {
-      const params = new URLSearchParams({
-        guardiaId: session.guardiaId,
-        installationId: session.installationId,
-        tenantId: session.tenantId,
-      });
-      const res = await fetch(
-        `/api/portal/rondas/mis-rondas?${params.toString()}`,
-      );
-      if (!res.ok) return;
-      const json = await res.json();
-      if (!json.success || !json.data) return;
-      const updated = (json.data as RondaData[]).find(
-        (r) => r.ejecucionId === rondaData.ejecucionId,
-      );
-      if (updated) {
-        setCheckpoints(updated.checkpoints);
-      }
-    } catch {
-      // Silently fail
-    }
-  }, [session, rondaData.ejecucionId]);
 
   const handleComplete = useCallback(async () => {
     if (completingRef.current) return;
@@ -561,6 +679,7 @@ export function RondaActiva({
         porcentajeCompletado: json.data?.porcentajeCompletado ?? 0,
         durationMinutes: json.data?.durationMinutes ?? null,
         missed: json.data?.missed ?? 0,
+        notes: incompleteNotes.trim() || null,
         checkpoints: json.data?.checkpoints,
         scheduledAt: json.data?.scheduledAt,
         startedAt: json.data?.startedAt,
@@ -638,10 +757,11 @@ export function RondaActiva({
             </h1>
           </div>
 
-          {/* Timer + Progress compact */}
+          {/* Timer + Progress compact + GPS status */}
           <div className="flex shrink-0 items-center gap-2 text-sm">
+            <GpsStatusIndicator accuracy={gpsAccuracy} isWatching={guardPos !== null} />
             <span className="text-gray-400">
-              {"\u23F1\uFE0F"} {formatElapsed(elapsedSeconds)}
+              {formatElapsed(elapsedSeconds)}
             </span>
             <span className="text-gray-600">&middot;</span>
             <span
@@ -736,6 +856,10 @@ export function RondaActiva({
           showCenterButton={true}
           trailPoints={trailPoints}
           markingCheckpointId={markingCheckpointId}
+          isFollowing={isFollowing}
+          onManualInteraction={() => setIsFollowing(false)}
+          onRecenter={() => setIsFollowing(true)}
+          gpsAccuracy={gpsAccuracy}
         />
 
         {/* Map collapse toggle — hidden for ad-hoc rondas (fixed compact map) */}
@@ -839,181 +963,134 @@ export function RondaActiva({
           </div>
         )}
 
-        {/* Non-ad-hoc checkpoint list */}
-        {!isAdHocFreeForm && sortedCheckpoints.map((cp) => {
-          const isCompleted = cp.completed;
-          const isActive = cp.id === activeCheckpointId;
-          const needsQr =
-            rondaData.qrRequerido &&
-            (cp.verificationType === "QR" ||
-              cp.verificationType === "BOTH");
+        {/* Non-ad-hoc checkpoint list — sorted by proximity */}
+        {!isAdHocFreeForm && (() => {
+          const pendingCps = sortedCheckpoints.filter((cp) => !cp.completed);
+          const completedCps = sortedCheckpoints.filter((cp) => cp.completed);
 
-          // Distance for active checkpoint
-          const cpDistance =
-            isActive && guardPos
-              ? haversineDistance(
-                  guardPos.lat,
-                  guardPos.lng,
-                  cp.lat,
-                  cp.lng,
-                )
-              : null;
-
-          if (isActive) {
-            // -- Active checkpoint: prominent card --
-            return (
-              <button
-                key={cp.id}
-                onClick={() => setMarkingCheckpointId(cp.id)}
-                className="w-full rounded-2xl border-2 border-teal-600/60 bg-teal-950/40 p-4 text-left transition-colors active:bg-teal-900/50"
-              >
-                <div className="flex items-start gap-3">
-                  {/* Pulsing active dot */}
-                  <div className="mt-1 shrink-0">
-                    <div className="relative flex h-8 w-8 items-center justify-center">
-                      <span
-                        className="absolute h-8 w-8 animate-ping rounded-full opacity-30"
-                        style={{ backgroundColor: "#14b8a6" }}
-                      />
-                      <div
-                        className="relative h-4 w-4 rounded-full"
-                        style={{ backgroundColor: "#14b8a6" }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-base font-semibold text-teal-300">
-                      {cp.name}
-                    </p>
-
-                    {/* Badges */}
-                    <div className="mt-1.5 flex flex-wrap gap-2">
-                      {cp.isRequired && (
-                        <span className="rounded-md bg-yellow-500/20 px-2 py-0.5 text-xs font-medium text-yellow-400">
-                          Obligatorio
-                        </span>
-                      )}
-                      {needsQr && (
-                        <span className="rounded-md bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-400">
-                          QR requerido
-                        </span>
-                      )}
-                      {cpDistance != null && (
-                        <span className="rounded-md bg-gray-700/60 px-2 py-0.5 text-xs text-gray-300">
-                          {"\uD83D\uDCCF"} {formatDistance(cpDistance)}
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="mt-2 text-sm text-teal-400/70">
-                      Toca para marcar este punto
-                    </p>
-                  </div>
-
-                  {/* Arrow */}
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="mt-1 h-5 w-5 shrink-0 text-teal-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </div>
-              </button>
-            );
-          }
-
-          if (isCompleted) {
-            // -- Completed checkpoint: dimmed with green check --
-            return (
-              <div
-                key={cp.id}
-                className="flex w-full items-center gap-3 rounded-2xl border border-green-900/30 bg-green-950/10 p-3 opacity-60"
-              >
-                <div
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: "rgba(34,197,94,0.2)" }}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="#22c55e"
-                    strokeWidth={2.5}
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </div>
-                <p className="min-w-0 flex-1 truncate text-sm text-gray-500">
-                  {cp.name}
-                </p>
-              </div>
-            );
-          }
-
-          // -- Pending checkpoint: compact row --
-          const pendingDist = guardPos
-            ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
-            : null;
           return (
-            <button
-              key={cp.id}
-              onClick={() => setMarkingCheckpointId(cp.id)}
-              className="flex w-full items-center gap-3 rounded-2xl border border-gray-800 bg-gray-900/60 p-3 text-left transition-colors active:bg-gray-800"
-            >
-              <div
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-                style={{ backgroundColor: "rgba(107,114,128,0.2)" }}
-              >
-                <div
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: "#6b7280" }}
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-gray-300">{cp.name}</p>
-                <div className="flex gap-2 text-xs text-gray-600">
-                  {cp.isRequired && <span>Obligatorio</span>}
-                  {pendingDist != null && (
-                    <span className={pendingDist <= cp.geoRadiusM ? "text-teal-500" : ""}>
-                      {formatDistance(pendingDist)}
+            <>
+              {pendingCps.map((cp, idx) => {
+                const isClosest = cp.id === closestPendingId;
+                const needsQr =
+                  rondaData.qrRequerido &&
+                  (cp.verificationType === "QR" || cp.verificationType === "BOTH");
+                const cpDistance = guardPos
+                  ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
+                  : null;
+
+                if (isClosest) {
+                  // -- Closest checkpoint: prominent card --
+                  return (
+                    <button
+                      key={cp.id}
+                      onClick={() => setMarkingCheckpointId(cp.id)}
+                      className="w-full rounded-2xl border-2 border-teal-600/60 bg-teal-950/40 p-4 text-left transition-colors active:bg-teal-900/50"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-1 shrink-0">
+                          <div className="relative flex h-8 w-8 items-center justify-center">
+                            <span className="absolute h-8 w-8 animate-ping rounded-full opacity-30" style={{ backgroundColor: "#14b8a6" }} />
+                            <div className="relative h-4 w-4 rounded-full" style={{ backgroundColor: "#14b8a6" }} />
+                          </div>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-base font-semibold text-teal-300">{cp.name}</p>
+                          <div className="mt-1.5 flex flex-wrap gap-2">
+                            <span className="rounded-md bg-teal-500/20 px-2 py-0.5 text-xs font-medium text-teal-400">
+                              Mas cercano
+                            </span>
+                            {cp.isRequired && (
+                              <span className="rounded-md bg-yellow-500/20 px-2 py-0.5 text-xs font-medium text-yellow-400">
+                                Obligatorio
+                              </span>
+                            )}
+                            {needsQr && (
+                              <span className="rounded-md bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-400">
+                                QR requerido
+                              </span>
+                            )}
+                            {cpDistance != null && (
+                              <span className="rounded-md bg-gray-700/60 px-2 py-0.5 text-xs font-semibold text-gray-200">
+                                {formatDistance(cpDistance)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-2 text-sm text-teal-400/70">Toca para marcar este punto</p>
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="mt-1 h-5 w-5 shrink-0 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </button>
+                  );
+                }
+
+                // -- Other pending checkpoints --
+                return (
+                  <button
+                    key={cp.id}
+                    onClick={() => setMarkingCheckpointId(cp.id)}
+                    className="flex w-full items-center gap-3 rounded-2xl border border-gray-800 bg-gray-900/60 p-3 text-left transition-colors active:bg-gray-800"
+                  >
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(107,114,128,0.2)" }}>
+                      <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#6b7280" }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-gray-300">{cp.name}</p>
+                      <div className="flex gap-2 text-xs text-gray-600">
+                        {cp.isRequired && <span className="text-yellow-500/70">Obligatorio</span>}
+                        {cpDistance != null && (
+                          <span className={cpDistance <= cp.geoRadiusM ? "text-teal-500" : ""}>
+                            {formatDistance(cpDistance)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                );
+              })}
+
+              {/* Completed checkpoints — collapsible */}
+              {completedCps.length > 0 && (
+                <>
+                  <button
+                    onClick={() => setShowCompleted((v) => !v)}
+                    className="flex w-full items-center gap-2 rounded-xl bg-green-950/20 px-3 py-2 text-sm text-green-400/70 transition-colors active:bg-green-950/30"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>
+                      Ver completados ({completedCps.length}/{total})
                     </span>
-                  )}
-                </div>
-              </div>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 shrink-0 text-gray-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`ml-auto h-4 w-4 transition-transform ${showCompleted ? "rotate-180" : ""}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {showCompleted && completedCps.map((cp) => (
+                    <div key={cp.id} className="flex w-full items-center gap-3 rounded-2xl border border-green-900/30 bg-green-950/10 p-3 opacity-60">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(34,197,94,0.2)" }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="#22c55e" strokeWidth={2.5} aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <p className="min-w-0 flex-1 truncate text-sm text-gray-500">{cp.name}</p>
+                    </div>
+                  ))}
+                </>
+              )}
+            </>
           );
-        })}
+        })()}
 
         {/* Error */}
         {error && (
@@ -1024,49 +1101,45 @@ export function RondaActiva({
       </main>
 
       {/* ============ Bottom Sticky Buttons ============ */}
-      <div
-        className="fixed inset-x-0 bottom-16 z-20 border-t border-gray-800 px-4 pb-4 pt-3"
-        style={{ backgroundColor: "#0a0a0f" }}
-      >
-        <div>
-          {/* Complete Ronda */}
-          <button
-            onClick={handleCompleteClick}
-            disabled={completing}
-            className="w-full rounded-xl bg-teal-600 py-3.5 text-base font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700 disabled:opacity-40"
-            style={{ minHeight: 52 }}
+      {(() => {
+        const requiredPending = checkpoints.filter((cp) => cp.isRequired && !cp.completed);
+        const allRequiredDone = requiredPending.length === 0;
+        const optionalPending = checkpoints.filter((cp) => !cp.isRequired && !cp.completed);
+
+        return (
+          <div
+            className="fixed inset-x-0 bottom-16 z-20 border-t border-gray-800 px-4 pb-4 pt-3"
+            style={{ backgroundColor: "#0a0a0f" }}
           >
-            {completing ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg
-                  className="h-5 w-5 animate-spin"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Completando...
-              </span>
-            ) : (
-              <>{"\u2713"} Completar Ronda</>
-            )}
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={handleCompleteClick}
+              disabled={completing || (!isAdHocFreeForm && !allRequiredDone)}
+              className={`w-full rounded-xl py-3.5 text-base font-semibold transition-colors disabled:opacity-40 ${
+                allRequiredDone || isAdHocFreeForm
+                  ? "bg-teal-600 text-white hover:bg-teal-500 active:bg-teal-700"
+                  : "bg-gray-700 text-gray-400 cursor-not-allowed"
+              }`}
+              style={{ minHeight: 52 }}
+            >
+              {completing ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Completando...
+                </span>
+              ) : !isAdHocFreeForm && !allRequiredDone ? (
+                <>Faltan {requiredPending.length} punto{requiredPending.length !== 1 ? "s" : ""} obligatorio{requiredPending.length !== 1 ? "s" : ""}</>
+              ) : optionalPending.length > 0 ? (
+                <>{"\u2713"} Completar Ronda ({optionalPending.length} opcionales sin marcar)</>
+              ) : (
+                <>{"\u2713"} Completar Ronda</>
+              )}
+            </button>
+          </div>
+        );
+      })()}
 
       {/* ============ Confirmation Modal (incomplete checkpoints) ============ */}
       {showConfirmModal && (
@@ -1102,8 +1175,8 @@ export function RondaActiva({
               rows={3}
               className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-yellow-500 focus:outline-none"
             />
-            <p className={`mb-3 mt-1 text-xs ${incompleteNotes.trim().length > 0 && incompleteNotes.trim().length < 10 ? "text-yellow-500/70" : "text-transparent"}`}>
-              Minimo 10 caracteres
+            <p className={`mb-3 mt-1 text-xs ${incompleteNotes.trim().length > 0 && incompleteNotes.trim().length < 3 ? "text-yellow-500/70" : "text-transparent"}`}>
+              Minimo 3 caracteres
             </p>
             <div className="flex gap-3">
               <button
@@ -1114,7 +1187,7 @@ export function RondaActiva({
               </button>
               <button
                 onClick={confirmComplete}
-                disabled={incompleteNotes.trim().length < 10}
+                disabled={incompleteNotes.trim().length < 3}
                 className="flex-1 rounded-xl bg-yellow-600 py-3 text-base font-semibold text-white transition-colors hover:bg-yellow-500 disabled:opacity-40"
               >
                 Completar
@@ -1162,6 +1235,19 @@ export function RondaActiva({
             </button>
           </div>
         </div>
+      )}
+
+      {/* ============ Auto-Mark Toast ============ */}
+      {autoMarkToast && (
+        <AutoMarkToast
+          checkpointName={autoMarkToast.checkpointName}
+          onAddPhoto={() => {
+            setAutoMarkToast(null);
+            // Open the checkpoint marker to add a photo
+            setMarkingCheckpointId(autoMarkToast.checkpointId);
+          }}
+          onDismiss={() => setAutoMarkToast(null)}
+        />
       )}
 
       {/* ============ CheckpointMarker Overlay ============ */}

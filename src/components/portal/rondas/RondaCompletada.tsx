@@ -25,6 +25,7 @@ interface Props {
   porcentajeCompletado: number;
   durationMinutes: number | null;
   missed: number;
+  notes?: string | null;
   checkpoints?: CheckpointDetail[];
   scheduledAt?: string;
   startedAt?: string;
@@ -88,6 +89,7 @@ export function RondaCompletada({
   porcentajeCompletado,
   durationMinutes,
   missed,
+  notes,
   checkpoints,
   scheduledAt,
   startedAt,
@@ -279,6 +281,14 @@ export function RondaCompletada({
                 {missed}
               </span>
             </div>
+
+            {/* Notas del guardia */}
+            {notes && (
+              <div className="border-t border-gray-800 pt-3 mt-1">
+                <span className="text-sm text-gray-500">Comentario:</span>
+                <p className="mt-1 text-sm text-gray-300 italic">&ldquo;{notes}&rdquo;</p>
+              </div>
+            )}
           </div>
         </div>
 

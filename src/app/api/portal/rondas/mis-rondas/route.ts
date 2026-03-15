@@ -53,12 +53,17 @@ export async function GET(request: NextRequest) {
 
     // Show ALL pending/in-progress rounds for this installation today.
     // Any authenticated guard can take any round, regardless of assignment.
+    // Include both template-based rondas AND ad-hoc rondas.
     const ejecuciones = await prisma.opsRondaEjecucion.findMany({
       where: {
         tenantId,
-        rondaTemplateId: { in: templates.map(t => t.id) },
+        installationId,
         scheduledAt: { gte: startOfDay, lte: endOfDay },
         status: { in: ["pendiente", "en_curso", "incompleta", "completada", "no_realizada", "cerrada_auto", "cerrada_admin"] },
+        OR: [
+          { rondaTemplateId: { in: templates.map(t => t.id) } },
+          { isAdHoc: true },
+        ],
       },
       include: {
         marcaciones: {
@@ -69,37 +74,76 @@ export async function GET(request: NextRequest) {
       orderBy: { scheduledAt: "asc" },
     });
 
+    // Fetch installation checkpoints for ad-hoc rondas
+    let installationCheckpoints: {
+      id: string; name: string; instrucciones: string | null; qrCode: string;
+      lat: number | null; lng: number | null; geoRadiusM: number; verificationType: string;
+      sortOrder: number; isCritical: boolean;
+    }[] = [];
+    const hasAdHoc = ejecuciones.some(ej => ej.isAdHoc);
+    if (hasAdHoc) {
+      installationCheckpoints = await prisma.opsCheckpoint.findMany({
+        where: { tenantId, installationId, isActive: true },
+        select: {
+          id: true, name: true, instrucciones: true, qrCode: true,
+          lat: true, lng: true, geoRadiusM: true, verificationType: true,
+          sortOrder: true, isCritical: true,
+        },
+        orderBy: { sortOrder: "asc" },
+      });
+    }
+
     const result = ejecuciones.map(ej => {
       const template = templates.find(t => t.id === ej.rondaTemplateId);
+      const isAdHoc = ej.isAdHoc;
+
+      // For ad-hoc rondas, use installation checkpoints instead of template checkpoints
+      const checkpoints = isAdHoc
+        ? installationCheckpoints.map((cp, idx) => ({
+            id: cp.id,
+            name: cp.name,
+            instrucciones: cp.instrucciones ?? null,
+            qrCode: cp.qrCode,
+            lat: cp.lat ?? 0,
+            lng: cp.lng ?? 0,
+            geoRadiusM: cp.geoRadiusM,
+            verificationType: cp.verificationType,
+            orderIndex: idx,
+            isRequired: cp.isCritical,
+            completed: ej.marcaciones.some(m => m.checkpointId === cp.id && m.status === "COMPLETED"),
+            tasks: [] as { id: string; label: string; type: string; required: boolean; options?: string[] | null; config: unknown; sortOrder: number }[],
+          }))
+        : (template?.checkpoints.map(tc => ({
+            id: tc.checkpoint.id,
+            name: tc.checkpoint.name,
+            instrucciones: tc.checkpoint.instrucciones ?? null,
+            qrCode: tc.checkpoint.qrCode,
+            lat: tc.checkpoint.lat,
+            lng: tc.checkpoint.lng,
+            geoRadiusM: tc.checkpoint.geoRadiusM,
+            verificationType: tc.checkpoint.verificationType,
+            orderIndex: tc.orderIndex,
+            isRequired: tc.isRequired,
+            completed: ej.marcaciones.some(m => m.checkpointId === tc.checkpointId && m.status === "COMPLETED"),
+            tasks: tc.checkpoint.tasks ?? [],
+          })) ?? []);
+
       return {
         ejecucionId: ej.id,
         templateId: ej.rondaTemplateId,
-        templateName: template?.name ?? "Ronda",
+        templateName: isAdHoc ? "Ronda Libre" : (template?.name ?? "Ronda"),
         status: ej.status,
         scheduledAt: ej.scheduledAt.toISOString(),
         startedAt: ej.startedAt?.toISOString() ?? null,
         checkpointsTotal: ej.checkpointsTotal,
         checkpointsCompletados: ej.checkpointsCompletados,
-        qrRequerido: template?.qrRequerido ?? false,
-        orderMode: template?.orderMode ?? "flexible",
-        estimatedDurationMin: template?.estimatedDurationMin ?? null,
+        qrRequerido: isAdHoc ? false : (template?.qrRequerido ?? false),
+        orderMode: isAdHoc ? "flexible" : (template?.orderMode ?? "flexible"),
+        estimatedDurationMin: isAdHoc ? null : (template?.estimatedDurationMin ?? null),
         toleranciaMinutos: ej.programacion?.toleranciaMinutos ?? 10,
         trustScore: ej.trustScore,
         porcentajeCompletado: ej.porcentajeCompletado,
-        checkpoints: template?.checkpoints.map(tc => ({
-          id: tc.checkpoint.id,
-          name: tc.checkpoint.name,
-          instrucciones: tc.checkpoint.instrucciones ?? null,
-          qrCode: tc.checkpoint.qrCode,
-          lat: tc.checkpoint.lat,
-          lng: tc.checkpoint.lng,
-          geoRadiusM: tc.checkpoint.geoRadiusM,
-          verificationType: tc.checkpoint.verificationType,
-          orderIndex: tc.orderIndex,
-          isRequired: tc.isRequired,
-          completed: ej.marcaciones.some(m => m.checkpointId === tc.checkpointId && m.status === "COMPLETED"),
-          tasks: tc.checkpoint.tasks ?? [],
-        })) ?? [],
+        checkpoints,
       };
     });
 

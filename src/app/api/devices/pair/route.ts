@@ -27,8 +27,15 @@ export async function POST(request: NextRequest) {
     // Metadata is nice-to-have, not blocking
     const meta = metadata ?? {};
 
-    // Normalize: uppercase, remove spaces. Support XX-XX-XX (new) and XXX-XXX (legacy)
-    const stripped = code.toUpperCase().replace(/[\s-]/g, "").slice(0, 6);
+    // Normalize: uppercase, remove non-alphanumeric, ensure 6 chars
+    const stripped = code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+    if (stripped.length !== 6) {
+      return NextResponse.json(
+        { success: false, error: "El código debe tener 6 caracteres" },
+        { status: 400 }
+      );
+    }
+    // Support both XX-XX-XX (new) and XXX-XXX (legacy) storage formats
     const formattedCode = `${stripped.slice(0, 2)}-${stripped.slice(2, 4)}-${stripped.slice(4, 6)}`;
     const legacyCode = `${stripped.slice(0, 3)}-${stripped.slice(3)}`;
 
@@ -41,8 +48,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (!installation) {
+      console.warn(`[devices/pair] Code not found: ${formattedCode}`);
       return NextResponse.json(
-        { success: false, error: "Código inválido" },
+        { success: false, error: "Código no encontrado. Verifica con tu supervisor." },
         { status: 400 }
       );
     }
