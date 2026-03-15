@@ -6,10 +6,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import { SignOutDialog } from './SignOutDialog';
 import {
   Home, Briefcase, Shield, Users, LayoutGrid,
-  ChevronLeft, MoreHorizontal,
+  ChevronLeft, ChevronDown, MoreHorizontal,
   Landmark, Wallet, FolderOpen, FileBarChart, Clock,
   Settings, Monitor, Eye, Sun, Moon, User, LogOut,
-  Check, Receipt, Calculator, FileText,
+  Check, Receipt, Calculator, FileText, SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -339,13 +339,13 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
             </div>
           )}
 
-          {/* Personalizar barra */}
-          <NavCustomizer navConfig={navConfig} />
-
           {/* Preferencias */}
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Preferencias</p>
             <div className="space-y-0.5">
+              {/* Personalizar barra (collapsible) */}
+              <NavCustomizer navConfig={navConfig} />
+
               {/* Theme toggle */}
               <button
                 type="button"
@@ -394,13 +394,14 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
 
 function NavCustomizer({ navConfig }: { navConfig: ReturnType<typeof useNavConfig> }) {
   const { navKeys, updateKeys } = navConfig;
+  const [open, setOpen] = useState(false);
 
   const toggleItem = (key: string) => {
     if (navKeys.includes(key)) {
-      if (navKeys.length <= 2) return; // min 2 items
+      if (navKeys.length <= 2) return;
       updateKeys(navKeys.filter((k: string) => k !== key));
     } else {
-      if (navKeys.length >= 4) return; // max 4 items
+      if (navKeys.length >= 4) return;
       updateKeys([...navKeys, key]);
     }
   };
@@ -417,63 +418,74 @@ function NavCustomizer({ navConfig }: { navConfig: ReturnType<typeof useNavConfi
 
   return (
     <div className="mb-5">
-      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
-        Personalizar barra
-      </p>
-      <div className="space-y-1">
-        {ALL_NAV_OPTIONS.map((opt) => {
-          const isSelected = navKeys.includes(opt.key);
-          const idx = navKeys.indexOf(opt.key);
-          const Icon = opt.icon;
-          return (
-            <div
-              key={opt.key}
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
-                isSelected ? "bg-emerald-500/10" : "bg-transparent"
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => toggleItem(opt.key)}
+      {/* Toggle button */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
+      >
+        <SlidersHorizontal className="h-4.5 w-4.5 text-emerald-400" />
+        <span className="flex-1 text-left">Personalizar barra</span>
+        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", open && "rotate-180")} />
+      </button>
+
+      {/* Collapsible options */}
+      {open && (
+        <div className="mt-2 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+          {ALL_NAV_OPTIONS.map((opt) => {
+            const isSelected = navKeys.includes(opt.key);
+            const idx = navKeys.indexOf(opt.key);
+            const Icon = opt.icon;
+            return (
+              <div
+                key={opt.key}
                 className={cn(
-                  "flex items-center justify-center w-5 h-5 rounded border transition-colors",
-                  isSelected
-                    ? "bg-emerald-500 border-emerald-500 text-white"
-                    : "border-border text-transparent hover:border-muted-foreground"
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+                  isSelected ? "bg-emerald-500/10" : "bg-transparent"
                 )}
               >
-                <Check className="h-3 w-3" />
-              </button>
-              <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="flex-1 text-foreground/80">{opt.label}</span>
-              {isSelected && (
-                <div className="flex items-center gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => moveItem(opt.key, -1)}
-                    disabled={idx === 0}
-                    className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5 rotate-90" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveItem(opt.key, 1)}
-                    disabled={idx === navKeys.length - 1}
-                    className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5 -rotate-90" />
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <p className="text-[10px] text-muted-foreground mt-1.5 px-1">
-        Selecciona 2–4 accesos directos
-      </p>
+                <button
+                  type="button"
+                  onClick={() => toggleItem(opt.key)}
+                  className={cn(
+                    "flex items-center justify-center w-5 h-5 rounded border transition-colors",
+                    isSelected
+                      ? "bg-emerald-500 border-emerald-500 text-white"
+                      : "border-border text-transparent hover:border-muted-foreground"
+                  )}
+                >
+                  <Check className="h-3 w-3" />
+                </button>
+                <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="flex-1 text-foreground/80">{opt.label}</span>
+                {isSelected && (
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => moveItem(opt.key, -1)}
+                      disabled={idx === 0}
+                      className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5 rotate-90" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveItem(opt.key, 1)}
+                      disabled={idx === navKeys.length - 1}
+                      className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5 -rotate-90" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <p className="text-[10px] text-muted-foreground mt-1.5 px-1">
+            Selecciona 2–4 accesos directos
+          </p>
+        </div>
+      )}
     </div>
   );
 }
