@@ -103,11 +103,9 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "crm-deals", href: "/crm/deals", label: "Negocios", icon: TrendingUp, subKey: "deals" },
   { key: "crm-contacts", href: "/crm/contacts", label: "Contactos", icon: Contact, subKey: "contacts" },
   { key: "crm-quotes", href: "/crm/cotizaciones", label: "Cotizaciones", icon: DollarSign, subKey: "quotes" },
-  { key: "crm-installations", href: "/crm/installations", label: "Instalaciones", icon: MapPin, subKey: "installations" },
 ];
 
 /* ── Ops sub-items ── */
-// Instalaciones aparece en CRM y Ops intencionalmente (cross-module entity)
 
 const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-pautas", href: "/ops/pauta-mensual", label: "Pautas", icon: CalendarDays, subKey: "pauta_mensual" },

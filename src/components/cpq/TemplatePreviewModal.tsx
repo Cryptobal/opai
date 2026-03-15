@@ -178,7 +178,7 @@ export function TemplatePreviewModal({
         </div>
 
         {/* PDF viewer */}
-        <div className="flex-1 min-h-0 rounded-md border border-border bg-muted/30 overflow-hidden relative">
+        <div className="flex-1 min-h-0 rounded-md border border-border bg-muted/30 overflow-auto relative">
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-card/80 z-10">
               <div className="flex flex-col items-center gap-2">
@@ -199,11 +199,34 @@ export function TemplatePreviewModal({
             </div>
           )}
           {blobUrl && !error && (
-            <iframe
-              src={`${blobUrl}#toolbar=0&navpanes=0`}
-              className="w-full h-full border-0"
-              title={`Preview ${activeTemplate?.name}`}
-            />
+            <>
+              {/* Desktop: iframe works well for multi-page PDF */}
+              <iframe
+                src={blobUrl}
+                className="hidden sm:block w-full h-full border-0"
+                title={`Preview ${activeTemplate?.name}`}
+              />
+              {/* Mobile: object tag with fallback for better multi-page scroll */}
+              <object
+                data={blobUrl}
+                type="application/pdf"
+                className="sm:hidden w-full h-full"
+              >
+                <div className="flex flex-col items-center justify-center gap-3 p-6 h-full">
+                  <FileText className="h-10 w-10 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground text-center">
+                    Tu navegador no soporta vista previa de PDF embebida.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(blobUrl, "_blank")}
+                  >
+                    Abrir PDF en nueva pestaña
+                  </Button>
+                </div>
+              </object>
+            </>
           )}
         </div>
 

@@ -284,7 +284,6 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
     { key: "payroll", href: "/payroll", label: "Payroll", icon: Wallet, color: "text-violet-400", show: hasModuleAccess(permissions, "payroll") },
     { key: "documentos", href: "/opai/inicio", label: "Documentos", icon: FolderOpen, color: "text-sky-400", show: hasModuleAccess(permissions, "docs") },
     { key: "reportes-dt", href: "/reportes/dt", label: "Reportes DT", icon: FileBarChart, color: "text-rose-400", show: canView(permissions, "reportes_dt") },
-    { key: "turnos-extra", href: "/te/registro", label: "Turnos Extra", icon: Clock, color: "text-orange-400", show: hasModuleAccess(permissions, "ops") },
   ], [permissions]);
 
   const tools: MasModuleItem[] = useMemo(() => [

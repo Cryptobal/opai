@@ -170,10 +170,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const isLocked = quote?.status === "sent";
   const [secDatos, setSecDatos] = useState(true);
   const [secPuestos, setSecPuestos] = useState(true);
-  const [secCostos, setSecCostos] = useState(false);
+  const [secCostos, setSecCostos] = useState(true);
   const [secLineas, setSecLineas] = useState(true);
-  const [secFinancieros, setSecFinancieros] = useState(false);
-  const [secCondiciones, setSecCondiciones] = useState(false);
+  const [secFinancieros, setSecFinancieros] = useState(true);
+  const [secCondiciones, setSecCondiciones] = useState(true);
   const [secMargen, setSecMargen] = useState(true);
   const initialLoadDone = useRef(false);
   const skipAutoSave = useRef(false);
@@ -972,7 +972,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   }
 
   return (
-    <div className="space-y-2 pb-20 lg:pb-4 overflow-x-hidden min-w-0">
+    <div className="space-y-2 pb-4 lg:pb-4 overflow-x-hidden min-w-0">
       {/* -- Compact header -- */}
       <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-5 px-5 py-2.5 mb-4">
       <div className="flex items-center gap-2 min-h-[40px]">
@@ -1084,10 +1084,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </div>{/* end sticky header */}
 
       {/* -- 2-column layout: left column scrolls, right column (desglose/preview) stays fixed -- */}
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-0 lg:h-[calc(100vh-11rem)] lg:min-h-[420px] min-w-0">
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-0 lg:h-[calc(100vh-11rem)] lg:min-h-[420px] min-w-0 overflow-x-hidden">
 
       {/* -- Editor: scrollable left column (only this scrolls on desktop) -- */}
-      <div className="space-y-2 min-w-0 lg:pr-5 overflow-y-auto lg:min-h-0 lg:overscroll-contain">
+      <div className="space-y-2 min-w-0 overflow-x-hidden lg:pr-5 overflow-y-auto lg:min-h-0 lg:overscroll-contain">
 
       {/* -- Section: Datos -- */}
       <Card className="shadow-sm overflow-visible">
@@ -1773,7 +1773,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </div>{/* end 2-column grid */}
 
       {/* Mobile spacer for fixed bottom bar */}
-      <div className="h-16 lg:hidden" />
+      <div className="h-14 lg:hidden" />
 
       {/* -- Mobile bottom bar (replaces wizard nav) -- */}
       <MobileBottomBar
@@ -1855,7 +1855,42 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             })()}
           />
         }
-        sendButton={
+        portalButton={
+          <Button
+            className="w-full h-11 gap-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white"
+            disabled={
+              !quote ||
+              positions.length === 0 ||
+              quote.status === "sent" ||
+              !crmContext.accountId ||
+              !crmContext.contactId ||
+              !crmContext.dealId ||
+              sendingPortal
+            }
+            onClick={handleSendPortal}
+          >
+            <Shield className="h-4 w-4" />
+            {sendingPortal ? "Enviando..." : "Enviar por Portal"}
+          </Button>
+        }
+        pdfEmailButton={
+          <SendPdfEmailModal
+            quoteId={quoteId}
+            quoteCode={quote.code}
+            contactEmail={(() => {
+              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+              return c?.email || undefined;
+            })()}
+            contactName={(() => {
+              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+              return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
+            })()}
+            companyName={quote.clientName || undefined}
+            disabled={!crmContext.contactId || !crmContacts.find((x) => x.id === crmContext.contactId)?.email}
+            dealId={crmContext.dealId || undefined}
+          />
+        }
+        emailButton={
           <SendCpqQuoteModal
             quoteId={quoteId}
             quoteCode={quote.code}
