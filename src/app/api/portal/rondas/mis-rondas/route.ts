@@ -76,8 +76,8 @@ export async function GET(request: NextRequest) {
 
     // Fetch installation checkpoints for ad-hoc rondas
     let installationCheckpoints: {
-      id: string; name: string; instrucciones: string | null; qrCode: string | null;
-      lat: number; lng: number; geoRadiusM: number; verificationType: string;
+      id: string; name: string; instrucciones: string | null; qrCode: string;
+      lat: number | null; lng: number | null; geoRadiusM: number; verificationType: string;
       sortOrder: number; isCritical: boolean;
     }[] = [];
     const hasAdHoc = ejecuciones.some(ej => ej.isAdHoc);
