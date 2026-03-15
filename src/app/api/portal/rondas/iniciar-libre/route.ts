@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     });
     if (existing) {
       // Fetch existing marcaciones to know which checkpoints are already completed
-      const marcaciones = await prisma.opsMarcacion.findMany({
+      const marcaciones = await prisma.opsMarcacionCheckpoint.findMany({
         where: { ejecucionId: existing.id, status: "COMPLETED" },
         select: { checkpointId: true },
       });
