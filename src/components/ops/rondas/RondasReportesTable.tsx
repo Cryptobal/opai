@@ -24,7 +24,7 @@ export interface ReporteRow {
   trustScore: number;
   trustBreakdown: TrustBreakdown | null;
   durationMinutes: number | null;
-  notes: string | null;
+  notes?: string | null;
   walkRoute: Array<{ lat: number; lng: number }> | null;
   routeSnapshot: Array<{ id: string; name: string; lat: number; lng: number; orderIndex: number; status: string }> | null;
   marcaciones: MarcacionRow[];
