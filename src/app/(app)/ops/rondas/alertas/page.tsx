@@ -25,7 +25,6 @@ export default async function RondasAlertasPage() {
               tenantId,
               archivedAt: null,
               turnoId: activeTurnoId,
-              tipo: { not: "geo_fuera_rango" },
             },
           include: {
             installation: { select: { id: true, name: true } },

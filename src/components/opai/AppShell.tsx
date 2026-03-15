@@ -66,7 +66,17 @@ export function AppShell({
   const router = useRouter();
   const pathname = usePathname();
   const chatCtx = useChatSidePanelContext();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const stored = localStorage.getItem('opai-sidebar-open');
+      return stored !== null ? stored === 'true' : false;
+    } catch { return false; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem('opai-sidebar-open', String(isSidebarOpen)); } catch {}
+  }, [isSidebarOpen]);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [mobileCreateType, setMobileCreateType] = useState<QuickCreateType>(null);
 
@@ -166,7 +176,8 @@ export function AppShell({
                   isSidebarOpen?: boolean;
                 }>,
                 {
-                  isSidebarOpen: false,
+                  isSidebarOpen,
+                  onToggleSidebar: () => setIsSidebarOpen((prev) => !prev),
                 }
               )
               : sidebar}
@@ -189,11 +200,11 @@ export function AppShell({
               />
               <button
                 type="button"
-                className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                 onClick={() => setIsMobileSearchOpen(false)}
                 aria-label="Cerrar búsqueda"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
           </div>
@@ -203,7 +214,7 @@ export function AppShell({
         <div
           className={cn(
             'transition-[padding,margin] duration-300 ease-out min-w-0',
-            'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-12', // espacio para topbar fija en mobile y desktop
+            'pt-[calc(3rem+env(safe-area-inset-top,0px))] lg:pt-12', // espacio para topbar fija (min-h-12 = 3rem) en mobile y desktop
             isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
             chatCtx.isPanelOpen && 'lg:mr-[400px]',
             className

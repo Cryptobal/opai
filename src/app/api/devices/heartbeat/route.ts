@@ -28,6 +28,14 @@ export async function POST(request: NextRequest) {
         lastBatteryLevel: typeof body.batteryLevel === "number" ? body.batteryLevel : undefined,
         lastConnectionType: typeof body.connectionType === "string" ? body.connectionType : undefined,
         lastIpAddress: ip,
+        lastLatitude:
+          typeof body.latitude === "number" && typeof body.longitude === "number"
+            ? body.latitude
+            : undefined,
+        lastLongitude:
+          typeof body.latitude === "number" && typeof body.longitude === "number"
+            ? body.longitude
+            : undefined,
       },
     });
 

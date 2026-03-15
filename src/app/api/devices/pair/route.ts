@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     // Metadata is nice-to-have, not blocking
     const meta = metadata ?? {};
 
-    // Normalize: uppercase, remove non-alphanumeric, ensure XXX-XXX format
+    // Normalize: uppercase, remove non-alphanumeric, ensure 6 chars
     const stripped = code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
     if (stripped.length !== 6) {
       return NextResponse.json(
@@ -35,11 +35,15 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const formattedCode = `${stripped.slice(0, 3)}-${stripped.slice(3)}`;
+    // Support both XX-XX-XX (new) and XXX-XXX (legacy) storage formats
+    const formattedCode = `${stripped.slice(0, 2)}-${stripped.slice(2, 4)}-${stripped.slice(4, 6)}`;
+    const legacyCode = `${stripped.slice(0, 3)}-${stripped.slice(3)}`;
 
-    // Find installation by permanent pairing code
-    const installation = await prisma.crmInstallation.findUnique({
-      where: { pairingCode: formattedCode },
+    // Find installation by permanent pairing code (try both formats for backward compat)
+    const installation = await prisma.crmInstallation.findFirst({
+      where: {
+        OR: [{ pairingCode: formattedCode }, { pairingCode: legacyCode }],
+      },
       select: { id: true, name: true, address: true, tenantId: true },
     });
 

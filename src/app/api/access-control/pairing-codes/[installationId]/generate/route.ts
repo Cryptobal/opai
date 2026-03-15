@@ -10,7 +10,7 @@ function generatePairingCode(): string {
   for (let i = 0; i < 6; i++) {
     code += chars[bytes[i] % chars.length];
   }
-  return `${code.slice(0, 3)}-${code.slice(3)}`;
+  return `${code.slice(0, 2)}-${code.slice(2, 4)}-${code.slice(4, 6)}`;
 }
 
 export async function POST(

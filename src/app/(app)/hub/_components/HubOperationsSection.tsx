@@ -82,7 +82,7 @@ export function HubOperationsSection({ opsMetrics }: HubOperationsSectionProps) 
           title="PPC"
           value={opsMetrics.ppcGaps}
           icon={<AlertTriangle className="h-4 w-4" />}
-          description="Puestos por cubrir"
+          description="Puestos sin guardia hoy"
           variant={opsMetrics.ppcGaps > 0 ? 'amber' : 'default'}
         />
         <HubKpiLinkCard

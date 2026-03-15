@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,7 +11,6 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { HubKpiLinkCard } from "./HubKpiLinkCard";
-import { HubCompactStat } from "./HubCompactStat";
 import { HubCollapsibleSection } from "./HubCollapsibleSection";
 import type { SupervisionMetrics } from "../_lib/hub-types";
 
@@ -29,22 +29,18 @@ interface HubSupervisionSectionProps {
   metrics: SupervisionMetrics;
 }
 
+type Period = "week" | "month";
+
 export function HubSupervisionSection({
   metrics,
 }: HubSupervisionSectionProps) {
-  const {
-    visitasMonth,
-    visitasCompleted,
-    openFindings,
-    avgRating,
-    coveragePct,
-    recentVisits,
-  } = metrics;
+  const [period, setPeriod] = useState<Period>("week");
+  const data = period === "week" ? metrics.week : metrics.month;
 
   const coverageBarColor =
-    coveragePct >= 80
+    data.coveragePct >= 80
       ? "bg-emerald-500"
-      : coveragePct >= 50
+      : data.coveragePct >= 50
         ? "bg-amber-500"
         : "bg-red-500";
 
@@ -54,38 +50,64 @@ export function HubSupervisionSection({
       title="Supervisión"
       badge={
         <Badge variant="outline" className="text-[10px]">
-          {visitasMonth} visitas
+          {data.visitas} visitas
         </Badge>
       }
     >
+      {/* Period toggle */}
+      <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-0.5 w-fit">
+        <button
+          type="button"
+          onClick={() => setPeriod("week")}
+          className={`px-3 py-1 rounded-md text-[11px] font-medium transition-colors ${
+            period === "week"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Semana
+        </button>
+        <button
+          type="button"
+          onClick={() => setPeriod("month")}
+          className={`px-3 py-1 rounded-md text-[11px] font-medium transition-colors ${
+            period === "month"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Mes
+        </button>
+      </div>
+
       {/* KPI Cards 2-col grid */}
       <div className="grid grid-cols-2 gap-3">
         <HubKpiLinkCard
           href="/ops/supervision?period=month"
-          title="Visitas del mes"
-          value={visitasMonth}
+          title={period === "week" ? "Visitas (7d)" : "Visitas del mes"}
+          value={data.visitas}
           icon={<MapPin className="h-4 w-4" />}
           variant="blue"
         />
         <HubKpiLinkCard
           href="/ops/supervision?period=month"
           title="Completadas"
-          value={visitasCompleted}
+          value={data.completed}
           icon={<CheckCircle2 className="h-4 w-4" />}
           variant="emerald"
         />
         <HubKpiLinkCard
           href="/ops/supervision"
           title="Hallazgos abiertos"
-          value={openFindings}
+          value={metrics.openFindings}
           icon={<AlertTriangle className="h-4 w-4" />}
           variant="amber"
-          alert={openFindings > 0}
+          alert={metrics.openFindings > 0}
         />
         <HubKpiLinkCard
           href="/ops/supervision"
           title="Calificación promedio"
-          value={avgRating?.toFixed(1) ?? "—"}
+          value={data.avgRating?.toFixed(1) ?? "—"}
           icon={<Star className="h-4 w-4" />}
           variant="teal"
         />
@@ -104,23 +126,23 @@ export function HubSupervisionSection({
         </div>
         <div className="space-y-1">
           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>{coveragePct}% cobertura</span>
+            <span>{data.coveragePct}% cobertura</span>
           </div>
           <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${coverageBarColor}`}
-              style={{ width: `${Math.min(coveragePct, 100)}%` }}
+              style={{ width: `${Math.min(data.coveragePct, 100)}%` }}
             />
           </div>
         </div>
       </div>
 
       {/* Recent visits */}
-      {recentVisits.length > 0 && (
+      {data.recentVisits.length > 0 && (
         <div>
           <p className="text-xs font-semibold mb-2">Visitas recientes</p>
           <div className="space-y-2">
-            {recentVisits.slice(0, 3).map((visit) => (
+            {data.recentVisits.slice(0, 3).map((visit) => (
               <Link
                 key={visit.id}
                 href={`/ops/supervision/${visit.id}`}

@@ -94,10 +94,8 @@ export async function POST(request: NextRequest) {
             const speed = prevM ? speedKmh(prevDist, elapsedSec) : 0;
 
             const anomalies = detectCheckpointAnomalies({
-              geoValidada: geo.valid,
               speedFromPrevKmh: speed,
               batteryLevel: m.batteryLevel ?? null,
-              sameGeoAsPrev: Boolean(prevM && prevDist <= 5),
               speedThresholdKmh: speedThreshold,
               movementScoreThreshold: fullConfig.sin_movimiento?.thresholds?.movementScoreMin,
               batteryLowThreshold: fullConfig.bateria_baja?.thresholds?.batteryLowPercent,
@@ -145,18 +143,8 @@ export async function POST(request: NextRequest) {
             createdMarks.push({ status: "COMPLETED", timestamp: new Date(m.marcadoAt), checkpointId: m.checkpointId });
 
             if (alertAnomalies.length > 0) {
-              const baseAlertSeveridad = toAlertSeverityFromAnomalies(alertAnomalies);
-              const alertSeveridad =
-                baseAlertSeveridad === "critical" &&
-                alertAnomalies.includes("geo_fuera_rango") &&
-                geo.confidence === "low"
-                  ? "warning"
-                  : baseAlertSeveridad;
-              const geoNote =
-                alertAnomalies.includes("geo_fuera_rango") && m.gpsAccuracy
-                  ? ` — GPS accuracy: ${Math.round(m.gpsAccuracy)}m (${geo.confidence === "low" ? "baja confiabilidad" : "alta confiabilidad"})`
-                  : "";
-              const alertMensaje = `[Sync] Anomalía en checkpoint ${checkpoint.name}: ${alertAnomalies.join(", ")}${geoNote}`;
+              const alertSeveridad = toAlertSeverityFromAnomalies(alertAnomalies);
+              const alertMensaje = `[Sync] Anomalía en checkpoint ${checkpoint.name}: ${alertAnomalies.join(", ")}`;
               await tx.opsAlertaRonda.create({
                 data: {
                   tenantId: template.tenantId,

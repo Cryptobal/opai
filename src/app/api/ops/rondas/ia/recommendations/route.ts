@@ -45,7 +45,7 @@ export async function POST() {
         },
       }),
       prisma.opsAlertaRonda.findMany({
-        where: { tenantId, createdAt: { gte: fourWeeksAgo }, tipo: { not: "geo_fuera_rango" } },
+        where: { tenantId, createdAt: { gte: fourWeeksAgo } },
         select: {
           tipo: true,
           severidad: true,

@@ -45,9 +45,6 @@ export async function evaluatePostMarkAlerts(input: {
 
   const prev = prevMarcaciones[0];
 
-  // NOTE: breach_geocerca was removed — geo_fuera_rango (generated inline in marcar routes)
-  // is now the single geofence alert to avoid duplication.
-
   if (prev) {
     const elapsedSec = Math.max(1, (input.marcacion.timestamp.getTime() - prev.timestamp.getTime()) / 1000);
 
@@ -78,33 +75,6 @@ export async function evaluatePostMarkAlerts(input: {
           data: { speedKmh: speed, distanceM: dist, elapsedSec },
         });
       }
-    }
-  }
-
-  // 4. CHECKPOINT OUT OF ORDER (strict mode)
-  if (config.checkpointSkippedEnabled && input.templateOrderMode === "strict") {
-    const templateCheckpoints = await prisma.opsRondaCheckpoint.findMany({
-      where: { rondaTemplate: { ejecuciones: { some: { id: input.ejecucionId } } } },
-      orderBy: { orderIndex: "asc" },
-      select: { checkpointId: true, orderIndex: true },
-    });
-
-    const completedCount = await prisma.opsMarcacionCheckpoint.count({
-      where: { ejecucionId: input.ejecucionId, status: "COMPLETED" },
-    });
-
-    const expectedCp = templateCheckpoints[completedCount - 1];
-    if (expectedCp && expectedCp.checkpointId !== input.checkpointId) {
-      alerts.push({
-        tipo: "checkpoint_saltado",
-        severidad: "warning",
-        mensaje: `Checkpoint ${input.checkpointName} marcado fuera de orden (se esperaba otro)`,
-        data: {
-          expectedCheckpointId: expectedCp.checkpointId,
-          actualCheckpointId: input.checkpointId,
-          position: completedCount,
-        },
-      });
     }
   }
 

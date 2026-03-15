@@ -3,11 +3,15 @@
  * Navy/Teal branded design system
  */
 
-import { View, Text, Svg, Path, StyleSheet } from '@react-pdf/renderer';
+import { View, Text, Image, Svg, Path, StyleSheet } from '@react-pdf/renderer';
 import { pdfColors, pdfFonts, pdfSpacing } from './theme';
 
 const s = StyleSheet.create({
   headerBand: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     backgroundColor: pdfColors.navy,
     padding: pdfSpacing.page,
     paddingBottom: 20,
@@ -46,6 +50,10 @@ const s = StyleSheet.create({
     marginBottom: 2,
   },
   accentLine: {
+    position: 'absolute',
+    top: 82,
+    left: 0,
+    right: 0,
     height: 3,
     backgroundColor: pdfColors.teal,
   },
@@ -250,17 +258,25 @@ export function PDFHeader({
   brandName,
   subtitle,
   code,
+  logoUrl,
 }: {
   brandName: string;
   subtitle?: string;
   code: string;
+  logoUrl?: string;
 }) {
   return (
-    <View style={s.headerBand}>
+    <View style={s.headerBand} fixed>
       <View>
         <View style={s.headerBrandRow}>
-          <ShieldIcon size={28} />
-          <Text style={s.headerBrandName}>{brandName}</Text>
+          {logoUrl ? (
+            <Image src={logoUrl} style={{ height: 32, maxWidth: 160 }} />
+          ) : (
+            <>
+              <ShieldIcon size={28} />
+              <Text style={s.headerBrandName}>{brandName}</Text>
+            </>
+          )}
         </View>
         {subtitle && <Text style={s.headerBrandSub}>{subtitle}</Text>}
       </View>
@@ -274,7 +290,7 @@ export function PDFHeader({
 
 /* ─── Accent Line ─── */
 export function PDFAccentLine() {
-  return <View style={s.accentLine} />;
+  return <View style={s.accentLine} fixed />;
 }
 
 /* ─── Info Strip ─── */

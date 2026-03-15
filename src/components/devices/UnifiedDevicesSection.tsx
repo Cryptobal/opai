@@ -15,6 +15,7 @@ import {
   Signal,
   ChevronDown,
   ChevronRight,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +38,7 @@ interface DevicePairingRecord {
   status: string;
   portalRondasEnabled: boolean;
   portalAccesoEnabled: boolean;
+  portalMarcacionEnabled: boolean;
   deviceModel: string | null;
   androidVersion: string | null;
   browserVersion: string | null;
@@ -49,6 +51,10 @@ interface DevicePairingRecord {
   lastBatteryLevel: number | null;
   lastConnectionType: string | null;
   lastIpAddress: string | null;
+  pairingLatitude: number | null;
+  pairingLongitude: number | null;
+  lastLatitude?: number | null;
+  lastLongitude?: number | null;
   currentGuardId: string | null;
   linkedAt: string | null;
   createdAt: string;
@@ -174,7 +180,7 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
 
   const togglePortal = async (
     device: DevicePairingRecord,
-    field: "portalRondasEnabled" | "portalAccesoEnabled"
+    field: "portalRondasEnabled" | "portalAccesoEnabled" | "portalMarcacionEnabled"
   ) => {
     const key = `${device.id}-${field}`;
     setTogglingId(key);
@@ -256,7 +262,7 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="h-3 w-3 text-green-500" />
               <span className="text-xs text-zinc-500">
-                Código permanente · Rondas y Acceso
+                Código permanente · Rondas, Acceso y Marcación
               </span>
             </div>
           </div>
@@ -375,6 +381,16 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
                           />
                           Acceso
                         </label>
+                        <label className="flex items-center gap-1 text-xs text-zinc-400 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={device.portalMarcacionEnabled ?? true}
+                            onChange={() => togglePortal(device, "portalMarcacionEnabled")}
+                            disabled={togglingId === `${device.id}-portalMarcacionEnabled`}
+                            className="h-3.5 w-3.5 rounded border-zinc-600 bg-zinc-800 accent-blue-500"
+                          />
+                          Marcación
+                        </label>
 
                         <Button
                           variant="ghost"
@@ -414,7 +430,9 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
                             <span>·</span>
                             <span className="flex items-center gap-0.5">
                               <Battery className="h-3 w-3" />
-                              {Math.round(device.lastBatteryLevel)}%
+                              {device.lastBatteryLevel <= 1 && device.lastBatteryLevel > 0
+                                ? `${Math.round(device.lastBatteryLevel * 100)}%`
+                                : `${Math.round(device.lastBatteryLevel)}%`}
                             </span>
                           </>
                         )}
@@ -425,6 +443,21 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
                               Guardia: {device.currentGuard.persona.firstName}{" "}
                               {device.currentGuard.persona.lastName}
                             </span>
+                          </>
+                        )}
+                        {((device.lastLatitude != null && device.lastLongitude != null) ||
+                          (device.pairingLatitude != null && device.pairingLongitude != null)) && (
+                          <>
+                            <span>·</span>
+                            <a
+                              href={`https://www.google.com/maps?q=${device.lastLatitude ?? device.pairingLatitude},${device.lastLongitude ?? device.pairingLongitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-0.5 text-blue-400 hover:underline"
+                            >
+                              <MapPin className="h-3 w-3" />
+                              Ubicación
+                            </a>
                           </>
                         )}
                       </div>

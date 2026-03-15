@@ -1,4 +1,4 @@
-import { Users, Target, Trophy, BarChart3, Eye, type LucideIcon } from 'lucide-react';
+import { Users, Target, Trophy, FileEdit, Eye, type LucideIcon } from 'lucide-react';
 import { formatCLP } from '../_lib/hub-utils';
 import type { ClosingHubKpis } from '../_lib/hub-types';
 
@@ -38,11 +38,11 @@ const KPIS: KpiDef[] = [
     Icon: Trophy,
   },
   {
-    label: 'Tasa cierre',
-    getValue: (k) => `${k.closeRate30}%`,
-    getSub: (k) => `${k.closedWon30} de ${k.proposalsSent30}`,
-    color: 'text-foreground',
-    Icon: BarChart3,
+    label: 'Borradores',
+    getValue: (k) => k.quotesDraftCount,
+    getSub: () => 'Cotizaciones sin enviar',
+    color: 'text-amber-400',
+    Icon: FileEdit,
   },
   {
     label: 'Apertura propuestas',

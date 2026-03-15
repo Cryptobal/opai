@@ -4068,6 +4068,8 @@ model DevicePairing {
   lastBatteryLevel     Float?    @map("last_battery_level")
   lastConnectionType   String?   @map("last_connection_type")
   lastIpAddress        String?   @map("last_ip_address")
+  lastLatitude         Float?    @map("last_latitude")
+  lastLongitude        Float?    @map("last_longitude")
 
   currentGuardId       String?   @map("current_guard_id") @db.Uuid
   guardSelectedAt      DateTime? @map("guard_selected_at") @db.Timestamptz(6)

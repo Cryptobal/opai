@@ -55,9 +55,9 @@ export default async function CrmCotizacionDetailPage({
           { label: "Cotizaciones", href: "/crm/cotizaciones" },
           { label: quote?.code || id },
         ]}
-        className="mb-4"
+        className="mb-1"
       />
-      <div className="mb-4">
+      <div className="mb-1">
         <CpqIndicators />
       </div>
       <CpqQuoteDetail quoteId={id} currentUserId={session.user.id} />

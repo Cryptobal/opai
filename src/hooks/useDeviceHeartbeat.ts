@@ -22,6 +22,24 @@ export function useDeviceHeartbeat() {
         const payload: Record<string, unknown> = {};
 
         try {
+          const pos = await new Promise<GeolocationPosition | null>((resolve) => {
+            if (!navigator.geolocation) {
+              resolve(null);
+              return;
+            }
+            navigator.geolocation.getCurrentPosition(
+              (p) => resolve(p),
+              () => resolve(null),
+              { timeout: 5000, maximumAge: 60000 }
+            );
+          });
+          if (pos) {
+            payload.latitude = pos.coords.latitude;
+            payload.longitude = pos.coords.longitude;
+          }
+        } catch {}
+
+        try {
           const battery = await (navigator as any).getBattery?.();
           if (battery) {
             payload.batteryLevel = battery.level;

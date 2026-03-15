@@ -12,7 +12,7 @@ function generatePairingCode(): string {
   for (let i = 0; i < CODE_LENGTH; i++) {
     code += PAIRING_ALPHABET[bytes[i] % PAIRING_ALPHABET.length];
   }
-  return `${code.slice(0, 3)}-${code.slice(3)}`;
+  return `${code.slice(0, 2)}-${code.slice(2, 4)}-${code.slice(4, 6)}`;
 }
 
 export async function POST(

@@ -38,9 +38,6 @@ export async function PUT(request: NextRequest) {
       speedAnomalyEnabled: body.speedAnomalyEnabled !== false,
       roundNotStartedMinutes: Math.max(5, Math.min(60, Number(body.roundNotStartedMinutes) || 10)),
       roundNotStartedEnabled: body.roundNotStartedEnabled !== false,
-      checkpointSkippedEnabled: body.checkpointSkippedEnabled !== false,
-      routeDeviationMultiplier: Math.max(1.5, Math.min(5, Number(body.routeDeviationMultiplier) || 2)),
-      routeDeviationEnabled: body.routeDeviationEnabled !== false,
     };
 
     await saveAlertConfig(ctx.tenantId, config);
