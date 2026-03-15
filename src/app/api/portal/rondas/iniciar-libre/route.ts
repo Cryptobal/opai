@@ -90,6 +90,13 @@ export async function POST(request: NextRequest) {
       },
     });
     if (existing) {
+      // Fetch existing marcaciones to know which checkpoints are already completed
+      const marcaciones = await prisma.opsRondaMarcacion.findMany({
+        where: { ejecucionId: existing.id, status: "COMPLETED" },
+        select: { checkpointId: true },
+      });
+      const completedIds = new Set(marcaciones.map(m => m.checkpointId));
+
       return NextResponse.json({
         success: true,
         data: {
@@ -98,6 +105,20 @@ export async function POST(request: NextRequest) {
           startedAt: existing.startedAt?.toISOString(),
           checkpointsTotal: installationCheckpoints.length,
           resumed: true,
+          checkpoints: installationCheckpoints.map((cp, idx) => ({
+            id: cp.id,
+            name: cp.name,
+            instrucciones: cp.instrucciones ?? null,
+            qrCode: cp.qrCode,
+            lat: cp.lat ?? 0,
+            lng: cp.lng ?? 0,
+            geoRadiusM: cp.geoRadiusM,
+            verificationType: cp.verificationType,
+            orderIndex: idx,
+            isRequired: cp.isCritical,
+            completed: completedIds.has(cp.id),
+            tasks: [],
+          })),
         },
       });
     }
