@@ -73,22 +73,47 @@ const ALL_NAV_OPTIONS: MainNavItem[] = [
 const MAS_ITEM: MainNavItem = { key: "mas", href: "#mas", label: "Más", icon: LayoutGrid, isDrawer: true };
 
 const DEFAULT_NAV_KEYS = ["home", "comercial", "operaciones", "personas"];
-const STORAGE_KEY = "opai-bottom-nav-config";
+const STORAGE_PREFIX = "opai-bottom-nav";
 
-function getStoredNavKeys(): string[] {
-  if (typeof window === "undefined") return DEFAULT_NAV_KEYS;
+/* ── Generic bar order storage ── */
+
+function getStoredOrder(context: string): string[] | null {
+  if (typeof window === "undefined") return null;
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(`${STORAGE_PREFIX}-${context}`);
     if (stored) {
       const parsed = JSON.parse(stored) as string[];
-      if (Array.isArray(parsed) && parsed.length === 4) return parsed;
+      if (Array.isArray(parsed) && parsed.length >= 2) return parsed;
     }
   } catch { /* ignore */ }
-  return DEFAULT_NAV_KEYS;
+  return null;
 }
 
-function saveNavKeys(keys: string[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(keys)); } catch { /* ignore */ }
+function saveOrder(context: string, keys: string[]) {
+  try { localStorage.setItem(`${STORAGE_PREFIX}-${context}`, JSON.stringify(keys)); } catch { /* ignore */ }
+}
+
+/**
+ * Reorders `items` based on stored user preference for `context`.
+ * Stored keys come first (in stored order), then remaining items in original order.
+ */
+function applyStoredOrder<T extends { key: string }>(context: string, items: T[], maxVisible: number): { ordered: T[]; storedKeys: string[] | null } {
+  const storedKeys = getStoredOrder(context);
+  if (!storedKeys) return { ordered: items, storedKeys: null };
+
+  // Items the user pinned (in stored order), filtered to only those still available
+  const available = new Map(items.map((item) => [item.key, item]));
+  const pinned: T[] = [];
+  for (const key of storedKeys) {
+    const item = available.get(key);
+    if (item) {
+      pinned.push(item);
+      available.delete(key);
+    }
+  }
+  // Remaining items keep their original relative order
+  const rest = items.filter((item) => available.has(item.key));
+  return { ordered: [...pinned, ...rest], storedKeys };
 }
 
 function useNavConfig() {
@@ -96,7 +121,7 @@ function useNavConfig() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    setNavKeys(getStoredNavKeys());
+    setNavKeys(getStoredOrder("main") ?? DEFAULT_NAV_KEYS);
     setLoaded(true);
   }, []);
 
@@ -109,7 +134,7 @@ function useNavConfig() {
 
   const updateKeys = useCallback((keys: string[]) => {
     setNavKeys(keys);
-    saveNavKeys(keys);
+    saveOrder("main", keys);
   }, []);
 
   return { items, navKeys, updateKeys, loaded };
@@ -344,7 +369,13 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Preferencias</p>
             <div className="space-y-0.5">
               {/* Personalizar barra (collapsible) */}
-              <NavCustomizer navConfig={navConfig} />
+              <BarCustomizer
+                allOptions={ALL_NAV_OPTIONS}
+                selectedKeys={navConfig.navKeys}
+                onUpdate={navConfig.updateKeys}
+                maxVisible={4}
+                allowDeselect
+              />
 
               {/* Theme toggle */}
               <button
@@ -389,39 +420,61 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
 }
 
 /* ════════════════════════════════════════════════════
-   NAV CUSTOMIZER — pick which 4 items show in the bottom bar
+   GENERIC BAR CUSTOMIZER — reusable across main nav & module sub-navs
    ════════════════════════════════════════════════════ */
 
-function NavCustomizer({ navConfig }: { navConfig: ReturnType<typeof useNavConfig> }) {
-  const { navKeys, updateKeys } = navConfig;
+interface BarCustomizerProps {
+  /** All items available for this bar */
+  allOptions: { key: string; label: string; icon: LucideIcon }[];
+  /** Currently selected/ordered keys (first N are visible) */
+  selectedKeys: string[];
+  /** Callback when user changes the order */
+  onUpdate: (keys: string[]) => void;
+  /** Max items visible in the bar (default 4) */
+  maxVisible?: number;
+  /** Allow deselecting items below maxVisible (main nav mode) */
+  allowDeselect?: boolean;
+}
+
+function BarCustomizer({ allOptions, selectedKeys, onUpdate, maxVisible = 4, allowDeselect = false }: BarCustomizerProps) {
   const [open, setOpen] = useState(false);
 
   const toggleItem = (key: string) => {
-    if (navKeys.includes(key)) {
-      if (navKeys.length <= 2) return;
-      updateKeys(navKeys.filter((k: string) => k !== key));
+    if (!allowDeselect) return; // module bars only reorder, all items always present
+    if (selectedKeys.includes(key)) {
+      if (selectedKeys.length <= 2) return;
+      onUpdate(selectedKeys.filter((k: string) => k !== key));
     } else {
-      if (navKeys.length >= 4) return;
-      updateKeys([...navKeys, key]);
+      if (selectedKeys.length >= maxVisible) return;
+      onUpdate([...selectedKeys, key]);
     }
   };
 
   const moveItem = (key: string, dir: -1 | 1) => {
-    const idx = navKeys.indexOf(key);
+    const idx = selectedKeys.indexOf(key);
     if (idx < 0) return;
     const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= navKeys.length) return;
-    const next = [...navKeys];
+    if (newIdx < 0 || newIdx >= selectedKeys.length) return;
+    const next = [...selectedKeys];
     [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
-    updateKeys(next);
+    onUpdate(next);
   };
 
+  // Build display list: selected items in user order first, then unselected
+  const sortedOptions = useMemo(() => {
+    const selected = selectedKeys
+      .map((k: string) => allOptions.find((o) => o.key === k))
+      .filter(Boolean) as typeof allOptions;
+    const unselected = allOptions.filter((o) => !selectedKeys.includes(o.key));
+    return [...selected, ...unselected];
+  }, [allOptions, selectedKeys]);
+
   return (
-    <div className="mb-5">
+    <div>
       {/* Toggle button */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((v: boolean) => !v)}
         className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
       >
         <SlidersHorizontal className="h-4.5 w-4.5 text-emerald-400" />
@@ -432,30 +485,40 @@ function NavCustomizer({ navConfig }: { navConfig: ReturnType<typeof useNavConfi
       {/* Collapsible options */}
       {open && (
         <div className="mt-2 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
-          {ALL_NAV_OPTIONS.map((opt) => {
-            const isSelected = navKeys.includes(opt.key);
-            const idx = navKeys.indexOf(opt.key);
+          {sortedOptions.map((opt: { key: string; label: string; icon: LucideIcon }) => {
+            const isSelected = selectedKeys.includes(opt.key);
+            const idx = selectedKeys.indexOf(opt.key);
+            const isVisible = isSelected && idx < maxVisible;
             const Icon = opt.icon;
             return (
               <div
                 key={opt.key}
                 className={cn(
                   "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
-                  isSelected ? "bg-emerald-500/10" : "bg-transparent"
+                  isVisible ? "bg-emerald-500/10" : isSelected ? "bg-muted/30" : "bg-transparent"
                 )}
               >
-                <button
-                  type="button"
-                  onClick={() => toggleItem(opt.key)}
-                  className={cn(
-                    "flex items-center justify-center w-5 h-5 rounded border transition-colors",
-                    isSelected
-                      ? "bg-emerald-500 border-emerald-500 text-white"
-                      : "border-border text-transparent hover:border-muted-foreground"
-                  )}
-                >
-                  <Check className="h-3 w-3" />
-                </button>
+                {allowDeselect ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleItem(opt.key)}
+                    className={cn(
+                      "flex items-center justify-center w-5 h-5 rounded border transition-colors",
+                      isSelected
+                        ? "bg-emerald-500 border-emerald-500 text-white"
+                        : "border-border text-transparent hover:border-muted-foreground"
+                    )}
+                  >
+                    <Check className="h-3 w-3" />
+                  </button>
+                ) : (
+                  <span className={cn(
+                    "flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0",
+                    isVisible ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"
+                  )}>
+                    {idx + 1}
+                  </span>
+                )}
                 <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="flex-1 text-foreground/80">{opt.label}</span>
                 {isSelected && (
@@ -471,7 +534,7 @@ function NavCustomizer({ navConfig }: { navConfig: ReturnType<typeof useNavConfi
                     <button
                       type="button"
                       onClick={() => moveItem(opt.key, 1)}
-                      disabled={idx === navKeys.length - 1}
+                      disabled={idx === selectedKeys.length - 1}
                       className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
                     >
                       <ChevronLeft className="h-3.5 w-3.5 -rotate-90" />
@@ -482,7 +545,10 @@ function NavCustomizer({ navConfig }: { navConfig: ReturnType<typeof useNavConfi
             );
           })}
           <p className="text-[10px] text-muted-foreground mt-1.5 px-1">
-            Selecciona 2–4 accesos directos
+            {allowDeselect
+              ? `Selecciona 2–${maxVisible} accesos directos`
+              : `Los primeros ${maxVisible} se muestran en la barra`
+            }
           </p>
         </div>
       )}
@@ -510,11 +576,45 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
   const [overflowOpen, setOverflowOpen] = useState(false);
   const chatCtx = useContext(ChatSidePanelContext);
 
+  // Apply stored user order for this module
+  const [orderedKeys, setOrderedKeys] = useState<string[]>(() =>
+    getStoredOrder(activeModule) ?? items.map((i) => i.key)
+  );
+
+  // Re-sync when items change (permission-based filtering)
+  useEffect(() => {
+    const stored = getStoredOrder(activeModule);
+    if (stored) {
+      // Keep only keys that still exist in items, then add any new ones
+      const available = new Set(items.map((i) => i.key));
+      const valid = stored.filter((k: string) => available.has(k));
+      const newKeys = items.filter((i) => !stored.includes(i.key)).map((i) => i.key);
+      setOrderedKeys([...valid, ...newKeys]);
+    } else {
+      setOrderedKeys(items.map((i) => i.key));
+    }
+  }, [activeModule, items]);
+
+  const orderedItems = useMemo(() => {
+    const map = new Map(items.map((i) => [i.key, i]));
+    const ordered = orderedKeys
+      .map((k: string) => map.get(k))
+      .filter(Boolean) as BottomNavItem[];
+    // Add any items not in orderedKeys
+    const rest = items.filter((i) => !orderedKeys.includes(i.key));
+    return [...ordered, ...rest];
+  }, [items, orderedKeys]);
+
+  const handleUpdateOrder = useCallback((keys: string[]) => {
+    setOrderedKeys(keys);
+    saveOrder(activeModule, keys);
+  }, [activeModule]);
+
   // Max 4 visible items + back button + optional more button
   const MAX_VISIBLE = 4;
-  const visibleItems = items.slice(0, MAX_VISIBLE);
-  const overflowItems = items.slice(MAX_VISIBLE);
-  const hasOverflow = overflowItems.length > 0;
+  const visibleItems = orderedItems.slice(0, MAX_VISIBLE);
+  const overflowItems = orderedItems.slice(MAX_VISIBLE);
+  const hasOverflow = overflowItems.length > 0 || items.length > MAX_VISIBLE;
 
   return (
     <>
@@ -567,31 +667,31 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
         );
       })}
 
-      {/* Overflow button */}
-      {hasOverflow && (
-        <button
-          type="button"
-          onClick={() => setOverflowOpen(true)}
-          className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-2 py-1 active:scale-95 transition-all text-muted-foreground"
-        >
-          <MoreHorizontal className="h-5 w-5" />
-          <span className="text-[11px] font-medium leading-tight">Más</span>
-        </button>
-      )}
+      {/* Overflow / Más button — always visible for customizer access */}
+      <button
+        type="button"
+        onClick={() => setOverflowOpen(true)}
+        className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-2 py-1 active:scale-95 transition-all text-muted-foreground"
+      >
+        <MoreHorizontal className="h-5 w-5" />
+        <span className="text-[11px] font-medium leading-tight">Más</span>
+      </button>
 
-      {/* Overflow sheet */}
-      {hasOverflow && (
-        <Sheet open={overflowOpen} onOpenChange={setOverflowOpen}>
-          <SheetContent side="bottom" className="max-h-[50vh] rounded-t-2xl px-4 pt-3 pb-6">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Más opciones</SheetTitle>
-              <SheetDescription>Sub-items adicionales del módulo</SheetDescription>
-            </SheetHeader>
-            <div className="flex justify-center mb-4">
-              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-            </div>
-            <div className="space-y-1">
-              {overflowItems.map((item) => {
+      {/* Overflow + customizer sheet */}
+      <Sheet open={overflowOpen} onOpenChange={setOverflowOpen}>
+        <SheetContent side="bottom" className="max-h-[60vh] rounded-t-2xl px-4 pt-3 pb-6">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Más opciones</SheetTitle>
+            <SheetDescription>Sub-items y personalización del módulo</SheetDescription>
+          </SheetHeader>
+          <div className="flex justify-center mb-4">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+          </div>
+
+          {/* Overflow navigation items */}
+          {overflowItems.length > 0 && (
+            <div className="space-y-1 mb-4">
+              {overflowItems.map((item: BottomNavItem) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
                 return (
@@ -612,9 +712,17 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
                 );
               })}
             </div>
-          </SheetContent>
-        </Sheet>
-      )}
+          )}
+
+          {/* Customizer for this module's bar */}
+          <BarCustomizer
+            allOptions={items}
+            selectedKeys={orderedKeys}
+            onUpdate={handleUpdateOrder}
+            maxVisible={MAX_VISIBLE}
+          />
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
