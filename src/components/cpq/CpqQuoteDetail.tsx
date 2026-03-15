@@ -845,7 +845,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     if (!costSummary) return 0;
     const margin = marginPct / 100;
     const costsBase =
-      costSummary.monthlyPositions +
+      (costSummary.monthlyPositions ?? 0) +
       (costSummary.monthlyHolidayAdjustment ?? 0) +
       (costSummary.monthlyUniforms ?? 0) +
       (costSummary.monthlyExams ?? 0) +
