@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Check, Download, FileText, Loader2 } from "lucide-react";
+import { Check, ChevronDown, Download, ExternalLink, FileText, Loader2 } from "lucide-react";
 
 interface TemplateInfo {
   id: string;
@@ -41,6 +41,7 @@ export function TemplatePreviewModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const blobCache = useRef<Map<string, string>>(new Map());
   const abortRef = useRef<AbortController | null>(null);
 
@@ -50,6 +51,7 @@ export function TemplatePreviewModal({
     if (isOpen) {
       const slug = templates.find((t) => t.id === currentTemplateId)?.slug ?? templates[0]?.slug ?? "";
       setActiveSlug(slug);
+      setShowTemplateSelector(false);
     }
   }, [isOpen, currentTemplateId, templates]);
 
@@ -122,6 +124,11 @@ export function TemplatePreviewModal({
     a.click();
   };
 
+  const handleOpenFullScreen = () => {
+    if (!blobUrl) return;
+    window.open(blobUrl, "_blank");
+  };
+
   const handleSelect = () => {
     if (activeTemplate) onSelectTemplate(activeTemplate.id);
   };
@@ -138,47 +145,65 @@ export function TemplatePreviewModal({
         )}
       >
         <DialogHeader className="shrink-0">
-          <DialogTitle>Vista previa de propuesta</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Vista previa</DialogTitle>
+            {/* Current template indicator + toggle for selector */}
+            {templates.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setShowTemplateSelector((v) => !v)}
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
+              >
+                {activeTemplate?.name || "Template"}
+                <ChevronDown className={cn("h-3 w-3 transition-transform", showTemplateSelector && "rotate-180")} />
+              </button>
+            )}
+          </div>
           <DialogDescription className="sr-only">
             Compara los templates de propuesta disponibles
           </DialogDescription>
         </DialogHeader>
 
-        {/* Tabs: desktop */}
-        <div className="hidden sm:flex gap-1 shrink-0">
-          {templates.map((t) => (
-            <button
-              key={t.slug}
-              onClick={() => setActiveSlug(t.slug)}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                activeSlug === t.slug
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80",
-              )}
-            >
-              {t.name}
-            </button>
-          ))}
-        </div>
+        {/* Template selector (collapsed by default) */}
+        {showTemplateSelector && templates.length > 1 && (
+          <>
+            {/* Desktop: tabs */}
+            <div className="hidden sm:flex gap-1 shrink-0">
+              {templates.map((t) => (
+                <button
+                  key={t.slug}
+                  onClick={() => { setActiveSlug(t.slug); setShowTemplateSelector(false); }}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                    activeSlug === t.slug
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80",
+                  )}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
 
-        {/* Selector: mobile */}
-        <div className="sm:hidden shrink-0">
-          <select
-            value={activeSlug}
-            onChange={(e) => setActiveSlug(e.target.value)}
-            className="w-full h-9 rounded-md border border-border bg-card px-2 text-sm text-foreground"
-          >
-            {templates.map((t) => (
-              <option key={t.slug} value={t.slug}>
-                {t.name} — {t.description}
-              </option>
-            ))}
-          </select>
-        </div>
+            {/* Mobile: select */}
+            <div className="sm:hidden shrink-0">
+              <select
+                value={activeSlug}
+                onChange={(e) => { setActiveSlug(e.target.value); setShowTemplateSelector(false); }}
+                className="w-full h-9 rounded-md border border-border bg-card px-2 text-sm text-foreground"
+              >
+                {templates.map((t) => (
+                  <option key={t.slug} value={t.slug}>
+                    {t.name} — {t.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
 
         {/* PDF viewer */}
-        <div className="flex-1 min-h-0 rounded-md border border-border bg-muted/30 overflow-auto relative">
+        <div className="flex-1 min-h-0 rounded-md border border-border bg-muted/30 overflow-hidden relative">
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center bg-card/80 z-10">
               <div className="flex flex-col items-center gap-2">
@@ -200,32 +225,29 @@ export function TemplatePreviewModal({
           )}
           {blobUrl && !error && (
             <>
-              {/* Desktop: iframe works well for multi-page PDF */}
+              {/* Desktop: iframe with browser's native PDF viewer (supports multi-page) */}
               <iframe
                 src={blobUrl}
                 className="hidden sm:block w-full h-full border-0"
                 title={`Preview ${activeTemplate?.name}`}
               />
-              {/* Mobile: object tag with fallback for better multi-page scroll */}
-              <object
-                data={blobUrl}
-                type="application/pdf"
-                className="sm:hidden w-full h-full"
-              >
-                <div className="flex flex-col items-center justify-center gap-3 p-6 h-full">
-                  <FileText className="h-10 w-10 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground text-center">
-                    Tu navegador no soporta vista previa de PDF embebida.
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(blobUrl, "_blank")}
-                  >
-                    Abrir PDF en nueva pestaña
-                  </Button>
-                </div>
-              </object>
+              {/* Mobile: open PDF in full screen (embedded PDFs don't work well on mobile) */}
+              <div className="sm:hidden flex flex-col items-center justify-center gap-4 p-6 h-full">
+                <FileText className="h-12 w-12 text-teal-400" />
+                <p className="text-sm text-foreground font-medium text-center">
+                  PDF generado correctamente
+                </p>
+                <p className="text-xs text-muted-foreground text-center">
+                  Abre el PDF en pantalla completa para ver todas las páginas
+                </p>
+                <Button
+                  onClick={handleOpenFullScreen}
+                  className="gap-2"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Ver PDF completo
+                </Button>
+              </div>
             </>
           )}
         </div>

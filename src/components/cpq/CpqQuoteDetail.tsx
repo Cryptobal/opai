@@ -221,6 +221,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         fetch(`/api/cpq/quotes/${quoteId}`),
         fetch(`/api/cpq/quotes/${quoteId}/costs`),
       ]);
+      if (!quoteRes.ok || !costsRes.ok) {
+        console.error("CPQ fetch error", quoteRes.status, costsRes.status);
+        return;
+      }
       const quoteData = await quoteRes.json();
       const costsData = await costsRes.json();
       if (quoteData.success) {
@@ -326,15 +330,15 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
 
   useEffect(() => {
     fetch("/api/fx/uf")
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setUfValue(d.value); })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.success) setUfValue(d.value); })
       .catch(() => {});
     fetch("/api/cpq/proposal-templates")
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setProposalTemplates(d.data); })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.success) setProposalTemplates(d.data); })
       .catch(() => {});
     fetch("/api/branding")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : null)
       .then((d) => {
         if (d.success) {
           setTenantBranding({
@@ -354,8 +358,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   // Load CRM accounts on mount
   useEffect(() => {
     fetch("/api/crm/accounts")
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setCrmAccounts(d.data.map((a: Record<string, string>) => ({ id: a.id, name: a.name }))); })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.success) setCrmAccounts(d.data.map((a: Record<string, string>) => ({ id: a.id, name: a.name }))); })
       .catch(() => {});
   }, []);
 
@@ -368,9 +372,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       return;
     }
     Promise.all([
-      fetch(`/api/crm/installations?accountId=${crmContext.accountId}`).then((r) => r.json()),
-      fetch("/api/crm/contacts").then((r) => r.json()),
-      fetch("/api/crm/deals").then((r) => r.json()),
+      fetch(`/api/crm/installations?accountId=${crmContext.accountId}`).then((r) => r.ok ? r.json() : { success: false }),
+      fetch("/api/crm/contacts").then((r) => r.ok ? r.json() : { success: false }),
+      fetch("/api/crm/deals").then((r) => r.ok ? r.json() : { success: false }),
     ]).then(([instData, contactData, dealData]) => {
       if (instData.success) {
         setCrmInstallations(
@@ -982,9 +986,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           </Button>
         </Link>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-bold tracking-tight truncate">{quote.code}</h1>
-            {quote.name && <span className="text-sm font-medium truncate text-foreground/80">— {quote.name}</span>}
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="text-base font-bold tracking-tight shrink-0">{quote.code}</h1>
+            {quote.name && <span className="text-sm font-medium truncate text-foreground/80 min-w-0">— {quote.name}</span>}
             <Badge variant="outline" className="text-[10px] h-5 shrink-0">
               {quote.status}
             </Badge>

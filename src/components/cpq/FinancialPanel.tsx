@@ -878,7 +878,7 @@ function PreviewTab({
           </div>
           {includedItems.length === 0 && !isLocked ? (
             <div className="space-y-1">
-              <p className="text-[10px] text-muted-foreground">Sin items. Agrega desde las sugerencias:</p>
+              <p className="text-xs text-muted-foreground">Sin items. Agrega desde las sugerencias:</p>
               {[
                 "Personal acreditado ante OS-10 de Carabineros",
                 "Supervisión periódica en terreno",
@@ -890,19 +890,19 @@ function PreviewTab({
                 <button
                   key={item}
                   type="button"
-                  className="flex items-center gap-1.5 w-full text-left text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted/20 rounded px-1.5 py-1 transition-colors"
+                  className="flex items-center gap-1.5 w-full text-left text-xs text-muted-foreground hover:text-foreground hover:bg-muted/20 rounded px-1.5 py-1.5 transition-colors"
                   onClick={() => onIncludedItemsChange([...includedItems, item])}
                 >
-                  <Plus className="h-3 w-3 text-teal-400 shrink-0" />
+                  <Plus className="h-3.5 w-3.5 text-teal-400 shrink-0" />
                   <span>{item}</span>
                 </button>
               ))}
             </div>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {includedItems.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-1 group">
-                  <span className="text-teal-400 text-[10px] shrink-0">●</span>
+                <div key={idx} className="flex items-center gap-1.5 rounded hover:bg-muted/30 transition-colors px-1 -mx-1">
+                  <span className="text-teal-400 text-xs shrink-0">●</span>
                   <input
                     value={item}
                     onChange={(e) => {
@@ -911,16 +911,16 @@ function PreviewTab({
                       onIncludedItemsChange(updated);
                     }}
                     disabled={isLocked}
-                    className="flex-1 text-[10px] bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground py-0.5"
-                    placeholder="Item..."
+                    className="flex-1 text-xs bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground py-1 focus:ring-1 focus:ring-teal-400/30 rounded"
+                    placeholder="Escribe un ítem..."
                   />
                   {!isLocked && (
                     <button
                       type="button"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="shrink-0 p-0.5 rounded hover:bg-red-500/10 transition-colors"
                       onClick={() => onIncludedItemsChange(includedItems.filter((_, i) => i !== idx))}
                     >
-                      <X className="h-3 w-3 text-muted-foreground hover:text-red-400" />
+                      <X className="h-3.5 w-3.5 text-muted-foreground hover:text-red-400" />
                     </button>
                   )}
                 </div>
@@ -928,10 +928,10 @@ function PreviewTab({
               {!isLocked && (
                 <button
                   type="button"
-                  className="flex items-center gap-1 text-[10px] text-teal-400 hover:text-teal-300 transition-colors pt-0.5"
+                  className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 transition-colors pt-1 px-1"
                   onClick={() => onIncludedItemsChange([...includedItems, ""])}
                 >
-                  <Plus className="h-3 w-3" /> Agregar ítem
+                  <Plus className="h-3.5 w-3.5" /> Agregar ítem
                 </button>
               )}
             </div>
