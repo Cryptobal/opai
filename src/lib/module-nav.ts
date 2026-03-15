@@ -105,6 +105,7 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
 ];
 
 /* ── Ops sub-items ── */
+// Instalaciones aparece en CRM y Ops intencionalmente (cross-module entity)
 
 const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-pautas", href: "/ops/pauta-mensual", label: "Pautas", icon: CalendarDays, subKey: "pauta_mensual" },
@@ -169,6 +170,15 @@ const FINANCE_ITEMS: (BottomNavItem & {
   { key: "finance-banca", href: "/finanzas/bancos", label: "Banca", icon: Landmark, subKey: "contabilidad" },
   { key: "finance-contabilidad", href: "/finanzas/contabilidad", label: "Contab.", icon: BookText, subKey: "contabilidad" },
   { key: "finance-informes", href: "/finanzas/reportes", label: "Informes", icon: BarChart3, subKey: "reportes" },
+];
+
+/* ── Reportes DT sub-items ── */
+
+const REPORTES_DT_ITEMS: BottomNavItem[] = [
+  { key: "dt-asistencia", href: "/reportes/dt/asistencia-diaria", label: "Asistencia", icon: FileBarChart },
+  { key: "dt-jornada", href: "/reportes/dt/jornada-diaria", label: "Jornada", icon: FileBarChart },
+  { key: "dt-festivos", href: "/reportes/dt/domingos-festivos", label: "Festivos", icon: FileBarChart },
+  { key: "dt-modificaciones", href: "/reportes/dt/modificaciones-turnos", label: "Modific.", icon: FileBarChart },
 ];
 
 /* ── Config sub-items (top 5 for bottom nav) ── */
@@ -248,6 +258,10 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
       CONFIG_ITEMS.filter((item) =>
         canView(perms, "config", item.subKey)
       ),
+  },
+  {
+    test: (p) => p.startsWith("/reportes/dt"),
+    getItems: () => REPORTES_DT_ITEMS,
   },
 ];
 

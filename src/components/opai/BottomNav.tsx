@@ -3,7 +3,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { SignOutDialog } from './SignOutDialog';
 import {
   Home, Briefcase, Shield, Users, LayoutGrid,
   ChevronLeft, MoreHorizontal,
@@ -25,14 +25,6 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
 /** Tracks BottomNav real height and exposes it as --bottom-nav-height CSS variable */
 function useBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
@@ -107,13 +99,24 @@ export function BottomNav({ userRole }: BottomNavProps) {
     ? permissions
     : userRole;
 
+  // State override: when user taps back in ModuleSubNav, show MainNav without navigating
+  const [forceMainNav, setForceMainNav] = useState(false);
+  // Reset override when route changes (user tapped a MainNav item)
+  const prevPathRef = useRef(pathname);
+  useEffect(() => {
+    if (prevPathRef.current !== pathname) {
+      prevPathRef.current = pathname;
+      setForceMainNav(false);
+    }
+  }, [pathname]);
+
   // Determine which mode to show
   const activeModule = getActiveModule(pathname);
   const moduleItems = activeModule ? getBottomNavItems(pathname, permsOrRole) : [];
-  const isInModule = activeModule && moduleItems.length > 0;
+  const isInModule = !forceMainNav && activeModule && moduleItems.length > 0;
 
   // Section-based nav (CRM detail pages)
-  const hasSectionItems = moduleItems.some((item) => item.isSection);
+  const hasSectionItems = !forceMainNav && moduleItems.some((item) => item.isSection);
 
   return (
     <nav ref={navRef} className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/30 bg-background/95 backdrop-blur-xl lg:hidden">
@@ -121,7 +124,7 @@ export function BottomNav({ userRole }: BottomNavProps) {
         {hasSectionItems ? (
           <SectionNav items={moduleItems} />
         ) : isInModule ? (
-          <ModuleSubNav items={moduleItems} activeModule={activeModule!} pathname={pathname} />
+          <ModuleSubNav items={moduleItems} activeModule={activeModule!} pathname={pathname} onBack={() => setForceMainNav(true)} />
         ) : (
           <MainNav pathname={pathname} userRole={userRole} />
         )}
@@ -198,7 +201,6 @@ function MasDrawer({ open, onOpenChange, userRole }: { open: boolean; onOpenChan
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const [showSignOutDialog, setShowSignOutDialog] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const isAdmin = userRole === 'owner' || userRole === 'admin';
 
@@ -328,38 +330,7 @@ function MasDrawer({ open, onOpenChange, userRole }: { open: boolean; onOpenChan
         </SheetContent>
       </Sheet>
 
-      {/* Sign-out confirmation dialog */}
-      <Dialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Cerrar Sesión</DialogTitle>
-            <DialogDescription>
-              ¿Estás seguro que deseas cerrar sesión?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <button
-              type="button"
-              onClick={() => setShowSignOutDialog(false)}
-              disabled={isSigningOut}
-              className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors border border-border bg-background hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                setIsSigningOut(true);
-                await signOut({ callbackUrl: '/opai/login' });
-              }}
-              disabled={isSigningOut}
-              className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
-            >
-              {isSigningOut ? 'Cerrando sesión...' : 'Cerrar Sesión'}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SignOutDialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog} />
     </>
   );
 }
@@ -380,8 +351,7 @@ const MODULE_LABELS: Record<string, string> = {
   reportes_dt: "DT",
 };
 
-function ModuleSubNav({ items, activeModule, pathname }: { items: BottomNavItem[]; activeModule: string; pathname: string }) {
-  const router = useRouter();
+function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: BottomNavItem[]; activeModule: string; pathname: string; onBack: () => void }) {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const chatCtx = useContext(ChatSidePanelContext);
 
@@ -391,17 +361,12 @@ function ModuleSubNav({ items, activeModule, pathname }: { items: BottomNavItem[
   const overflowItems = items.slice(MAX_VISIBLE);
   const hasOverflow = overflowItems.length > 0;
 
-  const handleBack = () => {
-    // Navigate to /hub to reset to main nav
-    router.push('/hub');
-  };
-
   return (
     <>
       {/* Back button */}
       <button
         type="button"
-        onClick={handleBack}
+        onClick={onBack}
         className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-2 py-1 active:scale-95 transition-all text-muted-foreground border-r border-border/20 mr-1"
         aria-label="Volver"
       >

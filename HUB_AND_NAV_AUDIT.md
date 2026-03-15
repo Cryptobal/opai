@@ -797,6 +797,52 @@ Al comparar la auditoría con las especificaciones del Prompt 2, se encontró qu
 
 Los demás cambios del Prompt 2 no fueron necesarios porque ya estaban implementados. Las inconsistencias de íconos entre sidebar y bottom nav (Grid3x3 vs Home, TrendingUp vs Briefcase, etc.) son **intencionales** — el sidebar usa íconos descriptivos del módulo mientras que la bottom bar usa íconos de navegación estándar tipo app mobile.
 
+### 10.4 Bugs Fixeados (Prompt 3)
+
+**BUG 1 — Sidebar toggle roto en desktop**
+- **Archivo:** `src/components/opai/AppShell.tsx`
+- **Fix:** Estado `isSidebarOpen` ahora inicia con `localStorage` (default `true`) y persiste cambios. `cloneElement` pasa el estado real + `onToggleSidebar` callback al sidebar.
+
+**BUG 2 — Botón retorno en ModuleSubNav navega a /hub**
+- **Archivo:** `src/components/opai/BottomNav.tsx`
+- **Fix:** Reemplazado `router.push('/hub')` con estado `forceMainNav` que muestra MainNav sin navegar. Se resetea automáticamente al cambiar de ruta.
+
+**BUG 3 — Search overlay botón X demasiado pequeño**
+- **Archivo:** `src/components/opai/AppShell.tsx`
+- **Fix:** Botón X cambió de `h-8 w-8` a `h-11 w-11` (44px touch target). Ícono de `h-4 w-4` a `h-5 w-5`.
+
+**BUG 4 — Padding bottom doble en Hub**
+- **Archivo:** `src/app/(app)/hub/_components/HubClientWrapper.tsx`
+- **Fix:** Eliminado `pb-24` del wrapper. AppShell ya provee `pb-28` para compensar BottomNav.
+
+**BUG 5 — pt calc no coincide con topbar height**
+- **Archivo:** `src/components/opai/AppShell.tsx`
+- **Fix:** Cambiado `4rem` a `3rem` en `pt-[calc(...)]` para coincidir con `min-h-12` (48px = 3rem) de la topbar.
+
+**BUG 6 — Reportes DT sin module detection en BottomNav**
+- **Archivo:** `src/lib/module-nav.ts`
+- **Fix:** Agregado `REPORTES_DT_ITEMS` (4 sub-items: Asistencia, Jornada, Festivos, Modificaciones) y su entrada en `MODULE_DETECTIONS`. `getActiveModule` en BottomNav ya tenía el case para `reportes_dt`.
+
+**BUG 7 — AiHelpChatWidget superpone bottom bar**
+- **Archivo:** `src/components/opai/AiHelpChatWidget.tsx`
+- **Fix:** FAB button cambió de `bottom-[calc(env(safe-area-inset-bottom)+7rem)] md:bottom-6` a `bottom-[calc(var(--bottom-nav-height,56px)+1rem)] lg:bottom-6` para usar la CSS variable real del BottomNav.
+
+**BUG 8 — HubFabSpeedDial componente orphan**
+- **Archivo:** `src/app/(app)/hub/_components/HubFabSpeedDial.tsx`
+- **Fix:** Archivo eliminado. Quick actions ya están en el botón + de la topbar mobile.
+
+**BUG 9 — Sign-out dialog duplicado**
+- **Archivos:** `src/components/opai/SignOutDialog.tsx` (nuevo), `AppSidebar.tsx`, `BottomNav.tsx`
+- **Fix:** Extraído componente compartido `SignOutDialog`. Ambos consumidores ahora importan y usan el componente compartido. Eliminado código duplicado y imports no usados (`signOut`, Dialog components inline).
+
+**BUG 10 — Instalaciones duplicada en CRM y OPS**
+- **Archivo:** `src/lib/module-nav.ts`
+- **Fix:** Agregado comentario documentando que es intencional: `// Instalaciones aparece en CRM y Ops intencionalmente (cross-module entity)`
+
+**BUG 11 — CPQ overflow parcial**
+- **Archivos:** `CpqQuoteDetail.tsx`, `FinancialPanel.tsx`
+- **Estado:** Ya corregido en fixes anteriores. Container principal tiene `overflow-x-hidden min-w-0` (línea 975). Tablas tienen `table-fixed` con anchos explícitos y wrappers `overflow-x-auto`. Preview area tiene `overflow-hidden`.
+
 ---
 
 *Fin de la auditoría y registro de cambios.*
