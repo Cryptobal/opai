@@ -11,44 +11,43 @@ interface AuthPairingInputProps {
 export function AuthPairingInput({ accent, value, onChange }: AuthPairingInputProps) {
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const blocks = [
-    value.slice(0, 2),
-    value.slice(2, 4),
-    value.slice(4, 6),
+    value.slice(0, 3),
+    value.slice(3, 6),
   ];
 
   const handleChange = (i: number, val: string) => {
-    const clean = val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 2);
+    const clean = val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3);
     const newBlocks = [...blocks];
     newBlocks[i] = clean;
     onChange(newBlocks.join(""));
-    if (clean.length === 2 && i < 2) {
+    if (clean.length === 3 && i < 1) {
       refs.current[i + 1]?.focus();
     }
   };
 
   return (
-    <div className="flex gap-2 justify-center items-center mb-6">
+    <div className="flex gap-3 justify-center items-center mb-6">
       {blocks.map((block, i) => (
-        <div key={i} className="flex items-center gap-2">
+        <div key={i} className="flex items-center gap-3">
           <input
             ref={(el) => { refs.current[i] = el; }}
             type="text"
-            maxLength={2}
+            maxLength={3}
             value={block}
             onChange={(e) => handleChange(i, e.target.value)}
-            placeholder="··"
-            className="text-center text-base font-semibold text-[#f9fafb] outline-none transition-all duration-300"
+            placeholder="···"
+            className="text-center text-lg font-semibold text-[#f9fafb] outline-none transition-all duration-300"
             style={{
-              width: "64px",
+              width: "90px",
               height: "52px",
-              letterSpacing: "0.15em",
+              letterSpacing: "0.2em",
               borderRadius: "12px",
               background: block ? `${accent}08` : "rgba(255,255,255,0.03)",
               border: `1.5px solid ${block ? accent + "35" : "rgba(255,255,255,0.15)"}`,
               fontFamily: "'JetBrains Mono', monospace",
             }}
           />
-          {i < 2 && <span className="text-[#2a3040] text-base">&mdash;</span>}
+          {i < 1 && <span className="text-[#2a3040] text-xl font-light">&mdash;</span>}
         </div>
       ))}
     </div>

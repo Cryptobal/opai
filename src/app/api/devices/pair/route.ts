@@ -27,8 +27,14 @@ export async function POST(request: NextRequest) {
     // Metadata is nice-to-have, not blocking
     const meta = metadata ?? {};
 
-    // Normalize: uppercase, remove spaces, ensure XXX-XXX format
-    const stripped = code.toUpperCase().replace(/[\s-]/g, "");
+    // Normalize: uppercase, remove non-alphanumeric, ensure XXX-XXX format
+    const stripped = code.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+    if (stripped.length !== 6) {
+      return NextResponse.json(
+        { success: false, error: "El código debe tener 6 caracteres" },
+        { status: 400 }
+      );
+    }
     const formattedCode = `${stripped.slice(0, 3)}-${stripped.slice(3)}`;
 
     // Find installation by permanent pairing code
@@ -38,8 +44,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (!installation) {
+      console.warn(`[devices/pair] Code not found: ${formattedCode}`);
       return NextResponse.json(
-        { success: false, error: "Código inválido" },
+        { success: false, error: "Código no encontrado. Verifica con tu supervisor." },
         { status: 400 }
       );
     }
