@@ -1087,14 +1087,13 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </div>
       </div>{/* end sticky header */}
 
-      {/* -- 2-column layout: left column scrolls, right column (desglose/preview) stays fixed -- */}
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-0 lg:h-[calc(100vh-10rem)] lg:min-h-[420px] min-w-0 overflow-x-hidden">
+      {/* -- 2-column layout: pt-14 reserva espacio para que el header sticky no tape el contenido -- */}
+      <div className="pt-14 lg:grid lg:grid-cols-[1fr_320px] lg:gap-0 lg:h-[calc(100vh-10rem)] lg:min-h-[420px] min-w-0 overflow-x-hidden">
 
       {/* -- Editor: scrollable left column (only this scrolls on desktop) -- */}
       <div className="space-y-2 min-w-0 overflow-x-hidden lg:pr-5 overflow-y-auto lg:min-h-0 lg:overscroll-contain">
-
-      {/* -- Section: Datos -- */}
-      <Card className="shadow-sm overflow-visible">
+      {/* -- Section: Datos (scroll-mt-14: visible below sticky header when scrolled) -- */}
+      <Card className="shadow-sm overflow-visible scroll-mt-14">
         <button type="button" onClick={() => setSecDatos(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Datos</h2>
@@ -1133,7 +1132,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </Card>
 
       {/* -- Section: Condiciones Comerciales -- */}
-      <Card className="shadow-sm overflow-hidden" inert={isLocked ? true : undefined}>
+      <Card className="shadow-sm overflow-hidden scroll-mt-14" inert={isLocked ? true : undefined}>
         <button type="button" onClick={() => setSecCondiciones(v => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Condiciones comerciales</h2>
