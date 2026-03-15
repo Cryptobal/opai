@@ -208,7 +208,25 @@ export async function buildQuotationProps(
       )
     : 0;
 
-  // Position rows
+  // Compute totalSalePrice FIRST from aggregate summary for consistency
+  let totalSalePrice = 0;
+  if (summary) {
+    totalSalePrice =
+      (summary.baseWithMargin ?? 0) +
+      (summary.monthlyFinancial ?? 0) +
+      (summary.monthlyPolicy ?? 0);
+  }
+
+  // Position rows — allocate totalSalePrice proportionally to avoid rounding discrepancy
+  const totalPositionCostsForAlloc = quote.positions.reduce(
+    (s: number, p: { monthlyPositionCost: unknown; numGuards: number; numPuestos?: number }) => {
+      const guardsInPos = p.numGuards * (p.numPuestos || 1);
+      const proportion = totalGuards > 0 ? guardsInPos / totalGuards : 0;
+      return s + Number(p.monthlyPositionCost) + baseAdditionalCostsTotal * proportion;
+    },
+    0,
+  );
+
   const positions = quote.positions.map(
     (pos: {
       customName?: string | null;
@@ -224,10 +242,12 @@ export async function buildQuotationProps(
       const proportion = totalGuards > 0 ? guardsInPos / totalGuards : 0;
       const additionalForPos = baseAdditionalCostsTotal * proportion;
       const totalCostPos = Number(pos.monthlyPositionCost) + additionalForPos;
-      const bwm = margin < 1 ? totalCostPos / (1 - margin) : totalCostPos;
-      const fc = bwm * (financialRatePctVal / 100);
-      const pc = bwm * (policyRatePctVal / 100) * policyFactor;
-      const salePrice = bwm + fc + pc;
+
+      // Allocate from aggregate totalSalePrice proportionally to ensure sum consistency
+      const costProportion = totalPositionCostsForAlloc > 0
+        ? totalCostPos / totalPositionCostsForAlloc
+        : (quote.positions.length > 0 ? 1 / quote.positions.length : 0);
+      const salePrice = totalSalePrice > 0 ? totalSalePrice * costProportion : totalCostPos;
 
       return {
         name: pos.customName || pos.puestoTrabajo?.name || 'Puesto',
@@ -239,14 +259,6 @@ export async function buildQuotationProps(
       };
     },
   );
-
-  let totalSalePrice = 0;
-  if (summary) {
-    totalSalePrice =
-      (summary.baseWithMargin ?? 0) +
-      (summary.monthlyFinancial ?? 0) +
-      (summary.monthlyPolicy ?? 0);
-  }
 
   const grandTotal = totalSalePrice + totalAdditionalLines;
 

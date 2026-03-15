@@ -320,6 +320,68 @@ export function CotizacionCard({
                 />
               )}
 
+              {/* Condiciones Comerciales */}
+              {(detail.paymentTerms || detail.contractDuration || detail.serviceStartDays) && (
+                <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+                  <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">
+                    {isTender ? `${++sectionCounter}. ` : ""}Condiciones Comerciales
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {detail.validUntil && (
+                      <div className="rounded-md bg-white/[0.04] px-3 py-2">
+                        <p className="text-[10px] text-zinc-500">Vigencia</p>
+                        <p className="text-xs text-zinc-200 font-medium">{formatDate(detail.validUntil)}</p>
+                      </div>
+                    )}
+                    {detail.paymentTerms && (
+                      <div className="rounded-md bg-white/[0.04] px-3 py-2">
+                        <p className="text-[10px] text-zinc-500">Forma de pago</p>
+                        <p className="text-xs text-zinc-200 font-medium capitalize">{detail.paymentTerms.replace(/_/g, " ")}</p>
+                      </div>
+                    )}
+                    {detail.serviceStartDays != null && (
+                      <div className="rounded-md bg-white/[0.04] px-3 py-2">
+                        <p className="text-[10px] text-zinc-500">Inicio del servicio</p>
+                        <p className="text-xs text-zinc-200 font-medium">{detail.serviceStartDays} días hábiles</p>
+                      </div>
+                    )}
+                    {detail.contractDuration != null && (
+                      <div className="rounded-md bg-white/[0.04] px-3 py-2">
+                        <p className="text-[10px] text-zinc-500">Duración del contrato</p>
+                        <p className="text-xs text-zinc-200 font-medium">{detail.contractDuration} meses</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Included items */}
+              {detail.includedItems && detail.includedItems.length > 0 && (
+                <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+                  <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">
+                    {isTender ? `${++sectionCounter}. ` : ""}El servicio incluye
+                  </h4>
+                  <ul className="space-y-1">
+                    {detail.includedItems.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-zinc-300">
+                        <span className="text-teal-400 mt-0.5 shrink-0">●</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Notes */}
+              {detail.notes && (
+                <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+                  <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
+                    Notas
+                  </h4>
+                  <p className="text-xs text-zinc-300 leading-relaxed whitespace-pre-line">{detail.notes}</p>
+                </div>
+              )}
+
               {/* Total card */}
               <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 px-4 py-3 flex items-center justify-between">
                 <span className="text-xs font-semibold text-zinc-400">

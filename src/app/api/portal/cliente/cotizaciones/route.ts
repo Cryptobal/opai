@@ -14,7 +14,7 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "No session" }, { status: 401 });
 
   const quotes = await prisma.cpqQuote.findMany({
-    where: { accountId: session.accountId, tenantId: session.tenantId },
+    where: { accountId: session.accountId, tenantId: session.tenantId, status: { not: "draft" } },
     include: {
       positions: { select: { id: true, numGuards: true } },
       parameters: { select: { salePriceMonthly: true, marginPct: true } },

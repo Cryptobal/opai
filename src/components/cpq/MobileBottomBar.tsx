@@ -67,6 +67,11 @@ export function MobileBottomBar({
           <span className="text-base font-extrabold font-mono text-white truncate">
             {formatCLP(total)}
           </span>
+          {ufTotal != null && ufValue ? (
+            <span className="text-[10px] text-blue-400 truncate">
+              {formatUFSuffix(ufTotal)} <span className="text-muted-foreground">(UF ${formatCLP(ufValue).replace("$", "")})</span>
+            </span>
+          ) : null}
           <span className="text-[10px] text-emerald-400">
             Margen {Number(marginPct || 0).toFixed(0)}%{totalGuards ? ` · ${totalGuards} guardias` : ""}
           </span>
