@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Eye, Phone, MessageCircle, Mail, ExternalLink } from 'lucide-react';
 import { timeAgo } from '@/lib/utils';
 import { formatCLP, normalizeChileanPhone, whatsappUrl } from '../_lib/hub-utils';
@@ -25,45 +26,56 @@ function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
 }
 
 function ActionIcons({ deal }: { deal: ClosingHotDeal }) {
+  const phone = deal.contactPhone ? normalizeChileanPhone(deal.contactPhone) : null;
+  const handlePhone = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (phone) window.location.href = `tel:+${phone}`;
+  };
+  const handleWhatsApp = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (deal.contactPhone) window.open(whatsappUrl(deal.contactPhone), '_blank', 'noopener,noreferrer');
+  };
+  const handleEmail = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (deal.contactEmail) window.location.href = `mailto:${deal.contactEmail}`;
+  };
   return (
     <span className="inline-flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity ml-1">
-      {deal.contactPhone && (
-        <a
-          href={`tel:+${normalizeChileanPhone(deal.contactPhone)}`}
-          className="text-muted-foreground/50 hover:text-emerald-400 transition-colors"
-          onClick={(e) => e.stopPropagation()}
+      {phone && (
+        <button
+          type="button"
+          onClick={handlePhone}
+          className="text-muted-foreground/50 hover:text-emerald-400 transition-colors p-0.5 -m-0.5 bg-transparent border-0 cursor-pointer"
           title="Llamar"
         >
           <Phone className="h-[14px] w-[14px]" />
-        </a>
+        </button>
       )}
       {deal.contactPhone && (
-        <a
-          href={whatsappUrl(deal.contactPhone)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-muted-foreground/50 hover:text-green-400 transition-colors"
-          onClick={(e) => e.stopPropagation()}
+        <button
+          type="button"
+          onClick={handleWhatsApp}
+          className="text-muted-foreground/50 hover:text-green-400 transition-colors p-0.5 -m-0.5 bg-transparent border-0 cursor-pointer"
           title="WhatsApp"
         >
           <MessageCircle className="h-[14px] w-[14px]" />
-        </a>
+        </button>
       )}
       {deal.contactEmail && (
-        <a
-          href={`mailto:${deal.contactEmail}`}
-          className="text-muted-foreground/50 hover:text-blue-400 transition-colors"
-          onClick={(e) => e.stopPropagation()}
+        <button
+          type="button"
+          onClick={handleEmail}
+          className="text-muted-foreground/50 hover:text-blue-400 transition-colors p-0.5 -m-0.5 bg-transparent border-0 cursor-pointer"
           title="Email"
         >
           <Mail className="h-[14px] w-[14px]" />
-        </a>
+        </button>
       )}
       {deal.proposalLink && (
         <Link
           href={deal.proposalLink}
           target="_blank"
-          className="text-muted-foreground/50 hover:text-primary transition-colors"
+          className="text-muted-foreground/50 hover:text-primary transition-colors inline-flex"
           onClick={(e) => e.stopPropagation()}
           title="Ver propuesta"
         >
@@ -75,6 +87,7 @@ function ActionIcons({ deal }: { deal: ClosingHotDeal }) {
 }
 
 export function HubHotDealsTable({ deals }: Props) {
+  const router = useRouter();
   return (
     <div className="rounded-[10px] border border-border bg-card overflow-hidden">
       {/* Header */}
@@ -99,10 +112,18 @@ export function HubHotDealsTable({ deals }: Props) {
       {deals.map((deal, idx) => {
         const rank = idx + 1;
         return (
-          <Link
+          <div
             key={deal.id}
-            href={`/crm/deals/${deal.id}`}
-            className="group/row block transition-colors hover:bg-accent/20"
+            role="link"
+            tabIndex={0}
+            onClick={() => router.push(`/crm/deals/${deal.id}`)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                router.push(`/crm/deals/${deal.id}`);
+              }
+            }}
+            className="group/row block transition-colors hover:bg-accent/20 cursor-pointer"
             style={{
               display: 'grid',
               gridTemplateColumns: '28px 1.5fr 1fr 0.7fr minmax(70px, 0.6fr) 60px minmax(70px, 0.6fr)',
@@ -158,7 +179,7 @@ export function HubHotDealsTable({ deals }: Props) {
             <span className="text-right text-[11px] font-bold tabular-nums text-teal-400 whitespace-nowrap">
               {deal.amount > 0 ? `${formatCLP(Math.round(deal.amount / 1000))}k/mes` : '—'}
             </span>
-          </Link>
+          </div>
         );
       })}
     </div>

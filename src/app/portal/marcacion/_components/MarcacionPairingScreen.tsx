@@ -47,8 +47,9 @@ export function MarcacionPairingScreen({ onPaired }: MarcacionPairingScreenProps
     setError(null);
     setLoading(true);
 
+    // Format code: XX-XX-XX (matches portal display)
     const raw = code.replace(/[^A-Z0-9]/g, "").slice(0, 6);
-    const fullCode = `${raw.slice(0, 3)}-${raw.slice(3)}`;
+    const fullCode = `${raw.slice(0, 2)}-${raw.slice(2, 4)}-${raw.slice(4, 6)}`;
 
     try {
       const res = await fetch("/api/devices/pair", {

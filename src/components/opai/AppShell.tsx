@@ -67,11 +67,11 @@ export function AppShell({
   const pathname = usePathname();
   const chatCtx = useChatSidePanelContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    if (typeof window === 'undefined') return true;
+    if (typeof window === 'undefined') return false;
     try {
       const stored = localStorage.getItem('opai-sidebar-open');
-      return stored !== null ? stored === 'true' : true;
-    } catch { return true; }
+      return stored !== null ? stored === 'true' : false;
+    } catch { return false; }
   });
 
   useEffect(() => {
