@@ -279,6 +279,33 @@ export function RondaActiva({
   }, []);
 
   // ---------------------------------------------------------------------------
+  // Refresh checkpoints (moved before geofence effect that depends on it)
+  // ---------------------------------------------------------------------------
+  const refreshCheckpoints = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        guardiaId: session.guardiaId,
+        installationId: session.installationId,
+        tenantId: session.tenantId,
+      });
+      const res = await fetch(
+        `/api/portal/rondas/mis-rondas?${params.toString()}`,
+      );
+      if (!res.ok) return;
+      const json = await res.json();
+      if (!json.success || !json.data) return;
+      const updated = (json.data as RondaData[]).find(
+        (r) => r.ejecucionId === rondaData.ejecucionId,
+      );
+      if (updated) {
+        setCheckpoints(updated.checkpoints);
+      }
+    } catch {
+      // Silently fail
+    }
+  }, [session, rondaData.ejecucionId]);
+
+  // ---------------------------------------------------------------------------
   // Geofence auto-detection + auto-marking
   // ---------------------------------------------------------------------------
   useEffect(() => {
@@ -604,30 +631,6 @@ export function RondaActiva({
   // ---------------------------------------------------------------------------
   // Callbacks
   // ---------------------------------------------------------------------------
-
-  const refreshCheckpoints = useCallback(async () => {
-    try {
-      const params = new URLSearchParams({
-        guardiaId: session.guardiaId,
-        installationId: session.installationId,
-        tenantId: session.tenantId,
-      });
-      const res = await fetch(
-        `/api/portal/rondas/mis-rondas?${params.toString()}`,
-      );
-      if (!res.ok) return;
-      const json = await res.json();
-      if (!json.success || !json.data) return;
-      const updated = (json.data as RondaData[]).find(
-        (r) => r.ejecucionId === rondaData.ejecucionId,
-      );
-      if (updated) {
-        setCheckpoints(updated.checkpoints);
-      }
-    } catch {
-      // Silently fail
-    }
-  }, [session, rondaData.ejecucionId]);
 
   const handleComplete = useCallback(async () => {
     if (completingRef.current) return;
