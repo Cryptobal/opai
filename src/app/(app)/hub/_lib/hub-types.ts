@@ -328,16 +328,21 @@ export interface SupervisionRecentVisit {
   installationState: string | null;
 }
 
-export interface SupervisionMetrics {
-  visitasMonth: number;
-  visitasCompleted: number;
+export interface SupervisionPeriodData {
+  visitas: number;
+  completed: number;
   criticas: number;
   avgRating: number | null;
-  openFindings: number;
-  overdueFindingsCount: number;
   coveragePct: number;
   installationsSinVisita: number;
   recentVisits: SupervisionRecentVisit[];
+}
+
+export interface SupervisionMetrics {
+  week: SupervisionPeriodData;
+  month: SupervisionPeriodData;
+  openFindings: number;
+  overdueFindingsCount: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -357,6 +362,7 @@ export interface ClosingHubKpis {
   proposalsSent30: number;
   proposalsViewed30: number;
   followUpsOverdueCount: number;
+  quotesDraftCount: number;
 }
 
 export interface ClosingHotDeal {

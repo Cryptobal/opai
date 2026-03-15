@@ -170,10 +170,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const isLocked = quote?.status === "sent";
   const [secDatos, setSecDatos] = useState(true);
   const [secPuestos, setSecPuestos] = useState(true);
-  const [secCostos, setSecCostos] = useState(false);
+  const [secCostos, setSecCostos] = useState(true);
   const [secLineas, setSecLineas] = useState(true);
-  const [secFinancieros, setSecFinancieros] = useState(false);
-  const [secCondiciones, setSecCondiciones] = useState(false);
+  const [secFinancieros, setSecFinancieros] = useState(true);
+  const [secCondiciones, setSecCondiciones] = useState(true);
   const [secMargen, setSecMargen] = useState(true);
   const initialLoadDone = useRef(false);
   const skipAutoSave = useRef(false);
@@ -221,6 +221,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
         fetch(`/api/cpq/quotes/${quoteId}`),
         fetch(`/api/cpq/quotes/${quoteId}/costs`),
       ]);
+      if (!quoteRes.ok || !costsRes.ok) {
+        console.error("CPQ fetch error", quoteRes.status, costsRes.status);
+        return;
+      }
       const quoteData = await quoteRes.json();
       const costsData = await costsRes.json();
       if (quoteData.success) {
@@ -326,15 +330,15 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
 
   useEffect(() => {
     fetch("/api/fx/uf")
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setUfValue(d.value); })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.success) setUfValue(d.value); })
       .catch(() => {});
     fetch("/api/cpq/proposal-templates")
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setProposalTemplates(d.data); })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.success) setProposalTemplates(d.data); })
       .catch(() => {});
     fetch("/api/branding")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : null)
       .then((d) => {
         if (d.success) {
           setTenantBranding({
@@ -354,8 +358,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   // Load CRM accounts on mount
   useEffect(() => {
     fetch("/api/crm/accounts")
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setCrmAccounts(d.data.map((a: Record<string, string>) => ({ id: a.id, name: a.name }))); })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.success) setCrmAccounts(d.data.map((a: Record<string, string>) => ({ id: a.id, name: a.name }))); })
       .catch(() => {});
   }, []);
 
@@ -368,9 +372,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       return;
     }
     Promise.all([
-      fetch(`/api/crm/installations?accountId=${crmContext.accountId}`).then((r) => r.json()),
-      fetch("/api/crm/contacts").then((r) => r.json()),
-      fetch("/api/crm/deals").then((r) => r.json()),
+      fetch(`/api/crm/installations?accountId=${crmContext.accountId}`).then((r) => r.ok ? r.json() : { success: false }),
+      fetch("/api/crm/contacts").then((r) => r.ok ? r.json() : { success: false }),
+      fetch("/api/crm/deals").then((r) => r.ok ? r.json() : { success: false }),
     ]).then(([instData, contactData, dealData]) => {
       if (instData.success) {
         setCrmInstallations(
@@ -841,7 +845,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     if (!costSummary) return 0;
     const margin = marginPct / 100;
     const costsBase =
-      costSummary.monthlyPositions +
+      (costSummary.monthlyPositions ?? 0) +
       (costSummary.monthlyHolidayAdjustment ?? 0) +
       (costSummary.monthlyUniforms ?? 0) +
       (costSummary.monthlyExams ?? 0) +
@@ -972,9 +976,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   }
 
   return (
-    <div className="space-y-2 pb-20 lg:pb-4 overflow-x-hidden min-w-0">
+    <div className="space-y-2 pb-4 lg:pb-4 overflow-x-hidden min-w-0">
       {/* -- Compact header -- */}
-      <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-5 px-5 py-2.5 mb-4">
+      <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-5 px-5 py-1.5 mb-1">
       <div className="flex items-center gap-2 min-h-[40px]">
         <Link href="/crm/cotizaciones">
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -982,9 +986,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           </Button>
         </Link>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-bold tracking-tight truncate">{quote.code}</h1>
-            {quote.name && <span className="text-sm font-medium truncate text-foreground/80">— {quote.name}</span>}
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="text-base font-bold tracking-tight shrink-0">{quote.code}</h1>
+            {quote.name && <span className="text-sm font-medium truncate text-foreground/80 min-w-0">— {quote.name}</span>}
             <Badge variant="outline" className="text-[10px] h-5 shrink-0">
               {quote.status}
             </Badge>
@@ -1084,10 +1088,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </div>{/* end sticky header */}
 
       {/* -- 2-column layout: left column scrolls, right column (desglose/preview) stays fixed -- */}
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-0 lg:h-[calc(100vh-11rem)] lg:min-h-[420px] min-w-0">
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-0 lg:h-[calc(100vh-10rem)] lg:min-h-[420px] min-w-0 overflow-x-hidden">
 
       {/* -- Editor: scrollable left column (only this scrolls on desktop) -- */}
-      <div className="space-y-2 min-w-0 lg:pr-5 overflow-y-auto lg:min-h-0 lg:overscroll-contain">
+      <div className="space-y-2 min-w-0 overflow-x-hidden lg:pr-5 overflow-y-auto lg:min-h-0 lg:overscroll-contain">
 
       {/* -- Section: Datos -- */}
       <Card className="shadow-sm overflow-visible">
@@ -1697,7 +1701,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </div>{/* end editor column */}
 
       {/* -- Sidebar: fixed right column (desktop only), stays visible while left column scrolls -- */}
-      <aside className="hidden lg:flex flex-col lg:self-start lg:h-[calc(100vh-140px)] border-l border-border/40 overflow-y-auto pl-4 min-h-0">
+      <aside className="hidden lg:flex flex-col lg:self-start lg:h-full border-l border-border/40 overflow-y-auto pl-4 min-h-0">
         <FinancialPanel
           positionsCount={positions.length}
           totalGuards={stats.totalGuards}
@@ -1773,7 +1777,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       </div>{/* end 2-column grid */}
 
       {/* Mobile spacer for fixed bottom bar */}
-      <div className="h-16 lg:hidden" />
+      <div className="h-14 lg:hidden" />
 
       {/* -- Mobile bottom bar (replaces wizard nav) -- */}
       <MobileBottomBar
@@ -1855,7 +1859,42 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             })()}
           />
         }
-        sendButton={
+        portalButton={
+          <Button
+            className="w-full h-11 gap-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white"
+            disabled={
+              !quote ||
+              positions.length === 0 ||
+              quote.status === "sent" ||
+              !crmContext.accountId ||
+              !crmContext.contactId ||
+              !crmContext.dealId ||
+              sendingPortal
+            }
+            onClick={handleSendPortal}
+          >
+            <Shield className="h-4 w-4" />
+            {sendingPortal ? "Enviando..." : "Enviar por Portal"}
+          </Button>
+        }
+        pdfEmailButton={
+          <SendPdfEmailModal
+            quoteId={quoteId}
+            quoteCode={quote.code}
+            contactEmail={(() => {
+              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+              return c?.email || undefined;
+            })()}
+            contactName={(() => {
+              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
+              return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
+            })()}
+            companyName={quote.clientName || undefined}
+            disabled={!crmContext.contactId || !crmContacts.find((x) => x.id === crmContext.contactId)?.email}
+            dealId={crmContext.dealId || undefined}
+          />
+        }
+        emailButton={
           <SendCpqQuoteModal
             quoteId={quoteId}
             quoteCode={quote.code}
@@ -1985,19 +2024,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
 
       <TemplatePreviewModal
         quoteId={quoteId}
-        currentTemplateId={proposalTemplateId}
-        templates={proposalTemplates}
+        templateSlug={proposalTemplates.find((t) => t.id === proposalTemplateId)?.slug || proposalTemplates[0]?.slug || "standard"}
+        templateName={proposalTemplates.find((t) => t.id === proposalTemplateId)?.name || "Propuesta"}
         isOpen={previewOpen}
         onClose={() => setPreviewOpen(false)}
-        onSelectTemplate={(id) => {
-          setProposalTemplateId(id);
-          fetch(`/api/cpq/quotes/${quoteId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ proposalTemplateId: id }),
-          }).catch(() => {});
-          setPreviewOpen(false);
-        }}
       />
     </div>
   );

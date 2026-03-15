@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronUp, Send } from "lucide-react";
+import { ChevronUp, Send, Shield, Mail } from "lucide-react";
 import { formatCLP, formatUFSuffix, cn } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import {
@@ -18,7 +18,10 @@ interface MobileBottomBarProps {
   marginPct: number;
   ufValue: number | null;
   financialPanelContent: React.ReactNode;
-  sendButton: React.ReactNode;
+  sendButton?: React.ReactNode;
+  portalButton?: React.ReactNode;
+  pdfEmailButton?: React.ReactNode;
+  emailButton?: React.ReactNode;
   totalGuards?: number;
   className?: string;
 }
@@ -30,13 +33,19 @@ export function MobileBottomBar({
   ufValue,
   financialPanelContent,
   sendButton,
+  portalButton,
+  pdfEmailButton,
+  emailButton,
   totalGuards,
   className,
 }: MobileBottomBarProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sendSheetOpen, setSendSheetOpen] = useState(false);
 
   const total = salePriceMonthly + additionalLinesTotal;
   const ufTotal = ufValue ? clpToUf(total, ufValue) : null;
+
+  const hasMultipleSendOptions = portalButton || pdfEmailButton || emailButton;
 
   return (
     <>
@@ -72,7 +81,18 @@ export function MobileBottomBar({
           >
             <ChevronUp className="h-3 w-3" />
           </button>
-          {sendButton}
+          {hasMultipleSendOptions ? (
+            <button
+              type="button"
+              onClick={() => setSendSheetOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors"
+            >
+              <Send className="h-3 w-3" />
+              Enviar
+            </button>
+          ) : (
+            sendButton
+          )}
         </div>
       </div>
 
@@ -93,6 +113,48 @@ export function MobileBottomBar({
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Send options bottom sheet */}
+      {hasMultipleSendOptions && (
+        <Sheet open={sendSheetOpen} onOpenChange={setSendSheetOpen}>
+          <SheetContent
+            side="bottom"
+            className="rounded-t-2xl px-4 pt-3 pb-6"
+          >
+            <SheetHeader className="sr-only">
+              <SheetTitle>Enviar cotización</SheetTitle>
+              <SheetDescription>Elige cómo enviar la cotización</SheetDescription>
+            </SheetHeader>
+
+            {/* Drag handle */}
+            <div className="flex justify-center mb-4">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">
+              Enviar cotización
+            </p>
+
+            <div className="space-y-2">
+              {portalButton && (
+                <div onClick={() => setSendSheetOpen(false)}>
+                  {portalButton}
+                </div>
+              )}
+              {pdfEmailButton && (
+                <div onClick={() => setSendSheetOpen(false)}>
+                  {pdfEmailButton}
+                </div>
+              )}
+              {emailButton && (
+                <div onClick={() => setSendSheetOpen(false)}>
+                  {emailButton}
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
     </>
   );
 }

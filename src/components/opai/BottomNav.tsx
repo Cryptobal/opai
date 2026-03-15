@@ -3,12 +3,13 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { SignOutDialog } from './SignOutDialog';
 import {
   Home, Briefcase, Shield, Users, LayoutGrid,
-  ChevronLeft, MoreHorizontal,
+  ChevronLeft, ChevronDown, MoreHorizontal,
   Landmark, Wallet, FolderOpen, FileBarChart, Clock,
   Settings, Monitor, Eye, Sun, Moon, User, LogOut,
+  Check, Receipt, Calculator, FileText, SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -25,14 +26,6 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
 /** Tracks BottomNav real height and exposes it as --bottom-nav-height CSS variable */
 function useBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
@@ -56,7 +49,7 @@ interface BottomNavProps {
   userRole?: string;
 }
 
-/* ── Main bottom nav items (always 5) ── */
+/* ── Main bottom nav items (configurable 4 + Más) ── */
 
 interface MainNavItem {
   key: string;
@@ -66,13 +59,86 @@ interface MainNavItem {
   isDrawer?: boolean;
 }
 
-const MAIN_NAV: MainNavItem[] = [
+/** All available nav slots the user can pick from (max 4 shown + Más) */
+const ALL_NAV_OPTIONS: MainNavItem[] = [
   { key: "home", href: "/hub", label: "Inicio", icon: Home },
   { key: "comercial", href: "/crm", label: "Comercial", icon: Briefcase },
   { key: "operaciones", href: "/ops", label: "Operaciones", icon: Shield },
   { key: "personas", href: "/personas/guardias", label: "Personas", icon: Users },
-  { key: "mas", href: "#mas", label: "Más", icon: LayoutGrid, isDrawer: true },
+  { key: "finanzas", href: "/finanzas", label: "Finanzas", icon: Receipt },
+  { key: "payroll", href: "/payroll", label: "Payroll", icon: Calculator },
+  { key: "documentos", href: "/opai/inicio", label: "Docs", icon: FileText },
 ];
+
+const MAS_ITEM: MainNavItem = { key: "mas", href: "#mas", label: "Más", icon: LayoutGrid, isDrawer: true };
+
+const DEFAULT_NAV_KEYS = ["home", "comercial", "operaciones", "personas"];
+const STORAGE_PREFIX = "opai-bottom-nav";
+
+/* ── Generic bar order storage ── */
+
+function getStoredOrder(context: string): string[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(`${STORAGE_PREFIX}-${context}`);
+    if (stored) {
+      const parsed = JSON.parse(stored) as string[];
+      if (Array.isArray(parsed) && parsed.length >= 2) return parsed;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function saveOrder(context: string, keys: string[]) {
+  try { localStorage.setItem(`${STORAGE_PREFIX}-${context}`, JSON.stringify(keys)); } catch { /* ignore */ }
+}
+
+/**
+ * Reorders `items` based on stored user preference for `context`.
+ * Stored keys come first (in stored order), then remaining items in original order.
+ */
+function applyStoredOrder<T extends { key: string }>(context: string, items: T[], maxVisible: number): { ordered: T[]; storedKeys: string[] | null } {
+  const storedKeys = getStoredOrder(context);
+  if (!storedKeys) return { ordered: items, storedKeys: null };
+
+  // Items the user pinned (in stored order), filtered to only those still available
+  const available = new Map(items.map((item) => [item.key, item]));
+  const pinned: T[] = [];
+  for (const key of storedKeys) {
+    const item = available.get(key);
+    if (item) {
+      pinned.push(item);
+      available.delete(key);
+    }
+  }
+  // Remaining items keep their original relative order
+  const rest = items.filter((item) => available.has(item.key));
+  return { ordered: [...pinned, ...rest], storedKeys };
+}
+
+function useNavConfig() {
+  const [navKeys, setNavKeys] = useState(DEFAULT_NAV_KEYS);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    setNavKeys(getStoredOrder("main") ?? DEFAULT_NAV_KEYS);
+    setLoaded(true);
+  }, []);
+
+  const items: MainNavItem[] = useMemo(() => {
+    const selected = navKeys
+      .map((k: string) => ALL_NAV_OPTIONS.find((o) => o.key === k))
+      .filter(Boolean) as MainNavItem[];
+    return [...selected, MAS_ITEM];
+  }, [navKeys]);
+
+  const updateKeys = useCallback((keys: string[]) => {
+    setNavKeys(keys);
+    saveOrder("main", keys);
+  }, []);
+
+  return { items, navKeys, updateKeys, loaded };
+}
 
 /* ── Module route detection (is the user inside a specific module?) ── */
 
@@ -95,7 +161,19 @@ export function BottomNav({ userRole }: BottomNavProps) {
   const pathname = usePathname();
   const permissions = usePermissions();
   const navRef = useRef<HTMLElement>(null);
+  const navConfig = useNavConfig();
   useBottomNavHeight(navRef);
+
+  // State override: when user taps back in ModuleSubNav, show MainNav without navigating
+  const [forceMainNav, setForceMainNav] = useState(false);
+  // Reset override when route changes (user tapped a MainNav item)
+  const prevPathRef = useRef(pathname);
+  useEffect(() => {
+    if (prevPathRef.current !== pathname) {
+      prevPathRef.current = pathname;
+      setForceMainNav(false);
+    }
+  }, [pathname]);
 
   if (!userRole || !pathname) return null;
 
@@ -110,10 +188,10 @@ export function BottomNav({ userRole }: BottomNavProps) {
   // Determine which mode to show
   const activeModule = getActiveModule(pathname);
   const moduleItems = activeModule ? getBottomNavItems(pathname, permsOrRole) : [];
-  const isInModule = activeModule && moduleItems.length > 0;
+  const isInModule = !forceMainNav && activeModule && moduleItems.length > 0;
 
   // Section-based nav (CRM detail pages)
-  const hasSectionItems = moduleItems.some((item) => item.isSection);
+  const hasSectionItems = !forceMainNav && moduleItems.some((item) => item.isSection);
 
   return (
     <nav ref={navRef} className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/30 bg-background/95 backdrop-blur-xl lg:hidden">
@@ -121,9 +199,9 @@ export function BottomNav({ userRole }: BottomNavProps) {
         {hasSectionItems ? (
           <SectionNav items={moduleItems} />
         ) : isInModule ? (
-          <ModuleSubNav items={moduleItems} activeModule={activeModule!} pathname={pathname} />
+          <ModuleSubNav items={moduleItems} activeModule={activeModule!} pathname={pathname} onBack={() => setForceMainNav(true)} />
         ) : (
-          <MainNav pathname={pathname} userRole={userRole} />
+          <MainNav pathname={pathname} userRole={userRole} navConfig={navConfig} />
         )}
       </div>
     </nav>
@@ -134,12 +212,12 @@ export function BottomNav({ userRole }: BottomNavProps) {
    MAIN NAV — 5 fixed items (Inicio, Comercial, Operaciones, Personas, Más)
    ════════════════════════════════════════════════════ */
 
-function MainNav({ pathname, userRole }: { pathname: string; userRole: string }) {
+function MainNav({ pathname, userRole, navConfig }: { pathname: string; userRole: string; navConfig: ReturnType<typeof useNavConfig> }) {
   const [masOpen, setMasOpen] = useState(false);
 
   return (
     <>
-      {MAIN_NAV.map((item) => {
+      {navConfig.items.map((item) => {
         if (item.isDrawer) {
           return (
             <button
@@ -174,7 +252,7 @@ function MainNav({ pathname, userRole }: { pathname: string; userRole: string })
         );
       })}
 
-      <MasDrawer open={masOpen} onOpenChange={setMasOpen} userRole={userRole} />
+      <MasDrawer open={masOpen} onOpenChange={setMasOpen} userRole={userRole} navConfig={navConfig} />
     </>
   );
 }
@@ -193,12 +271,11 @@ interface MasModuleItem {
   show: boolean;
 }
 
-function MasDrawer({ open, onOpenChange, userRole }: { open: boolean; onOpenChange: (v: boolean) => void; userRole: string }) {
+function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean; onOpenChange: (v: boolean) => void; userRole: string; navConfig: ReturnType<typeof useNavConfig> }) {
   const permissions = usePermissions();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const [showSignOutDialog, setShowSignOutDialog] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const isAdmin = userRole === 'owner' || userRole === 'admin';
 
@@ -207,7 +284,6 @@ function MasDrawer({ open, onOpenChange, userRole }: { open: boolean; onOpenChan
     { key: "payroll", href: "/payroll", label: "Payroll", icon: Wallet, color: "text-violet-400", show: hasModuleAccess(permissions, "payroll") },
     { key: "documentos", href: "/opai/inicio", label: "Documentos", icon: FolderOpen, color: "text-sky-400", show: hasModuleAccess(permissions, "docs") },
     { key: "reportes-dt", href: "/reportes/dt", label: "Reportes DT", icon: FileBarChart, color: "text-rose-400", show: canView(permissions, "reportes_dt") },
-    { key: "turnos-extra", href: "/te/registro", label: "Turnos Extra", icon: Clock, color: "text-orange-400", show: hasModuleAccess(permissions, "ops") },
   ], [permissions]);
 
   const tools: MasModuleItem[] = useMemo(() => [
@@ -291,6 +367,15 @@ function MasDrawer({ open, onOpenChange, userRole }: { open: boolean; onOpenChan
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Preferencias</p>
             <div className="space-y-0.5">
+              {/* Personalizar barra (collapsible) */}
+              <BarCustomizer
+                allOptions={ALL_NAV_OPTIONS}
+                selectedKeys={navConfig.navKeys}
+                onUpdate={navConfig.updateKeys}
+                maxVisible={4}
+                allowDeselect
+              />
+
               {/* Theme toggle */}
               <button
                 type="button"
@@ -328,39 +413,145 @@ function MasDrawer({ open, onOpenChange, userRole }: { open: boolean; onOpenChan
         </SheetContent>
       </Sheet>
 
-      {/* Sign-out confirmation dialog */}
-      <Dialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Cerrar Sesión</DialogTitle>
-            <DialogDescription>
-              ¿Estás seguro que deseas cerrar sesión?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <button
-              type="button"
-              onClick={() => setShowSignOutDialog(false)}
-              disabled={isSigningOut}
-              className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors border border-border bg-background hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                setIsSigningOut(true);
-                await signOut({ callbackUrl: '/opai/login' });
-              }}
-              disabled={isSigningOut}
-              className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
-            >
-              {isSigningOut ? 'Cerrando sesión...' : 'Cerrar Sesión'}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SignOutDialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog} />
     </>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   GENERIC BAR CUSTOMIZER — reusable across main nav & module sub-navs
+   ════════════════════════════════════════════════════ */
+
+interface BarCustomizerProps {
+  /** All items available for this bar */
+  allOptions: { key: string; label: string; icon: LucideIcon }[];
+  /** Currently selected/ordered keys (first N are visible) */
+  selectedKeys: string[];
+  /** Callback when user changes the order */
+  onUpdate: (keys: string[]) => void;
+  /** Max items visible in the bar (default 4) */
+  maxVisible?: number;
+  /** Allow deselecting items below maxVisible (main nav mode) */
+  allowDeselect?: boolean;
+}
+
+function BarCustomizer({ allOptions, selectedKeys, onUpdate, maxVisible = 4, allowDeselect = false }: BarCustomizerProps) {
+  const [open, setOpen] = useState(false);
+
+  const toggleItem = (key: string) => {
+    if (!allowDeselect) return; // module bars only reorder, all items always present
+    if (selectedKeys.includes(key)) {
+      if (selectedKeys.length <= 2) return;
+      onUpdate(selectedKeys.filter((k: string) => k !== key));
+    } else {
+      if (selectedKeys.length >= maxVisible) return;
+      onUpdate([...selectedKeys, key]);
+    }
+  };
+
+  const moveItem = (key: string, dir: -1 | 1) => {
+    const idx = selectedKeys.indexOf(key);
+    if (idx < 0) return;
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= selectedKeys.length) return;
+    const next = [...selectedKeys];
+    [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+    onUpdate(next);
+  };
+
+  // Build display list: selected items in user order first, then unselected
+  const sortedOptions = useMemo(() => {
+    const selected = selectedKeys
+      .map((k: string) => allOptions.find((o) => o.key === k))
+      .filter(Boolean) as typeof allOptions;
+    const unselected = allOptions.filter((o) => !selectedKeys.includes(o.key));
+    return [...selected, ...unselected];
+  }, [allOptions, selectedKeys]);
+
+  return (
+    <div>
+      {/* Toggle button */}
+      <button
+        type="button"
+        onClick={() => setOpen((v: boolean) => !v)}
+        className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
+      >
+        <SlidersHorizontal className="h-4.5 w-4.5 text-emerald-400" />
+        <span className="flex-1 text-left">Personalizar barra</span>
+        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", open && "rotate-180")} />
+      </button>
+
+      {/* Collapsible options */}
+      {open && (
+        <div className="mt-2 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+          {sortedOptions.map((opt: { key: string; label: string; icon: LucideIcon }) => {
+            const isSelected = selectedKeys.includes(opt.key);
+            const idx = selectedKeys.indexOf(opt.key);
+            const isVisible = isSelected && idx < maxVisible;
+            const Icon = opt.icon;
+            return (
+              <div
+                key={opt.key}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+                  isVisible ? "bg-emerald-500/10" : isSelected ? "bg-muted/30" : "bg-transparent"
+                )}
+              >
+                {allowDeselect ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleItem(opt.key)}
+                    className={cn(
+                      "flex items-center justify-center w-5 h-5 rounded border transition-colors",
+                      isSelected
+                        ? "bg-emerald-500 border-emerald-500 text-white"
+                        : "border-border text-transparent hover:border-muted-foreground"
+                    )}
+                  >
+                    <Check className="h-3 w-3" />
+                  </button>
+                ) : (
+                  <span className={cn(
+                    "flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold shrink-0",
+                    isVisible ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"
+                  )}>
+                    {idx + 1}
+                  </span>
+                )}
+                <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="flex-1 text-foreground/80">{opt.label}</span>
+                {isSelected && (
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => moveItem(opt.key, -1)}
+                      disabled={idx === 0}
+                      className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5 rotate-90" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveItem(opt.key, 1)}
+                      disabled={idx === selectedKeys.length - 1}
+                      className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5 -rotate-90" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <p className="text-[10px] text-muted-foreground mt-1.5 px-1">
+            {allowDeselect
+              ? `Selecciona 2–${maxVisible} accesos directos`
+              : `Los primeros ${maxVisible} se muestran en la barra`
+            }
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -380,28 +571,56 @@ const MODULE_LABELS: Record<string, string> = {
   reportes_dt: "DT",
 };
 
-function ModuleSubNav({ items, activeModule, pathname }: { items: BottomNavItem[]; activeModule: string; pathname: string }) {
-  const router = useRouter();
+function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: BottomNavItem[]; activeModule: string; pathname: string; onBack: () => void }) {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const chatCtx = useContext(ChatSidePanelContext);
 
+  // Apply stored user order for this module
+  const [orderedKeys, setOrderedKeys] = useState<string[]>(() =>
+    getStoredOrder(activeModule) ?? items.map((i) => i.key)
+  );
+
+  // Re-sync when items change (permission-based filtering)
+  useEffect(() => {
+    const stored = getStoredOrder(activeModule);
+    if (stored) {
+      // Keep only keys that still exist in items, then add any new ones
+      const available = new Set(items.map((i) => i.key));
+      const valid = stored.filter((k: string) => available.has(k));
+      const newKeys = items.filter((i) => !stored.includes(i.key)).map((i) => i.key);
+      setOrderedKeys([...valid, ...newKeys]);
+    } else {
+      setOrderedKeys(items.map((i) => i.key));
+    }
+  }, [activeModule, items]);
+
+  const orderedItems = useMemo(() => {
+    const map = new Map(items.map((i) => [i.key, i]));
+    const ordered = orderedKeys
+      .map((k: string) => map.get(k))
+      .filter(Boolean) as BottomNavItem[];
+    // Add any items not in orderedKeys
+    const rest = items.filter((i) => !orderedKeys.includes(i.key));
+    return [...ordered, ...rest];
+  }, [items, orderedKeys]);
+
+  const handleUpdateOrder = useCallback((keys: string[]) => {
+    setOrderedKeys(keys);
+    saveOrder(activeModule, keys);
+  }, [activeModule]);
+
   // Max 4 visible items + back button + optional more button
   const MAX_VISIBLE = 4;
-  const visibleItems = items.slice(0, MAX_VISIBLE);
-  const overflowItems = items.slice(MAX_VISIBLE);
-  const hasOverflow = overflowItems.length > 0;
-
-  const handleBack = () => {
-    // Navigate to /hub to reset to main nav
-    router.push('/hub');
-  };
+  const visibleItems = orderedItems.slice(0, MAX_VISIBLE);
+  const overflowItems = orderedItems.slice(MAX_VISIBLE);
+  const hasOverflow = overflowItems.length > 0 || items.length > MAX_VISIBLE;
 
   return (
     <>
       {/* Back button */}
       <button
         type="button"
-        onClick={handleBack}
+        onClick={onBack}
         className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-2 py-1 active:scale-95 transition-all text-muted-foreground border-r border-border/20 mr-1"
         aria-label="Volver"
       >
@@ -447,31 +666,31 @@ function ModuleSubNav({ items, activeModule, pathname }: { items: BottomNavItem[
         );
       })}
 
-      {/* Overflow button */}
-      {hasOverflow && (
-        <button
-          type="button"
-          onClick={() => setOverflowOpen(true)}
-          className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-2 py-1 active:scale-95 transition-all text-muted-foreground"
-        >
-          <MoreHorizontal className="h-5 w-5" />
-          <span className="text-[11px] font-medium leading-tight">Más</span>
-        </button>
-      )}
+      {/* Overflow / Más button — always visible for customizer access */}
+      <button
+        type="button"
+        onClick={() => setOverflowOpen(true)}
+        className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-2 py-1 active:scale-95 transition-all text-muted-foreground"
+      >
+        <MoreHorizontal className="h-5 w-5" />
+        <span className="text-[11px] font-medium leading-tight">Más</span>
+      </button>
 
-      {/* Overflow sheet */}
-      {hasOverflow && (
-        <Sheet open={overflowOpen} onOpenChange={setOverflowOpen}>
-          <SheetContent side="bottom" className="max-h-[50vh] rounded-t-2xl px-4 pt-3 pb-6">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Más opciones</SheetTitle>
-              <SheetDescription>Sub-items adicionales del módulo</SheetDescription>
-            </SheetHeader>
-            <div className="flex justify-center mb-4">
-              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-            </div>
-            <div className="space-y-1">
-              {overflowItems.map((item) => {
+      {/* Overflow + customizer sheet */}
+      <Sheet open={overflowOpen} onOpenChange={setOverflowOpen}>
+        <SheetContent side="bottom" className="max-h-[60vh] rounded-t-2xl px-4 pt-3 pb-6">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Más opciones</SheetTitle>
+            <SheetDescription>Sub-items y personalización del módulo</SheetDescription>
+          </SheetHeader>
+          <div className="flex justify-center mb-4">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+          </div>
+
+          {/* Overflow navigation items */}
+          {overflowItems.length > 0 && (
+            <div className="space-y-1 mb-4">
+              {overflowItems.map((item: BottomNavItem) => {
                 const Icon = item.icon;
                 const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
                 return (
@@ -492,9 +711,17 @@ function ModuleSubNav({ items, activeModule, pathname }: { items: BottomNavItem[
                 );
               })}
             </div>
-          </SheetContent>
-        </Sheet>
-      )}
+          )}
+
+          {/* Customizer for this module's bar */}
+          <BarCustomizer
+            allOptions={items}
+            selectedKeys={orderedKeys}
+            onUpdate={handleUpdateOrder}
+            maxVisible={MAX_VISIBLE}
+          />
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

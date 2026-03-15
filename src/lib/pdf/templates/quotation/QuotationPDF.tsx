@@ -32,6 +32,7 @@ const ls = StyleSheet.create({
     fontSize: 9,
     color: pdfColors.slate700,
     backgroundColor: pdfColors.white,
+    paddingTop: 85,
     paddingBottom: 50,
   },
   body: {
@@ -388,10 +389,12 @@ function fmtBreakdown(n: number, currency: string, ufValue?: number) {
   return fmtCLPPdf(n);
 }
 
-/** Strip trailing "SECURITY", "SEGURIDAD" etc — only the core brand should appear next to the logo */
+/** Strip brand name text — the logo already contains the company name */
 function getBrandName(companyConfig: QuotationPDFProps['companyConfig']): string {
   const raw = companyConfig.brandNameUpper ?? companyConfig.commercialName?.toUpperCase() ?? 'EMPRESA';
-  return raw.replace(/\s+(SECURITY|SEGURIDAD|SEG)\b/i, '').trim();
+  return raw
+    .replace(/\s+(SECURITY|SEGURIDAD|SEG)\b/i, '')
+    .trim();
 }
 
 /* ─── Section title with optional numbering ─── */
@@ -461,6 +464,7 @@ function BreakdownPage({
         brandName={getBrandName(companyConfig)}
         subtitle="Estructura de costos transparente"
         code={quoteCode}
+        logoUrl={companyConfig.logoUrl}
       />
       <PDFAccentLine />
 
@@ -948,6 +952,7 @@ export function QuotationPDF(props: QuotationPDFProps) {
           brandName={brandName}
           subtitle={sec.headerStyle === 'formal' ? `Cotización N° ${quote.code}` : 'Servicios de seguridad integral'}
           code={quote.code}
+          logoUrl={companyConfig.logoUrl}
         />
         <PDFAccentLine />
 
@@ -1030,6 +1035,7 @@ export function QuotationPDF(props: QuotationPDFProps) {
           <PDFHeader
             brandName={brandName}
             code={quote.code}
+            logoUrl={companyConfig.logoUrl}
           />
           <PDFAccentLine />
 
@@ -1063,7 +1069,7 @@ export function QuotationPDF(props: QuotationPDFProps) {
             )}
 
             {sec.showConditions && (
-              <>
+              <View wrap={false}>
                 <SectionTitle numbered={numbered} num={nextNum()}>Condiciones Comerciales</SectionTitle>
 
                 <View style={ls.conditionsGrid}>
@@ -1089,11 +1095,11 @@ export function QuotationPDF(props: QuotationPDFProps) {
                     />
                   </View>
                 </View>
-              </>
+              </View>
             )}
 
             {sec.showIncludedItems && (
-              <>
+              <View wrap={false}>
                 <SectionTitle numbered={numbered} num={nextNum()}>El servicio incluye</SectionTitle>
                 <View style={{ marginBottom: 8 }}>
                   {displayItems.map((item, i) => (
@@ -1103,14 +1109,14 @@ export function QuotationPDF(props: QuotationPDFProps) {
                     </View>
                   ))}
                 </View>
-              </>
+              </View>
             )}
 
             {serviceDetail && (
-              <>
+              <View wrap={false}>
                 <SectionTitle numbered={numbered} num={nextNum()}>Detalle del servicio</SectionTitle>
                 <Text style={ls.serviceDetail}>{serviceDetail}</Text>
-              </>
+              </View>
             )}
 
             {/* Fix 3: Signatures go on the LAST page — only render here if no breakdown page follows */}

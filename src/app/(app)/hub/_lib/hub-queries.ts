@@ -103,10 +103,12 @@ const MS_PER_MINUTE = 60_000;
 
 function computeHeatScore(totalViews: number, lastViewedAt: Date | null, now: Date): number {
   if (totalViews === 0 || !lastViewedAt) return 0;
-  const viewScore = Math.min(totalViews * 12, 100);
-  const minutesSince = (now.getTime() - lastViewedAt.getTime()) / MS_PER_MINUTE;
-  const recencyScore = Math.max(0, 100 - minutesSince / 30);
-  return Math.round(viewScore * 0.4 + recencyScore * 0.6);
+  // View component: each view = 10pts, capped at 50
+  const viewScore = Math.min(totalViews * 10, 50);
+  // Recency component: 50 if viewed today, decays over 7 days to 0
+  const daysSince = (now.getTime() - lastViewedAt.getTime()) / MS_PER_DAY;
+  const recencyScore = Math.max(0, Math.round(50 * (1 - daysSince / 7)));
+  return Math.min(viewScore + recencyScore, 100);
 }
 
 function computeViewTrend(lastViewedAt: Date | null, now: Date): 'up' | 'down' | 'flat' {
@@ -149,6 +151,7 @@ export async function getClosingHubData(
     docsSignals,
     followUpsOverdueCount,
     ufValue,
+    quotesDraftCount,
   ] = await Promise.all([
     // All open deals with relations
     prisma.crmDeal.findMany({
@@ -223,6 +226,10 @@ export async function getClosingHubData(
     }),
     // UF value for amount conversion
     getUfValue(),
+    // Draft quotes (not yet sent)
+    prisma.cpqQuote.count({
+      where: { tenantId, status: 'draft' },
+    }),
   ]);
 
   // Batch 2: depends on open deals
@@ -446,6 +453,7 @@ export async function getClosingHubData(
       proposalsSent30: docsSignals.sent30,
       proposalsViewed30: docsSignals.viewed30,
       followUpsOverdueCount,
+      quotesDraftCount,
     },
     hotDeals,
     staleDeals,
@@ -812,7 +820,7 @@ export async function getFinanceMetrics(
       select: { amount: true },
     }),
     prisma.financeRendicion.findMany({
-      where: { tenantId, status: 'APPROVED' },
+      where: { tenantId, status: 'APPROVED', paidAt: null },
       select: { amount: true },
     }),
   ]);
@@ -880,15 +888,17 @@ export async function getOpsMetrics(
     prisma.opsTurnoExtra.count({
       where: { tenantId, status: 'pending' },
     }),
-    prisma.opsPautaMensual.count({
+    // PPC: count distinct positions without a planned guard for TODAY
+    prisma.opsPautaMensual.findMany({
       where: {
         tenantId,
-        OR: [
-          { plannedGuardiaId: null, shiftCode: { not: '-' } },
-          { shiftCode: { in: ['V', 'L', 'P', 'PCG', 'PSG'] } },
-        ],
+        date: todayDate,
+        plannedGuardiaId: null,
+        shiftCode: { notIn: ['-', 'V', 'L', 'P', 'PCG', 'PSG'] },
       },
-    }),
+      select: { puestoId: true },
+      distinct: ['puestoId'],
+    }).then((rows) => rows.length),
     // Attendance by status
     prisma.opsAsistenciaDiaria.count({
       where: { tenantId, date: todayDate, attendanceStatus: 'presente' },
@@ -1346,13 +1356,12 @@ export async function getSupervisionMetrics(
 ): Promise<SupervisionMetrics> {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-  // Query findings separately — the table may not exist yet if migration
-  // 20260401000000_supervision_module_refactor hasn't been applied.
-  let openFindings: { id: string; createdAt: Date }[] = [];
+  // Query findings separately — the table may not exist yet
+  let openFindingsRaw: { id: string; createdAt: Date }[] = [];
   try {
-    openFindings = await prisma.opsSupervisionFinding.findMany({
+    openFindingsRaw = await prisma.opsSupervisionFinding.findMany({
       where: { tenantId, status: { in: ["open", "in_progress"] } },
       select: { id: true, createdAt: true },
     });
@@ -1360,7 +1369,7 @@ export async function getSupervisionMetrics(
     // Table does not exist yet — gracefully degrade
   }
 
-  const [visitas, assignments, activeInstallations] = await Promise.all([
+  const [allVisitas, assignments] = await Promise.all([
     prisma.opsVisitaSupervision.findMany({
       where: { tenantId, checkInAt: { gte: monthStart } },
       select: {
@@ -1378,93 +1387,56 @@ export async function getSupervisionMetrics(
       where: { tenantId, isActive: true },
       select: { installationId: true },
     }),
-    prisma.crmInstallation.count({
-      where: { tenantId, status: "active" },
-    }),
   ]);
 
-  const totalVisitas = visitas.length;
-  const visitasCompleted = visitas.filter(
-    (v) => v.status === "completed",
-  ).length;
-  const criticas = visitas.filter(
-    (v) => v.installationState === "critico",
-  ).length;
+  const assignmentSet = new Set(assignments.map((a) => a.installationId));
 
-  // Average rating
-  const ratedVisits = visitas
-    .map(
-      (v) =>
-        v.ratings as {
-          presentacion?: number;
-          orden?: number;
-          protocolo?: number;
-        } | null,
-    )
-    .filter(
-      (
-        r,
-      ): r is {
-        presentacion: number;
-        orden: number;
-        protocolo: number;
-      } =>
+  function computePeriod(visitas: typeof allVisitas) {
+    const completed = visitas.filter((v) => v.status === "completed").length;
+    const criticas = visitas.filter((v) => v.installationState === "critico").length;
+
+    const ratedVisits = visitas
+      .map((v) => v.ratings as { presentacion?: number; orden?: number; protocolo?: number } | null)
+      .filter((r): r is { presentacion: number; orden: number; protocolo: number } =>
         r !== null &&
         typeof r.presentacion === "number" &&
         typeof r.orden === "number" &&
         typeof r.protocolo === "number",
-    );
-  const avgRating =
-    ratedVisits.length > 0
-      ? Math.round(
-          (ratedVisits.reduce(
-            (s, r) => s + (r.presentacion + r.orden + r.protocolo) / 3,
-            0,
-          ) /
-            ratedVisits.length) *
-            10,
-        ) / 10
+      );
+    const avgRating = ratedVisits.length > 0
+      ? Math.round((ratedVisits.reduce((s, r) => s + (r.presentacion + r.orden + r.protocolo) / 3, 0) / ratedVisits.length) * 10) / 10
       : null;
 
-  // Findings
-  const overdueFindingsCount = openFindings.filter(
-    (f) => f.createdAt < sevenDaysAgo,
-  ).length;
-
-  // Coverage
-  const assignmentInstallationSet = new Set(
-    assignments.map((a) => a.installationId),
-  );
-  const visitedInstallationSet = new Set(visitas.map((v) => v.installationId));
-  const coveragePct =
-    assignmentInstallationSet.size > 0
-      ? Math.round(
-          (visitedInstallationSet.size / assignmentInstallationSet.size) * 100,
-        )
+    const visitedSet = new Set(visitas.map((v) => v.installationId));
+    const coveragePct = assignmentSet.size > 0
+      ? Math.round((visitedSet.size / assignmentSet.size) * 100)
       : 0;
+    const installationsSinVisita = Array.from(assignmentSet).filter((id) => !visitedSet.has(id)).length;
 
-  // Installations without visit in 7 days — count assigned that haven't been visited in 7 days
-  const recentVisits = visitas.filter((v) => true); // already this month
-  const recentVisitedSet = new Set(recentVisits.map((v) => v.installationId));
-  const installationsSinVisita = Array.from(assignmentInstallationSet).filter(
-    (id) => !recentVisitedSet.has(id),
-  ).length;
+    return {
+      visitas: visitas.length,
+      completed,
+      criticas,
+      avgRating,
+      coveragePct,
+      installationsSinVisita,
+      recentVisits: visitas.slice(0, 3).map((v) => ({
+        id: v.id,
+        installationName: v.installation.name,
+        checkInAt: v.checkInAt,
+        status: v.status,
+        installationState: v.installationState,
+      })),
+    };
+  }
+
+  const weekVisitas = allVisitas.filter((v) => v.checkInAt >= weekStart);
+  const overdueFindingsCount = openFindingsRaw.filter((f) => f.createdAt < weekStart).length;
 
   return {
-    visitasMonth: totalVisitas,
-    visitasCompleted,
-    criticas,
-    avgRating,
-    openFindings: openFindings.length,
+    month: computePeriod(allVisitas),
+    week: computePeriod(weekVisitas),
+    openFindings: openFindingsRaw.length,
     overdueFindingsCount,
-    coveragePct,
-    installationsSinVisita,
-    recentVisits: visitas.slice(0, 3).map((v) => ({
-      id: v.id,
-      installationName: v.installation.name,
-      checkInAt: v.checkInAt,
-      status: v.status,
-      installationState: v.installationState,
-    })),
   };
 }

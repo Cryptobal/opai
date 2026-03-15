@@ -209,9 +209,14 @@ export async function renderQuotationToBuffer(
       fontSize: 9,
       color: C.slate700,
       backgroundColor: C.white,
+      paddingTop: 85,
       paddingBottom: 50,
     },
     headerBand: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
       backgroundColor: C.navy,
       padding: 30,
       paddingBottom: 20,
@@ -249,7 +254,7 @@ export async function renderQuotationToBuffer(
       color: C.teal,
       fontWeight: 500,
     },
-    accentLine: { height: 3, backgroundColor: C.teal },
+    accentLine: { position: 'absolute', top: 82, left: 0, right: 0, height: 3, backgroundColor: C.teal },
     infoStrip: {
       flexDirection: 'row',
       backgroundColor: C.slate50,
@@ -551,7 +556,7 @@ export async function renderQuotationToBuffer(
       null,
       e(
         View,
-        { style: s.headerBand },
+        { style: s.headerBand, fixed: true },
         e(
           View,
           null,
@@ -567,7 +572,7 @@ export async function renderQuotationToBuffer(
           e(Text, { style: s.headerCode }, quote.code),
         ),
       ),
-      e(View, { style: s.accentLine }),
+      e(View, { style: s.accentLine, fixed: true }),
     );
 
   const infoStrip = e(
@@ -916,7 +921,7 @@ export async function renderQuotationToBuffer(
           sec.showConditions
             ? e(
                 View,
-                null,
+                { wrap: false },
                 sectionTitle('Condiciones Comerciales', nextNum()),
                 e(
                   View,
@@ -931,7 +936,7 @@ export async function renderQuotationToBuffer(
           sec.showIncludedItems
             ? e(
                 View,
-                null,
+                { wrap: false },
                 sectionTitle('El servicio incluye', nextNum()),
                 e(
                   View,

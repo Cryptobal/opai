@@ -53,7 +53,7 @@ export function HubClientWrapper({
   const pendingFollowUpsCount = closingData?.kpis.followUpsOverdueCount ?? 0;
 
   return (
-    <div className="space-y-4 min-w-0 pb-24 max-w-screen-2xl">
+    <div className="space-y-4 min-w-0 max-w-screen-2xl">
       {/* Header */}
       <HubGreeting
         firstName={firstName}
