@@ -209,20 +209,15 @@ export async function renderQuotationToBuffer(
       fontSize: 9,
       color: C.slate700,
       backgroundColor: C.white,
-      paddingTop: 85,
       paddingBottom: 50,
     },
     headerBand: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
       backgroundColor: C.navy,
-      padding: 30,
-      paddingBottom: 20,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      paddingHorizontal: 30,
+      paddingVertical: 14,
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+      alignItems: 'center' as const,
     },
     brandRow: {
       flexDirection: 'row',
@@ -254,7 +249,7 @@ export async function renderQuotationToBuffer(
       color: C.teal,
       fontWeight: 500,
     },
-    accentLine: { position: 'absolute', top: 82, left: 0, right: 0, height: 3, backgroundColor: C.teal },
+    accentLine: { height: 3, backgroundColor: C.teal },
     infoStrip: {
       flexDirection: 'row',
       backgroundColor: C.slate50,
@@ -556,7 +551,7 @@ export async function renderQuotationToBuffer(
       null,
       e(
         View,
-        { style: s.headerBand, fixed: true },
+        { style: s.headerBand },
         e(
           View,
           null,
@@ -572,7 +567,7 @@ export async function renderQuotationToBuffer(
           e(Text, { style: s.headerCode }, quote.code),
         ),
       ),
-      e(View, { style: s.accentLine, fixed: true }),
+      e(View, { style: s.accentLine }),
     );
 
   const infoStrip = e(
@@ -906,6 +901,40 @@ export async function renderQuotationToBuffer(
   const hasPage2 = sec.showConditions || sec.showIncludedItems || sec.showSignature ||
     hasLaborDetail || hasCostBreakdown || hasCompliance;
 
+  /* Reusable signature + contact block */
+  const sigBlock = () =>
+    e(
+      View,
+      { wrap: false },
+      e(View, { style: { flex: 1 } }),
+      e(
+        View,
+        { style: s.sigArea },
+        e(
+          View,
+          { style: s.sigBlock },
+          e(View, { style: s.sigLine }),
+          e(Text, { style: s.sigName }, companyConfig.companyName),
+          companyConfig.repLegalNombre ? e(Text, { style: s.sigRole }, companyConfig.repLegalNombre) : null,
+          e(Text, { style: s.sigRole }, 'Representante Legal'),
+        ),
+        e(
+          View,
+          { style: s.sigBlock },
+          e(View, { style: s.sigLine }),
+          e(Text, { style: s.sigName }, client.name),
+          e(Text, { style: s.sigRole }, 'Cliente'),
+        ),
+      ),
+      e(
+        View,
+        { style: s.contactBanner },
+        e(View, { style: { alignItems: 'center' as const } }, e(Text, { style: s.contactLabel }, 'EMAIL'), e(Text, { style: s.contactValue }, companyConfig.email)),
+        e(View, { style: { alignItems: 'center' as const } }, e(Text, { style: s.contactLabel }, 'TELEFONO'), e(Text, { style: s.contactValue }, companyConfig.phone)),
+        companyConfig.website ? e(View, { style: { alignItems: 'center' as const } }, e(Text, { style: s.contactLabel }, 'WEB'), e(Text, { style: s.contactValue }, companyConfig.website)) : null,
+      ),
+    );
+
   if (hasPage2) {
     pages.push(
       e(
@@ -914,7 +943,7 @@ export async function renderQuotationToBuffer(
         header(),
         e(
           View,
-          { style: s.body },
+          { style: [s.body, { flex: 1 }] },
           hasLaborDetail ? buildLaborDetail(nextNum()) : null,
           hasCostBreakdown ? buildCostBreakdown(nextNum()) : null,
           hasCompliance ? buildCompliance(nextNum()) : null,
@@ -960,57 +989,10 @@ export async function renderQuotationToBuffer(
                 e(Text, { style: s.serviceDetail }, serviceDetail),
               )
             : null,
-          // Fix 3: Signatures go on the LAST page — only render here if no breakdown page follows
+          // Spacer pushes signatures to bottom
+          e(View, { style: { flex: 1 } }),
           sec.showSignature && !(breakdown && sec.showCostSummaryByCategory)
-            ? e(
-                View,
-                { wrap: false },
-                e(
-                  View,
-                  { style: s.sigArea },
-                  e(
-                    View,
-                    { style: s.sigBlock },
-                    e(View, { style: s.sigLine }),
-                    e(Text, { style: s.sigName }, companyConfig.companyName),
-                    companyConfig.repLegalNombre
-                      ? e(Text, { style: s.sigRole }, companyConfig.repLegalNombre)
-                      : null,
-                    e(Text, { style: s.sigRole }, 'Representante Legal'),
-                  ),
-                  e(
-                    View,
-                    { style: s.sigBlock },
-                    e(View, { style: s.sigLine }),
-                    e(Text, { style: s.sigName }, client.name),
-                    e(Text, { style: s.sigRole }, 'Cliente'),
-                  ),
-                ),
-                e(
-                  View,
-                  { style: s.contactBanner },
-                  e(
-                    View,
-                    { style: { alignItems: 'center' as const } },
-                    e(Text, { style: s.contactLabel }, 'EMAIL'),
-                    e(Text, { style: s.contactValue }, companyConfig.email),
-                  ),
-                  e(
-                    View,
-                    { style: { alignItems: 'center' as const } },
-                    e(Text, { style: s.contactLabel }, 'TELEFONO'),
-                    e(Text, { style: s.contactValue }, companyConfig.phone),
-                  ),
-                  companyConfig.website
-                    ? e(
-                        View,
-                        { style: { alignItems: 'center' as const } },
-                        e(Text, { style: s.contactLabel }, 'WEB'),
-                        e(Text, { style: s.contactValue }, companyConfig.website),
-                      )
-                    : null,
-                ),
-              )
+            ? sigBlock()
             : null,
         ),
         pageFooter(),
@@ -1027,10 +1009,10 @@ export async function renderQuotationToBuffer(
         header(),
         e(
           View,
-          { style: s.body },
+          { style: [s.body, { flex: 1 }] },
           e(Text, { style: s.sectionTitle }, 'Estructura de Costos'),
 
-          // Fix 6: Per-position labor detail in breakdown
+          // Per-position labor detail in breakdown
           e(
             View,
             { style: { marginBottom: 8 } },
@@ -1107,58 +1089,9 @@ export async function renderQuotationToBuffer(
 
           e(Text, { style: s.netNote }, 'Estructura de costos con transparencia total · Valores netos · IVA se factura segun ley vigente'),
 
-          // Fix 3: Signatures at end of last page (breakdown is the last page)
-          sec.showSignature
-            ? e(
-                View,
-                { wrap: false },
-                e(
-                  View,
-                  { style: s.sigArea },
-                  e(
-                    View,
-                    { style: s.sigBlock },
-                    e(View, { style: s.sigLine }),
-                    e(Text, { style: s.sigName }, companyConfig.companyName),
-                    companyConfig.repLegalNombre
-                      ? e(Text, { style: s.sigRole }, companyConfig.repLegalNombre)
-                      : null,
-                    e(Text, { style: s.sigRole }, 'Representante Legal'),
-                  ),
-                  e(
-                    View,
-                    { style: s.sigBlock },
-                    e(View, { style: s.sigLine }),
-                    e(Text, { style: s.sigName }, client.name),
-                    e(Text, { style: s.sigRole }, 'Cliente'),
-                  ),
-                ),
-                e(
-                  View,
-                  { style: s.contactBanner },
-                  e(
-                    View,
-                    { style: { alignItems: 'center' as const } },
-                    e(Text, { style: s.contactLabel }, 'EMAIL'),
-                    e(Text, { style: s.contactValue }, companyConfig.email),
-                  ),
-                  e(
-                    View,
-                    { style: { alignItems: 'center' as const } },
-                    e(Text, { style: s.contactLabel }, 'TELEFONO'),
-                    e(Text, { style: s.contactValue }, companyConfig.phone),
-                  ),
-                  companyConfig.website
-                    ? e(
-                        View,
-                        { style: { alignItems: 'center' as const } },
-                        e(Text, { style: s.contactLabel }, 'WEB'),
-                        e(Text, { style: s.contactValue }, companyConfig.website),
-                      )
-                    : null,
-                ),
-              )
-            : null,
+          // Spacer pushes signatures to bottom
+          e(View, { style: { flex: 1 } }),
+          sec.showSignature ? sigBlock() : null,
         ),
         pageFooter(),
       ),

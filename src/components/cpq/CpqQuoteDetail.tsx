@@ -279,7 +279,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       saveQuoteBasics();
     }, 2000);
     return () => clearTimeout(quoteFormAutoSaveTimer.current);
-  }, [quoteForm.name, quoteForm.validUntil, quoteForm.notes, quoteForm.paymentTerms, quoteForm.serviceStartDays, quoteForm.contractDuration, quoteForm.includedItems]);
+  }, [quoteForm.name, quoteForm.validUntil, quoteForm.notes, quoteForm.paymentTerms, quoteForm.serviceStartDays, quoteForm.contractDuration]);
 
   // Auto-calc salePriceBase when costSummary changes
   useEffect(() => {
@@ -305,7 +305,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
 
   useEffect(() => {
     if (!quote) return;
-    setQuoteForm({
+    setQuoteForm((prev) => ({
       name: quote.name || "",
       clientName: quote.clientName || "",
       validUntil: formatDateInput(quote.validUntil),
@@ -314,8 +314,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       paymentTerms: quote.paymentTerms || "contrafactura",
       serviceStartDays: quote.serviceStartDays ?? 5,
       contractDuration: quote.contractDuration ?? 12,
-      includedItems: quote.includedItems ?? [],
-    });
+      includedItems: (quote.includedItems && quote.includedItems.length > 0)
+        ? quote.includedItems
+        : prev.includedItems,
+    }));
     setCrmContext({
       accountId: quote.accountId ?? "",
       installationId: quote.installationId ?? "",
@@ -516,7 +518,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           paymentTerms: quoteForm.paymentTerms,
           serviceStartDays: quoteForm.serviceStartDays,
           contractDuration: quoteForm.contractDuration,
-          includedItems: quoteForm.includedItems,
         }),
       });
       const data = await res.json();
@@ -1008,7 +1009,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               className="h-7 px-2 text-[11px] gap-1.5 bg-teal-600 hover:bg-teal-700 text-white"
               disabled={
                 !quote ||
-                positions.length === 0 ||
+                (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
                 quote.status === "sent" ||
                 !crmContext.accountId ||
                 !crmContext.contactId ||
@@ -1034,7 +1035,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               quoteId={quoteId}
               quoteCode={quote.code}
               clientName={quote.clientName || undefined}
-              disabled={!quote || positions.length === 0 || quote.status === "sent"}
+              disabled={!quote || (positions.length === 0 && (additionalLines?.length ?? 0) === 0) || quote.status === "sent"}
               hasAccount={!!crmContext.accountId}
               hasContact={!!crmContext.contactId}
               hasDeal={!!crmContext.dealId}
@@ -1765,7 +1766,18 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           includedItems={quoteForm.includedItems}
           onIncludedItemsChange={(items) => {
             setQuoteForm(prev => ({ ...prev, includedItems: items }));
-            setQuoteDirty(true);
+          }}
+          onIncludedItemsSave={async (items) => {
+            setQuoteForm(prev => ({ ...prev, includedItems: items }));
+            try {
+              const res = await fetch(`/api/cpq/quotes/${quoteId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ includedItems: items }),
+              });
+              const data = await res.json();
+              if (data.success) setQuote(data.data);
+            } catch {}
           }}
           quoteId={quoteId}
           quoteCode={quote.code}
@@ -1784,6 +1796,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
             return c?.email || undefined;
           })()}
+          proposalTemplateSlug={proposalTemplates.find((t) => t.id === proposalTemplateId)?.slug || "standard"}
         />
       </aside>
 
@@ -1851,7 +1864,18 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             includedItems={quoteForm.includedItems}
             onIncludedItemsChange={(items) => {
               setQuoteForm(prev => ({ ...prev, includedItems: items }));
-              setQuoteDirty(true);
+            }}
+            onIncludedItemsSave={async (items) => {
+              setQuoteForm(prev => ({ ...prev, includedItems: items }));
+              try {
+                const res = await fetch(`/api/cpq/quotes/${quoteId}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ includedItems: items }),
+                });
+                const data = await res.json();
+                if (data.success) setQuote(data.data);
+              } catch {}
             }}
             quoteId={quoteId}
             quoteCode={quote.code}
@@ -1870,6 +1894,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
               return c?.email || undefined;
             })()}
+            proposalTemplateSlug={proposalTemplates.find((t) => t.id === proposalTemplateId)?.slug || "standard"}
           />
         }
         portalButton={
@@ -1877,7 +1902,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             className="w-full h-11 gap-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white"
             disabled={
               !quote ||
-              positions.length === 0 ||
+              (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
               quote.status === "sent" ||
               !crmContext.accountId ||
               !crmContext.contactId ||
@@ -1912,7 +1937,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             quoteId={quoteId}
             quoteCode={quote.code}
             clientName={quote.clientName || undefined}
-            disabled={!quote || positions.length === 0 || quote.status === "sent"}
+            disabled={!quote || (positions.length === 0 && (additionalLines?.length ?? 0) === 0) || quote.status === "sent"}
             hasAccount={!!crmContext.accountId}
             hasContact={!!crmContext.contactId}
             hasDeal={!!crmContext.dealId}
