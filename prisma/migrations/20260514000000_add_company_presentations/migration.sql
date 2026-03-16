@@ -48,7 +48,7 @@ DO $$ BEGIN
 END $$;
 
 -- Seed: Insert company-presentation template (if not exists)
-INSERT INTO "cpq"."proposal_templates" ("id", "tenant_id", "name", "slug", "description", "sections", "is_default", "active")
+INSERT INTO "cpq"."proposal_templates" ("id", "tenant_id", "name", "slug", "description", "sections", "is_default", "active", "created_at", "updated_at")
 SELECT
   uuid_generate_v4(),
   (SELECT "id" FROM public."Tenant" LIMIT 1),
@@ -70,7 +70,9 @@ SELECT
     "costBreakdown": false
   }'::jsonb,
   false,
-  true
+  true,
+  NOW(),
+  NOW()
 WHERE NOT EXISTS (
   SELECT 1 FROM "cpq"."proposal_templates" WHERE "slug" = 'company-presentation'
 );
