@@ -1,0 +1,1 @@
+export { AsistenciaDiariaClient } from "./AsistenciaDiariaClient";
