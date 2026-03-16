@@ -5,8 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import {
-  Loader2, ChevronDown,
+  ChevronDown,
 } from "lucide-react";
+import { SplashScreen } from "@/components/pwa/SplashScreen";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
 import { AuthTextInput } from "@/components/auth/AuthTextInput";
@@ -244,14 +245,7 @@ export function PortalClienteClient() {
 
   /* ── Mientras se restaura la sesión desde la cookie ── */
   if (restoringSession) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center p-4">
-        <div className="flex flex-col items-center gap-3 text-zinc-400">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <p className="text-sm">Cargando sesión...</p>
-        </div>
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   /* ══════════════════════════════════════ LOGIN ══════════════════════════════════════ */

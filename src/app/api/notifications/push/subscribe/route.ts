@@ -11,7 +11,7 @@ import { prisma } from '@/lib/prisma';
 // /api/portal/guardia/profile which trust guardiaId from query params.
 
 const VALID_USER_TYPES = new Set(['contact', 'guardia', 'admin']);
-const VALID_PORTAL_TYPES = new Set(['cliente', 'guardia', 'rondas', 'app']);
+const VALID_PORTAL_TYPES = new Set(['cliente', 'guardia', 'rondas', 'app', 'supervisor', 'marcacion', 'acceso']);
 
 export async function POST(req: NextRequest) {
   try {

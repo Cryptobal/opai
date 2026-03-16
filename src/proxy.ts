@@ -146,9 +146,66 @@ export default auth((req) => {
     return Response.redirect(new URL('/hub', req.nextUrl.origin));
   }
 
-  // Authenticated user on /welcome → skip to hub
+  // Authenticated user on /welcome → skip to hub (only for ERP sessions)
   if (pathname === '/welcome' && req.auth) {
-    return Response.redirect(new URL('/hub', req.nextUrl.origin));
+    const sessionPortal = (req.auth as any)?.portal as string | undefined;
+    // Only redirect to hub if the session is for the ERP (opai) or has no portal set (legacy)
+    if (!sessionPortal || sessionPortal === 'opai') {
+      return Response.redirect(new URL('/hub', req.nextUrl.origin));
+    }
+    // Supervisor or other portal sessions stay on /welcome (portal selector)
+  }
+
+  // ── Portal-aware session isolation ──
+  // Prevent Auth.js sessions from leaking between ERP admin and supervisor portal.
+  if (req.auth) {
+    const sessionPortal = (req.auth as any)?.portal as string | undefined;
+
+    // Supervisor portal: ensure session was created for supervisor context
+    if (pathname.startsWith('/portal/supervisor') || pathname.startsWith('/api/portal/supervisor')) {
+      if (sessionPortal && sessionPortal !== 'supervisor') {
+        // ERP session trying to access supervisor portal — treat as unauthenticated
+        if (pathname.startsWith('/api/')) {
+          return Response.json(
+            { success: false, error: 'Sesión no válida para este portal' },
+            { status: 401 },
+          );
+        }
+        const loginUrl = new URL('/opai/login', req.nextUrl.origin);
+        loginUrl.searchParams.set('portal', 'supervisor');
+        loginUrl.searchParams.set('callbackUrl', pathname);
+        return Response.redirect(loginUrl);
+      }
+    }
+
+    // ERP routes: ensure session was created for ERP context
+    if (
+      (pathname.startsWith('/opai') && pathname !== '/opai/login' && !pathname.startsWith('/opai/forgot') && !pathname.startsWith('/opai/reset')) ||
+      pathname.startsWith('/hub') ||
+      pathname.startsWith('/crm') ||
+      pathname.startsWith('/personas') ||
+      pathname.startsWith('/finanzas') ||
+      pathname.startsWith('/payroll') ||
+      pathname.startsWith('/ops') ||
+      pathname.startsWith('/te') ||
+      pathname.startsWith('/portales') ||
+      pathname.startsWith('/fiscalizacion') ||
+      pathname.startsWith('/inventario')
+    ) {
+      if (sessionPortal && sessionPortal !== 'opai') {
+        // Supervisor session trying to access ERP — treat as unauthenticated
+        if (pathname.startsWith('/api/')) {
+          return Response.json(
+            { success: false, error: 'Sesión no válida para este portal' },
+            { status: 401 },
+          );
+        }
+        const loginUrl = new URL('/opai/login', req.nextUrl.origin);
+        loginUrl.searchParams.set('portal', 'opai');
+        loginUrl.searchParams.set('callbackUrl', pathname);
+        return Response.redirect(loginUrl);
+      }
+    }
   }
 
   if (isPublicPath(pathname)) return;

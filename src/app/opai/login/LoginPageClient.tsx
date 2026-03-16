@@ -23,6 +23,7 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
   const [showPassword, setShowPassword] = useState(false);
   const searchParams = useSearchParams();
   const callbackUrl = callbackUrlProp ?? searchParams.get('callbackUrl') ?? '/hub';
+  const portal = searchParams.get('portal') ?? '';
   const error = errorProp ?? searchParams.get('error') ?? undefined;
   const success = successProp ?? searchParams.get('success') ?? undefined;
 
@@ -38,6 +39,7 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
 
       <form action={authenticate}>
         <input type="hidden" name="callbackUrl" value={callbackUrl} />
+        <input type="hidden" name="portal" value={portal} />
 
         {success && (
           <div

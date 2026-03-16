@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, ShieldX } from "lucide-react";
+import { ShieldX } from "lucide-react";
+import { SplashScreen } from "@/components/pwa/SplashScreen";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
 import { AuthButton } from "@/components/auth/AuthButton";
@@ -69,21 +70,7 @@ export function PortalSupervisorClient() {
   const ACCENT = "#8b5cf6";
 
   if (loading) {
-    return (
-      <AuthShell
-        portalId="supervisor"
-        accent={ACCENT}
-        accentRgb="139, 92, 246"
-        portalName="Supervisor"
-        portalSubtitle="Hub Operacional"
-        showBackLink={false}
-      >
-        <div className="flex flex-col items-center justify-center py-12 gap-3">
-          <Loader2 className="animate-spin" size={32} style={{ color: ACCENT }} />
-          <p className="text-sm text-[#6b7280]">Cargando portal...</p>
-        </div>
-      </AuthShell>
-    );
+    return <SplashScreen />;
   }
 
   if (error || !session) {

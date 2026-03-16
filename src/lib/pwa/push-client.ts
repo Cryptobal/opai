@@ -7,7 +7,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 
 export async function subscribeToPush(params: {
   registration: ServiceWorkerRegistration;
-  portalType: 'app' | 'cliente' | 'guardia' | 'rondas';
+  portalType: 'app' | 'cliente' | 'guardia' | 'rondas' | 'supervisor' | 'marcacion' | 'acceso';
   userType: 'admin' | 'contact' | 'guardia';
   userId: string;
   tenantId: string;

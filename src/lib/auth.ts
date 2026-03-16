@@ -18,6 +18,7 @@ declare module 'next-auth' {
     role: string;
     roleTemplateId?: string | null;
     tenantId: string;
+    portal?: string;
   }
   interface Session {
     user: {
@@ -28,6 +29,7 @@ declare module 'next-auth' {
       roleTemplateId?: string | null;
       tenantId: string;
     };
+    portal?: string;
   }
 }
 
@@ -37,6 +39,8 @@ declare module '@auth/core/jwt' {
     role: string;
     roleTemplateId?: string | null;
     tenantId: string;
+    /** Portal context: 'opai' | 'supervisor' — prevents cross-portal session leaks */
+    portal?: string;
     /** Epoch ms — última vez que se refrescó role desde BD */
     roleRefreshedAt?: number;
   }
@@ -52,11 +56,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Contraseña', type: 'password' },
+        portal: { label: 'Portal', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
         const email = String(credentials.email).trim().toLowerCase();
         const password = String(credentials.password);
+        const portal = credentials.portal ? String(credentials.portal) : 'opai';
 
         const { prisma } = await import('@/lib/prisma');
 
@@ -85,6 +91,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 role: "inspector_dt",
                 roleTemplateId: null,
                 tenantId: dtSession.tenantId,
+                portal,
               };
             }
           }
@@ -114,6 +121,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           role: admin.role,
           roleTemplateId: admin.roleTemplateId,
           tenantId: admin.tenantId,
+          portal,
         };
       },
     }),
@@ -126,6 +134,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.role = user.role;
         token.roleTemplateId = user.roleTemplateId ?? null;
         token.tenantId = user.tenantId;
+        token.portal = user.portal || 'opai';
         token.roleRefreshedAt = Date.now();
         return token;
       }
@@ -167,6 +176,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.roleTemplateId = token.roleTemplateId ?? null;
         session.user.tenantId = token.tenantId;
       }
+      session.portal = token.portal;
       return session;
     },
   },
@@ -175,7 +185,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 días (gold standard SaaS B2B)
+    maxAge: 90 * 24 * 60 * 60, // 90 días — sesiones PWA de larga duración
+    updateAge: 24 * 60 * 60,   // Refresh cada 24 horas
   },
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   trustHost: true,

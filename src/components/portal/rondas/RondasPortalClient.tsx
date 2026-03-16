@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { SplashScreen } from "@/components/pwa/SplashScreen";
 import { LoginScreen } from "./LoginScreen";
 import { DevicePairingScreen } from "./DevicePairingScreen";
 import { GuardSelectorHeader } from "./GuardSelectorHeader";
@@ -522,14 +522,7 @@ export function RondasPortalClient() {
   // --- Render ---
 
   if (authMode === "loading") {
-    return (
-      <div className="min-h-dvh flex items-center justify-center bg-[#0A0F1C]">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
-          <span className="text-sm text-zinc-400">Cargando...</span>
-        </div>
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   if (authMode === "pairing") {
