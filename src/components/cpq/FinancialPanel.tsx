@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { formatCurrency } from "@/components/cpq/utils";
-import { Loader2, Sparkles, ChevronDown, Maximize2, X } from "lucide-react";
+import { Loader2, Sparkles, ChevronDown, Maximize2, X, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QuoteIncludesEditor } from "@/components/cpq/QuoteIncludesEditor";
 import type {
@@ -542,9 +542,15 @@ function PreviewTab({
   const [fullscreen, setFullscreen] = useState(false);
   const refreshPreview = () => setPreviewKey((k) => k + 1);
 
+  /** On mobile open native browser PDF viewer (all pages, zoom, scroll).
+   *  On desktop open fullscreen Dialog with iframe (works fine). */
+  const openMobilePdf = () => {
+    window.open(pdfPreviewUrl, '_blank', 'noopener');
+  };
+
   return (
     <div className="flex flex-col h-full" inert={isLocked ? true : undefined}>
-      {/* ── Full-screen PDF dialog (mobile & desktop) ── */}
+      {/* ── Full-screen PDF dialog (desktop only — mobile uses native viewer) ── */}
       <Dialog open={fullscreen} onOpenChange={setFullscreen}>
         <DialogContent className="!fixed !inset-0 !translate-x-0 !translate-y-0 !max-w-none !w-screen !h-[100dvh] !max-h-[100dvh] !p-0 !border-0 !rounded-none bg-background [&>button]:hidden">
           <DialogTitle className="sr-only">Vista previa PDF</DialogTitle>
@@ -571,21 +577,26 @@ function PreviewTab({
         </DialogContent>
       </Dialog>
 
-      {/* ── PDF preview (inline for desktop sidebar) ── */}
+      {/* ── PDF preview ── */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="px-2 py-1.5 bg-muted/20 border-b border-border/40 flex items-center justify-between shrink-0">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Vista previa · {proposalTemplateSlug}
           </span>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setFullscreen(true)} className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300">
+            {/* Desktop: fullscreen dialog */}
+            <button type="button" onClick={() => setFullscreen(true)} className="hidden lg:inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300">
               <Maximize2 className="h-3 w-3" /> Pantalla completa
+            </button>
+            {/* Mobile: open in native browser viewer */}
+            <button type="button" onClick={openMobilePdf} className="lg:hidden inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300">
+              <ExternalLink className="h-3 w-3" /> Ver PDF
             </button>
             <button type="button" onClick={refreshPreview} className="text-[10px] text-teal-400 hover:text-teal-300">Refrescar</button>
           </div>
         </div>
-        {/* On mobile: show tap-to-expand prompt instead of tiny iframe */}
         <div className="flex-1 min-h-[200px] overflow-hidden bg-muted/10 relative">
+          {/* Desktop: inline iframe */}
           <iframe
             ref={iframeRef}
             key={previewKey}
@@ -593,14 +604,15 @@ function PreviewTab({
             title="Vista previa cotización"
             className="w-full h-full border-0 hidden lg:block"
           />
-          {/* Mobile: tappable area to open fullscreen */}
+          {/* Mobile: tap to open native PDF viewer in browser */}
           <button
             type="button"
-            onClick={() => setFullscreen(true)}
+            onClick={openMobilePdf}
             className="lg:hidden absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted/20"
           >
-            <Maximize2 className="h-8 w-8 text-muted-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">Tocar para ver PDF completo</span>
+            <ExternalLink className="h-8 w-8 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">Ver PDF en el navegador</span>
+            <span className="text-[11px] text-muted-foreground/70">Todas las páginas · zoom · scroll</span>
           </button>
         </div>
       </div>
