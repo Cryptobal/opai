@@ -160,6 +160,22 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
         // Columns may not exist in prod yet
       }
 
+      // Check for active company presentation
+      let hasActivePresentation = false
+      try {
+        const activePresentation = await prisma.crmCompanyPresentation.findFirst({
+          where: {
+            contactId: contact.id,
+            tenantId: contact.tenantId,
+            status: { in: ['sent', 'viewed'] },
+          },
+          select: { id: true },
+        })
+        hasActivePresentation = !!activePresentation
+      } catch {
+        // Table may not exist yet
+      }
+
       return {
         success: true,
         session: {
@@ -176,6 +192,7 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
           authenticatedAt: new Date().toISOString(),
           portalConfig,
           isProspect: contact.account.status === 'prospect',
+          hasActivePresentation,
           hasDemoData,
           portalTourShown,
           ejecutivoId,

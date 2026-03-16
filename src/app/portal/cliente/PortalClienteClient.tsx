@@ -422,6 +422,7 @@ export function PortalClienteClient() {
         activeSection={activeSection}
         onSection={setActiveSection}
         isProspect={session?.isProspect}
+        hasActivePresentation={session?.hasActivePresentation}
       />
 
       {/* Notificaciones sheet */}

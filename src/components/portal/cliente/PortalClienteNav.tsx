@@ -59,6 +59,7 @@ interface Props {
   activeSection: PortalSection
   onSection: (s: PortalSection) => void
   isProspect?: boolean
+  hasActivePresentation?: boolean
 }
 
 // Fixed 4 bottom-nav tabs for prospect mode; remaining modules go to "Más"
@@ -66,10 +67,12 @@ const PROSPECT_MAIN_IDS: PortalSection[] = ['dashboard', 'presentacion', 'propue
 
 const GROUP_ORDER: NavGroup[] = ['operaciones', 'comunicacion', 'documentacion', 'administracion']
 
-export function PortalClienteNav({ portalConfig, activeSection, onSection, isProspect }: Props) {
+export function PortalClienteNav({ portalConfig, activeSection, onSection, isProspect, hasActivePresentation }: Props) {
   const [moreOpen, setMoreOpen] = useState(false)
 
   const visibleItems = ALL_NAV_ITEMS.filter(item => {
+    // Show presentacion tab if there's an active presentation (regardless of prospect status)
+    if (item.id === 'presentacion') return isProspect || !!hasActivePresentation
     // Hide prospect-only items when not in prospect mode
     if (item.prospectOnly && !isProspect) return false
     // Hide config-gated items that are disabled
@@ -78,12 +81,17 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
   })
 
   // Prospect mode: fixed 4 tabs + "Más" with all other modules (demo)
+  // Client with active presentation: inject presentacion into main nav
   const mainItems = isProspect
     ? ALL_NAV_ITEMS.filter(item => PROSPECT_MAIN_IDS.includes(item.id))
-    : visibleItems.slice(0, 4)
+    : hasActivePresentation
+      ? [...visibleItems.slice(0, 4).filter(i => i.id !== 'presentacion'),
+         ...visibleItems.filter(i => i.id === 'presentacion')].slice(0, 5)
+      : visibleItems.slice(0, 4)
+  const mainIds = new Set(mainItems.map(i => i.id))
   const extraItems = isProspect
     ? ALL_NAV_ITEMS.filter(item => !PROSPECT_MAIN_IDS.includes(item.id) && !item.prospectOnly)
-    : visibleItems.slice(4)
+    : visibleItems.filter(item => !mainIds.has(item.id))
   const hasExtra = extraItems.length > 0
 
   // Group extra items
