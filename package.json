@@ -6,7 +6,7 @@
     "dev": "npm run build && npm run start",
     "dev:watch": "node ./node_modules/next/dist/bin/next dev",
     "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && node ./node_modules/next/dist/bin/next dev",
-    "build": "prisma generate && (prisma migrate resolve --applied 20260419000000_add_portal_type_to_push_subscriptions || true) && (prisma migrate resolve --applied 20260426000000_add_marcacion_opposition_fields || true) && prisma migrate deploy && NODE_OPTIONS='--max-old-space-size=8192' next build",
+    "build": "prisma generate && (prisma migrate resolve --applied 20260419000000_add_portal_type_to_push_subscriptions || true) && (prisma migrate resolve --applied 20260426000000_add_marcacion_opposition_fields || true) && (prisma migrate resolve --rolled-back 20260514000000_add_company_presentations || true) && prisma migrate deploy && NODE_OPTIONS='--max-old-space-size=8192' next build",
     "start": "next start",
     "start:dev": "npm run build && npm run start",
     "lint": "next lint",
