@@ -502,8 +502,7 @@ export function CrmContactDetailClient({
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 
-  const isProspectAccount = contact.account?.type === "prospect" || contact.account?.type !== "client";
-  const showPresentationAction = isProspectAccount && !!contact.email;
+  const showPresentationAction = !!contact.email;
 
   const headerActions: EntityHeaderAction[] = [
     { label: "Editar contacto", icon: Pencil, onClick: openEdit, primary: true },
