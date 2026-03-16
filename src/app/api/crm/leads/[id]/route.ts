@@ -101,6 +101,13 @@ export async function DELETE(
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
+    if (ctx.userRole !== "owner" && ctx.userRole !== "admin") {
+      return NextResponse.json(
+        { success: false, error: "Solo propietario o administrador pueden eliminar leads" },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
 
     const existing = await prisma.crmLead.findFirst({
@@ -110,6 +117,13 @@ export async function DELETE(
       return NextResponse.json(
         { success: false, error: "Prospecto no encontrado" },
         { status: 404 }
+      );
+    }
+
+    if (existing.status !== "rejected") {
+      return NextResponse.json(
+        { success: false, error: "Solo se pueden eliminar leads rechazados" },
+        { status: 400 }
       );
     }
 

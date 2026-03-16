@@ -17,8 +17,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CrmLead } from "@/types";
-import { Plus, Loader2, ChevronRight, UserPlus, Phone, Mail } from "lucide-react";
+import { Plus, Loader2, ChevronRight, UserPlus, Phone, Mail, Trash2 } from "lucide-react";
 import { StatusBadge } from "@/components/opai/StatusBadge";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
@@ -112,10 +113,14 @@ function getLeadFilterLabel(filter: LeadStatusFilter): string | null {
 export function CrmLeadsClient({
   initialLeads,
   initialStatusFilter = "pending",
+  userRole = "",
 }: {
   initialLeads: CrmLead[];
   initialStatusFilter?: LeadStatusFilter;
+  userRole?: string;
 }) {
+  const canDeleteRejectedLead =
+    (userRole === "owner" || userRole === "admin") as boolean;
   const [leads, setLeads] = useState<CrmLead[]>(initialLeads);
   const [form, setForm] = useState<LeadFormState>(DEFAULT_FORM);
   const [creating, setCreating] = useState(false);
@@ -125,8 +130,34 @@ export function CrmLeadsClient({
   const [sort, setSort] = useState("newest");
   const [view, setView] = useState<ViewMode>("cards");
   const [rejectReasonFilter, setRejectReasonFilter] = useState<LeadRejectReasonFilter>("all");
+  const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
+  const [deleteDeleting, setDeleteDeleting] = useState(false);
 
   const inputClassName = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
+
+  const handleDeleteLead = (e: React.MouseEvent, leadId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDeleteLeadId(leadId);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteLeadId) return;
+    setDeleteDeleting(true);
+    try {
+      const res = await fetch(`/api/crm/leads/${deleteLeadId}`, { method: "DELETE" });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload?.error || "Error al eliminar");
+      setLeads((prev) => prev.filter((l) => l.id !== deleteLeadId));
+      setDeleteLeadId(null);
+      toast.success("Lead eliminado");
+    } catch (err) {
+      console.error(err);
+      toast.error("No se pudo eliminar el lead");
+    } finally {
+      setDeleteDeleting(false);
+    }
+  };
 
   const counts = useMemo(() => ({
     total: leads.filter((l) => l.status !== "approved").length,
@@ -365,10 +396,23 @@ export function CrmLeadsClient({
                       </p>
                     )}
 
-                    {/* Footer: dates + chevron */}
+                    {/* Footer: dates + actions */}
                     <div className="flex items-center justify-between pt-0.5">
                       <CrmDates createdAt={lead.createdAt} />
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                      <div className="flex items-center gap-1">
+                        {lead.status === "rejected" && canDeleteRejectedLead && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => handleDeleteLead(e, lead.id)}
+                            title="Eliminar lead"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                      </div>
                     </div>
                   </Link>
                 );
@@ -443,12 +487,23 @@ export function CrmLeadsClient({
                         </div>
                       </div>
 
-                      {/* Right: CTA + chevron */}
+                      {/* Right: CTA + delete + chevron */}
                       <div className="flex items-center gap-2 shrink-0">
                         {(lead.status === "pending" || lead.status === "in_review") && (
                           <span className="text-xs text-primary font-medium group-hover:underline">
                             {lead.status === "in_review" ? "Revisar" : "Revisar y aprobar"}
                           </span>
+                        )}
+                        {lead.status === "rejected" && canDeleteRejectedLead && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => handleDeleteLead(e, lead.id)}
+                            title="Eliminar lead"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         )}
                         <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                       </div>
@@ -473,6 +528,18 @@ export function CrmLeadsClient({
         </CardContent>
       </Card>
 
+      <ConfirmDialog
+        open={!!deleteLeadId}
+        onOpenChange={(open) => !open && setDeleteLeadId(null)}
+        title="¿Eliminar lead rechazado?"
+        description="Esta acción no se puede deshacer. El lead se eliminará permanentemente."
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        onConfirm={handleConfirmDelete}
+        variant="destructive"
+        loading={deleteDeleting}
+        loadingLabel="Eliminando..."
+      />
     </div>
   );
 }

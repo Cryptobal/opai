@@ -48,6 +48,7 @@ export default async function CrmLeadsPage({
       <CrmLeadsClient
         initialLeads={initialLeads}
         initialStatusFilter={initialStatusFilter}
+        userRole={session.user?.role ?? ""}
       />
     </>
   );
