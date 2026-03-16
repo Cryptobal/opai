@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { formatCurrency } from "@/components/cpq/utils";
-import { Loader2, Sparkles, ChevronDown, Maximize2, X, ExternalLink } from "lucide-react";
+import { Loader2, Sparkles, ChevronDown, Maximize2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QuoteIncludesEditor } from "@/components/cpq/QuoteIncludesEditor";
 import type {
@@ -542,11 +542,6 @@ function PreviewTab({
   const [fullscreen, setFullscreen] = useState(false);
   const refreshPreview = () => setPreviewKey((k) => k + 1);
 
-  /** On mobile open native browser PDF viewer (all pages, zoom, scroll).
-   *  On desktop open fullscreen Dialog with iframe (works fine). */
-  const openMobilePdf = () => {
-    window.open(pdfPreviewUrl, '_blank', 'noopener');
-  };
 
   return (
     <div className="flex flex-col h-full" inert={isLocked ? true : undefined}>
@@ -588,10 +583,6 @@ function PreviewTab({
             <button type="button" onClick={() => setFullscreen(true)} className="hidden lg:inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300">
               <Maximize2 className="h-3 w-3" /> Pantalla completa
             </button>
-            {/* Mobile: open in native browser viewer */}
-            <button type="button" onClick={openMobilePdf} className="lg:hidden inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300">
-              <ExternalLink className="h-3 w-3" /> Ver PDF
-            </button>
             <button type="button" onClick={refreshPreview} className="text-[10px] text-teal-400 hover:text-teal-300">Refrescar</button>
           </div>
         </div>
@@ -602,18 +593,8 @@ function PreviewTab({
             key={previewKey}
             src={pdfPreviewUrl}
             title="Vista previa cotización"
-            className="w-full h-full border-0 hidden lg:block"
+            className="w-full h-full border-0"
           />
-          {/* Mobile: tap to open native PDF viewer in browser */}
-          <button
-            type="button"
-            onClick={openMobilePdf}
-            className="lg:hidden absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted/20"
-          >
-            <ExternalLink className="h-8 w-8 text-muted-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">Ver PDF en el navegador</span>
-            <span className="text-[11px] text-muted-foreground/70">Todas las páginas · zoom · scroll</span>
-          </button>
         </div>
       </div>
 
