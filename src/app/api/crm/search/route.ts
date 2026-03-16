@@ -242,7 +242,7 @@ export async function GET(request: NextRequest) {
         type: "lead",
         title: lead.companyName || name || "Lead sin nombre",
         subtitle: name ? `${name} · ${lead.email || ""}` : lead.email || lead.status || "",
-        href: "/crm/leads",
+        href: `/crm/leads/${lead.id}`,
       });
     }
 
