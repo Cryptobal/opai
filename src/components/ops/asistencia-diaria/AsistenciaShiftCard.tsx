@@ -172,7 +172,7 @@ export function AsistenciaShiftCard({
               <span className="text-amber-400">
                 {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
                 {te.amountJustification && (
-                  <Info className="h-3 w-3 text-amber-300 inline ml-0.5" title={te.amountJustification} />
+                  <span title={te.amountJustification ?? undefined}><Info className="h-3 w-3 text-amber-300 inline ml-0.5" /></span>
                 )}
               </span>
             )}
@@ -304,7 +304,7 @@ export function AsistenciaShiftCard({
                 {te.tipo === "hora_extra" ? `HHEE ${te.horasExtra ?? "?"}h` : "TE"}{" "}
                 {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
                 {te.amountJustification && (
-                  <Info className="h-3 w-3 text-amber-300 inline" title={te.amountJustification} />
+                  <span title={te.amountJustification ?? undefined}><Info className="h-3 w-3 text-amber-300 inline" /></span>
                 )}
               </span>
             )}
