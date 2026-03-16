@@ -1608,7 +1608,7 @@ model CrmContact {
 
 model CrmCompanyPresentation {
   id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  tenantId        String    @map("tenant_id") @db.Uuid
+  tenantId        String    @map("tenant_id")
   contactId       String    @map("contact_id") @db.Uuid
   installationId  String?   @map("installation_id") @db.Uuid
   templateId      String?   @map("template_id") @db.Uuid
@@ -1618,7 +1618,7 @@ model CrmCompanyPresentation {
 
   // Tracking
   sentAt          DateTime  @default(now()) @map("sent_at") @db.Timestamptz(6)
-  sentById        String    @map("sent_by_id") @db.Uuid
+  sentById        String    @map("sent_by_id")
   firstViewedAt   DateTime? @map("first_viewed_at") @db.Timestamptz(6)
   viewCount       Int       @default(0) @map("view_count")
   deactivatedAt   DateTime? @map("deactivated_at") @db.Timestamptz(6)

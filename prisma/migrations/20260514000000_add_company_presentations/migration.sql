@@ -1,13 +1,13 @@
 -- CreateTable (idempotent — table may already exist from a prior partial migration)
 CREATE TABLE IF NOT EXISTS "crm"."company_presentations" (
     "id" UUID NOT NULL DEFAULT uuid_generate_v4(),
-    "tenant_id" UUID NOT NULL,
+    "tenant_id" TEXT NOT NULL,
     "contact_id" UUID NOT NULL,
     "installation_id" UUID,
     "template_id" UUID,
     "status" VARCHAR(20) NOT NULL DEFAULT 'sent',
     "sent_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "sent_by_id" UUID NOT NULL,
+    "sent_by_id" TEXT NOT NULL,
     "first_viewed_at" TIMESTAMPTZ(6),
     "view_count" INTEGER NOT NULL DEFAULT 0,
     "deactivated_at" TIMESTAMPTZ(6),
@@ -18,6 +18,25 @@ CREATE TABLE IF NOT EXISTS "crm"."company_presentations" (
 
     CONSTRAINT "company_presentations_pkey" PRIMARY KEY ("id")
 );
+
+-- Fix column types: tenant_id and sent_by_id use cuid (TEXT), not UUID
+-- (idempotent — only alters if column is currently uuid)
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'crm' AND table_name = 'company_presentations'
+      AND column_name = 'tenant_id' AND data_type = 'uuid'
+  ) THEN
+    ALTER TABLE "crm"."company_presentations" ALTER COLUMN "tenant_id" TYPE TEXT;
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'crm' AND table_name = 'company_presentations'
+      AND column_name = 'sent_by_id' AND data_type = 'uuid'
+  ) THEN
+    ALTER TABLE "crm"."company_presentations" ALTER COLUMN "sent_by_id" TYPE TEXT;
+  END IF;
+END $$;
 
 -- CreateIndex (idempotent)
 CREATE INDEX IF NOT EXISTS "idx_crm_company_presentation_tenant" ON "crm"."company_presentations"("tenant_id");
