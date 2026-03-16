@@ -79,7 +79,7 @@ export async function POST(
       );
     }
 
-    // 2. Check no active presentation exists
+    // 2. Check for existing active presentation (reuse if exists)
     const activePresentation = await prisma.crmCompanyPresentation.findFirst({
       where: {
         contactId,
@@ -87,16 +87,6 @@ export async function POST(
         status: { in: ["sent", "viewed"] },
       },
     });
-
-    if (activePresentation) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Ya existe una presentación activa para este contacto",
-        },
-        { status: 409 }
-      );
-    }
 
     // 3. Resolve template
     let resolvedTemplateId = templateId || null;
@@ -127,7 +117,7 @@ export async function POST(
       pin = contact.portalPinVisible || "****";
     }
 
-    // Ensure account is set to prospect if not already active client
+    // Ensure account has portalEjecutivoId set
     if (contact.account.status !== "client_active") {
       await prisma.crmAccount.update({
         where: { id: contact.account.id },
@@ -138,18 +128,35 @@ export async function POST(
       });
     }
 
-    // 5. Create CrmCompanyPresentation record
-    const presentation = await prisma.crmCompanyPresentation.create({
-      data: {
-        tenantId: ctx.tenantId,
-        contactId,
-        installationId: installationId || null,
-        templateId: resolvedTemplateId,
-        status: "sent",
-        sentById: ctx.userId,
-        notes: notes || null,
-      },
-    });
+    // 5. Create or reuse CrmCompanyPresentation record
+    let presentation;
+    const isResend = !!activePresentation;
+    if (activePresentation) {
+      // Reuse existing presentation — update sentAt and notes
+      presentation = await prisma.crmCompanyPresentation.update({
+        where: { id: activePresentation.id },
+        data: {
+          sentAt: new Date(),
+          sentById: ctx.userId,
+          notes: notes || activePresentation.notes,
+          status: "sent",
+          installationId: installationId || activePresentation.installationId,
+          templateId: resolvedTemplateId || activePresentation.templateId,
+        },
+      });
+    } else {
+      presentation = await prisma.crmCompanyPresentation.create({
+        data: {
+          tenantId: ctx.tenantId,
+          contactId,
+          installationId: installationId || null,
+          templateId: resolvedTemplateId,
+          status: "sent",
+          sentById: ctx.userId,
+          notes: notes || null,
+        },
+      });
+    }
 
     // 6. Get ejecutivo name
     const ejecutivo = await prisma.admin.findUnique({
@@ -196,7 +203,7 @@ export async function POST(
         tenantId: ctx.tenantId,
         entityType: "contact",
         entityId: contactId,
-        action: "company_presentation_sent",
+        action: isResend ? "company_presentation_resent" : "company_presentation_sent",
         details: {
           to: contact.email,
           contactName,
@@ -204,6 +211,7 @@ export async function POST(
           emailId: emailResult?.data?.id || null,
           portalUrl,
           portalAccessCreated,
+          isResend,
         },
         createdBy: ctx.userId,
       },
