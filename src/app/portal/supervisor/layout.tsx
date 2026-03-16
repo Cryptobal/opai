@@ -33,7 +33,7 @@ export default async function PortalSupervisorLayout({
 }) {
   const session = await auth();
   if (!session) {
-    redirect("/opai/login?callbackUrl=/portal/supervisor");
+    redirect("/opai/login?portal=supervisor&callbackUrl=/portal/supervisor");
   }
   return (
     <div className="min-h-dvh text-white" style={{ paddingTop: 'var(--safe-area-top)' }}>

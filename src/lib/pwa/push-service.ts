@@ -244,13 +244,14 @@ export async function sendPushToPortalUser({
   // 1b. Check global config
   if (!(await isGloballyEnabled(tenantId, notifKey))) return;
 
-  // 2. Get active push subscriptions
+  // 2. Get active push subscriptions — filtered by portal to avoid cross-portal notifications
   const subscriberType = toChatSenderType(userType);
   const subscriptions = await prisma.chatPushSubscription.findMany({
     where: {
       tenantId,
       subscriberType: subscriberType,
       subscriberId: userId,
+      portalType: portalType,
       isActive: true,
     },
   });
