@@ -248,8 +248,33 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
         const itemsData = await itemsRes.json();
         const suggestionsData = await suggestionsRes.json();
 
-        if (itemsData.success) setItems(itemsData.data);
         if (suggestionsData.success) setSuggestions(suggestionsData.data);
+
+        // If quote has no includes yet, auto-add defaults
+        const loadedItems: IncludesItem[] = itemsData.success ? itemsData.data : [];
+        if (loadedItems.length === 0 && suggestionsData.success) {
+          const defaults = (suggestionsData.data as IncludesSuggestion[]).filter((s) => s.isDefault);
+          if (defaults.length > 0) {
+            const created: IncludesItem[] = [];
+            for (const s of defaults) {
+              try {
+                const res = await fetch(`/api/cpq/quotes/${quoteId}/includes`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ suggestionId: s.id, text: s.text }),
+                });
+                if (cancelled) return;
+                const data = await res.json();
+                if (data.success) created.push(data.data);
+              } catch { /* skip */ }
+            }
+            setItems(created);
+          } else {
+            setItems(loadedItems);
+          }
+        } else {
+          setItems(loadedItems);
+        }
       } catch (err) {
         console.error("Error loading includes data:", err);
       } finally {

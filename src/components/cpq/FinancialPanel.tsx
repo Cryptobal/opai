@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { formatCurrency } from "@/components/cpq/utils";
-import { Loader2, Sparkles, ChevronDown, Maximize2, X } from "lucide-react";
+import { Loader2, Sparkles, ChevronDown, Maximize2, X, FileText } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QuoteIncludesEditor } from "@/components/cpq/QuoteIncludesEditor";
 import type {
@@ -573,21 +573,33 @@ function PreviewTab({
       </Dialog>
 
       {/* ── PDF preview ── */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* Mobile: just a button to open PDF in new tab */}
+      <div className="lg:hidden p-4 flex flex-col items-center gap-3">
+        <a
+          href={pdfPreviewUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium transition-colors w-full justify-center"
+        >
+          <FileText className="h-4 w-4" />
+          Ver en PDF
+        </a>
+      </div>
+
+      {/* Desktop: inline iframe preview */}
+      <div className="hidden lg:flex flex-1 flex-col min-h-0 overflow-hidden">
         <div className="px-2 py-1.5 bg-muted/20 border-b border-border/40 flex items-center justify-between shrink-0">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Vista previa · {proposalTemplateSlug}
           </span>
           <div className="flex items-center gap-2">
-            {/* Desktop: fullscreen dialog */}
-            <button type="button" onClick={() => setFullscreen(true)} className="hidden lg:inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300">
+            <button type="button" onClick={() => setFullscreen(true)} className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300">
               <Maximize2 className="h-3 w-3" /> Pantalla completa
             </button>
             <button type="button" onClick={refreshPreview} className="text-[10px] text-teal-400 hover:text-teal-300">Refrescar</button>
           </div>
         </div>
         <div className="flex-1 min-h-[200px] overflow-hidden bg-muted/10 relative">
-          {/* Desktop: inline iframe */}
           <iframe
             ref={iframeRef}
             key={previewKey}
