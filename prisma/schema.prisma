@@ -917,6 +917,7 @@ model CpqQuote {
   infrastructure   CpqQuoteInfrastructure[]
   additionalLines  CpqQuoteAdditionalLine[]
   attachments      CpqQuoteAttachment[]
+  includesItems    CpqQuoteIncludesItem[]
   installation     CrmInstallation?         @relation(fields: [installationId], references: [id], onDelete: SetNull)
   proposalTemplate CpqProposalTemplate?     @relation(fields: [proposalTemplateId], references: [id])
 
@@ -948,6 +949,46 @@ model CpqProposalTemplate {
   @@unique([tenantId, slug], map: "uq_cpq_proposal_template_tenant_slug")
   @@index([tenantId], map: "idx_cpq_proposal_templates_tenant")
   @@map("proposal_templates")
+  @@schema("cpq")
+}
+
+model CpqIncludesSuggestion {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String?  @map("tenant_id")
+  text        String
+  category    String?
+  serviceType String?  @map("service_type")
+  isDefault   Boolean  @default(true) @map("is_default")
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  quoteItems CpqQuoteIncludesItem[]
+
+  @@index([tenantId], map: "idx_cpq_includes_suggestions_tenant")
+  @@index([isActive, sortOrder], map: "idx_cpq_includes_suggestions_active_sort")
+  @@map("includes_suggestions")
+  @@schema("cpq")
+}
+
+model CpqQuoteIncludesItem {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  quoteId      String   @map("quote_id") @db.Uuid
+  text         String
+  sortOrder    Int      @default(0) @map("sort_order")
+  showInPdf    Boolean  @default(true) @map("show_in_pdf")
+  source       String   @default("suggestion") // "suggestion" | "custom"
+  suggestionId String?  @map("suggestion_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  quote      CpqQuote                @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  suggestion CpqIncludesSuggestion?  @relation(fields: [suggestionId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId], map: "idx_cpq_quote_includes_items_quote")
+  @@index([quoteId, sortOrder], map: "idx_cpq_quote_includes_items_sort")
+  @@map("quote_includes_items")
   @@schema("cpq")
 }
 

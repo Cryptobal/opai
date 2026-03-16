@@ -919,17 +919,7 @@ export function QuotationPDF(props: QuotationPDFProps) {
   const totalGuards = positions.reduce((s, p) => s + p.guards * p.quantity, 0);
   const paymentLabel = PAYMENT_LABELS[conditions.paymentTerms] || conditions.paymentTerms;
 
-  const displayItems =
-    includedItems.length > 0
-      ? includedItems
-      : [
-          'Personal acreditado ante OS-10 de Carabineros',
-          'Supervision periodica en terreno',
-          'Cobertura por ausencias (reemplazo max. 4 hrs)',
-          'Seguro responsabilidad civil y accidentes laborales',
-          'Libro de novedades digital via OPAI',
-          'Reporteria mensual de operaciones',
-        ];
+  const displayItems = includedItems;
 
   const showDetailedAdditional = sec.showAdditionalServices && hasDetailedAdditional &&
     (sec.showCostBreakdown || sec.showLaborDetail);
@@ -1098,7 +1088,7 @@ export function QuotationPDF(props: QuotationPDFProps) {
               </View>
             )}
 
-            {sec.showIncludedItems && (
+            {sec.showIncludedItems && displayItems.length > 0 && (
               <View wrap={false}>
                 <SectionTitle numbered={numbered} num={nextNum()}>El servicio incluye</SectionTitle>
                 <View style={{ marginBottom: 8 }}>

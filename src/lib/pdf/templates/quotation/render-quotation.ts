@@ -509,17 +509,7 @@ export async function renderQuotationToBuffer(
     (sec.showCostBreakdown || sec.showLaborDetail);
   const showSimpleAdditional = sec.showAdditionalServices && hasAdditional && !showDetailedAdditional;
 
-  const displayItems =
-    includedItems.length > 0
-      ? includedItems
-      : [
-          'Personal acreditado ante OS-10 de Carabineros',
-          'Supervision periodica en terreno',
-          'Cobertura por ausencias (reemplazo max. 4 hrs)',
-          'Seguro responsabilidad civil y accidentes laborales',
-          'Libro de novedades digital via OPAI',
-          'Reporteria mensual de operaciones',
-        ];
+  const displayItems = includedItems;
 
   /* ─── Reusable sub-trees ─── */
 
@@ -962,7 +952,7 @@ export async function renderQuotationToBuffer(
                 ),
               )
             : null,
-          sec.showIncludedItems
+          sec.showIncludedItems && displayItems.length > 0
             ? e(
                 View,
                 { wrap: false },

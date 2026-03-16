@@ -1763,22 +1763,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               body: JSON.stringify({ serviceDetail: v }),
             }).catch(() => {});
           }}
-          includedItems={quoteForm.includedItems}
-          onIncludedItemsChange={(items) => {
-            setQuoteForm(prev => ({ ...prev, includedItems: items }));
-          }}
-          onIncludedItemsSave={async (items) => {
-            setQuoteForm(prev => ({ ...prev, includedItems: items }));
-            try {
-              const res = await fetch(`/api/cpq/quotes/${quoteId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ includedItems: items }),
-              });
-              const data = await res.json();
-              if (data.success) setQuote(data.data);
-            } catch {}
-          }}
           quoteId={quoteId}
           quoteCode={quote.code}
           sendingPortal={sendingPortal}
@@ -1860,22 +1844,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ serviceDetail: v }),
               }).catch(() => {});
-            }}
-            includedItems={quoteForm.includedItems}
-            onIncludedItemsChange={(items) => {
-              setQuoteForm(prev => ({ ...prev, includedItems: items }));
-            }}
-            onIncludedItemsSave={async (items) => {
-              setQuoteForm(prev => ({ ...prev, includedItems: items }));
-              try {
-                const res = await fetch(`/api/cpq/quotes/${quoteId}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ includedItems: items }),
-                });
-                const data = await res.json();
-                if (data.success) setQuote(data.data);
-              } catch {}
             }}
             quoteId={quoteId}
             quoteCode={quote.code}
