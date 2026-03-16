@@ -336,6 +336,43 @@ export async function GET(
 
   const templateSections = (quote.proposalTemplate?.sections ?? null) as Record<string, boolean> | null;
 
+  /* ── Build labor breakdown for portal ── */
+  let laborBreakdown: { totalGuardias: number; totalMensual: number; positionDetails: Array<{
+    name: string; totalGuardsInPosition: number; baseSalary: number; gratification: number;
+    totalImponible: number; sisEmployer: number; afcEmployer: number; mutualEmployer: number;
+    vacationProvision: number; severanceProvision: number; totalLaborCost: number;
+  }> } | undefined;
+  if (costBreakdown && costBreakdown.positions.length > 0) {
+    const posGuards = costBreakdown.positions.reduce((s, p) => s + p.totalGuardsInPosition, 0);
+    laborBreakdown = {
+      totalGuardias: posGuards,
+      totalMensual: costBreakdown.totalLaborCost,
+      positionDetails: costBreakdown.positions.map((p) => ({
+        name: p.name,
+        totalGuardsInPosition: p.totalGuardsInPosition,
+        baseSalary: p.baseSalary,
+        gratification: p.gratification,
+        totalImponible: p.totalImponible,
+        sisEmployer: p.sisEmployer,
+        afcEmployer: p.afcEmployer,
+        mutualEmployer: p.mutualEmployer,
+        vacationProvision: p.vacationProvision,
+        severanceProvision: p.severanceProvision,
+        totalLaborCost: p.totalLaborCost,
+      })),
+    };
+  }
+
+  /* ── Compliance items ── */
+  const complianceItems = [
+    "Ley 21.659 — Seguridad Privada",
+    "D.S. 594 — Condiciones sanitarias y ambientales",
+    "D.L. 3.607 — Vigilantes privados",
+    "Ley 16.744 — Seguro contra accidentes del trabajo",
+    "Código del Trabajo — Jornada y descansos",
+    "D.S. 40 — Prevención de riesgos profesionales",
+  ];
+
   return NextResponse.json({
     success: true,
     data: {
@@ -364,6 +401,8 @@ export async function GET(
       templateSlug: quote.proposalTemplate?.slug ?? "standard",
       templateSections,
       costsByCategory,
+      laborBreakdown,
+      complianceItems,
     },
   });
 }

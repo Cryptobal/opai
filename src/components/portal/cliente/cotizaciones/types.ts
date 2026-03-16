@@ -61,6 +61,28 @@ export interface CostByCategoryPortal {
   subtotal: number;
 }
 
+/** Per-position labor detail for portal display */
+export interface LaborPositionDetail {
+  name: string;
+  totalGuardsInPosition: number;
+  baseSalary: number;
+  gratification: number;
+  totalImponible: number;
+  sisEmployer: number;
+  afcEmployer: number;
+  mutualEmployer: number;
+  vacationProvision: number;
+  severanceProvision: number;
+  totalLaborCost: number;
+}
+
+/** Labor breakdown summary for portal display */
+export interface LaborBreakdownPortal {
+  totalGuardias: number;
+  totalMensual: number;
+  positionDetails: LaborPositionDetail[];
+}
+
 export interface QuoteDetail extends QuoteSummary {
   positions: Position[];
   additionalLines?: AdditionalLine[];
@@ -78,6 +100,10 @@ export interface QuoteDetail extends QuoteSummary {
   templateSlug?: string;
   templateSections?: Record<string, boolean> | null;
   costsByCategory?: CostByCategoryPortal[];
+  /** Labor breakdown for "Detalle de Mano de Obra" section */
+  laborBreakdown?: LaborBreakdownPortal;
+  /** Compliance items for "Cumplimiento Normativo" section */
+  complianceItems?: string[];
 }
 
 export interface DealGroup {
