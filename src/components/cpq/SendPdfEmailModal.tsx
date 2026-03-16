@@ -27,6 +27,8 @@ interface SendPdfEmailModalProps {
   dealId?: string;
   /** Compact trigger for header placement */
   triggerClassName?: string;
+  /** Called before sending to flush pending saves */
+  onBeforeSend?: () => Promise<void>;
 }
 
 type Step = "compose" | "followup" | "sent";
@@ -40,6 +42,7 @@ export function SendPdfEmailModal({
   disabled,
   dealId,
   triggerClassName,
+  onBeforeSend,
 }: SendPdfEmailModalProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("compose");
@@ -119,6 +122,7 @@ export function SendPdfEmailModal({
     }
     setSending(true);
     try {
+      if (onBeforeSend) await onBeforeSend();
       const res = await fetch(`/api/cpq/quotes/${quoteId}/send-pdf-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

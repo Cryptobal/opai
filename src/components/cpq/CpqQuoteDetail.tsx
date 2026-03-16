@@ -43,7 +43,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Eye, Shield, Mail, Send } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Eye, Shield, Mail, Send, Check } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -630,9 +630,19 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     }
   };
 
+  /** Flush any pending debounced saves so the backend has the latest data */
+  const flushPendingSaves = async () => {
+    clearTimeout(financialsAutoSaveTimer.current);
+    clearTimeout(quoteFormAutoSaveTimer.current);
+    if (initialLoadDone.current && !isLocked) {
+      await Promise.all([handleSaveFinancials(), saveQuoteBasics()]);
+    }
+  };
+
   const handleDownloadPdf = async () => {
     setDownloadingPdf(true);
     try {
+      await flushPendingSaves();
       const response = await fetch(`/api/cpq/quotes/${quoteId}/export-pdf`, {
         method: "POST",
       });
@@ -1030,6 +1040,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               disabled={!crmContext.contactId || !crmContacts.find((x) => x.id === crmContext.contactId)?.email}
               dealId={crmContext.dealId || undefined}
               triggerClassName="h-7 px-2 text-[11px] gap-1.5 shrink-0"
+              onBeforeSend={flushPendingSaves}
             />
             <SendCpqQuoteModal
               quoteId={quoteId}
@@ -1484,19 +1495,36 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               );
             })}
             {!isLocked && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-                onClick={() =>
-                  setAdditionalLines((prev) => [
-                    ...prev,
-                    { nombre: "", descripcion: "", precio: 0, orden: prev.length, tipo: "servicio", recurrencia: "mensual", cantidad: 1, marginPct: null },
-                  ])
-                }
-              >
-                <Plus className="h-3.5 w-3.5" /> Agregar línea
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
+                  onClick={() =>
+                    setAdditionalLines((prev) => [
+                      ...prev,
+                      { nombre: "", descripcion: "", precio: 0, orden: prev.length, tipo: "servicio", recurrencia: "mensual", cantidad: 1, marginPct: null },
+                    ])
+                  }
+                >
+                  <Plus className="h-3.5 w-3.5" /> Agregar línea
+                </Button>
+                {additionalLines.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+                    disabled={savingFinancials}
+                    onClick={() => {
+                      clearTimeout(financialsAutoSaveTimer.current);
+                      handleSaveFinancials();
+                    }}
+                  >
+                    {savingFinancials ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    Guardar
+                  </Button>
+                )}
+              </div>
             )}
             {additionalLines.length > 0 && (
               <div className="flex items-center justify-between pt-1 border-t border-purple-500/20">
@@ -1898,6 +1926,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             companyName={quote.clientName || undefined}
             disabled={!crmContext.contactId || !crmContacts.find((x) => x.id === crmContext.contactId)?.email}
             dealId={crmContext.dealId || undefined}
+            onBeforeSend={flushPendingSaves}
           />
         }
         emailButton={
