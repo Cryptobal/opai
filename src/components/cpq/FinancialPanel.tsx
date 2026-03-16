@@ -11,7 +11,8 @@ import { Card } from "@/components/ui/card";
 import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { formatCurrency } from "@/components/cpq/utils";
-import { Loader2, Sparkles, ChevronDown, ExternalLink } from "lucide-react";
+import { Loader2, Sparkles, ChevronDown, Maximize2, X } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QuoteIncludesEditor } from "@/components/cpq/QuoteIncludesEditor";
 import type {
   CpqQuote,
@@ -538,36 +539,69 @@ function PreviewTab({
   const pdfPreviewUrl = `/api/cpq/quotes/${quoteId}/export-pdf?templateSlug=${encodeURIComponent(proposalTemplateSlug)}`;
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [previewKey, setPreviewKey] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
   const refreshPreview = () => setPreviewKey((k) => k + 1);
 
   return (
     <div className="flex flex-col h-full" inert={isLocked ? true : undefined}>
-      {/* ── PDF preview (real) ── */}
+      {/* ── Full-screen PDF dialog (mobile & desktop) ── */}
+      <Dialog open={fullscreen} onOpenChange={setFullscreen}>
+        <DialogContent className="!fixed !inset-0 !translate-x-0 !translate-y-0 !max-w-none !w-screen !h-[100dvh] !max-h-[100dvh] !p-0 !border-0 !rounded-none bg-background [&>button]:hidden">
+          <DialogTitle className="sr-only">Vista previa PDF</DialogTitle>
+          <DialogDescription className="sr-only">PDF de la cotización a pantalla completa</DialogDescription>
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border/40 shrink-0">
+              <span className="text-xs font-semibold text-muted-foreground">Vista previa · {proposalTemplateSlug}</span>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => { setPreviewKey((k) => k + 1); }} className="text-[11px] text-teal-400 hover:text-teal-300">Refrescar</button>
+                <button type="button" onClick={() => setFullscreen(false)} className="p-1 rounded hover:bg-muted/50">
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0">
+              <iframe
+                key={`fs-${previewKey}`}
+                src={pdfPreviewUrl}
+                title="Vista previa cotización"
+                className="w-full h-full border-0"
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── PDF preview (inline for desktop sidebar) ── */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="px-2 py-1.5 bg-muted/20 border-b border-border/40 flex items-center justify-between shrink-0">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Vista previa · {proposalTemplateSlug}
           </span>
           <div className="flex items-center gap-2">
-            <a
-              href={pdfPreviewUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 lg:hidden"
-            >
-              <ExternalLink className="h-3 w-3" /> Abrir PDF
-            </a>
+            <button type="button" onClick={() => setFullscreen(true)} className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300">
+              <Maximize2 className="h-3 w-3" /> Pantalla completa
+            </button>
             <button type="button" onClick={refreshPreview} className="text-[10px] text-teal-400 hover:text-teal-300">Refrescar</button>
           </div>
         </div>
-        <div className="flex-1 min-h-[200px] overflow-hidden bg-muted/10">
+        {/* On mobile: show tap-to-expand prompt instead of tiny iframe */}
+        <div className="flex-1 min-h-[200px] overflow-hidden bg-muted/10 relative">
           <iframe
             ref={iframeRef}
             key={previewKey}
             src={pdfPreviewUrl}
             title="Vista previa cotización"
-            className="w-full h-full border-0"
+            className="w-full h-full border-0 hidden lg:block"
           />
+          {/* Mobile: tappable area to open fullscreen */}
+          <button
+            type="button"
+            onClick={() => setFullscreen(true)}
+            className="lg:hidden absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted/20"
+          >
+            <Maximize2 className="h-8 w-8 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">Tocar para ver PDF completo</span>
+          </button>
         </div>
       </div>
 
