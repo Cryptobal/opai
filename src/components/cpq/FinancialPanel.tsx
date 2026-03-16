@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { formatCurrency } from "@/components/cpq/utils";
-import { Loader2, Sparkles, ChevronDown } from "lucide-react";
+import { Loader2, Sparkles, ChevronDown, ExternalLink } from "lucide-react";
 import { QuoteIncludesEditor } from "@/components/cpq/QuoteIncludesEditor";
 import type {
   CpqQuote,
@@ -548,7 +548,17 @@ function PreviewTab({
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Vista previa · {proposalTemplateSlug}
           </span>
-          <button type="button" onClick={refreshPreview} className="text-[10px] text-teal-400 hover:text-teal-300">Refrescar</button>
+          <div className="flex items-center gap-2">
+            <a
+              href={pdfPreviewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 lg:hidden"
+            >
+              <ExternalLink className="h-3 w-3" /> Abrir PDF
+            </a>
+            <button type="button" onClick={refreshPreview} className="text-[10px] text-teal-400 hover:text-teal-300">Refrescar</button>
+          </div>
         </div>
         <div className="flex-1 min-h-[200px] overflow-hidden bg-muted/10">
           <iframe
