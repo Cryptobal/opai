@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { validateClienteSession, parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import { validateClienteSession, parsePortalClienteSessionCookie, refreshPortalSession } from "@/lib/portal-cliente";
 import type { ClienteSession } from "@/lib/portal-cliente-types";
 
 const PORTAL_CLIENTE_SESSION_COOKIE = "portal_cliente_session";
@@ -25,9 +25,46 @@ export async function GET() {
   const session = parsePortalClienteSessionCookie(
     cookieStore.get(PORTAL_CLIENTE_SESSION_COOKIE)?.value
   );
-  if (!session?.installations?.length)
+  if (!session?.contactId || !session?.tenantId)
     return NextResponse.json({ success: false }, { status: 401 });
-  return NextResponse.json({ success: true, data: session });
+
+  // Re-validate dynamic fields against DB on every page load
+  const fresh = await refreshPortalSession(session.contactId, session.tenantId);
+  if (!fresh) {
+    // Contact or account no longer accessible — invalidate session
+    const res = NextResponse.json({ success: false }, { status: 401 });
+    res.cookies.set({
+      name: PORTAL_CLIENTE_SESSION_COOKIE,
+      value: "",
+      maxAge: 0,
+      path: "/",
+    });
+    return res;
+  }
+
+  // Check if anything changed
+  const hasChanged =
+    session.isProspect !== fresh.isProspect ||
+    session.hasActivePresentation !== fresh.hasActivePresentation ||
+    session.accountName !== fresh.accountName ||
+    (session.installations?.length ?? 0) !== fresh.installations.length;
+
+  const updatedSession: ClienteSession = {
+    ...session,
+    isProspect: fresh.isProspect,
+    hasActivePresentation: fresh.hasActivePresentation,
+    accountName: fresh.accountName,
+    installations: fresh.installations,
+  };
+
+  const res = NextResponse.json({ success: true, data: updatedSession });
+
+  // Update cookie if something changed
+  if (hasChanged) {
+    res.cookies.set(setSessionCookie(updatedSession));
+  }
+
+  return res;
 }
 
 export async function POST(request: NextRequest) {

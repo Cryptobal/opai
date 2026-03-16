@@ -24,6 +24,72 @@ export function sanitizeGuardName(firstName: string, lastName: string): string {
   return lastInitial ? `${lastInitial}. ${first}` : first;
 }
 
+/** Re-valida campos dinámicos de la sesión contra la DB (sin necesitar PIN). */
+export async function refreshPortalSession(contactId: string, tenantId: string): Promise<{
+  isProspect: boolean;
+  hasActivePresentation: boolean;
+  accountName: string;
+  installations: Array<{ id: string; name: string }>;
+} | null> {
+  try {
+    const contact = await prisma.crmContact.findUnique({
+      where: { id: contactId },
+      select: {
+        tenantId: true,
+        accountId: true,
+        account: {
+          select: {
+            name: true,
+            status: true,
+            isActive: true,
+            installations: {
+              where: { status: "active" },
+              select: { id: true, name: true },
+              orderBy: { name: "asc" },
+            },
+          },
+        },
+      },
+    });
+
+    if (!contact?.account) return null;
+    if (contact.tenantId !== tenantId) return null;
+
+    // Same logic as validateClienteSession: account must be accessible
+    const acct = contact.account;
+    const isAccessible =
+      acct.status === "client_active" ||
+      acct.status === "prospect" ||
+      (acct.isActive && acct.status !== "client_inactive");
+    if (!isAccessible) return null;
+
+    let hasActivePresentation = false;
+    try {
+      const pres = await prisma.crmCompanyPresentation.findFirst({
+        where: {
+          contactId,
+          tenantId,
+          status: { in: ["sent", "viewed"] },
+        },
+        select: { id: true },
+      });
+      hasActivePresentation = !!pres;
+    } catch {
+      // Table may not exist yet
+    }
+
+    return {
+      isProspect: acct.status === "prospect",
+      hasActivePresentation,
+      accountName: acct.name,
+      installations: acct.installations,
+    };
+  } catch (error) {
+    console.error("[Portal] Error refreshing session:", error);
+    return null;
+  }
+}
+
 /** Valida sesión por email + PIN. Busca contactos con portal habilitado por email (case-insensitive). */
 export async function validateClienteSession(email: string, pin: string, ip?: string): Promise<{
   success: boolean;

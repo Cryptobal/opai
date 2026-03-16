@@ -41,6 +41,8 @@ type ContactRow = {
   account?: {
     id: string;
     name: string;
+    status?: string | null;
+    type?: string | null;
   } | null;
 };
 
@@ -446,6 +448,12 @@ export function CrmContactsClient({
                             PIN: {contact.portalPinVisible}
                           </span>
                         )}
+                        {contact.account?.status === "prospect" && (
+                          <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400 bg-amber-500/10">Prospecto</Badge>
+                        )}
+                        {(contact.account?.status === "client_active" || contact.account?.status === "active") && (
+                          <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400 bg-emerald-500/10">Activo</Badge>
+                        )}
                       </div>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {contact.email || "Sin email"} · {contact.phone || "Sin teléfono"}
@@ -486,6 +494,12 @@ export function CrmContactsClient({
                               <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
                                 PIN: {contact.portalPinVisible}
                               </span>
+                            )}
+                            {contact.account?.status === "prospect" && (
+                              <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400 bg-amber-500/10">Prospecto</Badge>
+                            )}
+                            {(contact.account?.status === "client_active" || contact.account?.status === "active") && (
+                              <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400 bg-emerald-500/10">Activo</Badge>
                             )}
                           </div>
                           <p className="text-[11px] text-muted-foreground">{contact.roleTitle || "Sin cargo"}</p>
