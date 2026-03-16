@@ -116,6 +116,28 @@ const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];
 
+/* ── Pautas sub-items (shown in bottom nav when inside any pautas page) ── */
+
+const PAUTAS_ROUTES = [
+  "/ops/pauta-mensual",
+  "/ops/pauta-diaria",
+  "/ops/turnos-extra",
+  "/ops/ppc",
+  "/ops/refuerzos",
+  "/ops/marcaciones",
+  "/ops/audit-pautas",
+];
+
+const PAUTAS_ITEMS: (BottomNavItem & { subKey: string })[] = [
+  { key: "pautas-mensual", href: "/ops/pauta-mensual", label: "Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
+  { key: "pautas-diaria", href: "/ops/pauta-diaria", label: "Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
+  { key: "pautas-te", href: "/ops/turnos-extra", label: "Turnos Extra", icon: Clock3, subKey: "turnos_extra" },
+  { key: "pautas-ppc", href: "/ops/ppc", label: "PPC", icon: ShieldAlert, subKey: "ppc" },
+  { key: "pautas-refuerzos", href: "/ops/refuerzos", label: "Refuerzos", icon: Shield, subKey: "turnos_extra" },
+  { key: "pautas-marcaciones", href: "/ops/marcaciones", label: "Marcaciones", icon: Fingerprint, subKey: "marcaciones" },
+  { key: "pautas-auditoria", href: "/ops/audit-pautas", label: "Auditoría", icon: ClipboardList, subKey: "pauta_mensual" },
+];
+
 const RONDAS_ITEMS: BottomNavItem[] = [
   { key: "rondas-dashboard", href: "/ops/rondas", label: "Dashboard", icon: ClipboardList },
   { key: "rondas-monitoreo", href: "/ops/rondas/monitoreo", label: "Monitor", icon: Radio },
@@ -203,6 +225,11 @@ interface ModuleDetection {
 }
 
 const MODULE_DETECTIONS: ModuleDetection[] = [
+  {
+    test: (p) => PAUTAS_ROUTES.some((r) => p === r || p.startsWith(r + "/")),
+    getItems: (perms) =>
+      PAUTAS_ITEMS.filter((item) => canView(perms, "ops", item.subKey)),
+  },
   {
     test: (p) => p.startsWith("/ops/rondas"),
     getItems: () => RONDAS_ITEMS,
