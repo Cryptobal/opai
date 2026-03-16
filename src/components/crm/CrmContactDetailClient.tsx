@@ -53,6 +53,7 @@ import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { StartChatButton } from "@/components/chat/StartChatButton";
+import { SendPresentationDialog } from "./SendPresentationDialog";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -200,6 +201,7 @@ export function CrmContactDetailClient({
   });
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [presentationOpen, setPresentationOpen] = useState(false);
 
   // ── Email compose state ──
   const [emailOpen, setEmailOpen] = useState(false);
@@ -478,8 +480,12 @@ export function CrmContactDetailClient({
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 
+  const hasProspectInstallation = installations.some((i) => i.status === "prospect");
+  const showPresentationAction = hasProspectInstallation && !!contact.email && contact.account?.type !== "client";
+
   const headerActions: EntityHeaderAction[] = [
     { label: "Editar contacto", icon: Pencil, onClick: openEdit, primary: true },
+    { label: "Enviar Presentación", icon: Building2, onClick: () => setPresentationOpen(true), hidden: !showPresentationAction },
     { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected || !contact.email },
     { label: "WhatsApp", icon: MessageSquare, onClick: () => whatsappUrl && openWhatsApp(), hidden: !whatsappUrl },
     { label: "Eliminar contacto", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
@@ -836,6 +842,15 @@ export function CrmContactDetailClient({
       </Dialog>
 
       <ConfirmDialog open={deleteConfirm} onOpenChange={setDeleteConfirm} title="Eliminar contacto" description="El contacto será eliminado permanentemente." onConfirm={deleteContact} />
+
+      {/* ── Send Company Presentation Dialog ── */}
+      <SendPresentationDialog
+        open={presentationOpen}
+        onOpenChange={setPresentationOpen}
+        contact={contact}
+        installations={installations}
+        onSent={() => router.refresh()}
+      />
     </>
   );
 }

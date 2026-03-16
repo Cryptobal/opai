@@ -31,6 +31,7 @@ import { PortalEmpresa } from "@/components/portal/cliente/PortalEmpresa";
 import { PortalPersonal } from "@/components/portal/cliente/PortalPersonal";
 
 import { PortalNosotros } from "@/components/portal/cliente/PortalNosotros";
+import { CompanyPresentationView } from "@/components/portal/cliente/CompanyPresentationView";
 import { PortalAccessControl } from "@/components/portal/cliente/PortalAccessControl";
 import { PortalDesempeno } from "@/components/portal/cliente/PortalDesempeno";
 import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
@@ -219,6 +220,13 @@ export function PortalClienteClient() {
               onNavigate={(s) => setActiveSection(s as PortalSection)}
             />
           </div>
+        );
+      case "presentacion":
+        return (
+          <CompanyPresentationView
+            ejecutivoName={session?.ejecutivoName || undefined}
+            onNavigate={(s) => setActiveSection(s as PortalSection)}
+          />
         );
       case "nosotros":
         return <PortalNosotros onNavigate={(s) => setActiveSection(s as PortalSection)} />;

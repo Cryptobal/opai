@@ -38,6 +38,7 @@ export async function POST(
         id: true,
         code: true,
         dealId: true,
+        contactId: true,
         positions: { select: { numGuards: true, numPuestos: true } },
       },
     });
@@ -92,6 +93,25 @@ ${htmlBody.replace(/\n/g, "<br>")}
       where: { id },
       data: { status: "sent" },
     });
+
+    // Deactivate any active company presentations for this contact
+    if (quote.contactId) {
+      try {
+        await prisma.crmCompanyPresentation.updateMany({
+          where: {
+            contactId: quote.contactId,
+            status: { in: ["sent", "viewed"] },
+          },
+          data: {
+            status: "deactivated",
+            deactivatedAt: new Date(),
+            deactivatedBy: "auto_quote_sent",
+          },
+        });
+      } catch (deactivateError) {
+        console.error("Error deactivating company presentations:", deactivateError);
+      }
+    }
 
     // Build attachments: PDF + quote attachments
     const emailAttachments: { filename: string; content: Buffer; contentType: string }[] = [

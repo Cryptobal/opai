@@ -943,7 +943,8 @@ model CpqProposalTemplate {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  quotes CpqQuote[]
+  quotes               CpqQuote[]
+  companyPresentations CrmCompanyPresentation[]
 
   @@unique([tenantId, slug], map: "uq_cpq_proposal_template_tenant_slug")
   @@index([tenantId], map: "idx_cpq_proposal_templates_tenant")
@@ -1593,14 +1594,50 @@ model CrmContact {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  account      CrmAccount       @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  deals        CrmDeal[]        @relation("crm_deal_primary_contact")
-  dealContacts CrmDealContact[]
+  account               CrmAccount       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  deals                 CrmDeal[]        @relation("crm_deal_primary_contact")
+  dealContacts          CrmDealContact[]
+  companyPresentations  CrmCompanyPresentation[]
 
   @@index([tenantId], map: "idx_crm_contacts_tenant")
   @@index([accountId], map: "idx_crm_contacts_account")
   @@index([createdAt(sort: Desc)], map: "idx_crm_contacts_created_desc")
   @@map("contacts")
+  @@schema("crm")
+}
+
+model CrmCompanyPresentation {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  contactId       String    @map("contact_id") @db.Uuid
+  installationId  String?   @map("installation_id") @db.Uuid
+  templateId      String?   @map("template_id") @db.Uuid
+
+  // Estado: "sent" | "viewed" | "deactivated"
+  status          String    @default("sent") @db.VarChar(20)
+
+  // Tracking
+  sentAt          DateTime  @default(now()) @map("sent_at") @db.Timestamptz(6)
+  sentById        String    @map("sent_by_id") @db.Uuid
+  firstViewedAt   DateTime? @map("first_viewed_at") @db.Timestamptz(6)
+  viewCount       Int       @default(0) @map("view_count")
+  deactivatedAt   DateTime? @map("deactivated_at") @db.Timestamptz(6)
+  deactivatedBy   String?   @map("deactivated_by") @db.VarChar(30)
+  // deactivatedBy values: "manual" | "auto_quote_sent" | "auto_expired"
+
+  // Metadata
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relaciones
+  contact         CrmContact            @relation(fields: [contactId], references: [id])
+  template        CpqProposalTemplate?  @relation(fields: [templateId], references: [id])
+
+  @@index([tenantId], map: "idx_crm_company_presentation_tenant")
+  @@index([contactId], map: "idx_crm_company_presentation_contact")
+  @@index([status], map: "idx_crm_company_presentation_status")
+  @@map("company_presentations")
   @@schema("crm")
 }
 

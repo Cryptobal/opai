@@ -14,7 +14,7 @@ export type PortalSection =
   | 'tickets' | 'documentacion' | 'cotizaciones'
   | 'reportes' | 'comparativa' | 'alertas' | 'encuestas'
   | 'desempeno' | 'personal' | 'propuesta' | 'nosotros' | 'empresa'
-  | 'control-acceso'
+  | 'control-acceso' | 'presentacion'
 
 type NavGroup = 'operaciones' | 'comunicacion' | 'documentacion' | 'administracion'
 
@@ -49,6 +49,7 @@ const ALL_NAV_ITEMS: Array<{
   { id: 'personal', label: 'Personal', icon: UserCheck, group: 'administracion' },
   { id: 'empresa', label: 'Empresa', icon: Briefcase, group: 'administracion' },
   { id: 'control-acceso', label: 'Accesos', icon: ShieldCheck, group: 'administracion' },
+  { id: 'presentacion', label: 'Empresa', icon: Building, prospectOnly: true },
   { id: 'propuesta', label: 'Propuesta', icon: FileCheck2, prospectOnly: true },
   { id: 'nosotros', label: 'Gard', icon: Building, prospectOnly: true },
 ]
@@ -61,7 +62,7 @@ interface Props {
 }
 
 // Fixed 4 bottom-nav tabs for prospect mode; remaining modules go to "Más"
-const PROSPECT_MAIN_IDS: PortalSection[] = ['dashboard', 'propuesta', 'nosotros', 'chat']
+const PROSPECT_MAIN_IDS: PortalSection[] = ['dashboard', 'presentacion', 'propuesta', 'chat']
 
 const GROUP_ORDER: NavGroup[] = ['operaciones', 'comunicacion', 'documentacion', 'administracion']
 
