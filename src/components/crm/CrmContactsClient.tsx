@@ -174,7 +174,7 @@ export function CrmContactsClient({
       toast.success("Contacto creado");
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo crear el contacto.");
+      toast.error(error instanceof Error ? error.message : "No se pudo crear el contacto.");
     } finally {
       setLoading(false);
     }
@@ -223,7 +223,7 @@ export function CrmContactsClient({
       toast.success("Contacto actualizado");
     } catch (error) {
       console.error(error);
-      toast.error("No se pudo actualizar el contacto.");
+      toast.error(error instanceof Error ? error.message : "No se pudo actualizar el contacto.");
     } finally {
       setLoading(false);
     }

@@ -66,6 +66,23 @@ export async function PATCH(
     const parsed = await parseBody(request, updateContactSchema);
     if (parsed.error) return parsed.error;
 
+    // Check email uniqueness if email is being changed
+    if (parsed.data.email && parsed.data.email.toLowerCase() !== (existing.email || "").toLowerCase()) {
+      const emailDuplicate = await prisma.crmContact.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          email: { equals: parsed.data.email.trim(), mode: "insensitive" },
+          id: { not: id },
+        },
+      });
+      if (emailDuplicate) {
+        return NextResponse.json(
+          { success: false, error: `Ya existe un contacto con este email: ${emailDuplicate.firstName} ${emailDuplicate.lastName}` },
+          { status: 409 }
+        );
+      }
+    }
+
     const contact = await prisma.crmContact.update({
       where: { id },
       data: parsed.data,

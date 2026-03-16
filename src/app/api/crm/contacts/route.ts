@@ -57,11 +57,14 @@ export async function POST(request: NextRequest) {
       include: { account: true },
     });
     if (existing) {
-      if (existing.accountId === body.accountId) {
-        return NextResponse.json({ success: true, data: existing }, { status: 200 });
-      }
+      const accountName = existing.account?.name || "otra cuenta";
       return NextResponse.json(
-        { success: false, error: "Ya existe un contacto con este email en otra cuenta. Use el mismo para evitar duplicados." },
+        {
+          success: false,
+          error: existing.accountId === body.accountId
+            ? `Ya existe un contacto con este email: ${existing.firstName} ${existing.lastName}`
+            : `Ya existe un contacto con este email en ${accountName}. Use el mismo para evitar duplicados.`,
+        },
         { status: 409 }
       );
     }
@@ -139,6 +142,23 @@ export async function PATCH(request: NextRequest) {
         { success: false, error: "Contacto no encontrado" },
         { status: 404 }
       );
+    }
+
+    // Check email uniqueness if email is being changed
+    if (parsed.data.email && parsed.data.email.toLowerCase() !== (existing.email || "").toLowerCase()) {
+      const emailDuplicate = await prisma.crmContact.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          email: { equals: parsed.data.email.trim(), mode: "insensitive" },
+          id: { not: id },
+        },
+      });
+      if (emailDuplicate) {
+        return NextResponse.json(
+          { success: false, error: `Ya existe un contacto con este email: ${emailDuplicate.firstName} ${emailDuplicate.lastName}` },
+          { status: 409 }
+        );
+      }
     }
 
     // Un solo contacto principal por cuenta: si marcamos este como principal, quitar principal a los demás de la misma cuenta
