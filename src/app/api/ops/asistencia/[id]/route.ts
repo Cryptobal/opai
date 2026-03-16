@@ -374,10 +374,12 @@ export async function PATCH(
         nextStatus === "reemplazo" && Boolean(updatedAsistencia.replacementGuardiaId);
 
       if (shouldGenerateTe && updatedAsistencia.replacementGuardiaId) {
-        const amountClp =
+        const baseAmountClp =
           decimalToNumber(asistencia.puesto.teMontoClp) ||
           decimalToNumber(asistencia.installation.teMontoClp) ||
           0;
+        const amountClp = body.teAmountOverride ?? baseAmountClp;
+        const amountJustification = body.teAmountOverride ? (body.teAmountJustification ?? null) : null;
 
         const date = parseDateOnly(updatedAsistencia.date.toISOString().slice(0, 10));
 
@@ -390,6 +392,7 @@ export async function PATCH(
                 guardiaId: updatedAsistencia.replacementGuardiaId,
                 date,
                 amountClp,
+                amountJustification,
                 status: existingTe.status === "paid" ? "paid" : "pending",
                 rejectedAt: null,
                 rejectedBy: null,
@@ -405,6 +408,7 @@ export async function PATCH(
                 guardiaId: updatedAsistencia.replacementGuardiaId,
                 date,
                 amountClp,
+                amountJustification,
                 status: "pending",
                 createdBy: ctx.userId,
               },

@@ -159,6 +159,8 @@ export const updateAsistenciaSchema = z.object({
   forceDeletePaidTe: z.boolean().optional(),
   forceDeleteReason: z.string().trim().max(500).optional().nullable(),
   confirmarContradiccion: z.boolean().optional(),
+  teAmountOverride: z.coerce.number().positive("Monto debe ser positivo").optional(),
+  teAmountJustification: z.string().trim().min(3, "Mínimo 3 caracteres").max(500).optional(),
 });
 
 export const createGuardiaSchema = z.object({

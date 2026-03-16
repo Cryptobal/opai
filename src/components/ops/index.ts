@@ -2,7 +2,7 @@ export * from "./TeSubnav";
 export * from "./PautasSubnav";
 export * from "./OpsPuestosClient";
 export * from "./OpsPautaMensualClient";
-export * from "./OpsPautaDiariaClient";
+export { AsistenciaDiariaClient as OpsPautaDiariaClient } from "./asistencia-diaria";
 export * from "./OpsPpcClient";
 export * from "./PpcInstallationRanking";
 export * from "./TeDashboard";
