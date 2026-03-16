@@ -594,6 +594,16 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
             className="flex-1 text-xs bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/40 py-1"
             placeholder="Agregar ítem personalizado..."
           />
+          {customText.trim() && (
+            <button
+              type="button"
+              className="shrink-0 p-1 rounded hover:bg-teal-500/20 transition-colors"
+              onClick={handleAddCustom}
+              title="Guardar ítem"
+            >
+              <Check className="h-3.5 w-3.5 text-teal-400" />
+            </button>
+          )}
         </div>
       )}
 

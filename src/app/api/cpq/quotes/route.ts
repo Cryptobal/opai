@@ -96,6 +96,42 @@ export async function POST(request: NextRequest) {
       throw new Error('No se pudo generar código único después de múltiples intentos');
     }
 
+    // Auto-insert default includes
+    try {
+      const defaultSuggestions = await prisma.cpqIncludesSuggestion.findMany({
+        where: {
+          isDefault: true,
+          isActive: true,
+          OR: [{ tenantId: null }, { tenantId }],
+        },
+        orderBy: { sortOrder: "asc" },
+      });
+
+      if (defaultSuggestions.length > 0) {
+        await prisma.cpqQuoteIncludesItem.createMany({
+          data: defaultSuggestions.map((s, idx) => ({
+            quoteId: quote!.id,
+            text: s.text,
+            sortOrder: idx,
+            showInPdf: true,
+            source: "suggestion",
+            suggestionId: s.id,
+          })),
+        });
+
+        // Sync legacy includedItems field
+        await prisma.cpqQuote.update({
+          where: { id: quote!.id },
+          data: {
+            includedItems: defaultSuggestions.map((s) => s.text),
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Error auto-inserting default includes:", err);
+      // Non-blocking: quote was created successfully
+    }
+
     return NextResponse.json({ success: true, data: quote }, { status: 201 });
   } catch (error) {
     console.error("Error creating CPQ quote:", error);
