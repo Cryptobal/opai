@@ -4,7 +4,7 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -101,6 +101,8 @@ export interface FinancialPanelProps {
   dealId?: string;
   contactName?: string;
   contactEmail?: string;
+  /** Template slug for PDF preview (standard | detailed | tender) */
+  proposalTemplateSlug?: string;
 }
 
 /* ── Build breakdown data from props ── */
@@ -253,6 +255,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
     contactName,
     contactEmail,
     tenantBranding,
+    proposalTemplateSlug = "standard",
   } = props;
 
   const [activeTab, setActiveTab] = useState<"desglose" | "preview">("desglose");
@@ -444,6 +447,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
             contactName={contactName}
             contactEmail={contactEmail}
             tenantBranding={tenantBranding}
+            proposalTemplateSlug={proposalTemplateSlug}
           />
         )}
       </div>
@@ -495,6 +499,7 @@ interface PreviewTabProps {
   dealId?: string;
   contactName?: string;
   contactEmail?: string;
+  proposalTemplateSlug?: string;
 }
 
 function PreviewTab({
@@ -537,238 +542,68 @@ function PreviewTab({
   dealId,
   contactName,
   contactEmail,
+  proposalTemplateSlug = "standard",
 }: PreviewTabProps) {
-  const contact = crmContext.contactId
-    ? crmContacts.find((x) => x.id === crmContext.contactId)
-    : null;
-  const installation = crmContext.installationId
-    ? crmInstallations.find((x) => x.id === crmContext.installationId)
-    : null;
-  const deal = crmContext.dealId
-    ? crmDeals.find((d) => d.id === crmContext.dealId)
-    : null;
+  const [isSavingIncludes, setIsSavingIncludes] = useState(false);
+  const saveIncludesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const saveIncludedItems = useCallback(
+    async (items: string[]) => {
+      const cleaned = items.filter((i) => i.trim() !== "");
+      setIsSavingIncludes(true);
+      try {
+        await fetch(`/api/cpq/quotes/${quoteId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ includedItems: cleaned }),
+        });
+      } catch (e) {
+        console.error("Error saving included items:", e);
+      } finally {
+        setIsSavingIncludes(false);
+      }
+    },
+    [quoteId]
+  );
+
+  const handleIncludedItemsChange = useCallback(
+    (items: string[]) => {
+      onIncludedItemsChange(items);
+      if (saveIncludesTimerRef.current) clearTimeout(saveIncludesTimerRef.current);
+      saveIncludesTimerRef.current = setTimeout(() => {
+        saveIncludedItems(items);
+        saveIncludesTimerRef.current = null;
+      }, 800);
+    },
+    [onIncludedItemsChange, saveIncludedItems]
+  );
+
+  const handleRemoveIncludeItem = useCallback(
+    (idx: number) => {
+      const updated = includedItems.filter((_, i) => i !== idx);
+      onIncludedItemsChange(updated);
+      saveIncludedItems(updated);
+    },
+    [includedItems, onIncludedItemsChange, saveIncludedItems]
+  );
+
+  const pdfPreviewUrl = `/api/cpq/quotes/${quoteId}/export-pdf?templateSlug=${encodeURIComponent(proposalTemplateSlug)}`;
 
   return (
     <div className="flex flex-col h-full" inert={isLocked ? true : undefined}>
-      {/* ── Document preview ── */}
-      <div className="flex-1 overflow-y-auto">
+      {/* ── Document preview ── PDF real renderizado por server */}
+      <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
         <div className="px-2 py-1.5 bg-muted/20 border-b border-border/40">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Vista previa
           </span>
         </div>
-        <div
-          className="p-3 space-y-2 bg-white text-black text-xs overflow-hidden"
-          style={{ fontFamily: "Arial, sans-serif" }}
-        >
-          {/* Header */}
-          <div
-            className="flex justify-between items-start pb-1.5"
-            style={{ background: "#0f172a", margin: "-12px -12px 8px -12px", padding: "10px 12px", borderRadius: "4px 4px 0 0" }}
-          >
-            <div className="text-sm font-bold" style={{ color: "#14b8a6" }}>
-              {tenantBranding?.brandNameUpper || "EMPRESA"}
-            </div>
-            <div className="text-right text-[10px]" style={{ color: "#94a3b8" }}>
-              <p className="font-bold text-xs" style={{ color: "#14b8a6" }}>
-                {quote.code}
-                {quote.name ? ` — ${quote.name}` : ""}
-              </p>
-              <p>{quote.clientName || "Cliente"}</p>
-              {contact && (
-                <p>
-                  {contact.firstName} {contact.lastName}
-                </p>
-              )}
-              {installation && <p>{installation.name}</p>}
-              {quote.validUntil && (
-                <p>
-                  Valida hasta:{" "}
-                  {new Date(quote.validUntil).toLocaleDateString("es-CL")}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Deal / Installation banner */}
-          {(crmContext.dealId || crmContext.installationId) && (
-            <div
-              className="text-[10px] rounded"
-              style={{
-                padding: "4px 8px",
-                background: "#f8fafc",
-                borderLeft: "3px solid #14b8a6",
-                color: "#334155",
-              }}
-            >
-              {deal && (
-                <span>
-                  <strong>Negocio:</strong> {deal.title}
-                </span>
-              )}
-              {crmContext.dealId && crmContext.installationId && " · "}
-              {installation && (
-                <span>
-                  <strong>Instalacion:</strong> {installation.name}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* AI description */}
-          {aiDescription && (
-            <p className="text-[10px] text-gray-600 rounded p-1.5" style={{ background: "#f8fafc" }}>
-              {aiDescription}
-            </p>
-          )}
-
-          {/* Positions table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-[10px] sm:text-xs table-fixed">
-              <thead>
-                <tr style={{ background: "#f1f5f9", borderBottom: "2px solid #14b8a6" }}>
-                  <th className="text-left p-1 font-semibold max-w-[120px] w-[30%]" style={{ color: "#1e293b" }}>Puesto</th>
-                  <th className="text-left p-1 font-semibold w-[8%]" style={{ color: "#1e293b" }}>G</th>
-                  <th className="text-left p-1 font-semibold w-[8%]" style={{ color: "#1e293b" }}>Cant</th>
-                  <th className="text-left p-1 font-semibold w-[12%]" style={{ color: "#1e293b" }}>Dias</th>
-                  <th className="text-left p-1 font-semibold w-[18%]" style={{ color: "#1e293b" }}>Horario</th>
-                  <th className="text-right p-1 font-semibold w-[24%]" style={{ color: "#1e293b" }}>Precio</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positions.map((pos) => {
-                  const clp =
-                    positionSalePrices.get(pos.id) ??
-                    Number(pos.monthlyPositionCost);
-                  const formatted =
-                    crmContext.currency === "UF" && ufValue && ufValue > 0
-                      ? formatUFSuffix(clpToUf(clp, ufValue))
-                      : formatCLP(clp);
-                  return (
-                    <tr key={pos.id} className="border-b border-gray-100">
-                      <td className="p-1 truncate max-w-[120px]">
-                        {pos.customName ||
-                          pos.puestoTrabajo?.name ||
-                          "Puesto"}
-                      </td>
-                      <td className="p-1">{pos.numGuards}</td>
-                      <td className="p-1">{pos.numPuestos || 1}</td>
-                      <td className="p-1">
-                        {formatWeekdaysShort(pos.weekdays)}
-                      </td>
-                      <td className="p-1">
-                        {pos.startTime}-{pos.endTime}
-                      </td>
-                      <td className="p-1 text-right">{formatted}</td>
-                    </tr>
-                  );
-                })}
-                <tr
-                  className="font-semibold border-t"
-                  style={{ borderColor: "#14b8a6", background: "#f8fafc" }}
-                >
-                  <td colSpan={5} className="p-1 text-right" style={{ color: "#0f172a" }}>
-                    Subtotal guardias
-                  </td>
-                  <td className="p-1 text-right">
-                    {crmContext.currency === "UF" && ufValue && ufValue > 0
-                      ? formatUFSuffix(clpToUf(salePriceMonthly, ufValue))
-                      : formatCLP(salePriceMonthly)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Additional lines preview */}
-          {additionalLines.length > 0 && (
-            <div>
-              <p
-                className="text-[10px] font-semibold border-b pb-0.5 mb-1"
-                style={{ color: "#0f172a" }}
-              >
-                Servicios y Productos Adicionales
-              </p>
-              <div className="overflow-x-auto">
-              <table className="w-full text-[10px] sm:text-xs table-fixed">
-                <thead>
-                  <tr style={{ background: "#f1f5f9", borderBottom: "2px solid #14b8a6" }}>
-                    <th className="text-left p-1 font-semibold w-[30%]">
-                      Producto / Servicio
-                    </th>
-                    <th className="text-left p-1 font-semibold w-[40%]">
-                      Descripcion
-                    </th>
-                    <th className="text-right p-1 font-semibold w-[30%]">
-                      Valor Mensual
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {additionalLines
-                    .sort((a, b) => (a.orden || 0) - (b.orden || 0))
-                    .map((linea, index) => (
-                      <tr
-                        key={linea.id || index}
-                        className="border-b border-gray-100"
-                      >
-                        <td className="p-1 truncate max-w-[120px]">{linea.nombre || "—"}</td>
-                        <td className="p-1 text-gray-600 truncate max-w-[150px]">
-                          {linea.descripcion || "—"}
-                        </td>
-                        <td className="p-1 text-right">
-                          {formatCLP(Number(linea.precio))}
-                        </td>
-                      </tr>
-                    ))}
-                  <tr
-                    className="font-semibold border-t"
-                    style={{ background: "#f8fafc" }}
-                  >
-                    <td colSpan={2} className="p-1 text-right">
-                      Subtotal adicionales
-                    </td>
-                    <td className="p-1 text-right">
-                      {formatCLP(additionalLinesTotal)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              </div>
-            </div>
-          )}
-
-          {/* Total Neto */}
-          <div
-            className="flex items-center justify-between px-2 py-2 font-bold text-[11px] rounded mt-1"
-            style={{ background: "#0f172a", color: "#ffffff" }}
-          >
-            <span>PRECIO VENTA MENSUAL NETO</span>
-            <span style={{ color: "#14b8a6" }}>
-              {crmContext.currency === "UF" && ufValue && ufValue > 0
-                ? formatUFSuffix(clpToUf(salePriceMonthly + additionalLinesTotal, ufValue))
-                : formatCLP(salePriceMonthly + additionalLinesTotal)}
-            </span>
-          </div>
-
-          {/* Service detail */}
-          {serviceDetail && (
-            <div>
-              <p
-                className="text-[10px] font-semibold border-b pb-0.5 mb-1"
-                style={{ color: "#0f172a" }}
-              >
-                Detalle del servicio
-              </p>
-              <div className="text-[10px] text-gray-700 whitespace-pre-line leading-relaxed">
-                {serviceDetail}
-              </div>
-            </div>
-          )}
-
-          <div className="text-center text-[9px] text-gray-400 border-t pt-1">
-            Generado el {new Date().toLocaleDateString("es-CL")}{tenantBranding?.website ? ` · ${tenantBranding.website}` : ""}
-          </div>
+        <div className="flex-1 min-h-[200px] overflow-hidden">
+          <iframe
+            src={pdfPreviewUrl}
+            title="Vista previa cotización"
+            className="w-full h-full min-h-[300px] border-0"
+          />
         </div>
 
         {/* ── AI generation controls ── */}
@@ -871,10 +706,13 @@ function PreviewTab({
 
         {/* ── Included Items (Incluye) ── */}
         <Card className="p-3 space-y-2">
-          <div className="flex items-center gap-1.5">
-            <ListChecks className="h-3.5 w-3.5 text-teal-400" />
+          <div className="flex items-center gap-2">
+            <ListChecks className="h-3.5 w-3.5 text-teal-400 shrink-0" />
             <span className="text-xs font-semibold">Incluye</span>
             <span className="text-[10px] text-muted-foreground">(aparece en PDF)</span>
+            {isSavingIncludes && (
+              <span className="text-[10px] text-teal-400 animate-pulse">Guardando...</span>
+            )}
           </div>
           {includedItems.length === 0 && !isLocked ? (
             <div className="space-y-1">
@@ -891,7 +729,7 @@ function PreviewTab({
                   key={item}
                   type="button"
                   className="flex items-center gap-1.5 w-full text-left text-xs text-muted-foreground hover:text-foreground hover:bg-muted/20 rounded px-1.5 py-1.5 transition-colors"
-                  onClick={() => onIncludedItemsChange([...includedItems, item])}
+                  onClick={() => handleIncludedItemsChange([...includedItems, item])}
                 >
                   <Plus className="h-3.5 w-3.5 text-teal-400 shrink-0" />
                   <span>{item}</span>
@@ -901,14 +739,17 @@ function PreviewTab({
           ) : (
             <div className="space-y-0.5">
               {includedItems.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-1.5 rounded hover:bg-muted/30 transition-colors px-1 -mx-1">
+                <div key={idx} className="group flex items-center gap-1.5 rounded hover:bg-muted/30 transition-colors px-1 -mx-1">
                   <span className="text-teal-400 text-xs shrink-0">●</span>
                   <input
                     value={item}
                     onChange={(e) => {
                       const updated = [...includedItems];
                       updated[idx] = e.target.value;
-                      onIncludedItemsChange(updated);
+                      handleIncludedItemsChange(updated);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
                     }}
                     disabled={isLocked}
                     className="flex-1 text-xs bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground py-1 focus:ring-1 focus:ring-teal-400/30 rounded"
@@ -917,8 +758,8 @@ function PreviewTab({
                   {!isLocked && (
                     <button
                       type="button"
-                      className="shrink-0 p-0.5 rounded hover:bg-red-500/10 transition-colors"
-                      onClick={() => onIncludedItemsChange(includedItems.filter((_, i) => i !== idx))}
+                      className="shrink-0 p-0.5 rounded hover:bg-red-500/10 transition-colors opacity-70 group-hover:opacity-100"
+                      onClick={() => handleRemoveIncludeItem(idx)}
                     >
                       <X className="h-3.5 w-3.5 text-muted-foreground hover:text-red-400" />
                     </button>
@@ -928,8 +769,8 @@ function PreviewTab({
               {!isLocked && (
                 <button
                   type="button"
-                  className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 transition-colors pt-1 px-1"
-                  onClick={() => onIncludedItemsChange([...includedItems, ""])}
+                  className="flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300 transition-colors pt-2 px-1"
+                  onClick={() => handleIncludedItemsChange([...includedItems, ""])}
                 >
                   <Plus className="h-3.5 w-3.5" /> Agregar ítem
                 </button>

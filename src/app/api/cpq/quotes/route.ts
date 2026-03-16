@@ -63,6 +63,14 @@ export async function POST(request: NextRequest) {
     let attempts = 0;
     const maxAttempts = 10;
 
+    const defaultTemplate = await prisma.cpqProposalTemplate.findFirst({
+      where: {
+        OR: [{ tenantId }, { tenantId: null }],
+        slug: { in: ["standard", "estandar"] },
+        active: true,
+      },
+    });
+
     while (!quote && attempts < maxAttempts) {
       attempts++;
       const count = await prisma.cpqQuote.count({ where: { tenantId } });
@@ -81,6 +89,7 @@ export async function POST(request: NextRequest) {
             ...(accountId ? { accountId } : {}),
             ...(dealId ? { dealId } : {}),
             ...(installationId ? { installationId } : {}),
+            ...(defaultTemplate ? { proposalTemplateId: defaultTemplate.id } : {}),
           },
         });
       } catch (err: any) {

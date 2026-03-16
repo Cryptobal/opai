@@ -18,7 +18,10 @@ function sanitizeAiDescription(text: string | null | undefined): string | undefi
 }
 import { formatCurrency, formatUFSuffix } from '@/lib/utils';
 import { getUfValue, clpToUf } from '@/lib/uf';
-import { computeCpqQuoteCosts } from '@/modules/cpq/costing/compute-quote-costs';
+import {
+  computeCpqQuoteCosts,
+  calculateAdditionalLinesMonthly,
+} from '@/modules/cpq/costing/compute-quote-costs';
 import { getTenantCompanyConfig } from '@/lib/tenant-config';
 import type { ProposalTemplateSections } from '@/types/cpq';
 import type { QuotationPDFProps, AdditionalLinePDF, LaborBreakdownPDF } from './render-quotation';
@@ -165,9 +168,18 @@ export async function buildQuotationProps(
     console.error('[PDF] computeCpqQuoteCosts failed — breakdown/labor/costsByCategory will be empty:', err);
   }
 
+  const contractDuration = Number(quote.parameters?.contractMonths ?? 12);
   const totalAdditionalLines = summary
     ? summary.additionalLinesTotalWithMargin
-    : additionalLines.reduce((sum, l) => sum + Number(l.precio), 0);
+    : calculateAdditionalLinesMonthly(
+        additionalLines.map((l) => ({
+          precio: l.precio,
+          recurrencia: l.recurrencia,
+          cantidad: l.cantidad,
+          marginPct: l.marginPct,
+        })),
+        contractDuration,
+      );
 
   // Pricing parameters
   const marginPct = Number(quote.parameters?.marginPct ?? 13);

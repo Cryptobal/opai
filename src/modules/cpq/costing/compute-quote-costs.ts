@@ -47,6 +47,31 @@ const normalizePct = (value: number) => value / 100;
 
 /* ── Additional Lines with margin & proration ── */
 
+export function calculateAdditionalLinesMonthly(
+  lines: Array<{
+    precio: unknown;
+    recurrencia?: string | null;
+    cantidad?: number | null;
+    marginPct?: unknown;
+  }>,
+  contractDuration: number,
+): number {
+  let total = 0;
+  for (const line of lines) {
+    let monthlyBase = safeNumber(line.precio) * (line.cantidad ?? 1);
+    if (line.recurrencia === "unico" && contractDuration > 0) {
+      monthlyBase = monthlyBase / contractDuration;
+    }
+    const marginPct = line.marginPct ? safeNumber(line.marginPct) : 0;
+    const monthlyWithMargin =
+      marginPct > 0 && marginPct < 100
+        ? monthlyBase / (1 - marginPct / 100)
+        : monthlyBase;
+    total += monthlyWithMargin;
+  }
+  return total;
+}
+
 function calculateAdditionalLines(
   lines: Array<{
     id: string;
@@ -588,4 +613,27 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
 export function computeHourlyCost(monthlyCost: number, monthlyHours = 180) {
   if (!monthlyHours) return 0;
   return monthlyCost / monthlyHours;
+}
+
+/**
+ * Unified quote totals from cost summary.
+ * Use this for both panel DESGLOSE and PDF to ensure consistency.
+ * additionalLinesTotalWithMargin already includes proration for "unico" and per-line margin.
+ */
+export function getQuoteTotalsFromSummary(summary: {
+  baseWithMargin: number;
+  monthlyFinancial: number;
+  monthlyPolicy: number;
+  additionalLinesTotalWithMargin: number;
+}) {
+  const salePriceMonthly =
+    (summary.baseWithMargin ?? 0) +
+    (summary.monthlyFinancial ?? 0) +
+    (summary.monthlyPolicy ?? 0);
+  const additionalLinesMonthly = summary.additionalLinesTotalWithMargin ?? 0;
+  return {
+    salePriceMonthly,
+    additionalLinesMonthly,
+    grandTotal: salePriceMonthly + additionalLinesMonthly,
+  };
 }

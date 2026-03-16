@@ -12,17 +12,18 @@ const s = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
+    height: 70,
     backgroundColor: pdfColors.navy,
-    padding: pdfSpacing.page,
-    paddingBottom: 20,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   headerBrandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   headerBrandName: {
     fontFamily: pdfFonts.sans,
@@ -51,7 +52,7 @@ const s = StyleSheet.create({
   },
   accentLine: {
     position: 'absolute',
-    top: 82,
+    top: 70,
     left: 0,
     right: 0,
     height: 3,
@@ -267,20 +268,24 @@ export function PDFHeader({
 }) {
   return (
     <View style={s.headerBand} fixed>
-      <View>
+      <View style={{ flex: 1, maxWidth: '60%' }}>
         <View style={s.headerBrandRow}>
           {logoUrl ? (
-            <Image src={logoUrl} style={{ height: 32, maxWidth: 160 }} />
+            <Image src={logoUrl} style={{ height: 28, maxWidth: 140 }} />
           ) : (
             <>
-              <ShieldIcon size={28} />
+              <ShieldIcon size={24} />
               <Text style={s.headerBrandName}>{brandName}</Text>
             </>
           )}
         </View>
-        {subtitle && <Text style={s.headerBrandSub}>{subtitle}</Text>}
+        {subtitle && (
+          <Text style={[s.headerBrandSub, { color: pdfColors.tealLight }]}>
+            {subtitle}
+          </Text>
+        )}
       </View>
-      <View style={{ alignItems: 'flex-end' }}>
+      <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
         <Text style={s.headerLabel}>COTIZACION</Text>
         <Text style={s.headerCode}>{code}</Text>
       </View>

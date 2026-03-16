@@ -213,21 +213,22 @@ export async function renderQuotationToBuffer(
       paddingBottom: 50,
     },
     headerBand: {
-      position: 'absolute',
+      position: 'absolute' as const,
       top: 0,
       left: 0,
       right: 0,
+      height: 70,
       backgroundColor: C.navy,
-      padding: 30,
-      paddingBottom: 20,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      paddingHorizontal: 30,
+      paddingVertical: 12,
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+      alignItems: 'center' as const,
     },
     brandRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 8,
     },
     brandName: {
       fontFamily: F.sans,
@@ -254,7 +255,7 @@ export async function renderQuotationToBuffer(
       color: C.teal,
       fontWeight: 500,
     },
-    accentLine: { position: 'absolute', top: 82, left: 0, right: 0, height: 3, backgroundColor: C.teal },
+    accentLine: { position: 'absolute' as const, top: 70, left: 0, right: 0, height: 3, backgroundColor: C.teal },
     infoStrip: {
       flexDirection: 'row',
       backgroundColor: C.slate50,
@@ -559,7 +560,7 @@ export async function renderQuotationToBuffer(
         { style: s.headerBand, fixed: true },
         e(
           View,
-          null,
+          { style: { flex: 1, maxWidth: '60%' as const } },
           e(View, { style: s.brandRow }, logoElement, e(Text, { style: s.brandName }, brandName)),
           subtitle
             ? e(Text, { style: s.brandSub }, subtitle)
@@ -567,7 +568,7 @@ export async function renderQuotationToBuffer(
         ),
         e(
           View,
-          { style: { alignItems: 'flex-end' as const } },
+          { style: { alignItems: 'flex-end' as const, flexShrink: 0 } },
           e(Text, { style: s.headerLabel }, 'COTIZACION'),
           e(Text, { style: s.headerCode }, quote.code),
         ),

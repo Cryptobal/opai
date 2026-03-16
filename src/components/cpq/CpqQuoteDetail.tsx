@@ -327,6 +327,21 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     setQuoteDirty(false);
   }, [quote]);
 
+  // Auto-assign default template when quote has none (remove "Sin template" state)
+  useEffect(() => {
+    if (!quote || !quoteId) return;
+    const defaultTemplate = proposalTemplates.find((t) => t.slug === "standard" || t.slug === "estandar") ?? proposalTemplates[0];
+    if (!defaultTemplate) return;
+    if (!quote.proposalTemplateId) {
+      setProposalTemplateId(defaultTemplate.id);
+      fetch(`/api/cpq/quotes/${quoteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proposalTemplateId: defaultTemplate.id }),
+      }).catch(() => {});
+    }
+  }, [quote?.proposalTemplateId, quoteId, proposalTemplates]);
+
   useEffect(() => {
     fetch("/api/fx/uf")
       .then((r) => r.ok ? r.json() : null)
@@ -833,10 +848,12 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     };
   }, [costItems, vehicles, infrastructure, costSummary?.totalGuards]);
 
-  // Additional lines total
+  // Additional lines total — use unified prorated value from costSummary (matches PDF)
   const additionalLinesTotal = useMemo(
-    () => additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0),
-    [additionalLines]
+    () =>
+      costSummary?.additionalLinesTotalWithMargin ??
+      additionalLines.reduce((s, l) => s + Number(l.precio || 0), 0),
+    [costSummary?.additionalLinesTotalWithMargin, additionalLines]
   );
 
   // Sale price calculation (includes additional lines in margin)
@@ -1008,7 +1025,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               className="h-7 px-2 text-[11px] gap-1.5 bg-teal-600 hover:bg-teal-700 text-white"
               disabled={
                 !quote ||
-                positions.length === 0 ||
+                (positions.length === 0 && additionalLines.length === 0) ||
                 quote.status === "sent" ||
                 !crmContext.accountId ||
                 !crmContext.contactId ||
@@ -1034,7 +1051,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               quoteId={quoteId}
               quoteCode={quote.code}
               clientName={quote.clientName || undefined}
-              disabled={!quote || positions.length === 0 || quote.status === "sent"}
+              disabled={!quote || (positions.length === 0 && additionalLines.length === 0) || quote.status === "sent"}
               hasAccount={!!crmContext.accountId}
               hasContact={!!crmContext.contactId}
               hasDeal={!!crmContext.dealId}
@@ -1193,7 +1210,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                 <Label className="text-[11px] text-muted-foreground">Propuesta económica</Label>
                 <div className="flex items-center gap-1.5">
                   <select
-                    value={proposalTemplateId ?? ""}
+                    value={proposalTemplateId ?? proposalTemplates.find((t) => t.slug === "standard" || t.slug === "estandar")?.id ?? proposalTemplates[0]?.id ?? ""}
                     onChange={(e) => {
                       const val = e.target.value || null;
                       setProposalTemplateId(val);
@@ -1206,7 +1223,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
                     disabled={isLocked}
                     className="flex h-8 w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                   >
-                    <option value="">Sin template</option>
                     {proposalTemplates.map((t) => (
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
@@ -1784,6 +1800,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
             return c?.email || undefined;
           })()}
+          proposalTemplateSlug={proposalTemplates.find((t) => t.id === proposalTemplateId)?.slug ?? "standard"}
         />
       </aside>
 
@@ -1870,6 +1887,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
               const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
               return c?.email || undefined;
             })()}
+            proposalTemplateSlug={proposalTemplates.find((t) => t.id === proposalTemplateId)?.slug ?? "standard"}
           />
         }
         portalButton={
@@ -1877,7 +1895,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             className="w-full h-11 gap-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white"
             disabled={
               !quote ||
-              positions.length === 0 ||
+              (positions.length === 0 && additionalLines.length === 0) ||
               quote.status === "sent" ||
               !crmContext.accountId ||
               !crmContext.contactId ||
@@ -1912,7 +1930,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
             quoteId={quoteId}
             quoteCode={quote.code}
             clientName={quote.clientName || undefined}
-            disabled={!quote || positions.length === 0 || quote.status === "sent"}
+            disabled={!quote || (positions.length === 0 && additionalLines.length === 0) || quote.status === "sent"}
             hasAccount={!!crmContext.accountId}
             hasContact={!!crmContext.contactId}
             hasDeal={!!crmContext.dealId}
