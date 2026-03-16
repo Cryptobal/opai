@@ -26,6 +26,7 @@ import {
   Eye,
   EyeOff,
   ListChecks,
+  Pencil,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -226,6 +227,8 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
   const [editingValue, setEditingValue] = useState("");
   const [customText, setCustomText] = useState("");
   const [undoItem, setUndoItem] = useState<{ item: IncludesItem; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const [editingSuggestionId, setEditingSuggestionId] = useState<string | null>(null);
+  const [editingSuggestionValue, setEditingSuggestionValue] = useState("");
 
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -506,6 +509,71 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
     }
   };
 
+  // ── Suggestion edit/delete handlers ──
+
+  const handleEditSuggestion = async (suggestion: IncludesSuggestion) => {
+    setEditingSuggestionId(suggestion.id);
+    setEditingSuggestionValue(suggestion.text);
+  };
+
+  const handleEditSuggestionConfirm = async () => {
+    if (!editingSuggestionId) return;
+    const trimmed = editingSuggestionValue.trim();
+    if (!trimmed) {
+      setEditingSuggestionId(null);
+      setEditingSuggestionValue("");
+      return;
+    }
+
+    const prev = suggestions.find((s) => s.id === editingSuggestionId);
+    if (prev && prev.text === trimmed) {
+      setEditingSuggestionId(null);
+      setEditingSuggestionValue("");
+      return;
+    }
+
+    // Optimistic
+    setSuggestions((prev) =>
+      prev.map((s) => (s.id === editingSuggestionId ? { ...s, text: trimmed } : s))
+    );
+    setEditingSuggestionId(null);
+    setEditingSuggestionValue("");
+
+    try {
+      const res = await fetch(`/api/cpq/includes/suggestions/${editingSuggestionId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: trimmed }),
+      });
+      const data = await res.json();
+      if (!data.success && prev) {
+        setSuggestions((s) => s.map((x) => (x.id === prev.id ? prev : x)));
+      }
+    } catch {
+      if (prev) {
+        setSuggestions((s) => s.map((x) => (x.id === prev.id ? prev : x)));
+      }
+    }
+  };
+
+  const handleDeleteSuggestion = async (suggestion: IncludesSuggestion) => {
+    // Optimistic
+    setSuggestions((prev) => prev.filter((s) => s.id !== suggestion.id));
+
+    try {
+      const res = await fetch(`/api/cpq/includes/suggestions/${suggestion.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setSuggestions((prev) => [...prev, suggestion].sort((a, b) => a.sortOrder - b.sortOrder));
+        toast.error("Error al eliminar sugerencia");
+      }
+    } catch {
+      setSuggestions((prev) => [...prev, suggestion].sort((a, b) => a.sortOrder - b.sortOrder));
+    }
+  };
+
   // ── Computed ──
 
   const usedSuggestionIds = new Set(
@@ -625,18 +693,60 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
             )}
           </div>
           {availableSuggestions.map((suggestion) => (
-            <button
-              key={suggestion.id}
-              type="button"
-              className="flex items-center gap-1.5 w-full text-left text-xs text-muted-foreground hover:text-foreground hover:bg-muted/20 rounded px-1.5 py-1 transition-colors"
-              onClick={() => handleAddSuggestion(suggestion)}
-            >
-              <Plus className="h-3 w-3 text-teal-400 shrink-0" />
-              <span>{suggestion.text}</span>
-              {suggestion.isDefault && (
-                <span className="text-[9px] text-teal-400/50 ml-auto shrink-0">default</span>
+            <div key={suggestion.id} className="group/sug flex items-center gap-1 rounded px-1.5 py-1 hover:bg-muted/20 transition-colors">
+              {editingSuggestionId === suggestion.id ? (
+                <>
+                  <input
+                    autoFocus
+                    value={editingSuggestionValue}
+                    onChange={(e) => setEditingSuggestionValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleEditSuggestionConfirm();
+                      if (e.key === "Escape") { setEditingSuggestionId(null); setEditingSuggestionValue(""); }
+                    }}
+                    className="flex-1 text-xs bg-muted/30 border border-teal-400/30 outline-none text-foreground py-0.5 px-2 rounded"
+                  />
+                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-teal-500/20" onClick={handleEditSuggestionConfirm} title="Guardar">
+                    <Check className="h-3 w-3 text-teal-400" />
+                  </button>
+                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-red-500/10" onClick={() => { setEditingSuggestionId(null); setEditingSuggestionValue(""); }} title="Cancelar">
+                    <X className="h-3 w-3 text-muted-foreground hover:text-red-400" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 flex-1 text-left text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => handleAddSuggestion(suggestion)}
+                  >
+                    <Plus className="h-3 w-3 text-teal-400 shrink-0" />
+                    <span>{suggestion.text}</span>
+                  </button>
+                  {suggestion.isDefault && (
+                    <span className="text-[9px] text-teal-400/50 shrink-0">default</span>
+                  )}
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover/sug:opacity-100 transition-all shrink-0">
+                    <button
+                      type="button"
+                      className="p-0.5 rounded hover:bg-muted/40 transition-colors"
+                      onClick={() => handleEditSuggestion(suggestion)}
+                      title="Editar sugerencia"
+                    >
+                      <Pencil className="h-3 w-3 text-muted-foreground/60" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-0.5 rounded hover:bg-red-500/10 transition-colors"
+                      onClick={() => handleDeleteSuggestion(suggestion)}
+                      title="Eliminar sugerencia"
+                    >
+                      <Trash2 className="h-3 w-3 text-muted-foreground/60 hover:text-red-400" />
+                    </button>
+                  </div>
+                </>
               )}
-            </button>
+            </div>
           ))}
         </div>
       )}
