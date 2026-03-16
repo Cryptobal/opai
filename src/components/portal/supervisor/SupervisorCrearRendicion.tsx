@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Camera, Loader2, MapPin, Send, X } from "lucide-react";
+import { ArrowLeft, Camera, Loader2, MapPin, Search, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
 
@@ -41,10 +41,41 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [description, setDescription] = useState("");
   const [docType, setDocType] = useState<DocType>("BOLETA");
-  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Beneficiary guardia
+  const [forThirdParty, setForThirdParty] = useState(false);
+  const [beneficiaryGuardiaId, setBeneficiaryGuardiaId] = useState<string | null>(null);
+  const [beneficiaryName, setBeneficiaryName] = useState("");
+  const [beneficiaryResults, setBeneficiaryResults] = useState<Array<{ id: string; nombreCompleto: string; code?: string; rut?: string }>>([]);
+  const [beneficiarySearching, setBeneficiarySearching] = useState(false);
+  const [beneficiaryOpen, setBeneficiaryOpen] = useState(false);
+  const beneficiaryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const searchBeneficiary = useCallback(async (q: string) => {
+    if (!q || q.length < 2) {
+      setBeneficiaryResults([]);
+      setBeneficiaryOpen(false);
+      return;
+    }
+    setBeneficiarySearching(true);
+    try {
+      const res = await fetch(`/api/finance/guardias-search?q=${encodeURIComponent(q)}`);
+      const json = await res.json();
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        setBeneficiaryResults(json.data);
+        setBeneficiaryOpen(json.data.length > 0);
+      }
+    } catch { /* noop */ }
+    finally { setBeneficiarySearching(false); }
+  }, []);
+
+  useEffect(() => () => {
+    if (beneficiaryDebounceRef.current) clearTimeout(beneficiaryDebounceRef.current);
+  }, []);
 
   // Mileage GPS state
   const [startLocation, setStartLocation] = useState<GeolocationData | null>(null);
@@ -170,30 +201,12 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
     return { liters: Math.round(liters * 100) / 100, fuelCost, vehicleFee, toll, total };
   }, [estimatedDistance, kmConfig, tollAmount]);
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/finance/rendiciones/attachments/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const json = await res.json();
-      if (json.success && json.url) {
-        setAttachmentUrl(json.url);
-        toast.success("Comprobante subido");
-      } else {
-        toast.error("Error al subir comprobante");
-      }
-    } catch {
-      toast.error("Error de conexión");
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
+    setAttachmentFile(file);
+    setAttachmentPreview(URL.createObjectURL(file));
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   async function handleSubmit(asDraft: boolean) {
@@ -242,16 +255,17 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
         const tripEndData = await tripEndRes.json();
         if (!tripEndRes.ok) throw new Error(tripEndData.error || "Error al finalizar trayecto");
 
-        rendId = tripEndData.data?.rendicionId || tripEndData.rendicionId;
+        rendId = tripEndData.data?.rendicion?.id;
 
-        // Update with description/date
-        if (rendId && (description || date)) {
+        // Update with description/date/beneficiary
+        if (rendId && (description || date || beneficiaryGuardiaId)) {
           await fetch(`/api/finance/rendiciones/${rendId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               description: description.trim() || null,
               date,
+              beneficiaryGuardiaId: beneficiaryGuardiaId || null,
             }),
           });
         }
@@ -264,6 +278,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
           date,
           description: description.trim() || undefined,
           documentType: docType,
+          beneficiaryGuardiaId: beneficiaryGuardiaId || undefined,
         };
 
         const res = await fetch("/api/finance/rendiciones", {
@@ -277,6 +292,15 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
           return;
         }
         rendId = json.data?.id;
+      }
+
+      // Upload attachment if file selected
+      if (rendId && attachmentFile) {
+        const fd = new FormData();
+        fd.append("file", attachmentFile);
+        fd.append("rendicionId", rendId);
+        fd.append("attachmentType", docType === "FACTURA" ? "INVOICE" : "RECEIPT");
+        await fetch("/api/finance/attachments/upload", { method: "POST", body: fd });
       }
 
       // Submit if not draft
@@ -443,6 +467,89 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
         </>
       )}
 
+      {/* Beneficiary guardia */}
+      <Field label="¿Para quién es esta rendición?">
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setForThirdParty(false); setBeneficiaryGuardiaId(null); setBeneficiaryName(""); }}
+            className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
+              !forThirdParty
+                ? "bg-emerald-600 text-white"
+                : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+            }`}
+          >
+            Para mí
+          </button>
+          <button
+            onClick={() => setForThirdParty(true)}
+            className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
+              forThirdParty
+                ? "bg-emerald-600 text-white"
+                : "bg-zinc-900 border border-zinc-800 text-zinc-400"
+            }`}
+          >
+            Para un guardia
+          </button>
+        </div>
+      </Field>
+
+      {forThirdParty && (
+        <Field label="Guardia beneficiario">
+          <div className="relative">
+            <input
+              value={beneficiaryName}
+              onChange={(e) => {
+                const v = e.target.value;
+                setBeneficiaryName(v);
+                setBeneficiaryGuardiaId(null);
+                if (beneficiaryDebounceRef.current) clearTimeout(beneficiaryDebounceRef.current);
+                beneficiaryDebounceRef.current = setTimeout(() => searchBeneficiary(v), 250);
+              }}
+              placeholder="Buscar por nombre, código o RUT..."
+              className={`w-full bg-zinc-900 border rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                beneficiaryGuardiaId ? "border-emerald-500/50" : "border-zinc-800"
+              }`}
+            />
+            {beneficiarySearching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <Loader2 size={14} className="animate-spin text-zinc-500" />
+              </div>
+            )}
+            {beneficiaryGuardiaId && (
+              <button
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                onClick={() => { setBeneficiaryGuardiaId(null); setBeneficiaryName(""); }}
+              >
+                <X size={14} />
+              </button>
+            )}
+            {beneficiaryOpen && beneficiaryResults.length > 0 && (
+              <ul className="absolute left-0 right-0 z-50 mt-1 max-h-48 overflow-auto rounded-lg border border-zinc-700 bg-zinc-900 py-1 text-sm shadow-xl">
+                {beneficiaryResults.map((g) => (
+                  <li
+                    key={g.id}
+                    className="cursor-pointer px-3 py-2.5 hover:bg-zinc-800 text-white"
+                    onClick={() => {
+                      setBeneficiaryGuardiaId(g.id);
+                      setBeneficiaryName(g.nombreCompleto);
+                      setBeneficiaryOpen(false);
+                      setBeneficiaryResults([]);
+                    }}
+                  >
+                    <span className="font-medium">{g.nombreCompleto}</span>
+                    {g.rut && <span className="ml-2 text-xs text-zinc-500">{g.rut}</span>}
+                    {g.code && <span className="ml-2 text-xs text-zinc-500">Cód. {g.code}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {beneficiaryGuardiaId && (
+            <p className="text-[10px] text-emerald-400 mt-1">El pago irá a la cuenta bancaria de este guardia.</p>
+          )}
+        </Field>
+      )}
+
       {/* Fecha */}
       <Field label="Fecha *">
         <input
@@ -475,26 +582,21 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
             onChange={handleFileChange}
             className="hidden"
           />
-          {attachmentUrl ? (
+          {attachmentPreview ? (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-zinc-900 border border-emerald-500/30">
-              <img src={attachmentUrl} alt="comprobante" className="w-12 h-12 object-cover rounded-md" />
-              <p className="text-xs text-emerald-400 flex-1">Comprobante subido</p>
-              <button onClick={() => setAttachmentUrl(null)} className="text-zinc-500">
+              <img src={attachmentPreview} alt="comprobante" className="w-12 h-12 object-cover rounded-md" />
+              <p className="text-xs text-emerald-400 flex-1">Comprobante listo</p>
+              <button onClick={() => { setAttachmentFile(null); setAttachmentPreview(null); }} className="text-zinc-500">
                 <X size={14} />
               </button>
             </div>
           ) : (
             <button
               onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              className="flex items-center gap-2 w-full p-3 rounded-lg bg-zinc-900 border border-zinc-800 border-dashed text-zinc-400 hover:border-zinc-600 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 w-full p-3 rounded-lg bg-zinc-900 border border-zinc-800 border-dashed text-zinc-400 hover:border-zinc-600 transition-colors"
             >
-              {uploading ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Camera size={16} />
-              )}
-              <span className="text-sm">{uploading ? "Subiendo..." : "Tomar foto del comprobante"}</span>
+              <Camera size={16} />
+              <span className="text-sm">Tomar foto del comprobante</span>
             </button>
           )}
         </Field>

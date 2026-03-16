@@ -36,6 +36,7 @@ export async function GET(
             code: true,
             amount: true,
             submitterId: true,
+            beneficiaryGuardiaId: true,
           },
         },
       },
@@ -48,54 +49,113 @@ export async function GET(
       );
     }
 
-    // Get tenant config for account number
     const config = await prisma.financeRendicionConfig.findUnique({
       where: { tenantId: ctx.tenantId },
       select: { santanderAccountNumber: true },
     });
     const cuentaOrigen = config?.santanderAccountNumber ?? "";
 
-    // Collect unique submitter IDs
-    const submitterIds = [...new Set(payment.rendiciones.map((r) => r.submitterId))];
+    // Separate rendiciones: with beneficiary guardia vs submitter-based
+    const guardiaRendiciones = payment.rendiciones.filter((r) => r.beneficiaryGuardiaId);
+    const submitterRendiciones = payment.rendiciones.filter((r) => !r.beneficiaryGuardiaId);
 
-    // Fetch admin users (submitters)
-    const admins = await prisma.admin.findMany({
-      where: { id: { in: submitterIds } },
-      select: { id: true, name: true, email: true },
-    });
+    // Fetch beneficiary guardias with bank accounts
+    const guardiaIds = [...new Set(guardiaRendiciones.map((r) => r.beneficiaryGuardiaId!))];
+    const beneficiaryGuardias = guardiaIds.length > 0
+      ? await prisma.opsGuardia.findMany({
+          where: { id: { in: guardiaIds } },
+          select: {
+            id: true,
+            persona: { select: { firstName: true, lastName: true, rut: true, email: true } },
+            bankAccounts: { orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] },
+          },
+        })
+      : [];
+    const guardiaMap = new Map(beneficiaryGuardias.map((g) => [g.id, g]));
+
+    // Fetch Admin submitters (for rendiciones without beneficiary)
+    const submitterIds = [...new Set(submitterRendiciones.map((r) => r.submitterId))];
+    const admins = submitterIds.length > 0
+      ? await prisma.admin.findMany({
+          where: { id: { in: submitterIds } },
+          select: { id: true, name: true, email: true },
+        })
+      : [];
     const adminMap = new Map(admins.map((a) => [a.id, a]));
 
-    // Fetch OpsPersona matching admin emails → OpsGuardia → bankAccounts
     const adminEmails = admins.map((a) => a.email).filter(Boolean);
-    const personas = await prisma.opsPersona.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        email: { in: adminEmails },
-      },
-      select: {
-        email: true,
-        firstName: true,
-        lastName: true,
-        rut: true,
-        guardia: {
+    const personas = adminEmails.length > 0
+      ? await prisma.opsPersona.findMany({
+          where: { tenantId: ctx.tenantId, email: { in: adminEmails } },
           select: {
-            bankAccounts: {
-              orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+            email: true,
+            firstName: true,
+            lastName: true,
+            rut: true,
+            guardia: {
+              select: {
+                bankAccounts: { orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] },
+              },
             },
           },
-        },
-      },
-    });
+        })
+      : [];
+    const personaByEmail = new Map(personas.map((p) => [p.email, p]));
 
-    // Map email → persona data
-    const personaByEmail = new Map(
-      personas.map((p) => [p.email, p]),
-    );
+    // Group amounts by beneficiary key
+    type BeneficiaryRow = {
+      accountNumber: string;
+      sbifCode: string;
+      rut: string;
+      fullName: string;
+      amount: number;
+      email: string;
+    };
+    const rows: BeneficiaryRow[] = [];
 
-    // Group rendiciones by submitter
+    // Group guardia-beneficiary rendiciones by guardiaId
+    const byGuardia = new Map<string, number>();
+    for (const r of guardiaRendiciones) {
+      byGuardia.set(r.beneficiaryGuardiaId!, (byGuardia.get(r.beneficiaryGuardiaId!) ?? 0) + r.amount);
+    }
+    for (const [guardiaId, amount] of byGuardia.entries()) {
+      const g = guardiaMap.get(guardiaId);
+      if (!g) continue;
+      const account = g.bankAccounts?.[0];
+      rows.push({
+        accountNumber: account?.accountNumber ?? "",
+        sbifCode: account?.bankCode
+          ? CHILE_BANKS.find((b) => b.code === account.bankCode)?.sbifCode ?? ""
+          : "",
+        rut: g.persona?.rut ?? "",
+        fullName: `${g.persona?.firstName ?? ""} ${g.persona?.lastName ?? ""}`.trim(),
+        amount,
+        email: g.persona?.email ?? "",
+      });
+    }
+
+    // Group submitter rendiciones by submitterId
     const bySubmitter = new Map<string, number>();
-    for (const r of payment.rendiciones) {
+    for (const r of submitterRendiciones) {
       bySubmitter.set(r.submitterId, (bySubmitter.get(r.submitterId) ?? 0) + r.amount);
+    }
+    for (const [submitterId, amount] of bySubmitter.entries()) {
+      const admin = adminMap.get(submitterId);
+      if (!admin) continue;
+      const persona = personaByEmail.get(admin.email);
+      const account = persona?.guardia?.bankAccounts?.[0];
+      rows.push({
+        accountNumber: account?.accountNumber ?? "",
+        sbifCode: account?.bankCode
+          ? CHILE_BANKS.find((b) => b.code === account.bankCode)?.sbifCode ?? ""
+          : "",
+        rut: persona?.rut ?? "",
+        fullName: persona
+          ? `${persona.firstName ?? ""} ${persona.lastName ?? ""}`.trim()
+          : admin.name,
+        amount,
+        email: admin.email ?? "",
+      });
     }
 
     // Build Excel
@@ -123,33 +183,18 @@ export async function GET(
     const headerRow = sheet.getRow(1);
     headerRow.font = { bold: true };
 
-    for (const [submitterId, totalAmount] of bySubmitter.entries()) {
-      const admin = adminMap.get(submitterId);
-      if (!admin) continue;
-
-      const persona = personaByEmail.get(admin.email);
-      const account = persona?.guardia?.bankAccounts?.[0];
-
-      const fullName = persona
-        ? `${persona.firstName ?? ""} ${persona.lastName ?? ""}`.trim()
-        : admin.name;
-
-      const rut = persona?.rut ?? "";
-      const sbifCode = account?.bankCode
-        ? CHILE_BANKS.find((b) => b.code === account.bankCode)?.sbifCode ?? ""
-        : "";
-
+    for (const row of rows) {
       sheet.addRow([
         cuentaOrigen,
         "CLP",
-        account?.accountNumber ?? "",
+        row.accountNumber,
         "CLP",
-        sbifCode,
-        rut,
-        fullName,
-        totalAmount,
+        row.sbifCode,
+        row.rut,
+        row.fullName,
+        row.amount,
         payment.code,
-        admin.email ?? "",
+        row.email,
         "",
         "",
         "",

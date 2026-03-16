@@ -19,6 +19,7 @@ const updateRendicionSchema = z.object({
   itemId: z.string().uuid().optional().nullable(),
   costCenterId: z.string().uuid().optional().nullable(),
   type: z.enum(["PURCHASE", "MILEAGE"]).optional(),
+  beneficiaryGuardiaId: z.string().uuid().optional().nullable(),
 });
 
 // ── GET: detail with relations ──
@@ -55,6 +56,12 @@ export async function GET(
         costCenter: { select: { id: true, name: true, code: true } },
         trip: true,
         payment: { select: { id: true, code: true, paidAt: true, type: true } },
+        beneficiaryGuardia: {
+          select: {
+            id: true,
+            persona: { select: { firstName: true, lastName: true, rut: true } },
+          },
+        },
         approvals: {
           orderBy: { approvalOrder: "asc" },
         },
@@ -137,6 +144,7 @@ export async function PATCH(
     if (body.itemId !== undefined) updateData.itemId = body.itemId;
     if (body.costCenterId !== undefined) updateData.costCenterId = body.costCenterId;
     if (body.type !== undefined) updateData.type = body.type;
+    if (body.beneficiaryGuardiaId !== undefined) updateData.beneficiaryGuardiaId = body.beneficiaryGuardiaId;
 
     // If editing a rejected rendicion, revert to DRAFT
     if (existing.status === "REJECTED") {

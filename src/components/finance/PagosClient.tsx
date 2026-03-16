@@ -62,6 +62,7 @@ interface PendingRendicion {
   amount: number;
   date: string;
   submitterName: string;
+  beneficiaryName: string | null;
   itemName: string | null;
   costCenterName: string | null;
 }
@@ -423,6 +424,11 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
                             <span className="text-xs text-muted-foreground">
                               {r.submitterName}
                             </span>
+                            {r.beneficiaryName && (
+                              <span className="text-xs text-emerald-400">
+                                → {r.beneficiaryName}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                             <span>

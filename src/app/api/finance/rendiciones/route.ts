@@ -19,6 +19,7 @@ const createRendicionSchema = z.object({
   documentType: z.enum(["BOLETA", "FACTURA", "SIN_RESPALDO"]).optional().nullable().transform((v) => v ?? undefined),
   itemId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
   costCenterId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
+  beneficiaryGuardiaId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
 });
 
 // ── GET: list rendiciones ──
@@ -79,6 +80,12 @@ export async function GET(request: NextRequest) {
         costCenter: { select: { id: true, name: true, code: true } },
         trip: { select: { id: true, distanceKm: true, totalAmount: true, status: true } },
         attachments: { select: { id: true, fileName: true, publicUrl: true, attachmentType: true } },
+        beneficiaryGuardia: {
+          select: {
+            id: true,
+            persona: { select: { firstName: true, lastName: true } },
+          },
+        },
         _count: { select: { approvals: true } },
       },
       orderBy: [{ createdAt: "desc" }],
@@ -146,10 +153,17 @@ export async function POST(request: NextRequest) {
           documentType: body.documentType ?? null,
           itemId: body.itemId ?? null,
           costCenterId: body.costCenterId ?? null,
+          beneficiaryGuardiaId: body.beneficiaryGuardiaId ?? null,
         },
         include: {
           item: { select: { id: true, name: true } },
           costCenter: { select: { id: true, name: true } },
+          beneficiaryGuardia: {
+            select: {
+              id: true,
+              persona: { select: { firstName: true, lastName: true, rut: true } },
+            },
+          },
         },
       });
 

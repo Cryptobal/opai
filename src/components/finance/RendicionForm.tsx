@@ -25,6 +25,7 @@ import {
   Save,
   Send,
   Image as ImageIcon,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -140,6 +141,16 @@ export function RendicionForm({
     initialData?.costCenterId ?? ""
   );
 
+  // Beneficiary guardia (rendición para tercero)
+  const [forThirdParty, setForThirdParty] = useState(false);
+  const [beneficiaryGuardiaId, setBeneficiaryGuardiaId] = useState<string | null>(null);
+  const [beneficiaryName, setBeneficiaryName] = useState("");
+  const [beneficiaryResults, setBeneficiaryResults] = useState<Array<{ id: string; nombreCompleto: string; code?: string; rut?: string }>>([]);
+  const [beneficiarySearching, setBeneficiarySearching] = useState(false);
+  const [beneficiaryOpen, setBeneficiaryOpen] = useState(false);
+  const beneficiaryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const beneficiaryAbortRef = useRef<AbortController | null>(null);
+
   // Attachments
   const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
 
@@ -163,6 +174,41 @@ export function RendicionForm({
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  /* ── Beneficiary search ── */
+
+  const searchBeneficiary = useCallback(async (q: string) => {
+    if (!q || q.length < 2) {
+      setBeneficiaryResults([]);
+      setBeneficiaryOpen(false);
+      return;
+    }
+    beneficiaryAbortRef.current?.abort();
+    beneficiaryAbortRef.current = new AbortController();
+    setBeneficiarySearching(true);
+    try {
+      const res = await fetch(
+        `/api/finance/guardias-search?q=${encodeURIComponent(q)}`,
+        { signal: beneficiaryAbortRef.current.signal },
+      );
+      const json = await res.json();
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        setBeneficiaryResults(json.data);
+        setBeneficiaryOpen(json.data.length > 0);
+      }
+    } catch {
+      /* aborted */
+    } finally {
+      setBeneficiarySearching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (beneficiaryDebounceRef.current) clearTimeout(beneficiaryDebounceRef.current);
+      beneficiaryAbortRef.current?.abort();
+    };
+  }, []);
 
   /* ── Route tracking ── */
 
@@ -400,10 +446,10 @@ export function RendicionForm({
           const tripEndData = await tripEndRes.json();
           if (!tripEndRes.ok) throw new Error(tripEndData.error || "Error al finalizar trayecto");
 
-          rendicionId = tripEndData.data?.rendicionId || tripEndData.rendicionId;
+          rendicionId = tripEndData.data?.rendicion?.id;
 
           // Update rendicion with extra fields if needed
-          if (rendicionId && (description || installationId)) {
+          if (rendicionId && (description || installationId || beneficiaryGuardiaId)) {
             await fetch(`/api/finance/rendiciones/${rendicionId}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
@@ -411,6 +457,7 @@ export function RendicionForm({
                 description: description || null,
                 costCenterId: installationId || null,
                 date,
+                beneficiaryGuardiaId: beneficiaryGuardiaId || null,
               }),
             });
           }
@@ -424,6 +471,7 @@ export function RendicionForm({
             documentType: documentType || null,
             itemId: itemId || null,
             costCenterId: installationId || null,
+            beneficiaryGuardiaId: beneficiaryGuardiaId || null,
           };
 
           const url = initialData
@@ -794,6 +842,87 @@ export function RendicionForm({
               />
             </div>
           )}
+
+          {/* Beneficiary guardia (rendición para tercero) */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="forThirdParty"
+                checked={forThirdParty}
+                onChange={(e) => {
+                  setForThirdParty(e.target.checked);
+                  if (!e.target.checked) {
+                    setBeneficiaryGuardiaId(null);
+                    setBeneficiaryName("");
+                    setBeneficiaryResults([]);
+                  }
+                }}
+                className="h-4 w-4 rounded border-border text-emerald-500 focus:ring-emerald-500"
+              />
+              <Label htmlFor="forThirdParty" className="cursor-pointer flex items-center gap-1.5 text-sm">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                Rendición para un guardia (tercero)
+              </Label>
+            </div>
+
+            {forThirdParty && (
+              <div className="relative">
+                <Input
+                  value={beneficiaryName}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setBeneficiaryName(v);
+                    setBeneficiaryGuardiaId(null);
+                    if (beneficiaryDebounceRef.current) clearTimeout(beneficiaryDebounceRef.current);
+                    beneficiaryDebounceRef.current = setTimeout(() => searchBeneficiary(v), 250);
+                  }}
+                  placeholder="Buscar guardia por nombre, código o RUT..."
+                  className={cn(beneficiaryGuardiaId && "border-emerald-500/50 bg-emerald-500/5")}
+                />
+                {beneficiarySearching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+                {beneficiaryGuardiaId && (
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setBeneficiaryGuardiaId(null);
+                      setBeneficiaryName("");
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+                {beneficiaryOpen && beneficiaryResults.length > 0 && (
+                  <ul className="absolute left-0 right-0 z-50 mt-1 max-h-48 overflow-auto rounded-lg border border-border bg-popover py-1 text-sm shadow-xl">
+                    {beneficiaryResults.map((g) => (
+                      <li
+                        key={g.id}
+                        className="cursor-pointer px-3 py-2.5 hover:bg-accent/60"
+                        onClick={() => {
+                          setBeneficiaryGuardiaId(g.id);
+                          setBeneficiaryName(g.nombreCompleto);
+                          setBeneficiaryOpen(false);
+                          setBeneficiaryResults([]);
+                        }}
+                      >
+                        <span className="font-medium">{g.nombreCompleto}</span>
+                        {g.rut && <span className="ml-2 text-xs text-muted-foreground">{g.rut}</span>}
+                        {g.code && <span className="ml-2 text-xs text-muted-foreground">Cód. {g.code}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {beneficiaryGuardiaId && (
+                  <p className="text-xs text-emerald-400 mt-1">El pago se realizará a la cuenta bancaria de este guardia.</p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Description */}
           <div>

@@ -32,6 +32,12 @@ export default async function RendicionDetailPage({ params }: PageProps) {
       item: { select: { id: true, name: true, code: true } },
       costCenter: { select: { id: true, name: true, code: true } },
       trip: true,
+      beneficiaryGuardia: {
+        select: {
+          id: true,
+          persona: { select: { firstName: true, lastName: true, rut: true } },
+        },
+      },
       approvals: {
         orderBy: { approvalOrder: "asc" },
       },
@@ -91,6 +97,10 @@ export default async function RendicionDetailPage({ params }: PageProps) {
       ? userMap[rendicion.rejectedById] ?? null
       : null,
     createdAt: rendicion.createdAt.toISOString(),
+    beneficiaryGuardiaName: rendicion.beneficiaryGuardia
+      ? `${rendicion.beneficiaryGuardia.persona?.firstName ?? ""} ${rendicion.beneficiaryGuardia.persona?.lastName ?? ""}`.trim()
+      : null,
+    beneficiaryGuardiaRut: rendicion.beneficiaryGuardia?.persona?.rut ?? null,
     item: rendicion.item
       ? { id: rendicion.item.id, name: rendicion.item.name, code: rendicion.item.code }
       : null,

@@ -32,6 +32,7 @@ import {
   Loader2,
   ArrowLeft,
   User,
+  Users,
   Calendar,
   DollarSign,
   Building2,
@@ -113,6 +114,8 @@ interface RendicionData {
   rejectionReason: string | null;
   rejectedByName: string | null;
   createdAt: string;
+  beneficiaryGuardiaName: string | null;
+  beneficiaryGuardiaRut: string | null;
   item: { id: string; name: string; code: string | null } | null;
   costCenter: { id: string; name: string; code: string | null } | null;
   trip: TripData | null;
@@ -374,6 +377,13 @@ export function RendicionDetail({ rendicion, permissions }: RendicionDetailProps
               label="Solicitante"
               value={r.submitterName}
             />
+            {r.beneficiaryGuardiaName && (
+              <DetailRow
+                icon={Users}
+                label="Beneficiario (guardia)"
+                value={`${r.beneficiaryGuardiaName}${r.beneficiaryGuardiaRut ? ` — ${r.beneficiaryGuardiaRut}` : ""}`}
+              />
+            )}
             {r.item && (
               <DetailRow
                 icon={Tag}

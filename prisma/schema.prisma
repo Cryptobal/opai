@@ -2470,6 +2470,7 @@ model OpsGuardia {
   gamificacionCanjes           GamificacionCanje[]
   emailLogs                    OpsEmailLog[]
   onboardingStatus             OpsOnboardingStatus?
+  rendicionesBeneficiario      FinanceRendicion[]                    @relation("finance_rendicion_beneficiary")
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -4673,7 +4674,9 @@ model FinanceRendicion {
   rejectedAt      DateTime?             @map("rejected_at") @db.Timestamptz(6)
   rejectionReason String?               @map("rejection_reason")
   rejectedById    String?               @map("rejected_by_id")
-  submittedAt     DateTime?             @map("submitted_at") @db.Timestamptz(6)
+  submittedAt          DateTime?             @map("submitted_at") @db.Timestamptz(6)
+  beneficiaryGuardiaId String?               @map("beneficiary_guardia_id") @db.Uuid
+  beneficiaryGuardia   OpsGuardia?           @relation("finance_rendicion_beneficiary", fields: [beneficiaryGuardiaId], references: [id], onDelete: SetNull)
 
   approvals   FinanceApproval[]
   attachments FinanceAttachment[]

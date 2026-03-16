@@ -43,6 +43,12 @@ export default async function PagosPage() {
       include: {
         item: { select: { name: true } },
         costCenter: { select: { name: true } },
+        beneficiaryGuardia: {
+          select: {
+            id: true,
+            persona: { select: { firstName: true, lastName: true } },
+          },
+        },
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -81,15 +87,21 @@ export default async function PagosPage() {
     })),
   }));
 
-  const pendingData = approvedRendiciones.map((r) => ({
-    id: r.id,
-    code: r.code,
-    amount: r.amount,
-    date: r.date.toISOString(),
-    submitterName: userMap[r.submitterId] ?? "Desconocido",
-    itemName: r.item?.name ?? null,
-    costCenterName: r.costCenter?.name ?? null,
-  }));
+  const pendingData = approvedRendiciones.map((r) => {
+    const beneficiaryName = r.beneficiaryGuardia
+      ? `${r.beneficiaryGuardia.persona?.firstName ?? ""} ${r.beneficiaryGuardia.persona?.lastName ?? ""}`.trim()
+      : null;
+    return {
+      id: r.id,
+      code: r.code,
+      amount: r.amount,
+      date: r.date.toISOString(),
+      submitterName: userMap[r.submitterId] ?? "Desconocido",
+      beneficiaryName,
+      itemName: r.item?.name ?? null,
+      costCenterName: r.costCenter?.name ?? null,
+    };
+  });
 
   return (
     <div className="space-y-6 min-w-0">
