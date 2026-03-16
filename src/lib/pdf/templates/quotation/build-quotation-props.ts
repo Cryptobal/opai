@@ -524,11 +524,16 @@ export async function buildQuotationProps(
       installationName: quote.installation?.name || undefined,
     },
     positions,
-    additionalServices: additionalLines.map((l) => ({
-      product: String(l.nombre),
-      description: l.descripcion ? String(l.descripcion) : '-',
-      monthlyValue: fmt(Number(l.precio)),
-    })),
+    additionalServices: additionalLines.map((l) => {
+      // Use the computed sale price (with margin + proration) when available
+      const pdfLine = additionalLinesPDF.find((p) => p.nombre === l.nombre);
+      const monthlyValue = pdfLine ? pdfLine.precioVentaFmt : fmt(Number(l.precio));
+      return {
+        product: String(l.nombre),
+        description: l.descripcion ? String(l.descripcion) : '-',
+        monthlyValue,
+      };
+    }),
     totals: {
       subtotalGuards: fmt(totalSalePrice),
       subtotalAdditional: fmt(totalAdditionalLines),

@@ -111,8 +111,47 @@ export async function seedCpqData() {
     }
   }
 
-  // Proposal templates (formato canónico para PDF)
   const tenant = await prisma.tenant.findFirst({ where: { slug: "gard" } });
+
+  // Includes suggestions (sugerencias predefinidas para "El servicio incluye")
+  const includesSuggestions = [
+    { text: "Personal acreditado ante OS-10 de Carabineros", isDefault: true, sortOrder: 1 },
+    { text: "Supervisión periódica en terreno", isDefault: true, sortOrder: 2 },
+    { text: "Cobertura por ausencias (reemplazo máx. 4 hrs)", isDefault: true, sortOrder: 3 },
+    { text: "Seguro responsabilidad civil y accidentes laborales", isDefault: true, sortOrder: 4 },
+    { text: "Libro de novedades digital vía OPAI", isDefault: true, sortOrder: 5 },
+    { text: "Reportería mensual de operaciones", isDefault: true, sortOrder: 6 },
+    { text: "Uniformes e implementos de seguridad", isDefault: false, sortOrder: 7 },
+    { text: "Capacitación inicial y continua del personal", isDefault: false, sortOrder: 8 },
+    { text: "Central de monitoreo 24/7", isDefault: false, sortOrder: 9 },
+    { text: "Sistema de rondas con geolocalización", isDefault: false, sortOrder: 10 },
+    { text: "Protocolo de emergencia personalizado", isDefault: false, sortOrder: 11 },
+    { text: "Informe de incidentes en tiempo real", isDefault: false, sortOrder: 12 },
+  ];
+
+  for (const suggestion of includesSuggestions) {
+    const existing = await prisma.cpqIncludesSuggestion.findFirst({
+      where: { text: suggestion.text },
+    });
+    if (existing) {
+      await prisma.cpqIncludesSuggestion.update({
+        where: { id: existing.id },
+        data: { isDefault: suggestion.isDefault, sortOrder: suggestion.sortOrder },
+      });
+    } else {
+      await prisma.cpqIncludesSuggestion.create({
+        data: {
+          tenantId: tenant?.id ?? null,
+          text: suggestion.text,
+          isDefault: suggestion.isDefault,
+          sortOrder: suggestion.sortOrder,
+          isActive: true,
+        },
+      });
+    }
+  }
+
+  // Proposal templates (formato canónico para PDF)
   const proposalTemplates = [
     {
       slug: "estandar",

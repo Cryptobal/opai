@@ -509,17 +509,7 @@ export async function renderQuotationToBuffer(
     (sec.showCostBreakdown || sec.showLaborDetail);
   const showSimpleAdditional = sec.showAdditionalServices && hasAdditional && !showDetailedAdditional;
 
-  const displayItems =
-    includedItems.length > 0
-      ? includedItems
-      : [
-          'Personal acreditado ante OS-10 de Carabineros',
-          'Supervision periodica en terreno',
-          'Cobertura por ausencias (reemplazo max. 4 hrs)',
-          'Seguro responsabilidad civil y accidentes laborales',
-          'Libro de novedades digital via OPAI',
-          'Reporteria mensual de operaciones',
-        ];
+  const displayItems = includedItems;
 
   /* ─── Reusable sub-trees ─── */
 
@@ -683,9 +673,10 @@ export async function renderQuotationToBuffer(
   /* ─── Detailed additional services table (detailed/tender) ─── */
   const detailedAddHeaders = [
     { label: 'Producto / Servicio', flex: 2, align: 'left' as const },
-    { label: 'Tipo', flex: 1, align: 'center' as const },
-    { label: 'Recurrencia', flex: 1, align: 'center' as const },
-    { label: 'Valor Mensual', flex: 1.5, align: 'right' as const },
+    { label: 'Descripcion', flex: 2, align: 'left' as const },
+    { label: 'Tipo', flex: 0.8, align: 'center' as const },
+    { label: 'Recurrencia', flex: 0.8, align: 'center' as const },
+    { label: 'Valor Mensual', flex: 1.3, align: 'right' as const },
   ];
 
   const buildDetailedAddTable = (num: number) =>
@@ -705,9 +696,10 @@ export async function renderQuotationToBuffer(
           View,
           { key: i, style: s.tblRow },
           e(Text, { style: [s.tblCell, { flex: 2 }] }, line.nombre),
-          e(Text, { style: [s.tblCell, { flex: 1, textAlign: 'center' as const }] }, line.tipo),
-          e(Text, { style: [s.tblCell, { flex: 1, textAlign: 'center' as const }] }, line.recurrencia === 'unico' ? 'Unico (prorrateado)' : line.recurrencia),
-          e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, line.precioVentaFmt),
+          e(Text, { style: [s.tblCell, { flex: 2 }] }, line.descripcion || '-'),
+          e(Text, { style: [s.tblCell, { flex: 0.8, textAlign: 'center' as const }] }, line.tipo),
+          e(Text, { style: [s.tblCell, { flex: 0.8, textAlign: 'center' as const }] }, line.recurrencia === 'unico' ? 'Unico (prorrateado)' : line.recurrencia),
+          e(Text, { style: [s.tblCellBold, { flex: 1.3, textAlign: 'right' as const }] }, line.precioVentaFmt),
         ),
       ),
     );
@@ -962,7 +954,7 @@ export async function renderQuotationToBuffer(
                 ),
               )
             : null,
-          sec.showIncludedItems
+          sec.showIncludedItems && displayItems.length > 0
             ? e(
                 View,
                 { wrap: false },
