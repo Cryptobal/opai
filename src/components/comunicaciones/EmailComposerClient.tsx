@@ -39,6 +39,12 @@ type Guardia = {
   nombre: string;
   email: string | null;
   lifecycleStatus: string;
+  currentInstallationId?: string | null;
+};
+
+type Installation = {
+  id: string;
+  name: string;
 };
 
 type Template = {
@@ -67,8 +73,10 @@ export default function EmailComposerClient({ tenantId }: EmailComposerClientPro
 
   // Step 1
   const [filterStatus, setFilterStatus] = useState("active");
+  const [installationId, setInstallationId] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [installations, setInstallations] = useState<Installation[]>([]);
 
   // Step 2
   const [templateId, setTemplateId] = useState("");
@@ -83,19 +91,27 @@ export default function EmailComposerClient({ tenantId }: EmailComposerClientPro
   useEffect(() => {
     async function fetchGuardias() {
       try {
-        const res = await fetch(`/api/personas/guardias?status=${filterStatus}`);
+        const statusParam = filterStatus === "all" ? "" : filterStatus;
+        const url = `/api/personas/guardias${statusParam ? `?status=${statusParam}` : ""}`;
+        const res = await fetch(url);
         const json = await res.json();
         if (json.success !== false) {
-          const list = (json.data ?? json).map((g: Record<string, unknown>) => ({
-            id: g.id as string,
-            code: (g.code as string) ?? null,
-            nombre:
-              (g.nombre as string) ??
-              [g.lastName, g.firstName].filter(Boolean).join(" ") ??
-              "Sin nombre",
-            email: (g.personalEmail as string) ?? (g.email as string) ?? null,
-            lifecycleStatus: (g.lifecycleStatus as string) ?? "contratado",
-          }));
+          const list = (json.data ?? json).map((g: Record<string, unknown>) => {
+            const persona = g.persona as Record<string, unknown> | undefined;
+            const lastName = (persona?.lastName ?? g.lastName) as string | undefined;
+            const firstName = (persona?.firstName ?? g.firstName) as string | undefined;
+            return {
+              id: g.id as string,
+              code: (g.code as string) ?? null,
+              nombre:
+                (g.nombre as string) ??
+                [lastName, firstName].filter(Boolean).join(" ") ??
+                "Sin nombre",
+              email: (g.personalEmail as string) ?? (persona?.personalEmail as string) ?? (g.email as string) ?? null,
+              lifecycleStatus: (g.lifecycleStatus as string) ?? "contratado",
+              currentInstallationId: (g.currentInstallationId as string) ?? null,
+            };
+          });
           setGuardias(list);
         }
       } catch {
@@ -111,7 +127,7 @@ export default function EmailComposerClient({ tenantId }: EmailComposerClientPro
   useEffect(() => {
     async function fetchTemplates() {
       try {
-        const res = await fetch("/api/personas/comunicaciones/templates?tipo=GENERAL");
+        const res = await fetch("/api/personas/comunicaciones/templates");
         const json = await res.json();
         if (json.success && json.data) {
           setTemplates(json.data);
@@ -125,16 +141,39 @@ export default function EmailComposerClient({ tenantId }: EmailComposerClientPro
     fetchTemplates();
   }, []);
 
+  useEffect(() => {
+    async function fetchInstallations() {
+      try {
+        const res = await fetch("/api/ops/instalaciones");
+        const json = await res.json();
+        if (json.success && json.data) {
+          setInstallations(
+            json.data.map((i: { id: string; name: string }) => ({ id: i.id, name: i.name })),
+          );
+        }
+      } catch {
+        // Silencioso: el filtro de instalación no estará disponible
+      }
+    }
+    fetchInstallations();
+  }, []);
+
   const filteredGuardias = useMemo(() => {
-    if (!search.trim()) return guardias;
-    const q = search.toLowerCase();
-    return guardias.filter(
-      (g) =>
-        g.nombre.toLowerCase().includes(q) ||
-        (g.code ?? "").toLowerCase().includes(q) ||
-        (g.email ?? "").toLowerCase().includes(q),
-    );
-  }, [guardias, search]);
+    let list = guardias;
+    if (installationId && installationId !== "all") {
+      list = list.filter((g) => g.currentInstallationId === installationId);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (g) =>
+          g.nombre.toLowerCase().includes(q) ||
+          (g.code ?? "").toLowerCase().includes(q) ||
+          (g.email ?? "").toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [guardias, installationId, search]);
 
   const selectedTemplate = useMemo(
     () => templates.find((t) => t.id === templateId),
@@ -256,6 +295,19 @@ export default function EmailComposerClient({ tenantId }: EmailComposerClientPro
                   <SelectItem value="all">Todos</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={installationId} onValueChange={setInstallationId}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Instalación" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las instalaciones</SelectItem>
+                  {installations.map((i) => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input
                 placeholder="Buscar guardia..."
                 value={search}
@@ -374,7 +426,7 @@ export default function EmailComposerClient({ tenantId }: EmailComposerClientPro
               {templates.length === 0 && !loadingTemplates && (
                 <p className="text-xs text-amber-400 flex items-center gap-1 mt-1">
                   <AlertTriangle className="h-3.5 w-3.5" />
-                  No hay plantillas tipo GENERAL disponibles
+                  No hay plantillas disponibles. Crea una en la pestaña Plantillas.
                 </p>
               )}
             </div>
