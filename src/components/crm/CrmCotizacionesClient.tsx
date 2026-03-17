@@ -131,10 +131,10 @@ export function CrmCotizacionesClient({
 
   const statusFilters = [
     { key: "all", label: "Todas", count: counts.total },
-    { key: "draft", label: "Borrador", count: counts.draft, activeVariant: "amber" },
-    { key: "sent", label: "Enviadas", count: counts.sent },
-    { key: "approved", label: "Aprobadas", count: counts.approved },
-    { key: "rejected", label: "Rechazadas", count: counts.rejected },
+    { key: "draft", label: "Borrador", count: counts.draft, activeVariant: "amber" as const },
+    { key: "sent", label: "Enviadas", count: counts.sent, activeVariant: "blue" as const },
+    { key: "approved", label: "Aprobadas", count: counts.approved, activeVariant: "emerald" as const },
+    { key: "rejected", label: "Rechazadas", count: counts.rejected, activeVariant: "red" as const },
   ];
 
   return (
