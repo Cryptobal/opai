@@ -69,7 +69,7 @@ export async function POST(
 
     const quote = await prisma.cpqQuote.findFirst({
       where: { id: quoteId, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: { id: true, code: true },
     });
     if (!quote) {
       return NextResponse.json(
@@ -115,7 +115,6 @@ export async function POST(
     // Sync includedItems array on quote for backward compatibility
     await syncIncludedItemsArray(quoteId);
 
-    const quote = await prisma.cpqQuote.findFirst({ where: { id: quoteId, tenantId: ctx.tenantId }, select: { code: true } });
     await createCrmHistoryLog({
       tenantId: ctx.tenantId,
       entityType: "quote",

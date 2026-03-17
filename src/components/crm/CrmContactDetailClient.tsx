@@ -201,7 +201,9 @@ export function CrmContactDetailClient({
     phone: contact.phone || "",
     roleTitle: contact.roleTitle || "",
     isPrimary: contact.isPrimary || false,
+    accountId: contact.accountId ?? contact.account?.id ?? "",
   });
+  const [accountOptions, setAccountOptions] = useState<Array<{ id: string; name: string }>>([]);
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [presentationOpen, setPresentationOpen] = useState(false);
@@ -242,7 +244,18 @@ export function CrmContactDetailClient({
       firstName: contact.firstName, lastName: contact.lastName,
       email: contact.email || "", phone: contact.phone || "",
       roleTitle: contact.roleTitle || "", isPrimary: contact.isPrimary || false,
+      accountId: contact.accountId ?? contact.account?.id ?? "",
     });
+    if (accountOptions.length === 0) {
+      fetch("/api/crm/accounts?limit=500")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && d.data) {
+            setAccountOptions(d.data.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })));
+          }
+        })
+        .catch(() => {});
+    }
     setEditOpen(true);
   };
 
@@ -279,9 +292,15 @@ export function CrmContactDetailClient({
       });
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.error);
-      setContact((prev) => ({ ...prev, ...editForm }));
-      setEditOpen(false);
-      toast.success("Contacto actualizado");
+      if (editForm.accountId !== (contact.accountId ?? contact.account?.id)) {
+        toast.success("Contacto actualizado");
+        setEditOpen(false);
+        router.refresh();
+      } else {
+        setContact((prev) => ({ ...prev, ...editForm }));
+        setEditOpen(false);
+        toast.success("Contacto actualizado");
+      }
     } catch { toast.error("No se pudo actualizar"); }
     finally { setSaving(false); }
   };
@@ -820,6 +839,22 @@ export function CrmContactDetailClient({
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Editar contacto</DialogTitle></DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs">Cuenta</Label>
+              <select
+                className={selectCn}
+                value={editForm.accountId}
+                onChange={(e) => setEditForm((p) => ({ ...p, accountId: e.target.value }))}
+                disabled={saving}
+              >
+                {contact.account && !accountOptions.find((a) => a.id === contact.account?.id) && (
+                  <option value={contact.account.id}>{contact.account.name}</option>
+                )}
+                {accountOptions.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Nombre *</Label>
               <Input value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className={inputCn} />

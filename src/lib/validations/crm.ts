@@ -143,6 +143,7 @@ export const createContactSchema = z.object({
 });
 
 export const updateContactSchema = z.object({
+  accountId: z.string().uuid("accountId inválido").optional(),
   firstName: z.string().trim().min(1, "Nombre es requerido").max(100).optional(),
   lastName: z.string().trim().min(1, "Apellido es requerido").max(100).optional(),
   email: z.string().trim().email("Email inválido").max(200).optional(),
