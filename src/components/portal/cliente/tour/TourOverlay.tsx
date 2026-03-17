@@ -14,6 +14,7 @@ import {
   FileText,
   Compass,
   MessageCircle,
+  Building2,
 } from "lucide-react";
 import { buildTourSteps } from "./tour-steps";
 import type { ClienteSession } from "@/lib/portal-cliente-types";
@@ -162,19 +163,45 @@ export function TourOverlay({ onComplete, session }: Props) {
           </p>
 
           <div className="space-y-3">
+            {session?.hasActivePresentation && (
+              <button
+                onClick={() => onComplete("presentacion")}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all hover:scale-[1.01] active:scale-[0.99]"
+                style={{
+                  background: "linear-gradient(135deg, rgba(45,212,191,0.15), rgba(45,212,191,0.05))",
+                  border: "1px solid rgba(45,212,191,0.25)",
+                }}
+              >
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(45,212,191,0.15)" }}
+                >
+                  <Building2 className="w-5 h-5 text-teal-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Ver presentación de empresa</p>
+                  <p className="text-xs text-zinc-400">Conoce quiénes somos y qué nos diferencia</p>
+                </div>
+              </button>
+            )}
+
             <button
               onClick={() => onComplete("propuesta")}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all hover:scale-[1.01] active:scale-[0.99]"
               style={{
-                background: "linear-gradient(135deg, rgba(45,212,191,0.15), rgba(45,212,191,0.05))",
-                border: "1px solid rgba(45,212,191,0.25)",
+                background: session?.hasActivePresentation
+                  ? "linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.03))"
+                  : "linear-gradient(135deg, rgba(45,212,191,0.15), rgba(45,212,191,0.05))",
+                border: session?.hasActivePresentation
+                  ? "1px solid rgba(34,197,94,0.2)"
+                  : "1px solid rgba(45,212,191,0.25)",
               }}
             >
               <div
                 className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: "rgba(45,212,191,0.15)" }}
+                style={{ background: session?.hasActivePresentation ? "rgba(34,197,94,0.12)" : "rgba(45,212,191,0.15)" }}
               >
-                <FileText className="w-5 h-5 text-teal-400" />
+                <FileText className={`w-5 h-5 ${session?.hasActivePresentation ? "text-green-400" : "text-teal-400"}`} />
               </div>
               <div>
                 <p className="text-sm font-semibold text-white">Ver mi propuesta</p>

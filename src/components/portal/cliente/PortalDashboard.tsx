@@ -7,7 +7,7 @@ import {
 import {
   TrendingUp, TrendingDown, Minus, CheckCircle2, AlertTriangle, XCircle,
   Clock, Loader2, BarChart3, MapPin, Star, FileText, Bot, ShieldCheck,
-  MessageSquare, ArrowRight,
+  MessageSquare, ArrowRight, Building2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ClienteSession } from '@/lib/portal-cliente-types'
@@ -268,6 +268,36 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
           </div>
         </div>
 
+        {/* CTA Presentación de Empresa */}
+        {session.hasActivePresentation && (
+          <button
+            onClick={() => onNavigate?.('presentacion')}
+            className="relative w-full overflow-hidden rounded-2xl border border-teal-500/30 p-6 text-left transition-all hover:border-teal-400/50 active:scale-[0.99] group"
+            style={{ background: 'linear-gradient(135deg, rgba(20,184,166,0.15), rgba(13,148,136,0.05))' }}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-2 min-w-0">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-teal-400" />
+                  <span className="text-xs font-medium text-teal-400 uppercase tracking-wider">
+                    Presentación personalizada
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-white">
+                  Conoce {session.accountName || 'nuestra empresa'}
+                </h3>
+                <p className="text-sm text-white/60 max-w-md">
+                  Descubre nuestros servicios, tecnología, certificaciones y por qué somos la mejor opción para tu seguridad.
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-teal-500/20 flex items-center justify-center shrink-0 group-hover:bg-teal-500/30 transition-colors">
+                <ArrowRight className="h-6 w-6 text-teal-400 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-teal-500/5 rounded-full blur-3xl pointer-events-none" />
+          </button>
+        )}
+
         {/* Cotizaciones Carousel */}
         <DashboardCotizacionesPendientes
           isProspect
@@ -378,6 +408,25 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
         <div className="flex items-center justify-center py-24">
           <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
         </div>
+      )}
+
+      {/* CTA Presentación para cliente activo */}
+      {session.hasActivePresentation && (
+        <button
+          onClick={() => onNavigate?.('presentacion')}
+          className="flex w-full items-center gap-4 p-4 mb-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-left hover:bg-blue-500/15 transition-colors active:scale-[0.99]"
+        >
+          <Building2 className="h-5 w-5 text-blue-400 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium text-white">
+              Presentación de Empresa disponible
+            </span>
+            <span className="text-xs text-white/50 ml-2">
+              Tu ejecutivo te compartió información sobre nuestros servicios
+            </span>
+          </div>
+          <ArrowRight className="h-4 w-4 text-blue-400 shrink-0" />
+        </button>
       )}
 
       <DashboardCotizacionesPendientes

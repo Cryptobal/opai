@@ -9,10 +9,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 
-function getSession() {
+async function getSession() {
   try {
-    const cookieStore = cookies();
-    const raw = (cookieStore as any).get("portal_cliente_session")?.value;
+    const cookieStore = await cookies();
+    const raw = cookieStore.get("portal_cliente_session")?.value;
     if (!raw) return null;
     return JSON.parse(Buffer.from(raw, "base64url").toString("utf-8"));
   } catch {
@@ -21,7 +21,7 @@ function getSession() {
 }
 
 export async function GET() {
-  const session = getSession();
+  const session = await getSession();
   if (!session?.contactId) {
     return NextResponse.json({ success: false }, { status: 401 });
   }
@@ -42,7 +42,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session?.contactId) {
     return NextResponse.json({ success: false }, { status: 401 });
   }
