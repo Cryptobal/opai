@@ -14,6 +14,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { toSentenceCase } from "@/lib/text-format";
 import { isDefaultUniform } from "@/lib/cpq-constants";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
+import { refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
 
 const CPQ_WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
 const WEEKDAY_ALIAS: Record<string, string> = {
@@ -1099,6 +1100,15 @@ export async function POST(
       },
       { timeout: 60_000 }
     );
+
+    // Persistir costos totales en cada cotización creada (monthlyCost, totalGuards, etc.)
+    for (const q of result.quotes) {
+      try {
+        await refreshQuoteTotals(q.id);
+      } catch (refreshErr) {
+        console.warn(`Could not refresh quote totals for ${q.code} (${q.id}):`, refreshErr);
+      }
+    }
 
     return NextResponse.json({ success: true, data: result });
   } catch (error: unknown) {

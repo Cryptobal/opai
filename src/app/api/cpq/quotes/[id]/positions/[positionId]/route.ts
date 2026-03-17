@@ -9,25 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
-import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
-
-async function refreshQuoteTotals(quoteId: string) {
-  const positions = await prisma.cpqPosition.findMany({
-    where: { quoteId },
-    select: { numPuestos: true },
-  });
-  const totalPositions = positions.reduce((sum, pos) => sum + Number(pos.numPuestos || 1), 0);
-  const costSummary = await computeCpqQuoteCosts(quoteId);
-
-  return prisma.cpqQuote.update({
-    where: { id: quoteId },
-    data: {
-      totalPositions,
-      totalGuards: costSummary.totalGuards,
-      monthlyCost: costSummary.monthlyTotal,
-    },
-  });
-}
+import { refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
 
 export async function PATCH(
   request: NextRequest,

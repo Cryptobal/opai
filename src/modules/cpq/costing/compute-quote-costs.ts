@@ -589,3 +589,28 @@ export function computeHourlyCost(monthlyCost: number, monthlyHours = 180) {
   if (!monthlyHours) return 0;
   return monthlyCost / monthlyHours;
 }
+
+/**
+ * Recalcula totales de la cotización (totalPositions, totalGuards, monthlyCost)
+ * y los persiste en CpqQuote. Usar después de crear/editar posiciones o ítems de costo.
+ */
+export async function refreshQuoteTotals(quoteId: string) {
+  const positions = await prisma.cpqPosition.findMany({
+    where: { quoteId },
+    select: { numPuestos: true },
+  });
+  const totalPositions = positions.reduce(
+    (sum, pos) => sum + Number(pos.numPuestos || 1),
+    0
+  );
+  const costSummary = await computeCpqQuoteCosts(quoteId);
+
+  return prisma.cpqQuote.update({
+    where: { id: quoteId },
+    data: {
+      totalPositions,
+      totalGuards: costSummary.totalGuards,
+      monthlyCost: costSummary.monthlyTotal,
+    },
+  });
+}
