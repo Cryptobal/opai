@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const statusFilter = sp.get("status");
 
     const dateFrom = from ? new Date(from) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const dateTo = to ? new Date(to) : new Date();
+    const dateTo = to ? new Date(to + "T23:59:59.999Z") : new Date();
 
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,

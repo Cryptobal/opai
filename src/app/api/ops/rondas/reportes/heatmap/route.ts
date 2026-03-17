@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const from = sp.get("from");
     const to = sp.get("to");
     const dateFrom = from ? new Date(from) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const dateTo = to ? new Date(to) : new Date();
+    const dateTo = to ? new Date(to + "T23:59:59.999Z") : new Date();
 
     const checkpoints = await prisma.opsCheckpoint.findMany({
       where: { tenantId: ctx.tenantId, installationId, isActive: true },

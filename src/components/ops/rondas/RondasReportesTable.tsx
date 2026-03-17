@@ -54,6 +54,13 @@ interface MarcacionRow {
   verificationMethod?: string | null;
 }
 
+interface ServerPagination {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
 interface Props {
   rows: ReporteRow[];
   page: number;
@@ -64,6 +71,7 @@ interface Props {
   onSort: (key: string) => void;
   onViewMap?: (row: ReporteRow) => void;
   onSendToCheckpoints?: (row: ReporteRow) => void;
+  serverPagination?: ServerPagination;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
@@ -284,6 +292,7 @@ export function RondasReportesTable({
   onSort,
   onViewMap,
   onSendToCheckpoints,
+  serverPagination,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -303,8 +312,13 @@ export function RondasReportesTable({
     return arr;
   }, [rows, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const paged = sorted.slice(page * pageSize, (page + 1) * pageSize);
+  // When server pagination is active, rows are already paged — show them all
+  const isServerPaged = !!serverPagination;
+  const totalPages = isServerPaged
+    ? serverPagination.totalPages
+    : Math.max(1, Math.ceil(sorted.length / pageSize));
+  const totalItems = isServerPaged ? serverPagination.totalCount : sorted.length;
+  const paged = isServerPaged ? sorted : sorted.slice(page * pageSize, (page + 1) * pageSize);
 
   const headerCls =
     "px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-muted/50 border-b-2 border-border cursor-pointer hover:bg-muted/70 select-none transition-colors";
@@ -426,8 +440,8 @@ export function RondasReportesTable({
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
           <span>
-            Mostrando {page * pageSize + 1}-{Math.min((page + 1) * pageSize, sorted.length)} de{" "}
-            {sorted.length}
+            Mostrando {page * pageSize + 1}-{Math.min((page + 1) * pageSize, totalItems)} de{" "}
+            {totalItems}
           </span>
           <div className="flex gap-1">
             <button

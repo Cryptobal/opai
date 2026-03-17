@@ -20,9 +20,12 @@ export async function GET(request: NextRequest) {
     const installationId = sp.get("installationId");
     const guardiaId = sp.get("guardiaId");
     const statusFilter = sp.get("status");
+    const pageParam = sp.get("page");
+    const pageSizeParam = sp.get("pageSize");
 
     const dateFrom = from ? new Date(from) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const dateTo = to ? new Date(to) : new Date();
+    // Fix: dateTo should include the entire end day (23:59:59.999)
+    const dateTo = to ? new Date(to + "T23:59:59.999Z") : new Date();
 
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,
@@ -37,44 +40,56 @@ export async function GET(request: NextRequest) {
     if (guardiaId) where.guardiaId = guardiaId;
     if (statusFilter && statusFilter !== "all") where.status = statusFilter;
 
-    const rows = await prisma.opsRondaEjecucion.findMany({
-      where,
-      include: {
-        rondaTemplate: {
-          select: {
-            name: true,
-            installationId: true,
-            installation: { select: { id: true, name: true } },
+    // Server-side pagination (skip CSV exports which need all rows)
+    const page = pageParam != null ? Math.max(0, parseInt(pageParam, 10) || 0) : null;
+    const pageSize = Math.min(100, Math.max(1, parseInt(pageSizeParam ?? "20", 10) || 20));
+    const isExport = format === "csv";
+
+    const [rows, totalCount] = await Promise.all([
+      prisma.opsRondaEjecucion.findMany({
+        where,
+        include: {
+          rondaTemplate: {
+            select: {
+              name: true,
+              installationId: true,
+              installation: { select: { id: true, name: true } },
+            },
+          },
+          installation: { select: { id: true, name: true } },
+          guardia: {
+            include: {
+              persona: { select: { firstName: true, lastName: true, rut: true } },
+            },
+          },
+          marcaciones: {
+            select: {
+              id: true,
+              checkpointId: true,
+              timestamp: true,
+              status: true,
+              fotoEvidenciaUrl: true,
+              audioUrl: true,
+              geoDistanciaM: true,
+              lat: true,
+              lng: true,
+              geoValidada: true,
+              verificationMethod: true,
+              hashIntegridad: true,
+              checkpoint: { select: { name: true } },
+            },
+            orderBy: { timestamp: "asc" },
           },
         },
-        installation: { select: { id: true, name: true } },
-        guardia: {
-          include: {
-            persona: { select: { firstName: true, lastName: true, rut: true } },
-          },
-        },
-        marcaciones: {
-          select: {
-            id: true,
-            checkpointId: true,
-            timestamp: true,
-            status: true,
-            fotoEvidenciaUrl: true,
-            audioUrl: true,
-            geoDistanciaM: true,
-            lat: true,
-            lng: true,
-            geoValidada: true,
-            verificationMethod: true,
-            hashIntegridad: true,
-            checkpoint: { select: { name: true } },
-          },
-          orderBy: { timestamp: "asc" },
-        },
-      },
-      orderBy: { scheduledAt: "desc" },
-      take: 2000,
-    });
+        orderBy: { scheduledAt: "desc" },
+        ...(isExport
+          ? { take: 10000 }
+          : page != null
+            ? { skip: page * pageSize, take: pageSize }
+            : { take: 2000 }),
+      }),
+      prisma.opsRondaEjecucion.count({ where }),
+    ]);
 
     const mapped = rows.map((row) => ({
       id: row.id,
@@ -144,12 +159,30 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const completadas = rows.filter((r) => r.status === "completada").length;
-    const compliance = rows.length ? Math.round((completadas / rows.length) * 100) : 0;
-    const trustSum = rows.reduce((acc, r) => acc + (r.trustScore ?? 0), 0);
+    // Aggregate totals from DB for accuracy (not limited by pagination)
+    const [statusCounts, trustAgg, allForDaily] = await Promise.all([
+      prisma.opsRondaEjecucion.groupBy({
+        by: ["status"],
+        where,
+        _count: { id: true },
+      }),
+      prisma.opsRondaEjecucion.aggregate({
+        where,
+        _avg: { trustScore: true },
+      }),
+      prisma.opsRondaEjecucion.findMany({
+        where,
+        select: { scheduledAt: true, status: true },
+      }),
+    ]);
+
+    const statusMap = new Map<string, number>(statusCounts.map((s: any) => [s.status, s._count.id]));
+    const completadas = statusMap.get("completada") ?? 0;
+    const incompletas = statusMap.get("incompleta") ?? 0;
+    const noRealizadas = statusMap.get("no_realizada") ?? 0;
 
     const dailyMap = new Map<string, { total: number; completed: number }>();
-    for (const r of rows) {
+    for (const r of allForDaily) {
       const day = r.scheduledAt.toISOString().slice(0, 10);
       const entry = dailyMap.get(day) ?? { total: 0, completed: 0 };
       entry.total++;
@@ -170,14 +203,15 @@ export async function GET(request: NextRequest) {
       data: {
         rows: mapped,
         totals: {
-          total: rows.length,
+          total: totalCount,
           completadas,
-          incompletas: rows.filter((r) => r.status === "incompleta").length,
-          noRealizadas: rows.filter((r) => r.status === "no_realizada").length,
-          compliance,
-          trustPromedio: rows.length ? Math.round(trustSum / rows.length) : 0,
+          incompletas,
+          noRealizadas,
+          compliance: totalCount > 0 ? Math.round((completadas / totalCount) * 100) : 0,
+          trustPromedio: Math.round(trustAgg._avg.trustScore ?? 0),
         },
         dailyCompliance,
+        pagination: page != null ? { page, pageSize, totalCount, totalPages: Math.ceil(totalCount / pageSize) } : null,
       },
     });
   } catch (error) {

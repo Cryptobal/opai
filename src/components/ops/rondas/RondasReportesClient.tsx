@@ -52,6 +52,13 @@ interface PanicAlert {
   responseTimeMin: number | null;
 }
 
+interface Pagination {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
 interface Props {
   initialRows: ReporteRow[];
   initialTotals: Totals;
@@ -111,6 +118,7 @@ export function RondasReportesClient({
   const [activeTab, setActiveTab] = useState("instalacion");
   const [daysRange, setDaysRange] = useState(30);
   const [page, setPage] = useState(0);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
   const [sortKey, setSortKey] = useState("scheduledAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
@@ -170,7 +178,7 @@ export function RondasReportesClient({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (requestedPage?: number) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -179,6 +187,8 @@ export function RondasReportesClient({
       if (installationId) params.set("installationId", installationId);
       if (guardiaFilterId) params.set("guardiaId", guardiaFilterId);
       if (statusFilter !== "all") params.set("status", statusFilter);
+      params.set("page", String(requestedPage ?? 0));
+      params.set("pageSize", "20");
 
       const res = await fetch(`/api/ops/rondas/reportes?${params}`);
       const json = await res.json();
@@ -186,7 +196,12 @@ export function RondasReportesClient({
         setRows(json.data.rows);
         setTotals(json.data.totals);
         setDailyCompliance(json.data.dailyCompliance);
-        setPage(0);
+        if (json.data.pagination) {
+          setPagination(json.data.pagination);
+        }
+        if (requestedPage == null) {
+          setPage(0);
+        }
       }
     } catch {
       toast.error("Error cargando reportes");
@@ -219,6 +234,14 @@ export function RondasReportesClient({
       })),
     ],
     [guardias],
+  );
+
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      setPage(newPage);
+      void fetchData(newPage);
+    },
+    [fetchData],
   );
 
   function handleSort(key: string) {
@@ -496,12 +519,13 @@ export function RondasReportesClient({
             rows={rows}
             page={page}
             pageSize={20}
-            onPageChange={setPage}
+            onPageChange={handlePageChange}
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={handleSort}
             onViewMap={setMapRow}
             onSendToCheckpoints={sendingToCheckpoints ? undefined : handleSendToCheckpoints}
+            serverPagination={pagination ?? undefined}
           />
 
           {/* Export buttons */}
