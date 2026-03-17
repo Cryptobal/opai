@@ -54,15 +54,16 @@ export async function GET(request: NextRequest) {
     // Show ALL pending/in-progress rounds for this installation today.
     // Any authenticated guard can take any round, regardless of assignment.
     // Include both template-based rondas AND ad-hoc rondas.
+    // Programadas: rondaTemplateId in templates (templates already scoped to this installation).
+    // Ad-hoc: must have isAdHoc + installationId (programadas have installationId=null from cron).
     const ejecuciones = await prisma.opsRondaEjecucion.findMany({
       where: {
         tenantId,
-        installationId,
         scheduledAt: { gte: startOfDay, lte: endOfDay },
         status: { in: ["pendiente", "en_curso", "incompleta", "completada", "no_realizada", "cerrada_auto", "cerrada_admin"] },
         OR: [
           { rondaTemplateId: { in: templates.map(t => t.id) } },
-          { isAdHoc: true },
+          { isAdHoc: true, installationId },
         ],
       },
       include: {

@@ -187,7 +187,10 @@ export function AppShell({
         {/* ── Mobile search overlay ── */}
         {isMobileSearchOpen && (
           <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-sm lg:hidden">
-            <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+            <div
+              className="flex items-center gap-2 border-b border-border px-3 py-2"
+              style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}
+            >
               <GlobalSearch
                 compact
                 className="flex-1"
