@@ -122,7 +122,7 @@ export async function POST(
     });
     const ejecutivoName = ejecutivo?.name || "Ejecutivo Comercial";
 
-    // 3. Generate PIN if contact doesn't have one
+    // 3. Asegurar que siempre tengamos un PIN real para enviar en el mail
     let pin: string;
     if (!contact.portalPin) {
       pin = String(Math.floor(1000 + Math.random() * 9000));
@@ -136,9 +136,16 @@ export async function POST(
           portalEnabled: true,
         },
       });
+    } else if (contact.portalPinVisible && contact.portalPinVisible.trim().length > 0) {
+      pin = contact.portalPinVisible;
     } else {
-      // Contact already has a PIN — use the visible one
-      pin = contact.portalPinVisible || "****";
+      // Contact tiene portalPin pero no portalPinVisible (legacy/migración) — regenerar para que el mail siempre muestre credenciales reales
+      pin = String(Math.floor(1000 + Math.random() * 9000));
+      const pinHash = await bcrypt.hash(pin, 10);
+      await prisma.crmContact.update({
+        where: { id: contact.id },
+        data: { portalPin: pinHash, portalPinVisible: pin },
+      });
     }
 
     // 5. Update account: status = 'prospect' (if not active), portalEjecutivoId (always set to sender)

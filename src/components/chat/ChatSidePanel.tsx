@@ -560,7 +560,13 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               "fixed inset-0 z-50 lg:hidden flex flex-col bg-[#0a0e17] transition-transform duration-300 ease-out",
               panelEntered && !panelClosing ? "translate-x-0" : "translate-x-full"
             )}
-            style={{ bottom: "var(--bottom-nav-height, 0px)" }}
+            style={{
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: "var(--bottom-nav-height, 0px)",
+              paddingTop: "env(safe-area-inset-top)",
+            }}
             role="dialog"
             aria-label="Panel de chat"
           >
@@ -586,7 +592,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             )}
 
             {/* Mobile content area */}
-            <div className="relative flex-1 overflow-hidden">
+            <div className="relative flex-1 min-h-0 overflow-hidden">
               {/* Channel list layer */}
               <div className={cn(
                 "absolute inset-0 bg-[#0a0e17] flex flex-col",
