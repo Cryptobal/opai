@@ -8,6 +8,7 @@ import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 
 export async function POST(
   _request: NextRequest,
@@ -237,6 +238,19 @@ export async function POST(
       }
 
       return newQuote;
+    });
+
+    await createCrmHistoryLog({
+      tenantId,
+      entityType: "quote",
+      entityId: cloned.id,
+      action: "quote_cloned",
+      details: {
+        code: cloned.code,
+        sourceQuoteId: id,
+        sourceCode: source.code,
+      },
+      createdBy: session?.user?.id ?? null,
     });
 
     return NextResponse.json({ success: true, data: cloned }, { status: 201 });

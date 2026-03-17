@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 import { deleteFile } from "@/lib/storage";
 
 export async function DELETE(
@@ -37,6 +38,16 @@ export async function DELETE(
 
     await prisma.cpqQuoteAttachment.delete({
       where: { id: attachmentId },
+    });
+
+    const quote = await prisma.cpqQuote.findFirst({ where: { id, tenantId: ctx.tenantId }, select: { code: true } });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "quote",
+      entityId: id,
+      action: "quote_attachment_deleted",
+      details: { quoteCode: quote?.code ?? null, fileName: attachment.fileName },
+      createdBy: ctx.userId,
     });
 
     return NextResponse.json({ success: true });

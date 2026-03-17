@@ -6,6 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
@@ -32,6 +34,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; positionId: string }> }
 ) {
   try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
+
     const { id, positionId } = await params;
     const body = await request.json();
 
@@ -143,6 +150,21 @@ export async function PATCH(
     });
 
     await refreshQuoteTotals(id);
+
+    const quote = await prisma.cpqQuote.findFirst({ where: { id, tenantId: ctx.tenantId }, select: { code: true } });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "quote",
+      entityId: id,
+      action: "quote_position_updated",
+      details: {
+        quoteCode: quote?.code ?? null,
+        positionId,
+        changedFields: Object.keys(updateData),
+      },
+      createdBy: ctx.userId,
+    });
+
     return NextResponse.json({ success: true, data: position });
   } catch (error) {
     console.error("Error updating CPQ position:", error);
@@ -158,6 +180,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; positionId: string }> }
 ) {
   try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
+
     const { id, positionId } = await params;
     const existing = await prisma.cpqPosition.findFirst({
       where: { id: positionId, quoteId: id },
@@ -173,6 +200,16 @@ export async function DELETE(
 
     await prisma.cpqPosition.delete({ where: { id: positionId } });
     await refreshQuoteTotals(id);
+
+    const quote = await prisma.cpqQuote.findFirst({ where: { id, tenantId: ctx.tenantId }, select: { code: true } });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "quote",
+      entityId: id,
+      action: "quote_position_deleted",
+      details: { quoteCode: quote?.code ?? null, positionId },
+      createdBy: ctx.userId,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -50,10 +50,21 @@ import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSectio
 import { FinancialPanel } from "@/components/cpq/FinancialPanel";
 import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
 import { FollowUpDecisionModal, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
+import { CrmActivityTimeline } from "@/components/crm/CrmActivityTimeline";
+
+type ActivityEvent = {
+  id: string;
+  action: string;
+  details?: Record<string, unknown> | null;
+  createdAt: string;
+  createdBy?: string | null;
+  createdByName?: string | null;
+};
 
 interface CpqQuoteDetailProps {
   quoteId: string;
   currentUserId?: string;
+  activityEvents?: ActivityEvent[];
 }
 
 type CrmInstallationOption = {
@@ -89,7 +100,7 @@ function roundUpToNice(value: number): number {
   return Math.ceil(value / 100000) * 100000;
 }
 
-export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) {
+export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: CpqQuoteDetailProps) {
   const router = useRouter();
   const [quote, setQuote] = useState<CpqQuote | null>(null);
   const [positions, setPositions] = useState<CpqPosition[]>([]);
@@ -173,6 +184,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [secFinancieros, setSecFinancieros] = useState(true);
   const [secCondiciones, setSecCondiciones] = useState(true);
   const [secMargen, setSecMargen] = useState(true);
+  const [secAuditoria, setSecAuditoria] = useState(true);
   const initialLoadDone = useRef(false);
   const skipAutoSave = useRef(false);
   const financialsAutoSaveTimer = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -1745,6 +1757,36 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
 
       {/* -- Section: Adjuntos para enviar con el mail -- */}
       <QuoteAttachmentsSection quoteId={quoteId} isLocked={isLocked} />
+
+      {/* -- Section: Auditoría (registro de todos los cambios) -- */}
+      <Card className="shadow-sm overflow-visible">
+        <div className="flex items-center justify-between w-full px-4 py-3">
+          <button type="button" onClick={() => setSecAuditoria((v) => !v)} className="flex-1 flex items-center gap-2 min-w-0 text-left hover:bg-muted/10 transition-colors -m-1 p-1 rounded">
+            <h2 className="text-sm font-bold shrink-0">Auditoría</h2>
+            {!secAuditoria && activityEvents.length > 0 && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                {activityEvents.length} registro{activityEvents.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => router.refresh()} title="Actualizar auditoría">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+            <button type="button" onClick={() => setSecAuditoria((v) => !v)} className="p-1 hover:bg-muted/10 rounded">
+              <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secAuditoria && "rotate-180")} />
+            </button>
+          </div>
+        </div>
+        {secAuditoria && (
+          <div className="px-4 pb-4">
+            <p className="text-[11px] text-muted-foreground mb-3">
+              Registro de todos los cambios: quién, cuándo y qué se modificó.
+            </p>
+            <CrmActivityTimeline events={activityEvents} />
+          </div>
+        )}
+      </Card>
 
       </div>{/* end editor column */}
 

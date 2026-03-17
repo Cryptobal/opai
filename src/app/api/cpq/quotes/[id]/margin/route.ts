@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
 export async function PUT(
@@ -12,6 +14,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
+
     const { id } = await params;
     const body = await request.json();
     const marginPct = body?.marginPct ?? 13;
@@ -46,6 +53,16 @@ export async function PUT(
     await prisma.cpqQuote.update({
       where: { id },
       data: { monthlyCost: summary.monthlyTotal },
+    });
+
+    const quote = await prisma.cpqQuote.findFirst({ where: { id, tenantId: ctx.tenantId }, select: { code: true } });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "quote",
+      entityId: id,
+      action: "quote_margin_updated",
+      details: { quoteCode: quote?.code ?? null, marginPct, marginMode: marginMode ?? null },
+      createdBy: ctx.userId,
     });
 
     return NextResponse.json({ success: true, data: summary });

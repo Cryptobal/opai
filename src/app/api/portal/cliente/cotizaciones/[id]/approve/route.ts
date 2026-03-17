@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 
 export async function POST(
   _request: Request,
@@ -29,6 +30,20 @@ export async function POST(
   await prisma.cpqQuote.update({
     where: { id },
     data: { status: "approved" },
+  });
+
+  const quoteWithCode = await prisma.cpqQuote.findFirst({ where: { id }, select: { code: true } });
+  await createCrmHistoryLog({
+    tenantId: session.tenantId,
+    entityType: "quote",
+    entityId: id,
+    action: "quote_approved",
+    details: {
+      quoteCode: quoteWithCode?.code ?? null,
+      source: "portal_cliente",
+      contactId: session.contactId ?? null,
+    },
+    createdBy: null,
   });
 
   // Find or create "Aprobado por Cliente" pipeline stage

@@ -25,6 +25,26 @@ const ACTION_LABELS: Record<string, string> = {
   installation_updated: "Instalación actualizada",
   installation_deleted: "Instalación eliminada",
   quote_sent: "Cotización enviada",
+  quote_sent_portal: "Cotización enviada por portal",
+  quote_pdf_sent: "PDF enviado por email",
+  quote_created: "Cotización creada",
+  quote_updated: "Cotización actualizada",
+  quote_deleted: "Cotización eliminada",
+  quote_cloned: "Cotización clonada",
+  quote_position_added: "Puesto agregado",
+  quote_position_updated: "Puesto actualizado",
+  quote_position_deleted: "Puesto eliminado",
+  quote_position_cloned: "Puesto clonado",
+  quote_costs_updated: "Costos y parámetros actualizados",
+  quote_includes_updated: "Ítems incluidos actualizados",
+  quote_margin_updated: "Margen actualizado",
+  quote_attachment_added: "Adjunto agregado",
+  quote_attachment_deleted: "Adjunto eliminado",
+  quote_ai_description: "Descripción generada con IA",
+  quote_ai_service_detail: "Detalle de servicio generado con IA",
+  quote_approved: "Cotización aprobada por cliente",
+  quote_rejected: "Cotización rechazada por cliente",
+  presentation_sent: "Presentación enviada",
   portal_cliente_access: "Acceso al portal del cliente",
 };
 
@@ -44,6 +64,26 @@ const DOT_COLOR_BY_ACTION: Record<string, string> = {
   installation_updated: "bg-blue-500",
   installation_deleted: "bg-red-500",
   quote_sent: "bg-indigo-500",
+  quote_sent_portal: "bg-indigo-500",
+  quote_pdf_sent: "bg-indigo-500",
+  quote_created: "bg-emerald-500",
+  quote_updated: "bg-blue-500",
+  quote_deleted: "bg-red-500",
+  quote_cloned: "bg-cyan-500",
+  quote_position_added: "bg-emerald-500",
+  quote_position_updated: "bg-blue-500",
+  quote_position_deleted: "bg-red-500",
+  quote_position_cloned: "bg-cyan-500",
+  quote_costs_updated: "bg-blue-500",
+  quote_includes_updated: "bg-blue-500",
+  quote_margin_updated: "bg-blue-500",
+  quote_attachment_added: "bg-emerald-500",
+  quote_attachment_deleted: "bg-red-500",
+  quote_ai_description: "bg-violet-500",
+  quote_ai_service_detail: "bg-violet-500",
+  quote_approved: "bg-emerald-500",
+  quote_rejected: "bg-red-500",
+  presentation_sent: "bg-indigo-500",
   portal_cliente_access: "bg-teal-500",
 };
 
@@ -86,6 +126,25 @@ function formatDetailLines(event: CrmActivityEvent): string[] {
   const ip = typeof details.ip === "string" ? details.ip : null;
   if (ip) lines.push(`IP: ${ip}`);
 
+  const code = typeof details.code === "string" ? details.code : null;
+  if (code) lines.push(`Código: ${code}`);
+  const sourceCode = typeof details.sourceCode === "string" ? details.sourceCode : null;
+  if (sourceCode) lines.push(`Origen: ${sourceCode}`);
+  const fileName = typeof details.fileName === "string" ? details.fileName : null;
+  if (fileName) lines.push(`Archivo: ${fileName}`);
+  const positionId = details.positionId ?? null;
+  if (positionId) lines.push(`Puesto ID: ${positionId}`);
+  const summary = typeof details.summary === "string" ? details.summary : null;
+  if (summary) lines.push(summary);
+
+  const changes = details.changes as Record<string, { from: unknown; to: unknown }> | undefined;
+  if (changes && typeof changes === "object" && Object.keys(changes).length > 0) {
+    const changeLines = Object.entries(changes).map(
+      ([field, v]) => `${field}: ${JSON.stringify(v.from)} → ${JSON.stringify(v.to)}`
+    );
+    lines.push(...changeLines);
+  }
+
   return lines;
 }
 
@@ -123,7 +182,9 @@ export function CrmActivityTimeline({ events }: { events: CrmActivityEvent[] }) 
                 ? ` · por ${event.createdByName}`
                 : event.createdBy === "system"
                   ? " · por Sistema"
-                  : ""}
+                  : (event.details as Record<string, unknown>)?.source === "portal_cliente"
+                    ? " · por Cliente (portal)"
+                    : ""}
             </p>
           </div>
         );

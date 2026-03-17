@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { formatCurrency } from "@/lib/utils";
 import { clpToUf, getUfValue } from "@/lib/uf";
@@ -181,6 +182,15 @@ Estructura ideal:
     await prisma.cpqQuote.update({
       where: { id: quoteId },
       data: { aiDescription: description },
+    });
+
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "quote",
+      entityId: quoteId,
+      action: "quote_ai_description",
+      details: { quoteCode: quote.code },
+      createdBy: ctx.userId,
     });
 
     return NextResponse.json({

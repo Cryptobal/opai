@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
@@ -31,6 +33,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
+
     const { id } = await params;
     const body = await request.json();
 
@@ -124,6 +131,22 @@ export async function POST(
     });
 
     await refreshQuoteTotals(id);
+
+    const quote = await prisma.cpqQuote.findFirst({ where: { id, tenantId: ctx.tenantId }, select: { code: true } });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "quote",
+      entityId: id,
+      action: "quote_position_added",
+      details: {
+        quoteCode: quote?.code ?? null,
+        positionId: result.id,
+        puestoTrabajoId,
+        numGuards: Number(numGuards),
+        numPuestos: safeNumPuestos,
+      },
+      createdBy: ctx.userId,
+    });
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, ensureModuleAccess, ensureCanCreateQuote } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 
 export async function GET(request: NextRequest) {
   try {
@@ -101,6 +102,15 @@ export async function POST(request: NextRequest) {
     if (!quote) {
       throw new Error('No se pudo generar código único después de múltiples intentos');
     }
+
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "quote",
+      entityId: quote.id,
+      action: "quote_created",
+      details: { code: quote.code, clientName: quote.clientName ?? null },
+      createdBy: ctx.userId,
+    });
 
     // Auto-insert default includes
     try {

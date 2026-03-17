@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
+import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 
 export async function GET(
   _request: NextRequest,
@@ -87,10 +88,29 @@ export async function PATCH(
     if (body.includedItems !== undefined) updateData.includedItems = { set: Array.isArray(body.includedItems) ? body.includedItems : [] };
     if (body.proposalTemplateId !== undefined) updateData.proposalTemplateId = body.proposalTemplateId || null;
 
-    // Verify ownership first, then use update (updateMany doesn't support array fields)
+    // Verify ownership and fetch existing for audit diff
     const existing = await prisma.cpqQuote.findFirst({
       where: { id, tenantId },
-      select: { id: true },
+      select: {
+        id: true,
+        status: true,
+        name: true,
+        clientName: true,
+        validUntil: true,
+        notes: true,
+        accountId: true,
+        contactId: true,
+        dealId: true,
+        installationId: true,
+        currency: true,
+        aiDescription: true,
+        serviceDetail: true,
+        paymentTerms: true,
+        serviceStartDays: true,
+        contractDuration: true,
+        includedItems: true,
+        proposalTemplateId: true,
+      },
     });
 
     if (!existing) {
@@ -104,6 +124,32 @@ export async function PATCH(
       where: { id },
       data: updateData,
     });
+
+    // Audit log: quote_updated with changed fields
+    if (Object.keys(updateData).length > 0) {
+      const patch: Record<string, unknown> = { ...existing };
+      for (const [k, v] of Object.entries(updateData)) {
+        patch[k] = v;
+      }
+      const diff = computeChangedFields(
+        existing as unknown as Record<string, unknown>,
+        patch
+      );
+      if (diff.changedFields.length > 0) {
+        await createCrmHistoryLog({
+          tenantId: ctx.tenantId,
+          entityType: "quote",
+          entityId: id,
+          action: "quote_updated",
+          details: {
+            changedFields: diff.changedFields,
+            changes: diff.changes,
+            quoteCode: quote.code,
+          },
+          createdBy: ctx.userId,
+        });
+      }
+    }
 
     // Push: quote accepted or rejected
     if (body.status === 'accepted' || body.status === 'rejected') {
@@ -148,7 +194,7 @@ export async function DELETE(
 
     const existing = await prisma.cpqQuote.findFirst({
       where: { id, tenantId },
-      select: { id: true },
+      select: { id: true, code: true, name: true, clientName: true },
     });
 
     if (!existing) {
@@ -159,6 +205,17 @@ export async function DELETE(
     }
 
     await prisma.cpqQuote.delete({ where: { id } });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "quote",
+      entityId: id,
+      action: "quote_deleted",
+      details: {
+        code: existing.code,
+        name: existing.name ?? existing.clientName,
+      },
+      createdBy: ctx.userId,
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting CPQ quote:", error);

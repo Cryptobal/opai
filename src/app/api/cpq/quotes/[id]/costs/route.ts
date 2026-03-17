@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 import { isDefaultUniform } from "@/lib/cpq-constants";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
@@ -670,6 +671,19 @@ export async function PUT(
       // Transaction succeeded but computation failed — return partial success
       return NextResponse.json({ success: true, data: null });
     }
+
+    const quoteCode = (await prisma.cpqQuote.findFirst({ where: { id }, select: { code: true } }))?.code ?? null;
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "quote",
+      entityId: id,
+      action: "quote_costs_updated",
+      details: {
+        quoteCode,
+        summary: "Uniformes, exámenes, costos, líneas adicionales y parámetros financieros",
+      },
+      createdBy: ctx.userId,
+    });
 
     return NextResponse.json({ success: true, data: summary });
   } catch (error: any) {

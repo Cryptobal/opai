@@ -47,6 +47,31 @@ export default async function CrmCotizacionDetailPage({
     redirect(`/crm/cotizaciones/${quote.id}`);
   }
 
+  const activityLogs = await prisma.crmHistoryLog.findMany({
+    where: { tenantId, entityType: "quote", entityId: quote.id },
+    orderBy: { createdAt: "desc" },
+    take: 150,
+  });
+  const activityActorIds = Array.from(
+    new Set(activityLogs.map((log) => log.createdBy).filter((actorId): actorId is string => Boolean(actorId)))
+  );
+  const activityActors =
+    activityActorIds.length > 0
+      ? await prisma.admin.findMany({
+          where: { tenantId, id: { in: activityActorIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+  const activityActorMap = new Map(activityActors.map((a) => [a.id, a.name]));
+  const activityEvents = activityLogs.map((log) => ({
+    id: log.id,
+    action: log.action,
+    details: (log.details as Record<string, unknown>) ?? {},
+    createdAt: log.createdAt.toISOString(),
+    createdBy: log.createdBy ?? null,
+    createdByName: log.createdBy ? activityActorMap.get(log.createdBy) ?? null : null,
+  }));
+
   return (
     <>
       <Breadcrumb
@@ -60,7 +85,7 @@ export default async function CrmCotizacionDetailPage({
       <div className="mb-1">
         <CpqIndicators />
       </div>
-      <CpqQuoteDetail quoteId={id} currentUserId={session.user.id} />
+      <CpqQuoteDetail quoteId={id} currentUserId={session.user.id} activityEvents={activityEvents} />
     </>
   );
 }

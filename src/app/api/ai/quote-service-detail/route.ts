@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 
 export async function POST(request: NextRequest) {
   try {
@@ -214,6 +215,15 @@ El servicio contempla:
     await prisma.cpqQuote.update({
       where: { id: quoteId },
       data: { serviceDetail },
+    });
+
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "quote",
+      entityId: quoteId,
+      action: "quote_ai_service_detail",
+      details: { quoteCode: quote.code },
+      createdBy: ctx.userId,
     });
 
     return NextResponse.json({

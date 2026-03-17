@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 import { uploadFile } from "@/lib/storage";
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -70,7 +71,7 @@ export async function POST(
     const { id } = await params;
     const quote = await prisma.cpqQuote.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: { id: true, code: true },
     });
     if (!quote) {
       return NextResponse.json({ success: false, error: "Cotización no encontrada" }, { status: 404 });
@@ -107,6 +108,15 @@ export async function POST(
         storageKey: uploadResult.storageKey,
         publicUrl: uploadResult.publicUrl || null,
       },
+    });
+
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "quote",
+      entityId: id,
+      action: "quote_attachment_added",
+      details: { quoteCode: quote?.code ?? null, fileName: attachment.fileName },
+      createdBy: ctx.userId,
     });
 
     return NextResponse.json(

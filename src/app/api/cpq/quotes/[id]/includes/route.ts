@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 import { z } from "zod";
 
 const createItemSchema = z.object({
@@ -113,6 +114,16 @@ export async function POST(
 
     // Sync includedItems array on quote for backward compatibility
     await syncIncludedItemsArray(quoteId);
+
+    const quote = await prisma.cpqQuote.findFirst({ where: { id: quoteId, tenantId: ctx.tenantId }, select: { code: true } });
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "quote",
+      entityId: quoteId,
+      action: "quote_includes_updated",
+      details: { quoteCode: quote?.code ?? null, action: "item_added", text: text.trim().slice(0, 80) },
+      createdBy: ctx.userId,
+    });
 
     return NextResponse.json({ success: true, data: item }, { status: 201 });
   } catch (error) {

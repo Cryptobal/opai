@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 
 export async function POST(
   request: Request,
@@ -39,6 +40,21 @@ export async function POST(
       status: "rejected",
       ...(reason ? { notes: reason } : {}),
     },
+  });
+
+  const quoteWithCode = await prisma.cpqQuote.findFirst({ where: { id }, select: { code: true } });
+  await createCrmHistoryLog({
+    tenantId: session.tenantId,
+    entityType: "quote",
+    entityId: id,
+    action: "quote_rejected",
+    details: {
+      quoteCode: quoteWithCode?.code ?? null,
+      source: "portal_cliente",
+      contactId: session.contactId ?? null,
+      reason: reason ?? null,
+    },
+    createdBy: null,
   });
 
   return NextResponse.json({ success: true });
