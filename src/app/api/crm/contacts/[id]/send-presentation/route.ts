@@ -84,10 +84,11 @@ export async function POST(
       },
     });
 
-    // 3. Ensure portal access
+    // 3. Ensure portal access — always resolve a real PIN for the email
     let pin: string;
     let portalAccessCreated = false;
     if (!contact.portalPin) {
+      portalAccessCreated = true;
       pin = String(Math.floor(1000 + Math.random() * 9000));
       const pinHash = await bcrypt.hash(pin, 10);
       await prisma.crmContact.update({
@@ -98,9 +99,15 @@ export async function POST(
           portalEnabled: true,
         },
       });
-      portalAccessCreated = true;
+    } else if (contact.portalPinVisible && contact.portalPinVisible.trim().length > 0) {
+      pin = contact.portalPinVisible;
     } else {
-      pin = contact.portalPinVisible || "****";
+      pin = String(Math.floor(1000 + Math.random() * 9000));
+      const pinHash = await bcrypt.hash(pin, 10);
+      await prisma.crmContact.update({
+        where: { id: contactId },
+        data: { portalPin: pinHash, portalPinVisible: pin },
+      });
     }
 
     // Ensure account has portalEjecutivoId set
@@ -155,7 +162,7 @@ export async function POST(
         contactName,
         companyName: contact.account.name,
         email: contact.email,
-        pin: portalAccessCreated ? pin : undefined,
+        pin,
         portalUrl,
         ejecutivoName,
         notes: notes || undefined,
