@@ -203,7 +203,7 @@ export function SearchableSelect({
   }
 
   return (
-    <div ref={boxRef} className="relative">
+    <div ref={boxRef} className="relative w-full min-w-0">
       {/* Trigger button */}
       <button
         ref={triggerRef}

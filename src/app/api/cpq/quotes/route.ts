@@ -51,7 +51,13 @@ export async function POST(request: NextRequest) {
 
     const name = body?.name?.trim() || null;
     const clientName = body?.clientName?.trim() || null;
-    const validUntil = body?.validUntil ? new Date(body.validUntil) : null;
+    const validUntil = body?.validUntil
+      ? new Date(body.validUntil)
+      : (() => {
+          const d = new Date();
+          d.setDate(d.getDate() + 90);
+          return d;
+        })();
     const notes = body?.notes?.trim() || null;
     const accountId = body?.accountId?.trim() || null;
     const dealId = body?.dealId?.trim() || null;

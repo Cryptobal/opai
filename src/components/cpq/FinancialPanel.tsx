@@ -270,7 +270,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
         salePriceMonthly,
         additionalLinesTotal,
         monthlyHoursStandard,
-        crmContext.currency || "CLP",
+        crmContext.currency || "UF",
         ufValue,
       )
     : null;

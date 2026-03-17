@@ -32,7 +32,7 @@ type CrmInstallationOption = {
 
 export interface DatosSectionProps {
   /** CRM entity lists */
-  crmAccounts: { id: string; name: string }[];
+  crmAccounts: { id: string; name: string; type?: string }[];
   crmInstallations: CrmInstallationOption[];
   crmContacts: { id: string; firstName: string; lastName: string; email?: string | null }[];
   crmDeals: { id: string; title: string }[];
@@ -70,7 +70,7 @@ export interface DatosSectionProps {
   saveQuoteBasics: () => void;
 
   /** Setters for CRM lists (used after inline creation) */
-  setCrmAccounts: React.Dispatch<React.SetStateAction<{ id: string; name: string }[]>>;
+  setCrmAccounts: React.Dispatch<React.SetStateAction<{ id: string; name: string; type?: string }[]>>;
   setCrmInstallations: React.Dispatch<React.SetStateAction<CrmInstallationOption[]>>;
   setCrmContacts: React.Dispatch<React.SetStateAction<{ id: string; firstName: string; lastName: string; email?: string | null }[]>>;
   setCrmDeals: React.Dispatch<React.SetStateAction<{ id: string; title: string }[]>>;
@@ -125,7 +125,7 @@ export function DatosSection({
       switch (inlineCreateType) {
         case "account":
           endpoint = "/api/crm/accounts";
-          body = { name: inlineForm.name, type: "prospect" };
+          body = { name: inlineForm.name, type: "client" };
           break;
         case "installation":
           endpoint = "/api/crm/installations";
@@ -166,7 +166,7 @@ export function DatosSection({
       // Auto-select and refresh lists
       switch (inlineCreateType) {
         case "account":
-          setCrmAccounts((prev) => [...prev, { id: created.id, name: created.name }]);
+          setCrmAccounts((prev) => [...prev, { id: created.id, name: created.name, type: created.type }]);
           saveCrmContext({ accountId: created.id, installationId: "", contactId: "", dealId: "" });
           setQuoteForm((prev) => ({ ...prev, clientName: created.name }));
           setQuoteDirty(true);
@@ -238,14 +238,19 @@ export function DatosSection({
   return (
     <div className="space-y-2">
       <div className="space-y-2">
-        {/* ── CRM Context: compact 2-col grid ── */}
-        <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
-          <div>
+        {/* ── CRM Context: 2 columnas x 2 filas, cada campo ocupa la mitad del ancho de la sección ── */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 w-full">
+          <div className="min-w-0">
             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Cuenta</Label>
             <div className="flex gap-0.5">
-              <SearchableSelect
+              <div className="flex-1 min-w-0">
+                <SearchableSelect
                 value={crmContext.accountId || ""}
-                options={crmAccounts.map((a) => ({ id: a.id, label: a.name }))}
+                options={crmAccounts.map((a) => ({
+                  id: a.id,
+                  label: a.name,
+                  description: a.type ? (a.type === "client" ? "Cliente" : "Prospecto") : undefined,
+                }))}
                 placeholder="Seleccionar..."
                 disabled={isLocked}
                 onChange={(val) => {
@@ -257,6 +262,7 @@ export function DatosSection({
                   }
                 }}
               />
+              </div>
               {crmContext.accountId && (
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver cuenta" asChild>
                   <Link href={`/crm/accounts/${crmContext.accountId}`} target="_blank" rel="noopener noreferrer">
@@ -269,16 +275,18 @@ export function DatosSection({
               </Button>
             </div>
           </div>
-          <div>
+          <div className="min-w-0">
             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Instalación</Label>
             <div className="flex gap-0.5">
-              <SearchableSelect
+              <div className="flex-1 min-w-0">
+                <SearchableSelect
                 value={crmContext.installationId || ""}
                 options={crmInstallations.map((i) => ({ id: i.id, label: i.name, description: i.city || undefined }))}
                 placeholder="Seleccionar..."
                 disabled={!crmContext.accountId || isLocked}
                 onChange={(val) => saveCrmContext({ installationId: val })}
               />
+              </div>
               {crmContext.installationId && (
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver instalación" asChild>
                   <Link href={`/crm/installations/${crmContext.installationId}`} target="_blank" rel="noopener noreferrer">
@@ -291,16 +299,18 @@ export function DatosSection({
               </Button>
             </div>
           </div>
-          <div>
+          <div className="min-w-0">
             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Contacto</Label>
             <div className="flex gap-0.5">
-              <SearchableSelect
+              <div className="flex-1 min-w-0">
+                <SearchableSelect
                 value={crmContext.contactId || ""}
                 options={crmContacts.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`.trim(), description: c.email || undefined }))}
                 placeholder="Seleccionar..."
                 disabled={!crmContext.accountId || isLocked}
                 onChange={(val) => saveCrmContext({ contactId: val })}
               />
+              </div>
               {crmContext.contactId && (
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver contacto" asChild>
                   <Link href={`/crm/contacts/${crmContext.contactId}`} target="_blank" rel="noopener noreferrer">
@@ -313,16 +323,18 @@ export function DatosSection({
               </Button>
             </div>
           </div>
-          <div>
+          <div className="min-w-0">
             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Negocio</Label>
             <div className="flex gap-0.5">
-              <SearchableSelect
+              <div className="flex-1 min-w-0">
+                <SearchableSelect
                 value={crmContext.dealId || ""}
                 options={crmDeals.map((d) => ({ id: d.id, label: d.title }))}
                 placeholder="Seleccionar..."
                 disabled={!crmContext.accountId || isLocked}
                 onChange={(val) => saveCrmContext({ dealId: val })}
               />
+              </div>
               {crmContext.dealId && (
                 <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground" title="Ver negocio" asChild>
                   <Link href={`/crm/deals/${crmContext.dealId}`} target="_blank" rel="noopener noreferrer">

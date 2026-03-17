@@ -898,7 +898,7 @@ model CpqQuote {
   installationId      String?   @map("installation_id") @db.Uuid
   createdFromLeadId   String?   @map("created_from_lead_id") @db.Uuid
   proposalTemplateId  String?   @map("proposal_template_id") @db.Uuid
-  currency            String    @default("CLP")
+  currency            String    @default("UF")
   aiDescription       String?   @map("ai_description")
   serviceDetail       String?   @map("service_detail")
   paymentTerms        String    @default("contrafactura") @map("payment_terms")

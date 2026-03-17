@@ -140,7 +140,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
   const [quoteError, setQuoteError] = useState<string | null>(null);
 
   // CRM context
-  const [crmAccounts, setCrmAccounts] = useState<{ id: string; name: string }[]>([]);
+  const [crmAccounts, setCrmAccounts] = useState<{ id: string; name: string; type?: string }[]>([]);
   const [crmInstallations, setCrmInstallations] = useState<CrmInstallationOption[]>([]);
   const [crmContacts, setCrmContacts] = useState<{ id: string; firstName: string; lastName: string; email?: string | null }[]>([]);
   const [crmDeals, setCrmDeals] = useState<{ id: string; title: string }[]>([]);
@@ -149,7 +149,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     installationId: "" as string,
     contactId: "" as string,
     dealId: "" as string,
-    currency: "CLP" as string,
+    currency: "UF" as string,
   });
   const [proposalTemplates, setProposalTemplates] = useState<{ id: string; name: string; slug: string; description?: string }[]>([]);
   const [proposalTemplateId, setProposalTemplateId] = useState<string | null>(null);
@@ -302,12 +302,19 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
     }
   }, [costSummary, costParams, marginPct]);
 
+  const getDefaultValidUntil = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 90);
+    return d.toISOString().split("T")[0] ?? "";
+  };
+
   useEffect(() => {
     if (!quote) return;
+    const validUntilValue = quote.validUntil ? formatDateInput(quote.validUntil) : getDefaultValidUntil();
     setQuoteForm((prev) => ({
       name: quote.name || "",
       clientName: quote.clientName || "",
-      validUntil: formatDateInput(quote.validUntil),
+      validUntil: validUntilValue,
       notes: quote.notes || "",
       status: quote.status,
       paymentTerms: quote.paymentTerms || "contrafactura",
@@ -322,7 +329,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       installationId: quote.installationId ?? "",
       contactId: quote.contactId ?? "",
       dealId: quote.dealId ?? "",
-      currency: quote.currency ?? "CLP",
+      currency: quote.currency ?? "UF",
     });
     setProposalTemplateId(quote.proposalTemplateId ?? null);
     setQuoteDirty(false);
@@ -355,11 +362,20 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
       .catch(() => {});
   }, []);
 
-  // Load CRM accounts on mount
+  // Load CRM accounts on mount (solo clientes, no prospectos)
   useEffect(() => {
-    fetch("/api/crm/accounts")
+    fetch("/api/crm/accounts?type=client")
       .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d?.success) setCrmAccounts(d.data.map((a: Record<string, string>) => ({ id: a.id, name: a.name }))); })
+      .then((d) => {
+        if (d?.success)
+          setCrmAccounts(
+            d.data.map((a: Record<string, string>) => ({
+              id: a.id,
+              name: a.name,
+              type: a.type,
+            }))
+          );
+      })
       .catch(() => {});
   }, []);
 

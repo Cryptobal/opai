@@ -47,10 +47,17 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
 
   const hasContext = Boolean(defaultClientName);
 
+  function getDefaultValidUntil(): string {
+    const d = new Date();
+    d.setDate(d.getDate() + 90);
+    return d.toISOString().split("T")[0] ?? "";
+  }
+
   useEffect(() => {
     if (open) {
       if (defaultClientName) setClientName(defaultClientName);
       setDealName(defaultDealName ?? "");
+      setValidUntil(getDefaultValidUntil());
     }
   }, [open, defaultClientName, defaultDealName]);
 
