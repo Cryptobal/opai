@@ -15,10 +15,12 @@ interface CrmRelatedRecordCardProps {
   title: string;
   /** Subtítulo o dato secundario */
   subtitle?: string;
-  /** Badge a mostrar (status, tipo, etc.) */
+  /** Badge a mostrar (status, tipo, etc.). Si se pasa `color`, se usa en lugar de variant. */
   badge?: {
     label: string;
     variant?: "default" | "secondary" | "success" | "warning" | "destructive" | "outline";
+    /** Color hex para la etapa del pipeline (ej: #94a3b8). Si se define, ignora variant. */
+    color?: string;
   };
   /** Metadata adicional (ej: "3 contactos · 2 negocios") */
   meta?: string;
@@ -78,9 +80,22 @@ export function CrmRelatedRecordCard({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium truncate">{title}</span>
           {badge && (
-            <Badge variant={badge.variant || "secondary"} className="shrink-0 text-[10px]">
-              {badge.label}
-            </Badge>
+            badge.color ? (
+              <span
+                className="shrink-0 inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-medium"
+                style={{
+                  backgroundColor: `${badge.color}20`,
+                  borderColor: badge.color,
+                  color: badge.color,
+                }}
+              >
+                {badge.label}
+              </span>
+            ) : (
+              <Badge variant={badge.variant || "secondary"} className="shrink-0 text-[10px]">
+                {badge.label}
+              </Badge>
+            )
           )}
         </div>
         {(subtitle || meta) && (

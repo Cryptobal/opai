@@ -188,7 +188,6 @@ export function CrmContactDetailClient({
   const [contact, setContact] = useState(initialContact);
   const [contactDeals, setContactDeals] = useState(deals);
   const [presentations, setPresentations] = useState(initialPresentations);
-  const [changingStageDealId, setChangingStageDealId] = useState<string | null>(null);
   const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
 
   // ── Edit state ──
@@ -409,61 +408,6 @@ export function CrmContactDetailClient({
     router.push(`/crm/deals/${dealId}`);
   };
 
-  const updateDealStage = async (dealId: string, stageId: string) => {
-    if (!stageId) return;
-    const current = contactDeals.find((deal) => deal.id === dealId);
-    if (!current || current.stage?.id === stageId) return;
-
-    const nextStage = pipelineStages.find((stage) => stage.id === stageId);
-    if (!nextStage) return;
-
-    const snapshot = JSON.parse(JSON.stringify(current)) as DealRow;
-
-    setContactDeals((prev) =>
-      prev.map((deal) =>
-        deal.id === dealId
-          ? {
-            ...deal,
-            stage: { id: nextStage.id, name: nextStage.name },
-            status: nextStage.isClosedWon ? "won" : nextStage.isClosedLost ? "lost" : "open",
-          }
-          : deal
-      )
-    );
-
-    setChangingStageDealId(dealId);
-    try {
-      const response = await fetch(`/api/crm/deals/${dealId}/stage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stageId }),
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || "Error cambiando etapa");
-
-      setContactDeals((prev) =>
-        prev.map((deal) =>
-          deal.id === dealId
-            ? {
-              ...deal,
-              stage: payload.data?.stage
-                ? { id: payload.data.stage.id, name: payload.data.stage.name }
-                : deal.stage,
-              status: payload.data?.status || deal.status,
-            }
-            : deal
-        )
-      );
-      toast.success("Etapa actualizada");
-    } catch (error) {
-      console.error(error);
-      setContactDeals((prev) => prev.map((deal) => (deal.id === dealId ? snapshot : deal)));
-      toast.error("No se pudo actualizar la etapa.");
-    } finally {
-      setChangingStageDealId(null);
-    }
-  };
-
   // ── WhatsApp (con o sin plantilla) ──
   const openWhatsApp = (templateId?: string) => {
     const phone = contact.phone?.replace(/\D/g, "").replace(/^0/, "");
@@ -595,44 +539,23 @@ export function CrmContactDetailClient({
           ) : (
             <CrmRelatedRecordGrid className="!grid-cols-1">
               {contactDeals.map((deal) => {
-                const hasCurrentStage = deal.stage?.id
-                  ? pipelineStages.some((stage) => stage.id === deal.stage?.id)
-                  : false;
+                const stageColor = (deal.stage as { color?: string | null } | undefined)?.color;
+                const badge =
+                  deal.status === "won"
+                    ? { label: "Ganado", variant: "success" as const }
+                    : deal.status === "lost"
+                      ? { label: "Perdido", variant: "destructive" as const }
+                      : deal.stage?.name
+                        ? { label: deal.stage.name, color: stageColor || undefined }
+                        : undefined;
                 return (
                   <CrmRelatedRecordCard
                     key={deal.id}
                     module="deals"
                     title={deal.title}
-                    subtitle={deal.stage?.name || "Sin etapa"}
                     meta={`$${Number(deal.amount).toLocaleString("es-CL")}`}
-                    badge={
-                      deal.status === "won"
-                        ? { label: "Ganado", variant: "success" }
-                        : deal.status === "lost"
-                          ? { label: "Perdido", variant: "destructive" }
-                          : undefined
-                    }
+                    badge={badge}
                     href={`/crm/deals/${deal.id}`}
-                    actions={
-                      <div onClick={(e) => e.preventDefault()} className="max-w-[130px] sm:max-w-[160px]">
-                        <select
-                          className="h-9 min-h-[44px] w-full appearance-none truncate rounded-md border border-input bg-background pl-2 pr-6 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
-                          style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 6px center" }}
-                          value={deal.stage?.id || ""}
-                          onChange={(event) => { event.preventDefault(); updateDealStage(deal.id, event.target.value); }}
-                          disabled={changingStageDealId === deal.id || pipelineStages.length === 0}
-                          aria-label={`Cambiar etapa de ${deal.title}`}
-                        >
-                          {deal.stage?.id && !hasCurrentStage && (
-                            <option value={deal.stage.id}>{deal.stage.name}</option>
-                          )}
-                          {pipelineStages.map((stage) => (
-                            <option key={stage.id} value={stage.id}>{stage.name}</option>
-                          ))}
-                          {pipelineStages.length === 0 && <option value="">Sin etapas</option>}
-                        </select>
-                      </div>
-                    }
                   />
                 );
               })}

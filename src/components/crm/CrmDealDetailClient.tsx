@@ -365,10 +365,12 @@ export function CrmDealDetailClient({
   const [savingDeal, setSavingDeal] = useState(false);
   const [dealTitle, setDealTitle] = useState(deal.title);
   const [dealAmount, setDealAmount] = useState(deal.amount);
+  const [accountOptions, setAccountOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [editDealForm, setEditDealForm] = useState({
     title: deal.title,
     amount: deal.amount,
     proposalLink: deal.proposalLink || "",
+    accountId: deal.account?.id ?? "",
   });
 
   const openDealEdit = () => {
@@ -376,12 +378,24 @@ export function CrmDealDetailClient({
       title: dealTitle,
       amount: dealAmount,
       proposalLink: dealProposalLink || "",
+      accountId: deal.account?.id ?? "",
     });
+    if (accountOptions.length === 0) {
+      fetch("/api/crm/accounts")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && d.data) {
+            setAccountOptions(d.data.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })));
+          }
+        })
+        .catch(() => {});
+    }
     setEditDealOpen(true);
   };
 
   const saveDeal = async () => {
     if (!editDealForm.title.trim()) { toast.error("El título es obligatorio."); return; }
+    if (!editDealForm.accountId) { toast.error("Selecciona una cuenta."); return; }
     setSavingDeal(true);
     try {
       const res = await fetch(`/api/crm/deals/${deal.id}`, {
@@ -391,6 +405,7 @@ export function CrmDealDetailClient({
           title: editDealForm.title,
           amount: Number(editDealForm.amount) || 0,
           proposalLink: editDealForm.proposalLink || null,
+          accountId: editDealForm.accountId || undefined,
         }),
       });
       const data = await res.json();
@@ -402,6 +417,9 @@ export function CrmDealDetailClient({
       }
       setEditDealOpen(false);
       toast.success("Negocio actualizado");
+      if (editDealForm.accountId !== deal.account?.id) {
+        router.refresh();
+      }
     } catch {
       toast.error("No se pudo actualizar el negocio.");
     } finally {
@@ -1515,6 +1533,25 @@ export function CrmDealDetailClient({
             <DialogTitle>Editar negocio</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Cliente (cuenta) *</Label>
+              <Select
+                value={editDealForm.accountId}
+                onValueChange={(v) => setEditDealForm((p) => ({ ...p, accountId: v }))}
+              >
+                <SelectTrigger className={selectCn}>
+                  <SelectValue placeholder="Selecciona cuenta" />
+                </SelectTrigger>
+                <SelectContent>
+                  {deal.account && !accountOptions.find((a) => a.id === deal.account?.id) && (
+                    <SelectItem value={deal.account.id}>{deal.account.name}</SelectItem>
+                  )}
+                  {accountOptions.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Título *</Label>
               <Input value={editDealForm.title} onChange={(e) => setEditDealForm((p) => ({ ...p, title: e.target.value }))} placeholder="Nombre del negocio" />

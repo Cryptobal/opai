@@ -833,23 +833,27 @@ export function CrmAccountDetailClient({
             <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a esta cuenta." compact />
           ) : (
             <CrmRelatedRecordGrid className="!grid-cols-1">
-              {account.deals.map((deal) => (
-                <CrmRelatedRecordCard
-                  key={deal.id}
-                  module="deals"
-                  title={deal.title}
-                  subtitle={deal.stage?.name || "Sin etapa"}
-                  meta={`$${Number(deal.amount).toLocaleString("es-CL")}`}
-                  badge={
-                    deal.status === "won"
-                      ? { label: "Ganado", variant: "success" }
-                      : deal.status === "lost"
-                        ? { label: "Perdido", variant: "destructive" }
-                        : undefined
-                  }
-                  href={`/crm/deals/${deal.id}`}
-                />
-              ))}
+              {account.deals.map((deal) => {
+                const stageColor = (deal.stage as { color?: string | null } | undefined)?.color;
+                const badge =
+                  deal.status === "won"
+                    ? { label: "Ganado", variant: "success" as const }
+                    : deal.status === "lost"
+                      ? { label: "Perdido", variant: "destructive" as const }
+                      : deal.stage?.name
+                        ? { label: deal.stage.name, color: stageColor || undefined }
+                        : undefined;
+                return (
+                  <CrmRelatedRecordCard
+                    key={deal.id}
+                    module="deals"
+                    title={deal.title}
+                    meta={`$${Number(deal.amount).toLocaleString("es-CL")}`}
+                    badge={badge}
+                    href={`/crm/deals/${deal.id}`}
+                  />
+                );
+              })}
             </CrmRelatedRecordGrid>
           )}
         </div>
