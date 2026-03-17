@@ -85,20 +85,21 @@ function renderBlock(block: EmailBlock, variables: Record<string, string>): stri
       const portalA = variables.portalAcceso ?? `${baseUrl}/portal/acceso`;
 
       const cards: string[] = [];
+      const colWidth = [c.mostrarGuardia, c.mostrarRondas, c.mostrarAcceso].filter(Boolean).length === 1 ? "100%" : "33%";
 
       if (c.mostrarGuardia !== false) {
         cards.push(`
-          <td width="33%" valign="top" style="padding:12px;">
+          <td width="${colWidth}" valign="top" style="padding:12px;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#1a1a24;border-radius:8px;padding:16px;">
               <tr><td style="font-family:Arial,sans-serif;font-size:14px;font-weight:600;color:${TEXT_LIGHT};margin-bottom:8px;">Portal del Guardia</td></tr>
-              <tr><td style="font-size:12px;color:${TEXT_MUTED};line-height:1.5;padding:8px 0;">Turnos, asistencia, documentos y chat.</td></tr>
+              <tr><td style="font-size:12px;color:${TEXT_MUTED};line-height:1.5;padding:8px 0;">Tu pauta de turnos, asistencia, documentos, chat con la instalación, protocolos, exámenes y más.</td></tr>
               <tr><td style="padding-top:12px;"><a href="${portalG}" style="color:${ACCENT_COLOR};font-size:13px;text-decoration:none;">Acceder →</a></td></tr>
             </table>
           </td>`);
       }
       if (c.mostrarRondas !== false) {
         cards.push(`
-          <td width="33%" valign="top" style="padding:12px;">
+          <td width="${colWidth}" valign="top" style="padding:12px;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#1a1a24;border-radius:8px;padding:16px;">
               <tr><td style="font-family:Arial,sans-serif;font-size:14px;font-weight:600;color:${TEXT_LIGHT};">Portal de Rondas</td></tr>
               <tr><td style="font-size:12px;color:${TEXT_MUTED};line-height:1.5;padding:8px 0;">Registra recorridos con GPS.</td></tr>
@@ -108,7 +109,7 @@ function renderBlock(block: EmailBlock, variables: Record<string, string>): stri
       }
       if (c.mostrarAcceso !== false) {
         cards.push(`
-          <td width="33%" valign="top" style="padding:12px;">
+          <td width="${colWidth}" valign="top" style="padding:12px;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#1a1a24;border-radius:8px;padding:16px;">
               <tr><td style="font-family:Arial,sans-serif;font-size:14px;font-weight:600;color:${TEXT_LIGHT};">Portal de Acceso</td></tr>
               <tr><td style="font-size:12px;color:${TEXT_MUTED};line-height:1.5;padding:8px 0;">Control de ingreso y salida.</td></tr>

@@ -28,8 +28,8 @@ const DEFAULT_ONBOARDING_BLOCKS = [
     id: "pin-1",
     tipo: "pin" as const,
     contenido: {
-      textoAntes: "Tu PIN de acceso es:",
-      textoDespues: "Guárdalo en un lugar seguro. Lo necesitarás para acceder a los portales.",
+      textoAntes: "Tu PIN para el Portal del Guardia es:",
+      textoDespues: "Guárdalo en un lugar seguro. Lo necesitarás para acceder a tu portal web.",
     },
     orden: 2,
   },
@@ -38,7 +38,7 @@ const DEFAULT_ONBOARDING_BLOCKS = [
     tipo: "texto" as const,
     contenido: {
       texto:
-        "OPAI es la plataforma tecnológica que usamos para gestionar todas las operaciones de seguridad. A continuación te explicamos los portales a los que tienes acceso:",
+        "El Portal del Guardia es tu espacio web para gestionar tu día a día. Desde ahí podrás ver tus turnos, registrar asistencia, consultar documentos, comunicarte por chat y mucho más. Accede desde cualquier navegador:",
     },
     orden: 3,
   },
@@ -47,8 +47,8 @@ const DEFAULT_ONBOARDING_BLOCKS = [
     tipo: "portales" as const,
     contenido: {
       mostrarGuardia: true,
-      mostrarRondas: true,
-      mostrarAcceso: true,
+      mostrarRondas: false,
+      mostrarAcceso: false,
     },
     orden: 4,
   },
@@ -135,7 +135,7 @@ export async function seedOnboardingEmailTemplates(
       data: {
         tenantId,
         nombre: "Recordatorio - Accede a OPAI",
-        asunto: "Recordatorio: Tu cuenta OPAI está lista — Accede a los portales",
+        asunto: "Recordatorio: Tu cuenta OPAI está lista — Accede al Portal del Guardia",
         tipo: "RECORDATORIO",
         contenido: [
           {
@@ -149,14 +149,14 @@ export async function seedOnboardingEmailTemplates(
             tipo: "texto",
             contenido: {
               texto:
-                "Hola {{nombre}}, te enviamos este recordatorio porque aún no has accedido a los portales de OPAI. Tu PIN es {{pin}}. Accede desde los siguientes enlaces:",
+                "Hola {{nombre}}, te enviamos este recordatorio porque aún no has accedido al Portal del Guardia. Tu PIN es {{pin}}. Accede desde el siguiente enlace:",
             },
             orden: 1,
           },
           {
             id: "portales-r",
             tipo: "portales",
-            contenido: { mostrarGuardia: true, mostrarRondas: true, mostrarAcceso: true },
+            contenido: { mostrarGuardia: true, mostrarRondas: false, mostrarAcceso: false },
             orden: 2,
           },
           {
