@@ -204,7 +204,6 @@ async function handleCliente(tenantId: string, since: Date) {
   try {
     const contactIds = auditLogs.map((a) => a.contactId);
     if (contactIds.length > 0) {
-      // @ts-expect-error - Prisma groupBy tiene un bug de tipos conocido (prisma/prisma#17297)
       [portalLogins, portalQuoteViews] = await Promise.all([
         prisma.portalAccessLog.groupBy({
           by: ["userId"],
