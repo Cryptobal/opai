@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, Loader2, BarChart3, User, Map, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import { Download, Loader2, BarChart3, User, Map, AlertTriangle, Clock, CheckCircle2, LayoutGrid } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -10,6 +10,7 @@ import { RondasComplianceChart } from "./RondasComplianceChart";
 import { RondasReportesTable, type ReporteRow } from "./RondasReportesTable";
 import { RondasReportesPorGuardia } from "./RondasReportesPorGuardia";
 import { RondasReportesHeatmap } from "./RondasReportesHeatmap";
+import { RondasDashboardGlobal } from "./RondasDashboardGlobal";
 import { RondaAuditMapModal } from "./RondaAuditMapModal";
 
 interface Installation {
@@ -73,6 +74,7 @@ const TABS = [
   { id: "instalacion", label: "Por instalación", icon: BarChart3 },
   { id: "guardia", label: "Por guardia", icon: User },
   { id: "heatmap", label: "Mapa de calor", icon: Map },
+  { id: "dashboard", label: "Dashboard Global", icon: LayoutGrid },
 ];
 
 const STATUS_OPTIONS = [
@@ -575,6 +577,11 @@ export function RondasReportesClient({
           dateTo={dateTo}
           initialInstallationId={installationId || undefined}
         />
+      )}
+
+      {/* Tab: Dashboard Global */}
+      {activeTab === "dashboard" && (
+        <RondasDashboardGlobal initialDate={dateTo} />
       )}
 
       {/* Audit map modal */}
