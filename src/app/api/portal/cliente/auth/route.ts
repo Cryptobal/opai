@@ -193,6 +193,21 @@ export async function POST(request: NextRequest) {
       console.warn("[Portal Cliente] Audit log skipped:", (e as Error)?.message);
     }
 
+    try {
+      await prisma.portalAccessLog.create({
+        data: {
+          tenantId: result.session.tenantId,
+          portalType: "cliente",
+          userType: "contact",
+          userId: result.session.contactId,
+          accountId: result.session.accountId,
+          action: "login",
+          ip,
+          userAgent: request.headers.get("user-agent") ?? null,
+        },
+      });
+    } catch {}
+
     const res = NextResponse.json({ success: true, data: result.session });
     res.cookies.set(setSessionCookie(result.session));
     return res;

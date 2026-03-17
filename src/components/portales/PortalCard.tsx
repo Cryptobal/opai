@@ -4,7 +4,8 @@
  * PortalCard — Card de cada portal disponible en la vista /portales.
  */
 
-import { ExternalLink, Monitor, type LucideIcon } from 'lucide-react';
+import Link from 'next/link';
+import { BarChart3, ExternalLink, Monitor, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface PortalCardProps {
@@ -13,6 +14,7 @@ export interface PortalCardProps {
     href: string;
     icon: LucideIcon;
     accentColor?: string;
+    portalId?: string;
     onOpen: () => void;
 }
 
@@ -22,6 +24,7 @@ export function PortalCard({
     href,
     icon: Icon,
     accentColor = 'from-primary/20 to-primary/5',
+    portalId,
     onOpen,
 }: PortalCardProps) {
     return (
@@ -83,6 +86,22 @@ export function PortalCard({
                         <Monitor className="h-4 w-4" />
                         Abrir Portal
                     </button>
+                    {portalId && !['marcacion', 'acceso'].includes(portalId) && (
+                        <Link
+                            href={`/portales/${portalId}/ranking`}
+                            className={cn(
+                                'inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5',
+                                'border border-border text-sm font-medium text-muted-foreground',
+                                'transition-all duration-200',
+                                'hover:bg-accent hover:text-foreground hover:border-border/80',
+                                'active:scale-[0.98]',
+                            )}
+                            title="Ver ranking de uso"
+                        >
+                            <BarChart3 className="h-4 w-4" />
+                            <span className="hidden sm:inline">Ranking</span>
+                        </Link>
+                    )}
                     <a
                         href={href}
                         target="_blank"

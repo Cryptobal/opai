@@ -45,9 +45,9 @@ const KPIS: KpiDef[] = [
     Icon: FileEdit,
   },
   {
-    label: 'Apertura propuestas',
-    getValue: (k) => `${k.proposalViewRate30}%`,
-    getSub: (k) => `${k.proposalsViewed30}/${k.proposalsSent30} vistas / 30d`,
+    label: 'Vistas en portal',
+    getValue: (k) => `${k.portalViewRate30}%`,
+    getSub: (k) => `${k.portalQuotesViewed30}/${k.portalQuotesSent30} vistas / 30d`,
     color: 'text-teal-400',
     Icon: Eye,
     hideMobile: true,

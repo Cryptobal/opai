@@ -141,6 +141,20 @@ export async function POST(request: NextRequest) {
     after(async () => {
       const { trackPortalAccess } = await import("@/lib/triggers/portal-access-tracker");
       await trackPortalAccess(guardia.id, "guardia");
+      try {
+        await prisma.portalAccessLog.create({
+          data: {
+            tenantId: persona.tenantId,
+            portalType: "guardia",
+            userType: "guardia",
+            userId: guardia.id,
+            installationId: guardia.currentInstallationId ?? undefined,
+            action: "login",
+            ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+            userAgent: request.headers.get("user-agent") ?? null,
+          },
+        });
+      } catch {}
     });
 
     return response;

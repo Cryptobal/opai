@@ -112,6 +112,7 @@ export default function PortalesPage() {
                         href={portal.href}
                         icon={portal.icon}
                         accentColor={portal.accentColor}
+                        portalId={portal.id}
                         onOpen={() => setActivePortal(portal)}
                     />
                 ))}

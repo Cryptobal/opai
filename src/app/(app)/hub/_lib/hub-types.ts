@@ -363,6 +363,9 @@ export interface ClosingHubKpis {
   proposalsViewed30: number;
   followUpsOverdueCount: number;
   quotesDraftCount: number;
+  portalQuotesViewed30: number;
+  portalQuotesSent30: number;
+  portalViewRate30: number;
 }
 
 export interface ClosingHotDeal {
@@ -422,6 +425,17 @@ export interface ClosingHubData {
   staleDeals: ClosingStaleDeal[];
   pendingLeads: ClosingPendingLead[];
   funnel: ClosingFunnel;
+  portalTopUsers: ClosingPortalTopUser[];
+}
+
+export interface ClosingPortalTopUser {
+  accountId: string;
+  accountName: string;
+  contactName: string;
+  isProspect: boolean;
+  totalLogins: number;
+  totalQuoteViews: number;
+  lastAccessAt: Date | null;
 }
 
 export interface HubClosingSectionProps {

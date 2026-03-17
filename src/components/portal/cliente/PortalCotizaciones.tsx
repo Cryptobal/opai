@@ -100,7 +100,10 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
     try {
       const res = await fetch(`/api/portal/cliente/cotizaciones/${id}`);
       const json = await res.json();
-      if (json.success) setDetail(json.data);
+      if (json.success) {
+        setDetail(json.data);
+        fetch(`/api/portal/cliente/cotizaciones/${id}/view`, { method: "POST" }).catch(() => {});
+      }
     } finally {
       setDetailLoading(false);
     }

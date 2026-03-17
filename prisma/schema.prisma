@@ -2377,6 +2377,31 @@ model PortalClienteAuditLog {
   @@schema("crm")
 }
 
+model PortalAccessLog {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  portalType      String   @map("portal_type") // guardia | rondas | cliente | supervisor | marcacion | acceso
+  userType        String   @map("user_type")   // guardia | contact | admin
+  userId          String   @map("user_id")     // guardiaId | contactId | adminId
+  accountId       String?  @map("account_id") @db.Uuid  // for client portal
+  installationId  String?  @map("installation_id") @db.Uuid // for guard portals
+  action          String   // login | view_section | view_quote
+  resource        String?  // section name or quoteId
+  ip              String?
+  userAgent       String?  @map("user_agent")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "idx_portal_access_log_tenant")
+  @@index([tenantId, portalType], map: "idx_portal_access_log_tenant_type")
+  @@index([userId], map: "idx_portal_access_log_user")
+  @@index([accountId], map: "idx_portal_access_log_account")
+  @@index([installationId], map: "idx_portal_access_log_installation")
+  @@index([createdAt(sort: Desc)], map: "idx_portal_access_log_created_desc")
+  @@index([tenantId, action, createdAt], map: "idx_portal_access_log_action")
+  @@map("portal_access_logs")
+  @@schema("crm")
+}
+
 // ============================================
 // OPS MODULE (Operaciones, TE, Personas)
 // ============================================

@@ -11,12 +11,13 @@ import { HubHotDealsMobile } from './HubHotDealsMobile';
 import { HubMiniFunnel } from './HubMiniFunnel';
 import { HubStaleDeals } from './HubStaleDeals';
 import { HubPendingLeads } from './HubPendingLeads';
+import { HubPortalRanking } from './HubPortalRanking';
 import { formatCLP } from '../_lib/hub-utils';
 import type { HubClosingSectionProps } from '../_lib/hub-types';
 
 export function HubCrmSection({ perms, closingData }: HubClosingSectionProps) {
   const [activeTab, setActiveTab] = useState('hot');
-  const { kpis, hotDeals, staleDeals, pendingLeads, funnel } = closingData;
+  const { kpis, hotDeals, staleDeals, pendingLeads, funnel, portalTopUsers } = closingData;
 
   const negotiationFormatted = formatCLP(Math.round(kpis.amountNegotiatingClp));
 
@@ -139,6 +140,7 @@ export function HubCrmSection({ perms, closingData }: HubClosingSectionProps) {
         <div className="space-y-3 md:sticky md:top-4">
           <HubStaleDeals deals={staleDeals} />
           <HubPendingLeads leads={pendingLeads} />
+          <HubPortalRanking users={portalTopUsers} />
         </div>
       </div>
     </HubCollapsibleSection>

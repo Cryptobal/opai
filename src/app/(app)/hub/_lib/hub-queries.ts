@@ -42,6 +42,7 @@ import type {
   ClosingHotDeal,
   ClosingStaleDeal,
   ClosingPendingLead,
+  ClosingPortalTopUser,
 } from './hub-types';
 
 /* ------------------------------------------------------------------ */
@@ -236,13 +237,20 @@ export async function getClosingHubData(
   const allQuoteIds = collectLinkedQuoteIds(openDeals);
   const openDealIds = openDeals.map((d) => d.id);
 
-  const [presentations, stageHistoryRows, negotiatingQuotes] = await Promise.all([
-    // Presentations linked to open deals' quotes
-    allQuoteIds.length > 0
-      ? prisma.presentation.findMany({
-          where: { tenantId, quoteId: { in: allQuoteIds }, archivedAt: null },
-          select: { quoteId: true, viewCount: true, lastViewedAt: true, uniqueId: true },
-        })
+  const hasPortalAccessLog = typeof (prisma as Record<string, unknown>).portalAccessLog !== 'undefined';
+
+  const [portalQuoteViews, stageHistoryRows, negotiatingQuotes] = await Promise.all([
+    // Portal quote views from PortalAccessLog (replaces Presentation-based tracking)
+    hasPortalAccessLog && allQuoteIds.length > 0
+      ? prisma.portalAccessLog.findMany({
+          where: {
+            tenantId,
+            portalType: 'cliente',
+            action: 'view_quote',
+            resource: { in: allQuoteIds },
+          },
+          select: { resource: true, createdAt: true },
+        }).catch(() => [] as { resource: string | null; createdAt: Date }[])
       : [],
     // Latest stage change per deal for daysInCurrentStage
     openDealIds.length > 0
@@ -276,22 +284,20 @@ export async function getClosingHubData(
   const stageChangedAtByDeal = new Map(stageHistoryRows.map((r) => [r.dealId, r.changedAt]));
   const quoteById = new Map(negotiatingQuotes.map((q) => [q.id, q]));
 
-  // Group presentations by quoteId
-  const viewsByQuoteId = new Map<string, { totalViews: number; lastViewedAt: Date | null; uniqueId: string }>();
-  for (const p of presentations) {
-    if (!p.quoteId) continue;
-    const existing = viewsByQuoteId.get(p.quoteId);
+  // Group portal quote views by quoteId (resource field)
+  const viewsByQuoteId = new Map<string, { totalViews: number; lastViewedAt: Date | null }>();
+  for (const v of portalQuoteViews) {
+    if (!v.resource) continue;
+    const existing = viewsByQuoteId.get(v.resource);
     if (existing) {
-      existing.totalViews += p.viewCount;
-      if (p.lastViewedAt && (!existing.lastViewedAt || p.lastViewedAt > existing.lastViewedAt)) {
-        existing.lastViewedAt = p.lastViewedAt;
-        existing.uniqueId = p.uniqueId; // keep most recently viewed
+      existing.totalViews += 1;
+      if (v.createdAt > (existing.lastViewedAt ?? new Date(0))) {
+        existing.lastViewedAt = v.createdAt;
       }
     } else {
-      viewsByQuoteId.set(p.quoteId, {
-        totalViews: p.viewCount,
-        lastViewedAt: p.lastViewedAt,
-        uniqueId: p.uniqueId,
+      viewsByQuoteId.set(v.resource, {
+        totalViews: 1,
+        lastViewedAt: v.createdAt,
       });
     }
   }
@@ -300,18 +306,15 @@ export async function getClosingHubData(
   function getDealViews(deal: typeof openDeals[number]) {
     let totalViews = 0;
     let lastViewedAt: Date | null = null;
-    let proposalUniqueId: string | null = null;
     for (const link of deal.quotes) {
       const views = viewsByQuoteId.get(link.quoteId);
       if (!views) continue;
       totalViews += views.totalViews;
-      if (!proposalUniqueId) proposalUniqueId = views.uniqueId;
       if (views.lastViewedAt && (!lastViewedAt || views.lastViewedAt > lastViewedAt)) {
         lastViewedAt = views.lastViewedAt;
-        proposalUniqueId = views.uniqueId;
       }
     }
-    return { totalViews, lastViewedAt, proposalUniqueId };
+    return { totalViews, lastViewedAt };
   }
 
   // Filter to only negotiating-stage deals for KPIs (not ALL open deals)
@@ -336,13 +339,13 @@ export async function getClosingHubData(
     return summary ? summary.amountClp : Number(deal.amount);
   }
 
-  // Build hot deals: open deals with at least 1 presentation
+  // Build hot deals: open deals with portal views or proposal sent
   const hotDealCandidates: ClosingHotDeal[] = [];
   for (const deal of openDeals) {
-    const hasPresentation = deal.quotes.some((q) => viewsByQuoteId.has(q.quoteId));
-    if (!hasPresentation && !deal.proposalSentAt) continue;
+    const hasPortalViews = deal.quotes.some((q) => viewsByQuoteId.has(q.quoteId));
+    if (!hasPortalViews && !deal.proposalSentAt) continue;
 
-    const { totalViews, lastViewedAt, proposalUniqueId } = getDealViews(deal);
+    const { totalViews, lastViewedAt } = getDealViews(deal);
     const contactName = [deal.primaryContact?.lastName, deal.primaryContact?.firstName]
       .filter(Boolean).join(' ') || 'Sin contacto';
     const stageChanged = stageChangedAtByDeal.get(deal.id);
@@ -367,7 +370,7 @@ export async function getClosingHubData(
       heatScore: computeHeatScore(totalViews, lastViewedAt, now),
       daysInCurrentStage,
       proposalSentAt: deal.proposalSentAt,
-      proposalLink: proposalUniqueId ? `/p/${proposalUniqueId}` : null,
+      proposalLink: null,
     });
   }
   hotDealCandidates.sort((a, b) => b.heatScore - a.heatScore || (
@@ -439,6 +442,69 @@ export async function getClosingHubData(
     triggerFollowUpProcessing();
   }
 
+  // Portal KPIs: quotes sent (status=sent in last 30d) vs viewed in portal
+  const portalQuotesSent30 = await prisma.cpqQuote.count({
+    where: { tenantId, status: 'sent', updatedAt: { gte: thirtyDaysAgo } },
+  }).catch(() => 0);
+
+  const portalViewedQuoteIds = new Set(portalQuoteViews.filter((v) => v.resource).map((v) => v.resource!));
+  const portalQuotesViewed30 = portalViewedQuoteIds.size;
+
+  // Resolve portal top users from PortalClienteAuditLog (historical) + PortalAccessLog
+  const portalTopUsers: ClosingPortalTopUser[] = [];
+  {
+    const auditTopUsers = await prisma.portalClienteAuditLog.groupBy({
+      by: ['contactId'],
+      where: { tenantId, createdAt: { gte: thirtyDaysAgo } },
+      _count: { id: true },
+      _max: { createdAt: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 8,
+    }).catch(() => [] as { contactId: string; _count: { id: number }; _max: { createdAt: Date | null } }[]);
+
+    if (auditTopUsers.length > 0) {
+      const topContactIds = auditTopUsers.map((u) => u.contactId);
+
+      const [contacts, quoteViewCounts] = await Promise.all([
+        prisma.crmContact.findMany({
+          where: { id: { in: topContactIds } },
+          select: { id: true, firstName: true, lastName: true, accountId: true },
+        }),
+        hasPortalAccessLog
+          ? prisma.portalAccessLog.groupBy({
+              by: ['userId'],
+              where: { tenantId, portalType: 'cliente', action: 'view_quote', createdAt: { gte: thirtyDaysAgo }, userId: { in: topContactIds } },
+              _count: { id: true },
+            }).catch(() => [] as { userId: string; _count: { id: number } }[])
+          : [],
+      ]);
+
+      const contactMap = new Map(contacts.map((c) => [c.id, c]));
+      const viewMap = new Map(quoteViewCounts.map((v) => [v.userId, v._count.id]));
+
+      const accIds = [...new Set(contacts.map((c) => c.accountId).filter(Boolean) as string[])];
+      const accounts = accIds.length > 0
+        ? await prisma.crmAccount.findMany({ where: { id: { in: accIds } }, select: { id: true, name: true, status: true } })
+        : [];
+      const accountMap = new Map(accounts.map((a) => [a.id, a]));
+
+      for (const raw of auditTopUsers) {
+        const contact = contactMap.get(raw.contactId);
+        const account = contact?.accountId ? accountMap.get(contact.accountId) : null;
+        if (!contact || !account) continue;
+        portalTopUsers.push({
+          accountId: account.id,
+          accountName: account.name,
+          contactName: [contact.firstName, contact.lastName].filter(Boolean).join(' ') || 'Sin nombre',
+          isProspect: account.status === 'prospect',
+          totalLogins: raw._count.id,
+          totalQuoteViews: viewMap.get(raw.contactId) ?? 0,
+          lastAccessAt: raw._max.createdAt,
+        });
+      }
+    }
+  }
+
   return {
     kpis: {
       openLeadsCount,
@@ -454,10 +520,14 @@ export async function getClosingHubData(
       proposalsViewed30: docsSignals.viewed30,
       followUpsOverdueCount,
       quotesDraftCount,
+      portalQuotesViewed30,
+      portalQuotesSent30,
+      portalViewRate30: toPercent(portalQuotesViewed30, portalQuotesSent30),
     },
     hotDeals,
     staleDeals,
     pendingLeads,
+    portalTopUsers,
     funnel: {
       leadsCreated: newLeads30,
       leadsConverted: leadsConverted30,
