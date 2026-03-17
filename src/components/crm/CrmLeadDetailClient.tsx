@@ -47,6 +47,7 @@ import { StatusBadge } from "@/components/opai/StatusBadge";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
+import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
@@ -1606,6 +1607,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                       </Button>
                     )}
                   </div>
+                  <MapsUrlPasteInput onResolve={(result) => handleAddressChange(inst._key, result)} className="mt-1.5" />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
