@@ -203,6 +203,7 @@ model Admin {
   visitasTecnicas       OpsVisitaTecnica[]        @relation("ops_visita_tecnica_supervisor")
   portalEjecutivoCuentas CrmAccount[]             @relation("PortalEjecutivo")
   inventoryPhoneLineAssignments InventoryPhoneLineAssignment[]
+  companyPresentationsSent CrmCompanyPresentation[]
 
   @@index([email])
   @@index([status])
@@ -1650,6 +1651,7 @@ model CrmCompanyPresentation {
   id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId      String    @map("tenant_id")
   contactId     String    @map("contact_id") @db.Uuid
+  sentById      String    @map("sent_by_id")
   status        String    @default("sent")
   sentAt        DateTime? @map("sent_at") @db.Timestamptz(6)
   firstViewedAt DateTime? @map("first_viewed_at") @db.Timestamptz(6)
@@ -1660,6 +1662,7 @@ model CrmCompanyPresentation {
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   contact CrmContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  sentBy  Admin     @relation(fields: [sentById], references: [id], onDelete: Restrict)
 
   @@index([contactId], map: "idx_crm_company_presentations_contact")
   @@index([status], map: "idx_crm_company_presentations_status")

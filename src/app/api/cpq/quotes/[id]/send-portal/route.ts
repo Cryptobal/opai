@@ -399,6 +399,7 @@ export async function POST(
             data: {
               tenantId: ctx.tenantId,
               contactId: contact.id,
+              sentById: ctx.userId,
               status: "sent",
               sentAt: new Date(),
             },
