@@ -228,6 +228,35 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
     setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
   }, []);
 
+  const addFilesFromList = useCallback(
+    (fileList: File[]) => {
+      if (fileList.length === 0) return;
+      const maxSize = 10 * 1024 * 1024;
+      const valid = fileList.filter((f) => f.size <= maxSize).slice(0, 5 - pendingFiles.length);
+      if (valid.length > 0) setPendingFiles((prev) => [...prev, ...valid]);
+    },
+    [pendingFiles.length],
+  );
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const pastedFiles: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].kind === "file") {
+          const file = items[i].getAsFile();
+          if (file) pastedFiles.push(file);
+        }
+      }
+      if (pastedFiles.length > 0) {
+        e.preventDefault();
+        addFilesFromList(pastedFiles);
+      }
+    },
+    [addFilesFromList],
+  );
+
   const uploadFiles = async (files: File[]): Promise<ChatAttachment[]> => {
     const formData = new FormData();
     files.forEach((f) => formData.append("files", f));
@@ -450,6 +479,7 @@ export function ChatGuardSection({ session }: ChatGuardSectionProps) {
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder="Escribe un mensaje..."
             rows={1}
             className="flex-1 resize-none bg-transparent py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none max-h-28"

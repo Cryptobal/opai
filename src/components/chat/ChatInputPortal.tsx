@@ -126,6 +126,42 @@ export function ChatInputPortal({
     [files.length],
   );
 
+  const addFilesFromList = useCallback(
+    (fileList: File[]) => {
+      if (fileList.length === 0) return;
+      const remaining = MAX_FILES - files.length;
+      const previews: FilePreview[] = fileList
+        .slice(0, remaining)
+        .filter((f) => f.size <= MAX_FILE_SIZE_BYTES)
+        .map((file) => ({
+          file,
+          previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+          isImage: file.type.startsWith("image/"),
+        }));
+      if (previews.length > 0) setFiles((prev) => [...prev, ...previews]);
+    },
+    [files.length],
+  );
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const pastedFiles: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].kind === "file") {
+          const file = items[i].getAsFile();
+          if (file) pastedFiles.push(file);
+        }
+      }
+      if (pastedFiles.length > 0) {
+        e.preventDefault();
+        addFilesFromList(pastedFiles);
+      }
+    },
+    [addFilesFromList],
+  );
+
   const removeFile = useCallback((index: number) => {
     setFiles((prev) => {
       const removed = prev[index];
@@ -304,6 +340,7 @@ export function ChatInputPortal({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           placeholder="Escribe un mensaje..."
           disabled={disabled}
           rows={1}

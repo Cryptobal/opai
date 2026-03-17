@@ -7,25 +7,30 @@ export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ctx = await requireAuth();
-  if (!ctx) return unauthorized();
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
 
-  const { id: channelId } = await params;
+    const { id: channelId } = await params;
 
-  const channel = await prisma.chatChannel.findFirst({
-    where: { id: channelId, tenantId: ctx.tenantId },
-  });
-  if (!channel) {
-    return NextResponse.json({ success: false, error: "Canal no encontrado" }, { status: 404 });
+    const channel = await prisma.chatChannel.findFirst({
+      where: { id: channelId, tenantId: ctx.tenantId },
+    });
+    if (!channel) {
+      return NextResponse.json({ success: false, error: "Canal no encontrado" }, { status: 404 });
+    }
+
+    await prisma.chatChannelArchive.upsert({
+      where: { channelId_adminId: { channelId, adminId: ctx.userId } },
+      create: { channelId, adminId: ctx.userId },
+      update: { archivedAt: new Date() },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("Error archiving chat channel:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-
-  await prisma.chatChannelArchive.upsert({
-    where: { channelId_adminId: { channelId, adminId: ctx.userId } },
-    create: { channelId, adminId: ctx.userId },
-    update: { archivedAt: new Date() },
-  });
-
-  return NextResponse.json({ success: true });
 }
 
 // DELETE → unarchive this channel for the current user
@@ -33,14 +38,19 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ctx = await requireAuth();
-  if (!ctx) return unauthorized();
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
 
-  const { id: channelId } = await params;
+    const { id: channelId } = await params;
 
-  await prisma.chatChannelArchive.deleteMany({
-    where: { channelId, adminId: ctx.userId },
-  });
+    await prisma.chatChannelArchive.deleteMany({
+      where: { channelId, adminId: ctx.userId },
+    });
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("Error unarchiving chat channel:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
 }

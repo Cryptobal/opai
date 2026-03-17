@@ -11,28 +11,33 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ctx = await requireAuth();
-  if (!ctx) return unauthorized();
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
 
-  if (ctx.userRole !== "admin" && ctx.userRole !== "owner") {
-    return NextResponse.json(
-      { success: false, error: "Solo administradores pueden eliminar canales permanentemente" },
-      { status: 403 }
-    );
+    if (ctx.userRole !== "admin" && ctx.userRole !== "owner") {
+      return NextResponse.json(
+        { success: false, error: "Solo administradores pueden eliminar canales permanentemente" },
+        { status: 403 }
+      );
+    }
+
+    const { id: channelId } = await params;
+
+    const channel = await prisma.chatChannel.findFirst({
+      where: { id: channelId, tenantId: ctx.tenantId },
+    });
+    if (!channel) {
+      return NextResponse.json({ success: false, error: "Canal no encontrado" }, { status: 404 });
+    }
+
+    await prisma.chatChannel.delete({ where: { id: channelId } });
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("Error deleting chat channel:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-
-  const { id: channelId } = await params;
-
-  const channel = await prisma.chatChannel.findFirst({
-    where: { id: channelId, tenantId: ctx.tenantId },
-  });
-  if (!channel) {
-    return NextResponse.json({ success: false, error: "Canal no encontrado" }, { status: 404 });
-  }
-
-  await prisma.chatChannel.delete({ where: { id: channelId } });
-
-  return NextResponse.json({ success: true });
 }
 
 export async function GET(
@@ -72,6 +77,18 @@ export async function GET(
         { success: false, error: "Canal no encontrado" },
         { status: 404 }
       );
+    }
+
+    if (channel.channelType === "GROUP" && channel.groupId) {
+      const membership = await prisma.adminGroupMembership.findFirst({
+        where: { groupId: channel.groupId, adminId: ctx.userId },
+      });
+      if (!membership && ctx.userRole !== "owner" && ctx.userRole !== "admin") {
+        return NextResponse.json(
+          { success: false, error: "No tienes acceso a este canal" },
+          { status: 403 }
+        );
+      }
     }
 
     const data = {

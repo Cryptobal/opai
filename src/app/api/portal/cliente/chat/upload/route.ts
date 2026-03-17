@@ -12,6 +12,18 @@ import { randomUUID } from "node:crypto";
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
+const ALLOWED_MIME_PREFIXES = [
+  "image/", "audio/", "video/",
+  "application/pdf", "application/msword",
+  "application/vnd.openxmlformats-officedocument", "application/vnd.ms-excel",
+  "text/plain", "text/csv",
+  "application/zip", "application/x-zip-compressed", "application/octet-stream",
+];
+
+function isAllowedMime(mime: string): boolean {
+  return ALLOWED_MIME_PREFIXES.some((prefix) => mime.startsWith(prefix));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = getClientSession(request);
@@ -42,14 +54,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file sizes
     for (const file of files) {
       if (file.size > MAX_FILE_SIZE) {
         return NextResponse.json(
-          {
-            success: false,
-            error: `El archivo "${file.name}" excede el límite de 10MB`,
-          },
+          { success: false, error: `El archivo "${file.name}" excede el límite de 10MB` },
+          { status: 400 }
+        );
+      }
+      if (!isAllowedMime(file.type || "application/octet-stream")) {
+        return NextResponse.json(
+          { success: false, error: `Tipo de archivo no permitido: "${file.name}"` },
           { status: 400 }
         );
       }

@@ -405,6 +405,76 @@ export function ChatInput({
     [files.length]
   );
 
+  const addFilesFromList = useCallback(
+    (fileList: File[]) => {
+      if (fileList.length === 0) return;
+      const remainingSlots = MAX_FILES - files.length;
+      const newPreviews: FilePreview[] = fileList
+        .slice(0, remainingSlots)
+        .filter((f) => f.size <= MAX_FILE_SIZE_BYTES)
+        .map((file) => ({
+          file,
+          previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+          isImage: file.type.startsWith("image/"),
+        }));
+      if (newPreviews.length > 0) setFiles((prev) => [...prev, ...newPreviews]);
+    },
+    [files.length]
+  );
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const pastedFiles: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].kind === "file") {
+          const file = items[i].getAsFile();
+          if (file) pastedFiles.push(file);
+        }
+      }
+      if (pastedFiles.length > 0) {
+        e.preventDefault();
+        addFilesFromList(pastedFiles);
+      }
+    },
+    [addFilesFromList]
+  );
+
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) setIsDragging(false);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      dragCounterRef.current = 0;
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      addFilesFromList(droppedFiles);
+    },
+    [addFilesFromList]
+  );
+
   const removeFile = useCallback((index: number) => {
     setFiles((prev) => {
       const removed = prev[index];
@@ -569,7 +639,16 @@ export function ChatInput({
   const isEmpty = content.trim().length === 0 && files.length === 0;
 
   return (
-    <div className="px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-[#0d1220] pb-[env(safe-area-inset-bottom)]">
+    <div
+      className={cn(
+        "px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-[#0d1220] pb-[env(safe-area-inset-bottom)] relative",
+        isDragging && "ring-2 ring-[#2dd4bf]/50 ring-inset"
+      )}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       {/* Reply banner */}
       {replyTo && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
@@ -747,6 +826,7 @@ export function ChatInput({
             value={content}
             onChange={handleContentChange}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder="Escribe un mensaje..."
             rows={1}
             className="flex-1 resize-none bg-transparent px-2 py-2 text-sm text-[rgba(255,255,255,0.88)] placeholder:text-[rgba(255,255,255,0.28)] focus:outline-none max-h-28 w-full leading-6"

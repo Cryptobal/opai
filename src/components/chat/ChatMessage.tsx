@@ -287,14 +287,12 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
           </div>
         ) : message.contentHtml ? (
           <div
-            className="break-words whitespace-pre-wrap chat-html-content text-sm leading-relaxed text-zinc-200 select-none"
-            style={{ WebkitUserSelect: "none", userSelect: "none" as const, WebkitTouchCallout: "none" as const }}
+            className="break-words whitespace-pre-wrap chat-html-content text-sm leading-relaxed text-zinc-200 select-none lg:select-text"
             dangerouslySetInnerHTML={{ __html: message.contentHtml }}
           />
         ) : (
           <p
-            className="break-words whitespace-pre-wrap text-sm leading-relaxed text-zinc-200 select-none"
-            style={{ WebkitUserSelect: "none", userSelect: "none" as const, WebkitTouchCallout: "none" as const }}
+            className="break-words whitespace-pre-wrap text-sm leading-relaxed text-zinc-200 select-none lg:select-text"
           >
             {renderContent(message.content, currentUserId, mentionDisplayMap)}
           </p>
@@ -343,7 +341,7 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
         )}
 
         {/* Thread indicator */}
-        {(message as any).replyCount > 0 && onOpenThread && (
+        {message.replyCount > 0 && onOpenThread && (
           <button
             type="button"
             onClick={() => onOpenThread(message.id)}
@@ -354,7 +352,7 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
           >
             <MessageSquare className="h-3 w-3" />
             <span className="font-medium">
-              {(message as any).replyCount} {(message as any).replyCount === 1 ? "respuesta" : "respuestas"}
+              {message.replyCount} {message.replyCount === 1 ? "respuesta" : "respuestas"}
             </span>
           </button>
         )}
