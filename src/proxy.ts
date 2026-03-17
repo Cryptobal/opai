@@ -139,7 +139,7 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
 
   // Entrada al sitio: welcome (sin sesión) o Hub (con sesión)
-  if (pathname === '/' || pathname === '/opai') {
+  if (pathname === '/' || pathname === '/opai' || (pathname === '/hub' && !req.auth)) {
     if (!req.auth) {
       return Response.redirect(new URL('/welcome', req.nextUrl.origin));
     }

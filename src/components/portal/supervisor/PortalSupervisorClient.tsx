@@ -30,6 +30,7 @@ import { SupervisorVisitasTecnicas } from "./SupervisorVisitasTecnicas";
 import { VisitaTecnicaForm } from "./VisitaTecnicaForm";
 import { VisitaTecnicaDetail } from "./VisitaTecnicaDetail";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
+import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 
 export function PortalSupervisorClient() {
   const searchParams = useSearchParams();
@@ -304,7 +305,14 @@ export function PortalSupervisorClient() {
   return (
     <div className={`${activeSection === "chat" ? "h-dvh flex flex-col" : "min-h-dvh"} bg-[#0a0a0f] text-white`}>
       {activeSection !== "chat" && (
-        <div className="px-4 pt-2">
+        <div className="px-4 pt-2 space-y-2">
+          <PWAInstallBanner
+            appName="OPAI Supervisor"
+            appDescription="Hub operacional para supervisores"
+            iconSrc="/icons/icon-192x192.png"
+            variant="inline"
+            dismissKey="supervisor"
+          />
           <PushPermissionPrompt
             portalType="app"
             userType="admin"

@@ -6,6 +6,7 @@ import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
 import { AuthPairingInput } from "@/components/auth/AuthPairingInput";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { AuthInfoBox } from "@/components/auth/AuthInfoBox";
+import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 
 interface PairingScreenProps {
   onPaired: (data: {
@@ -131,6 +132,14 @@ export function PairingScreen({ onPaired }: PairingScreenProps) {
       portalSubtitle="Dispositivo de ingreso"
     >
       <AuthFormHeader title="Emparejar Dispositivo" subtitle="Código de emparejamiento de 6 caracteres" />
+
+      <PWAInstallBanner
+        appName="Control de Acceso"
+        appDescription="Registro de ingresos y salidas en tiempo real"
+        iconSrc="/icons/icon-192x192.png"
+        variant="inline"
+        dismissKey="acceso"
+      />
 
       <form onSubmit={handleSubmit}>
         {error && (

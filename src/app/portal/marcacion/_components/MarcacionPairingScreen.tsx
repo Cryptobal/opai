@@ -6,6 +6,7 @@ import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
 import { AuthPairingInput } from "@/components/auth/AuthPairingInput";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { AuthInfoBox } from "@/components/auth/AuthInfoBox";
+import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 
 interface MarcacionPairingScreenProps {
   onPaired: (data: {
@@ -105,6 +106,14 @@ export function MarcacionPairingScreen({ onPaired }: MarcacionPairingScreenProps
       portalSubtitle="Control de asistencia"
     >
       <AuthFormHeader title="Emparejar Dispositivo" subtitle="Código de emparejamiento de 6 caracteres" />
+
+      <PWAInstallBanner
+        appName="Marcación"
+        appDescription="Entrada y salida con Face ID o PIN"
+        iconSrc="/icons/icon-192x192.png"
+        variant="inline"
+        dismissKey="marcacion"
+      />
 
       <form onSubmit={handleSubmit}>
         {error && (
