@@ -19,6 +19,8 @@ import type { TenantCompanyConfig } from "@/lib/tenant-config";
 interface CpqMapperInput {
   /** Valor UF para conversión CLP→UF cuando currency es UF. Si no se provee y currency=UF, los valores se pasan tal cual (CLP). */
   ufValue?: number;
+  /** Si false, excluye s23_propuesta_economica (para propuesta técnica / presentación comercial sin valores económicos). Default: true */
+  includePricing?: boolean;
   quote: {
     id: string;
     code: string;
@@ -104,7 +106,7 @@ export function mapCpqDataToPresentation(
   tenantCfg: TenantCompanyConfig,
   templateSlug: string = "commercial"
 ): PresentationPayload {
-  const { quote, positions, account, deal, contact, installation, ufValue, siteUrl } = input;
+  const { quote, positions, account, deal, contact, installation, ufValue, siteUrl, includePricing = true } = input;
 
   const companyName = account?.name || quote.clientName || "Cliente";
   const companyLogoUrl =
@@ -253,55 +255,69 @@ export function mapCpqDataToPresentation(
 
       ...buildSectionsDefaults(tenantCfg),
 
-      // S23 - Propuesta Económica (datos reales del CPQ)
-      s23_propuesta_economica: {
-        serviceDetail: (quote.serviceDetail as string) || undefined,
-        pricing: {
-          items: [
-            ...positions.map((pos) => {
-              const salePriceClp =
-                input.positionSalePrices.get(pos.id) ??
-                Number(pos.monthlyPositionCost);
-              const numPuestos = Math.max(1, Number(pos.numPuestos || 1));
-              const unitPriceClp = salePriceClp / numPuestos;
-              const displayPrice = toDisplayValue(salePriceClp);
-              const displayUnitPrice = toDisplayValue(unitPriceClp);
-              return {
-                name: pos.customName || pos.puestoTrabajo?.name || "Puesto",
-                description: `${pos.numGuards} guardia(s) x ${pos.numPuestos || 1} puesto(s) · ${formatWeekdaysForDisplay(pos.weekdays)} · ${pos.startTime || "-"} a ${pos.endTime || "-"}`,
-                quantity: numPuestos,
-                unit_price: displayUnitPrice,
-                subtotal: displayPrice,
+      // S23 - Propuesta Económica (si includePricing=false: placeholder vacío para propuesta técnica)
+      s23_propuesta_economica: includePricing
+        ? {
+            serviceDetail: (quote.serviceDetail as string) || undefined,
+            pricing: {
+              items: [
+                  ...positions.map((pos) => {
+                    const salePriceClp =
+                      input.positionSalePrices.get(pos.id) ??
+                      Number(pos.monthlyPositionCost);
+                    const numPuestos = Math.max(1, Number(pos.numPuestos || 1));
+                    const unitPriceClp = salePriceClp / numPuestos;
+                    const displayPrice = toDisplayValue(salePriceClp);
+                    const displayUnitPrice = toDisplayValue(unitPriceClp);
+                    return {
+                      name: pos.customName || pos.puestoTrabajo?.name || "Puesto",
+                      description: `${pos.numGuards} guardia(s) x ${pos.numPuestos || 1} puesto(s) · ${formatWeekdaysForDisplay(pos.weekdays)} · ${pos.startTime || "-"} a ${pos.endTime || "-"}`,
+                      quantity: numPuestos,
+                      unit_price: displayUnitPrice,
+                      subtotal: displayPrice,
+                      currency,
+                    };
+                  }),
+                  ...(input.additionalLines || [])
+                    .filter((l) => l.nombre && Number(l.precio) > 0)
+                    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+                    .map((l) => ({
+                      name: l.nombre,
+                      description: l.descripcion || "Servicio adicional",
+                      quantity: 1,
+                      unit_price: toDisplayValue(Number(l.precio)),
+                      subtotal: toDisplayValue(Number(l.precio)),
+                      currency,
+                    })),
+                ],
+                subtotal: toDisplayValue(input.salePriceMonthly + (input.totalAdditionalLines ?? 0)),
+                tax: 0,
+                total: toDisplayValue(input.salePriceMonthly + (input.totalAdditionalLines ?? 0)),
                 currency,
-              };
-            }),
-            ...(input.additionalLines || [])
-              .filter((l) => l.nombre && Number(l.precio) > 0)
-              .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-              .map((l) => ({
-                name: l.nombre,
-                description: l.descripcion || "Servicio adicional",
-                quantity: 1,
-                unit_price: toDisplayValue(Number(l.precio)),
-                subtotal: toDisplayValue(Number(l.precio)),
-                currency,
-              })),
-          ],
-          subtotal: toDisplayValue(input.salePriceMonthly + (input.totalAdditionalLines ?? 0)),
-          tax: 0,
-          total: toDisplayValue(input.salePriceMonthly + (input.totalAdditionalLines ?? 0)),
-          currency,
-          payment_terms: "Mensual, contraentrega de factura",
-          adjustment_terms: "Reajuste anual: 70% IPC + 30% IMO",
-          billing_frequency: "monthly" as const,
-          notes: [
-            currency === "UF" ? "Valor mensual expresado en UF" : "Valor mensual en pesos chilenos",
-            "Incluye seguros y cumplimiento legal",
-            "Mínimo 12 meses de contrato",
-            "Equipamiento incluido (radios, linternas)",
-          ],
-        },
-      },
+                payment_terms: "Mensual, contraentrega de factura",
+                adjustment_terms: "Reajuste anual: 70% IPC + 30% IMO",
+                billing_frequency: "monthly" as const,
+                notes: [
+                  currency === "UF" ? "Valor mensual expresado en UF" : "Valor mensual en pesos chilenos",
+                  "Incluye seguros y cumplimiento legal",
+                  "Mínimo 12 meses de contrato",
+                  "Equipamiento incluido (radios, linternas)",
+                ],
+              },
+            },
+          }
+        : {
+            serviceDetail: "Los valores económicos están disponibles en tu portal privado.",
+            pricing: {
+              items: [],
+              subtotal: 0,
+              tax: 0,
+              total: 0,
+              currency,
+              payment_terms: "Mensual, contraentrega de factura",
+              notes: ["Accede a tu portal con tu correo y PIN para ver la propuesta económica completa."],
+            },
+          },
     },
   };
 }

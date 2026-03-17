@@ -32,6 +32,8 @@ interface PortalProspectoInviteEmailProps {
   ejecutivoName: string;
   quoteCode?: string;
   proposalLink?: string | null;
+  /** URL de WhatsApp con mensaje prellenado (wa.me/...?text=...) */
+  whatsappUrl?: string | null;
 }
 
 export const PortalProspectoInviteEmail = ({
@@ -43,6 +45,7 @@ export const PortalProspectoInviteEmail = ({
   ejecutivoName = 'Ejecutivo Comercial',
   quoteCode,
   proposalLink,
+  whatsappUrl,
 }: PortalProspectoInviteEmailProps) => {
   const previewText = `${companyName} — Tu propuesta de seguridad está lista. Accede con tu PIN personal.`;
 
@@ -223,6 +226,13 @@ export const PortalProspectoInviteEmail = ({
             <Text style={signatureText}>
               Quedamos a tu disposición para cualquier consulta.
             </Text>
+            {whatsappUrl && (
+              <Text style={signatureText}>
+                <Link href={whatsappUrl} style={ctaSecondaryLink}>
+                  Comunícate por WhatsApp
+                </Link>
+              </Text>
+            )}
             <Text style={signatureName}>
               <strong>{ejecutivoName}</strong><br />
               <span style={signatureRole}>Ejecutivo Comercial · Gard Security</span>

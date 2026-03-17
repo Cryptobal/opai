@@ -301,6 +301,7 @@ export async function POST(
 
           const payload = mapCpqDataToPresentation(
             {
+              includePricing: false,
               ufValue,
               quote: {
                 id: quote.id,
@@ -377,7 +378,7 @@ export async function POST(
           });
 
           // Save proposalLink on deal so portal picks it up
-          const proposalLink = `${siteUrl}/p/${uniqueId}`;
+          const proposalLink = `${siteUrl}/p/${uniqueId}?mode=commercial`;
           if (quote.dealId) {
             await prisma.crmDeal.update({
               where: { id: quote.dealId },
@@ -428,7 +429,11 @@ export async function POST(
       : basePortalUrl;
     const contactName = `${contact.firstName} ${contact.lastName}`.trim();
     const siteUrl2 = process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
-    const proposalLinkForEmail = presentationUniqueId ? `${siteUrl2}/p/${presentationUniqueId}` : null;
+    const proposalLinkForEmail = presentationUniqueId ? `${siteUrl2}/p/${presentationUniqueId}?mode=commercial` : null;
+
+    const whatsappMsg = `Hola ${contactName}, soy ${ejecutivoName} de la empresa ${account.name} por la cotización ${quote.code}. Tengo una consulta.`;
+    const whatsappBase = (tenantConfig.whatsappLink || "https://wa.me/5698277711").replace(/\?.*$/, "");
+    const whatsappUrl = `${whatsappBase}?text=${encodeURIComponent(whatsappMsg)}`;
 
     const emailHtml = await render(
       PortalProspectoInviteEmail({
@@ -440,6 +445,7 @@ export async function POST(
         ejecutivoName,
         quoteCode: quote.code,
         proposalLink: proposalLinkForEmail,
+        whatsappUrl,
       })
     );
 
@@ -565,7 +571,7 @@ export async function POST(
         portalUrl,
         pinGenerated: !contact.portalPin,
         proposalLink: presentationUniqueId
-          ? `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/p/${presentationUniqueId}`
+          ? `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/p/${presentationUniqueId}?mode=commercial`
           : null,
         // Return phone + plain message separately — client builds wa.me URL
         // so the browser's encodeURIComponent preserves emojis correctly
@@ -634,7 +640,7 @@ function buildWhatsAppMessage(params: WhatsAppMsgParams): string {
     `*Correo:* ${email}`,
     `*PIN:* ${pin}`,
     ``,
-    `*Ingresar al portal:*`,
+    `*Ingresar al portal para ver la oferta económica:*`,
     portalUrl,
   ];
 

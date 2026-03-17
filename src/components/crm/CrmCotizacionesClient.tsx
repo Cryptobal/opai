@@ -48,7 +48,7 @@ type AccountRow = {
 };
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
-  draft: { label: "Borrador", className: "" },
+  draft: { label: "Borrador", className: "border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10" },
   sent: { label: "Enviada", className: "border-blue-500/30 text-blue-600 dark:text-blue-400" },
   approved: { label: "Aprobada", className: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400" },
   rejected: { label: "Rechazada", className: "border-red-500/30 text-red-600 dark:text-red-400" },
@@ -131,7 +131,7 @@ export function CrmCotizacionesClient({
 
   const statusFilters = [
     { key: "all", label: "Todas", count: counts.total },
-    { key: "draft", label: "Borrador", count: counts.draft },
+    { key: "draft", label: "Borrador", count: counts.draft, activeVariant: "amber" },
     { key: "sent", label: "Enviadas", count: counts.sent },
     { key: "approved", label: "Aprobadas", count: counts.approved },
     { key: "rejected", label: "Rechazadas", count: counts.rejected },
