@@ -318,19 +318,29 @@ interface Props {
   initialDate?: string;
 }
 
+function getLocalDate(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export function RondasDashboardGlobal({ initialDate }: Props) {
-  const [fecha, setFecha] = useState(() => {
-    if (initialDate) return initialDate;
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, "0");
-    const d = String(now.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  });
+  // Start with initialDate or empty; set local date in useEffect to avoid SSR/UTC mismatch
+  const [fecha, setFecha] = useState(initialDate ?? "");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData | null>(null);
 
+  // Set today's date on the client to avoid UTC issues from SSR
+  useEffect(() => {
+    if (!initialDate) {
+      setFecha(getLocalDate());
+    }
+  }, [initialDate]);
+
   const fetchData = useCallback(async (d: string) => {
+    if (!d) return; // Skip if date not yet initialized
     setLoading(true);
     try {
       const res = await fetch(`/api/ops/rondas/reportes/dashboard-diario?fecha=${d}`);
@@ -353,8 +363,7 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
 
   // Auto-refresh if viewing today
   useEffect(() => {
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const today = getLocalDate();
     if (fecha !== today) return;
     const interval = setInterval(() => void fetchData(fecha), 60_000);
     return () => clearInterval(interval);

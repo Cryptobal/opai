@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
     }
 
     const sp = request.nextUrl.searchParams;
-    const now = new Date();
-    const fechaDefault = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    const fecha = sp.get("fecha") ?? fechaDefault;
+    // Use Chile timezone for server-side default date
+    const nowCL = new Date().toLocaleDateString("en-CA", { timeZone: "America/Santiago" }); // YYYY-MM-DD
+    const fecha = sp.get("fecha") ?? nowCL;
     const cicloInicio = parseInt(sp.get("cicloInicio") ?? "20", 10);
 
     // Operational cycle: fecha at cicloInicio hour -> next day at cicloInicio hour
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
           id: row.id,
           scheduledAt: row.scheduledAt.toISOString(),
           template: row.rondaTemplate?.name ?? (row.isAdHoc ? "Ronda Libre" : "Sin plantilla"),
-          isAdHoc: row.isAdHoc ?? false,
+          isAdHoc: !row.programacionId && (row.isAdHoc === true || !row.rondaTemplateId),
           guardia: guardiaNombre,
           status: row.status,
           completion: {
