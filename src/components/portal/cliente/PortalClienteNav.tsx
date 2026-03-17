@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { PortalConfig } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export type PortalSection =
   | 'dashboard' | 'instalaciones' | 'rondas' | 'posta' | 'chat'
@@ -67,6 +67,19 @@ const GROUP_ORDER: NavGroup[] = ['operaciones', 'comunicacion', 'documentacion',
 
 export function PortalClienteNav({ portalConfig, activeSection, onSection, isProspect }: Props) {
   const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
+
+  // Cerrar al hacer clic fuera del menú "Más"
+  useEffect(() => {
+    if (!moreOpen) return
+    function handleClick(e: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [moreOpen])
 
   const visibleItems = ALL_NAV_ITEMS.filter(item => {
     // Hide prospect-only items when not in prospect mode
@@ -125,7 +138,7 @@ export function PortalClienteNav({ portalConfig, activeSection, onSection, isPro
         })}
 
         {hasExtra && (
-          <div className="relative">
+          <div ref={moreRef} className="relative">
             <button
               onClick={() => setMoreOpen(!moreOpen)}
               className={cn(
