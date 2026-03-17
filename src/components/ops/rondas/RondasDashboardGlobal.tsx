@@ -20,6 +20,7 @@ interface RondaCell {
   id: string;
   scheduledAt: string;
   template: string;
+  isAdHoc: boolean;
   guardia: string;
   status: string;
   completion: { completados: number; total: number; porcentaje: number };
@@ -104,11 +105,16 @@ function RondaCellBlock({
     <button
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center rounded-lg border px-3 py-2 min-w-[72px] transition-all cursor-pointer",
+        "relative flex flex-col items-center rounded-lg border px-3 py-2 min-w-[72px] transition-all cursor-pointer",
         bg,
         isSelected && "ring-2 ring-cyan-400/60",
       )}
     >
+      {ronda.isAdHoc && (
+        <span className="absolute -top-1.5 -right-1.5 text-[8px] font-bold uppercase bg-purple-500/90 text-white px-1 py-px rounded leading-tight">
+          Libre
+        </span>
+      )}
       <span className="text-[11px] font-semibold text-[#f1f5f9] tabular-nums">
         {formatHour(ronda.scheduledAt)}
       </span>
@@ -125,7 +131,15 @@ function RondaCellBlock({
 function RondaDetail({ ronda }: { ronda: RondaCell }) {
   return (
     <div className="rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] p-3 mt-2 text-xs space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div>
+          <p className="text-[10px] uppercase text-[#64748b] font-semibold">Tipo</p>
+          {ronda.isAdHoc ? (
+            <span className="text-[10px] font-bold uppercase bg-purple-500/80 text-white px-1.5 py-0.5 rounded">Libre</span>
+          ) : (
+            <span className="text-[10px] font-bold uppercase bg-cyan-500/80 text-white px-1.5 py-0.5 rounded">Programada</span>
+          )}
+        </div>
         <div>
           <p className="text-[10px] uppercase text-[#64748b] font-semibold">Plantilla</p>
           <p className="text-[#f1f5f9]">{ronda.template}</p>
@@ -279,6 +293,11 @@ function InstalacionGridRow({ inst }: { inst: InstalacionRow }) {
                     <span className="text-[#f1f5f9] font-medium tabular-nums w-12">
                       {formatHour(ronda.scheduledAt)}
                     </span>
+                    {ronda.isAdHoc ? (
+                      <span className="text-[9px] font-bold uppercase bg-purple-500/80 text-white px-1 py-px rounded shrink-0">Libre</span>
+                    ) : (
+                      <span className="text-[9px] font-bold uppercase bg-cyan-500/80 text-white px-1 py-px rounded shrink-0">Prog.</span>
+                    )}
                     <span className="text-[#94a3b8] truncate flex-1">{ronda.template}</span>
                     <span className="text-[#94a3b8] truncate max-w-[140px]">{ronda.guardia || "—"}</span>
                     <span className="text-[#94a3b8] tabular-nums">
@@ -300,9 +319,14 @@ interface Props {
 }
 
 export function RondasDashboardGlobal({ initialDate }: Props) {
-  const [fecha, setFecha] = useState(
-    () => initialDate ?? new Date().toISOString().slice(0, 10),
-  );
+  const [fecha, setFecha] = useState(() => {
+    if (initialDate) return initialDate;
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  });
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData | null>(null);
 
@@ -329,7 +353,8 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
 
   // Auto-refresh if viewing today
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     if (fecha !== today) return;
     const interval = setInterval(() => void fetchData(fecha), 60_000);
     return () => clearInterval(interval);

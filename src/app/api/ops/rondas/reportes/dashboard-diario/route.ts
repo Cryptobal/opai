@@ -14,7 +14,9 @@ export async function GET(request: NextRequest) {
     }
 
     const sp = request.nextUrl.searchParams;
-    const fecha = sp.get("fecha") ?? new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const fechaDefault = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const fecha = sp.get("fecha") ?? fechaDefault;
     const cicloInicio = parseInt(sp.get("cicloInicio") ?? "20", 10);
 
     // Operational cycle: fecha at cicloInicio hour -> next day at cicloInicio hour
@@ -127,6 +129,7 @@ export async function GET(request: NextRequest) {
           id: row.id,
           scheduledAt: row.scheduledAt.toISOString(),
           template: row.rondaTemplate?.name ?? (row.isAdHoc ? "Ronda Libre" : "Sin plantilla"),
+          isAdHoc: row.isAdHoc ?? false,
           guardia: guardiaNombre,
           status: row.status,
           completion: {
