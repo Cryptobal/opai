@@ -78,9 +78,19 @@ export function CotizacionCard({
                 {statusLabel}
               </span>
               <span className="text-sm font-semibold truncate">
-                {cotizacion.name ?? cotizacion.code}
+                {cotizacion.clientName ?? cotizacion.name ?? cotizacion.code}
               </span>
             </div>
+            {(cotizacion.installationName || cotizacion.quoteName) && (
+              <div className="mt-0.5 space-y-0.5">
+                {cotizacion.installationName && (
+                  <p className="text-xs text-zinc-500 truncate">{cotizacion.installationName}</p>
+                )}
+                {cotizacion.quoteName && (
+                  <p className="text-xs text-zinc-400 truncate">{cotizacion.quoteName}</p>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-4 mt-1.5 flex-wrap">
               <span className="text-sm font-semibold text-teal-400">
                 {formatCurrency(cotizacion.monthlyCost, cotizacion.currency === "UF" ? "UF" : "CLP")}
@@ -128,7 +138,7 @@ export function CotizacionCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold truncate">
-              {cotizacion.name ?? cotizacion.code}
+              {cotizacion.clientName ?? cotizacion.name ?? cotizacion.code}
             </span>
             <span className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full", statusBadge)}>
               {statusLabel}
@@ -139,6 +149,16 @@ export function CotizacionCard({
               </span>
             )}
           </div>
+          {(cotizacion.installationName || cotizacion.quoteName) && (
+            <div className="mt-0.5 space-y-0.5">
+              {cotizacion.installationName && (
+                <p className="text-xs text-zinc-500 truncate">{cotizacion.installationName}</p>
+              )}
+              {cotizacion.quoteName && (
+                <p className="text-xs text-zinc-400 truncate">{cotizacion.quoteName}</p>
+              )}
+            </div>
+          )}
           <p className="text-xs text-zinc-500 mt-0.5">{cotizacion.code}</p>
           <div className="flex items-center gap-4 mt-2 flex-wrap">
             <span className="text-sm font-semibold text-teal-400">

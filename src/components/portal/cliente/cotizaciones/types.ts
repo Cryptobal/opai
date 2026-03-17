@@ -9,6 +9,12 @@ export interface QuoteSummary {
   id: string;
   code: string;
   name: string | null;
+  /** Nombre del cliente/empresa */
+  clientName?: string | null;
+  /** Nombre de la instalación (si aplica) */
+  installationName?: string | null;
+  /** Nombre de la cotización que escribe el usuario (si aplica) */
+  quoteName?: string | null;
   status: string;
   monthlyCost: number;
   validUntil: string | null;

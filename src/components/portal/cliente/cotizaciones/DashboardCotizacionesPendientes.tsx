@@ -175,7 +175,14 @@ function ProspectQuoteCard({
         </span>
       </div>
       <div className="text-lg font-bold text-white mb-1">{displayCost}</div>
-      <div className="text-xs text-zinc-400 mb-1">{quote.name ?? quote.code}</div>
+      <div className="text-xs text-zinc-400 mb-1">
+        <span className="block">{quote.clientName ?? quote.name ?? quote.code}</span>
+        {(quote.installationName || quote.quoteName) && (
+          <span className="block mt-0.5 text-zinc-500">
+            {[quote.installationName, quote.quoteName].filter(Boolean).join(" · ")}
+          </span>
+        )}
+      </div>
       <div className="text-xs text-zinc-500 mb-3">
         {quote.totalPositions} puesto{quote.totalPositions !== 1 ? "s" : ""} · {quote.totalGuards} guardia{quote.totalGuards !== 1 ? "s" : ""}
       </div>

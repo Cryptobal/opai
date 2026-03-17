@@ -19,6 +19,7 @@ export async function GET() {
       positions: { select: { id: true, numGuards: true } },
       parameters: { select: { salePriceMonthly: true, marginPct: true } },
       additionalLines: { select: { precio: true } },
+      installation: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -96,7 +97,10 @@ export async function GET() {
     return {
       id: q.id,
       code: q.code,
-      name: q.clientName,
+      name: q.clientName ?? deal?.title ?? q.code,
+      clientName: q.clientName ?? null,
+      installationName: q.installation?.name ?? null,
+      quoteName: q.name?.trim() || null,
       status: q.status,
       monthlyCost,
       validUntil: q.validUntil,

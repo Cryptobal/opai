@@ -385,7 +385,7 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
       {/* ── Approve dialog ── */}
       {approveQuote && (
         <CotizacionApproveDialog
-          quoteName={approveQuote.name ?? approveQuote.code}
+          quoteName={approveQuote.quoteName ?? approveQuote.name ?? approveQuote.code}
           monthlyCost={approveQuote.monthlyCost}
           currency={approveQuote.currency}
           open={!!approveQuoteId}
@@ -398,7 +398,7 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
       {/* ── Reject dialog ── */}
       {rejectQuote && (
         <CotizacionRejectDialog
-          quoteName={rejectQuote.name ?? rejectQuote.code}
+          quoteName={rejectQuote.quoteName ?? rejectQuote.name ?? rejectQuote.code}
           open={!!rejectQuoteId}
           onOpenChange={(open) => { if (!open) setRejectQuoteId(null); }}
           onConfirm={handleReject}
