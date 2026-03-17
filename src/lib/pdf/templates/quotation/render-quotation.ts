@@ -401,6 +401,12 @@ export async function renderQuotationToBuffer(
     },
     sigArea: { flexDirection: 'row', marginTop: 24, gap: 40 },
     sigBlock: { flex: 1, alignItems: 'center' },
+    sigBlockFixed: {
+      position: 'absolute' as const,
+      bottom: 55,
+      left: 30,
+      right: 30,
+    },
     sigLine: {
       width: '80%',
       borderBottom: `1 solid ${C.slate700}`,
@@ -538,7 +544,7 @@ export async function renderQuotationToBuffer(
   const header = (subtitle?: string) =>
     e(
       View,
-      null,
+      { fixed: true },
       e(
         View,
         { style: s.headerBand },
@@ -583,7 +589,7 @@ export async function renderQuotationToBuffer(
     { label: 'Puesto', flex: 2.5, align: 'left' as const },
     { label: 'G', flex: 0.5, align: 'center' as const },
     { label: 'Cant', flex: 0.5, align: 'center' as const },
-    { label: 'Dias', flex: 1.5, align: 'left' as const },
+    { label: 'Dias', flex: 1.5, align: 'left' as const, paddingRight: 10 },
     { label: 'Horario', flex: 1.2, align: 'left' as const },
     { label: 'Valor Mensual', flex: 1.3, align: 'right' as const },
   ];
@@ -594,7 +600,17 @@ export async function renderQuotationToBuffer(
     ...posHeaders.map((h, i) =>
       e(
         Text,
-        { key: i, style: [s.tblHeaderCell, { flex: h.flex, textAlign: h.align }] },
+        {
+          key: i,
+          style: [
+            s.tblHeaderCell,
+            {
+              flex: h.flex,
+              textAlign: h.align,
+              ...(('paddingRight' in h && { paddingRight: (h as { paddingRight?: number }).paddingRight }) || {}),
+            },
+          ],
+        },
         h.label,
       ),
     ),
@@ -607,7 +623,7 @@ export async function renderQuotationToBuffer(
       e(Text, { style: [s.tblCell, { flex: 2.5 }] }, p.name),
       e(Text, { style: [s.tblCell, { flex: 0.5, textAlign: 'center' as const }] }, String(p.guards)),
       e(Text, { style: [s.tblCell, { flex: 0.5, textAlign: 'center' as const }] }, String(p.quantity)),
-      e(Text, { style: [s.tblCell, { flex: 1.5 }] }, p.days),
+      e(Text, { style: [s.tblCell, { flex: 1.5, paddingRight: 10 }] }, p.days),
       e(Text, { style: [s.tblCell, { flex: 1.2 }] }, p.schedule),
       e(Text, { style: [s.tblCellBold, { flex: 1.3, textAlign: 'right' as const }] }, p.monthlyValue),
     ),
@@ -640,7 +656,7 @@ export async function renderQuotationToBuffer(
   const buildSimpleAddTable = (num: number) =>
     e(
       View,
-      null,
+      { wrap: false },
       sectionTitle('Servicios y Productos Adicionales', num),
       e(
         View,
@@ -682,7 +698,7 @@ export async function renderQuotationToBuffer(
   const buildDetailedAddTable = (num: number) =>
     e(
       View,
-      null,
+      { wrap: false },
       sectionTitle('Servicios y Productos Adicionales', num),
       e(
         View,
@@ -782,7 +798,7 @@ export async function renderQuotationToBuffer(
 
     return e(
       View,
-      null,
+      { wrap: false },
       sectionTitle('Detalle de Mano de Obra', num),
       ...positionCards,
       e(
@@ -805,7 +821,7 @@ export async function renderQuotationToBuffer(
     costsByCategory && costsByCategory.length > 0
       ? e(
           View,
-          null,
+          { wrap: false },
           sectionTitle('Desglose de Costos por Categoria', num),
           ...costsByCategory.map((cat, catIdx) =>
             e(
@@ -836,7 +852,7 @@ export async function renderQuotationToBuffer(
     complianceItems && complianceItems.length > 0
       ? e(
           View,
-          null,
+          { wrap: false },
           sectionTitle('Cumplimiento Normativo', num),
           e(
             View,
@@ -860,7 +876,7 @@ export async function renderQuotationToBuffer(
   pages.push(
     e(
       Page,
-      { key: 'p1', size: 'A4', style: s.page },
+      { key: 'p1', size: 'A4', style: s.page, wrap: true },
       header(sec.headerStyle === 'formal' ? `Cotizacion N\u00B0 ${quote.code}` : 'Servicios de seguridad integral'),
       infoStrip,
       e(
@@ -870,7 +886,7 @@ export async function renderQuotationToBuffer(
         sec.showPositionsTable
           ? e(
               View,
-              null,
+              { wrap: false },
               sectionTitle(`Puestos de trabajo \u00B7 ${totalGuards} guardia(s)`, nextNum()),
               e(View, null, posTableHeader, ...posRows, posSubtotal),
             )
@@ -879,7 +895,7 @@ export async function renderQuotationToBuffer(
         showDetailedAdditional ? buildDetailedAddTable(nextNum()) : null,
         e(
           View,
-          { style: s.grandTotal },
+          { style: s.grandTotal, wrap: false },
           e(Text, { style: s.grandTotalLabel }, 'PRECIO VENTA MENSUAL NETO'),
           e(Text, { style: s.grandTotalAmount }, totals.totalNet),
         ),
@@ -893,12 +909,11 @@ export async function renderQuotationToBuffer(
   const hasPage2 = sec.showConditions || sec.showIncludedItems || sec.showSignature ||
     hasLaborDetail || hasCostBreakdown || hasCompliance;
 
-  /* Reusable signature + contact block */
+  /* Reusable signature + contact block - fixed at bottom of page above footer */
   const sigBlock = () =>
     e(
       View,
-      { wrap: false },
-      e(View, { style: { flex: 1 } }),
+      { wrap: false, style: s.sigBlockFixed },
       e(
         View,
         { style: s.sigArea },
@@ -927,15 +942,16 @@ export async function renderQuotationToBuffer(
       ),
     );
 
+  const showSigOnPage2 = sec.showSignature && !(breakdown && sec.showCostSummaryByCategory);
   if (hasPage2) {
     pages.push(
       e(
         Page,
-        { key: 'p2', size: 'A4', style: s.page },
+        { key: 'p2', size: 'A4', style: s.page, wrap: true },
         header(),
         e(
           View,
-          { style: [s.body, { flex: 1 }] },
+          { style: [s.body, { flex: 1, ...(showSigOnPage2 && { paddingBottom: 160 }) }] },
           hasLaborDetail ? buildLaborDetail(nextNum()) : null,
           hasCostBreakdown ? buildCostBreakdown(nextNum()) : null,
           hasCompliance ? buildCompliance(nextNum()) : null,
@@ -976,17 +992,13 @@ export async function renderQuotationToBuffer(
           serviceDetail
             ? e(
                 View,
-                null,
+                { wrap: false },
                 sectionTitle('Detalle del servicio', nextNum()),
                 e(Text, { style: s.serviceDetail }, serviceDetail),
               )
             : null,
-          // Spacer pushes signatures to bottom
-          e(View, { style: { flex: 1 } }),
-          sec.showSignature && !(breakdown && sec.showCostSummaryByCategory)
-            ? sigBlock()
-            : null,
         ),
+        showSigOnPage2 ? sigBlock() : null,
         pageFooter(),
       ),
     );
@@ -997,15 +1009,18 @@ export async function renderQuotationToBuffer(
     pages.push(
       e(
         Page,
-        { key: 'p3', size: 'A4', style: s.page },
+        { key: 'p3', size: 'A4', style: s.page, wrap: true },
         header(),
         e(
           View,
-          { style: [s.body, { flex: 1 }] },
-          e(Text, { style: s.sectionTitle }, 'Estructura de Costos'),
-
-          // Per-position labor detail in breakdown
+          { style: [s.body, { flex: 1, ...(sec.showSignature && { paddingBottom: 160 }) }] },
           e(
+            View,
+            { wrap: false },
+            e(Text, { style: s.sectionTitle }, 'Estructura de Costos'),
+
+            // Per-position labor detail in breakdown
+            e(
             View,
             { style: { marginBottom: 8 } },
             e(
@@ -1062,11 +1077,12 @@ export async function renderQuotationToBuffer(
             e(Text, { style: s.grandTotalLabel }, 'PRECIO VENTA MENSUAL NETO'),
             e(Text, { style: s.grandTotalAmount }, fmtMoney(breakdown.grandTotal)),
           ),
+          ),
 
           breakdown.positions.length > 0
             ? e(
                 View,
-                { style: { marginTop: 16 } },
+                { style: { marginTop: 16 }, wrap: false },
                 e(Text, { style: s.sectionTitle }, 'Valor Hora de Venta por Puesto'),
                 ...breakdown.positions.map((pos, i) =>
                   e(
@@ -1081,10 +1097,8 @@ export async function renderQuotationToBuffer(
 
           e(Text, { style: s.netNote }, 'Estructura de costos con transparencia total · Valores netos · IVA se factura segun ley vigente'),
 
-          // Spacer pushes signatures to bottom
-          e(View, { style: { flex: 1 } }),
-          sec.showSignature ? sigBlock() : null,
         ),
+        sec.showSignature ? sigBlock() : null,
         pageFooter(),
       ),
     );

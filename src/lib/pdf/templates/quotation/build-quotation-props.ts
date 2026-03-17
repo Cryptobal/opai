@@ -442,8 +442,8 @@ export async function buildQuotationProps(
   /* ── CostsByCategory from summary ── */
   const costsByCategory = summary?.costsByCategory ?? [];
 
-  /* ── Additional lines with extended fields ── */
-  const additionalLinesPDF: AdditionalLinePDF[] = (summary?.additionalLinesDetails ?? []).map((d) => ({
+  /* ── Additional lines with extended fields (exclude zero-value lines) ── */
+  const additionalLinesPDFRaw: AdditionalLinePDF[] = (summary?.additionalLinesDetails ?? []).map((d) => ({
     nombre: d.nombre,
     descripcion: additionalLines.find((l) => l.id === d.id)?.descripcion || undefined,
     tipo: d.tipo,
@@ -453,6 +453,7 @@ export async function buildQuotationProps(
     precioVenta: d.precioConMargen,
     precioVentaFmt: fmt(d.precioConMargen),
   }));
+  const additionalLinesPDF = additionalLinesPDFRaw.filter((d) => d.precioVenta > 0);
 
   /* ── Labor breakdown (for detailed/tender templates) ── */
   let laborBreakdown: LaborBreakdownPDF | undefined;
@@ -524,16 +525,21 @@ export async function buildQuotationProps(
       installationName: quote.installation?.name || undefined,
     },
     positions,
-    additionalServices: additionalLines.map((l) => {
-      // Use the computed sale price (with margin + proration) when available
-      const pdfLine = additionalLinesPDF.find((p) => p.nombre === l.nombre);
-      const monthlyValue = pdfLine ? pdfLine.precioVentaFmt : fmt(Number(l.precio));
-      return {
-        product: String(l.nombre),
-        description: l.descripcion ? String(l.descripcion) : '-',
-        monthlyValue,
-      };
-    }),
+    additionalServices: additionalLines
+      .filter((l) => {
+        const pdfLine = additionalLinesPDFRaw.find((p) => p.nombre === l.nombre);
+        const value = pdfLine ? pdfLine.precioVenta : Number(l.precio);
+        return value > 0;
+      })
+      .map((l) => {
+        const pdfLine = additionalLinesPDFRaw.find((p) => p.nombre === l.nombre);
+        const monthlyValue = pdfLine ? pdfLine.precioVentaFmt : fmt(Number(l.precio));
+        return {
+          product: String(l.nombre),
+          description: l.descripcion ? String(l.descripcion) : '-',
+          monthlyValue,
+        };
+      }),
     totals: {
       subtotalGuards: fmt(totalSalePrice),
       subtotalAdditional: fmt(totalAdditionalLines),
