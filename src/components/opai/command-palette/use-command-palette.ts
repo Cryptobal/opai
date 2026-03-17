@@ -50,11 +50,23 @@ export const CommandPaletteContext = createContext<CommandPaletteContextValue | 
  * }, []);
  * ```
  */
+const NOOP_PALETTE: CommandPaletteContextValue = {
+  isOpen: false,
+  open: () => {},
+  close: () => {},
+  toggle: () => {},
+  externalCommands: [],
+  registerCommands: () => {},
+  unregisterCommands: () => {},
+  addRecent: () => {},
+  getRecents: () => [],
+  clearRecents: () => {},
+};
+
 export function useCommandPalette() {
   const ctx = useContext(CommandPaletteContext);
-  if (!ctx) {
-    throw new Error('useCommandPalette debe usarse dentro de <CommandPaletteProvider>');
-  }
+  // Fallback si se usa fuera del provider (evita crash durante HMR/hydration)
+  if (!ctx) return NOOP_PALETTE;
   return ctx;
 }
 

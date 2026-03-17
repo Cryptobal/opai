@@ -3,7 +3,8 @@
 import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MessageCircle, Plus, Search, TrendingUp, Building2, Contact, Users, Ticket, Receipt, Shield, FileText, Activity } from 'lucide-react';
+import { MessageCircle, Search, TrendingUp, Building2, Contact, Users, Ticket, Receipt, Shield, FileText, Activity } from 'lucide-react';
+import Plus from 'lucide-react/dist/esm/icons/plus';
 import { cn } from '@/lib/utils';
 import { CommandPalette, CommandPaletteProvider, useCommandPalette } from './CommandPalette';
 import { ThemeLogo } from './ThemeLogo';

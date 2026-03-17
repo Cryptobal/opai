@@ -13,7 +13,10 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export function useTheme() {
   const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
+  // Fallback durante hydration/SSR para evitar crash
+  if (!ctx) {
+    return { theme: 'dark' as const, toggleTheme: () => {} };
+  }
   return ctx;
 }
 
