@@ -195,9 +195,9 @@ function DealPipelineStepper({
   const isClosed = isWon || isLost;
 
   return (
-    <div className="flex items-center gap-2 py-2 overflow-x-auto scrollbar-thin">
-      {/* Open stages as chevron steps */}
-      <div className="flex items-stretch min-w-0">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 sm:overflow-x-auto scrollbar-thin">
+      {/* Open stages: vertical on mobile, chevron arrows on desktop */}
+      <div className="flex flex-col sm:flex-row sm:items-stretch gap-1 sm:gap-0 sm:min-w-0">
         {openStages.map((stage, idx) => {
           const isCurrent = !isClosed && stage.id === currentStageId;
           const isPast = !isClosed && currentIdx >= 0 && idx < currentIdx;
@@ -206,18 +206,22 @@ function DealPipelineStepper({
           const isLast = idx === openStages.length - 1;
           const stageColor = stage.color || "#94a3b8";
 
+          const chevronVariant = openStages.length === 1 ? "only" : isFirst ? "first" : isLast ? "last" : "middle";
+
           return (
             <button
               key={stage.id}
               type="button"
               disabled={disabled || isClosed}
               onClick={() => onStageClick(stage.id)}
+              data-chevron={openStages.length > 1 ? chevronVariant : undefined}
               className={cn(
-                "relative flex items-center justify-center px-4 py-1.5 text-xs font-medium whitespace-nowrap transition-all min-w-0",
+                "relative flex items-center justify-center px-4 py-2 sm:py-1.5 text-xs font-medium whitespace-nowrap transition-all",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-                isFirst && "rounded-l-md",
-                isLast && "rounded-r-md",
-                !isFirst && "ml-[2px]",
+                "sm:min-w-0",
+                "rounded-md sm:rounded-none",
+                openStages.length > 1 && "sm:rounded-none pipeline-step-chevron",
+                !isFirst && "sm:-ml-[6px]",
                 isClosed && "opacity-50 cursor-not-allowed",
                 !isClosed && !isCurrent && "cursor-pointer hover:brightness-110",
                 isCurrent && "text-white shadow-sm",
@@ -234,16 +238,17 @@ function DealPipelineStepper({
               title={stage.name}
             >
               {isPast && <Check className="h-3 w-3 mr-1 shrink-0" />}
-              <span className="truncate max-w-[120px]">{stage.name}</span>
+              <span className="truncate w-full sm:w-auto sm:max-w-[120px] text-left sm:text-center">{stage.name}</span>
             </button>
           );
         })}
       </div>
 
       {/* Separator */}
-      <div className="h-5 w-px bg-border shrink-0" />
+      <div className="h-px w-full sm:h-5 sm:w-px sm:min-w-0 bg-border shrink-0" />
 
-      {/* Ganado button */}
+      {/* Ganado / Perdido — en fila en móvil y desktop */}
+      <div className="flex flex-row gap-2 shrink-0">
       {wonStage && (
         <button
           type="button"
@@ -280,6 +285,7 @@ function DealPipelineStepper({
           Perdido
         </button>
       )}
+      </div>
     </div>
   );
 }

@@ -492,3 +492,19 @@ html {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================
+   CRM Deal Pipeline Stepper — Chevron arrows
+   (desktop only, sm+)
+   ============================================ */
+@media (min-width: 640px) {
+  .pipeline-step-chevron[data-chevron="first"] {
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%);
+  }
+  .pipeline-step-chevron[data-chevron="middle"] {
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%);
+  }
+  .pipeline-step-chevron[data-chevron="last"] {
+    clip-path: polygon(8px 50%, 0 0, 100% 0, 100% 100%, 0 100%);
+  }
+}
