@@ -94,7 +94,9 @@ export function CpqPositionCard({
   const badgeBase = "h-5 rounded-md border px-1.5 text-[10px] font-semibold leading-none";
 
   const totalGuards = position.numGuards * (position.numPuestos || 1);
-  const rotationLabel = (position.weekdays?.length ?? 7) >= 6 ? "6x1" : (position.weekdays?.length ?? 5) === 5 ? "5x2" : `${position.weekdays?.length ?? 0}x${7 - (position.weekdays?.length ?? 0)}`;
+  const rotationLabel =
+    position.rol?.name ??
+    ((position.weekdays?.length ?? 7) >= 6 ? "6x1" : (position.weekdays?.length ?? 5) === 5 ? "5x2" : `${position.weekdays?.length ?? 0}x${7 - (position.weekdays?.length ?? 0)}`);
 
   return (
     <Card className="overflow-hidden border border-muted/40 group hover:border-muted/60 transition-colors">
