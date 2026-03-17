@@ -134,6 +134,7 @@
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     font-size: 17px;
+    min-height: 100dvh;
   }
 
   @media (max-width: 768px) {

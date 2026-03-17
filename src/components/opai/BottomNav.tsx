@@ -194,8 +194,14 @@ export function BottomNav({ userRole }: BottomNavProps) {
   const hasSectionItems = !forceMainNav && moduleItems.some((item) => item.isSection);
 
   return (
-    <nav ref={navRef} className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/30 bg-background/95 backdrop-blur-xl lg:hidden">
-      <div className="flex items-center justify-around min-h-[56px] px-1 pb-[env(safe-area-inset-bottom)]">
+    <nav
+      ref={navRef}
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/30 bg-background/95 backdrop-blur-xl lg:hidden"
+      style={{
+        paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)",
+      }}
+    >
+      <div className="flex items-center justify-around min-h-[56px] px-1">
         {hasSectionItems ? (
           <SectionNav items={moduleItems} />
         ) : isInModule ? (

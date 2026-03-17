@@ -52,7 +52,7 @@ export function SubNav({ items, className }: SubNavProps) {
   }, [checkOverflow]);
 
   return (
-    <nav className={cn("mb-4 relative", className)}>
+    <nav className={cn("mb-4 relative hidden lg:block", className)}>
       <div ref={scrollRef} className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
         {items.map((item) => {
           const isActive = item.exactMatch

@@ -515,7 +515,7 @@ export function InventarioLineasClient() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <a
                               href={`tel:${line.phoneNumber}`}
-                              className="font-medium hover:underline"
+                              className="font-medium hover:underline whitespace-nowrap"
                             >
                               {formatPhone(line.phoneNumber)}
                             </a>

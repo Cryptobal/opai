@@ -40,6 +40,12 @@ import {
   Ticket,
   ClipboardCheck,
   Package,
+  Shirt,
+  Warehouse,
+  ShoppingCart,
+  Smartphone,
+  Phone,
+  Brain,
   // TE
   CheckCircle2,
   Layers,
@@ -139,11 +145,25 @@ const PAUTAS_ITEMS: (BottomNavItem & { subKey: string })[] = [
 ];
 
 const RONDAS_ITEMS: BottomNavItem[] = [
-  { key: "rondas-dashboard", href: "/ops/rondas", label: "Dashboard", icon: ClipboardList },
   { key: "rondas-monitoreo", href: "/ops/rondas/monitoreo", label: "Monitor", icon: Radio },
   { key: "rondas-alertas", href: "/ops/rondas/alertas", label: "Alertas", icon: Bell },
-  { key: "rondas-checkpoints", href: "/ops/rondas/checkpoints", label: "Puntos", icon: MapPin },
-  { key: "rondas-config", href: "/ops/rondas/templates", label: "Config", icon: Settings },
+  { key: "rondas-dashboard", href: "/ops/rondas", label: "Dashboard", icon: ClipboardList },
+  { key: "rondas-reportes", href: "/ops/rondas/reportes", label: "Reportes", icon: BarChart3 },
+  { key: "rondas-centro-ia", href: "/ops/rondas/centro-ia", label: "Centro IA", icon: Brain },
+  { key: "rondas-config", href: "/ops/rondas/configuracion", label: "Config", icon: Settings },
+];
+
+/* ── Inventario sub-items (Inicio, Productos, Bodegas, etc.) ── */
+
+const INVENTARIO_ITEMS: BottomNavItem[] = [
+  { key: "inv-inicio", href: "/ops/inventario", label: "Inicio", icon: Package },
+  { key: "inv-productos", href: "/ops/inventario/productos", label: "Productos", icon: Shirt },
+  { key: "inv-bodegas", href: "/ops/inventario/bodegas", label: "Bodegas", icon: Warehouse },
+  { key: "inv-compras", href: "/ops/inventario/compras", label: "Compras", icon: ShoppingCart },
+  { key: "inv-entregas", href: "/ops/inventario/entregas", label: "Entregas", icon: UserRoundCheck },
+  { key: "inv-stock", href: "/ops/inventario/stock", label: "Stock", icon: Layers },
+  { key: "inv-activos", href: "/ops/inventario/activos", label: "Activos", icon: Smartphone },
+  { key: "inv-lineas", href: "/ops/inventario/lineas", label: "Líneas", icon: Phone },
 ];
 
 /* ── TE sub-items ── */
@@ -233,6 +253,11 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   {
     test: (p) => p.startsWith("/ops/rondas"),
     getItems: () => RONDAS_ITEMS,
+  },
+  {
+    test: (p) => p === "/ops/inventario" || p.startsWith("/ops/inventario/"),
+    getItems: (perms) =>
+      canView(perms, "ops", "inventario") ? INVENTARIO_ITEMS : [],
   },
   {
     test: (p) => p === "/crm" || p.startsWith("/crm/"),
