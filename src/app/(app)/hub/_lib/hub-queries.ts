@@ -237,7 +237,8 @@ export async function getClosingHubData(
   const allQuoteIds = collectLinkedQuoteIds(openDeals);
   const openDealIds = openDeals.map((d) => d.id);
 
-  const hasPortalAccessLog = typeof (prisma as Record<string, unknown>).portalAccessLog !== 'undefined';
+  const hasPortalAccessLog =
+    typeof (prisma as unknown as Record<string, unknown>).portalAccessLog !== 'undefined';
 
   const [portalQuoteViews, stageHistoryRows, negotiatingQuotes] = await Promise.all([
     // Portal quote views from PortalAccessLog (replaces Presentation-based tracking)
