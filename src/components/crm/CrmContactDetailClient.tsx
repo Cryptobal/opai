@@ -44,6 +44,7 @@ import {
   MapPin,
   DollarSign,
   History,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -168,6 +169,7 @@ export function CrmContactDetailClient({
   initialEmailCount = 0,
   activityEvents = [],
   currentUserId = "",
+  companyPresentations: initialPresentations = [],
 }: {
   contact: ContactDetail;
   deals: DealRow[];
@@ -180,10 +182,12 @@ export function CrmContactDetailClient({
   initialEmailCount?: number;
   activityEvents?: ActivityEvent[];
   currentUserId?: string;
+  companyPresentations?: Array<{ id: string; status: string }>;
 }) {
   const router = useRouter();
   const [contact, setContact] = useState(initialContact);
   const [contactDeals, setContactDeals] = useState(deals);
+  const [presentations, setPresentations] = useState(initialPresentations);
   const [changingStageDealId, setChangingStageDealId] = useState<string | null>(null);
   const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
 
@@ -248,6 +252,20 @@ export function CrmContactDetailClient({
       toast.success("Contacto eliminado");
       router.push("/crm/contacts");
     } catch { toast.error("No se pudo eliminar"); }
+  };
+
+  const hasActivePresentation = presentations.some(p => ['sent', 'viewed'].includes(p.status));
+
+  const handleDeactivatePresentation = async () => {
+    if (!confirm('¿Desactivar la presentación de empresa para este contacto?')) return;
+    try {
+      const res = await fetch(`/api/crm/contacts/${contact.id}/deactivate-presentation`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      setPresentations([]);
+      toast.success('Presentación desactivada');
+    } catch {
+      toast.error('No se pudo desactivar la presentación');
+    }
   };
 
   const saveEdit = async () => {
@@ -482,6 +500,7 @@ export function CrmContactDetailClient({
     { label: "Editar contacto", icon: Pencil, onClick: openEdit, primary: true },
     { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected || !contact.email },
     { label: "WhatsApp", icon: MessageSquare, onClick: () => whatsappUrl && openWhatsApp(), hidden: !whatsappUrl },
+    { label: "Desactivar presentación", icon: XCircle, onClick: handleDeactivatePresentation, hidden: !hasActivePresentation },
     { label: "Eliminar contacto", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
   ];
 

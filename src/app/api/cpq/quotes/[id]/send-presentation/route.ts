@@ -295,6 +295,25 @@ export async function POST(
       },
     });
 
+    // 9c. Create CrmCompanyPresentation so portal shows CTAs
+    try {
+      const existingCompanyPres = await prisma.crmCompanyPresentation.findFirst({
+        where: { contactId: quote.contactId!, status: { in: ["sent", "viewed"] } },
+      });
+      if (!existingCompanyPres) {
+        await prisma.crmCompanyPresentation.create({
+          data: {
+            tenantId: ctx.tenantId,
+            contactId: quote.contactId!,
+            status: "sent",
+            sentAt: new Date(),
+          },
+        });
+      }
+    } catch (cpErr) {
+      console.error("Error creating CrmCompanyPresentation:", cpErr);
+    }
+
     // 10. Send email with presentation link
     const validUntilStr = quote.validUntil
       ? new Date(quote.validUntil).toLocaleDateString("es-CL", {

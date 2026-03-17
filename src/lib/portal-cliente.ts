@@ -160,6 +160,62 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
         // Columns may not exist in prod yet
       }
 
+      let hasActivePresentation = false
+      try {
+        const activePresentation = await prisma.crmCompanyPresentation.findFirst({
+          where: {
+            contactId: contact.id,
+            status: { in: ['sent', 'viewed'] },
+          },
+          select: { id: true },
+        })
+        hasActivePresentation = !!activePresentation
+      } catch {
+        // Table may not exist in prod yet
+      }
+
+      let commercialPresentationUrl: string | null = null
+      try {
+        const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://opai.gard.cl'
+
+        // First: try by recipientEmail (direct match)
+        if (contact.email) {
+          const byEmail = await prisma.presentation.findFirst({
+            where: {
+              recipientEmail: { equals: contact.email, mode: 'insensitive' },
+              status: { in: ['sent', 'viewed'] },
+              tenantId: contact.tenantId,
+            },
+            select: { uniqueId: true },
+            orderBy: { createdAt: 'desc' },
+          })
+          if (byEmail) {
+            commercialPresentationUrl = `${siteUrl}/p/${byEmail.uniqueId}?mode=commercial`
+          }
+        }
+
+        // Fallback: find via quotes of the same account
+        if (!commercialPresentationUrl) {
+          const accountQuote = await prisma.cpqQuote.findFirst({
+            where: { accountId: contact.accountId, tenantId: contact.tenantId, status: 'sent' },
+            select: { id: true },
+            orderBy: { createdAt: 'desc' },
+          })
+          if (accountQuote) {
+            const byQuote = await prisma.presentation.findFirst({
+              where: { quoteId: accountQuote.id, status: { in: ['sent', 'viewed'] } },
+              select: { uniqueId: true },
+              orderBy: { createdAt: 'desc' },
+            })
+            if (byQuote) {
+              commercialPresentationUrl = `${siteUrl}/p/${byQuote.uniqueId}?mode=commercial`
+            }
+          }
+        }
+      } catch {
+        // Presentation table lookup failed
+      }
+
       return {
         success: true,
         session: {
@@ -180,6 +236,8 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
           portalTourShown,
           ejecutivoId,
           ejecutivoName,
+          hasActivePresentation,
+          commercialPresentationUrl,
         },
       };
     }

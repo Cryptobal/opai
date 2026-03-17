@@ -1634,14 +1634,36 @@ model CrmContact {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  account      CrmAccount       @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  deals        CrmDeal[]        @relation("crm_deal_primary_contact")
-  dealContacts CrmDealContact[]
+  account               CrmAccount               @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  deals                 CrmDeal[]                @relation("crm_deal_primary_contact")
+  dealContacts          CrmDealContact[]
+  companyPresentations  CrmCompanyPresentation[]
 
   @@index([tenantId], map: "idx_crm_contacts_tenant")
   @@index([accountId], map: "idx_crm_contacts_account")
   @@index([createdAt(sort: Desc)], map: "idx_crm_contacts_created_desc")
   @@map("contacts")
+  @@schema("crm")
+}
+
+model CrmCompanyPresentation {
+  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String    @map("tenant_id")
+  contactId     String    @map("contact_id") @db.Uuid
+  status        String    @default("sent")
+  sentAt        DateTime? @map("sent_at") @db.Timestamptz(6)
+  firstViewedAt DateTime? @map("first_viewed_at") @db.Timestamptz(6)
+  viewCount     Int       @default(0) @map("view_count")
+  deactivatedAt DateTime? @map("deactivated_at") @db.Timestamptz(6)
+  deactivatedBy String?   @map("deactivated_by")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  contact CrmContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId], map: "idx_crm_company_presentations_contact")
+  @@index([status], map: "idx_crm_company_presentations_status")
+  @@map("company_presentations")
   @@schema("crm")
 }
 

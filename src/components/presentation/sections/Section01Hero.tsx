@@ -18,9 +18,10 @@ interface Section01HeroProps {
   data: Section01_Hero;
   payload: PresentationPayload;
   showTokens?: boolean;
+  hideQuoteContext?: boolean;
 }
 
-export function Section01Hero({ data, payload, showTokens = false }: Section01HeroProps) {
+export function Section01Hero({ data, payload, showTokens = false, hideQuoteContext = false }: Section01HeroProps) {
   const theme = useThemeClasses();
   const pdfMode = usePdfMode();
   
@@ -67,25 +68,27 @@ export function Section01Hero({ data, payload, showTokens = false }: Section01He
       <div className="relative z-10 min-h-[85vh] flex items-center px-4 sm:px-6 md:px-12 py-32 md:py-40 max-w-6xl mx-auto">
         <div className="w-full max-w-5xl">
           
-          {/* Info del documento (cliente, contacto, negocio, instalación) */}
-          <Div
-            {...(!pdfMode ? { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.1, duration: 0.6 } } : {})}
-            className="mb-8 glass-card rounded-xl p-5 border border-teal-400/20 inline-block"
-          >
-            <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-              <div><span className="text-white/50">Preparado para:</span> <span className="font-bold text-white">{payload.client.company_name}</span></div>
-              {contactName && contactName !== '[CONTACT_NAME]' && (
-                <div><span className="text-white/50">Contacto:</span> <span className="font-bold text-white">{contactName}</span></div>
-              )}
-              <div><span className="text-white/50">Propuesta:</span> <span className="font-bold text-teal-400">{payload.quote.subject || `COT ${payload.quote.number}`}</span></div>
-              {dealName && (
-                <div><span className="text-white/50">Negocio:</span> <span className="font-bold text-white">{dealName}</span></div>
-              )}
-              {installationName && (
-                <div><span className="text-white/50">Instalacion:</span> <span className="font-bold text-white">{installationName}</span></div>
-              )}
-            </div>
-          </Div>
+          {/* Info del documento (cliente, contacto, negocio, instalación) — hidden in profile mode */}
+          {!hideQuoteContext && (
+            <Div
+              {...(!pdfMode ? { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.1, duration: 0.6 } } : {})}
+              className="mb-8 glass-card rounded-xl p-5 border border-teal-400/20 inline-block"
+            >
+              <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
+                <div><span className="text-white/50">Preparado para:</span> <span className="font-bold text-white">{payload.client.company_name}</span></div>
+                {contactName && contactName !== '[CONTACT_NAME]' && (
+                  <div><span className="text-white/50">Contacto:</span> <span className="font-bold text-white">{contactName}</span></div>
+                )}
+                <div><span className="text-white/50">Propuesta:</span> <span className="font-bold text-teal-400">{payload.quote.subject || `COT ${payload.quote.number}`}</span></div>
+                {dealName && (
+                  <div><span className="text-white/50">Negocio:</span> <span className="font-bold text-white">{dealName}</span></div>
+                )}
+                {installationName && (
+                  <div><span className="text-white/50">Instalacion:</span> <span className="font-bold text-white">{installationName}</span></div>
+                )}
+              </div>
+            </Div>
+          )}
           
           {/* Headline */}
           <H1

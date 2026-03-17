@@ -14,6 +14,7 @@ import {
   FileText,
   Compass,
   MessageCircle,
+  Building2,
 } from "lucide-react";
 import { buildTourSteps } from "./tour-steps";
 import type { ClienteSession } from "@/lib/portal-cliente-types";
@@ -162,6 +163,55 @@ export function TourOverlay({ onComplete, session }: Props) {
           </p>
 
           <div className="space-y-3">
+            {session?.hasActivePresentation && (
+              <button
+                onClick={() => onComplete("presentacion")}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all hover:scale-[1.01] active:scale-[0.99]"
+                style={{
+                  background: "linear-gradient(135deg, rgba(45,212,191,0.18), rgba(45,212,191,0.06))",
+                  border: "1px solid rgba(45,212,191,0.3)",
+                }}
+              >
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(45,212,191,0.18)" }}
+                >
+                  <Building2 className="w-5 h-5 text-teal-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Ver presentación de empresa</p>
+                  <p className="text-xs text-zinc-400">Conoce quiénes somos y qué nos diferencia</p>
+                </div>
+              </button>
+            )}
+
+            {session?.hasActivePresentation && (
+              <button
+                onClick={() => {
+                  if (session?.commercialPresentationUrl) {
+                    window.open(session.commercialPresentationUrl, "_blank");
+                  }
+                  onComplete("presentacion");
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all hover:scale-[1.01] active:scale-[0.99]"
+                style={{
+                  background: "linear-gradient(135deg, rgba(139,92,246,0.12), rgba(139,92,246,0.04))",
+                  border: "1px solid rgba(139,92,246,0.25)",
+                }}
+              >
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(139,92,246,0.12)" }}
+                >
+                  <Compass className="w-5 h-5 text-violet-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Ver perfil de empresa</p>
+                  <p className="text-xs text-zinc-400">Nuestra experiencia, tecnología y certificaciones</p>
+                </div>
+              </button>
+            )}
+
             <button
               onClick={() => onComplete("propuesta")}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all hover:scale-[1.01] active:scale-[0.99]"

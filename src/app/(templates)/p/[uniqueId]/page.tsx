@@ -36,6 +36,8 @@ export default async function PublicPresentationPage({ params, searchParams }: P
   const isAdminPreview = preview === 'true';
   // Detectar modo PDF (usado por Playwright para generar PDF)
   const isPdfMode = mode === 'pdf';
+  // Modo comercial: oculta secciones económicas (S06, S23, S24)
+  const isCommercialMode = mode === 'commercial';
 
   // 1. Buscar presentación
   const presentation = await prisma.presentation.findUnique({
@@ -156,7 +158,7 @@ export default async function PublicPresentationPage({ params, searchParams }: P
 
       {/* Presentación */}
       <div className={isAdminPreview ? 'pt-10' : ''}>
-        <PresentationRenderer payload={presentationData} />
+        <PresentationRenderer payload={presentationData} hideEconomicSections={isCommercialMode} />
       </div>
 
       {/* Sección de descarga PDF */}

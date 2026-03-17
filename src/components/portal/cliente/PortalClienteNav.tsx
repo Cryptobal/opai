@@ -14,7 +14,7 @@ export type PortalSection =
   | 'tickets' | 'documentacion' | 'cotizaciones'
   | 'reportes' | 'comparativa' | 'alertas' | 'encuestas'
   | 'desempeno' | 'personal' | 'propuesta' | 'nosotros' | 'empresa'
-  | 'control-acceso'
+  | 'control-acceso' | 'presentacion'
 
 type NavGroup = 'operaciones' | 'comunicacion' | 'documentacion' | 'administracion'
 

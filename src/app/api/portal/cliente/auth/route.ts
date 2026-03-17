@@ -27,7 +27,87 @@ export async function GET() {
   );
   if (!session?.installations?.length)
     return NextResponse.json({ success: false }, { status: 401 });
-  return NextResponse.json({ success: true, data: session });
+
+  let needsCookieRefresh = false;
+  const freshSession = { ...session };
+
+  try {
+    const contact = await prisma.crmContact.findUnique({
+      where: { id: session.contactId },
+      select: {
+        email: true,
+        account: { select: { status: true } },
+        companyPresentations: {
+          where: { status: { in: ['sent', 'viewed'] } },
+          select: { id: true },
+          take: 1,
+        },
+      },
+    });
+
+    if (contact) {
+      const freshIsProspect = contact.account?.status === 'prospect';
+      const freshHasPresentation = (contact.companyPresentations?.length ?? 0) > 0;
+
+      if (freshIsProspect !== session.isProspect) {
+        freshSession.isProspect = freshIsProspect;
+        needsCookieRefresh = true;
+      }
+      if (freshHasPresentation !== (session.hasActivePresentation ?? false)) {
+        freshSession.hasActivePresentation = freshHasPresentation;
+        needsCookieRefresh = true;
+      }
+
+      try {
+        const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://opai.gard.cl';
+        let freshUrl: string | null = null;
+
+        if (contact.email) {
+          const byEmail = await prisma.presentation.findFirst({
+            where: {
+              recipientEmail: { equals: contact.email, mode: 'insensitive' },
+              status: { in: ['sent', 'viewed'] },
+              tenantId: session.tenantId,
+            },
+            select: { uniqueId: true },
+            orderBy: { createdAt: 'desc' },
+          });
+          if (byEmail) freshUrl = `${siteUrl}/p/${byEmail.uniqueId}?mode=commercial`;
+        }
+
+        if (!freshUrl && session.accountId) {
+          const accountQuote = await prisma.cpqQuote.findFirst({
+            where: { accountId: session.accountId, tenantId: session.tenantId, status: 'sent' },
+            select: { id: true },
+            orderBy: { createdAt: 'desc' },
+          });
+          if (accountQuote) {
+            const byQuote = await prisma.presentation.findFirst({
+              where: { quoteId: accountQuote.id, status: { in: ['sent', 'viewed'] } },
+              select: { uniqueId: true },
+              orderBy: { createdAt: 'desc' },
+            });
+            if (byQuote) freshUrl = `${siteUrl}/p/${byQuote.uniqueId}?mode=commercial`;
+          }
+        }
+
+        if (freshUrl !== (session.commercialPresentationUrl ?? null)) {
+          freshSession.commercialPresentationUrl = freshUrl;
+          needsCookieRefresh = true;
+        }
+      } catch {}
+    }
+  } catch {
+    // companyPresentations table may not exist in prod yet
+  }
+
+  if (needsCookieRefresh) {
+    const res = NextResponse.json({ success: true, data: freshSession });
+    res.cookies.set(setSessionCookie(freshSession));
+    return res;
+  }
+
+  return NextResponse.json({ success: true, data: freshSession });
 }
 
 export async function POST(request: NextRequest) {

@@ -84,6 +84,17 @@ export default async function CrmContactDetailPage({
       })
     : [];
 
+  // Company presentations for this contact
+  let companyPresentations: Array<{ id: string; status: string }> = [];
+  try {
+    companyPresentations = await prisma.crmCompanyPresentation.findMany({
+      where: { contactId: id, status: { in: ['sent', 'viewed'] } },
+      select: { id: true, status: true },
+    });
+  } catch {
+    // Table may not exist yet
+  }
+
   // Gmail, pipeline stages, doc templates (mail + whatsapp) + actividad
   const [gmailAccount, pipelineStages, docTemplatesMail, docTemplatesWhatsApp, activityLogs] = await Promise.all([
     prisma.crmEmailAccount.findFirst({
@@ -183,6 +194,7 @@ export default async function CrmContactDetailPage({
       docTemplatesWhatsApp={initialDocTemplatesWhatsApp}
       initialEmailCount={initialEmailCount}
       currentUserId={session.user.id}
+      companyPresentations={companyPresentations}
     />
   );
 }

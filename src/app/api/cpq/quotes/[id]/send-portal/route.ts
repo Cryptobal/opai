@@ -381,6 +381,25 @@ export async function POST(
           presentationUniqueId = uniqueId;
         }
       }
+
+      // Create CrmCompanyPresentation so portal shows "Conoce Gard Security" + "Ver perfil de empresa"
+      try {
+        const existingCompanyPres = await prisma.crmCompanyPresentation.findFirst({
+          where: { contactId: contact.id, status: { in: ["sent", "viewed"] } },
+        });
+        if (!existingCompanyPres) {
+          await prisma.crmCompanyPresentation.create({
+            data: {
+              tenantId: ctx.tenantId,
+              contactId: contact.id,
+              status: "sent",
+              sentAt: new Date(),
+            },
+          });
+        }
+      } catch (cpErr) {
+        console.error("Error creating CrmCompanyPresentation:", cpErr);
+      }
     } catch (presentationError) {
       console.error("Error creating presentation in send-portal:", presentationError);
       // Non-fatal: portal invite still works without the presentation link

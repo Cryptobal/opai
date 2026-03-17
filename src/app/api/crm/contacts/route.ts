@@ -25,7 +25,14 @@ export async function GET(request: NextRequest) {
         ...(accountId ? { accountId } : {}),
         ...(portalEnabled === "true" ? { portalEnabled: true } : {}),
       },
-      include: { account: true },
+      include: {
+        account: true,
+        companyPresentations: {
+          where: { status: { in: ['sent', 'viewed'] } },
+          select: { id: true, status: true },
+          take: 1,
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 

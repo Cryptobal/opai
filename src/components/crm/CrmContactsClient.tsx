@@ -41,7 +41,9 @@ type ContactRow = {
   account?: {
     id: string;
     name: string;
+    status?: string | null;
   } | null;
+  companyPresentations?: Array<{ id: string; status: string }>;
 };
 
 type AccountRow = {
@@ -446,6 +448,16 @@ export function CrmContactsClient({
                             PIN: {contact.portalPinVisible}
                           </span>
                         )}
+                        {(contact.companyPresentations?.length ?? 0) > 0 && (
+                          <span title="Presentación de empresa enviada" className="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'rgba(45,212,191,0.12)', color: '#2dd4bf', border: '1px solid rgba(45,212,191,0.2)' }}>
+                            📋 Presentación
+                          </span>
+                        )}
+                        {contact.account?.status === 'prospect' && (
+                          <span className="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)' }}>
+                            Prospecto
+                          </span>
+                        )}
                       </div>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {contact.email || "Sin email"} · {contact.phone || "Sin teléfono"}
@@ -485,6 +497,11 @@ export function CrmContactsClient({
                             {contact.portalPinVisible && (
                               <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
                                 PIN: {contact.portalPinVisible}
+                              </span>
+                            )}
+                            {(contact.companyPresentations?.length ?? 0) > 0 && (
+                              <span title="Presentación de empresa enviada" className="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'rgba(45,212,191,0.12)', color: '#2dd4bf', border: '1px solid rgba(45,212,191,0.2)' }}>
+                                📋 Presentación
                               </span>
                             )}
                           </div>

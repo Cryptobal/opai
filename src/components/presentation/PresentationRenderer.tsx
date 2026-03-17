@@ -132,6 +132,7 @@ interface PresentationRendererProps {
   payload: PresentationPayload;
   showTokens?: boolean;
   pdfMode?: boolean;
+  hideEconomicSections?: boolean;
 }
 
 /**
@@ -150,7 +151,7 @@ interface PresentationRendererProps {
  * se ven en la web pero no se incluyen en el PDF para optimizar tiempos.
  */
 
-export function PresentationRenderer({ payload, showTokens = false, pdfMode = false }: PresentationRendererProps) {
+export function PresentationRenderer({ payload, showTokens = false, pdfMode = false, hideEconomicSections = false }: PresentationRendererProps) {
   const { theme, sections, assets, cta, contact } = payload;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payloadAny = payload as any;
@@ -180,8 +181,8 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
         {/* Progress Bar Superior - oculto en PDF */}
         {!pdfMode && <ScrollProgress />}
 
-        {/* Header persistente - oculto en PDF */}
-        {!pdfMode && (
+        {/* Header persistente - oculto en PDF y en modo perfil de empresa */}
+        {!pdfMode && !hideEconomicSections && (
           <PresentationHeader
             logo={assets.logo}
             clientLogoUrl={payload.client.company_logo_url}
@@ -204,6 +205,7 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
             data={sections.s01_hero} 
             payload={payload}
             showTokens={showTokens}
+            hideQuoteContext={hideEconomicSections}
           />
           
           {/* S01b - Sobre [empresa] (entre Hero y Resumen) */}
@@ -213,16 +215,18 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
             showTokens={showTokens}
           />
           
-          {/* S02 - Resumen Ejecutivo (texto IA del cotizador) */}
-          <Section02ExecutiveSummary
-            data={sections.s02_executive_summary}
-            quoteDescription={payload.quote.description}
-            companyName={payload.client.company_name}
-            industry={payload.client.industry}
-            sitesCount={payload.service.sites.length}
-            coverageHours={payload.service.coverage_hours}
-            showTokens={showTokens}
-          />
+          {/* S02 - Resumen Ejecutivo (hidden in commercial profile mode) */}
+          {!hideEconomicSections && (
+            <Section02ExecutiveSummary
+              data={sections.s02_executive_summary}
+              quoteDescription={payload.quote.description}
+              companyName={payload.client.company_name}
+              industry={payload.client.industry}
+              sitesCount={payload.service.sites.length}
+              coverageHours={payload.service.coverage_hours}
+              showTokens={showTokens}
+            />
+          )}
           
           {/* ── Secciones de marketing/educativas (solo web, omitidas en PDF) ── */}
           {!pdfMode && (
@@ -236,8 +240,8 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
               {/* S05 - Fallas del Modelo Tradicional */}
               <Section05FallasModelo data={sections.s05_fallas_modelo} />
               
-              {/* S06 - Costo Real */}
-              <Section06CostoReal data={sections.s06_costo_real} />
+              {/* S06 - Costo Real (hidden in commercial profile mode) */}
+              {!hideEconomicSections && <Section06CostoReal data={sections.s06_costo_real} />}
               
               {/* S07 - Sistema de Capas */}
               <Section07SistemaCapas data={sections.s07_sistema_capas} />
@@ -301,23 +305,25 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
           
           {/* S22 - TCO - ELIMINADA: Funcionalidad fusionada con S06 (Costo Real) */}
           
-          {/* S23 - Propuesta Económica (incluido en PDF: detalle del servicio y precios) */}
-          <Section23PropuestaEconomica
-            data={sections.s23_propuesta_economica}
-            showTokens={showTokens}
-            clientName={payload.client.company_name}
-            quoteNumber={payload.quote.number}
-            quoteDate={payload.quote.date}
-            contactEmail={contactEmail}
-            contactPhone={contactPhone}
-            companyName={brand.commercialName}
-            website={brand.website}
-            dealName={dealName}
-            installationName={installationName}
-          />
+          {/* S23 - Propuesta Económica (hidden in commercial profile mode) */}
+          {!hideEconomicSections && (
+            <Section23PropuestaEconomica
+              data={sections.s23_propuesta_economica}
+              showTokens={showTokens}
+              clientName={payload.client.company_name}
+              quoteNumber={payload.quote.number}
+              quoteDate={payload.quote.date}
+              contactEmail={contactEmail}
+              contactPhone={contactPhone}
+              companyName={brand.commercialName}
+              website={brand.website}
+              dealName={dealName}
+              installationName={installationName}
+            />
+          )}
           
-          {/* S24 - Términos y Condiciones (incluido en PDF) */}
-          <Section24TerminosCondiciones data={sections.s24_terminos_condiciones} />
+          {/* S24 - Términos y Condiciones (hidden in commercial profile mode) */}
+          {!hideEconomicSections && <Section24TerminosCondiciones data={sections.s24_terminos_condiciones} />}
           
           {/* S25 - Comparación Competitiva (incluido en PDF: diferenciación) */}
           <Section25Comparacion

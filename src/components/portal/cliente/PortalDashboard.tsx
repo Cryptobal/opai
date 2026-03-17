@@ -252,6 +252,61 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
           </div>
         )}
 
+        {/* CTAs Presentación */}
+        {session.hasActivePresentation && (
+          <div className="space-y-3">
+            <button
+              onClick={() => onNavigate?.('presentacion')}
+              className="w-full text-left"
+              style={{
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, rgba(45,212,191,0.15), rgba(45,212,191,0.03))',
+                border: '1px solid rgba(45,212,191,0.3)',
+                padding: '20px',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#2dd4bf', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                📋 Presentación personalizada
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
+                Conoce Gard Security
+              </div>
+              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+                Descubre nuestros servicios, tecnología y diferenciadores →
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                if (session.commercialPresentationUrl) {
+                  window.open(session.commercialPresentationUrl, '_blank')
+                } else {
+                  onNavigate?.('presentacion')
+                }
+              }}
+              className="w-full text-left"
+              style={{
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(139,92,246,0.03))',
+                border: '1px solid rgba(139,92,246,0.25)',
+                padding: '20px',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                🏢 Perfil de empresa
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
+                Ver perfil de empresa
+              </div>
+              <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+                Nuestra experiencia, tecnología, certificaciones y metodología →
+              </div>
+            </button>
+          </div>
+        )}
+
         {/* Hero Section */}
         <div className="text-center py-6">
           <h1 className="text-2xl font-bold text-white mb-2">
@@ -370,6 +425,60 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
   /* ── Active Client Dashboard ── */
   return (
     <div className="px-4 py-4 pb-24 max-w-6xl mx-auto w-full">
+      {session.hasActivePresentation && (
+        <div className="space-y-3 mb-4">
+          <button
+            onClick={() => onNavigate?.('presentacion')}
+            className="w-full text-left"
+            style={{
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, rgba(45,212,191,0.15), rgba(45,212,191,0.03))',
+              border: '1px solid rgba(45,212,191,0.3)',
+              padding: '20px',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#2dd4bf', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+              📋 Presentación personalizada
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
+              Conoce Gard Security
+            </div>
+            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+              Descubre nuestros servicios, tecnología y diferenciadores →
+            </div>
+          </button>
+
+          <button
+            onClick={() => {
+              if (session.commercialPresentationUrl) {
+                window.open(session.commercialPresentationUrl, '_blank')
+              } else {
+                onNavigate?.('presentacion')
+              }
+            }}
+            className="w-full text-left"
+            style={{
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(139,92,246,0.03))',
+              border: '1px solid rgba(139,92,246,0.25)',
+              padding: '20px',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+              🏢 Perfil de empresa
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
+              Ver perfil de empresa
+            </div>
+            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+              Nuestra experiencia, tecnología, certificaciones y metodología →
+            </div>
+          </button>
+        </div>
+      )}
+
       {selectedInstallation && instName && (
         <p className="text-sm text-zinc-300 mb-4 font-medium">{instName}</p>
       )}

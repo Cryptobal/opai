@@ -33,6 +33,7 @@ import { PortalPersonal } from "@/components/portal/cliente/PortalPersonal";
 import { PortalNosotros } from "@/components/portal/cliente/PortalNosotros";
 import { PortalAccessControl } from "@/components/portal/cliente/PortalAccessControl";
 import { PortalDesempeno } from "@/components/portal/cliente/PortalDesempeno";
+import { CompanyPresentationView } from "@/components/portal/cliente/CompanyPresentationView";
 import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
 import { PortalNotificacionesSheet } from "@/components/portal/cliente/PortalNotificacionesSheet";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
@@ -220,6 +221,8 @@ export function PortalClienteClient() {
             />
           </div>
         );
+      case "presentacion":
+        return <CompanyPresentationView contactId={session?.contactId} />;
       case "nosotros":
         return <PortalNosotros onNavigate={(s) => setActiveSection(s as PortalSection)} />;
       case "empresa":

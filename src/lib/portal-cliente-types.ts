@@ -61,4 +61,6 @@ export interface ClienteSession {
   portalTourShown: boolean;
   ejecutivoId: string | null;
   ejecutivoName: string | null;
+  hasActivePresentation: boolean;
+  commercialPresentationUrl: string | null;
 }
