@@ -352,8 +352,8 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
               ref={inputRef}
               value={query}
               onValueChange={setQuery}
-              placeholder="Buscar guardias, instalaciones, chats, acciones..."
-              className="flex h-14 w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
+              placeholder={isMobile ? 'Buscar...' : 'Buscar guardias, instalaciones, chats, acciones...'}
+              className="flex h-14 min-w-0 flex-1 bg-transparent pr-2 text-base text-foreground outline-none placeholder:text-muted-foreground"
               aria-label="Buscar en el command palette"
             />
             {apiLoading && (
