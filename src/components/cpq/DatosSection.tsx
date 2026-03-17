@@ -237,7 +237,7 @@ export function DatosSection({
 
   return (
     <div className="space-y-2">
-      <div className="space-y-2" inert={isLocked}>
+      <div className="space-y-2">
         {/* ── CRM Context: compact 2-col grid ── */}
         <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
           <div>
@@ -247,6 +247,7 @@ export function DatosSection({
                 value={crmContext.accountId || ""}
                 options={crmAccounts.map((a) => ({ id: a.id, label: a.name }))}
                 placeholder="Seleccionar..."
+                disabled={isLocked}
                 onChange={(val) => {
                   const account = crmAccounts.find((a) => a.id === val);
                   saveCrmContext({ accountId: val, installationId: "", contactId: "", dealId: "" });
@@ -263,7 +264,7 @@ export function DatosSection({
                   </Link>
                 </Button>
               )}
-              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={() => { resetInlineForm(); setInlineCreateType("account"); }}>
+              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={isLocked} onClick={() => { resetInlineForm(); setInlineCreateType("account"); }}>
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -275,7 +276,7 @@ export function DatosSection({
                 value={crmContext.installationId || ""}
                 options={crmInstallations.map((i) => ({ id: i.id, label: i.name, description: i.city || undefined }))}
                 placeholder="Seleccionar..."
-                disabled={!crmContext.accountId}
+                disabled={!crmContext.accountId || isLocked}
                 onChange={(val) => saveCrmContext({ installationId: val })}
               />
               {crmContext.installationId && (
@@ -285,7 +286,7 @@ export function DatosSection({
                   </Link>
                 </Button>
               )}
-              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { resetInlineForm(); setInlineCreateType("installation"); }}>
+              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId || isLocked} onClick={() => { resetInlineForm(); setInlineCreateType("installation"); }}>
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -297,7 +298,7 @@ export function DatosSection({
                 value={crmContext.contactId || ""}
                 options={crmContacts.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`.trim(), description: c.email || undefined }))}
                 placeholder="Seleccionar..."
-                disabled={!crmContext.accountId}
+                disabled={!crmContext.accountId || isLocked}
                 onChange={(val) => saveCrmContext({ contactId: val })}
               />
               {crmContext.contactId && (
@@ -307,7 +308,7 @@ export function DatosSection({
                   </Link>
                 </Button>
               )}
-              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { resetInlineForm(); setInlineCreateType("contact"); }}>
+              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId || isLocked} onClick={() => { resetInlineForm(); setInlineCreateType("contact"); }}>
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -319,7 +320,7 @@ export function DatosSection({
                 value={crmContext.dealId || ""}
                 options={crmDeals.map((d) => ({ id: d.id, label: d.title }))}
                 placeholder="Seleccionar..."
-                disabled={!crmContext.accountId}
+                disabled={!crmContext.accountId || isLocked}
                 onChange={(val) => saveCrmContext({ dealId: val })}
               />
               {crmContext.dealId && (
@@ -329,7 +330,7 @@ export function DatosSection({
                   </Link>
                 </Button>
               )}
-              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId} onClick={() => { resetInlineForm(); setInlineCreateType("deal"); }}>
+              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" disabled={!crmContext.accountId || isLocked} onClick={() => { resetInlineForm(); setInlineCreateType("deal"); }}>
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -459,6 +460,7 @@ export function DatosSection({
               }}
               placeholder="Ej: Propuesta guardias planta norte"
               className="h-8 bg-background text-xs"
+              disabled={isLocked}
             />
           </div>
           <div>
@@ -471,6 +473,7 @@ export function DatosSection({
                 setQuoteDirty(true);
               }}
               className="h-8 bg-background text-xs text-foreground [color-scheme:dark]"
+              disabled={isLocked}
             />
           </div>
           <div className="shrink-0">
@@ -480,6 +483,7 @@ export function DatosSection({
                 <button
                   key={cur}
                   type="button"
+                  disabled={isLocked}
                   onClick={() => saveCrmContext({ currency: cur })}
                   className={cn(
                     "rounded-md px-3 h-8 text-xs font-medium border transition-colors",

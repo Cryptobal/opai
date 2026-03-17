@@ -998,8 +998,25 @@ export function CpqQuoteDetail({ quoteId, currentUserId }: CpqQuoteDetailProps) 
           <div className="flex items-center gap-2 min-w-0">
             <h1 className="text-base font-bold tracking-tight shrink-0">{quote.code}</h1>
             {quote.name && <span className="text-sm font-medium truncate text-foreground/80 min-w-0">— {quote.name}</span>}
-            <Badge variant="outline" className="text-[10px] h-5 shrink-0">
-              {quote.status}
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-xs h-6 shrink-0 font-medium",
+                quote.status === "sent" && "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
+                quote.status === "draft" && "border-amber-500/30 text-amber-600 dark:text-amber-400",
+                quote.status === "approved" && "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
+                quote.status === "rejected" && "border-red-500/30 text-red-600 dark:text-red-400"
+              )}
+            >
+              {quote.status === "sent"
+                ? "Enviada"
+                : quote.status === "draft"
+                  ? "Borrador"
+                  : quote.status === "approved"
+                    ? "Aprobada"
+                    : quote.status === "rejected"
+                      ? "Rechazada"
+                      : quote.status}
             </Badge>
           </div>
           <span className="text-[11px] text-muted-foreground truncate block">
