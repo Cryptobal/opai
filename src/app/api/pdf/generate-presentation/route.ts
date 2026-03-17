@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     const page = await context.newPage();
     
     // ── Cargar página ──
-    await page.goto(pdfUrl, { waitUntil: 'networkidle', timeout: 45000 });
+    await page.goto(pdfUrl, { waitUntil: 'load', timeout: 45000 });
     
     // Verificar que no estamos en login de Vercel
     const pageTitle = await page.title();
