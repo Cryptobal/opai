@@ -36,7 +36,6 @@ import {
   Pencil,
   Trash2,
   Loader2,
-  MessageSquare,
   FileText,
   ChevronRight,
   Info,
@@ -54,6 +53,7 @@ import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { StartChatButton } from "@/components/chat/StartChatButton";
+import { SendPresentationDialog } from "./SendPresentationDialog";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -204,6 +204,7 @@ export function CrmContactDetailClient({
   });
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [presentationOpen, setPresentationOpen] = useState(false);
 
   // ── Email compose state ──
   const [emailOpen, setEmailOpen] = useState(false);
@@ -498,8 +499,7 @@ export function CrmContactDetailClient({
 
   const headerActions: EntityHeaderAction[] = [
     { label: "Editar contacto", icon: Pencil, onClick: openEdit, primary: true },
-    { label: "Enviar correo", icon: Mail, onClick: () => setEmailOpen(true), hidden: !gmailConnected || !contact.email },
-    { label: "WhatsApp", icon: MessageSquare, onClick: () => whatsappUrl && openWhatsApp(), hidden: !whatsappUrl },
+    { label: "Enviar Presentación", icon: Building2, onClick: () => setPresentationOpen(true), hidden: !contact.email },
     { label: "Desactivar presentación", icon: XCircle, onClick: handleDeactivatePresentation, hidden: !hasActivePresentation },
     { label: "Eliminar contacto", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
   ];
@@ -855,6 +855,14 @@ export function CrmContactDetailClient({
       </Dialog>
 
       <ConfirmDialog open={deleteConfirm} onOpenChange={setDeleteConfirm} title="Eliminar contacto" description="El contacto será eliminado permanentemente." onConfirm={deleteContact} />
+
+      <SendPresentationDialog
+        open={presentationOpen}
+        onOpenChange={setPresentationOpen}
+        contact={contact}
+        installations={installations}
+        onSent={() => router.refresh()}
+      />
     </>
   );
 }
