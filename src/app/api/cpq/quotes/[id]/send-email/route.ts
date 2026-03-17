@@ -133,24 +133,8 @@ export async function POST(
       data: { status: "sent" },
     });
 
-    // Deactivate any active company presentations for this contact
-    if (quote.contactId) {
-      try {
-        await prisma.crmCompanyPresentation.updateMany({
-          where: {
-            contactId: quote.contactId,
-            status: { in: ["sent", "viewed"] },
-          },
-          data: {
-            status: "deactivated",
-            deactivatedAt: new Date(),
-            deactivatedBy: "auto_quote_sent",
-          },
-        });
-      } catch (deactivateError) {
-        console.error("Error deactivating company presentations:", deactivateError);
-      }
-    }
+    // Company presentations remain active alongside quotes — prospects
+    // should see both the presentation and their quote in the portal.
 
     // Render email HTML
     const emailHtml = await render(

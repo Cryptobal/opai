@@ -393,25 +393,8 @@ export async function POST(
       data: { status: "sent" },
     });
 
-    // 7b. Deactivate any active company presentations for this contact
-    if (quote.contactId) {
-      try {
-        await prisma.crmCompanyPresentation.updateMany({
-          where: {
-            contactId: quote.contactId,
-            status: { in: ["sent", "viewed"] },
-          },
-          data: {
-            status: "deactivated",
-            deactivatedAt: new Date(),
-            deactivatedBy: "auto_quote_sent",
-          },
-        });
-      } catch (deactivateError) {
-        console.error("Error deactivating company presentations:", deactivateError);
-        // Non-fatal: quote sending continues
-      }
-    }
+    // 7b. Company presentations remain active alongside quotes — prospects
+    // should see both the presentation and their quote in the portal.
 
     // 8. Send portal invite email with PIN
     const tenantConfig = await getTenantCompanyConfig(ctx.tenantId);
