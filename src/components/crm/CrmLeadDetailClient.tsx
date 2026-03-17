@@ -1043,7 +1043,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         setExistingContact(exContact);
         if (exContact) setContactResolution("use_existing");
         const dups = checkData.duplicates || [];
-        if (dups.length > 0) setUseExistingAccountId(dups[0]?.id ?? null);
+        // Por defecto crear nueva cuenta; el usuario puede elegir "Usar existente" si lo desea
+        if (dups.length > 0) setUseExistingAccountId(null);
         const conflicts: InstallationConflict[] = checkData.installationConflicts || [];
         setInstallationConflicts(conflicts);
         setInstallationUseExisting((prev) => {

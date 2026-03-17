@@ -374,9 +374,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
       .catch(() => {});
   }, []);
 
-  // Load CRM accounts on mount (solo clientes, no prospectos)
+  // Load CRM accounts on mount (clientes y prospectos)
   useEffect(() => {
-    fetch("/api/crm/accounts?type=client")
+    fetch("/api/crm/accounts")
       .then((r) => r.ok ? r.json() : null)
       .then((d) => {
         if (d?.success)
