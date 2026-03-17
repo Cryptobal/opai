@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
           id: row.id,
           scheduledAt: row.scheduledAt.toISOString(),
           template: row.rondaTemplate?.name ?? (row.isAdHoc ? "Ronda Libre" : "Sin plantilla"),
-          isAdHoc: !row.programacionId && (row.isAdHoc === true || !row.rondaTemplateId),
+          isAdHoc: Boolean(row.isAdHoc) && !row.programacionId && !row.rondaTemplateId,
           guardia: guardiaNombre,
           status: row.status,
           completion: {

@@ -84,12 +84,19 @@ const STATUS_OPTIONS = [
   { id: "no_realizada", label: "No realizadas" },
 ];
 
+function getLocalDateString(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function defaultFrom(): string {
-  return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return getLocalDateString(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
 }
 
 function defaultTo(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getLocalDateString();
 }
 
 export function RondasReportesClient({
