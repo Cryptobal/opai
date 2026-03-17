@@ -83,10 +83,10 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { scheduledAt: "desc" },
         ...(isExport
-          ? { take: 10000 }
+          ? { take: 10000 as number }
           : page != null
             ? { skip: page * pageSize, take: pageSize }
-            : { take: 2000 }),
+            : { take: 2000 as number }),
       }),
       prisma.opsRondaEjecucion.count({ where }),
     ]);
