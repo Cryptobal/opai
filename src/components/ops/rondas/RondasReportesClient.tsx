@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, Loader2, BarChart3, User, Map, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import { Download, Loader2, BarChart3, User, Map, AlertTriangle, Clock, CheckCircle2, LayoutGrid } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -10,6 +10,7 @@ import { RondasComplianceChart } from "./RondasComplianceChart";
 import { RondasReportesTable, type ReporteRow } from "./RondasReportesTable";
 import { RondasReportesPorGuardia } from "./RondasReportesPorGuardia";
 import { RondasReportesHeatmap } from "./RondasReportesHeatmap";
+import { RondasDashboardGlobal } from "./RondasDashboardGlobal";
 import { RondaAuditMapModal } from "./RondaAuditMapModal";
 
 interface Installation {
@@ -52,6 +53,13 @@ interface PanicAlert {
   responseTimeMin: number | null;
 }
 
+interface Pagination {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
 interface Props {
   initialRows: ReporteRow[];
   initialTotals: Totals;
@@ -66,6 +74,7 @@ const TABS = [
   { id: "instalacion", label: "Por instalación", icon: BarChart3 },
   { id: "guardia", label: "Por guardia", icon: User },
   { id: "heatmap", label: "Mapa de calor", icon: Map },
+  { id: "dashboard", label: "Dashboard Global", icon: LayoutGrid },
 ];
 
 const STATUS_OPTIONS = [
@@ -75,12 +84,19 @@ const STATUS_OPTIONS = [
   { id: "no_realizada", label: "No realizadas" },
 ];
 
+function getLocalDateString(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function defaultFrom(): string {
-  return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return getLocalDateString(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
 }
 
 function defaultTo(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getLocalDateString();
 }
 
 export function RondasReportesClient({
@@ -111,6 +127,7 @@ export function RondasReportesClient({
   const [activeTab, setActiveTab] = useState("instalacion");
   const [daysRange, setDaysRange] = useState(30);
   const [page, setPage] = useState(0);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
   const [sortKey, setSortKey] = useState("scheduledAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
@@ -170,7 +187,7 @@ export function RondasReportesClient({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (requestedPage?: number) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -179,6 +196,8 @@ export function RondasReportesClient({
       if (installationId) params.set("installationId", installationId);
       if (guardiaFilterId) params.set("guardiaId", guardiaFilterId);
       if (statusFilter !== "all") params.set("status", statusFilter);
+      params.set("page", String(requestedPage ?? 0));
+      params.set("pageSize", "20");
 
       const res = await fetch(`/api/ops/rondas/reportes?${params}`);
       const json = await res.json();
@@ -186,7 +205,12 @@ export function RondasReportesClient({
         setRows(json.data.rows);
         setTotals(json.data.totals);
         setDailyCompliance(json.data.dailyCompliance);
-        setPage(0);
+        if (json.data.pagination) {
+          setPagination(json.data.pagination);
+        }
+        if (requestedPage == null) {
+          setPage(0);
+        }
       }
     } catch {
       toast.error("Error cargando reportes");
@@ -219,6 +243,14 @@ export function RondasReportesClient({
       })),
     ],
     [guardias],
+  );
+
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      setPage(newPage);
+      void fetchData(newPage);
+    },
+    [fetchData],
   );
 
   function handleSort(key: string) {
@@ -496,12 +528,13 @@ export function RondasReportesClient({
             rows={rows}
             page={page}
             pageSize={20}
-            onPageChange={setPage}
+            onPageChange={handlePageChange}
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={handleSort}
             onViewMap={setMapRow}
             onSendToCheckpoints={sendingToCheckpoints ? undefined : handleSendToCheckpoints}
+            serverPagination={pagination ?? undefined}
           />
 
           {/* Export buttons */}
@@ -551,6 +584,11 @@ export function RondasReportesClient({
           dateTo={dateTo}
           initialInstallationId={installationId || undefined}
         />
+      )}
+
+      {/* Tab: Dashboard Global */}
+      {activeTab === "dashboard" && (
+        <RondasDashboardGlobal initialDate={dateTo} />
       )}
 
       {/* Audit map modal */}

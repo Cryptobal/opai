@@ -18,7 +18,9 @@ export default async function RondasReportesPage() {
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
   const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  // Use end-of-today to include all records from today
   const now = new Date();
+  now.setHours(23, 59, 59, 999);
 
   const [rows, installationsRaw, guardiasRaw, panicAlerts] = await Promise.all([
     prisma.opsRondaEjecucion.findMany({
