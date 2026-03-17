@@ -8,11 +8,21 @@ const nextConfig = {
     '/api/cpq/quotes/\\[id\\]/send-email': ['./public/fonts/**/*'],
     '/api/cpq/quotes/\\[id\\]/send-portal': ['./public/fonts/**/*'],
     '/api/portal/cliente/cotizaciones/\\[id\\]/pdf': ['./public/fonts/**/*'],
+    // Chromium bin para generación de PDFs (Playwright + @sparticuz/chromium)
+    '/api/pdf/generate-presentation/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/pdf/generate-presentation': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/pdf/generate-pricing-v2/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/pdf/generate-pricing-v2': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/ops/pauta-mensual/export-pdf/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/ops/guard-events/\\[id\\]/send-doc/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/ops/control-nocturno/\\[id\\]/test-email/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
   },
   turbopack: {
     root: __dirname,
   },
   serverExternalPackages: [
+    '@sparticuz/chromium',
+    'playwright-core',
     '@react-pdf/renderer',
     '@react-pdf/reconciler',
     '@react-pdf/layout',
