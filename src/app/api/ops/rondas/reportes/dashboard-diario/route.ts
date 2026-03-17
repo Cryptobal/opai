@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     const sp = request.nextUrl.searchParams;
     const fecha = sp.get("fecha") ?? new Date().toISOString().slice(0, 10);
-    const cicloInicio = parseInt(sp.get("cicloInicio") ?? "7", 10);
+    const cicloInicio = parseInt(sp.get("cicloInicio") ?? "20", 10);
 
     // Operational cycle: fecha at cicloInicio hour -> next day at cicloInicio hour
     const cycleStart = new Date(`${fecha}T${String(cicloInicio).padStart(2, "0")}:00:00`);

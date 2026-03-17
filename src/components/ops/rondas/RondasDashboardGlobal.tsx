@@ -84,7 +84,7 @@ const STATUS_ICON_COLOR: Record<string, string> = {
 };
 
 function formatHour(iso: string): string {
-  return new Date(iso).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 function RondaCellBlock({
@@ -193,23 +193,35 @@ function InstalacionGridRow({ inst }: { inst: InstalacionRow }) {
   return (
     <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] overflow-hidden">
       {/* Header row */}
-      <div
-        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#1a1f2e]/50 transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
-        {expanded ? (
-          <ChevronDown className="h-4 w-4 text-[#64748b] shrink-0" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-[#64748b] shrink-0" />
-        )}
+      <div className="flex items-center gap-3 px-4 py-3">
+        {/* Chevron toggle — separate clickable area */}
+        <button
+          onClick={() => {
+            setExpanded(!expanded);
+            if (expanded) setSelectedRonda(null);
+          }}
+          className="shrink-0 p-1 -m-1 rounded hover:bg-[#1a1f2e] transition-colors"
+        >
+          {expanded ? (
+            <ChevronDown className="h-4 w-4 text-[#64748b]" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-[#64748b]" />
+          )}
+        </button>
 
-        {/* Installation name */}
-        <div className="w-40 shrink-0">
+        {/* Installation name — also toggles expand */}
+        <button
+          onClick={() => {
+            setExpanded(!expanded);
+            if (expanded) setSelectedRonda(null);
+          }}
+          className="w-40 shrink-0 text-left hover:bg-[#1a1f2e]/50 rounded px-1 -mx-1 py-0.5 transition-colors"
+        >
           <p className="text-sm font-semibold text-[#f1f5f9] truncate">{inst.installationName}</p>
           <p className="text-[10px] text-[#64748b]">
             {inst.resumen.total} rondas
           </p>
-        </div>
+        </button>
 
         {/* Timeline cells */}
         <div className="flex-1 flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-thin">
@@ -219,8 +231,12 @@ function InstalacionGridRow({ inst }: { inst: InstalacionRow }) {
               ronda={ronda}
               isSelected={selectedRonda === ronda.id}
               onClick={() => {
-                setSelectedRonda(selectedRonda === ronda.id ? null : ronda.id);
-                if (!expanded) setExpanded(true);
+                if (selectedRonda === ronda.id) {
+                  setSelectedRonda(null);
+                } else {
+                  setSelectedRonda(ronda.id);
+                  setExpanded(true);
+                }
               }}
             />
           ))}
@@ -244,9 +260,35 @@ function InstalacionGridRow({ inst }: { inst: InstalacionRow }) {
       </div>
 
       {/* Expanded detail */}
-      {expanded && selected && (
-        <div className="px-4 pb-3">
-          <RondaDetail ronda={selected} />
+      {expanded && (
+        <div className="px-4 pb-3 space-y-2 border-t border-[#1a1f2e]">
+          {selected ? (
+            <RondaDetail ronda={selected} />
+          ) : (
+            <div className="pt-2 space-y-1">
+              {inst.rondas.map((ronda) => {
+                const st = STATUS_ICON_COLOR[ronda.status] ?? "text-zinc-400";
+                const Icon = STATUS_ICON[ronda.status] ?? Clock;
+                return (
+                  <button
+                    key={ronda.id}
+                    onClick={() => setSelectedRonda(ronda.id)}
+                    className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs hover:bg-[#1a1f2e]/60 transition-colors text-left"
+                  >
+                    <Icon className={cn("h-3.5 w-3.5 shrink-0", st)} />
+                    <span className="text-[#f1f5f9] font-medium tabular-nums w-12">
+                      {formatHour(ronda.scheduledAt)}
+                    </span>
+                    <span className="text-[#94a3b8] truncate flex-1">{ronda.template}</span>
+                    <span className="text-[#94a3b8] truncate max-w-[140px]">{ronda.guardia || "—"}</span>
+                    <span className="text-[#94a3b8] tabular-nums">
+                      {ronda.completion.completados}/{ronda.completion.total}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
