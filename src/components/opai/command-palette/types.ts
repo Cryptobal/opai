@@ -18,6 +18,14 @@ export interface CommandItem {
   action?: () => void;
   /** Control de visibilidad por rol */
   canShow?: (role: string) => boolean;
+  /** Solo para search: avatar/logo URL (guardias, cuentas) */
+  imageUrl?: string;
+  /** Solo para search: PIN de marcación (guardias) */
+  pinDisplay?: string;
+  /** Solo para search: etiqueta de badge de estado (ej. Contratado) */
+  badgeLabel?: string;
+  /** Solo para search: clases Tailwind para badge de estado */
+  badgeClass?: string;
 }
 
 export interface RecentItem {

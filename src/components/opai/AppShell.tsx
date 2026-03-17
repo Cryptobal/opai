@@ -3,10 +3,9 @@
 import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MessageCircle, Plus, Search, X, TrendingUp, Building2, Contact, Users, Ticket, Receipt, Shield, FileText, Activity } from 'lucide-react';
+import { MessageCircle, Plus, Search, TrendingUp, Building2, Contact, Users, Ticket, Receipt, Shield, FileText, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { GlobalSearch } from '@/components/search/GlobalSearch';
-import { CommandPalette, CommandPaletteProvider } from './CommandPalette';
+import { CommandPalette, CommandPaletteProvider, useCommandPalette } from './CommandPalette';
 import { ThemeLogo } from './ThemeLogo';
 import { TopbarActions } from './TopbarActions';
 import { QuickCreateModal, type QuickCreateType } from './QuickCreateModal';
@@ -55,7 +54,15 @@ export interface AppShellProps {
  * - Sidebar: w-60 (expanded) / w-[72px] (collapsed)
  * - Transition: duration-200 ease-out
  */
-export function AppShell({
+export function AppShell(props: AppShellProps) {
+  return (
+    <CommandPaletteProvider>
+      <AppShellInner {...props} />
+    </CommandPaletteProvider>
+  );
+}
+
+function AppShellInner({
   sidebar,
   children,
   userName,
@@ -66,6 +73,7 @@ export function AppShell({
   const router = useRouter();
   const pathname = usePathname();
   const chatCtx = useChatSidePanelContext();
+  const { open: openCommandPalette } = useCommandPalette();
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -77,20 +85,10 @@ export function AppShell({
   useEffect(() => {
     try { localStorage.setItem('opai-sidebar-open', String(isSidebarOpen)); } catch {}
   }, [isSidebarOpen]);
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [mobileCreateType, setMobileCreateType] = useState<QuickCreateType>(null);
 
-  // Auto-close mobile search overlay on route change (safety net)
-  const prevPathnameRef = useRef(pathname);
-  useEffect(() => {
-    if (prevPathnameRef.current !== pathname) {
-      prevPathnameRef.current = pathname;
-      setIsMobileSearchOpen(false);
-    }
-  }, [pathname]);
-
   return (
-    <CommandPaletteProvider>
+    <>
       <div className="relative min-h-screen overflow-x-hidden">
         {/* ── Mobile topbar (redesigned — no hamburger, no sidebar) ── */}
         {sidebar && (
@@ -145,7 +143,7 @@ export function AppShell({
               <button
                 type="button"
                 className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-                onClick={() => setIsMobileSearchOpen(true)}
+                onClick={() => openCommandPalette()}
                 aria-label="Buscar"
               >
                 <Search className="h-5 w-5" />
@@ -181,35 +179,6 @@ export function AppShell({
                 }
               )
               : sidebar}
-          </div>
-        )}
-
-        {/* ── Mobile search overlay ── */}
-        {isMobileSearchOpen && (
-          <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-sm lg:hidden">
-            <div
-              className="flex items-center gap-2 border-b border-border px-3 py-2"
-              style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}
-            >
-              <GlobalSearch
-                compact
-                className="flex-1"
-                onNavigate={() => setIsMobileSearchOpen(false)}
-                onOpenChat={(channelId) => {
-                  setIsMobileSearchOpen(false);
-                  chatCtx.openPanel();
-                  chatCtx.selectChannel(channelId);
-                }}
-              />
-              <button
-                type="button"
-                className="shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-                onClick={() => setIsMobileSearchOpen(false)}
-                aria-label="Cerrar búsqueda"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
           </div>
         )}
 
@@ -270,6 +239,6 @@ export function AppShell({
 
       {/* ── Chat Side Panel (outside overflow-x-hidden to avoid fixed clipping) ── */}
       <ChatSidePanel userRole={userRole} />
-    </CommandPaletteProvider>
+    </>
   );
 }

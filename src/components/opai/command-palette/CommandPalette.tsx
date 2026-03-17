@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import type { CommandItem } from './types';
 import { useCommandPalette } from './use-command-palette';
 import { defaultCommands, ICON_MAP, CATEGORY_LABELS } from './commands';
+import { useIsMobile } from '@/lib/pwa/use-is-mobile';
 
 // ── Fuzzy matching ──
 
@@ -108,6 +109,9 @@ type ApiSearchResult = {
   subtitle: string;
   href: string;
   badgeLabel?: string;
+  badgeClass?: string;
+  imageUrl?: string;
+  pinDisplay?: string;
 };
 
 const SEARCH_TYPE_CONFIG: Record<SearchResultType, { icon: typeof Users; color: string; bgColor: string; label: string }> = {
@@ -133,6 +137,7 @@ interface CommandPaletteProps {
 export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const isMobile = useIsMobile();
   const { isOpen, close, addRecent, getRecents, externalCommands } = useCommandPalette();
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -195,6 +200,10 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
         href: r.type === 'channel' ? undefined : r.href,
         action: r.type === 'channel' && onOpenChat ? () => onOpenChat(r.id) : undefined,
         keywords: [],
+        imageUrl: r.imageUrl,
+        pinDisplay: r.pinDisplay,
+        badgeLabel: r.badgeLabel,
+        badgeClass: r.badgeClass,
       };
     });
   }, [apiResults, onOpenChat]);
@@ -314,14 +323,14 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh] sm:pt-[20vh]"
+      className="fixed inset-0 z-[70] flex items-start justify-center pt-[8vh] sm:pt-[15vh] lg:pt-[20vh]"
       role="dialog"
       aria-label="Command palette"
       aria-modal="true"
     >
       {/* Overlay */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
         onClick={() => {
           close();
           setQuery('');
@@ -330,21 +339,21 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-[640px] mx-4 animate-in fade-in slide-in-from-top-4 duration-200">
+      <div className="relative w-full max-w-[640px] mx-4 animate-in fade-in zoom-in-95 duration-200">
         <Command
-          className="rounded-xl border border-border bg-card shadow-2xl overflow-hidden"
+          className="rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
           filter={() => 1} // We handle filtering ourselves
           loop
         >
           {/* ── Search input ── */}
-          <div className="flex items-center border-b border-border px-4">
+          <div className="flex items-center border-b border-border px-4 focus-within:ring-2 focus-within:ring-primary/20 focus-within:ring-inset transition-shadow">
             <Search className="mr-3 h-5 w-5 shrink-0 text-muted-foreground" />
             <Command.Input
               ref={inputRef}
               value={query}
               onValueChange={setQuery}
               placeholder="Buscar guardias, instalaciones, chats, acciones..."
-              className="flex h-12 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              className="flex h-14 w-full bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
               aria-label="Buscar en el command palette"
             />
             {apiLoading && (
@@ -356,46 +365,59 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                 close();
                 setQuery('');
               }}
-              className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              className="shrink-0 rounded border border-border bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors sm:px-1.5 sm:py-0.5"
             >
-              ESC
+              {isMobile ? 'Cerrar' : 'ESC'}
             </button>
           </div>
 
           {/* ── Results ── */}
           <Command.List
-            className="max-h-[360px] overflow-y-auto overscroll-contain p-2"
+            className="max-h-[min(70vh,480px)] overflow-y-auto overscroll-contain p-2"
             role="listbox"
           >
             {allItems.length === 0 && !apiLoading && (
-              <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
-                No se encontraron resultados para &ldquo;{query}&rdquo;
+              <Command.Empty className="py-12 text-center">
+                <Search className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  No se encontraron resultados para &ldquo;{query}&rdquo;
+                </p>
+                <p className="text-xs text-muted-foreground/80 mt-1">
+                  Prueba con otro término o busca por nombre, instalación o acción
+                </p>
               </Command.Empty>
             )}
 
-            {grouped.map((group) => (
+            {grouped.map((group, idx) => (
               <Command.Group
                 key={group.category}
                 heading={group.label}
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
+                className={cn(
+                  '[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:sticky [&_[cmdk-group-heading]]:top-0 [&_[cmdk-group-heading]]:bg-card [&_[cmdk-group-heading]]:z-10',
+                  idx > 0 && 'border-t border-border/50',
+                )}
               >
                 {group.items.map((cmd) => {
                   const isSearch = cmd.category === 'search';
                   const searchType = isSearch ? cmd.id.split('-')[1] as SearchResultType : null;
                   const searchConfig = searchType ? SEARCH_TYPE_CONFIG[searchType] : null;
 
+                  const showImage = isSearch && cmd.imageUrl;
+                  const showPin = isSearch && cmd.pinDisplay;
+                  const showStatusBadge = isSearch && (cmd.badgeLabel ?? searchConfig?.label);
+
                   return (
                     <Command.Item
                       key={cmd.id}
                       value={cmd.id}
                       onSelect={() => runCommand(cmd)}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm cursor-pointer transition-colors data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
+                      className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm cursor-pointer transition-colors duration-150 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
                       role="option"
                     >
                       <div
                         className={cn(
-                          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                          isSearch && searchConfig
+                          'relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg',
+                          isSearch && searchConfig && !showImage
                             ? searchConfig.bgColor
                             : cmd.category === 'recent'
                               ? 'bg-muted'
@@ -406,28 +428,55 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                                   : 'bg-blue-500/10',
                         )}
                       >
-                        <cmd.icon
+                        {showImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={cmd.imageUrl}
+                            alt={cmd.label}
+                            className="h-9 w-9 rounded-lg object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.nextElementSibling;
+                              if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div
                           className={cn(
-                            'h-4 w-4',
-                            isSearch && searchConfig
-                              ? searchConfig.color
-                              : cmd.category === 'recent'
-                                ? 'text-muted-foreground'
-                                : cmd.category === 'action'
-                                  ? 'text-primary'
-                                  : cmd.category === 'config'
-                                    ? 'text-amber-500'
-                                    : 'text-blue-500',
+                            'h-full w-full items-center justify-center',
+                            showImage ? 'hidden' : 'flex',
                           )}
-                        />
+                        >
+                          <cmd.icon
+                            className={cn(
+                              'h-4 w-4',
+                              isSearch && searchConfig
+                                ? searchConfig.color
+                                : cmd.category === 'recent'
+                                  ? 'text-muted-foreground'
+                                  : cmd.category === 'action'
+                                    ? 'text-primary'
+                                    : cmd.category === 'config'
+                                      ? 'text-amber-500'
+                                      : 'text-blue-500',
+                            )}
+                          />
+                        </div>
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium truncate">
-                          {highlightMatch(cmd.label, query)}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate leading-tight">
+                            {highlightMatch(cmd.label, query)}
+                          </p>
+                          {showPin && (
+                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+                              {cmd.pinDisplay}
+                            </span>
+                          )}
+                        </div>
                         {cmd.description && (
-                          <p className="text-xs text-muted-foreground truncate">
+                          <p className="text-xs text-muted-foreground/90 truncate mt-0.5">
                             {highlightMatch(cmd.description, query)}
                           </p>
                         )}
@@ -443,9 +492,18 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                         <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
                       )}
 
-                      {isSearch && searchConfig && (
-                        <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium', searchConfig.bgColor, searchConfig.color)}>
-                          {searchConfig.label}
+                      {showStatusBadge && (
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+                            cmd.badgeLabel && cmd.badgeClass
+                              ? cmd.badgeClass
+                              : searchConfig
+                                ? `${searchConfig.bgColor} ${searchConfig.color}`
+                                : '',
+                          )}
+                        >
+                          {cmd.badgeLabel ?? searchConfig?.label}
                         </span>
                       )}
                     </Command.Item>
@@ -456,8 +514,8 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
           </Command.List>
 
           {/* ── Footer ── */}
-          <div className="flex items-center justify-between border-t border-border px-4 py-2">
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center justify-between border-t border-border px-4 py-2 sm:py-2">
+            <div className={cn('flex items-center gap-3 text-xs text-muted-foreground', isMobile && 'hidden')}>
               <span className="inline-flex items-center gap-1">
                 <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-border bg-muted">
                   <ArrowUp className="h-3 w-3" />
@@ -474,7 +532,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                 <span className="ml-0.5">seleccionar</span>
               </span>
             </div>
-            <span className="text-[10px] text-muted-foreground/60">
+            <span className={cn('text-[10px] text-muted-foreground/60', isMobile && 'ml-auto')}>
               {allItems.length} resultado{allItems.length !== 1 ? 's' : ''}
             </span>
           </div>

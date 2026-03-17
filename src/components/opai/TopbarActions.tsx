@@ -2,33 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import {
-  Activity,
-  Bell,
-  Building2,
-  Clock3,
-  Contact,
-  FileText,
-  LogOut,
-  Plus,
-  Receipt,
-  Settings,
-  Shield,
-  Ticket,
-  TrendingUp,
-  User,
-  Users,
-} from "lucide-react";
+import { Bell, LogOut, Settings, User } from "lucide-react";
 import { MessageCircle } from "lucide-react";
-import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 import { NotificationPopover } from "./NotificationPopover";
 import { ThemeToggle } from "./ThemeToggle";
 import { RoleSwitcher } from "@/components/navbar/RoleSwitcher";
 import { Avatar } from "./Avatar";
-import { QuickCreateModal, type QuickCreateType } from "./QuickCreateModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,20 +27,6 @@ interface TopbarActionsProps {
   className?: string;
 }
 
-const QUICK_CREATE_ITEMS: { label: string; type: QuickCreateType; icon: typeof TrendingUp; navigateHref?: string }[] = [
-  { label: "Nuevo Lead", type: "lead", icon: TrendingUp },
-  { label: "Nueva Cuenta", type: "account", icon: Building2 },
-  { label: "Nuevo Contacto", type: "contact", icon: Contact },
-  { label: "Nuevo Negocio", type: "deal", icon: Users },
-  { label: "Nuevo Ticket", type: "ticket", icon: Ticket },
-  { label: "Nueva Rendición", type: null, icon: Receipt, navigateHref: "/finanzas/rendiciones/nueva" },
-  { label: "Nuevo Turno Extra", type: null, icon: Clock3, navigateHref: "/ops/turnos-extra?crear=te" },
-  { label: "Nuevo Refuerzo", type: null, icon: Shield, navigateHref: "/ops/refuerzos?crear=refuerzo" },
-  { label: "Nueva Persona", type: null, icon: Users, navigateHref: "/personas/guardias" },
-  { label: "Nuevo Documento", type: null, icon: FileText, navigateHref: "/opai/documentos/nuevo" },
-  { label: "Nueva Visita", type: null, icon: Activity, navigateHref: "/ops/supervision/nueva-visita" },
-];
-
 export function TopbarActions({
   userName = "Usuario",
   userEmail,
@@ -67,65 +34,12 @@ export function TopbarActions({
   className,
 }: TopbarActionsProps) {
   const [mounted, setMounted] = useState(false);
-  const [quickCreateType, setQuickCreateType] = useState<QuickCreateType>(null);
-  const router = useRouter();
   const chatCtx = useChatSidePanelContext();
   useEffect(() => setMounted(true), []);
 
   return (
     <div className={cn("flex items-center gap-2 w-full", className)}>
-      {/* Left: Search */}
-      <GlobalSearch
-        compact
-        className="w-72"
-        onOpenChat={(channelId) => {
-          chatCtx.openPanel();
-          chatCtx.selectChannel(channelId);
-        }}
-      />
-
-      {/* Quick Create "+" button */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
-            aria-label="Crear nuevo"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-52">
-          {QUICK_CREATE_ITEMS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <DropdownMenuItem
-                key={item.label}
-                onClick={() => {
-                  if (item.navigateHref) {
-                    router.push(item.navigateHref);
-                  } else if (item.type) {
-                    setQuickCreateType(item.type);
-                  }
-                }}
-                className="cursor-pointer"
-              >
-                <Icon className="h-4 w-4 mr-2" />
-                {item.label}
-              </DropdownMenuItem>
-            );
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {quickCreateType && (
-        <QuickCreateModal
-          type={quickCreateType}
-          onClose={() => setQuickCreateType(null)}
-        />
-      )}
-
-      {/* Role Switcher a la izquierda (solo owner/admin) */}
+      {/* Role Switcher (solo owner/admin) */}
       <RoleSwitcher />
 
       {/* Botón Fiscalización DT — Resolución N°38 */}
