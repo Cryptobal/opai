@@ -1262,10 +1262,19 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                     disabled={isLocked}
                     className="flex h-8 w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                   >
-                    <option value="">Sin template</option>
-                    {proposalTemplates.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
+                    {proposalTemplates
+                      .filter(
+                        (t) =>
+                          !(
+                            (t.name || "").toLowerCase().includes("presentación") &&
+                            (t.name || "").toLowerCase().includes("empresa")
+                          )
+                      )
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
               </div>
