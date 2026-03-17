@@ -304,8 +304,7 @@ export function mapCpqDataToPresentation(
                   "Equipamiento incluido (radios, linternas)",
                 ],
               },
-            },
-          }
+            }
         : {
             serviceDetail: "Los valores económicos están disponibles en tu portal privado.",
             pricing: {
