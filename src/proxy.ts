@@ -162,9 +162,14 @@ export default auth((req) => {
     const sessionPortal = (req.auth as any)?.portal as string | undefined;
 
     // Supervisor portal: ensure session was created for supervisor context
+    // Exception: owner/admin with ERP session can access supervisor portal (switch without re-login)
     if (pathname.startsWith('/portal/supervisor') || pathname.startsWith('/api/portal/supervisor')) {
-      if (sessionPortal && sessionPortal !== 'supervisor') {
-        // ERP session trying to access supervisor portal — treat as unauthenticated
+      const userRole = (req.auth as { user?: { role?: string } })?.user?.role ?? '';
+      const isAdminOrOwner = userRole === 'owner' || userRole === 'admin';
+      const allowed = sessionPortal === 'supervisor' || (sessionPortal === 'opai' && isAdminOrOwner);
+
+      if (sessionPortal && !allowed) {
+        // ERP session (non-admin) trying to access supervisor portal — treat as unauthenticated
         if (pathname.startsWith('/api/')) {
           return Response.json(
             { success: false, error: 'Sesión no válida para este portal' },
