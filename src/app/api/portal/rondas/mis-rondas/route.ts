@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { startOfDayChile, endOfDayChile } from "@/lib/rondas/timezone";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CUID_RE = /^c[a-z0-9]{8,}$/i;
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,9 +15,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Parámetros requeridos" }, { status: 400 });
     }
 
-    if (!UUID_RE.test(guardiaId) || !UUID_RE.test(installationId) || !UUID_RE.test(tenantId)) {
+    if (!UUID_RE.test(guardiaId) || !UUID_RE.test(installationId)) {
       return NextResponse.json(
         { success: false, error: "Formato de parámetros inválido" },
+        { status: 400 },
+      );
+    }
+
+    if (!CUID_RE.test(tenantId) && !UUID_RE.test(tenantId)) {
+      return NextResponse.json(
+        { success: false, error: "Formato de tenantId inválido" },
         { status: 400 },
       );
     }
