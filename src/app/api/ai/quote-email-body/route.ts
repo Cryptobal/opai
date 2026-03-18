@@ -77,31 +77,13 @@ export async function POST(request: NextRequest) {
       .map((p) => p.customName || p.puestoTrabajo?.name || "Puesto")
       .join(", ");
 
-    const portalBlock = portalEnabled && portalPin
-      ? `
-Ademas del PDF, te invito a ingresar a tu Portal de Cliente de ${companyConfig.commercialName || "Gard Security"}, una experiencia que nos diferencia del mercado. Ahi puedes:
-
-- Revisar la propuesta en detalle: puestos, horarios, guardias asignados y precio mensual, todo claro y sin letra chica.
-- Acceder a la propuesta tecnica completa con condiciones comerciales y respaldo legal.
-- Monitorear el servicio en tiempo real: una vez activo el contrato, ver cumplimiento de rondas, alertas y metricas de seguridad desde tu celular.
-- Contactarme directamente para resolver dudas, ajustar condiciones o agendar una reunion.
-- Aprobar la propuesta en un clic si te convence, sin papeleo.
-
-Tu acceso al portal:
-Portal: ${portalUrl}
-Tu PIN: ${portalPin}`
-      : `
-Te invito tambien a conocer nuestro Portal de Cliente, donde podras revisar la propuesta de forma interactiva y monitorear el servicio en tiempo real una vez activo el contrato. Es una experiencia que nos diferencia del resto del mercado. Consulta tu ejecutivo para activar tu acceso.`;
-
-    const firmaBlock = `${senderName}
-${senderCargo}
-${companyConfig.commercialName || "Gard Security"}
-${companyConfig.phone || ""}
-${companyConfig.email || ""}`;
+    const portalLine = portalEnabled && portalPin
+      ? "Una linea breve invitando a ingresar al portal de cliente (ej: 'Te invito tambien a ingresar a tu portal de cliente para revisar la propuesta de forma interactiva.'). NO incluir link ni PIN ni lista de beneficios."
+      : "Una linea breve mencionando el portal (ej: 'Te invito a conocer nuestro Portal de Cliente cuando lo actives.').";
 
     const prompt = `Eres ${senderName}${senderCargo ? `, ${senderCargo}` : ""} de ${companyConfig.commercialName || "Gard Security"}, empresa de seguridad privada en Chile.
 
-Escribe un email para enviar una propuesta economica adjunta en PDF. Usa el contenido exacto que se indica abajo, adaptando el lenguaje de forma natural. NO inventes informacion adicional.
+Escribe SOLO el cuerpo del email para enviar una propuesta economica adjunta en PDF. El correo tiene un diseno visual que ya incluye saludo, credenciales de portal, beneficios y firma. Tu texto va en el centro.
 
 DATOS DE LA PROPUESTA:
 - Destinatario (primer nombre): ${contactFirstName}
@@ -111,26 +93,23 @@ DATOS DE LA PROPUESTA:
 - Vigencia: ${quote.validUntil ? new Date(quote.validUntil).toLocaleDateString("es-CL") : "No definida"}
 
 INSTRUCCIONES ESTRICTAS:
-1. Comenzar con "Hola ${contactFirstName}," (tutear siempre, NUNCA usar "usted", NUNCA "Estimado/a")
-2. Dejar una linea en blanco entre cada parrafo
-3. Parrafo 1: presentar brevemente la propuesta adjunta (guardias, puestos, instalacion)
-4. Parrafo 2: indicar que el detalle completo esta en el PDF adjunto
-5. Incluir literalmente este bloque de portal (no modificar los datos):
-${portalBlock}
-6. Linea de cierre breve y cercana (ej: "Quedo disponible para cualquier consulta.")
-7. Dejar DOS lineas en blanco antes de la firma
-8. Firma exactamente asi, cada dato en su propia linea sin asteriscos ni markdown:
-${firmaBlock}
-9. NO incluir precios en el cuerpo del email (estan en el PDF)
-10. NO incluir "Asunto:" ni titulos
-11. Idioma: espanol Chile${
+1. Comenzar con "Hola ${contactFirstName}," (tutear, NUNCA "usted" ni "Estimado/a")
+2. Parrafo 1: presentar brevemente la propuesta adjunta (guardias, puestos, instalacion)
+3. Parrafo 2: indicar que el detalle completo esta en el PDF adjunto
+4. Parrafo 3: ${portalLine}
+5. Cierre breve (ej: "Quedo disponible para cualquier consulta.")
+6. NO incluir firma, NO incluir lista de beneficios, NO incluir link ni PIN
+7. NO incluir precios (estan en el PDF)
+8. Dejar una linea en blanco entre parrafos
+9. Idioma: espanol Chile
+10. Maximo 400 caracteres${
       customInstruction?.trim()
-        ? `\n\nINSTRUCCION ADICIONAL DEL USUARIO: ${customInstruction.trim()}`
+        ? `\n\nINSTRUCCION ADICIONAL: ${customInstruction.trim()}`
         : ""
     }`;
 
     const body = (
-      await aiService.generateText(prompt, { maxTokens: 700, temperature: 0.6 })
+      await aiService.generateText(prompt, { maxTokens: 450, temperature: 0.6 })
     ).trim();
 
     return NextResponse.json({ success: true, data: { body } });

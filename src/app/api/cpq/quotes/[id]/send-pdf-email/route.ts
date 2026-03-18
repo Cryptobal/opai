@@ -85,10 +85,14 @@ export async function POST(
     const { fileName, ...pdfProps } = await buildQuotationProps(id, ctx.tenantId);
     const pdfBuffer = await renderQuotationToBuffer(pdfProps);
 
+    const firstTo = Array.isArray(to) ? to[0] : String(to).trim();
+
     // Render full HTML with branded template
     const fullHtml = await render(
       CpqPdfEmail({
         recipientFirstName: contactFirstName,
+        recipientEmail: firstTo?.includes("@") ? firstTo : undefined,
+        companyName: undefined,
         quoteCode: quote.code,
         installationName: quote.installation?.name,
         bodyText: htmlBody,
