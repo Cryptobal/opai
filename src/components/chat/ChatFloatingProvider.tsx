@@ -72,11 +72,33 @@ interface ChatSidePanelContextValue {
 
 export const ChatSidePanelContext = createContext<ChatSidePanelContextValue | null>(null);
 
+const NOOP_CHAT_CONTEXT: ChatSidePanelContextValue = {
+  isPanelOpen: false,
+  openPanel: () => {},
+  closePanel: () => {},
+  togglePanel: () => {},
+  channels: [],
+  loading: false,
+  totalUnread: 0,
+  selectedChannelId: null,
+  selectChannel: () => {},
+  currentUserId: "",
+  autoContext: null,
+  refreshChannels: async () => {},
+  archiveChannel: async () => {},
+  unarchiveChannel: async () => {},
+  deleteChannel: async () => {},
+  archivedChannels: [],
+  fetchArchivedChannels: async () => {},
+  markChannelAsRead: async () => {},
+  markAllChannelsAsRead: async () => {},
+  markAllChannelsAsReadLoading: false,
+  updateChannelNotifPref: async () => {},
+};
+
 export function useChatSidePanelContext() {
   const ctx = useContext(ChatSidePanelContext);
-  if (!ctx) {
-    throw new Error("useChatSidePanelContext must be used inside <ChatSidePanelProvider>");
-  }
+  if (!ctx) return NOOP_CHAT_CONTEXT;
   return ctx;
 }
 

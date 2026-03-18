@@ -55,27 +55,13 @@ export async function POST() {
 
     const now = new Date();
 
-    await prisma.$transaction(
-      channelIds.map((channelId) =>
-        prisma.chatReadCursor.upsert({
-          where: {
-            channelId_readerType_readerId: {
-              channelId,
-              readerType: "ADMIN",
-              readerId: ctx.userId,
-            },
-          },
-          create: {
-            tenantId: ctx.tenantId,
-            channelId,
-            readerType: "ADMIN",
-            readerId: ctx.userId,
-            lastReadAt: now,
-          },
-          update: { lastReadAt: now },
-        })
-      )
-    );
+    await prisma.$executeRaw`
+      INSERT INTO chat.read_cursors (id, tenant_id, channel_id, reader_type, reader_id, last_read_at)
+      SELECT uuid_generate_v4(), ${ctx.tenantId}, cid, 'ADMIN', ${ctx.userId}, ${now}
+      FROM UNNEST(${channelIds}::uuid[]) AS cid
+      ON CONFLICT (channel_id, reader_type, reader_id)
+      DO UPDATE SET last_read_at = EXCLUDED.last_read_at
+    `;
 
     return NextResponse.json({
       success: true,

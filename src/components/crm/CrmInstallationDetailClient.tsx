@@ -1090,47 +1090,55 @@ function StaffingSection({
 
   // Save (create or edit)
   const handleSave = async (data: PuestoFormData) => {
-    const body: Record<string, unknown> = {
-      name: data.customName || "Puesto",
-      puestoTrabajoId: data.puestoTrabajoId || null,
-      cargoId: data.cargoId || null,
-      rolId: data.rolId || null,
-      shiftStart: data.startTime,
-      shiftEnd: data.endTime,
-      weekdays: data.weekdays,
-      requiredGuards: data.numGuards,
-      baseSalary: data.baseSalary || null,
-      colacion: data.colacion ?? 0,
-      movilizacion: data.movilizacion ?? 0,
-      gratificationType: data.gratificationType ?? "AUTO_25",
-      gratificationCustomAmount: data.gratificationCustomAmount ?? null,
-      bonos: (data.bonos ?? []).filter((b) => b.bonoCatalogId),
-      activeFrom: data.activeFrom || null,
-    };
+    try {
+      const body: Record<string, unknown> = {
+        name: data.customName || "Puesto",
+        puestoTrabajoId: data.puestoTrabajoId || null,
+        cargoId: data.cargoId || null,
+        rolId: data.rolId || null,
+        shiftStart: data.startTime,
+        shiftEnd: data.endTime,
+        weekdays: data.weekdays,
+        requiredGuards: data.numGuards,
+        baseSalary: data.baseSalary || null,
+        colacion: data.colacion ?? 0,
+        movilizacion: data.movilizacion ?? 0,
+        gratificationType: data.gratificationType ?? "AUTO_25",
+        gratificationCustomAmount: data.gratificationCustomAmount ?? null,
+        bonos: (data.bonos ?? []).filter((b) => b.bonoCatalogId),
+        activeFrom: data.activeFrom || null,
+      };
 
-    if (editingPuestoId) {
-      // PATCH
-      const res = await fetch(`/api/ops/puestos/${editingPuestoId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const payload = await res.json();
-      if (!res.ok || !payload.success) throw new Error(payload.error || "No se pudo actualizar");
-      toast.success("Puesto actualizado");
-    } else {
-      // POST
-      const res = await fetch("/api/ops/puestos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, installationId: installation.id }),
-      });
-      const payload = await res.json();
-      if (!res.ok || !payload.success) throw new Error(payload.error || "No se pudo crear");
-      toast.success("Puesto creado");
+      if (editingPuestoId) {
+        const res = await fetch(`/api/ops/puestos/${editingPuestoId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const payload = await res.json();
+        if (!res.ok || !payload.success) {
+          toast.error(payload.error || "No se pudo actualizar el puesto");
+          return;
+        }
+        toast.success("Puesto actualizado");
+      } else {
+        const res = await fetch("/api/ops/puestos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...body, installationId: installation.id }),
+        });
+        const payload = await res.json();
+        if (!res.ok || !payload.success) {
+          toast.error(payload.error || "No se pudo crear el puesto");
+          return;
+        }
+        toast.success("Puesto creado");
+      }
+      setFormModalOpen(false);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al guardar el puesto");
     }
-    setFormModalOpen(false);
-    router.refresh();
   };
 
   // Delete puesto

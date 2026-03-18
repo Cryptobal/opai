@@ -1,9 +1,26 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { Component, useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from "react";
 import "@/components/portal/rondas/leaflet-setup";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Polyline, Circle, useMap } from "react-leaflet";
+
+class MapErrorBoundary extends Component<
+  { children: ReactNode; fallback?: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch() {}
+  render() {
+    if (this.state.hasError) {
+      return (this.props.fallback ?? null) as ReactNode;
+    }
+    return this.props.children;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -456,6 +473,7 @@ export default function RondaMap({
 
   return (
     <div style={{ height }} className="relative isolate overflow-hidden rounded-lg">
+      <MapErrorBoundary fallback={<div style={{ height: "100%" }} className="flex items-center justify-center bg-zinc-900 text-zinc-400 text-sm">Error cargando mapa</div>}>
       <MapContainer
         center={center}
         zoom={18}
@@ -604,6 +622,7 @@ export default function RondaMap({
           />
         )}
       </MapContainer>
+      </MapErrorBoundary>
     </div>
   );
 }

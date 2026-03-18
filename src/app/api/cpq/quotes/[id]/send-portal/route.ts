@@ -582,7 +582,6 @@ export async function POST(
           email: contact.email,
           pin,
           portalUrl,
-          proposalLink: proposalLinkForEmail,
           ejecutivoName,
           brandName: tenantConfig.commercialName,
         }),
@@ -617,38 +616,32 @@ interface WhatsAppMsgParams {
   email: string;
   pin: string;
   portalUrl: string;
-  proposalLink: string | null;
   ejecutivoName: string;
   brandName: string;
 }
 
 function buildWhatsAppMessage(params: WhatsAppMsgParams): string {
-  const { contactName, companyName, email, pin, portalUrl, proposalLink, ejecutivoName, brandName } = params;
+  const { contactName, companyName, email, pin, portalUrl, ejecutivoName, brandName } = params;
   const firstName = contactName.split(" ")[0];
 
   const lines = [
-    `Hola ${firstName},`,
+    `\u{1F4CB} *Cotizaci\u00f3n para ${companyName}*`,
     ``,
-    `Soy *${ejecutivoName}* de *${brandName}*. Te envi\u00e9 por correo una propuesta de seguridad personalizada para *${companyName}*.`,
+    `Hola ${firstName}, soy *${ejecutivoName}* de *${brandName}*.`,
     ``,
-    `*Accede a tu portal privado* donde podr\u00e1s:`,
-    `- Revisar tu propuesta en detalle`,
-    `- Ver la propuesta t\u00e9cnica completa`,
-    `- Chatear directamente conmigo`,
-    `- Monitorear el servicio una vez activo`,
+    `Te envi\u00e9 por correo una propuesta de seguridad personalizada. En tu portal privado podr\u00e1s revisar el detalle, ver la propuesta t\u00e9cnica y chatear directamente conmigo.`,
     ``,
-    `*Correo:* ${email}`,
-    `*PIN:* ${pin}`,
-    ``,
-    `*Ingresar al portal para ver la oferta económica:*`,
+    `\u{1F449} *Ingresa al portal desde este link* (tu correo ya est\u00e1 prellenado):`,
     portalUrl,
+    ``,
+    `\u{1F510} *Credenciales de acceso:*`,
+    `Correo: ${email}`,
+    `PIN: ${pin}`,
+    ``,
+    `Solo ingresa el PIN y listo.`,
+    ``,
+    `\u00bfQuieres que agendemos una llamada para revisarla juntos? Responde aqu\u00ed.`,
   ];
-
-  if (proposalLink) {
-    lines.push(``, `*Ver propuesta t\u00e9cnica:*`, proposalLink);
-  }
-
-  lines.push(``, `\u00bfTienes alguna consulta? Responde aqu\u00ed mismo.`);
 
   return lines.join("\n");
 }
