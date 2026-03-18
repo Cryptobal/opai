@@ -40,6 +40,8 @@ import {
   Globe,
   Info,
   Phone,
+  Send,
+  MessageCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -55,6 +57,8 @@ import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { FileAttachments } from "./FileAttachments";
 import { LeadSourceBadge } from "./LeadSourceBadge";
 import { DotacionSummary } from "./DotacionSummary";
+import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
+import type { ServiceTemplate } from "@/lib/cpq/service-templates";
 
 /* ─── Truncated text helper ─── */
 
@@ -521,6 +525,17 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const [selectedCostGroups, setSelectedCostGroups] = useState<string[]>(DEFAULT_SELECTED_COST_GROUPS);
   const [inferringCosts, setInferringCosts] = useState(false);
   const [installations, setInstallations] = useState<InstallationDraft[]>([]);
+
+  // ─── Commercial config (mini-CPQ) ───
+  const [marginPercentage, setMarginPercentage] = useState(13);
+  const [proposalTemplateId, setProposalTemplateId] = useState<string>("estandar");
+  const [additionalLines, setAdditionalLines] = useState<{ name: string; monthlyAmount: number }[]>([]);
+
+  // ─── Express send state ───
+  const [sendingExpress, setSendingExpress] = useState(false);
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
+  const [whatsappSentTo, setWhatsappSentTo] = useState("");
   const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
   const [detectedCompanyLogoUrl, setDetectedCompanyLogoUrl] = useState<string | null>(null);
 
@@ -692,6 +707,14 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         ? (draftCostGroups as string[])
         : DEFAULT_SELECTED_COST_GROUPS
     );
+
+    // Restore commercial config from metadata
+    const commercialConfig = meta?.commercialConfig as Record<string, unknown> | undefined;
+    if (commercialConfig) {
+      if (typeof commercialConfig.marginPercentage === "number") setMarginPercentage(commercialConfig.marginPercentage);
+      if (typeof commercialConfig.proposalTemplateId === "string") setProposalTemplateId(commercialConfig.proposalTemplateId);
+      if (Array.isArray(commercialConfig.additionalLines)) setAdditionalLines(commercialConfig.additionalLines as { name: string; monthlyAmount: number }[]);
+    }
 
     // Build installations from lead data
     const leadLat = meta?.lat as number | undefined;
@@ -890,6 +913,28 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       })
     );
   };
+  const applyServiceTemplate = (instKey: string, template: ServiceTemplate) => {
+    setInstallations((prev) =>
+      prev.map((inst) => {
+        if (inst._key !== instKey) return inst;
+        const newDotacion: DotacionItem[] = template.positions.map((pos) => ({
+          puestoTrabajoId: defaultPuesto.id || undefined,
+          puesto: defaultPuesto.name || pos.name,
+          customName: pos.name,
+          cargoId: defaultCargoId || undefined,
+          rolId: defaultRolId || undefined,
+          baseSalary: pos.baseSalary,
+          shiftType: pos.shiftStart === "20:00" ? "night" : "day",
+          cantidad: pos.guardsCount,
+          numPuestos: 1,
+          horaInicio: pos.shiftStart,
+          horaFin: pos.shiftEnd,
+          dias: [...pos.daysOfWeek],
+        }));
+        return { ...inst, dotacion: newDotacion };
+      })
+    );
+  };
   const setDotacionShift = (instKey: string, dotIdx: number, shiftType: "day" | "night") => {
     setInstallations((prev) =>
       prev.map((inst) => {
@@ -980,6 +1025,11 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             dealTitle: approveForm.dealTitle, companyInfo: approveForm.companyInfo,
             selectedCostGroups,
           },
+          commercialConfig: {
+            marginPercentage,
+            proposalTemplateId,
+            additionalLines,
+          },
         },
       };
       const res = await fetch(`/api/crm/leads/${lead.id}`, {
@@ -1028,6 +1078,9 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         contactId: (existingContact && (contactResolution === "overwrite" || contactResolution === "use_existing")) ? existingContact.id : undefined,
         installations: instPayload,
         selectedCostGroups,
+        marginPercentage,
+        proposalTemplateId,
+        additionalLines,
       };
 
       if (!duplicateChecked) {
@@ -1101,6 +1154,95 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       toast.error("No se pudo aprobar el lead.");
     } finally {
       setApproving(false);
+    }
+  };
+
+  // ─── Express: Approve and Send ───
+  const approveAndSend = async () => {
+    const accountNameToUse = useExistingAccountId ? "" : approveForm.accountName.trim();
+    if (!useExistingAccountId && !accountNameToUse) {
+      toast.error("El nombre de la empresa es obligatorio.");
+      return;
+    }
+    if (!approveForm.email.trim()) {
+      toast.error("El email del contacto es obligatorio para enviar la propuesta.");
+      return;
+    }
+    const hasDotacion = installations.some((inst) => inst.dotacion.length > 0);
+    if (!hasDotacion) {
+      toast.error("Agrega al menos un puesto de guardia.");
+      return;
+    }
+    setSendingExpress(true);
+    try {
+      const instPayload = installations
+        .filter((inst) => inst.name.trim())
+        .map((inst) => {
+          const { _key, ...rest } = inst;
+          const useExistingInstallationId = installationUseExisting[_key] || undefined;
+          return { ...rest, ...(useExistingInstallationId ? { useExistingInstallationId } : {}) };
+        });
+
+      const payload = {
+        ...approveForm,
+        accountNotes: approveForm.companyInfo || undefined,
+        accountLogoUrl: detectedCompanyLogoUrl || undefined,
+        legalName: approveForm.legalName || undefined,
+        legalRepresentativeName: approveForm.legalRepresentativeName || undefined,
+        legalRepresentativeRut: approveForm.legalRepresentativeRut || undefined,
+        useExistingAccountId: useExistingAccountId || undefined,
+        contactResolution: existingContact ? contactResolution : undefined,
+        contactId: (existingContact && (contactResolution === "overwrite" || contactResolution === "use_existing")) ? existingContact.id : undefined,
+        installations: instPayload,
+        selectedCostGroups,
+        marginPercentage,
+        proposalTemplateId,
+        additionalLines,
+      };
+
+      const response = await fetch(`/api/crm/leads/${lead.id}/approve-and-send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        if (result.error === "CALCULATION_FAILED" || result.error === "SEND_FAILED") {
+          toast.error(result.message || "Error en el proceso express.");
+          if (result.quoteId) {
+            setApprovalResult({
+              account: { id: result.data?.accountId || "", name: approveForm.accountName },
+              contact: { id: result.data?.contactId || "", firstName: approveForm.contactFirstName, lastName: approveForm.contactLastName },
+              deal: { id: result.dealId, title: approveForm.dealTitle },
+              quotes: [{ id: result.quoteId, code: "", installationName: null }],
+            });
+          }
+          return;
+        }
+        throw new Error(result?.error || "Error al aprobar y enviar");
+      }
+
+      toast.success(`Propuesta enviada a ${result.data.sentTo}`);
+
+      // Open WhatsApp modal
+      if (result.data.whatsappPhone && result.data.whatsappMessage) {
+        const phone = result.data.whatsappPhone;
+        const message = result.data.whatsappMessage;
+        setWhatsappUrl(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
+        setWhatsappSentTo(result.data.sentTo);
+        setWhatsappModalOpen(true);
+      }
+
+      // Navigate away after a delay
+      setTimeout(() => {
+        if (!whatsappModalOpen) router.push("/crm/leads");
+      }, 2000);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "No se pudo aprobar y enviar.");
+    } finally {
+      setSendingExpress(false);
     }
   };
 
@@ -1635,6 +1777,11 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                       <Plus className="h-2.5 w-2.5" /> Posición
                     </Button>
                   </div>
+                  <ServiceTemplateButtons
+                    compact
+                    onSelect={(tpl) => applyServiceTemplate(inst._key, tpl)}
+                    existingPositionsCount={inst.dotacion.length}
+                  />
                   {inst.dotacion.length === 0 && (
                     <button type="button" onClick={() => addDotacionToInst(inst._key)} className="w-full py-3 rounded-md border border-dashed border-border text-xs text-muted-foreground hover:bg-muted/30 transition-colors">
                       + Agregar posición de guardia
@@ -1826,6 +1973,140 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               </div>
             </div>
           </div>
+
+          {/* ── Configuración Comercial (mini-CPQ) ── */}
+          <div className="rounded-lg border border-border bg-muted/10 p-4 space-y-4">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Configuración Comercial</span>
+
+            {/* Margen */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px]">Margen (%)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  max={50}
+                  step={0.5}
+                  value={marginPercentage}
+                  onChange={(e) => setMarginPercentage(Number(e.target.value) || 0)}
+                  className="h-8 w-24 text-sm"
+                />
+                <input
+                  type="range"
+                  min={5}
+                  max={30}
+                  step={0.5}
+                  value={marginPercentage}
+                  onChange={(e) => setMarginPercentage(Number(e.target.value))}
+                  className="flex-1 accent-primary"
+                />
+              </div>
+            </div>
+
+            {/* Template de propuesta */}
+            <div className="space-y-1.5">
+              <Label className="text-[10px]">Template de Propuesta</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: "estandar", label: "Estándar" },
+                  { id: "detallado", label: "Detallado" },
+                  { id: "licitacion", label: "Licitación" },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setProposalTemplateId(t.id)}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-xs font-medium border transition-colors",
+                      proposalTemplateId === t.id
+                        ? "bg-primary/15 text-primary border-primary/30"
+                        : "bg-muted text-muted-foreground border-transparent hover:border-border"
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Líneas adicionales */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px]">Líneas Adicionales</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[10px] gap-1 px-2"
+                  onClick={() => setAdditionalLines((prev) => [...prev, { name: "", monthlyAmount: 0 }])}
+                >
+                  <Plus className="h-2.5 w-2.5" /> Línea
+                </Button>
+              </div>
+              {additionalLines.map((line, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input
+                    value={line.name}
+                    onChange={(e) => {
+                      const next = [...additionalLines];
+                      next[idx] = { ...next[idx], name: e.target.value };
+                      setAdditionalLines(next);
+                    }}
+                    placeholder="Concepto"
+                    className="h-8 text-xs flex-1"
+                  />
+                  <Input
+                    type="number"
+                    value={line.monthlyAmount || ""}
+                    onChange={(e) => {
+                      const next = [...additionalLines];
+                      next[idx] = { ...next[idx], monthlyAmount: Number(e.target.value) || 0 };
+                      setAdditionalLines(next);
+                    }}
+                    placeholder="$/mes"
+                    className="h-8 text-xs w-28"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive shrink-0"
+                    onClick={() => setAdditionalLines((prev) => prev.filter((_, i) => i !== idx))}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            {/* Estimación rápida */}
+            {installations.some((inst) => inst.dotacion.length > 0) && (
+              <div className="rounded-md border border-dashed border-border/60 p-3 space-y-1.5">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase">Estimación rápida</span>
+                {(() => {
+                  const allDot = installations.flatMap((inst) => inst.dotacion);
+                  const totalCostoManoObra = allDot.reduce((sum, d) => {
+                    const salary = d.baseSalary || 550000;
+                    const costoEmpresa = salary * 1.45;
+                    return sum + costoEmpresa * (d.cantidad || 1) * (d.numPuestos || 1);
+                  }, 0);
+                  const totalLineas = additionalLines.reduce((sum, l) => sum + l.monthlyAmount, 0);
+                  const precioVenta = totalCostoManoObra * (1 + marginPercentage / 100) + totalLineas;
+                  return (
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                      <span className="text-muted-foreground">Costo empresa:</span>
+                      <span className="font-mono font-semibold text-right">${formatNumber(Math.round(totalCostoManoObra))}</span>
+                      <span className="text-muted-foreground">Precio venta:</span>
+                      <span className="font-mono font-semibold text-right text-emerald-400">${formatNumber(Math.round(precioVenta))}</span>
+                      <span className="text-muted-foreground">Margen bruto:</span>
+                      <span className="font-mono font-semibold text-right">{marginPercentage}%</span>
+                    </div>
+                  );
+                })()}
+                <p className="text-[9px] text-muted-foreground/70">Estimación. El valor final se calcula al aprobar.</p>
+              </div>
+            )}
+          </div>
         </div>
     );
 
@@ -1926,7 +2207,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               <XCircle className="mr-2 h-4 w-4" />
               Rechazar
             </Button>
-            <Button onClick={approveLead} disabled={approving || savingLead} className="sm:order-3">
+            <Button onClick={approveLead} disabled={approving || savingLead || sendingExpress} className="sm:order-3">
               {approving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
               {!duplicateChecked
                 ? "Verificar y aprobar"
@@ -1934,6 +2215,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   ? "Confirmar aprobación (con conflictos)"
                   : "Confirmar aprobación"}
             </Button>
+            {duplicateChecked && approveForm.email.trim() && installations.some((i) => i.dotacion.length > 0) && (
+              <Button onClick={approveAndSend} disabled={approving || savingLead || sendingExpress} className="sm:order-4 bg-emerald-600 hover:bg-emerald-700 text-white">
+                {sendingExpress ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Aprobar y Enviar
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -1992,13 +2279,88 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           )}
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             {approvalResult && approvalResult.quotes.length > 0 && (
-              <Button className="w-full" onClick={() => router.push(`/cpq/${approvalResult.quotes[0].id}`)}>
-                Ir a cotización CPQ
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              <>
+                <Button className="w-full" onClick={() => router.push(`/cpq/${approvalResult.quotes[0].id}`)}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Ir al CPQ — Revisar y ajustar
+                </Button>
+                {approveForm.email.trim() && approvalResult.quotes.length > 0 && (
+                  <Button
+                    variant="default"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={sendingExpress}
+                    onClick={async () => {
+                      setSendingExpress(true);
+                      try {
+                        const quoteId = approvalResult!.quotes[0].id;
+                        // Generate AI description first
+                        await fetch("/api/ai/quote-description", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ quoteId }),
+                        }).catch(() => {});
+                        // Send via portal
+                        const res = await fetch(`/api/cpq/quotes/${quoteId}/send-portal`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ followUp: { include: true, targetStageId: null } }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) throw new Error(data.error || "Error al enviar");
+                        toast.success(`Propuesta enviada a ${data.data.sentTo}`);
+                        setApprovalResult(null);
+                        if (data.data.whatsappPhone && data.data.whatsappMessage) {
+                          setWhatsappUrl(`https://wa.me/${data.data.whatsappPhone}?text=${encodeURIComponent(data.data.whatsappMessage)}`);
+                          setWhatsappSentTo(data.data.sentTo);
+                          setWhatsappModalOpen(true);
+                        } else {
+                          router.push("/crm/leads");
+                        }
+                      } catch (err) {
+                        console.error(err);
+                        toast.error(err instanceof Error ? err.message : "Error al enviar propuesta");
+                      } finally {
+                        setSendingExpress(false);
+                      }
+                    }}
+                  >
+                    {sendingExpress ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    Enviar propuesta ahora
+                  </Button>
+                )}
+              </>
             )}
             <Button variant="outline" className="w-full" onClick={() => { setApprovalResult(null); router.push("/crm/leads"); }}>
               Volver a leads
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── WhatsApp Modal (post-send) ── */}
+      <Dialog open={whatsappModalOpen} onOpenChange={setWhatsappModalOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              Propuesta enviada
+            </DialogTitle>
+            <DialogDescription>
+              Email enviado a {whatsappSentTo}. El mensaje incluye credenciales de acceso al portal y la propuesta técnica.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            {whatsappUrl && (
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => { window.open(whatsappUrl, "_blank"); setWhatsappModalOpen(false); router.push("/crm/leads"); }}
+              >
+                <MessageCircle className="mr-2 h-4 w-4" />
+                Compartir por WhatsApp
+              </Button>
+            )}
+            <Button variant="outline" className="w-full" onClick={() => { setWhatsappModalOpen(false); router.push("/crm/leads"); }}>
+              Omitir
             </Button>
           </DialogFooter>
         </DialogContent>

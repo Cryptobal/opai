@@ -13,7 +13,7 @@ import { CostBreakdownModal } from "@/components/cpq/CostBreakdownModal";
 import { formatCurrency, formatWeekdaysShort, getShiftType } from "@/components/cpq/utils";
 import { cn } from "@/lib/utils";
 import type { CpqPosition } from "@/types/cpq";
-import { Copy, Moon, Pencil, Sun, Trash2 } from "lucide-react";
+import { Copy, Moon, Pencil, RefreshCw, Sun, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface CpqPositionCardProps {
@@ -176,6 +176,9 @@ export function CpqPositionCard({
           {/* Action buttons */}
           {!readOnly && (
             <div className="flex items-center gap-1 px-3 py-1.5 border-t border-border/40">
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={(e) => { e.stopPropagation(); handleRecalculate(); }} disabled={loading}>
+                <RefreshCw className={cn("h-3 w-3 mr-1", loading && "animate-spin")} /> Recalcular
+              </Button>
               <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={(e) => { e.stopPropagation(); setOpenEdit(true); }}>
                 <Pencil className="h-3 w-3 mr-1" /> Editar
               </Button>
