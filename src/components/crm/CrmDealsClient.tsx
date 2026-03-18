@@ -188,7 +188,7 @@ function getNegotiatingStageIds(stages: CrmPipelineStage[]): Set<string> {
 }
 
 function getNegotiationEnteredAt(
-  deal: { stageHistory?: { toStageId: string; changedAt: Date }[] },
+  deal: { stageHistory?: { toStageId: string; changedAt: Date | string }[] },
   negotiatingStageIds: Set<string>
 ): Date | null {
   if (!deal.stageHistory?.length || negotiatingStageIds.size === 0) return null;
