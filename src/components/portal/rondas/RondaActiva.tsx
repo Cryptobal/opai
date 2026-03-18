@@ -553,6 +553,7 @@ export function RondaActiva({
       lat: cp.lat,
       lng: cp.lng,
       orderIndex: cp.orderIndex,
+      geoRadiusM: cp.geoRadiusM,
       status: cp.completed
         ? ("completed" as const)
         : cp.id === closestPendingId
@@ -757,22 +758,29 @@ export function RondaActiva({
           </div>
 
           {/* Timer + Progress ring + GPS status */}
-          <div className="flex shrink-0 items-center gap-2 text-sm">
+          <div className="flex shrink-0 items-center gap-1.5 text-sm">
             <GpsStatusIndicator accuracy={gpsAccuracy} isWatching={guardPos !== null} />
-            <span className="text-gray-400">
+            <span className="text-gray-400 tabular-nums">
               {formatElapsed(elapsedSeconds)}
             </span>
-            {/* Obligatorios pending pill */}
+            {/* Obligatorios pending pill — compact */}
             {(() => {
               const reqPending = checkpoints.filter((cp) => cp.isRequired && !cp.completed);
               if (reqPending.length === 0) return null;
               return (
-                <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: "rgba(245,158,11,0.15)", color: "#f59e0b" }}>
-                  {reqPending.length} oblig. pendiente{reqPending.length !== 1 ? "s" : ""}
+                <span
+                  className="flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                  style={{ backgroundColor: "rgba(245,158,11,0.15)", color: "#f59e0b" }}
+                  title={`${reqPending.length} obligatorio${reqPending.length !== 1 ? "s" : ""} pendiente${reqPending.length !== 1 ? "s" : ""}`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  {reqPending.length}
                 </span>
               );
             })()}
-            <ProgressRing completed={completedCount} total={total} size={40} />
+            <ProgressRing completed={completedCount} total={total} size={36} />
           </div>
         </div>
       </header>
@@ -864,7 +872,7 @@ export function RondaActiva({
       </div>
 
       {/* ============ Bottom fixed area: card + complete button ============ */}
-      <div className="shrink-0" style={{ backgroundColor: "#0a0a0f" }}>
+      <div className="shrink-0 pb-16" style={{ backgroundColor: "#0a0a0f" }}>
         {/* Ad-hoc free-form: compact bottom panel */}
         {isAdHocFreeForm && (
           <div className="px-2 py-2">

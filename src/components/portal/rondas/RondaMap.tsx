@@ -16,6 +16,8 @@ export interface MapCheckpoint {
   lng: number;
   status: "completed" | "active" | "pending";
   orderIndex: number;
+  /** Geo-fence radius in meters — used to render radius circles */
+  geoRadiusM?: number;
 }
 
 export interface RondaMapProps {
@@ -488,6 +490,26 @@ export default function RondaMap({
             }}
           />
         )}
+
+        {/* Checkpoint radius circles */}
+        {checkpoints.map((cp) => {
+          if (cp.status === "completed" || !cp.geoRadiusM) return null;
+          const isActive = cp.id === closestPendingId;
+          return (
+            <Circle
+              key={`radius-${cp.id}`}
+              center={[cp.lat, cp.lng]}
+              radius={cp.geoRadiusM}
+              pathOptions={{
+                fillColor: isActive ? "#14b8a6" : "#64748b",
+                fillOpacity: isActive ? 0.15 : 0.08,
+                color: isActive ? "#14b8a6" : "#64748b",
+                opacity: isActive ? 0.5 : 0.3,
+                weight: isActive ? 2 : 1,
+              }}
+            />
+          );
+        })}
 
         {/* Checkpoint markers */}
         {checkpoints.map((cp) => {
