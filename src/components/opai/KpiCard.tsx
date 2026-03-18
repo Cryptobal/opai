@@ -20,6 +20,8 @@ export interface KpiCardProps {
   titleInfoTooltip?: ReactNode;
   /** Clases adicionales para la descripción (ej. para agrandar o colorear) */
   descriptionClassName?: string;
+  /** Callback al hacer clic en la card (opcional; si se pasa, la card es clickeable) */
+  onClick?: () => void;
 }
 
 /**
@@ -43,6 +45,7 @@ export function KpiCard({
   tooltip,
   titleInfoTooltip,
   descriptionClassName,
+  onClick,
 }: KpiCardProps) {
   const trendIcons = { up: ArrowUp, down: ArrowDown, neutral: Minus };
   const trendColors = {
@@ -142,6 +145,14 @@ export function KpiCard({
           {tooltip}
         </div>
       </div>
+    );
+  }
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className="w-full text-left cursor-pointer">
+        {cardContent}
+      </button>
     );
   }
 
