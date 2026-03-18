@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
+import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
 export async function GET(
   request: NextRequest,
@@ -8,6 +9,11 @@ export async function GET(
 ) {
   try {
     const { installationId } = await params;
+
+    const authCtx = await requireAccessControlAuth(request, installationId);
+    if (!authCtx) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status"); // "in_site" | "all"
     const from = searchParams.get("from");

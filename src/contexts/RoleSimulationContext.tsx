@@ -28,17 +28,10 @@ import {
 export const SYSTEM_ROLES = [
     { slug: 'owner', label: 'Propietario' },
     { slug: 'admin', label: 'Administrador' },
+    { slug: 'editor', label: 'Gerente' },
+    { slug: 'jefe_operaciones', label: 'Jefatura' },
+    { slug: 'central_monitoreo', label: 'Central Monitoreo' },
     { slug: 'supervisor', label: 'Supervisor' },
-    { slug: 'editor', label: 'Editor' },
-    { slug: 'operaciones', label: 'Operaciones' },
-    { slug: 'jefe_operaciones', label: 'Jefe de operaciones' },
-    { slug: 'finanzas', label: 'Finanzas' },
-    { slug: 'rrhh', label: 'RRHH' },
-    { slug: 'reclutamiento', label: 'Reclutamiento' },
-    { slug: 'solo_ops', label: 'Solo Operaciones' },
-    { slug: 'solo_crm', label: 'Solo CRM' },
-    { slug: 'solo_documentos', label: 'Solo Documentos' },
-    { slug: 'solo_payroll', label: 'Solo Payroll' },
     { slug: 'viewer', label: 'Viewer' },
 ] as const;
 
@@ -52,17 +45,10 @@ const SESSION_KEY = 'opai_simulated_role';
 export const ROLE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
     owner: { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30' },
     admin: { bg: 'bg-blue-500/15', text: 'text-blue-400', border: 'border-blue-500/30' },
-    supervisor: { bg: 'bg-purple-500/15', text: 'text-purple-400', border: 'border-purple-500/30' },
     editor: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30' },
-    operaciones: { bg: 'bg-orange-500/15', text: 'text-orange-400', border: 'border-orange-500/30' },
     jefe_operaciones: { bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30' },
-    finanzas: { bg: 'bg-cyan-500/15', text: 'text-cyan-400', border: 'border-cyan-500/30' },
-    rrhh: { bg: 'bg-pink-500/15', text: 'text-pink-400', border: 'border-pink-500/30' },
-    reclutamiento: { bg: 'bg-lime-500/15', text: 'text-lime-400', border: 'border-lime-500/30' },
-    solo_ops: { bg: 'bg-orange-500/15', text: 'text-orange-400', border: 'border-orange-500/30' },
-    solo_crm: { bg: 'bg-indigo-500/15', text: 'text-indigo-400', border: 'border-indigo-500/30' },
-    solo_documentos: { bg: 'bg-teal-500/15', text: 'text-teal-400', border: 'border-teal-500/30' },
-    solo_payroll: { bg: 'bg-rose-500/15', text: 'text-rose-400', border: 'border-rose-500/30' },
+    central_monitoreo: { bg: 'bg-cyan-500/15', text: 'text-cyan-400', border: 'border-cyan-500/30' },
+    supervisor: { bg: 'bg-purple-500/15', text: 'text-purple-400', border: 'border-purple-500/30' },
     viewer: { bg: 'bg-gray-500/15', text: 'text-gray-400', border: 'border-gray-500/30' },
 };
 

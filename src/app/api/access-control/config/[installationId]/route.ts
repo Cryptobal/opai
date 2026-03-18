@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
+import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
 const defaultConfig = (installationId: string) => ({
   installationId,
@@ -17,11 +18,16 @@ const defaultConfig = (installationId: string) => ({
 });
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ installationId: string }> }
 ) {
   try {
     const { installationId } = await params;
+
+    const authCtx = await requireAccessControlAuth(request, installationId);
+    if (!authCtx) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
 
     const config = await safeAccessControlQuery(
       () => prisma.accessControlConfig.findUnique({ where: { installationId } }),
@@ -51,9 +57,14 @@ export async function PUT(
 ) {
   try {
     const { installationId } = await params;
+
+    const authCtx = await requireAccessControlAuth(request, installationId);
+    if (!authCtx) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+
     const body = await request.json();
 
-    // Get installation to extract tenantId
     const installation = await prisma.crmInstallation.findUnique({
       where: { id: installationId },
       select: { tenantId: true },

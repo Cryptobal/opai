@@ -22,20 +22,23 @@ import { type AppKey } from './app-keys';
  * Esta es la ÚNICA fuente de verdad para App Access Phase 1.
  */
 export const ROLE_APP_ACCESS: Record<Role, AppKey[]> = {
+  // 7 Roles activos
   owner: ROLE_POLICIES.owner.appAccess,
   admin: ROLE_POLICIES.admin.appAccess,
   editor: ROLE_POLICIES.editor.appAccess,
+  jefe_operaciones: ROLE_POLICIES.jefe_operaciones.appAccess,
+  central_monitoreo: ROLE_POLICIES.central_monitoreo.appAccess,
+  supervisor: ROLE_POLICIES.supervisor.appAccess,
+  viewer: ROLE_POLICIES.viewer.appAccess,
+  // Legacy
   rrhh: ROLE_POLICIES.rrhh.appAccess,
   operaciones: ROLE_POLICIES.operaciones.appAccess,
-  jefe_operaciones: ROLE_POLICIES.jefe_operaciones.appAccess,
   finanzas: ROLE_POLICIES.finanzas.appAccess,
   reclutamiento: ROLE_POLICIES.reclutamiento.appAccess,
   solo_ops: ROLE_POLICIES.solo_ops.appAccess,
   solo_crm: ROLE_POLICIES.solo_crm.appAccess,
   solo_documentos: ROLE_POLICIES.solo_documentos.appAccess,
   solo_payroll: ROLE_POLICIES.solo_payroll.appAccess,
-  supervisor: ROLE_POLICIES.supervisor.appAccess,
-  viewer: ROLE_POLICIES.viewer.appAccess,
   inspector_dt: ROLE_POLICIES.inspector_dt.appAccess,
 };
 

@@ -1,4 +1,5 @@
 import 'server-only';
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { PortalConfig, DEFAULT_PORTAL_CONFIG, ClienteSession } from "@/lib/portal-cliente-types";
 
@@ -16,6 +17,61 @@ export function parsePortalClienteSessionCookie(raw: string | undefined): Client
   } catch {
     return null;
   }
+}
+
+export interface PortalClienteAuthResult {
+  contactId: string;
+  accountId: string;
+  tenantId: string;
+  installationIds: string[];
+}
+
+/**
+ * Valida la cookie de sesión del portal cliente y retorna datos de la BD.
+ * El tenantId SIEMPRE viene de la BD, nunca del request.
+ * Retorna null si la sesión es inválida o el contacto no existe/inactivo.
+ */
+export async function requirePortalClienteAuth(): Promise<PortalClienteAuthResult | null> {
+  const cookieStore = await cookies();
+  const raw = cookieStore.get("portal_cliente_session")?.value;
+  const session = parsePortalClienteSessionCookie(raw);
+  if (!session) return null;
+
+  const contact = await prisma.crmContact.findUnique({
+    where: { id: session.contactId },
+    select: {
+      id: true,
+      tenantId: true,
+      accountId: true,
+      portalEnabled: true,
+      account: {
+        select: {
+          status: true,
+          isActive: true,
+          installations: {
+            where: { status: "active" },
+            select: { id: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!contact || !contact.portalEnabled) return null;
+
+  const acct = contact.account;
+  const isActive =
+    acct.status === "client_active" ||
+    acct.status === "prospect" ||
+    (acct.isActive && acct.status !== "client_inactive");
+  if (!isActive) return null;
+
+  return {
+    contactId: contact.id,
+    accountId: contact.accountId,
+    tenantId: contact.tenantId,
+    installationIds: acct.installations.map((i) => i.id),
+  };
 }
 
 export function sanitizeGuardName(firstName: string, lastName: string): string {

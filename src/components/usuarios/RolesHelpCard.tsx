@@ -27,31 +27,21 @@ import { Button } from '@/components/ui/button';
 
 const ROLE_LABELS: Record<string, string> = {
   owner: 'Propietario',
-  admin: 'Admin',
-  editor: 'Editor',
-  rrhh: 'RRHH',
-  operaciones: 'Operaciones',
-  jefe_operaciones: 'Jefe de operaciones',
-  reclutamiento: 'Reclutamiento',
-  solo_documentos: 'Solo Documentos',
-  solo_crm: 'Solo CRM',
-  solo_ops: 'Solo Ops',
-  solo_payroll: 'Solo Payroll',
-  viewer: 'Visualizador',
+  admin: 'Administrador',
+  editor: 'Gerente',
+  jefe_operaciones: 'Jefatura',
+  central_monitoreo: 'Central Monitoreo',
+  supervisor: 'Supervisor',
+  viewer: 'Viewer',
 };
 
 const ROLES_ORDER: Role[] = [
   'owner',
   'admin',
   'editor',
-  'rrhh',
-  'operaciones',
   'jefe_operaciones',
-  'reclutamiento',
-  'solo_documentos',
-  'solo_crm',
-  'solo_ops',
-  'solo_payroll',
+  'central_monitoreo',
+  'supervisor',
   'viewer',
 ];
 

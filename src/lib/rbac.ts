@@ -15,20 +15,23 @@ export { PERMISSIONS, ROLES };
 export type { Permission, Role };
 
 const ROLE_HIERARCHY: Record<Role, number> = {
+  // 7 Roles activos
   owner: ROLE_POLICIES.owner.rank,
   admin: ROLE_POLICIES.admin.rank,
   editor: ROLE_POLICIES.editor.rank,
+  jefe_operaciones: ROLE_POLICIES.jefe_operaciones.rank,
+  central_monitoreo: ROLE_POLICIES.central_monitoreo.rank,
+  supervisor: ROLE_POLICIES.supervisor.rank,
+  viewer: ROLE_POLICIES.viewer.rank,
+  // Legacy
   rrhh: ROLE_POLICIES.rrhh.rank,
   operaciones: ROLE_POLICIES.operaciones.rank,
-  jefe_operaciones: ROLE_POLICIES.jefe_operaciones.rank,
   finanzas: ROLE_POLICIES.finanzas.rank,
   reclutamiento: ROLE_POLICIES.reclutamiento.rank,
   solo_ops: ROLE_POLICIES.solo_ops.rank,
   solo_crm: ROLE_POLICIES.solo_crm.rank,
   solo_documentos: ROLE_POLICIES.solo_documentos.rank,
   solo_payroll: ROLE_POLICIES.solo_payroll.rank,
-  supervisor: ROLE_POLICIES.supervisor.rank,
-  viewer: ROLE_POLICIES.viewer.rank,
   inspector_dt: ROLE_POLICIES.inspector_dt.rank,
 };
 

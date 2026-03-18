@@ -321,10 +321,14 @@ const ROLE_ALIASES: Record<string, string> = {
   dueno: "owner",
   "dueño": "owner",
   administrador: "admin",
-  operations: "operaciones",
-  operaciones: "operaciones",
+  gerente: "editor",
+  jefatura: "jefe_operaciones",
   "jefe operaciones": "jefe_operaciones",
   "jefe de operaciones": "jefe_operaciones",
+  "central monitoreo": "central_monitoreo",
+  "central de monitoreo": "central_monitoreo",
+  operations: "operaciones",
+  operaciones: "operaciones",
   recruit: "reclutamiento",
   recruiting: "reclutamiento",
   "solo operaciones": "solo_ops",
@@ -384,257 +388,182 @@ function finanzasPermissions(): RolePermissions {
 // ═══════════════════════════════════════════════════════════════
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
+  // ═══════════════════════════════════════════════════════════
+  //  7 ROLES ACTIVOS
+  // ═══════════════════════════════════════════════════════════
+
   owner: fullPermissions(),
-  admin: fullPermissions(),
+
+  admin: (() => {
+    const caps: Partial<Record<CapabilityKey, boolean>> = {};
+    for (const c of CAPABILITY_KEYS) caps[c] = true;
+    caps.manage_settings = false;
+    return {
+      modules: { hub: "full", ops: "full", crm: "full", docs: "full", cpq: "full", payroll: "full", finance: "full", config: "edit" },
+      submodules: {},
+      capabilities: caps,
+    } as RolePermissions;
+  })(),
 
   editor: {
-    modules: {
-      hub: "full",
-      ops: "edit",
-      crm: "edit",
-      docs: "edit",
-      payroll: "edit",
-      cpq: "edit",
-      config: "none",
-      finance: "edit",
+    modules: { hub: "full", ops: "edit", crm: "edit", docs: "edit", cpq: "edit", payroll: "view", finance: "view", config: "none" },
+    submodules: {},
+    capabilities: {
+      te_approve: true,
+      rondas_configure: true,
+      rondas_resolve_alerts: true,
+      control_nocturno_approve: true,
+      ticket_approve: true,
+      gamificacion_bonos_aprobar: true,
+      supervision_view_own: true,
+      supervision_view_all: true,
+      supervision_dashboard: true,
+      rendicion_submit: true,
+      rendicion_approve: true,
+      rendicion_view_all: true,
     },
-    submodules: { "ops.eventos_laborales": "full" },
-    capabilities: { te_approve: true, rondas_resolve_alerts: true, rendicion_submit: true, rendicion_view_all: true, ticket_approve: true },
-  },
-
-  rrhh: {
-    modules: {
-      hub: "view",
-      ops: "edit",
-      crm: "none",
-      docs: "none",
-      payroll: "none",
-      cpq: "none",
-      config: "none",
-      finance: "view",
-    },
-    submodules: { "crm.installations": "view", "crm.dotacion": "view", "ops.installations": "view", "ops.gamificacion": "edit" },
-    capabilities: { rendicion_view_all: true, ticket_approve: true, gamificacion_bonos_aprobar: true },
-  },
-
-  operaciones: {
-    modules: {
-      hub: "view",
-      ops: "edit",
-      crm: "none",
-      docs: "none",
-      payroll: "none",
-      cpq: "none",
-      config: "none",
-      finance: "edit",
-    },
-    submodules: { "finance.pagos": "none", "finance.configuracion": "none", "crm.installations": "view", "crm.dotacion": "edit", "ops.installations": "view" },
-    capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, monitoreo_cerrar_turno: true, control_nocturno_approve: true, rendicion_submit: true, rendicion_approve: true, ticket_approve: true, gamificacion_bonos_aprobar: true },
   },
 
   jefe_operaciones: {
-    modules: {
-      hub: "view",
-      ops: "edit",
-      crm: "view",
-      docs: "none",
-      payroll: "none",
-      cpq: "none",
-      config: "none",
-      finance: "edit",
-    },
+    modules: { hub: "view", ops: "edit", crm: "view", docs: "none", cpq: "none", payroll: "none", finance: "view", config: "none" },
     submodules: {
-      "crm.leads": "view",
-      "crm.accounts": "view",
       "crm.installations": "view",
-      "crm.dotacion": "view",
+      "crm.accounts": "view",
       "crm.contacts": "view",
-      "crm.deals": "view",
+      "crm.leads": "none",
+      "crm.deals": "none",
       "crm.quotes": "none",
-      "ops.installations": "view",
       "finance.rendiciones": "edit",
-      "finance.aprobaciones": "view",
       "finance.pagos": "none",
       "finance.configuracion": "none",
-      "finance.contabilidad": "none",
-      "finance.facturacion": "none",
-      "finance.proveedores": "none",
-      "finance.reportes": "none",
     },
     capabilities: {
-      supervision_view_all: true,
-      supervision_view_own: true,
-      supervision_dashboard: true,
-      supervision_checkin: true,
-      rendicion_submit: true,
       te_approve: true,
       rondas_configure: true,
       rondas_resolve_alerts: true,
       monitoreo_cerrar_turno: true,
       control_nocturno_approve: true,
       ticket_approve: true,
+      supervision_checkin: true,
+      supervision_view_own: true,
+      supervision_view_all: true,
+      supervision_dashboard: true,
+      rendicion_submit: true,
+      rendicion_approve: true,
+      rendicion_view_all: true,
     },
   },
 
+  central_monitoreo: {
+    modules: { hub: "view", ops: "view", crm: "none", docs: "none", cpq: "none", payroll: "none", finance: "none", config: "none" },
+    submodules: {
+      "ops.rondas": "view",
+      "ops.supervision": "view",
+      "ops.control_nocturno": "view",
+      "crm.installations": "view",
+    },
+    capabilities: {
+      rondas_resolve_alerts: true,
+      monitoreo_cerrar_turno: true,
+      control_nocturno_approve: true,
+      ticket_approve: true,
+      supervision_view_all: true,
+      supervision_dashboard: true,
+    },
+  },
+
+  supervisor: {
+    modules: { hub: "view", ops: "edit", crm: "view", docs: "none", cpq: "none", payroll: "none", finance: "none", config: "none" },
+    submodules: {
+      "crm.installations": "view",
+      "crm.accounts": "view",
+      "crm.contacts": "view",
+      "crm.leads": "none",
+      "crm.deals": "none",
+      "crm.quotes": "none",
+      "ops.supervision": "full",
+      "finance.rendiciones": "edit",
+    },
+    capabilities: {
+      ticket_approve: true,
+      supervision_checkin: true,
+      supervision_view_own: true,
+      supervision_dashboard: true,
+      rendicion_submit: true,
+    },
+    hubLayout: "supervisor",
+  },
+
+  viewer: {
+    modules: { hub: "view", ops: "view", crm: "view", docs: "view", cpq: "none", payroll: "none", finance: "none", config: "none" },
+    submodules: {},
+    capabilities: {},
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  //  LEGACY — sin usuarios activos, mantener por retrocompatibilidad
+  // ═══════════════════════════════════════════════════════════
+
+  // LEGACY
+  rrhh: {
+    modules: { hub: "view", ops: "edit", crm: "none", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "view" },
+    submodules: { "crm.installations": "view", "crm.dotacion": "view", "ops.installations": "view", "ops.gamificacion": "edit" },
+    capabilities: { rendicion_view_all: true, ticket_approve: true, gamificacion_bonos_aprobar: true },
+  },
+
+  // LEGACY
+  operaciones: {
+    modules: { hub: "view", ops: "edit", crm: "none", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "edit" },
+    submodules: { "finance.pagos": "none", "finance.configuracion": "none", "crm.installations": "view", "crm.dotacion": "edit", "ops.installations": "view" },
+    capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, monitoreo_cerrar_turno: true, control_nocturno_approve: true, rendicion_submit: true, rendicion_approve: true, ticket_approve: true, gamificacion_bonos_aprobar: true },
+  },
+
+  // LEGACY
   finanzas: finanzasPermissions(),
 
+  // LEGACY
   reclutamiento: {
-    modules: {
-      hub: "view",
-      ops: "edit",
-      crm: "none",
-      docs: "none",
-      payroll: "none",
-      cpq: "none",
-      config: "none",
-      finance: "none",
-    },
+    modules: { hub: "view", ops: "edit", crm: "none", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "none" },
     submodules: { "ops.rondas": "none", "crm.installations": "view", "crm.dotacion": "edit", "ops.installations": "view" },
     capabilities: {},
   },
 
+  // LEGACY
   solo_ops: {
-    modules: {
-      hub: "view",
-      ops: "edit",
-      crm: "none",
-      docs: "none",
-      payroll: "none",
-      cpq: "none",
-      config: "none",
-      finance: "none",
-    },
+    modules: { hub: "view", ops: "edit", crm: "none", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "none" },
     submodules: { "crm.installations": "view", "crm.dotacion": "edit", "ops.installations": "view" },
     capabilities: {},
   },
 
+  // LEGACY
   solo_crm: {
-    modules: {
-      hub: "view",
-      ops: "none",
-      crm: "edit",
-      docs: "none",
-      payroll: "none",
-      cpq: "none",
-      config: "none",
-      finance: "none",
-    },
+    modules: { hub: "view", ops: "none", crm: "edit", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "none" },
     submodules: {},
     capabilities: {},
   },
 
+  // LEGACY
   solo_documentos: {
-    modules: {
-      hub: "view",
-      ops: "none",
-      crm: "none",
-      docs: "view",
-      payroll: "none",
-      cpq: "none",
-      config: "none",
-      finance: "none",
-    },
+    modules: { hub: "view", ops: "none", crm: "none", docs: "view", payroll: "none", cpq: "none", config: "none", finance: "none" },
     submodules: {},
     capabilities: {},
   },
 
+  // LEGACY
   solo_payroll: {
-    modules: {
-      hub: "view",
-      ops: "none",
-      crm: "none",
-      docs: "none",
-      payroll: "edit",
-      cpq: "none",
-      config: "none",
-      finance: "none",
-    },
+    modules: { hub: "view", ops: "none", crm: "none", docs: "none", payroll: "edit", cpq: "none", config: "none", finance: "none" },
     submodules: {},
     capabilities: {},
   },
 
-  viewer: {
-    modules: {
-      hub: "view",
-      ops: "none",
-      crm: "none",
-      docs: "view",
-      payroll: "none",
-      cpq: "none",
-      config: "none",
-      finance: "none",
-    },
-    submodules: {},
-    capabilities: {},
-  },
-
+  // LEGACY
   inspector_dt: {
-    modules: {
-      hub: "none",
-      ops: "none",
-      crm: "none",
-      docs: "none",
-      payroll: "none",
-      cpq: "none",
-      config: "none",
-      finance: "none",
-      reportes_dt: "view",
-      fiscalizacion: "view",
-    },
+    modules: { hub: "none", ops: "none", crm: "none", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "none", reportes_dt: "view", fiscalizacion: "view" },
     submodules: {
-      "fiscalizacion.marcaciones": "view",
-      "fiscalizacion.asistencia": "view",
-      "fiscalizacion.guardias": "view",
-      "fiscalizacion.instalaciones": "view",
-      "fiscalizacion.payroll": "view",
-      "fiscalizacion.auditlog": "view",
-      "fiscalizacion.incidentes": "view",
+      "fiscalizacion.marcaciones": "view", "fiscalizacion.asistencia": "view", "fiscalizacion.guardias": "view",
+      "fiscalizacion.instalaciones": "view", "fiscalizacion.payroll": "view", "fiscalizacion.auditlog": "view", "fiscalizacion.incidentes": "view",
     },
     capabilities: {},
-  },
-
-  supervisor: {
-    modules: {
-      hub: "view",
-      ops: "edit",
-      crm: "view",
-      docs: "none",
-      payroll: "none",
-      cpq: "none",
-      config: "none",
-      finance: "none",
-    },
-    submodules: {
-      "ops.pauta_mensual": "view",
-      "ops.turnos_extra": "edit",
-      "ops.supervision": "full",
-      "ops.tickets": "edit",
-      "ops.gamificacion": "edit",
-      "crm.leads": "none",
-      "crm.accounts": "view",
-      "crm.installations": "view",
-      "crm.dotacion": "view",
-      "crm.contacts": "view",
-      "crm.deals": "none",
-      "crm.quotes": "none",
-      "ops.installations": "view",
-      "finance.rendiciones": "edit",
-      "finance.aprobaciones": "none",
-      "finance.pagos": "none",
-      "finance.configuracion": "none",
-      "finance.contabilidad": "none",
-      "finance.facturacion": "none",
-      "finance.proveedores": "none",
-      "finance.reportes": "none",
-    },
-    capabilities: {
-      rendicion_submit: true,
-      supervision_checkin: true,
-      supervision_view_own: true,
-      supervision_dashboard: true,
-      ticket_approve: true,
-    },
-    hubLayout: "supervisor",
   },
 };
 
@@ -754,6 +683,7 @@ export interface RoleTemplateSeed {
 }
 
 export const ROLE_TEMPLATE_SEEDS: RoleTemplateSeed[] = [
+  // ── 7 Roles Activos ──
   {
     slug: "owner",
     name: "Propietario",
@@ -764,94 +694,46 @@ export const ROLE_TEMPLATE_SEEDS: RoleTemplateSeed[] = [
   {
     slug: "admin",
     name: "Administrador",
-    description: "Acceso total a todos los módulos y funciones.",
+    description: "Acceso completo a todos los módulos. No puede modificar configuración global.",
     isSystem: true,
     permissions: DEFAULT_ROLE_PERMISSIONS.admin,
   },
   {
     slug: "editor",
-    name: "Editor",
-    description: "Puede editar en todos los módulos excepto configuración.",
+    name: "Gerente",
+    description: "Edición en operaciones, CRM, documentos y CPQ. Payroll y finanzas solo lectura.",
     isSystem: false,
     permissions: DEFAULT_ROLE_PERMISSIONS.editor,
   },
   {
-    slug: "rrhh",
-    name: "RRHH",
-    description: "Operaciones con foco en gestión de guardias y lista negra.",
-    isSystem: false,
-    permissions: DEFAULT_ROLE_PERMISSIONS.rrhh,
-  },
-  {
-    slug: "operaciones",
-    name: "Operaciones",
-    description: "Gestión operativa completa: puestos, pauta, asistencia, turnos extra.",
-    isSystem: false,
-    permissions: DEFAULT_ROLE_PERMISSIONS.operaciones,
-  },
-  {
-    slug: "reclutamiento",
-    name: "Reclutamiento",
-    description: "Gestión de guardias para procesos de selección.",
-    isSystem: false,
-    permissions: DEFAULT_ROLE_PERMISSIONS.reclutamiento,
-  },
-  {
-    slug: "solo_ops",
-    name: "Solo Operaciones",
-    description: "Acceso exclusivo al módulo de operaciones.",
-    isSystem: false,
-    permissions: DEFAULT_ROLE_PERMISSIONS.solo_ops,
-  },
-  {
-    slug: "solo_crm",
-    name: "Solo CRM",
-    description: "Acceso exclusivo al módulo CRM.",
-    isSystem: false,
-    permissions: DEFAULT_ROLE_PERMISSIONS.solo_crm,
-  },
-  {
-    slug: "solo_documentos",
-    name: "Solo Documentos",
-    description: "Acceso de visualización al módulo de documentos.",
-    isSystem: false,
-    permissions: DEFAULT_ROLE_PERMISSIONS.solo_documentos,
-  },
-  {
-    slug: "solo_payroll",
-    name: "Solo Payroll",
-    description: "Acceso exclusivo al módulo de payroll.",
-    isSystem: false,
-    permissions: DEFAULT_ROLE_PERMISSIONS.solo_payroll,
-  },
-  {
-    slug: "finanzas",
-    name: "Finanzas",
-    description: "Acceso completo al módulo de rendiciones de gastos y finanzas.",
-    isSystem: false,
-    permissions: DEFAULT_ROLE_PERMISSIONS.finanzas,
-  },
-  {
     slug: "jefe_operaciones",
-    name: "Jefe de operaciones",
-    description: "Ve todas las visitas de supervisión, CRM solo lectura (sin CPQ), rendiciones propias. Sin payroll.",
+    name: "Jefatura",
+    description: "Gestión operativa completa, supervisión, rendiciones. CRM y finanzas solo lectura.",
     isSystem: false,
     permissions: DEFAULT_ROLE_PERMISSIONS.jefe_operaciones,
   },
   {
+    slug: "central_monitoreo",
+    name: "Central Monitoreo",
+    description: "Monitoreo de rondas, supervisión y control nocturno. Sin acceso a CRM ni finanzas.",
+    isSystem: false,
+    permissions: DEFAULT_ROLE_PERMISSIONS.central_monitoreo,
+  },
+  {
     slug: "supervisor",
     name: "Supervisor",
-    description: "Acceso móvil de terreno para visitas de supervisión y rendiciones.",
+    description: "Acceso móvil de terreno para visitas de supervisión, tickets y rendiciones.",
     isSystem: false,
     permissions: DEFAULT_ROLE_PERMISSIONS.supervisor,
   },
   {
     slug: "viewer",
     name: "Viewer",
-    description: "Solo lectura en documentos.",
+    description: "Solo lectura en operaciones, CRM y documentos.",
     isSystem: false,
     permissions: DEFAULT_ROLE_PERMISSIONS.viewer,
   },
+  // ── Legacy (mantener por retrocompatibilidad) ──
   {
     slug: "inspector_dt",
     name: "Inspector DT",

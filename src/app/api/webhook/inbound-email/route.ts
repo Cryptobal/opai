@@ -13,6 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Webhook } from "svix";
 import { resend } from "@/lib/resend";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
@@ -35,7 +36,31 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const payload = await request.text();
+
+    // Verify Resend webhook signature via svix
+    const secret = process.env.RESEND_WEBHOOK_SECRET;
+    let body: { type: string; data: Record<string, unknown> };
+
+    if (secret) {
+      const svixHeaders = {
+        "svix-id": request.headers.get("svix-id") ?? "",
+        "svix-timestamp": request.headers.get("svix-timestamp") ?? "",
+        "svix-signature": request.headers.get("svix-signature") ?? "",
+      };
+
+      try {
+        const wh = new Webhook(secret);
+        body = wh.verify(payload, svixHeaders) as typeof body;
+      } catch (err) {
+        console.error("[webhook/inbound-email] Signature verification failed:", err);
+        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+      }
+    } else {
+      console.warn("[webhook/inbound-email] RESEND_WEBHOOK_SECRET not set — signature verification SKIPPED");
+      body = JSON.parse(payload);
+    }
+
     const { type, data } = body;
 
     console.log("[inbound-email] Webhook received:", { type, emailId: data?.email_id, to: data?.to });

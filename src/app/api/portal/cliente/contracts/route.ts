@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 
 /** Contract-type categories visible in the client portal */
 const CONTRACT_CATEGORIES = [
@@ -15,31 +14,15 @@ const CONTRACT_CATEGORIES = [
 /**
  * GET /api/portal/cliente/contracts
  * Returns portal-visible contracts for an account.
- * Query params: tenantId, accountId
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = parsePortalClienteSessionCookie(
-      cookieStore.get("portal_cliente_session")?.value
-    );
+    const session = await requirePortalClienteAuth();
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const tenantId = request.nextUrl.searchParams.get("tenantId");
-    const accountId = request.nextUrl.searchParams.get("accountId");
-
-    if (!tenantId || !accountId) {
-      return NextResponse.json(
-        { success: false, error: "Parámetros requeridos" },
-        { status: 400 },
-      );
-    }
-
-    if (session.accountId !== accountId) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-    }
+    const { tenantId, accountId } = session;
 
     const documents = await prisma.document.findMany({
       where: {

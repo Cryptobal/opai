@@ -45,59 +45,19 @@ export const CONFIG_SUBMODULE_NAV_ITEMS: SubmoduleNavItem<ConfigSubmoduleKey>[] 
   { key: "ops", href: "/opai/configuracion/ops", label: "Operaciones" },
 ];
 
-const ROLE_CRM_SUBMODULE_ACCESS: Record<Role, CrmSubmoduleKey[]> = {
-  owner: ROLE_POLICIES.owner.crmSubmodules,
-  admin: ROLE_POLICIES.admin.crmSubmodules,
-  editor: ROLE_POLICIES.editor.crmSubmodules,
-  rrhh: ROLE_POLICIES.rrhh.crmSubmodules,
-  operaciones: ROLE_POLICIES.operaciones.crmSubmodules,
-  jefe_operaciones: ROLE_POLICIES.jefe_operaciones.crmSubmodules,
-  finanzas: ROLE_POLICIES.finanzas.crmSubmodules,
-  reclutamiento: ROLE_POLICIES.reclutamiento.crmSubmodules,
-  solo_ops: ROLE_POLICIES.solo_ops.crmSubmodules,
-  solo_crm: ROLE_POLICIES.solo_crm.crmSubmodules,
-  solo_documentos: ROLE_POLICIES.solo_documentos.crmSubmodules,
-  solo_payroll: ROLE_POLICIES.solo_payroll.crmSubmodules,
-  supervisor: ROLE_POLICIES.supervisor.crmSubmodules,
-  viewer: ROLE_POLICIES.viewer.crmSubmodules,
-  inspector_dt: ROLE_POLICIES.inspector_dt.crmSubmodules,
+const buildSubmoduleAccess = <K extends string>(
+  pick: (p: typeof ROLE_POLICIES[Role]) => K[],
+): Record<Role, K[]> => {
+  const result = {} as Record<Role, K[]>;
+  for (const role of Object.keys(ROLE_POLICIES) as Role[]) {
+    result[role] = pick(ROLE_POLICIES[role]);
+  }
+  return result;
 };
 
-const ROLE_CONFIG_SUBMODULE_ACCESS: Record<Role, ConfigSubmoduleKey[]> = {
-  owner: ROLE_POLICIES.owner.configSubmodules,
-  admin: ROLE_POLICIES.admin.configSubmodules,
-  editor: ROLE_POLICIES.editor.configSubmodules,
-  rrhh: ROLE_POLICIES.rrhh.configSubmodules,
-  operaciones: ROLE_POLICIES.operaciones.configSubmodules,
-  jefe_operaciones: ROLE_POLICIES.jefe_operaciones.configSubmodules,
-  finanzas: ROLE_POLICIES.finanzas.configSubmodules,
-  reclutamiento: ROLE_POLICIES.reclutamiento.configSubmodules,
-  solo_ops: ROLE_POLICIES.solo_ops.configSubmodules,
-  solo_crm: ROLE_POLICIES.solo_crm.configSubmodules,
-  solo_documentos: ROLE_POLICIES.solo_documentos.configSubmodules,
-  solo_payroll: ROLE_POLICIES.solo_payroll.configSubmodules,
-  supervisor: ROLE_POLICIES.supervisor.configSubmodules,
-  viewer: ROLE_POLICIES.viewer.configSubmodules,
-  inspector_dt: ROLE_POLICIES.inspector_dt.configSubmodules,
-};
-
-const ROLE_DOCS_SUBMODULE_ACCESS: Record<Role, DocsSubmoduleKey[]> = {
-  owner: ROLE_POLICIES.owner.docsSubmodules,
-  admin: ROLE_POLICIES.admin.docsSubmodules,
-  editor: ROLE_POLICIES.editor.docsSubmodules,
-  rrhh: ROLE_POLICIES.rrhh.docsSubmodules,
-  operaciones: ROLE_POLICIES.operaciones.docsSubmodules,
-  jefe_operaciones: ROLE_POLICIES.jefe_operaciones.docsSubmodules,
-  finanzas: ROLE_POLICIES.finanzas.docsSubmodules,
-  reclutamiento: ROLE_POLICIES.reclutamiento.docsSubmodules,
-  solo_ops: ROLE_POLICIES.solo_ops.docsSubmodules,
-  solo_crm: ROLE_POLICIES.solo_crm.docsSubmodules,
-  solo_documentos: ROLE_POLICIES.solo_documentos.docsSubmodules,
-  solo_payroll: ROLE_POLICIES.solo_payroll.docsSubmodules,
-  supervisor: ROLE_POLICIES.supervisor.docsSubmodules,
-  viewer: ROLE_POLICIES.viewer.docsSubmodules,
-  inspector_dt: ROLE_POLICIES.inspector_dt.docsSubmodules,
-};
+const ROLE_CRM_SUBMODULE_ACCESS = buildSubmoduleAccess<CrmSubmoduleKey>((p) => p.crmSubmodules);
+const ROLE_CONFIG_SUBMODULE_ACCESS = buildSubmoduleAccess<ConfigSubmoduleKey>((p) => p.configSubmodules);
+const ROLE_DOCS_SUBMODULE_ACCESS = buildSubmoduleAccess<DocsSubmoduleKey>((p) => p.docsSubmodules);
 
 function hasRoleSubmoduleAccess<K extends string>(
   role: string,

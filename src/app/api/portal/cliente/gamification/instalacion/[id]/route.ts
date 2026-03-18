@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sanitizeGuardName } from "@/lib/portal-cliente";
+import { sanitizeGuardName, requirePortalClienteAuth } from "@/lib/portal-cliente";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const tenantId = request.nextUrl.searchParams.get("tenantId");
-    if (!tenantId) {
-      return NextResponse.json({ success: false, error: "Parámetros requeridos" }, { status: 400 });
+    const session = await requirePortalClienteAuth();
+    if (!session) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
     }
+    const { tenantId } = session;
 
     const { id: installationId } = await params;
+    if (!session.installationIds.includes(installationId)) {
+      return NextResponse.json({ success: false, error: "Sin acceso a esta instalación" }, { status: 403 });
+    }
 
-    // Verify installation belongs to tenant
     const installation = await prisma.crmInstallation.findFirst({
       where: { id: installationId, tenantId },
       select: { id: true, name: true },

@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await requirePortalClienteAuth();
+    if (!session) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+    const { tenantId } = session;
+
     const installationId = request.nextUrl.searchParams.get("installationId");
-    const tenantId = request.nextUrl.searchParams.get("tenantId");
     const days = parseInt(request.nextUrl.searchParams.get("days") ?? "30", 10);
-    if (!installationId || !tenantId) {
-      return NextResponse.json({ success: false, error: "Parámetros requeridos" }, { status: 400 });
+    if (!installationId || !session.installationIds.includes(installationId)) {
+      return NextResponse.json({ success: false, error: "Sin acceso a esta instalación" }, { status: 403 });
     }
 
     const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);

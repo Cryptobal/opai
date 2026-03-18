@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
 export async function PUT(
   request: NextRequest,
@@ -7,6 +8,20 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
+
+    const existing = await prisma.accessControlPreregistration.findUnique({
+      where: { id },
+      select: { installationId: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ success: false, error: "Pre-registro no encontrado" }, { status: 404 });
+    }
+
+    const authCtx = await requireAccessControlAuth(request, existing.installationId);
+    if (!authCtx) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+
     const body = await request.json();
 
     const prereg = await prisma.accessControlPreregistration.update({
@@ -35,11 +50,24 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+
+    const existing = await prisma.accessControlPreregistration.findUnique({
+      where: { id },
+      select: { installationId: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ success: false, error: "Pre-registro no encontrado" }, { status: 404 });
+    }
+
+    const authCtx = await requireAccessControlAuth(request, existing.installationId);
+    if (!authCtx) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
 
     await prisma.accessControlPreregistration.delete({ where: { id } });
 

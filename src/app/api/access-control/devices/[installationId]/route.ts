@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
+import { requireAccessControlAuth } from "@/lib/access-control/auth";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ installationId: string }> }
 ) {
   try {
     const { installationId } = await params;
+
+    const authCtx = await requireAccessControlAuth(request, installationId);
+    if (!authCtx) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
 
     const devices = await safeAccessControlQuery(
       () =>
