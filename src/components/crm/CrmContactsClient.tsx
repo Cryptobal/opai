@@ -88,7 +88,7 @@ export function CrmContactsClient({
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("cards");
   const [sort, setSort] = useState("newest");
-  const [contactFilter, setContactFilter] = useState("all");
+  const [contactFilter, setContactFilter] = useState("active");
 
   const inputClassName =
     "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
@@ -100,7 +100,9 @@ export function CrmContactsClient({
     let result = contacts;
 
     // Filter by type
-    if (contactFilter === "with_account") {
+    if (contactFilter === "active") {
+      result = result.filter((c) => c.account?.status === "client_active");
+    } else if (contactFilter === "with_account") {
       result = result.filter((c) => !!c.account);
     } else if (contactFilter === "without_account") {
       result = result.filter((c) => !c.account);
@@ -133,6 +135,7 @@ export function CrmContactsClient({
   }, [contacts, search, sort, contactFilter]);
 
   const contactFilterOptions = useMemo(() => [
+    { key: "active", label: "Activos", count: contacts.filter((c) => c.account?.status === "client_active").length },
     { key: "all", label: "Todos", count: contacts.length },
     { key: "with_account", label: "Con cuenta", count: contacts.filter((c) => !!c.account).length },
     { key: "without_account", label: "Sin cuenta", count: contacts.filter((c) => !c.account).length },

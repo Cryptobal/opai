@@ -78,7 +78,7 @@ export function CrmInstallationsListClient({
   const [installations, setInstallations] = useState<InstallationRow[]>(initialInstallations);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("cards");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("active");
   const unreadNoteIds = useUnreadNoteIds("INSTALLATION");
 
   // Create form state
