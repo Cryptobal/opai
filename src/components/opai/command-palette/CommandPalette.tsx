@@ -32,7 +32,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { CommandItem } from './types';
+import type { CommandItem, CommandCategory } from './types';
 import { useCommandPalette } from './use-command-palette';
 import { defaultCommands, ICON_MAP, CATEGORY_LABELS } from './commands';
 import { useIsMobile } from '@/lib/pwa/use-is-mobile';
@@ -137,7 +137,7 @@ const SEARCH_TYPE_CONFIG: Record<SearchResultType, { icon: typeof Users; color: 
   inventory_phone_line:  { icon: Phone,        color: 'text-cyan-400',    bgColor: 'bg-cyan-400/10',    label: 'Línea' },
 };
 
-const GROUP_CATEGORY: Record<SearchResultGroup, string> = {
+const GROUP_CATEGORY: Record<SearchResultGroup, CommandCategory> = {
   crm:       'search_crm',
   ops:       'search_ops',
   docs:      'search_docs',

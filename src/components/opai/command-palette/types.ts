@@ -1,6 +1,16 @@
 import { type ComponentType } from 'react';
 
-export type CommandCategory = 'navigation' | 'action' | 'config' | 'recent' | 'search';
+export type CommandCategory =
+  | 'navigation'
+  | 'action'
+  | 'config'
+  | 'recent'
+  | 'search'
+  | 'search_crm'
+  | 'search_ops'
+  | 'search_docs'
+  | 'search_chat'
+  | 'search_inventory';
 
 export interface CommandItem {
   id: string;
