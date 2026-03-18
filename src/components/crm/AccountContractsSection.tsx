@@ -22,10 +22,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Upload,
   FileSignature,
   Loader2,
-  ExternalLink,
   Download,
   Send,
   Eye,
@@ -33,7 +31,9 @@ import {
   Globe,
   FileText,
   ChevronRight,
+  Paperclip,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { DOC_STATUS_CONFIG } from "@/lib/docs/token-registry";
 
 interface Contract {
@@ -90,6 +90,7 @@ export function AccountContractsSection({ accountId, accountName, onRefresh }: P
   // Upload dialog
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadEffective, setUploadEffective] = useState("");
   const [uploadExpiration, setUploadExpiration] = useState("");
@@ -315,28 +316,69 @@ export function AccountContractsSection({ accountId, accountName, onRefresh }: P
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">Contratos</h3>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => {
-              resetUploadForm();
+        <Button
+          size="sm"
+          className="gap-1.5"
+          onClick={openGenerateDialog}
+        >
+          <FileSignature className="h-3.5 w-3.5" />
+          Generar desde Plantilla
+        </Button>
+      </div>
+
+      {/* Dropzone para subir PDF manual (estilo Documentos) */}
+      <div
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f && (f.name.toLowerCase().endsWith(".pdf") || f.type === "application/pdf")) {
+            setUploadFile(f);
+            setUploadTitle(f.name.replace(/\.pdf$/i, ""));
+            setUploadOpen(true);
+          } else if (f) {
+            toast.error("Solo se permiten archivos PDF");
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+        }}
+        className={cn(
+          "mb-4 rounded-lg border-2 border-dashed p-6 text-center transition-colors",
+          dragOver
+            ? "border-primary bg-primary/5"
+            : "border-muted-foreground/25 hover:border-muted-foreground/50"
+        )}
+      >
+        <input
+          type="file"
+          accept=".pdf,application/pdf"
+          className="hidden"
+          id={`contract-upload-${accountId}`}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) {
+              setUploadFile(f);
+              setUploadTitle(f.name.replace(/\.pdf$/i, ""));
               setUploadOpen(true);
-            }}
-          >
-            <Upload className="h-3.5 w-3.5" />
-            Subir PDF
-          </Button>
-          <Button
-            size="sm"
-            className="gap-1.5"
-            onClick={openGenerateDialog}
-          >
-            <FileSignature className="h-3.5 w-3.5" />
-            Generar desde Plantilla
-          </Button>
-        </div>
+            }
+            e.target.value = "";
+          }}
+        />
+        <label
+          htmlFor={`contract-upload-${accountId}`}
+          className="cursor-pointer flex flex-col items-center gap-2"
+        >
+          <Paperclip className="h-8 w-8 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            Arrastra archivos aquí o haz clic para seleccionar
+          </span>
+        </label>
       </div>
 
       {/* Contract List */}
@@ -468,27 +510,23 @@ export function AccountContractsSection({ accountId, accountName, onRefresh }: P
       )}
 
       {/* ─── Upload PDF Dialog ─────────────────────────────────────── */}
-      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+      <Dialog
+        open={uploadOpen}
+        onOpenChange={(open) => {
+          setUploadOpen(open);
+          if (!open) resetUploadForm();
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Subir Contrato PDF</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Archivo PDF</Label>
-              <Input
-                type="file"
-                accept=".pdf"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) {
-                    setUploadFile(f);
-                    if (!uploadTitle)
-                      setUploadTitle(f.name.replace(/\.pdf$/i, ""));
-                  }
-                }}
-              />
-            </div>
+            {uploadFile && (
+              <p className="text-xs text-muted-foreground">
+                Archivo: {uploadFile.name}
+              </p>
+            )}
             <div className="space-y-2">
               <Label>Título</Label>
               <Input
