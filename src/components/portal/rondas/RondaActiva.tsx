@@ -2,10 +2,11 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
-import { RondaProgress } from "./RondaProgress";
 import { CheckpointMarker } from "./CheckpointMarker";
 import { AutoMarkToast } from "./AutoMarkToast";
 import { GpsStatusIndicator } from "./GpsStatusIndicator";
+import { ProgressRing } from "./ProgressRing";
+import { ActiveCheckpointCard } from "./ActiveCheckpointCard";
 import { savePendingMark } from "@/lib/rondas-offline";
 import type { RondasSession } from "./RondasPortalClient";
 import type { MapCheckpoint } from "./RondaMap";
@@ -156,6 +157,13 @@ export function RondaActiva({
 
   // -- Map collapse state --
   const [mapCollapsed, setMapCollapsed] = useState(false);
+
+  // -- Manual override: guard tapped a checkpoint on the map --
+  const [selectedCheckpointId, setSelectedCheckpointId] = useState<string | null>(null);
+  const selectedOverrideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // -- Card transition state --
+  const [cardTransition, setCardTransition] = useState<"idle" | "out" | "in">("idle");
 
   // -- Ad-hoc marked points (for map display) --
   const [adHocMarkedPoints, setAdHocMarkedPoints] = useState<
@@ -466,10 +474,11 @@ export function RondaActiva({
     }
   }, [guardPos, checkpoints, isAdHocFreeForm, markingCheckpointId, gpsAccuracy, rondaData.ejecucionId, rondaData.qrRequerido, session.guardiaId, refreshCheckpoints]);
 
-  // Cleanup auto-open timer on unmount
+  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       if (autoOpenTimerRef.current) clearTimeout(autoOpenTimerRef.current);
+      if (selectedOverrideTimerRef.current) clearTimeout(selectedOverrideTimerRef.current);
     };
   }, []);
 
@@ -628,9 +637,6 @@ export function RondaActiva({
 
   // (sortedCheckpoints & closestPendingId moved above mapCheckpoints)
 
-  // Count of collapsed completed checkpoints
-  const [showCompleted, setShowCompleted] = useState(false);
-
   // ---------------------------------------------------------------------------
   // Callbacks
   // ---------------------------------------------------------------------------
@@ -757,32 +763,24 @@ export function RondaActiva({
             </h1>
           </div>
 
-          {/* Timer + Progress compact + GPS status */}
+          {/* Timer + Progress ring + GPS status */}
           <div className="flex shrink-0 items-center gap-2 text-sm">
             <GpsStatusIndicator accuracy={gpsAccuracy} isWatching={guardPos !== null} />
             <span className="text-gray-400">
               {formatElapsed(elapsedSeconds)}
             </span>
-            <span className="text-gray-600">&middot;</span>
-            <span
-              className={
-                pct >= 100 ? "font-medium text-green-400" : "text-teal-400"
-              }
-            >
-              {completedCount}/{total}
-            </span>
+            {/* Obligatorios pending pill */}
+            {(() => {
+              const reqPending = checkpoints.filter((cp) => cp.isRequired && !cp.completed);
+              if (reqPending.length === 0) return null;
+              return (
+                <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: "rgba(245,158,11,0.15)", color: "#f59e0b" }}>
+                  {reqPending.length} oblig. pendiente{reqPending.length !== 1 ? "s" : ""}
+                </span>
+              );
+            })()}
+            <ProgressRing completed={completedCount} total={total} size={40} />
           </div>
-        </div>
-
-        {/* Progress bar */}
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-800">
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{
-              width: `${pct}%`,
-              backgroundColor: pct >= 100 ? "#22c55e" : "#14b8a6",
-            }}
-          />
         </div>
       </header>
 
@@ -860,6 +858,15 @@ export function RondaActiva({
           onManualInteraction={() => setIsFollowing(false)}
           onRecenter={() => setIsFollowing(true)}
           gpsAccuracy={gpsAccuracy}
+          closestPendingId={closestPendingId}
+          onCheckpointClick={(cpId) => {
+            // Manual override: show this checkpoint's card temporarily
+            setSelectedCheckpointId(cpId);
+            if (selectedOverrideTimerRef.current) clearTimeout(selectedOverrideTimerRef.current);
+            selectedOverrideTimerRef.current = setTimeout(() => {
+              setSelectedCheckpointId(null);
+            }, 10000);
+          }}
         />
 
         {/* Map collapse toggle — hidden for ad-hoc rondas (fixed compact map) */}
@@ -963,132 +970,58 @@ export function RondaActiva({
           </div>
         )}
 
-        {/* Non-ad-hoc checkpoint list — sorted by proximity */}
+        {/* Non-ad-hoc: single active checkpoint card */}
         {!isAdHocFreeForm && (() => {
-          const pendingCps = sortedCheckpoints.filter((cp) => !cp.completed);
-          const completedCps = sortedCheckpoints.filter((cp) => cp.completed);
+          const allDone = checkpoints.length > 0 && checkpoints.every((c) => c.completed);
+
+          // Determine which checkpoint to show
+          const activeCheckpoint = (() => {
+            // Manual override from map tap
+            if (selectedCheckpointId) {
+              const sel = checkpoints.find((c) => c.id === selectedCheckpointId && !c.completed);
+              if (sel) return sel;
+            }
+            // Default: closest pending
+            return sortedCheckpoints.find((cp) => !cp.completed) ?? null;
+          })();
+
+          const cpDistance = activeCheckpoint && guardPos
+            ? haversineDistance(guardPos.lat, guardPos.lng, activeCheckpoint.lat, activeCheckpoint.lng)
+            : null;
+
+          const needsQr = activeCheckpoint
+            ? rondaData.qrRequerido && (activeCheckpoint.verificationType === "QR" || activeCheckpoint.verificationType === "BOTH")
+            : false;
+
+          const cardData = activeCheckpoint
+            ? {
+                id: activeCheckpoint.id,
+                name: activeCheckpoint.name,
+                orderIndex: activeCheckpoint.orderIndex,
+                isRequired: activeCheckpoint.isRequired,
+                distanceM: cpDistance,
+                geoRadiusM: activeCheckpoint.geoRadiusM,
+                qrRequired: needsQr,
+                isInRadius: cpDistance != null && cpDistance <= activeCheckpoint.geoRadiusM,
+              }
+            : null;
 
           return (
-            <>
-              {pendingCps.map((cp, idx) => {
-                const isClosest = cp.id === closestPendingId;
-                const needsQr =
-                  rondaData.qrRequerido &&
-                  (cp.verificationType === "QR" || cp.verificationType === "BOTH");
-                const cpDistance = guardPos
-                  ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
-                  : null;
-
-                if (isClosest) {
-                  // -- Closest checkpoint: prominent card --
-                  return (
-                    <button
-                      key={cp.id}
-                      onClick={() => setMarkingCheckpointId(cp.id)}
-                      className="w-full rounded-2xl border-2 border-teal-600/60 bg-teal-950/40 p-4 text-left transition-colors active:bg-teal-900/50"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="mt-1 shrink-0">
-                          <div className="relative flex h-8 w-8 items-center justify-center">
-                            <span className="absolute h-8 w-8 animate-ping rounded-full opacity-30" style={{ backgroundColor: "#14b8a6" }} />
-                            <div className="relative h-4 w-4 rounded-full" style={{ backgroundColor: "#14b8a6" }} />
-                          </div>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-base font-semibold text-teal-300">{cp.name}</p>
-                          <div className="mt-1.5 flex flex-wrap gap-2">
-                            <span className="rounded-md bg-teal-500/20 px-2 py-0.5 text-xs font-medium text-teal-400">
-                              Mas cercano
-                            </span>
-                            {cp.isRequired && (
-                              <span className="rounded-md bg-yellow-500/20 px-2 py-0.5 text-xs font-medium text-yellow-400">
-                                Obligatorio
-                              </span>
-                            )}
-                            {needsQr && (
-                              <span className="rounded-md bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-400">
-                                QR requerido
-                              </span>
-                            )}
-                            {cpDistance != null && (
-                              <span className="rounded-md bg-gray-700/60 px-2 py-0.5 text-xs font-semibold text-gray-200">
-                                {formatDistance(cpDistance)}
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-2 text-sm text-teal-400/70">Toca para marcar este punto</p>
-                        </div>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="mt-1 h-5 w-5 shrink-0 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    </button>
-                  );
+            <ActiveCheckpointCard
+              checkpoint={cardData}
+              allCompleted={allDone}
+              completedCount={completedCount}
+              total={total}
+              isMarking={false}
+              onConfirmMark={() => {
+                if (activeCheckpoint) {
+                  // Clear manual override on mark action
+                  setSelectedCheckpointId(null);
+                  setMarkingCheckpointId(activeCheckpoint.id);
                 }
-
-                // -- Other pending checkpoints --
-                return (
-                  <button
-                    key={cp.id}
-                    onClick={() => setMarkingCheckpointId(cp.id)}
-                    className="flex w-full items-center gap-3 rounded-2xl border border-gray-800 bg-gray-900/60 p-3 text-left transition-colors active:bg-gray-800"
-                  >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(107,114,128,0.2)" }}>
-                      <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#6b7280" }} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-gray-300">{cp.name}</p>
-                      <div className="flex gap-2 text-xs text-gray-600">
-                        {cp.isRequired && <span className="text-yellow-500/70">Obligatorio</span>}
-                        {cpDistance != null && (
-                          <span className={cpDistance <= cp.geoRadiusM ? "text-teal-500" : ""}>
-                            {formatDistance(cpDistance)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                );
-              })}
-
-              {/* Completed checkpoints — collapsible */}
-              {completedCps.length > 0 && (
-                <>
-                  <button
-                    onClick={() => setShowCompleted((v) => !v)}
-                    className="flex w-full items-center gap-2 rounded-xl bg-green-950/20 px-3 py-2 text-sm text-green-400/70 transition-colors active:bg-green-950/30"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span>
-                      Ver completados ({completedCps.length}/{total})
-                    </span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className={`ml-auto h-4 w-4 transition-transform ${showCompleted ? "rotate-180" : ""}`}
-                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-
-                  {showCompleted && completedCps.map((cp) => (
-                    <div key={cp.id} className="flex w-full items-center gap-3 rounded-2xl border border-green-900/30 bg-green-950/10 p-3 opacity-60">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(34,197,94,0.2)" }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="#22c55e" strokeWidth={2.5} aria-hidden="true">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <p className="min-w-0 flex-1 truncate text-sm text-gray-500">{cp.name}</p>
-                    </div>
-                  ))}
-                </>
-              )}
-            </>
+              }}
+              transitionState={cardTransition}
+            />
           );
         })()}
 
@@ -1130,7 +1063,7 @@ export function RondaActiva({
                   Completando...
                 </span>
               ) : !isAdHocFreeForm && !allRequiredDone ? (
-                <>Faltan {requiredPending.length} punto{requiredPending.length !== 1 ? "s" : ""} obligatorio{requiredPending.length !== 1 ? "s" : ""}</>
+                <>Faltan {requiredPending.length} obligatorio{requiredPending.length !== 1 ? "s" : ""}</>
               ) : optionalPending.length > 0 ? (
                 <>{"\u2713"} Completar Ronda ({optionalPending.length} opcionales sin marcar)</>
               ) : (
@@ -1261,9 +1194,9 @@ export function RondaActiva({
           isInGeofence={isInGeofenceOfMarking}
           onComplete={() => {
             const cpId = markingCheckpointId;
-            const isAdHocMark = cpId === "ad-hoc-gps" || cpId === "ad-hoc-scan";
+            const isAdHocMarkLocal = cpId === "ad-hoc-gps" || cpId === "ad-hoc-scan";
 
-            if (isAdHocMark && guardPos) {
+            if (isAdHocMarkLocal && guardPos) {
               const label = cpId === "ad-hoc-gps" ? "Punto GPS" : "Punto QR";
               setAdHocMarkedPoints((prev) => [
                 ...prev,
@@ -1276,13 +1209,21 @@ export function RondaActiva({
               ]);
             }
 
-            // Optimistic local update: mark checkpoint as completed immediately
-            if (cpId && !isAdHocMark) {
-              setCheckpoints((prev) =>
-                prev.map((cp) =>
-                  cp.id === cpId ? { ...cp, completed: true } : cp,
-                ),
-              );
+            // Trigger card transition animation for non-ad-hoc
+            if (cpId && !isAdHocMarkLocal) {
+              setCardTransition("out");
+              setTimeout(() => {
+                // Optimistic local update: mark checkpoint as completed
+                setCheckpoints((prev) =>
+                  prev.map((cp) =>
+                    cp.id === cpId ? { ...cp, completed: true } : cp,
+                  ),
+                );
+                // Clear manual override so next closest auto-selects
+                setSelectedCheckpointId(null);
+                setCardTransition("in");
+                setTimeout(() => setCardTransition("idle"), 350);
+              }, 250);
             }
 
             setMarkingCheckpointId(null);

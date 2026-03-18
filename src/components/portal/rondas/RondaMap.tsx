@@ -38,6 +38,10 @@ export interface RondaMapProps {
   onRecenter?: () => void;
   /** GPS accuracy in meters — renders accuracy circle around guard */
   gpsAccuracy?: number | null;
+  /** ID of the closest pending checkpoint — shows "MÁS CERCA" label */
+  closestPendingId?: string | null;
+  /** Callback when a checkpoint marker is clicked */
+  onCheckpointClick?: (checkpointId: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -49,6 +53,7 @@ const MARKER_SIZE = 30;
 function createCheckpointIcon(
   status: "completed" | "active" | "pending",
   label?: string,
+  isClosest?: boolean,
 ): L.DivIcon {
   const colors: Record<string, { bg: string; border: string; text: string }> = {
     completed: { bg: "#22c55e", border: "#16a34a", text: "#fff" },
@@ -74,8 +79,14 @@ function createCheckpointIcon(
 
   const shadow = "filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));";
 
+  // "MÁS CERCA" floating label for closest pending checkpoint
+  const closestLabel = isClosest
+    ? `<div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:#14b8a6;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;z-index:2;pointer-events:none;">MÁS CERCA</div>`
+    : "";
+
   const html = `
     <div style="position:relative;width:${MARKER_SIZE}px;height:${MARKER_SIZE}px;">
+      ${closestLabel}
       ${pulseRing}
       <div style="position:relative;width:${MARKER_SIZE}px;height:${MARKER_SIZE}px;border-radius:50%;background:${bg};border:3px solid ${border};display:flex;align-items:center;justify-content:center;z-index:1;${shadow}">
         ${inner}
@@ -398,21 +409,24 @@ export default function RondaMap({
   onManualInteraction,
   onRecenter,
   gpsAccuracy,
+  closestPendingId,
+  onCheckpointClick,
 }: RondaMapProps) {
   const [mounted, setMounted] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
 
-  // Memoize icons — keyed by "status-name" since each checkpoint shows its name
+  // Memoize icons — keyed by "status-name-closest" since each checkpoint shows its name
   const checkpointIcons = useMemo(() => {
     const icons: Record<string, L.DivIcon> = {};
     for (const cp of checkpoints) {
-      const key = `${cp.status}-${cp.name}`;
+      const isClosest = cp.id === closestPendingId && cp.status !== "completed";
+      const key = `${cp.status}-${cp.name}-${isClosest ? "c" : ""}`;
       if (!icons[key]) {
-        icons[key] = createCheckpointIcon(cp.status, cp.name);
+        icons[key] = createCheckpointIcon(cp.status, cp.name, isClosest);
       }
     }
     return icons;
-  }, [checkpoints]);
+  }, [checkpoints, closestPendingId]);
 
   const guardIcon = useMemo(() => createGuardIcon(), []);
 
@@ -476,14 +490,23 @@ export default function RondaMap({
         )}
 
         {/* Checkpoint markers */}
-        {checkpoints.map((cp) => (
-          <Marker
-            key={cp.id}
-            position={[cp.lat, cp.lng]}
-            icon={checkpointIcons[`${cp.status}-${cp.name}`]}
-            title={cp.name}
-          />
-        ))}
+        {checkpoints.map((cp) => {
+          const isClosest = cp.id === closestPendingId && cp.status !== "completed";
+          const iconKey = `${cp.status}-${cp.name}-${isClosest ? "c" : ""}`;
+          return (
+            <Marker
+              key={cp.id}
+              position={[cp.lat, cp.lng]}
+              icon={checkpointIcons[iconKey]}
+              title={cp.name}
+              eventHandlers={
+                onCheckpointClick && cp.status !== "completed"
+                  ? { click: () => onCheckpointClick(cp.id) }
+                  : undefined
+              }
+            />
+          );
+        })}
 
         {/* Guard → marking checkpoint dashed line */}
         {guardPosition && markingCheckpointId && (() => {

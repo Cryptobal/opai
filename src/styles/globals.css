@@ -508,3 +508,19 @@ html {
     clip-path: polygon(8px 50%, 0 0, 100% 0, 100% 100%, 0 100%);
   }
 }
+
+/* Checkpoint card transition animations */
+@keyframes slideDown {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(16px); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slideDown {
+  animation: slideDown 200ms ease-out forwards;
+}
+.animate-slideUp {
+  animation: slideUp 300ms ease-out forwards;
+}
