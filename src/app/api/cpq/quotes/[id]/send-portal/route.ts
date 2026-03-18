@@ -625,16 +625,16 @@ function buildWhatsAppMessage(params: WhatsAppMsgParams): string {
   const firstName = contactName.split(" ")[0];
 
   const lines = [
-    `\u{1F4CB} *Cotizaci\u00f3n para ${companyName}*`,
+    `*Cotizaci\u00f3n para ${companyName}*`,
     ``,
     `Hola ${firstName}, soy *${ejecutivoName}* de *${brandName}*.`,
     ``,
     `Te envi\u00e9 por correo una propuesta de seguridad personalizada. En tu portal privado podr\u00e1s revisar el detalle, ver la propuesta t\u00e9cnica y chatear directamente conmigo.`,
     ``,
-    `\u{1F449} *Ingresa al portal desde este link* (tu correo ya est\u00e1 prellenado):`,
+    `*Ingresa al portal desde este link* (tu correo ya est\u00e1 prellenado):`,
     portalUrl,
     ``,
-    `\u{1F510} *Credenciales de acceso:*`,
+    `*Credenciales de acceso:*`,
     `Correo: ${email}`,
     `PIN: ${pin}`,
     ``,
