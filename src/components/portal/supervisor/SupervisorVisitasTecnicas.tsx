@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ClipboardList, Plus, Loader2, MapPin, Clock, CheckCircle2, FileEdit } from "lucide-react";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
@@ -23,6 +23,8 @@ interface Props {
   installations: SupervisorInstallation[];
   onNew: () => void;
   onSelect: (visita: VisitaTecnica) => void;
+  initialFilter?: "todos" | "programada" | "borrador" | "en_curso" | "completada";
+  autoOpenFirstPending?: boolean;
 }
 
 const STATUS_CFG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -32,14 +34,23 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: React.Rea
   completada: { label: "Completada", color: "text-emerald-400", icon: <CheckCircle2 size={12} /> },
 };
 
-export function SupervisorVisitasTecnicas({ installations, onNew, onSelect }: Props) {
+export function SupervisorVisitasTecnicas({ installations, onNew, onSelect, initialFilter = "todos", autoOpenFirstPending }: Props) {
   const [items, setItems] = useState<VisitaTecnica[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"todos" | "programada" | "borrador" | "en_curso" | "completada">("todos");
+  const [filter, setFilter] = useState<"todos" | "programada" | "borrador" | "en_curso" | "completada">(initialFilter);
 
   useEffect(() => {
     load();
   }, []);
+
+  const pendientes = items.filter((v) => v.status === "programada");
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!autoOpenFirstPending || loading || pendientes.length !== 1 || autoOpenedRef.current) return;
+    autoOpenedRef.current = true;
+    onSelect(pendientes[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenFirstPending, loading, pendientes.length, pendientes[0]?.id]);
 
   async function load() {
     setLoading(true);

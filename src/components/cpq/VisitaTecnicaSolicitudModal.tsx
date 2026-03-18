@@ -47,8 +47,14 @@ interface Props {
     visitaId: string;
     supervisorName: string;
     supervisorEmail: string;
+    installationName?: string;
     installationAddress: string | null;
+    mapsUrl?: string | null;
+    contactName?: string | null;
+    contactPhone?: string | null;
     scheduledAt: string;
+    quoteCode?: string;
+    puestosDetail?: Array<{ name: string; cargo?: string | null; numGuards: number; numPuestos: number; startTime?: string | null; endTime?: string | null }>;
     emailSent: boolean;
   }) => void;
 }
@@ -117,15 +123,36 @@ export function VisitaTecnicaSolicitudModal({
       .finally(() => setLoadingContacts(false));
   }, [open, accountId]);
 
-  // Default scheduledAt: tomorrow at 10:00
+  // Default scheduledAt: tomorrow at 10:00 (minutos en intervalos de 15)
   useEffect(() => {
     if (!open || scheduledAt) return;
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(10, 0, 0, 0);
-    const local = tomorrow.toISOString().slice(0, 16);
-    setScheduledAt(local);
+    const y = tomorrow.getFullYear();
+    const m = String(tomorrow.getMonth() + 1).padStart(2, "0");
+    const d = String(tomorrow.getDate()).padStart(2, "0");
+    const h = String(tomorrow.getHours()).padStart(2, "0");
+    const min = "00"; // 00, 15, 30, 45
+    setScheduledAt(`${y}-${m}-${d}T${h}:${min}`);
   }, [open]);
+
+  const MINUTES = ["00", "15", "30", "45"] as const;
+  const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+
+  const scheduledDate = scheduledAt ? scheduledAt.slice(0, 10) : "";
+  const rawHour = scheduledAt ? scheduledAt.slice(11, 13) : "10";
+  const rawMinute = scheduledAt ? scheduledAt.slice(14, 16) : "00";
+  const scheduledHour = rawHour || "10";
+  const scheduledMinute = MINUTES.includes(rawMinute as (typeof MINUTES)[number])
+    ? rawMinute
+    : (MINUTES[Math.min(3, Math.round(parseInt(rawMinute, 10) / 15))] ?? "00");
+
+  const setScheduledDateTime = (date: string, hour: string, minute: string) => {
+    if (!date) return;
+    const m = MINUTES.includes(minute as (typeof MINUTES)[number]) ? minute : "00";
+    setScheduledAt(`${date}T${hour}:${m}`);
+  };
 
   const mapsUrl = installation?.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(installation.address)}`
@@ -245,18 +272,41 @@ export function VisitaTecnicaSolicitudModal({
             )}
           </div>
 
-          {/* Fecha y hora */}
+          {/* Fecha y hora (24h, minutos cada 15) */}
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5">
               <CalendarDays className="h-3.5 w-3.5" /> Fecha y hora *
             </Label>
-            <Input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              disabled={sending}
-              className="bg-background"
-            />
+            <div className="flex gap-2">
+              <Input
+                type="date"
+                value={scheduledDate}
+                onChange={(e) => setScheduledDateTime(e.target.value, scheduledHour, scheduledMinute)}
+                disabled={sending}
+                className="bg-background flex-1"
+              />
+              <select
+                value={scheduledHour}
+                onChange={(e) => setScheduledDateTime(scheduledDate, e.target.value, scheduledMinute)}
+                disabled={sending}
+                className="h-9 w-16 rounded-md border border-input bg-background px-2 text-sm"
+              >
+                {HOURS.map((h) => (
+                  <option key={h} value={h}>{h}</option>
+                ))}
+              </select>
+              <span className="flex items-center text-muted-foreground">:</span>
+              <select
+                value={scheduledMinute}
+                onChange={(e) => setScheduledDateTime(scheduledDate, scheduledHour, e.target.value)}
+                disabled={sending}
+                className="h-9 w-16 rounded-md border border-input bg-background px-2 text-sm"
+              >
+                {MINUTES.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Contacto en visita */}

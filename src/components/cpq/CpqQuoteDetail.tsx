@@ -138,8 +138,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
   const [visitaTecnicaWaData, setVisitaTecnicaWaData] = useState<{
     supervisorName: string;
     supervisorEmail: string;
+    installationName?: string;
     installationAddress: string | null;
+    mapsUrl?: string | null;
+    contactName?: string | null;
+    contactPhone?: string | null;
     scheduledAt: string;
+    quoteCode?: string;
+    puestosDetail?: Array<{ name: string; cargo?: string | null; numGuards: number; numPuestos: number; startTime?: string | null; endTime?: string | null }>;
   } | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savingFinancials, setSavingFinancials] = useState(false);
@@ -2097,8 +2103,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           setVisitaTecnicaWaData({
             supervisorName: data.supervisorName,
             supervisorEmail: data.supervisorEmail,
+            installationName: data.installationName,
             installationAddress: data.installationAddress,
+            mapsUrl: data.mapsUrl,
+            contactName: data.contactName,
+            contactPhone: data.contactPhone,
             scheduledAt: data.scheduledAt,
+            quoteCode: data.quoteCode,
+            puestosDetail: data.puestosDetail,
           });
           setVisitaTecnicaWaModalOpen(true);
           refresh();
@@ -2121,11 +2133,37 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                 Puedes enviarle también un mensaje por WhatsApp.
               </p>
               {(() => {
-                const fecha = new Date(visitaTecnicaWaData.scheduledAt);
+                const d = visitaTecnicaWaData;
+                const fecha = new Date(d.scheduledAt);
                 const fechaStr = fecha.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
-                const horaStr = fecha.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
-                const dir = visitaTecnicaWaData.installationAddress ?? "";
-                const msg = `Hola ${visitaTecnicaWaData.supervisorName}, se te asignó una visita técnica 🏢\n📅 ${fechaStr} a las ${horaStr}${dir ? `\n📍 ${dir}` : ""}\nRevisa los detalles en tu portal de supervisor.`;
+                const horaStr = `${String(fecha.getHours()).padStart(2, "0")}:${String(fecha.getMinutes()).padStart(2, "0")}`;
+                const lines: string[] = [
+                  `Hola ${d.supervisorName}, se te asignó una visita técnica 🏢`,
+                  "",
+                  `📅 ${fechaStr} a las ${horaStr}`,
+                ];
+                if (d.installationName) lines.push("", `🏢 ${d.installationName}`);
+                const dir = d.installationAddress ?? "";
+                if (dir) {
+                  const mapsLink = d.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dir)}`;
+                  lines.push(`📍 ${mapsLink}`);
+                }
+                if (d.contactName || d.contactPhone) {
+                  lines.push("");
+                  if (d.contactName) lines.push(`👤 Contacto: ${d.contactName}`);
+                  if (d.contactPhone) lines.push(`📱 ${d.contactPhone}`);
+                }
+                if (d.puestosDetail && d.puestosDetail.length > 0) {
+                  lines.push("", "📋 Dotación solicitada:");
+                  d.puestosDetail.forEach((p) => {
+                    const horario = [p.startTime, p.endTime].filter(Boolean).join("–") || "";
+                    const detalle = `${p.name} — ${p.numGuards} guardia${p.numGuards !== 1 ? "s" : ""}${horario ? ` · ${horario}` : ""}`;
+                    lines.push(`• ${detalle}`);
+                  });
+                }
+                if (d.quoteCode) lines.push("", `Cotización: ${d.quoteCode}`);
+                lines.push("", "Revisa los detalles en tu portal de supervisor.");
+                const msg = lines.join("\n");
                 const encoded = encodeURIComponent(msg);
                 return (
                   <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-1">

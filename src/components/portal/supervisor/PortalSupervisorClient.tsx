@@ -51,6 +51,7 @@ export function PortalSupervisorClient() {
   const [showCrearRendicion, setShowCrearRendicion] = useState(false);
   const [visitaTecnicaMode, setVisitaTecnicaMode] = useState<"list" | "form" | "detail">("list");
   const [selectedVisitaTecnicaId, setSelectedVisitaTecnicaId] = useState<string | undefined>();
+  const [visitaTecnicaFromCard, setVisitaTecnicaFromCard] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [novedadTrigger, setNovedadTrigger] = useState(0);
   const [visitasPendientesCount, setVisitasPendientesCount] = useState(0);
@@ -149,7 +150,8 @@ export function PortalSupervisorClient() {
         break;
       case "visita-tecnica":
         setActiveSection("visita-tecnica");
-        setVisitaTecnicaMode("form");
+        setVisitaTecnicaMode("list");
+        setVisitaTecnicaFromCard(true);
         break;
       case "novedad":
         setNovedadTrigger((n) => n + 1);
@@ -282,6 +284,8 @@ export function PortalSupervisorClient() {
               setSelectedVisitaTecnicaId(v.id);
               setVisitaTecnicaMode("detail");
             }}
+            initialFilter={visitaTecnicaFromCard && visitasPendientesCount > 0 ? "programada" : "todos"}
+            autoOpenFirstPending={visitaTecnicaFromCard && visitasPendientesCount === 1}
           />
         );
 
@@ -345,7 +349,12 @@ export function PortalSupervisorClient() {
         onChange={(s) => {
           setActiveSection(s);
           if (s !== "instalaciones") setSelectedInstallation(null);
-          if (s !== "visita-tecnica") setVisitaTecnicaMode("list");
+          if (s !== "visita-tecnica") {
+            setVisitaTecnicaMode("list");
+            setVisitaTecnicaFromCard(false);
+          } else {
+            setVisitaTecnicaFromCard(false);
+          }
           setShowCrearTE(false);
           setShowCrearRendicion(false);
         }}
@@ -365,7 +374,8 @@ export function PortalSupervisorClient() {
                 onClick={() => {
                   setActiveSection(id);
                   if (id !== "instalaciones") setSelectedInstallation(null);
-                  if (id !== "visita-tecnica") setVisitaTecnicaMode("list");
+                  setVisitaTecnicaMode("list");
+                  setVisitaTecnicaFromCard(false);
                   setShowCrearTE(false);
                   setShowCrearRendicion(false);
                   setMoreOpen(false);

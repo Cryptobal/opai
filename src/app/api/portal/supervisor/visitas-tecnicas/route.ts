@@ -17,11 +17,13 @@ export async function GET(req: NextRequest) {
   const installationId = searchParams.get("installationId");
   const status = searchParams.get("status");
 
+  // Listar visitas asignadas al supervisor (userId). No filtrar por installationIds:
+  // las visitas programadas desde CPQ pueden ser en instalaciones prospecto no asignadas.
   const items = await prisma.opsVisitaTecnica.findMany({
     where: {
       tenantId,
       userId: adminId,
-      ...(installationId ? { installationId } : { installationId: { in: installationIds } }),
+      ...(installationId ? { installationId } : {}),
       ...(status ? { status } : {}),
     },
     include: {
