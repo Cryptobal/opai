@@ -17,6 +17,7 @@ interface ConfirmDialogProps {
   variant?: "destructive" | "default";
   loading?: boolean;
   loadingLabel?: string;
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmDialog({
@@ -30,6 +31,7 @@ export function ConfirmDialog({
   variant = "destructive",
   loading = false,
   loadingLabel,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   const resolvedLoadingLabel =
     loadingLabel ?? (variant === "destructive" ? "Eliminando..." : "Guardando...");
@@ -85,7 +87,7 @@ export function ConfirmDialog({
             <Button
               variant={variant === "destructive" ? "destructive" : "default"}
               onClick={handleConfirm}
-              disabled={loading}
+              disabled={loading || confirmDisabled}
             >
               {loading ? (
                 <span className="flex items-center gap-2">

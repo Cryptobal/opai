@@ -1702,7 +1702,7 @@ export function CrmInstallationDetailClient({
     setStatusNextValue(next);
     const accountNeedsActivation =
       installation.account &&
-      (installation.account.isActive === false || installation.account.type === "prospect");
+      installation.account.isActive === false;
     setStatusActivateAccount(next === "active" && !!accountNeedsActivation);
     setStatusConfirmOpen(true);
   };
@@ -2118,9 +2118,11 @@ export function CrmInstallationDetailClient({
       module="accounts"
       title={installation.account.name}
       badge={
-        installation.account.type === "client"
+        installation.account.status === "client_active" || (installation.account.status == null && installation.account.type === "client" && installation.account.isActive)
           ? { label: "Cliente", variant: "success" }
-          : { label: "Prospecto", variant: "warning" }
+          : installation.account.status === "client_inactive" || (installation.account.status == null && installation.account.type === "client" && !installation.account.isActive)
+            ? { label: "Ex cliente", variant: "destructive" }
+            : { label: "Prospecto", variant: "warning" }
       }
       href={`/crm/accounts/${installation.account.id}`}
     />
@@ -2355,7 +2357,7 @@ export function CrmInstallationDetailClient({
         header={{
           avatar: { initials: installation.name.charAt(0).toUpperCase() },
           title: installation.name,
-          status: installation.status === "active" ? { label: "Activa", variant: "success" } : installation.status === "inactive" ? { label: "Inactiva", variant: "warning" } : { label: "Prospecto", variant: "secondary" },
+          status: installation.status === "active" ? { label: "Activa", variant: "success" } : installation.status === "inactive" ? { label: "Inactiva", variant: "destructive" } : { label: "Prospecto", variant: "warning" },
           actions: headerActions,
           extra: (
             <Button
@@ -2661,11 +2663,23 @@ export function CrmInstallationDetailClient({
         onOpenChange={setStatusConfirmOpen}
         title={statusNextValue === "active" ? "Activar instalación" : "Desactivar instalación"}
         description={
-          statusNextValue
-            ? statusActivateAccount
-              ? "La instalación quedará activa y también se activará la cuenta asociada para mantener consistencia."
-              : "La instalación quedará activa."
-            : "La instalación quedará inactiva."
+          statusNextValue === "active" ? (
+            statusActivateAccount ? (
+              <span className="space-y-2 block">
+                <span className="block">La instalación quedará activa.</span>
+                <span className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    La cuenta asociada (<strong>{installation.account?.name}</strong>) está inactiva. Al confirmar, también se activará la cuenta.
+                  </span>
+                </span>
+              </span>
+            ) : (
+              "La instalación quedará activa."
+            )
+          ) : (
+            "La instalación quedará inactiva."
+          )
         }
         confirmLabel={statusNextValue === "active" ? "Activar" : "Desactivar"}
         variant="default"

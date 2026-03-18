@@ -53,7 +53,7 @@ export default async function CrmInstallationDetailPage({
         updatedAt: true,
         accountId: true,
         leadId: true,
-        account: { select: { id: true, name: true, type: true, isActive: true } },
+        account: { select: { id: true, name: true, type: true, status: true, isActive: true } },
       },
     }),
     prisma.opsPuestoOperativo.findMany({

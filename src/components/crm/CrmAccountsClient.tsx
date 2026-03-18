@@ -366,7 +366,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
             <div className="space-y-2">
               {filteredAccounts.map((account) => {
                 const lifecycle = getLifecycle(account);
-                const statusLabel = lifecycle === "prospect" ? "Prospecto" : lifecycle === "client_active" ? "Cliente" : "Cliente inactivo";
+                const statusLabel = lifecycle === "prospect" ? "Prospecto" : lifecycle === "client_active" ? "Cliente" : "Ex cliente";
                 return (
                   <div
                     key={account.id}
@@ -421,14 +421,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <Badge
-                            variant="outline"
-                            className={
-                              lifecycle === "prospect"
-                                ? "border-amber-500/30 text-amber-400"
-                                : lifecycle === "client_active"
-                                ? "border-emerald-500/30 text-emerald-400"
-                                : "border-rose-500/30 text-rose-400"
-                            }
+                            variant={lifecycle === "prospect" ? "warning" : lifecycle === "client_active" ? "success" : "destructive"}
                           >
                             {statusLabel}
                           </Badge>
@@ -446,7 +439,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
               {filteredAccounts.map((account) => {
                 const lifecycle = getLifecycle(account);
-                const statusLabel = lifecycle === "prospect" ? "Prospecto" : lifecycle === "client_active" ? "Cliente" : "Cliente inactivo";
+                const statusLabel = lifecycle === "prospect" ? "Prospecto" : lifecycle === "client_active" ? "Cliente" : "Ex cliente";
                 return (
                   <div
                     key={account.id}
@@ -481,14 +474,8 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap mt-2 min-w-0">
                           <Badge
-                            variant="outline"
-                            className={`text-[10px] ${
-                              lifecycle === "prospect"
-                                ? "border-amber-500/30 text-amber-400"
-                                : lifecycle === "client_active"
-                                ? "border-emerald-500/30 text-emerald-400"
-                                : "border-rose-500/30 text-rose-400"
-                            }`}
+                            variant={lifecycle === "prospect" ? "warning" : lifecycle === "client_active" ? "success" : "destructive"}
+                            className="text-[10px]"
                           >
                             {statusLabel}
                           </Badge>

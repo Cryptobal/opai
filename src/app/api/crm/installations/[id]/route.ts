@@ -168,8 +168,7 @@ export async function PATCH(
 
       const accountNeedsActivation =
         updatedInstallation.account &&
-        (updatedInstallation.account.isActive === false ||
-          updatedInstallation.account.type === "prospect");
+        updatedInstallation.account.isActive === false;
 
       if (
         payload.status === "active" &&
@@ -253,6 +252,36 @@ export async function PATCH(
           data: { isActive: false },
         });
       }
+    }
+
+    // Sync finance cost center when installation status changes
+    if (payload.status !== undefined) {
+      const isActive = installation.status === "active";
+      const existingCC = await prisma.financeCostCenter.findFirst({
+        where: { tenantId: ctx.tenantId, installationId: id },
+      });
+      if (existingCC) {
+        await prisma.financeCostCenter.update({
+          where: { id: existingCC.id },
+          data: { active: isActive, name: installation.name },
+        });
+      } else if (isActive) {
+        await prisma.financeCostCenter.create({
+          data: {
+            tenantId: ctx.tenantId,
+            name: installation.name,
+            installationId: id,
+            accountId: installation.accountId ?? null,
+            active: true,
+          },
+        });
+      }
+    } else if (payload.name !== undefined) {
+      // Sync name change to linked cost center
+      await prisma.financeCostCenter.updateMany({
+        where: { tenantId: ctx.tenantId, installationId: id },
+        data: { name: installation.name },
+      });
     }
 
     revalidatePath(`/crm/installations`);
