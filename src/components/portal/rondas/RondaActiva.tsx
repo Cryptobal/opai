@@ -240,6 +240,16 @@ export function RondaActiva({
     };
   }, []);
 
+  // Disable pull-to-refresh on html/body while ronda is active
+  useEffect(() => {
+    document.body.style.overscrollBehavior = "none";
+    document.documentElement.style.overscrollBehavior = "none";
+    return () => {
+      document.body.style.overscrollBehavior = "";
+      document.documentElement.style.overscrollBehavior = "";
+    };
+  }, []);
+
   // Ad-hoc flag (needed early for tracking effect)
   const isAdHoc = !rondaData.templateId;
   // Free-form (GPS-only) mode: ad-hoc AND no checkpoints from installation
@@ -717,7 +727,7 @@ export function RondaActiva({
   // ---------------------------------------------------------------------------
   return (
     <div
-      className="flex h-dvh flex-col overflow-hidden"
+      className="flex h-dvh flex-col overflow-hidden overscroll-none touch-manipulation"
       style={{ backgroundColor: "#0a0a0f" }}
     >
       {/* ============ Header ============ */}
@@ -872,7 +882,7 @@ export function RondaActiva({
       </div>
 
       {/* ============ Bottom fixed area: card + complete button ============ */}
-      <div className="shrink-0 pb-16" style={{ backgroundColor: "#0a0a0f" }}>
+      <div className="shrink-0 pt-3 pb-16" style={{ backgroundColor: "#0a0a0f" }}>
         {/* Ad-hoc free-form: compact bottom panel */}
         {isAdHocFreeForm && (
           <div className="px-2 py-2">
