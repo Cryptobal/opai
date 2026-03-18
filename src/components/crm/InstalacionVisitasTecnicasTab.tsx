@@ -16,10 +16,13 @@ import {
   ChevronUp,
   ExternalLink,
   Briefcase,
+  Trash2,
 } from "lucide-react";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
 
 interface PuestoItem {
   name: string;
@@ -81,9 +84,10 @@ const OPINION_LABELS: Record<string, string> = {
 
 interface Props {
   installationId: string;
+  canDeleteVisitas?: boolean;
 }
 
-export function InstalacionVisitasTecnicasTab({ installationId }: Props) {
+export function InstalacionVisitasTecnicasTab({ installationId, canDeleteVisitas = false }: Props) {
   const [visitas, setVisitas] = useState<VisitaTecnica[]>([]);
   const [loading, setLoading] = useState(true);
   const [subTab, setSubTab] = useState<SubTab>("pendientes");
@@ -160,7 +164,18 @@ export function InstalacionVisitasTecnicasTab({ installationId }: Props) {
         ) : (
           <div className="space-y-3">
             {pendientes.map((v) => (
-              <PendienteCard key={v.id} visita={v} />
+              <PendienteCard
+                key={v.id}
+                visita={v}
+                canDelete={canDeleteVisitas}
+                onDelete={async (visitaId) => {
+                  const res = await fetch(`/api/crm/visitas-tecnicas/${visitaId}`, { method: "DELETE" });
+                  const json = await res.json();
+                  if (!res.ok) throw new Error(json.error || "Error al eliminar");
+                  setVisitas((prev) => prev.filter((x) => x.id !== visitaId));
+                  toast.success("Visita técnica eliminada");
+                }}
+              />
             ))}
           </div>
         )
@@ -183,7 +198,18 @@ export function InstalacionVisitasTecnicasTab({ installationId }: Props) {
 
 // ─── Card: Visita Pendiente ────────────────────────────────────────────────
 
-function PendienteCard({ visita }: { visita: VisitaTecnica }) {
+function PendienteCard({
+  visita,
+  canDelete = false,
+  onDelete,
+}: {
+  visita: VisitaTecnica;
+  canDelete?: boolean;
+  onDelete?: (visitaId: string) => Promise<void>;
+}) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const cfg = STATUS_CONFIG[visita.status] ?? STATUS_CONFIG.programada;
 
   const fecha = visita.scheduledAt
@@ -194,6 +220,20 @@ function PendienteCard({ visita }: { visita: VisitaTecnica }) {
   const hora = visita.scheduledAt
     ? new Date(visita.scheduledAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })
     : null;
+
+  const handleConfirmDelete = async () => {
+    if (!onDelete) return;
+    setDeleting(true);
+    try {
+      await onDelete(visita.id);
+      setDeleteOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error("No se pudo eliminar la visita técnica");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-3">
@@ -206,9 +246,22 @@ function PendienteCard({ visita }: { visita: VisitaTecnica }) {
             <p className="text-sm text-muted-foreground italic">Sin fecha programada</p>
           )}
         </div>
-        <Badge variant={cfg.variant} className="flex items-center gap-1 flex-shrink-0 text-[10px]">
-          {cfg.icon} {cfg.label}
-        </Badge>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Badge variant={cfg.variant} className="flex items-center gap-1 text-[10px]">
+            {cfg.icon} {cfg.label}
+          </Badge>
+          {canDelete && onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={() => setDeleteOpen(true)}
+              aria-label="Eliminar visita técnica"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
@@ -257,6 +310,20 @@ function PendienteCard({ visita }: { visita: VisitaTecnica }) {
             </p>
           ))}
         </div>
+      )}
+
+      {canDelete && onDelete && (
+        <ConfirmDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          title="Eliminar visita técnica"
+          description="Esta visita se eliminará del CRM y del portal del supervisor. Esta acción no se puede deshacer."
+          confirmLabel="Eliminar"
+          onConfirm={handleConfirmDelete}
+          variant="destructive"
+          loading={deleting}
+          loadingLabel="Eliminando..."
+        />
       )}
     </div>
   );

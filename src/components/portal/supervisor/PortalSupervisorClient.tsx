@@ -263,8 +263,15 @@ export function PortalSupervisorClient() {
           return (
             <VisitaTecnicaForm
               installations={session!.installations}
-              onBack={() => setVisitaTecnicaMode("list")}
-              onComplete={() => setVisitaTecnicaMode("list")}
+              visitaId={selectedVisitaTecnicaId ?? undefined}
+              onBack={() => {
+                setVisitaTecnicaMode("list");
+                setSelectedVisitaTecnicaId(undefined);
+              }}
+              onComplete={() => {
+                setVisitaTecnicaMode("list");
+                setSelectedVisitaTecnicaId(undefined);
+              }}
             />
           );
         }
@@ -279,10 +286,14 @@ export function PortalSupervisorClient() {
         return (
           <SupervisorVisitasTecnicas
             installations={session!.installations}
-            onNew={() => setVisitaTecnicaMode("form")}
+            onNew={() => {
+              setSelectedVisitaTecnicaId(undefined);
+              setVisitaTecnicaMode("form");
+            }}
             onSelect={(v) => {
               setSelectedVisitaTecnicaId(v.id);
-              setVisitaTecnicaMode("detail");
+              const isEditable = ["programada", "borrador", "en_curso"].includes(v.status);
+              setVisitaTecnicaMode(isEditable ? "form" : "detail");
             }}
             initialFilter={visitaTecnicaFromCard && visitasPendientesCount > 0 ? "programada" : "todos"}
             autoOpenFirstPending={visitaTecnicaFromCard && visitasPendientesCount === 1}

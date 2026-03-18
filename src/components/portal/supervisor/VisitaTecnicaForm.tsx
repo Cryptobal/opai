@@ -116,9 +116,81 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  // Create/retrieve visita on mount if no id
+  const [preselectedInstallation, setPreselectedInstallation] = useState<{
+    id: string;
+    name: string;
+    address: string | null;
+    accountId: string;
+    accountName: string;
+  } | null>(null);
+  const [loadingVisita, setLoadingVisita] = useState(!!initialVisitaId);
+
+  // Load existing visit when visitaId is provided
   useEffect(() => {
-    if (!visitaId && form.installationId && form.accountId) {
+    if (!initialVisitaId) {
+      setLoadingVisita(false);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/portal/supervisor/visitas-tecnicas/${initialVisitaId}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled || !json.success || !json.data) return;
+        const v = json.data;
+        setForm((f) => ({
+          ...f,
+          installationId: v.installationId ?? f.installationId,
+          accountId: v.accountId ?? f.accountId,
+          hasSecurityCurrently: v.hasSecurityCurrently ?? f.hasSecurityCurrently,
+          currentSecurityCompany: v.currentSecurityCompany ?? f.currentSecurityCompany,
+          guardsNeeded: v.guardsNeeded != null ? String(v.guardsNeeded) : f.guardsNeeded,
+          guardShiftType: v.guardShiftType ?? f.guardShiftType,
+          guardSalaryRange: v.guardSalaryRange ?? f.guardSalaryRange,
+          requiresTransport: v.requiresTransport ?? f.requiresTransport,
+          transportNotes: v.transportNotes ?? f.transportNotes,
+          requiresMeals: v.requiresMeals ?? f.requiresMeals,
+          mealNotes: v.mealNotes ?? f.mealNotes,
+          requiresExams: v.requiresExams ?? f.requiresExams,
+          examNotes: v.examNotes ?? f.examNotes,
+          requiresEquipment: v.requiresEquipment ?? f.requiresEquipment,
+          equipmentNotes: v.equipmentNotes ?? f.equipmentNotes,
+          requiresUniform: v.requiresUniform ?? f.requiresUniform,
+          uniformNotes: v.uniformNotes ?? f.uniformNotes,
+          generalReport: v.generalReport ?? f.generalReport,
+          securityRisks: v.securityRisks ?? f.securityRisks,
+          recommendations: v.recommendations ?? f.recommendations,
+          surveyContactName: v.surveyContactName ?? f.surveyContactName,
+          surveyContactRole: v.surveyContactRole ?? f.surveyContactRole,
+          surveyHowDidYouHear: v.surveyHowDidYouHear ?? f.surveyHowDidYouHear,
+          surveyVisitOpinion: v.surveyVisitOpinion ?? f.surveyVisitOpinion,
+          surveyExpectations: v.surveyExpectations ?? f.surveyExpectations,
+          surveyCurrentPainPoints: v.surveyCurrentPainPoints ?? f.surveyCurrentPainPoints,
+        }));
+        setCheckedIn(!!v.checkInAt);
+        setPhotos(Array.isArray(v.photos) ? v.photos : []);
+        setSignatureUrl(v.surveySignatureUrl ?? "");
+        if (v.installation && v.account) {
+          setPreselectedInstallation({
+            id: v.installation.id,
+            name: v.installation.name,
+            address: v.installation.address ?? null,
+            accountId: v.account.id,
+            accountName: v.account.name,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingVisita(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialVisitaId]);
+
+  // Create new visita on mount only when no id and no preselected
+  useEffect(() => {
+    if (!visitaId && form.installationId && form.accountId && !initialVisitaId) {
       createVisita();
     }
   }, []);
@@ -304,6 +376,15 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
     onComplete();
   }
 
+  if (loadingVisita) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-3 py-20">
+        <Loader2 className="animate-spin text-zinc-500" size={32} />
+        <p className="text-sm text-zinc-400">Cargando visita...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -315,7 +396,7 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
           <ArrowLeft size={18} />
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">Nueva Visita Técnica</p>
+          <p className="text-sm font-medium">{visitaId ? "Visita técnica" : "Nueva Visita Técnica"}</p>
           <p className="text-[11px] text-zinc-500">
             Paso {step + 1} de {STEPS.length}: {STEPS[step]}
           </p>
@@ -340,6 +421,7 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
         {step === 0 && (
           <Step1
             installations={installations}
+            preselectedInstallation={preselectedInstallation}
             installationId={form.installationId}
             checkedIn={checkedIn}
             onInstallationChange={(id, accountId) => {
@@ -436,6 +518,7 @@ interface SearchResult {
 
 function Step1({
   installations,
+  preselectedInstallation,
   installationId,
   checkedIn,
   onInstallationChange,
@@ -443,6 +526,7 @@ function Step1({
   saving,
 }: {
   installations: SupervisorInstallation[];
+  preselectedInstallation?: { id: string; name: string; address: string | null; accountId: string; accountName: string } | null;
   installationId: string;
   checkedIn: boolean;
   onInstallationChange: (id: string, accountId: string) => void;
@@ -454,7 +538,11 @@ function Step1({
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
 
-  const allOptions = [...installations];
+  const knownIds = new Set(installations.map((i) => i.id));
+  const preselected = preselectedInstallation && !knownIds.has(preselectedInstallation.id)
+    ? [preselectedInstallation]
+    : [];
+  const allOptions = [...preselected, ...installations];
   const inst =
     allOptions.find((i) => i.id === installationId) ??
     searchResults.find((r) => r.id === installationId);
@@ -472,7 +560,7 @@ function Step1({
         );
         if (res.ok) {
           const json = await res.json();
-          const known = new Set(installations.map((i) => i.id));
+          const known = new Set([...installations.map((i) => i.id), ...(preselectedInstallation ? [preselectedInstallation.id] : [])]);
           setSearchResults(
             (json.data ?? []).filter((r: SearchResult) => !known.has(r.id))
           );
@@ -484,7 +572,7 @@ function Step1({
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, searchMode, installations]);
+  }, [searchQuery, searchMode, installations, preselectedInstallation]);
 
   return (
     <div className="flex flex-col gap-4 py-4">
@@ -494,12 +582,12 @@ function Step1({
             <select
               value={installationId}
               onChange={(e) => {
-                const i = installations.find((x) => x.id === e.target.value);
+                const i = allOptions.find((x) => x.id === e.target.value);
                 onInstallationChange(e.target.value, i?.accountId ?? "");
               }}
               className="form-select"
             >
-              {installations.map((i) => (
+              {allOptions.map((i) => (
                 <option key={i.id} value={i.id}>
                   {i.name} — {i.accountName}
                 </option>
