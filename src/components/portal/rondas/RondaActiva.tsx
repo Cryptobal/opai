@@ -155,9 +155,6 @@ export function RondaActiva({
     string | null
   >(null);
 
-  // -- Map collapse state --
-  const [mapCollapsed, setMapCollapsed] = useState(false);
-
   // -- Manual override: guard tapped a checkpoint on the map --
   const [selectedCheckpointId, setSelectedCheckpointId] = useState<string | null>(null);
   const selectedOverrideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -583,8 +580,6 @@ export function RondaActiva({
     ? checkpoints.find((c) => c.id === markingCheckpointId) ?? null
     : null;
 
-  const isAdHocMark = markingCheckpointId === "ad-hoc-scan" || markingCheckpointId === "ad-hoc-gps";
-
   const markingCpInfo = useMemo(() => {
     if (!markingCheckpointId) return null;
     if (markingCheckpoint) {
@@ -719,16 +714,14 @@ export function RondaActiva({
   // ---------------------------------------------------------------------------
   // Render: Main
   // ---------------------------------------------------------------------------
-  const pct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
-
   return (
     <div
-      className="flex flex-1 min-h-0 flex-col overflow-x-hidden overflow-y-auto"
+      className="flex h-dvh flex-col overflow-hidden"
       style={{ backgroundColor: "#0a0a0f" }}
     >
       {/* ============ Header ============ */}
       <header
-        className="sticky top-0 z-10 border-b border-gray-800 px-4 py-3"
+        className="shrink-0 z-10 border-b border-gray-800 px-4 py-3"
         style={{ backgroundColor: "#0a0a0f" }}
       >
         <div className="flex items-center gap-3">
@@ -843,12 +836,12 @@ export function RondaActiva({
         </div>
       )}
 
-      {/* ============ Leaflet Map ============ */}
-      <div className="relative" style={{ isolation: "isolate" }}>
+      {/* ============ Leaflet Map — flex-1 fills available space ============ */}
+      <div className="relative min-h-0 flex-1" style={{ isolation: "isolate" }}>
         <RondaMap
           checkpoints={mapCheckpoints}
           guardPosition={guardPos}
-          height={isAdHocFreeForm ? "25vh" : mapCollapsed ? "20vh" : "45vh"}
+          height="100%"
           showRoute={true}
           interactive={true}
           showCenterButton={true}
@@ -868,105 +861,43 @@ export function RondaActiva({
             }, 10000);
           }}
         />
-
-        {/* Map collapse toggle — hidden for ad-hoc rondas (fixed compact map) */}
-        {!isAdHocFreeForm && (
-          <button
-            onClick={() => setMapCollapsed((v) => !v)}
-            className="absolute bottom-0 left-1/2 z-10 flex min-h-[44px] -translate-x-1/2 translate-y-1/2 items-center gap-1 rounded-full border border-gray-700 bg-gray-900 px-4 py-2.5 text-xs text-gray-400 shadow-lg transition-colors hover:bg-gray-800 active:bg-gray-800"
-            aria-label={mapCollapsed ? "Expandir mapa" : "Colapsar mapa"}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className={`h-4 w-4 transition-transform ${mapCollapsed ? "rotate-180" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 15l7-7 7 7"
-              />
-            </svg>
-            {mapCollapsed ? "Expandir" : "Colapsar"}
-          </button>
-        )}
       </div>
 
-      {/* ============ Checkpoint List (scrollable) ============ */}
-      <main className="flex-1 space-y-2 overflow-y-auto px-4 pb-52 pt-6">
+      {/* ============ Bottom fixed area: card + complete button ============ */}
+      <div className="shrink-0" style={{ backgroundColor: "#0a0a0f" }}>
+        {/* Ad-hoc free-form: compact bottom panel */}
         {isAdHocFreeForm && (
-          <div className="space-y-4">
-            {/* GPS active indicator + timer + counter */}
-            <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
-              {/* GPS tracking status */}
-              <div className="mb-3 flex items-center gap-2">
+          <div className="px-2 py-2">
+            {/* Compact stats row */}
+            <div className="mb-2 flex items-center justify-between px-2">
+              <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-xs font-medium text-emerald-400">GPS activo — registrando recorrido</span>
+                <span className="text-xs font-medium text-emerald-400">GPS activo</span>
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-mono font-bold text-white">{formatElapsed(elapsedSeconds)}</p>
-                  <p className="text-xs text-gray-500">Tiempo transcurrido</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-teal-400">{completedCount}</p>
-                  <p className="text-xs text-gray-500">Puntos registrados</p>
-                </div>
-              </div>
+              <span className="text-xs text-gray-400">{completedCount} puntos &middot; {formatElapsed(elapsedSeconds)}</span>
             </div>
-
             {/* Action buttons: GPS + QR side by side */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setMarkingCheckpointId("ad-hoc-gps")}
-                className="flex flex-col items-center gap-2 rounded-xl border border-emerald-700/50 bg-emerald-950/30 px-3 py-4 text-center transition-colors active:bg-emerald-900/40"
-                style={{ minHeight: 80 }}
+                className="flex items-center justify-center gap-2 rounded-xl border border-emerald-700/50 bg-emerald-950/30 py-3 text-sm font-semibold text-emerald-400 transition-colors active:bg-emerald-900/40"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </div>
-                <p className="text-sm font-semibold text-emerald-400">Marcar GPS</p>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Marcar GPS
               </button>
-
               <button
                 onClick={() => setMarkingCheckpointId("ad-hoc-scan")}
-                className="flex flex-col items-center gap-2 rounded-xl border border-teal-700/50 bg-teal-950/30 px-3 py-4 text-center transition-colors active:bg-teal-900/40"
-                style={{ minHeight: 80 }}
+                className="flex items-center justify-center gap-2 rounded-xl border border-teal-700/50 bg-teal-950/30 py-3 text-sm font-semibold text-teal-400 transition-colors active:bg-teal-900/40"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-500/20">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                  </svg>
-                </div>
-                <p className="text-sm font-semibold text-teal-400">Marcar QR</p>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+                Marcar QR
               </button>
             </div>
-
-            {/* Mini-timeline of completed marcaciones */}
-            {adHocMarkedPoints.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-4 text-center">
-                <p className="text-sm text-gray-500">Sin puntos registrados aun</p>
-                <p className="mt-1 text-xs text-gray-600">Usa los botones para registrar puntos</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Puntos registrados</p>
-                {adHocMarkedPoints.map((pt, i) => (
-                  <div key={pt.id} className="flex items-center gap-3 rounded-lg border border-gray-800 bg-gray-900/40 px-3 py-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal-500/20 text-xs font-semibold text-teal-400">
-                      {i + 1}
-                    </span>
-                    <span className="flex-1 text-sm text-gray-300">{pt.name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
@@ -1027,52 +958,11 @@ export function RondaActiva({
 
         {/* Error */}
         {error && (
-          <div className="rounded-lg bg-red-500/20 px-4 py-3 text-center text-base text-red-300">
+          <div className="mx-2 mb-2 rounded-lg bg-red-500/20 px-4 py-2 text-center text-sm text-red-300">
             {error}
           </div>
         )}
-      </main>
-
-      {/* ============ Bottom Sticky Buttons ============ */}
-      {(() => {
-        const requiredPending = checkpoints.filter((cp) => cp.isRequired && !cp.completed);
-        const allRequiredDone = requiredPending.length === 0;
-        const optionalPending = checkpoints.filter((cp) => !cp.isRequired && !cp.completed);
-
-        return (
-          <div
-            className="fixed inset-x-0 bottom-16 z-20 border-t border-gray-800 px-4 pb-4 pt-3"
-            style={{ backgroundColor: "#0a0a0f" }}
-          >
-            <button
-              onClick={handleCompleteClick}
-              disabled={completing || (!isAdHocFreeForm && !allRequiredDone)}
-              className={`w-full rounded-xl py-3.5 text-base font-semibold transition-colors disabled:opacity-40 ${
-                allRequiredDone || isAdHocFreeForm
-                  ? "bg-teal-600 text-white hover:bg-teal-500 active:bg-teal-700"
-                  : "bg-gray-700 text-gray-400 cursor-not-allowed"
-              }`}
-              style={{ minHeight: 52 }}
-            >
-              {completing ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Completando...
-                </span>
-              ) : !isAdHocFreeForm && !allRequiredDone ? (
-                <>Faltan {requiredPending.length} obligatorio{requiredPending.length !== 1 ? "s" : ""}</>
-              ) : optionalPending.length > 0 ? (
-                <>{"\u2713"} Completar Ronda ({optionalPending.length} opcionales sin marcar)</>
-              ) : (
-                <>{"\u2713"} Completar Ronda</>
-              )}
-            </button>
-          </div>
-        );
-      })()}
+      </div>
 
       {/* ============ Confirmation Modal (incomplete checkpoints) ============ */}
       {showConfirmModal && (
