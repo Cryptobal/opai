@@ -33,6 +33,8 @@ import {
   Trash2,
   ToggleLeft,
   ToggleRight,
+  RefreshCw,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +72,7 @@ interface CostCenterData {
   name: string;
   code: string | null;
   active: boolean;
+  installationId?: string | null;
 }
 
 interface ApproverOption {
@@ -707,6 +710,7 @@ function CostCentersTab({ initialCostCenters }: { initialCostCenters: CostCenter
   const [editingCC, setEditingCC] = useState<CostCenterData | null>(null);
   const [form, setForm] = useState({ name: "", code: "" });
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const openCreate = useCallback(() => {
     setEditingCC(null);
@@ -776,49 +780,86 @@ function CostCentersTab({ initialCostCenters }: { initialCostCenters: CostCenter
     }
   }, []);
 
+  const handleSyncInstallations = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/finance/cost-centers/sync-installations", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al sincronizar");
+      toast.success(data.message ?? "Sincronización completada");
+      // Reload cost centers list
+      const listRes = await fetch("/api/finance/cost-centers");
+      const listData = await listRes.json();
+      if (listData.success) setCostCenters(listData.data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al sincronizar");
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold">Centros de costo</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">Define centros de costo para clasificar rendiciones.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Las instalaciones activas se sincronizan automáticamente. También puedes crear centros manuales.
+          </p>
         </div>
-        <Button size="sm" onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-1" />
-          Nuevo centro
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button size="sm" variant="outline" onClick={handleSyncInstallations} disabled={syncing}>
+            {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+            Sincronizar instalaciones
+          </Button>
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-1" />
+            Nuevo centro
+          </Button>
+        </div>
       </div>
 
       {costCenters.length === 0 ? (
         <Card>
           <CardContent className="pt-8 pb-8 text-center">
-            <p className="text-sm text-muted-foreground">No hay centros de costo configurados.</p>
+            <p className="text-sm text-muted-foreground">
+              No hay centros de costo configurados. Haz clic en &ldquo;Sincronizar instalaciones&rdquo; para importar las instalaciones activas.
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-1.5">
-          {costCenters.map((cc) => (
-            <div key={cc.id} className={cn("flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors", cc.active ? "border-border" : "border-border/50 opacity-60")}>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium">{cc.name}</p>
-                  {cc.code && <span className="text-xs text-muted-foreground font-mono">{cc.code}</span>}
-                  {!cc.active && <Badge className="bg-zinc-500/15 text-zinc-400 text-[10px]">Inactivo</Badge>}
+          {costCenters.map((cc) => {
+            const isFromInstallation = !!cc.installationId;
+            return (
+              <div key={cc.id} className={cn("flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors", cc.active ? "border-border" : "border-border/50 opacity-60")}>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium">{cc.name}</p>
+                    {cc.code && <span className="text-xs text-muted-foreground font-mono">{cc.code}</span>}
+                    {isFromInstallation && (
+                      <Badge className="bg-blue-500/10 text-blue-400 text-[10px] gap-1">
+                        <MapPin className="h-2.5 w-2.5" />
+                        Instalación
+                      </Badge>
+                    )}
+                    {!cc.active && <Badge className="bg-zinc-500/15 text-zinc-400 text-[10px]">Inactivo</Badge>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={() => handleToggleActive(cc)} className="h-8 w-8 p-0" disabled={isFromInstallation} title={isFromInstallation ? "Se gestiona automáticamente con la instalación" : undefined}>
+                    {cc.active ? <ToggleRight className="h-4 w-4 text-emerald-400" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(cc)} className="h-8 w-8 p-0" disabled={isFromInstallation} title={isFromInstallation ? "El nombre se sincroniza desde la instalación" : undefined}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDelete(cc.id)} className="h-8 w-8 p-0 text-red-400 hover:text-red-300" disabled={isFromInstallation} title={isFromInstallation ? "No se puede eliminar un CC vinculado a una instalación" : undefined}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Button variant="ghost" size="sm" onClick={() => handleToggleActive(cc)} className="h-8 w-8 p-0">
-                  {cc.active ? <ToggleRight className="h-4 w-4 text-emerald-400" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => openEdit(cc)} className="h-8 w-8 p-0">
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleDelete(cc.id)} className="h-8 w-8 p-0 text-red-400 hover:text-red-300">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

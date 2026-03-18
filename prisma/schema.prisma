@@ -4768,6 +4768,7 @@ model FinanceRendicion {
   submittedAt          DateTime?             @map("submitted_at") @db.Timestamptz(6)
   beneficiaryGuardiaId String?               @map("beneficiary_guardia_id") @db.Uuid
   beneficiaryGuardia   OpsGuardia?           @relation("finance_rendicion_beneficiary", fields: [beneficiaryGuardiaId], references: [id], onDelete: SetNull)
+  beneficiaryAdminId   String?               @map("beneficiary_admin_id") @db.Uuid
 
   approvals   FinanceApproval[]
   attachments FinanceAttachment[]

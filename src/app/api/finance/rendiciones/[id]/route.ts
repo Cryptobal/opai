@@ -20,6 +20,7 @@ const updateRendicionSchema = z.object({
   costCenterId: z.string().uuid().optional().nullable(),
   type: z.enum(["PURCHASE", "MILEAGE"]).optional(),
   beneficiaryGuardiaId: z.string().uuid().optional().nullable(),
+  beneficiaryAdminId: z.string().uuid().optional().nullable(),
 });
 
 // ── GET: detail with relations ──
@@ -145,6 +146,7 @@ export async function PATCH(
     if (body.costCenterId !== undefined) updateData.costCenterId = body.costCenterId;
     if (body.type !== undefined) updateData.type = body.type;
     if (body.beneficiaryGuardiaId !== undefined) updateData.beneficiaryGuardiaId = body.beneficiaryGuardiaId;
+    if (body.beneficiaryAdminId !== undefined) updateData.beneficiaryAdminId = body.beneficiaryAdminId;
 
     // If editing a rejected rendicion, revert to DRAFT
     if (existing.status === "REJECTED") {

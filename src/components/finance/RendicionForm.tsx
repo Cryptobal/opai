@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import {
   Receipt,
   Car,
@@ -26,6 +27,7 @@ import {
   Send,
   Image as ImageIcon,
   Users,
+  Navigation,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,12 +40,11 @@ interface ItemOption {
   category: string | null;
 }
 
-interface InstallationOption {
+interface CostCenterOption {
   id: string;
   name: string;
-  address: string | null;
-  accountId: string | null;
-  accountName: string;
+  code: string | null;
+  isFromInstallation: boolean;
 }
 
 interface KmConfig {
@@ -57,7 +58,7 @@ interface KmConfig {
 
 interface RendicionFormProps {
   items: ItemOption[];
-  installations: InstallationOption[];
+  costCenters: CostCenterOption[];
   config: KmConfig | null;
   /** If editing, pass initial data */
   initialData?: {
@@ -101,7 +102,7 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
 
 export function RendicionForm({
   items,
-  installations,
+  costCenters,
   config,
   initialData,
 }: RendicionFormProps) {
@@ -137,15 +138,16 @@ export function RendicionForm({
     initialData?.documentType ?? ""
   );
   const [itemId, setItemId] = useState(initialData?.itemId ?? "");
-  const [installationId, setInstallationId] = useState(
+  const [costCenterId, setCostCenterId] = useState(
     initialData?.costCenterId ?? ""
   );
 
   // Beneficiary guardia (rendición para tercero)
   const [forThirdParty, setForThirdParty] = useState(false);
   const [beneficiaryGuardiaId, setBeneficiaryGuardiaId] = useState<string | null>(null);
+  const [beneficiaryAdminId, setBeneficiaryAdminId] = useState<string | null>(null);
   const [beneficiaryName, setBeneficiaryName] = useState("");
-  const [beneficiaryResults, setBeneficiaryResults] = useState<Array<{ id: string; nombreCompleto: string; code?: string; rut?: string }>>([]);
+  const [beneficiaryResults, setBeneficiaryResults] = useState<Array<{ id: string; type: "guardia" | "admin"; nombreCompleto: string; code?: string; rut?: string; email?: string }>>([]);
   const [beneficiarySearching, setBeneficiarySearching] = useState(false);
   const [beneficiaryOpen, setBeneficiaryOpen] = useState(false);
   const beneficiaryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -155,12 +157,12 @@ export function RendicionForm({
   const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
 
   // Geolocation (mileage)
-  const [startLocation, setStartLocation] = useState<GeolocationData | null>(
-    null
-  );
+  const [startLocation, setStartLocation] = useState<GeolocationData | null>(null);
   const [endLocation, setEndLocation] = useState<GeolocationData | null>(null);
   const [locatingStart, setLocatingStart] = useState(false);
   const [locatingEnd, setLocatingEnd] = useState(false);
+  const [startMode, setStartMode] = useState<"gps" | "manual">("gps");
+  const [endMode, setEndMode] = useState<"gps" | "manual">("gps");
   const [tollAmount, setTollAmount] = useState("0");
 
   // Route tracking
@@ -449,15 +451,16 @@ export function RendicionForm({
           rendicionId = tripEndData.data?.rendicion?.id;
 
           // Update rendicion with extra fields if needed
-          if (rendicionId && (description || installationId || beneficiaryGuardiaId)) {
+          if (rendicionId && (description || costCenterId || beneficiaryGuardiaId)) {
             await fetch(`/api/finance/rendiciones/${rendicionId}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 description: description || null,
-                costCenterId: installationId || null,
+                costCenterId: costCenterId || null,
                 date,
                 beneficiaryGuardiaId: beneficiaryGuardiaId || null,
+                beneficiaryAdminId: beneficiaryAdminId || null,
               }),
             });
           }
@@ -470,8 +473,9 @@ export function RendicionForm({
             description: description || null,
             documentType: documentType || null,
             itemId: itemId || null,
-            costCenterId: installationId || null,
+            costCenterId: costCenterId || null,
             beneficiaryGuardiaId: beneficiaryGuardiaId || null,
+            beneficiaryAdminId: beneficiaryAdminId || null,
           };
 
           const url = initialData
@@ -532,7 +536,7 @@ export function RendicionForm({
       amount,
       documentType,
       itemId,
-      installationId,
+      costCenterId,
       attachments,
       startLocation,
       endLocation,
@@ -541,6 +545,8 @@ export function RendicionForm({
       mileageCost,
       initialData,
       router,
+      beneficiaryGuardiaId,
+      beneficiaryAdminId,
     ]
   );
 
@@ -677,63 +683,140 @@ export function RendicionForm({
           {/* Mileage-specific fields */}
           {type === "MILEAGE" && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
+              {/* Punto de inicio */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
                   <Label>Punto de inicio</Label>
+                  <div className="flex rounded-md overflow-hidden border border-border text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setStartMode("gps")}
+                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors", startMode === "gps" ? "bg-emerald-500/20 text-emerald-400" : "text-muted-foreground hover:text-foreground")}
+                    >
+                      <Navigation className="h-3 w-3" />
+                      GPS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStartMode("manual")}
+                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors border-l border-border", startMode === "manual" ? "bg-blue-500/20 text-blue-400" : "text-muted-foreground hover:text-foreground")}
+                    >
+                      <MapPin className="h-3 w-3" />
+                      Manual
+                    </button>
+                  </div>
+                </div>
+                {startMode === "gps" ? (
                   <Button
                     type="button"
                     variant={startLocation ? "outline" : "default"}
                     size="sm"
                     onClick={() => captureLocation("start")}
                     disabled={locatingStart}
-                    className={cn(
-                      "mt-1 w-full",
-                      errors.startLocation && "border-red-500"
-                    )}
+                    className={cn("w-full", errors.startLocation && "border-red-500")}
                   >
                     {locatingStart ? (
                       <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                     ) : (
-                      <MapPin className="h-4 w-4 mr-1.5" />
+                      <Navigation className="h-4 w-4 mr-1.5" />
                     )}
-                    {startLocation
+                    {startLocation?.address
+                      ? startLocation.address
+                      : startLocation
                       ? `${startLocation.lat.toFixed(5)}, ${startLocation.lng.toFixed(5)}`
-                      : "Capturar inicio"}
+                      : "Capturar inicio (ubicación actual)"}
                   </Button>
-                  {errors.startLocation && (
-                    <p className="text-xs text-red-400 mt-1">
-                      {errors.startLocation}
-                    </p>
-                  )}
-                </div>
-                <div>
+                ) : (
+                  <AddressAutocomplete
+                    value={startLocation?.address ?? ""}
+                    placeholder="Buscar dirección de inicio..."
+                    showMap={false}
+                    className={cn(errors.startLocation && "border-red-500")}
+                    onChange={(result) => {
+                      setStartLocation({ lat: result.lat, lng: result.lng, address: result.address, timestamp: Date.now() });
+                    }}
+                  />
+                )}
+                {errors.startLocation && (
+                  <p className="text-xs text-red-400 mt-1">{errors.startLocation}</p>
+                )}
+                {startLocation && (
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {startLocation.address || `${startLocation.lat.toFixed(5)}, ${startLocation.lng.toFixed(5)}`}
+                    <button type="button" onClick={() => setStartLocation(null)} className="ml-auto text-muted-foreground hover:text-foreground">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </p>
+                )}
+              </div>
+
+              {/* Punto de fin */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
                   <Label>Punto de fin</Label>
+                  <div className="flex rounded-md overflow-hidden border border-border text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setEndMode("gps")}
+                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors", endMode === "gps" ? "bg-emerald-500/20 text-emerald-400" : "text-muted-foreground hover:text-foreground")}
+                    >
+                      <Navigation className="h-3 w-3" />
+                      GPS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEndMode("manual")}
+                      className={cn("px-2.5 py-1 flex items-center gap-1 transition-colors border-l border-border", endMode === "manual" ? "bg-blue-500/20 text-blue-400" : "text-muted-foreground hover:text-foreground")}
+                    >
+                      <MapPin className="h-3 w-3" />
+                      Manual
+                    </button>
+                  </div>
+                </div>
+                {endMode === "gps" ? (
                   <Button
                     type="button"
                     variant={endLocation ? "outline" : "default"}
                     size="sm"
                     onClick={() => captureLocation("end")}
                     disabled={locatingEnd}
-                    className={cn(
-                      "mt-1 w-full",
-                      errors.endLocation && "border-red-500"
-                    )}
+                    className={cn("w-full", errors.endLocation && "border-red-500")}
                   >
                     {locatingEnd ? (
                       <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                     ) : (
-                      <MapPin className="h-4 w-4 mr-1.5" />
+                      <Navigation className="h-4 w-4 mr-1.5" />
                     )}
-                    {endLocation
+                    {endLocation?.address
+                      ? endLocation.address
+                      : endLocation
                       ? `${endLocation.lat.toFixed(5)}, ${endLocation.lng.toFixed(5)}`
-                      : "Capturar fin"}
+                      : "Capturar fin (ubicación actual)"}
                   </Button>
-                  {errors.endLocation && (
-                    <p className="text-xs text-red-400 mt-1">
-                      {errors.endLocation}
-                    </p>
-                  )}
-                </div>
+                ) : (
+                  <AddressAutocomplete
+                    value={endLocation?.address ?? ""}
+                    placeholder="Buscar dirección de fin..."
+                    showMap={false}
+                    className={cn(errors.endLocation && "border-red-500")}
+                    onChange={(result) => {
+                      setEndLocation({ lat: result.lat, lng: result.lng, address: result.address, timestamp: Date.now() });
+                    }}
+                  />
+                )}
+                {errors.endLocation && (
+                  <p className="text-xs text-red-400 mt-1">{errors.endLocation}</p>
+                )}
+                {endLocation && (
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {endLocation.address || `${endLocation.lat.toFixed(5)}, ${endLocation.lng.toFixed(5)}`}
+                    <button type="button" onClick={() => setEndLocation(null)} className="ml-auto text-muted-foreground hover:text-foreground">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </p>
+                )}
               </div>
 
               {/* Toll amount */}
@@ -825,20 +908,20 @@ export function RendicionForm({
             </div>
           )}
 
-          {/* Instalación / Centro de costo */}
-          {installations.length > 0 && (
+          {/* Centro de costo */}
+          {costCenters.length > 0 && (
             <div>
-              <Label htmlFor="installation">Instalación (centro de costo)</Label>
+              <Label htmlFor="costCenter">Centro de costo</Label>
               <SearchableSelect
-                value={installationId}
-                options={installations.map((inst) => ({
-                  id: inst.id,
-                  label: inst.name,
-                  description: [inst.accountName, inst.address].filter(Boolean).join(" — "),
+                value={costCenterId}
+                options={costCenters.map((cc) => ({
+                  id: cc.id,
+                  label: cc.name,
+                  description: cc.code ?? undefined,
                 }))}
-                placeholder="Seleccionar instalación (opcional)"
-                emptyText="No se encontraron instalaciones"
-                onChange={(id) => setInstallationId(id)}
+                placeholder="Seleccionar centro de costo (opcional)"
+                emptyText="No se encontraron centros de costo"
+                onChange={(id) => setCostCenterId(id)}
               />
             </div>
           )}
@@ -854,6 +937,7 @@ export function RendicionForm({
                   setForThirdParty(e.target.checked);
                   if (!e.target.checked) {
                     setBeneficiaryGuardiaId(null);
+                    setBeneficiaryAdminId(null);
                     setBeneficiaryName("");
                     setBeneficiaryResults([]);
                   }
@@ -862,7 +946,7 @@ export function RendicionForm({
               />
               <Label htmlFor="forThirdParty" className="cursor-pointer flex items-center gap-1.5 text-sm">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                Rendición para un guardia (tercero)
+                Rendición para un tercero (guardia o usuario)
               </Label>
             </div>
 
@@ -877,7 +961,7 @@ export function RendicionForm({
                     if (beneficiaryDebounceRef.current) clearTimeout(beneficiaryDebounceRef.current);
                     beneficiaryDebounceRef.current = setTimeout(() => searchBeneficiary(v), 250);
                   }}
-                  placeholder="Buscar guardia por nombre, código o RUT..."
+                  placeholder="Buscar guardia o usuario por nombre, RUT o código..."
                   className={cn(beneficiaryGuardiaId && "border-emerald-500/50 bg-emerald-500/5")}
                 />
                 {beneficiarySearching && (
@@ -891,6 +975,20 @@ export function RendicionForm({
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     onClick={() => {
                       setBeneficiaryGuardiaId(null);
+                      setBeneficiaryAdminId(null);
+                      setBeneficiaryName("");
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+                {!beneficiaryGuardiaId && beneficiaryAdminId && (
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setBeneficiaryGuardiaId(null);
+                      setBeneficiaryAdminId(null);
                       setBeneficiaryName("");
                     }}
                   >
@@ -904,21 +1002,39 @@ export function RendicionForm({
                         key={g.id}
                         className="cursor-pointer px-3 py-2.5 hover:bg-accent/60"
                         onClick={() => {
-                          setBeneficiaryGuardiaId(g.id);
+                          if (g.type === "guardia") {
+                            setBeneficiaryGuardiaId(g.id);
+                            setBeneficiaryAdminId(null);
+                          } else {
+                            setBeneficiaryAdminId(g.id);
+                            setBeneficiaryGuardiaId(null);
+                          }
                           setBeneficiaryName(g.nombreCompleto);
                           setBeneficiaryOpen(false);
                           setBeneficiaryResults([]);
                         }}
                       >
-                        <span className="font-medium">{g.nombreCompleto}</span>
-                        {g.rut && <span className="ml-2 text-xs text-muted-foreground">{g.rut}</span>}
-                        {g.code && <span className="ml-2 text-xs text-muted-foreground">Cód. {g.code}</span>}
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{g.nombreCompleto}</span>
+                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", g.type === "guardia" ? "bg-emerald-500/15 text-emerald-400" : "bg-blue-500/15 text-blue-400")}>
+                            {g.type === "guardia" ? "Guardia" : "Usuario"}
+                          </span>
+                        </div>
+                        <div className="flex gap-2 mt-0.5">
+                          {g.rut && <span className="text-xs text-muted-foreground">{g.rut}</span>}
+                          {g.code && <span className="text-xs text-muted-foreground">Cód. {g.code}</span>}
+                          {g.email && <span className="text-xs text-muted-foreground">{g.email}</span>}
+                        </div>
                       </li>
                     ))}
                   </ul>
                 )}
-                {beneficiaryGuardiaId && (
-                  <p className="text-xs text-emerald-400 mt-1">El pago se realizará a la cuenta bancaria de este guardia.</p>
+                {(beneficiaryGuardiaId || beneficiaryAdminId) && (
+                  <p className="text-xs text-emerald-400 mt-1">
+                    {beneficiaryGuardiaId
+                      ? "El pago se realizará a la cuenta bancaria de este guardia."
+                      : "El pago se realizará a este usuario del sistema."}
+                  </p>
                 )}
               </div>
             )}

@@ -20,6 +20,7 @@ const createRendicionSchema = z.object({
   itemId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
   costCenterId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
   beneficiaryGuardiaId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
+  beneficiaryAdminId: z.string().uuid().optional().nullable().transform((v) => v ?? undefined),
 });
 
 // ── GET: list rendiciones ──
@@ -154,6 +155,7 @@ export async function POST(request: NextRequest) {
           itemId: body.itemId ?? null,
           costCenterId: body.costCenterId ?? null,
           beneficiaryGuardiaId: body.beneficiaryGuardiaId ?? null,
+          beneficiaryAdminId: body.beneficiaryAdminId ?? null,
         },
         include: {
           item: { select: { id: true, name: true } },

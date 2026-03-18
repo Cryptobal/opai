@@ -78,6 +78,7 @@ export default async function FinanzasConfiguracionPage() {
     name: c.name,
     code: c.code,
     active: c.active,
+    installationId: c.installationId ?? null,
   }));
 
   const approverOptions = approvers.map((a) => ({

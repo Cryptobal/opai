@@ -101,6 +101,7 @@ export async function PATCH(
         startDate: true,
         endDate: true,
         accountId: true,
+        account: { select: { id: true, isActive: true } },
       },
     });
     if (!existing) {
@@ -134,7 +135,37 @@ export async function PATCH(
       payload.name === undefined
         ? prismaData
         : { ...prismaData, name: toSentenceCase(payload.name) ?? payload.name };
+    const accountNeedsActivation =
+      existing.accountId &&
+      existing.account &&
+      existing.account.isActive === false;
+
+    if (
+      payload.status === "active" &&
+      accountNeedsActivation &&
+      payload.activateAccount !== true
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No puedes activar una instalación de una cuenta inactiva sin activar la cuenta",
+        },
+        { status: 400 }
+      );
+    }
+
     let installation = await prisma.$transaction(async (tx) => {
+      if (
+        payload.status === "active" &&
+        payload.activateAccount === true &&
+        accountNeedsActivation
+      ) {
+        await tx.crmAccount.updateMany({
+          where: { id: existing.accountId!, tenantId: ctx.tenantId },
+          data: { isActive: true, type: "client", status: "client_active" },
+        });
+      }
+
       const updResult = await tx.crmInstallation.updateMany({
         where: { id, tenantId: ctx.tenantId },
         data: normalizedData,
@@ -142,7 +173,7 @@ export async function PATCH(
       if (updResult.count === 0) {
         throw new Error("INSTALLATION_NOT_FOUND");
       }
-      let updatedInstallation = await tx.crmInstallation.findFirst({
+      const updatedInstallation = await tx.crmInstallation.findFirst({
         where: { id, tenantId: ctx.tenantId },
         select: {
           id: true,
@@ -165,37 +196,6 @@ export async function PATCH(
         },
       });
       if (!updatedInstallation) throw new Error("INSTALLATION_NOT_FOUND");
-
-      const accountNeedsActivation =
-        updatedInstallation.account &&
-        updatedInstallation.account.isActive === false;
-
-      if (
-        payload.status === "active" &&
-        payload.activateAccount === true &&
-        updatedInstallation.accountId &&
-        accountNeedsActivation
-      ) {
-        await tx.crmAccount.updateMany({
-          where: { id: updatedInstallation.accountId, tenantId: ctx.tenantId },
-          data: { isActive: true, type: "client", status: "client_active" },
-        });
-        return {
-          ...updatedInstallation,
-          account: updatedInstallation.account
-            ? { ...updatedInstallation.account, isActive: true, type: "client" as const }
-            : updatedInstallation.account,
-        };
-      }
-
-      if (
-        payload.status === "active" &&
-        updatedInstallation.accountId &&
-        accountNeedsActivation &&
-        payload.activateAccount !== true
-      ) {
-        throw new Error("ACCOUNT_INACTIVE");
-      }
 
       return updatedInstallation;
     });

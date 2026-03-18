@@ -141,6 +141,19 @@ export async function POST(request: NextRequest) {
       createdBy: ctx.userId,
     });
 
+    // Auto-create finance cost center for active installations
+    if (installation.status === "active") {
+      await prisma.financeCostCenter.create({
+        data: {
+          tenantId: ctx.tenantId,
+          name: installation.name,
+          installationId: installation.id,
+          accountId: installation.accountId ?? null,
+          active: true,
+        },
+      });
+    }
+
     return NextResponse.json({ success: true, data: installation }, { status: 201 });
   } catch (error) {
     console.error("Error creating installation:", error);

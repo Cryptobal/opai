@@ -25,33 +25,17 @@ export default async function NuevaRendicionPage() {
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
 
-  const [items, installations, config] = await Promise.all([
+  const [items, costCenters, config] = await Promise.all([
     prisma.financeRendicionItem.findMany({
       where: { tenantId, active: true },
       select: { id: true, name: true, code: true, category: true },
       orderBy: { name: "asc" },
     }),
-    // Cargar instalaciones activas con su cliente (activo por isActive o status)
-    prisma.crmInstallation.findMany({
-      where: {
-        tenantId,
-        status: "active",
-        account: {
-          OR: [
-            { isActive: true },
-            { status: "client_active" },
-          ],
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        address: true,
-        account: {
-          select: { id: true, name: true },
-        },
-      },
-      orderBy: [{ account: { name: "asc" } }, { name: "asc" }],
+    // Cargar centros de costo activos (incluye los de instalaciones y manuales)
+    prisma.financeCostCenter.findMany({
+      where: { tenantId, active: true },
+      select: { id: true, name: true, code: true, installationId: true },
+      orderBy: { name: "asc" },
     }),
     prisma.financeRendicionConfig.findUnique({
       where: { tenantId },
@@ -66,13 +50,11 @@ export default async function NuevaRendicionPage() {
     }),
   ]);
 
-  // Agrupar instalaciones por cliente para el selector
-  const installationOptions = installations.map((inst) => ({
-    id: inst.id,
-    name: inst.name,
-    address: inst.address,
-    accountId: inst.account?.id ?? null,
-    accountName: inst.account?.name ?? "Sin cliente",
+  const costCenterOptions = costCenters.map((cc) => ({
+    id: cc.id,
+    name: cc.name,
+    code: cc.code,
+    isFromInstallation: cc.installationId !== null,
   }));
 
   return (
@@ -88,7 +70,7 @@ export default async function NuevaRendicionPage() {
           code: i.code,
           category: i.category,
         }))}
-        installations={installationOptions}
+        costCenters={costCenterOptions}
         config={
           config
             ? {
