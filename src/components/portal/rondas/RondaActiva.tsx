@@ -760,15 +760,11 @@ export function RondaActiva({
             Volver
           </button>
 
-          {/* Ronda name */}
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-semibold text-white">
-              {isAdHoc ? "Ronda Libre" : rondaData.templateName}
-            </h1>
-          </div>
+          {/* Spacer */}
+          <div className="flex-1" />
 
           {/* Timer + Progress ring + GPS status */}
-          <div className="flex shrink-0 items-center gap-1.5 text-sm">
+          <div className="flex items-center gap-1.5 text-sm">
             <GpsStatusIndicator accuracy={gpsAccuracy} isWatching={guardPos !== null} />
             <span className="text-gray-400 tabular-nums">
               {formatElapsed(elapsedSeconds)}
@@ -882,7 +878,7 @@ export function RondaActiva({
       </div>
 
       {/* ============ Bottom fixed area: card + complete button ============ */}
-      <div className="shrink-0 pt-3 pb-16" style={{ backgroundColor: "#0a0a0f" }}>
+      <div className="shrink-0 pt-3" style={{ backgroundColor: "#0a0a0f", paddingBottom: "calc(64px + env(safe-area-inset-bottom, 0px) + 8px)" }}>
         {/* Ad-hoc free-form: compact bottom panel */}
         {isAdHocFreeForm && (
           <div className="px-2 py-2">
