@@ -1,34 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startOfDayChile, endOfDayChile } from "@/lib/rondas/timezone";
-import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requirePortalClienteAuth();
-    if (!session) {
-      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
-    }
-    const { tenantId } = session;
-
     const guardiaId = request.nextUrl.searchParams.get("guardiaId");
     const installationId = request.nextUrl.searchParams.get("installationId");
+    const tenantId = request.nextUrl.searchParams.get("tenantId");
 
-    if (!guardiaId || !installationId) {
+    if (!guardiaId || !installationId || !tenantId) {
       return NextResponse.json({ success: false, error: "Parámetros requeridos" }, { status: 400 });
     }
 
-    if (!UUID_RE.test(guardiaId) || !UUID_RE.test(installationId)) {
+    if (!UUID_RE.test(guardiaId) || !UUID_RE.test(installationId) || !UUID_RE.test(tenantId)) {
       return NextResponse.json(
         { success: false, error: "Formato de parámetros inválido" },
         { status: 400 },
       );
-    }
-
-    if (!session.installationIds.includes(installationId)) {
-      return NextResponse.json({ success: false, error: "Sin acceso a esta instalación" }, { status: 403 });
     }
 
     // Get active templates for this installation
