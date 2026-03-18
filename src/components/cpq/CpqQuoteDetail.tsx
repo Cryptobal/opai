@@ -2119,7 +2119,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
 
       {/* ── Modal WhatsApp post visita técnica ── */}
       <Dialog open={visitaTecnicaWaModalOpen} onOpenChange={setVisitaTecnicaWaModalOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-green-400" />
@@ -2128,7 +2128,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           </DialogHeader>
           {visitaTecnicaWaData && (
             <div className="py-2 space-y-3">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground flex-shrink-0">
                 Email enviado a <strong className="text-foreground">{visitaTecnicaWaData.supervisorEmail}</strong>.
                 Puedes enviarle también un mensaje por WhatsApp.
               </p>
@@ -2138,23 +2138,23 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                 const fechaStr = fecha.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
                 const horaStr = `${String(fecha.getHours()).padStart(2, "0")}:${String(fecha.getMinutes()).padStart(2, "0")}`;
                 const lines: string[] = [
-                  `Hola ${d.supervisorName}, se te asignó una visita técnica 🏢`,
+                  `Hola ${d.supervisorName}, se te asignó una visita técnica`,
                   "",
-                  `📅 ${fechaStr} a las ${horaStr}`,
+                  `${fechaStr} a las ${horaStr}`,
                 ];
-                if (d.installationName) lines.push("", `🏢 ${d.installationName}`);
+                if (d.installationName) lines.push("", d.installationName);
                 const dir = d.installationAddress ?? "";
                 if (dir) {
                   const mapsLink = d.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dir)}`;
-                  lines.push(`📍 ${mapsLink}`);
+                  lines.push(mapsLink);
                 }
                 if (d.contactName || d.contactPhone) {
                   lines.push("");
-                  if (d.contactName) lines.push(`👤 Contacto: ${d.contactName}`);
-                  if (d.contactPhone) lines.push(`📱 ${d.contactPhone}`);
+                  if (d.contactName) lines.push(`Contacto: ${d.contactName}`);
+                  if (d.contactPhone) lines.push(d.contactPhone);
                 }
                 if (d.puestosDetail && d.puestosDetail.length > 0) {
-                  lines.push("", "📋 Dotación solicitada:");
+                  lines.push("", "Dotación solicitada:");
                   d.puestosDetail.forEach((p) => {
                     const horario = [p.startTime, p.endTime].filter(Boolean).join("–") || "";
                     const detalle = `${p.name} — ${p.numGuards} guardia${p.numGuards !== 1 ? "s" : ""}${horario ? ` · ${horario}` : ""}`;
@@ -2166,9 +2166,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                 const msg = lines.join("\n");
                 const encoded = encodeURIComponent(msg);
                 return (
-                  <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-1">
+                  <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-2">
                     <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">Mensaje prellenado</p>
-                    <p className="text-xs text-muted-foreground whitespace-pre-line">{msg}</p>
+                    <div className="max-h-[280px] overflow-y-auto">
+                      <p className="text-sm text-muted-foreground whitespace-pre-line">{msg}</p>
+                    </div>
                     <div className="flex flex-col gap-2 pt-2">
                       <Button
                         className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white"
