@@ -529,6 +529,8 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   // ─── CPQ config per installation ───
   const [cpqConfigs, setCpqConfigs] = useState<Record<string, LeadCpqConfig>>({});
   const [proposalTemplates, setProposalTemplates] = useState<{ id: string; name: string; slug?: string }[]>([]);
+  const [ufValue, setUfValue] = useState<number | null>(null);
+  const [expandedInstallations, setExpandedInstallations] = useState<Record<string, boolean>>({});
 
   // Backward compat aliases from cpqConfigs
   const firstInstKey = installations[0]?._key;
@@ -618,6 +620,10 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     fetch("/api/cpq/proposal-templates").then((r) => r.json()).then((res) => {
       if (res?.success && Array.isArray(res.data)) setProposalTemplates(res.data);
+    }).catch(() => {});
+
+    fetch("/api/fx/uf").then((r) => r.ok ? r.json() : null).then((d) => {
+      if (d?.success) setUfValue(d.value);
     }).catch(() => {});
   }, []);
 
@@ -1730,35 +1736,61 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           {installations.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">Sin instalaciones. Agrega una para asignar dotación.</p>
           )}
-          {installations.map((inst, instIdx) => (
-            <div key={inst._key} className="rounded-lg border border-border bg-muted/10 overflow-hidden">
-              <div className="px-3 py-2 bg-muted/30 border-b border-border/60 flex items-center gap-2">
-                <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-xs font-semibold flex-1">Instalación {instIdx + 1}</span>
-                {installations.length > 1 && (
-                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeInstallation(inst._key)} aria-label="Eliminar instalación" title="Eliminar instalación">
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-              <div className="p-3 space-y-3">
-                <div className="space-y-1">
-                  <Label className="text-[11px]">Nombre *</Label>
-                  <Input value={inst.name} onChange={(e) => updateInstallation(inst._key, "name", e.target.value)} placeholder="Bodega central, Sucursal norte..." className={`h-9 text-sm ${inputClassName}`} />
+          {installations.map((inst, instIdx) => {
+            const instConfig = cpqConfigs[inst._key];
+            const isExpanded = expandedInstallations[inst._key] !== false; // default expanded
+            const instGuards = instConfig?.positions?.reduce((s, p) => s + (p.cantidad || 1) * (p.numPuestos || 1), 0) ?? 0;
+            return (
+            <div key={inst._key} className="rounded-xl border border-border/40 bg-card/50 overflow-hidden">
+              {/* Collapsible header */}
+              <button
+                type="button"
+                onClick={() => setExpandedInstallations((prev) => ({ ...prev, [inst._key]: !isExpanded }))}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <MapPin className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm font-semibold">
+                    Instalación {instIdx + 1}
+                    {inst.name && <span className="text-muted-foreground font-normal ml-1.5">— {inst.name}</span>}
+                  </span>
+                  {!isExpanded && instGuards > 0 && (
+                    <span className="text-[10px] text-muted-foreground ml-2">
+                      {instConfig?.positions?.length ?? 0} puesto(s) · {instGuards} guardias
+                    </span>
+                  )}
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px]">Dirección (Google Maps)</Label>
-                  <div className="flex gap-2 items-center">
-                    <AddressAutocomplete value={inst.address} onChange={(result) => handleAddressChange(inst._key, result)} placeholder="Buscar dirección..." className={`h-9 text-sm flex-1 ${inputClassName}`} showMap={false} />
-                    {(inst.address || (inst.lat != null && inst.lng != null)) && (
-                      <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" title="Abrir en Google Maps" asChild>
-                        <a href={inst.lat != null && inst.lng != null ? `https://www.google.com/maps/@${inst.lat},${inst.lng},17z` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inst.address)}`} target="_blank" rel="noreferrer">
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
-                    )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {installations.length > 1 && (
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); removeInstallation(inst._key); }}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
+                </div>
+              </button>
+              {/* Collapsible content */}
+              {isExpanded && (
+              <div className="px-4 pb-4 pt-1 space-y-3 border-t border-border/30">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Nombre *</Label>
+                    <Input value={inst.name} onChange={(e) => updateInstallation(inst._key, "name", e.target.value)} placeholder="Bodega central, Sucursal norte..." className={`h-9 text-sm ${inputClassName}`} />
                   </div>
-                  <MapsUrlPasteInput onResolve={(result) => handleAddressChange(inst._key, result)} className="mt-1.5" />
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Dirección (Google Maps)</Label>
+                    <div className="flex gap-2 items-center">
+                      <AddressAutocomplete value={inst.address} onChange={(result) => handleAddressChange(inst._key, result)} placeholder="Buscar dirección..." className={`h-9 text-sm flex-1 ${inputClassName}`} showMap={false} />
+                      {(inst.address || (inst.lat != null && inst.lng != null)) && (
+                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" title="Abrir en Google Maps" asChild>
+                          <a href={inst.lat != null && inst.lng != null ? `https://www.google.com/maps/@${inst.lat},${inst.lng},17z` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inst.address)}`} target="_blank" rel="noreferrer">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                    <MapsUrlPasteInput onResolve={(result) => handleAddressChange(inst._key, result)} className="mt-1.5" />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
@@ -1781,10 +1813,13 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   industry={approveForm.industry}
                   installationName={inst.name}
                   installationCity={inst.city}
+                  ufValue={ufValue}
                 />
               </div>
+              )}
             </div>
-          ))}
+            );
+          })}
           <p className="text-[10px] text-muted-foreground">Cada instalación tiene su propia configuración de puestos, costos y margen.</p>
         </div>
     );

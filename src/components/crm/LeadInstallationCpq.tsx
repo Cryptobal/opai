@@ -67,6 +67,7 @@ interface LeadInstallationCpqProps {
   industry?: string;
   installationName?: string;
   installationCity?: string;
+  ufValue?: number | null;
 }
 
 /* ─── Cost group constants ─── */
@@ -135,6 +136,7 @@ export function LeadInstallationCpq({
   industry,
   installationName,
   installationCity,
+  ufValue,
 }: LeadInstallationCpqProps) {
   const [secPuestos, setSecPuestos] = useState(true);
   const [secCostos, setSecCostos] = useState(false);
@@ -342,6 +344,21 @@ export function LeadInstallationCpq({
       setter(false);
     }
   };
+
+  // ─── Auto-generate AI descriptions when first position is added ───
+  const [autoGenTriggered, setAutoGenTriggered] = useState(false);
+  useEffect(() => {
+    if (autoGenTriggered) return;
+    if (config.positions.length === 0) return;
+    if (config.companyDescription || config.serviceDescription) return;
+    if (generatingCompany || generatingService) return;
+    setAutoGenTriggered(true);
+    const timer = setTimeout(() => {
+      generateDescription("company");
+      generateDescription("service");
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [config.positions.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Quick estimate ───
   const estimate = useMemo(() => {
@@ -738,49 +755,94 @@ export function LeadInstallationCpq({
       </Card>
 
       {/* ── Vista previa de la propuesta (HTML) ── */}
-      {config.positions.length > 0 && (config.companyDescription || config.serviceDescription) && (
+      {config.positions.length > 0 && (
         <Card className="shadow-sm overflow-hidden">
-          <div className="px-3 py-2 bg-muted/20 border-b border-border/40">
+          <div className="px-3 py-2 bg-muted/20 border-b border-border/40 flex items-center justify-between">
             <span className="text-[11px] font-semibold text-muted-foreground">Vista previa de la propuesta</span>
-          </div>
-          <div className="p-3 space-y-3 text-xs">
-            <div className="text-center space-y-1">
-              <div className="text-sm font-bold">GARD SECURITY</div>
-              <div className="text-muted-foreground">Propuesta Comercial</div>
-            </div>
-            {config.companyDescription && (
-              <div className="space-y-1">
-                <div className="text-[10px] font-semibold text-muted-foreground uppercase">Descripción</div>
-                <p className="text-xs whitespace-pre-wrap leading-relaxed">{config.companyDescription}</p>
-              </div>
-            )}
-            <div className="space-y-1">
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase">Puestos de trabajo</div>
-              <div className="space-y-0.5">
-                {config.positions.map((pos, i) => (
-                  <div key={i} className="flex justify-between text-[11px]">
-                    <span>{pos.customName || pos.puesto}</span>
-                    <span className="text-muted-foreground">{(pos.cantidad || 1) * (pos.numPuestos || 1)} guardia(s) · {pos.horaInicio}-{pos.horaFin}</span>
-                  </div>
+            {proposalTemplates.length > 0 && (
+              <div className="flex gap-1">
+                {proposalTemplates.filter((t) => !((t.name || "").toLowerCase().includes("presentación") && (t.name || "").toLowerCase().includes("empresa"))).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => update({ conditions: { ...config.conditions, proposalTemplateId: t.id } })}
+                    className={cn(
+                      "h-5 rounded px-2 text-[9px] font-medium border transition-colors",
+                      config.conditions.proposalTemplateId === t.id
+                        ? "border-primary/40 bg-primary/10 text-primary"
+                        : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    {t.name}
+                  </button>
                 ))}
               </div>
+            )}
+          </div>
+          <div className="p-4 space-y-4 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 max-h-[500px] overflow-y-auto text-xs">
+            {/* Header */}
+            <div className="text-center space-y-1 pb-3 border-b">
+              <div className="text-sm font-bold tracking-wide">GARD SECURITY</div>
+              <div className="text-[10px] text-zinc-500">Propuesta Comercial</div>
+              {accountName && <div className="text-[11px] font-semibold mt-1">{accountName}</div>}
+              {installationName && <div className="text-[10px] text-zinc-500">{installationName}{installationCity ? `, ${installationCity}` : ""}</div>}
             </div>
-            <div className="border-t border-border/40 pt-2 space-y-0.5">
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase">Evaluación económica</div>
-              <div className="flex justify-between"><span>Mano de obra:</span><span className="font-mono">{formatCurrency(Math.round(estimate.manoDeObra))}</span></div>
-              {estimate.directos > 0 && <div className="flex justify-between"><span>Costos directos:</span><span className="font-mono">{formatCurrency(Math.round(estimate.directos))}</span></div>}
-              {estimate.indirectos > 0 && <div className="flex justify-between"><span>Costos indirectos:</span><span className="font-mono">{formatCurrency(Math.round(estimate.indirectos))}</span></div>}
-              <div className="flex justify-between font-bold text-emerald-400 pt-1 border-t border-border/20">
-                <span>PRECIO VENTA MENSUAL:</span>
-                <span className="font-mono">{formatCurrency(Math.round(estimate.precioVenta))}</span>
+
+            {/* Company description */}
+            {config.companyDescription && (
+              <p className="text-[11px] whitespace-pre-wrap leading-relaxed text-zinc-700 dark:text-zinc-300">{config.companyDescription}</p>
+            )}
+
+            {/* Positions table */}
+            <div>
+              <div className="text-[10px] font-bold text-zinc-500 uppercase mb-2">
+                Puestos de trabajo · {estimate.totalGuardias} guardia(s)
               </div>
+              <table className="w-full text-[10px] border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-200 dark:border-zinc-700">
+                    <th className="text-left py-1.5 font-semibold">Puesto</th>
+                    <th className="text-center py-1.5 font-semibold w-16">Guardias</th>
+                    <th className="text-center py-1.5 font-semibold w-16">Puestos</th>
+                    <th className="text-center py-1.5 font-semibold w-20">Horario</th>
+                    <th className="text-center py-1.5 font-semibold w-16">Turno</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {config.positions.map((pos, i) => (
+                    <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800">
+                      <td className="py-1.5">{pos.customName || pos.puesto}</td>
+                      <td className="text-center">{pos.cantidad || 1}</td>
+                      <td className="text-center">{pos.numPuestos || 1}</td>
+                      <td className="text-center">{pos.horaInicio}-{pos.horaFin}</td>
+                      <td className="text-center">{pos.shiftType === "night" ? "Nocturno" : "Diurno"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+
+            {/* Economic evaluation */}
+            <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 p-3 text-center">
+              <div className="text-[9px] text-emerald-600 dark:text-emerald-400 uppercase font-semibold">Precio venta mensual neto</div>
+              <div className="text-xl font-bold text-emerald-700 dark:text-emerald-300 font-mono">{formatCurrency(Math.round(estimate.precioVenta))}</div>
+              {ufValue && ufValue > 0 && <div className="text-[11px] text-emerald-600 dark:text-emerald-400">{(estimate.precioVenta / ufValue).toFixed(2)} UF</div>}
+            </div>
+
+            {/* Service detail */}
             {config.serviceDescription && (
-              <div className="space-y-1">
-                <div className="text-[10px] font-semibold text-muted-foreground uppercase">Detalle del servicio</div>
-                <p className="text-xs whitespace-pre-wrap leading-relaxed">{config.serviceDescription}</p>
+              <div>
+                <div className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Detalle del servicio</div>
+                <p className="text-[11px] whitespace-pre-wrap leading-relaxed text-zinc-700 dark:text-zinc-300">{config.serviceDescription}</p>
               </div>
             )}
+
+            {/* Conditions footer */}
+            <div className="text-[9px] text-zinc-400 border-t border-zinc-200 dark:border-zinc-700 pt-2 space-y-0.5">
+              <div>Forma de pago: {config.conditions.paymentTerms === "contrafactura" ? "Contrafactura" : config.conditions.paymentTerms === "30_dias" ? "30 días" : "Pago anticipado"}</div>
+              <div>Duración del contrato: {config.conditions.contractDuration} meses</div>
+              <div>Inicio de servicios: {config.conditions.serviceStartDays} días hábiles desde la firma</div>
+            </div>
           </div>
         </Card>
       )}
@@ -791,6 +853,9 @@ export function LeadInstallationCpq({
           <div className="px-3 py-2.5 bg-emerald-500/5 border-b border-emerald-500/20">
             <div className="text-center">
               <div className="text-lg font-bold text-emerald-400 font-mono">{formatCurrency(Math.round(estimate.precioVenta))}</div>
+              {ufValue && ufValue > 0 && (
+                <div className="text-sm text-emerald-300/80 font-mono">{(estimate.precioVenta / ufValue).toFixed(2)} UF</div>
+              )}
               <div className="text-[10px] text-muted-foreground">
                 Precio de venta mensual · {estimate.totalPuestos} puesto(s) · {estimate.totalGuardias} guardia(s) · {config.marginPercentage}%
               </div>
