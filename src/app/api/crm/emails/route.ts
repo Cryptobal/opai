@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmView } from "@/lib/api-auth-crm";
 import { normalizeEmailAddress } from "@/lib/email-address";
 
 function buildEmailCandidates(values: Array<string | null | undefined>): string[] {
@@ -42,6 +43,8 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx);
+    if (forbidden) return forbidden;
 
     const { searchParams } = new URL(request.url);
     const dealId = searchParams.get("dealId");

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmView } from "@/lib/api-auth-crm";
 import { decryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import {
@@ -19,6 +20,8 @@ export async function GET(_request: NextRequest, { params }: Params) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const message = await prisma.crmEmailMessage.findFirst({

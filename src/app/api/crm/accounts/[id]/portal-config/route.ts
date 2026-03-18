@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth, unauthorized } from '@/lib/api-auth'
+import { requireCrmView, requireCrmEdit } from '@/lib/api-auth-crm'
 import { DEFAULT_PORTAL_CONFIG, PortalConfig } from '@/lib/portal-cliente'
 
 export async function GET(
@@ -9,6 +10,8 @@ export async function GET(
 ) {
   const ctx = await requireAuth()
   if (!ctx) return unauthorized()
+  const forbidden = await requireCrmView(ctx, "accounts")
+  if (forbidden) return forbidden
 
   const { id } = await params
 
@@ -34,6 +37,8 @@ export async function PATCH(
 ) {
   const ctx = await requireAuth()
   if (!ctx) return unauthorized()
+  const forbidden = await requireCrmEdit(ctx, "accounts")
+  if (forbidden) return forbidden
 
   const { id } = await params
   const body = await req.json()

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { prisma } from "@/lib/prisma";
 import { resolveDocument, buildEmpresaEntityData, buildQuoteEnrichedData, buildContractEntityData } from "@/lib/docs/token-resolver";
 import { uploadFile } from "@/lib/storage";
@@ -23,6 +24,8 @@ export async function GET(
 ) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
+  const forbidden = await requireCrmView(ctx, "accounts");
+  if (forbidden) return forbidden;
 
   const { id: accountId } = await params;
 
@@ -124,6 +127,8 @@ export async function POST(
 ) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
+  const forbidden = await requireCrmEdit(ctx, "accounts");
+  if (forbidden) return forbidden;
 
   const { id: accountId } = await params;
 

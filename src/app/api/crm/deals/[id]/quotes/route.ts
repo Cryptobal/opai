@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { linkDealQuoteSchema } from "@/lib/validations/crm";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
@@ -17,6 +18,8 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 
@@ -42,6 +45,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const parsed = await parseBody(request, linkDealQuoteSchema);

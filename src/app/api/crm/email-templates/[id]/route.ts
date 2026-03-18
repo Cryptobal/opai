@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 
 export async function PATCH(
   request: NextRequest,
@@ -15,6 +16,8 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const body = await request.json();
@@ -31,8 +34,8 @@ export async function PATCH(
       );
     }
 
-    const template = await prisma.crmEmailTemplate.update({
-      where: { id },
+    const result = await prisma.crmEmailTemplate.updateMany({
+      where: { id, tenantId: ctx.tenantId },
       data: {
         name: body?.name?.trim() ?? existing.name,
         subject: body?.subject?.trim() ?? existing.subject,
@@ -41,6 +44,15 @@ export async function PATCH(
         stageId: body?.stageId ?? existing.stageId,
       },
     });
+    if (result.count === 0) {
+      return NextResponse.json(
+        { success: false, error: "Template no encontrado" },
+        { status: 404 }
+      );
+    }
+    const template = await prisma.crmEmailTemplate.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    })!;
 
     return NextResponse.json({ success: true, data: template });
   } catch (error) {
@@ -59,6 +71,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmDelete(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 

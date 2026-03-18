@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 
 export async function GET(
   _request: NextRequest,
@@ -17,6 +18,8 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const { id: dealId } = await params;
 
@@ -126,6 +129,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmDelete(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const { id: dealId } = await params;
     const { searchParams } = new URL(request.url);
@@ -159,6 +164,8 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const { id: dealId } = await params;
     const body = await request.json();

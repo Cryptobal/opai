@@ -5,7 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqEdit, requireCpqDelete } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -23,8 +24,8 @@ export async function PUT(
     const { id: quoteId, itemId } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
 
     // Verify quote ownership
     const quote = await prisma.cpqQuote.findFirst({
@@ -90,8 +91,8 @@ export async function DELETE(
     const { id: quoteId, itemId } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqDelete(ctx);
+    if (forbidden) return forbidden;
 
     const quote = await prisma.cpqQuote.findFirst({
       where: { id: quoteId, tenantId: ctx.tenantId },

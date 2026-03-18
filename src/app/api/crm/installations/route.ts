@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { createInstallationSchema } from "@/lib/validations/crm";
 import { toSentenceCase } from "@/lib/text-format";
 import { createCrmHistoryLog } from "@/lib/crm-history";
@@ -15,6 +16,8 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx, "installations");
+    if (forbidden) return forbidden;
 
     const accountId = request.nextUrl.searchParams.get("accountId") || undefined;
 
@@ -57,6 +60,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "installations");
+    if (forbidden) return forbidden;
 
     const parsed = await parseBody(request, createInstallationSchema);
     if (parsed.error) return parsed.error;

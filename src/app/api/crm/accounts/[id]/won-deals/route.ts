@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmView } from "@/lib/api-auth-crm";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -12,6 +13,8 @@ export async function GET(
 ) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
+  const forbidden = await requireCrmView(ctx, "accounts");
+  if (forbidden) return forbidden;
 
   const { id } = await params;
 

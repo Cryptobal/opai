@@ -5,7 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized, ensureModuleAccess, ensureCanCreateQuote } from "@/lib/api-auth";
+import { requireAuth, unauthorized, ensureCanCreateQuote } from "@/lib/api-auth";
+import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 
@@ -13,8 +14,8 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqView(ctx);
+    if (forbidden) return forbidden;
     const tenantId = ctx.tenantId;
 
     const { searchParams } = new URL(request.url);

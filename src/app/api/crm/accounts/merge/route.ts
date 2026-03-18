@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 
 type MergeBody = {
@@ -41,6 +42,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx);
+    if (forbidden) return forbidden;
 
     const body: MergeBody = await request.json();
     const {
@@ -102,8 +105,8 @@ export async function POST(request: NextRequest) {
     await prisma.$transaction(async (tx) => {
       // 0. Aplicar overrides de campos al master
       if (Object.keys(masterUpdateData).length > 0) {
-        await tx.crmAccount.update({
-          where: { id: masterId },
+        await tx.crmAccount.updateMany({
+          where: { id: masterId, tenantId: ctx.tenantId },
           data: masterUpdateData,
         });
       }
@@ -162,13 +165,13 @@ export async function POST(request: NextRequest) {
 
       // 5. Reasignar OpsEncuestaCliente
       await tx.opsEncuestaCliente.updateMany({
-        where: { accountId: duplicateId },
+        where: { accountId: duplicateId, tenantId: ctx.tenantId },
         data: { accountId: masterId },
       });
 
       // 6. Reasignar OpsVisitaTecnica
       await tx.opsVisitaTecnica.updateMany({
-        where: { accountId: duplicateId },
+        where: { accountId: duplicateId, tenantId: ctx.tenantId },
         data: { accountId: masterId },
       });
 
@@ -179,14 +182,18 @@ export async function POST(request: NextRequest) {
       });
 
       // 8. Manejar personería (unique por cuenta)
-      const masterPersoneria = await tx.accountPersoneria.findUnique({ where: { accountId: masterId } });
-      const dupPersoneria = await tx.accountPersoneria.findUnique({ where: { accountId: duplicateId } });
+      const masterPersoneria = await tx.accountPersoneria.findFirst({
+        where: { accountId: masterId, tenantId: ctx.tenantId },
+      });
+      const dupPersoneria = await tx.accountPersoneria.findFirst({
+        where: { accountId: duplicateId, tenantId: ctx.tenantId },
+      });
       if (dupPersoneria) {
         if (masterPersoneria) {
           await tx.accountPersoneria.delete({ where: { id: dupPersoneria.id } });
         } else {
-          await tx.accountPersoneria.update({
-            where: { id: dupPersoneria.id },
+          await tx.accountPersoneria.updateMany({
+            where: { id: dupPersoneria.id, tenantId: ctx.tenantId },
             data: { accountId: masterId },
           });
         }

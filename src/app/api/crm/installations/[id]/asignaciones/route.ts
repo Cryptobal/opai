@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { getPermissionsFromAuth } from "@/lib/permissions-server";
 import { canView, canEdit } from "@/lib/permissions";
 import {
@@ -59,6 +60,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "installations");
+    if (forbidden) return forbidden;
 
     const perms = await getPermissionsFromAuth(ctx);
     const action = request.headers.get("x-action") || undefined;

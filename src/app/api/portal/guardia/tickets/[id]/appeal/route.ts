@@ -49,7 +49,9 @@ export async function POST(
       }
 
       // Delete old approval records
-      await tx.opsTicketApproval.deleteMany({ where: { ticketId } });
+      await tx.opsTicketApproval.deleteMany({
+        where: { ticketId, ticket: { tenantId: ticket.tenantId } },
+      });
 
       // Recreate approval steps if ticket type has them
       const needsApproval = ticketType?.requiresApproval && ticketType.approvalSteps.length > 0;
@@ -69,8 +71,8 @@ export async function POST(
       }
 
       // Update ticket status back to pending_approval
-      await tx.opsTicket.update({
-        where: { id: ticketId },
+      const updResult = await tx.opsTicket.updateMany({
+        where: { id: ticketId, tenantId: ticket.tenantId },
         data: {
           status: needsApproval ? "pending_approval" : "open",
           approvalStatus: needsApproval ? "pending" : null,
@@ -79,6 +81,9 @@ export async function POST(
           closedAt: null,
         },
       });
+      if (updResult.count === 0) {
+        throw new Error("TICKET_NOT_FOUND");
+      }
     });
 
     // Send notification to approval group
@@ -114,6 +119,9 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "TICKET_NOT_FOUND") {
+      return NextResponse.json({ success: false, error: "Ticket no encontrado" }, { status: 404 });
+    }
     console.error("[Portal] Appeal error:", error);
     return NextResponse.json({ success: false, error: "Error al apelar" }, { status: 500 });
   }

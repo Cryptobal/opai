@@ -5,7 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqEdit, requireCpqDelete } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 
 export async function PUT(
@@ -15,8 +16,8 @@ export async function PUT(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
 
     const { suggestionId } = await params;
     const body = await request.json();
@@ -65,8 +66,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqDelete(ctx);
+    if (forbidden) return forbidden;
 
     const { suggestionId } = await params;
 

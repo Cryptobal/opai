@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 
 const NOTE_NOTIFICATION_TYPES = [
   "mention",
@@ -13,6 +14,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx);
+    if (forbidden) return forbidden;
 
     const body = await request.json().catch(() => ({}));
     const rawNoteIds: unknown[] = Array.isArray(body.noteIds) ? body.noteIds : [];

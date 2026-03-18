@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { canEdit } from "@/lib/permissions";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
 
 export async function POST(
@@ -11,10 +11,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const perms = await resolveApiPerms(ctx);
-    if (!canEdit(perms, "crm", "accounts")) {
-      return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
-    }
+    const forbidden = await requireCrmEdit(ctx, "contacts");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const contact = await prisma.crmContact.findFirst({

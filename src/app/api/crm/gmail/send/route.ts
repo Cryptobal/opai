@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { decryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
@@ -50,6 +51,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx);
+    if (forbidden) return forbidden;
 
     const body = await request.json();
 

@@ -164,6 +164,10 @@ export function GuardPortalClient() {
             userType="guardia"
             userId={session.guardiaId}
             tenantId={session.tenantId}
+            sessionHeaders={{
+              "x-guardia-id": session.guardiaId,
+              "x-tenant-id": session.tenantId,
+            }}
           />
           {activeSection === "inicio" && (
             <InicioSection session={session} onNavigate={setActiveSection} />

@@ -6,7 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
 
 function normalizeColorHex(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -19,8 +20,8 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqView(ctx);
+    if (forbidden) return forbidden;
 
     const { searchParams } = new URL(request.url);
     const active = searchParams.get("active");
@@ -47,8 +48,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
 
     const body = await request.json();
     if (!body.name?.trim()) {

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmView } from "@/lib/api-auth-crm";
 import { getFileUrl } from "@/lib/storage";
 
 const ALLOWED_ENTITY_TYPES = ["lead", "deal", "account", "contact", "installation", "guardia"] as const;
@@ -14,6 +15,8 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx);
+    if (forbidden) return forbidden;
 
     const entityType = request.nextUrl.searchParams.get("entityType");
     const entityId = request.nextUrl.searchParams.get("entityId");

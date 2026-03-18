@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { z } from "zod";
 
 const quickCreateDealSchema = z.object({
@@ -16,6 +17,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const parsed = quickCreateDealSchema.safeParse(await request.json());
     if (!parsed.success) {

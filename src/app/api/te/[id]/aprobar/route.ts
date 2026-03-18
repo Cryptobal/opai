@@ -56,13 +56,29 @@ export async function PATCH(
       rejectionReason: null,
     };
     if (body.amountClp !== undefined) {
-      updateData.amountClp = body.amountClp;
+      const amount = Number(body.amountClp);
+      if (isNaN(amount) || amount < 0 || amount > 10_000_000) {
+        return NextResponse.json(
+          { success: false, error: "Monto inválido" },
+          { status: 400 }
+        );
+      }
+      updateData.amountClp = amount;
     }
 
-    const turno = await prisma.opsTurnoExtra.update({
-      where: { id },
+    const result = await prisma.opsTurnoExtra.updateMany({
+      where: { id, tenantId: ctx.tenantId },
       data: updateData,
     });
+    if (result.count === 0) {
+      return NextResponse.json(
+        { success: false, error: "Turno extra no encontrado" },
+        { status: 404 }
+      );
+    }
+    const turno = await prisma.opsTurnoExtra.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    })!;
 
     await createOpsAuditLog(ctx, "te.approved", "te_turno", id, {
       ...(body.amountClp !== undefined && Number(existing.amountClp) !== body.amountClp

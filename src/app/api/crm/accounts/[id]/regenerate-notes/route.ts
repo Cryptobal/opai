@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { openai } from "@/lib/openai";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 
 const ACCOUNT_LOGO_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_SUFFIX = "]]";
@@ -23,6 +24,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "accounts");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const body = (await request.json()) as { customInstruction?: string };

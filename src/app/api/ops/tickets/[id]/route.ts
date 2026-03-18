@@ -199,10 +199,16 @@ export async function PATCH(
     if (body.tags !== undefined) updateData.tags = body.tags;
     if (body.resolutionNotes !== undefined) updateData.resolutionNotes = body.resolutionNotes;
 
-    await prisma.opsTicket.update({
-      where: { id },
+    const updResult = await prisma.opsTicket.updateMany({
+      where: { id, tenantId: ctx.tenantId },
       data: updateData,
     });
+    if (updResult.count === 0) {
+      return NextResponse.json(
+        { success: false, error: "Ticket no encontrado" },
+        { status: 404 },
+      );
+    }
 
     // Re-fetch with full includes
     const updated = await prisma.opsTicket.findFirst({
@@ -261,15 +267,19 @@ export async function DELETE(
     await prisma.$transaction(async (tx) => {
       // Unlink refuerzo if exists (set ticketId to null, revert status)
       await tx.opsRefuerzoSolicitud.updateMany({
-        where: { ticketId: id },
+        where: { ticketId: id, tenantId: ctx.tenantId },
         data: { ticketId: null, status: "solicitado" },
       });
 
-      // Delete approvals
-      await tx.opsTicketApproval.deleteMany({ where: { ticketId: id } });
+      // Delete approvals (via ticket relation)
+      await tx.opsTicketApproval.deleteMany({
+        where: { ticketId: id, ticket: { tenantId: ctx.tenantId } },
+      });
 
-      // Delete comments
-      await tx.opsTicketComment.deleteMany({ where: { ticketId: id } });
+      // Delete comments (via ticket relation)
+      await tx.opsTicketComment.deleteMany({
+        where: { ticketId: id, ticket: { tenantId: ctx.tenantId } },
+      });
 
       // Delete the ticket
       await tx.opsTicket.delete({ where: { id } });

@@ -4,7 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqEdit } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -25,8 +26,8 @@ export async function PATCH(
     const { id: quoteId } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
 
     const quote = await prisma.cpqQuote.findFirst({
       where: { id: quoteId, tenantId: ctx.tenantId },

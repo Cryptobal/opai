@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { updateDealStageSchema } from "@/lib/validations/crm";
 
 export async function POST(
@@ -15,6 +16,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const parsed = await parseBody(request, updateDealStageSchema);

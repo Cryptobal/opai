@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import {
   scheduleFollowUps,
   cancelPendingFollowUps,
@@ -29,6 +30,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const body = await request.json();

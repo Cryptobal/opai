@@ -10,6 +10,7 @@ import { chromium } from 'playwright-core';
 import chromiumPkg from '@sparticuz/chromium';
 import { PricingData } from '@/types/presentation';
 import { formatCurrency } from '@/lib/utils';
+import { requireAuth, unauthorized } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Vercel: 60s timeout para Pro plan
@@ -344,6 +345,9 @@ function generatePricingHTML(data: PricingRequest): string {
 }
 
 export async function POST(request: NextRequest) {
+  const ctx = await requireAuth();
+  if (!ctx) return unauthorized();
+
   let browser;
   
   try {

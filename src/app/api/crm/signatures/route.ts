@@ -7,11 +7,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx);
+    if (forbidden) return forbidden;
 
     const { searchParams } = new URL(request.url);
     const onlyMine = searchParams.get("mine") === "true";
@@ -39,6 +42,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx);
+    if (forbidden) return forbidden;
 
     const body = await request.json();
     const { name, content, htmlContent, isDefault } = body;

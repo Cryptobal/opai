@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { processFollowUpLog } from "@/lib/process-followup-log";
 
 function scheduleAtChileHour(baseDate: Date, daysToAdd: number, hour: number): Date {
@@ -86,6 +87,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const { id: dealId } = await params;
     const body = await request.json();

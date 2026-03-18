@@ -4,15 +4,16 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqView } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqView(ctx);
+    if (forbidden) return forbidden;
 
     const { searchParams } = new URL(request.url);
     const serviceType = searchParams.get("serviceType");

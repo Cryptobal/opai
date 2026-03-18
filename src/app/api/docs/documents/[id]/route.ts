@@ -7,13 +7,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  requireAuth,
-  unauthorized,
-  parseBody,
-  ensureModuleAccess,
-  ensureCanDelete,
-} from "@/lib/api-auth";
+import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireDocsView, requireDocsEdit, requireDocsDelete } from "@/lib/api-auth-docs";
 import { updateDocumentSchema } from "@/lib/validations/docs";
 
 export async function GET(
@@ -23,6 +18,8 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireDocsView(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 
@@ -62,6 +59,8 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireDocsEdit(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const parsed = await parseBody(request, updateDocumentSchema);
@@ -132,18 +131,24 @@ export async function PATCH(
         });
       }
 
-      const result = await tx.document.update({
-        where: { id },
+      const updResult = await tx.document.updateMany({
+        where: { id, tenantId: ctx.tenantId },
         data: dataToUpdate,
+      });
+      if (updResult.count === 0) {
+        throw new Error("DOCUMENT_NOT_FOUND");
+      }
+      const result = await tx.document.findFirst({
+        where: { id, tenantId: ctx.tenantId },
         include: {
           template: { select: { id: true, name: true, module: true, category: true } },
           associations: true,
         },
-      });
+      })!;
 
       // Update associations if provided
       if (associations) {
-        await tx.docAssociation.deleteMany({ where: { documentId: id } });
+        await tx.docAssociation.deleteMany({ where: { documentId: id, document: { tenantId: ctx.tenantId } } });
         if (associations.length > 0) {
           await tx.docAssociation.createMany({
             data: associations.map((a) => ({
@@ -161,6 +166,12 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
+    if (error instanceof Error && error.message === "DOCUMENT_NOT_FOUND") {
+      return NextResponse.json(
+        { success: false, error: "Documento no encontrado" },
+        { status: 404 }
+      );
+    }
     console.error("Error updating document:", error);
     return NextResponse.json(
       { success: false, error: "Error al actualizar documento" },
@@ -176,10 +187,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenModule = await ensureModuleAccess(ctx, "docs");
-    if (forbiddenModule) return forbiddenModule;
-    const forbiddenDelete = await ensureCanDelete(ctx, "docs", "gestion");
-    if (forbiddenDelete) return forbiddenDelete;
+    const forbidden = await requireDocsDelete(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 

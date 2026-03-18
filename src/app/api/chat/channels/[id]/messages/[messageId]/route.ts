@@ -7,7 +7,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { canDelete } from "@/lib/permissions";
 import { triggerChatEvent, getSenderId } from "@/lib/chat";
 
 type RouteParams = { params: Promise<{ id: string; messageId: string }> };
@@ -251,11 +252,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Only sender can delete their own message, unless admin/owner
+    // Only sender can delete their own message, unless user has hub delete permission
     const isOwnMessage = message.senderType === "ADMIN" && message.senderAdminId === ctx.userId;
-    const isPrivileged = ctx.userRole === "owner" || ctx.userRole === "admin";
+    const perms = await resolveApiPerms(ctx);
+    const canDeleteAnyMessage = canDelete(perms, "hub");
 
-    if (!isOwnMessage && !isPrivileged) {
+    if (!isOwnMessage && !canDeleteAnyMessage) {
       return NextResponse.json(
         { success: false, error: "No tienes permiso para eliminar este mensaje" },
         { status: 403 }

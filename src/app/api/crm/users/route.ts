@@ -6,10 +6,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmView } from "@/lib/api-auth-crm";
 
 export async function GET() {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
+  const forbidden = await requireCrmView(ctx);
+  if (forbidden) return forbidden;
 
   const users = await prisma.admin.findMany({
     where: {

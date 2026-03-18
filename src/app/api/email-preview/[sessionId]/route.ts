@@ -11,6 +11,10 @@ import { prisma } from '@/lib/prisma';
 import { PresentationEmail } from '@/emails/PresentationEmail';
 import { render } from '@react-email/render';
 
+/**
+ * sessionId actúa como token: solo quien tiene el link puede ver.
+ * Usado por Zoho webhook preview (usuarios externos sin cuenta).
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }

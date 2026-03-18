@@ -27,9 +27,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Only the operator OR admin/owner/users with monitoreo_cerrar_turno capability can close
     const isOwnTurno = turno.operatorId === ctx.userId;
-    const isAdminRole = ctx.userRole === "owner" || ctx.userRole === "admin";
     const hasCloseCap = hasCapability(perms, "monitoreo_cerrar_turno");
-    if (!isOwnTurno && !isAdminRole && !hasCloseCap) {
+    const canEditRondas = canEdit(perms, "ops", "rondas");
+    if (!isOwnTurno && !hasCloseCap && !canEditRondas) {
       return NextResponse.json(
         { success: false, error: "Solo el operador del turno o un admin puede cerrarlo" },
         { status: 403 },

@@ -9,8 +9,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PresentationEmail } from '@/emails/PresentationEmail';
 import { render } from '@react-email/render';
+import { requireAuth, unauthorized } from '@/lib/api-auth';
 
 export async function GET(req: NextRequest) {
+  const ctx = await requireAuth();
+  if (!ctx) return unauthorized();
+
   try {
     // Datos de ejemplo
     const exampleData = {

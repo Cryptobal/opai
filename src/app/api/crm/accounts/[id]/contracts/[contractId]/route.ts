@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -12,6 +13,8 @@ export async function PATCH(
 ) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
+  const forbidden = await requireCrmEdit(ctx, "accounts");
+  if (forbidden) return forbidden;
 
   const { id: accountId, contractId } = await params;
 
@@ -84,6 +87,8 @@ export async function DELETE(
 ) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
+  const forbidden = await requireCrmDelete(ctx, "accounts");
+  if (forbidden) return forbidden;
 
   const { id: accountId, contractId } = await params;
 

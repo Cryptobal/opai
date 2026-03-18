@@ -137,15 +137,21 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
     if (body.notes !== undefined) updateData.notes = body.notes;
 
-    const updated = await prisma.payrollPeriod.update({
-      where: { id },
+    const updResult = await prisma.payrollPeriod.updateMany({
+      where: { id, tenantId: ctx.tenantId },
       data: updateData,
     });
+    if (updResult.count === 0) {
+      return NextResponse.json({ error: "Período no encontrado" }, { status: 404 });
+    }
+    const updated = await prisma.payrollPeriod.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    })!;
 
     // If marking as PAID, update all DRAFT/APPROVED liquidaciones to PAID
     if (body.status === "PAID") {
       await prisma.payrollLiquidacion.updateMany({
-        where: { periodId: id, status: { in: ["DRAFT", "APPROVED"] } },
+        where: { periodId: id, tenantId: ctx.tenantId, status: { in: ["DRAFT", "APPROVED"] } },
         data: { status: "PAID", paidAt: new Date() },
       });
     }
@@ -153,7 +159,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     // If reopening (PAID -> OPEN), revert liquidaciones to DRAFT
     if (body.status === "OPEN" && existing.status === "PAID") {
       await prisma.payrollLiquidacion.updateMany({
-        where: { periodId: id, status: "PAID" },
+        where: { periodId: id, tenantId: ctx.tenantId, status: "PAID" },
         data: { status: "DRAFT", paidAt: null },
       });
     }
@@ -189,10 +195,10 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 
     // Delete in order: liquidaciones, attendance records, attendance imports, then period
     // Cascade should handle most, but be explicit
-    await prisma.payrollLiquidacion.deleteMany({ where: { periodId: id } });
-    await prisma.payrollAttendanceRecord.deleteMany({ where: { periodId: id } });
-    await prisma.payrollAttendanceImport.deleteMany({ where: { periodId: id } });
-    await prisma.payrollAnticipoProcess.deleteMany({ where: { periodId: id } });
+    await prisma.payrollLiquidacion.deleteMany({ where: { periodId: id, tenantId: ctx.tenantId } });
+    await prisma.payrollAttendanceRecord.deleteMany({ where: { periodId: id, tenantId: ctx.tenantId } });
+    await prisma.payrollAttendanceImport.deleteMany({ where: { periodId: id, tenantId: ctx.tenantId } });
+    await prisma.payrollAnticipoProcess.deleteMany({ where: { periodId: id, tenantId: ctx.tenantId } });
     await prisma.payrollPeriod.delete({ where: { id } });
 
     return NextResponse.json({ data: { deleted: true } });

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { createDealSchema } from "@/lib/validations/crm";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 
@@ -14,6 +15,8 @@ export async function GET() {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const deals = await prisma.crmDeal.findMany({
       where: { tenantId: ctx.tenantId },
@@ -46,6 +49,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const parsed = await parseBody(request, createDealSchema);
     if (parsed.error) return parsed.error;

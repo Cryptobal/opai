@@ -65,7 +65,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
     // Desvincular marcaciones de rondas (quedan en BD con checkpointId null)
     await prisma.opsMarcacionCheckpoint.updateMany({
-      where: { checkpointId: id },
+      where: { checkpointId: id, tenantId: ctx.tenantId },
       data: { checkpointId: null },
     });
 

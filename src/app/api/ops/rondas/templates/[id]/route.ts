@@ -72,8 +72,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     await prisma.$transaction(async (tx) => {
-      await tx.opsRondaTemplate.update({
-        where: { id },
+      const updResult = await tx.opsRondaTemplate.updateMany({
+        where: { id, tenantId: ctx.tenantId },
         data: {
           name: parsed.data.name,
           description: parsed.data.description,
@@ -81,6 +81,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           estimatedDurationMin: parsed.data.estimatedDurationMin,
         },
       });
+      if (updResult.count === 0) {
+        throw new Error("TEMPLATE_NOT_FOUND");
+      }
 
       if (parsed.data.checkpointIds) {
         await tx.opsRondaCheckpoint.deleteMany({ where: { rondaTemplateId: id, tenantId: ctx.tenantId } });
@@ -98,6 +101,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "TEMPLATE_NOT_FOUND") {
+      return NextResponse.json({ success: false, error: "No encontrado" }, { status: 404 });
+    }
     console.error("[RONDAS] PATCH template", error);
     return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });
   }

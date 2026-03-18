@@ -405,6 +405,11 @@ export function PortalClienteClient() {
               userType="contact"
               userId={session.contactId}
               tenantId={session.tenantId}
+              sessionHeaders={{
+                "x-contact-id": session.contactId,
+                "x-tenant-id": session.tenantId,
+                "x-account-id": session.accountId,
+              }}
             />
           )}
           {renderSection()}

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 import { updateInstallationSchema } from "@/lib/validations/crm";
 import { toSentenceCase } from "@/lib/text-format";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
@@ -20,6 +21,8 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx, "installations");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 
@@ -131,10 +134,16 @@ export async function PATCH(
       payload.name === undefined
         ? prismaData
         : { ...prismaData, name: toSentenceCase(payload.name) ?? payload.name };
-    const installation = await prisma.$transaction(async (tx) => {
-      const updatedInstallation = await tx.crmInstallation.update({
-        where: { id },
+    let installation = await prisma.$transaction(async (tx) => {
+      const updResult = await tx.crmInstallation.updateMany({
+        where: { id, tenantId: ctx.tenantId },
         data: normalizedData,
+      });
+      if (updResult.count === 0) {
+        throw new Error("INSTALLATION_NOT_FOUND");
+      }
+      let updatedInstallation = await tx.crmInstallation.findFirst({
+        where: { id, tenantId: ctx.tenantId },
         select: {
           id: true,
           name: true,
@@ -155,6 +164,7 @@ export async function PATCH(
           account: { select: { id: true, name: true, type: true, status: true, isActive: true } },
         },
       });
+      if (!updatedInstallation) throw new Error("INSTALLATION_NOT_FOUND");
 
       const accountNeedsActivation =
         updatedInstallation.account &&
@@ -167,8 +177,8 @@ export async function PATCH(
         updatedInstallation.accountId &&
         accountNeedsActivation
       ) {
-        await tx.crmAccount.update({
-          where: { id: updatedInstallation.accountId },
+        await tx.crmAccount.updateMany({
+          where: { id: updatedInstallation.accountId, tenantId: ctx.tenantId },
           data: { isActive: true, type: "client", status: "client_active" },
         });
         return {
@@ -191,6 +201,13 @@ export async function PATCH(
       return updatedInstallation;
     });
 
+    if (!installation) {
+      return NextResponse.json(
+        { success: false, error: "Instalación no encontrada" },
+        { status: 404 }
+      );
+    }
+
     // Auto-manage chat channels when chatEnabled changes
     if (payload.chatEnabled !== undefined) {
       if (payload.chatEnabled) {
@@ -203,7 +220,7 @@ export async function PATCH(
         // Reactivate existing channels
         if (existingChannels.length > 0) {
           await prisma.chatChannel.updateMany({
-            where: { installationId: id },
+            where: { installationId: id, tenantId: ctx.tenantId },
             data: { isActive: true },
           });
         }
@@ -232,7 +249,7 @@ export async function PATCH(
       } else {
         // Deactivate all channels for this installation
         await prisma.chatChannel.updateMany({
-          where: { installationId: id },
+          where: { installationId: id, tenantId: ctx.tenantId },
           data: { isActive: false },
         });
       }
@@ -264,6 +281,12 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: installation });
   } catch (error) {
+    if (error instanceof Error && error.message === "INSTALLATION_NOT_FOUND") {
+      return NextResponse.json(
+        { success: false, error: "Instalación no encontrada" },
+        { status: 404 }
+      );
+    }
     if (error instanceof Error && error.message === "ACCOUNT_INACTIVE") {
       return NextResponse.json(
         {
@@ -288,6 +311,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmDelete(ctx, "installations");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireDocsView, requireDocsEdit } from "@/lib/api-auth-docs";
 import { createDocTemplateSchema } from "@/lib/validations/docs";
 import { extractTokenKeys } from "@/lib/docs/token-resolver";
 
@@ -195,6 +196,8 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireDocsView(ctx);
+    if (forbidden) return forbidden;
 
     const { searchParams } = new URL(request.url);
     const module = searchParams.get("module");
@@ -239,6 +242,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireDocsEdit(ctx);
+    if (forbidden) return forbidden;
 
     const parsed = await parseBody(request, createDocTemplateSchema);
     if (parsed.error) return parsed.error;

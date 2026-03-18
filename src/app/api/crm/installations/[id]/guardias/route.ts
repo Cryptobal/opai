@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmView } from "@/lib/api-auth-crm";
 import { getPermissionsFromAuth } from "@/lib/permissions-server";
 import { canView } from "@/lib/permissions";
 
@@ -16,6 +17,8 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx, "installations");
+    if (forbidden) return forbidden;
 
     const perms = await getPermissionsFromAuth(ctx);
     if (!canView(perms, "crm", "dotacion")) {

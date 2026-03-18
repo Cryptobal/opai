@@ -14,6 +14,7 @@ import { render } from "@react-email/render";
 import { prisma } from "@/lib/prisma";
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { CompanyPresentationEmail } from "@/emails/CompanyPresentationEmail";
 import bcrypt from "bcryptjs";
@@ -25,6 +26,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "contacts");
+    if (forbidden) return forbidden;
 
     const { id: contactId } = await params;
     const body = await _request.json().catch(() => ({}));

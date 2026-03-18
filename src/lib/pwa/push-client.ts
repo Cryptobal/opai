@@ -11,6 +11,8 @@ export async function subscribeToPush(params: {
   userType: 'admin' | 'contact' | 'guardia';
   userId: string;
   tenantId: string;
+  /** For portal (guardia/contact): headers to prove session. Admin uses cookie. */
+  sessionHeaders?: Record<string, string>;
 }): Promise<boolean> {
   const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   if (!vapidKey) {
@@ -27,9 +29,12 @@ export async function subscribeToPush(params: {
       applicationServerKey: urlBase64ToUint8Array(vapidKey),
     });
 
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (params.sessionHeaders) Object.assign(headers, params.sessionHeaders);
+
     const res = await fetch('/api/notifications/push/subscribe', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         subscription: subscription.toJSON(),
         portalType: params.portalType,
@@ -60,15 +65,20 @@ export async function subscribeToPush(params: {
 }
 
 export async function unsubscribeFromPush(
-  registration: ServiceWorkerRegistration
+  registration: ServiceWorkerRegistration,
+  /** For portal: headers to prove session. Admin uses cookie. */
+  sessionHeaders?: Record<string, string>
 ): Promise<boolean> {
   try {
     const subscription = await registration.pushManager.getSubscription();
     if (!subscription) return true;
 
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (sessionHeaders) Object.assign(headers, sessionHeaders);
+
     const res = await fetch('/api/notifications/push/subscribe', {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ endpoint: subscription.endpoint }),
     });
 

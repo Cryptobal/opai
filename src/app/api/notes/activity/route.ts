@@ -7,7 +7,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { canEdit } from "@/lib/permissions";
 import { CONTEXT_LABELS, buildNoteContextLink, getContextModule, isNotesTableMissing, notesNotAvailableResponse } from "@/lib/note-utils";
 import type { NoteContextType, Prisma } from "@prisma/client";
 
@@ -153,8 +154,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Visibility check — applied BEFORE query so count is accurate
-    const isFullAdmin = ctx.userRole === "owner" || ctx.userRole === "admin";
-    if (!isFullAdmin) {
+    const perms = await resolveApiPerms(ctx);
+    const canSeeAllNotes = canEdit(perms, "hub");
+    if (!canSeeAllNotes) {
       const visFilter: Prisma.NoteWhereInput = {
         OR: [
           { visibility: "PUBLIC" },

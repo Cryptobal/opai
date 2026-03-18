@@ -11,6 +11,7 @@ import { randomBytes } from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { toSentenceCase } from "@/lib/text-format";
 import { isDefaultUniform } from "@/lib/cpq-constants";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
@@ -144,6 +145,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "leads");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const body = await request.json();

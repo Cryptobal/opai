@@ -6,10 +6,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { PricingPDF } from '@/components/pdf/PricingPDF';
+import { requireAuth, unauthorized } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  const ctx = await requireAuth();
+  if (!ctx) return unauthorized();
+
   try {
     const body = await request.json();
     const { clientName, quoteNumber, pricing, quoteDate, contactEmail, contactPhone, companyName, website } = body;

@@ -76,16 +76,31 @@ export async function PATCH(
       );
     }
 
-    const group = await prisma.adminGroup.update({
-      where: { id },
+    const updResult = await prisma.adminGroup.updateMany({
+      where: { id, tenantId: ctx.tenantId },
       data: {
         name: body.name ?? undefined,
         description: body.description !== undefined ? body.description : undefined,
         color: body.color ?? undefined,
         isActive: body.isActive !== undefined ? body.isActive : undefined,
       },
+    });
+    if (updResult.count === 0) {
+      return NextResponse.json(
+        { success: false, error: "Grupo no encontrado" },
+        { status: 404 },
+      );
+    }
+    const group = await prisma.adminGroup.findFirst({
+      where: { id, tenantId: ctx.tenantId },
       include: { _count: { select: { memberships: true } } },
     });
+    if (!group) {
+      return NextResponse.json(
+        { success: false, error: "Grupo no encontrado" },
+        { status: 404 },
+      );
+    }
 
     const data: AdminGroup = {
       id: group.id,
@@ -104,11 +119,11 @@ export async function PATCH(
     // Sync chat channel name and active status
     try {
       const chatChannel = await prisma.chatChannel.findFirst({
-        where: { groupId: id, channelType: "GROUP" },
+        where: { groupId: id, channelType: "GROUP", tenantId: ctx.tenantId },
       });
       if (chatChannel) {
-        await prisma.chatChannel.update({
-          where: { id: chatChannel.id },
+        await prisma.chatChannel.updateMany({
+          where: { id: chatChannel.id, tenantId: ctx.tenantId },
           data: {
             name: group.name,
             isActive: group.isActive,
@@ -151,8 +166,8 @@ export async function DELETE(
     }
 
     if (existing.isSystem) {
-      await prisma.adminGroup.update({
-        where: { id },
+      await prisma.adminGroup.updateMany({
+        where: { id, tenantId: ctx.tenantId },
         data: { isActive: false },
       });
     } else {
@@ -162,7 +177,7 @@ export async function DELETE(
     // Deactivate associated chat channel
     try {
       await prisma.chatChannel.updateMany({
-        where: { groupId: id, channelType: "GROUP" },
+        where: { groupId: id, channelType: "GROUP", tenantId: ctx.tenantId },
         data: { isActive: false },
       });
     } catch (chatErr) {

@@ -5,7 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { canEdit, canDelete } from "@/lib/permissions";
 
 export async function DELETE(
   _req: Request,
@@ -15,7 +16,8 @@ export async function DELETE(
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
-    if (ctx.userRole !== "admin" && ctx.userRole !== "owner") {
+    const perms = await resolveApiPerms(ctx);
+    if (!canDelete(perms, "hub")) {
       return NextResponse.json(
         { success: false, error: "Solo administradores pueden eliminar canales permanentemente" },
         { status: 403 }
@@ -83,7 +85,8 @@ export async function GET(
       const membership = await prisma.adminGroupMembership.findFirst({
         where: { groupId: channel.groupId, adminId: ctx.userId },
       });
-      if (!membership && ctx.userRole !== "owner" && ctx.userRole !== "admin") {
+      const permsGet = await resolveApiPerms(ctx);
+      if (!membership && !canEdit(permsGet, "hub")) {
         return NextResponse.json(
           { success: false, error: "No tienes acceso a este canal" },
           { status: 403 }

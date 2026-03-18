@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 import { createLeadSchema } from "@/lib/validations/crm";
 import { toSentenceCase } from "@/lib/text-format";
 
@@ -18,6 +19,8 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx, "leads");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 
@@ -49,6 +52,8 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "leads");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 
@@ -78,11 +83,19 @@ export async function PATCH(
           : toSentenceCase(payload.lastName) ?? null,
     };
 
-    const lead = await prisma.crmLead.update({
-      where: { id },
+    const result = await prisma.crmLead.updateMany({
+      where: { id, tenantId: ctx.tenantId },
       data: normalizedData,
     });
-
+    if (result.count === 0) {
+      return NextResponse.json(
+        { success: false, error: "Prospecto no encontrado" },
+        { status: 404 }
+      );
+    }
+    const lead = await prisma.crmLead.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    });
     return NextResponse.json({ success: true, data: lead });
   } catch (error) {
     console.error("Error updating lead:", error);
@@ -100,13 +113,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-
-    if (ctx.userRole !== "owner" && ctx.userRole !== "admin") {
-      return NextResponse.json(
-        { success: false, error: "Solo propietario o administrador pueden eliminar leads" },
-        { status: 403 }
-      );
-    }
+    const forbidden = await requireCrmDelete(ctx, "leads");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 

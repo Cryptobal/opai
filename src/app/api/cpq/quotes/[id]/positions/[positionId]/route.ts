@@ -6,7 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqEdit, requireCpqDelete } from "@/lib/api-auth-cpq";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
 import { refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
@@ -18,8 +19,8 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
 
     const { id, positionId } = await params;
     const body = await request.json();
@@ -164,8 +165,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqDelete(ctx);
+    if (forbidden) return forbidden;
 
     const { id, positionId } = await params;
     const existing = await prisma.cpqPosition.findFirst({

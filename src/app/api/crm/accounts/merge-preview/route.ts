@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmView } from "@/lib/api-auth-crm";
 
 function normalize(text: string): string {
   return text
@@ -48,6 +49,8 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx, "accounts");
+    if (forbidden) return forbidden;
 
     const masterId = request.nextUrl.searchParams.get("masterId");
     const duplicateId = request.nextUrl.searchParams.get("duplicateId");

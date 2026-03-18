@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -27,6 +28,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx);
+    if (forbidden) return forbidden;
 
     const formData = await request.formData();
     const file = formData.get("file");

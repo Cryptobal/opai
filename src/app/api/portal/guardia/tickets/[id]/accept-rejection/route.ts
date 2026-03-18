@@ -18,7 +18,7 @@ export async function POST(
 
     const ticket = await prisma.opsTicket.findFirst({
       where: { id: ticketId, guardiaId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, tenantId: true },
     });
 
     if (!ticket) {
@@ -29,10 +29,13 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Solo tickets rechazados pueden cerrarse" }, { status: 400 });
     }
 
-    await prisma.opsTicket.update({
-      where: { id: ticketId },
+    const result = await prisma.opsTicket.updateMany({
+      where: { id: ticketId, tenantId: ticket.tenantId },
       data: { status: "closed", closedAt: new Date() },
     });
+    if (result.count === 0) {
+      return NextResponse.json({ success: false, error: "Ticket no encontrado" }, { status: 404 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

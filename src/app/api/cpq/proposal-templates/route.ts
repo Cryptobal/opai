@@ -5,7 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 
 const DEFAULT_TEMPLATES = [
@@ -84,8 +85,8 @@ export async function GET() {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqView(ctx);
+    if (forbidden) return forbidden;
 
     const templates = await prisma.cpqProposalTemplate.findMany({
       where: {
@@ -113,8 +114,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
 
     const body = await request.json();
     const name = body?.name?.trim();

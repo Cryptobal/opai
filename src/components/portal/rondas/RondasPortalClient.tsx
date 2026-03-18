@@ -601,6 +601,10 @@ export function RondasPortalClient() {
               userType="guardia"
               userId={session.guardiaId}
               tenantId={session.tenantId}
+              sessionHeaders={{
+                "x-guardia-id": session.guardiaId,
+                "x-tenant-id": session.tenantId,
+              }}
             />
           </div>
           <MisRondas

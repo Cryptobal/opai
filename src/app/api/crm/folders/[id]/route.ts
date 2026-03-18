@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 
 export async function PATCH(
   request: NextRequest,
@@ -15,6 +16,8 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const body = await request.json();
@@ -43,10 +46,19 @@ export async function PATCH(
       return NextResponse.json({ success: true, data: existing });
     }
 
-    const updated = await prisma.documentFolder.update({
-      where: { id },
+    const result = await prisma.documentFolder.updateMany({
+      where: { id, tenantId: ctx.tenantId },
       data: updateData,
     });
+    if (result.count === 0) {
+      return NextResponse.json(
+        { success: false, error: "Carpeta no encontrada" },
+        { status: 404 }
+      );
+    }
+    const updated = await prisma.documentFolder.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    })!;
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
@@ -65,6 +77,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmDelete(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 

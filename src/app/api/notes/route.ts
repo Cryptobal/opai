@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { hasModuleAccess } from "@/lib/permissions";
+import { hasModuleAccess, canEdit } from "@/lib/permissions";
 import {
   isValidContextType,
   getContextModule,
@@ -61,10 +61,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Visibility filter: PUBLIC + notes where user is author or in visibleToUsers
-    // Admins with role owner/admin see everything
-    const isFullAdmin = ctx.userRole === "owner" || ctx.userRole === "admin";
+    // Users with hub edit/full see everything
+    const canSeeAllNotes = canEdit(perms, "hub");
 
-    const visibilityFilter: Prisma.NoteWhereInput = isFullAdmin
+    const visibilityFilter: Prisma.NoteWhereInput = canSeeAllNotes
       ? {}
       : {
           OR: [
@@ -272,9 +272,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ALERT and DECISION require admin/owner role
-    const isFullAdminForTypes = ctx.userRole === "owner" || ctx.userRole === "admin";
-    if ((noteType === "ALERT" || noteType === "DECISION") && !isFullAdminForTypes) {
+    // ALERT and DECISION require hub edit permission
+    const permsForTypes = await resolveApiPerms(ctx);
+    const canCreateAlertDecision = canEdit(permsForTypes, "hub");
+    if ((noteType === "ALERT" || noteType === "DECISION") && !canCreateAlertDecision) {
       return NextResponse.json(
         { success: false, error: `No tienes permisos para crear notas tipo ${noteType}` },
         { status: 403 },

@@ -156,15 +156,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 setTimeout(() => reject(new Error('DB timeout')), DB_TIMEOUT_MS)
               ),
             ]);
-            if (admin && admin.status === 'active') {
-              token.role = admin.role;
-              token.roleTemplateId = admin.roleTemplateId ?? null;
+            if (!admin || admin.status !== 'active') {
+              // Usuario inactivo o eliminado: invalidar sesión
+              return null as unknown as typeof token;
             }
-          } catch {
-            // Si falla la BD o timeout, mantener el token actual
+            token.role = admin.role;
+            token.roleTemplateId = admin.roleTemplateId ?? null;
+            token.roleRefreshedAt = now;
+          } catch (error) {
+            console.error('[auth] Role refresh failed:', error);
+            return token; // NO resetear roleRefreshedAt, reintentar en próximo request
           }
+        } else {
+          token.roleRefreshedAt = now;
         }
-        token.roleRefreshedAt = now;
       }
 
       return token;
@@ -185,8 +190,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: {
     strategy: 'jwt',
-    maxAge: 90 * 24 * 60 * 60, // 90 días — sesiones PWA de larga duración
-    updateAge: 24 * 60 * 60,   // Refresh cada 24 horas
+    maxAge: 14 * 24 * 60 * 60, // 14 días
+    updateAge: 60 * 60,        // Refresh cada 1 hora
   },
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   trustHost: true,

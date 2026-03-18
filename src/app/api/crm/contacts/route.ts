@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { createContactSchema, updateContactSchema } from "@/lib/validations/crm";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 
@@ -15,6 +16,8 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx, "contacts");
+    if (forbidden) return forbidden;
 
     const accountId = request.nextUrl.searchParams.get("accountId") || undefined;
     const portalEnabled = request.nextUrl.searchParams.get("portalEnabled");
@@ -50,6 +53,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "contacts");
+    if (forbidden) return forbidden;
 
     const parsed = await parseBody(request, createContactSchema);
     if (parsed.error) return parsed.error;
@@ -121,6 +126,8 @@ export async function PATCH(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "contacts");
+    if (forbidden) return forbidden;
 
     const { id, ...body } = await request.json();
     if (!id) {

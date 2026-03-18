@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { canEdit } from "@/lib/permissions";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { sendNotification } from "@/lib/notification-service";
 
 function generatePin(): string {
@@ -16,10 +16,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const perms = await resolveApiPerms(ctx);
-    if (!canEdit(perms, "crm", "accounts")) {
-      return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
-    }
+    const forbidden = await requireCrmEdit(ctx, "contacts");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const body = await request.json();

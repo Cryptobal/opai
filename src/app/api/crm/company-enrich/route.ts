@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import sharp from "sharp";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { uploadFile } from "@/lib/storage";
 import { openai } from "@/lib/openai";
 
@@ -559,6 +560,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx);
+    if (forbidden) return forbidden;
 
     const body = (await request.json()) as { website?: string; companyName?: string };
     const rawWebsite = body.website?.trim() || "";

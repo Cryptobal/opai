@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { chromium } from 'playwright-core';
 import chromiumPkg from '@sparticuz/chromium';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, unauthorized } from '@/lib/api-auth';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -29,6 +30,9 @@ interface GeneratePresentationRequest {
 }
 
 export async function POST(request: NextRequest) {
+  const ctx = await requireAuth();
+  if (!ctx) return unauthorized();
+
   let browser;
   
   try {

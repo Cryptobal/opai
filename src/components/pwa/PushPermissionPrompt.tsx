@@ -11,6 +11,8 @@ interface Props {
   userType: 'admin' | 'contact' | 'guardia';
   userId: string;
   tenantId: string;
+  /** For portal: headers to prove session. Admin uses cookie. */
+  sessionHeaders?: Record<string, string>;
 }
 
 const DISMISS_KEY = 'opai-push-prompt-dismissed';
@@ -33,7 +35,7 @@ function persistDismiss(portalType: string) {
   } catch {}
 }
 
-export function PushPermissionPrompt({ portalType, userType, userId, tenantId }: Props) {
+export function PushPermissionPrompt({ portalType, userType, userId, tenantId, sessionHeaders }: Props) {
   const { registration } = useServiceWorker();
   const isMobile = useIsMobile();
   const [dismissed, setDismissedRaw] = useState(() => isDismissedInStorage(portalType));
@@ -54,7 +56,7 @@ export function PushPermissionPrompt({ portalType, userType, userId, tenantId }:
     if (typeof Notification === 'undefined') return;
     if (Notification.permission !== 'granted') return;
 
-    subscribeToPush({ registration, portalType, userType, userId, tenantId })
+    subscribeToPush({ registration, portalType, userType, userId, tenantId, sessionHeaders })
       .then((ok) => { if (ok) setSubscribed(true); })
       .catch(() => {});
   }, [registration, portalType, userType, userId, tenantId]);
@@ -92,7 +94,7 @@ export function PushPermissionPrompt({ portalType, userType, userId, tenantId }:
     if (loading) return;
     setLoading(true);
     try {
-      const success = await subscribeToPush({ registration, portalType, userType, userId, tenantId });
+      const success = await subscribeToPush({ registration, portalType, userType, userId, tenantId, sessionHeaders });
       if (success) {
         setSubscribed(true);
       } else {

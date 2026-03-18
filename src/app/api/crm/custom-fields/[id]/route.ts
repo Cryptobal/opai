@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 
 export async function PATCH(
   request: NextRequest,
@@ -16,6 +17,8 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const body = await request.json();
@@ -40,10 +43,16 @@ export async function PATCH(
       }
     }
 
-    const updated = await prisma.crmCustomField.update({
-      where: { id },
+    const result = await prisma.crmCustomField.updateMany({
+      where: { id, tenantId: ctx.tenantId },
       data,
     });
+    if (result.count === 0) {
+      return NextResponse.json({ success: false, error: "Campo no encontrado" }, { status: 404 });
+    }
+    const updated = await prisma.crmCustomField.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    })!;
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
@@ -62,6 +71,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmDelete(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
+import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { canEdit, hasCapability } from "@/lib/permissions";
 import { updateAsistenciaSchema } from "@/lib/validations/ops";
 import {
   createOpsAuditLog,
@@ -218,7 +219,8 @@ export async function PATCH(
       body.attendanceStatus === initialStatus &&
       body.actualGuardiaId === null &&
       body.replacementGuardiaId === null;
-    const isAdminRole = ctx.userRole === "owner" || ctx.userRole === "admin";
+    const perms = await resolveApiPerms(ctx);
+    const canForceDeletePaidTe = canEdit(perms, "ops", "turnos_extra") || hasCapability(perms, "te_pay");
     const forceDeletePaidTe = body.forceDeletePaidTe === true;
     const forceDeleteReason = body.forceDeleteReason?.trim() || null;
 
@@ -282,7 +284,7 @@ export async function PATCH(
         };
 
     if (isResetToInitial && existingTe?.status === "paid") {
-      if (!isAdminRole) {
+      if (!canForceDeletePaidTe) {
         return NextResponse.json(
           {
             success: false,

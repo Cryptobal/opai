@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 import { createDealSchema } from "@/lib/validations/crm";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 
@@ -18,6 +19,8 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 
@@ -119,9 +122,18 @@ export async function PATCH(
       data.activeQuotationId = nextActiveQuotationId ?? null;
     }
 
-    const deal = await prisma.crmDeal.update({
-      where: { id },
+    const result = await prisma.crmDeal.updateMany({
+      where: { id, tenantId: ctx.tenantId },
       data,
+    });
+    if (result.count === 0) {
+      return NextResponse.json(
+        { success: false, error: "Negocio no encontrado" },
+        { status: 404 }
+      );
+    }
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id, tenantId: ctx.tenantId },
       include: {
         account: {
           select: {
@@ -168,6 +180,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmDelete(ctx, "deals");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 

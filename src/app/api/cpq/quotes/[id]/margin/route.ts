@@ -5,7 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqEdit } from "@/lib/api-auth-cpq";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
@@ -16,8 +17,8 @@ export async function PUT(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const body = await request.json();

@@ -1,0 +1,398 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { MapPin, Camera, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type NearbyInstallation = {
+  id: string;
+  name: string;
+  address: string | null;
+  commune: string | null;
+  city: string | null;
+  geoRadiusM: number;
+  distanceM: number;
+  insideGeofence: boolean;
+};
+
+type Visit = {
+  id: string;
+  installationId: string;
+  status: string;
+};
+
+type DotacionRow = {
+  id: string;
+  slotNumber: number;
+  guardia: {
+    id: string;
+    code: string | null;
+    persona: {
+      firstName: string;
+      lastName: string;
+      rut: string | null;
+    };
+  };
+  puesto: {
+    id: string;
+    name: string;
+    shiftStart: string;
+    shiftEnd: string;
+  };
+};
+
+export function SupervisionNewVisitFlow() {
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [installations, setInstallations] = useState<NearbyInstallation[]>([]);
+  const [selectedInstallationId, setSelectedInstallationId] = useState<string>("");
+  const [visit, setVisit] = useState<Visit | null>(null);
+  const [generalComments, setGeneralComments] = useState("");
+  const [guardsCounted, setGuardsCounted] = useState<string>("");
+  const [installationState, setInstallationState] = useState<string>("normal");
+  const [ratingPresentacion, setRatingPresentacion] = useState<string>("5");
+  const [ratingOrden, setRatingOrden] = useState<string>("5");
+  const [ratingProtocolo, setRatingProtocolo] = useState<string>("5");
+  const [images, setImages] = useState<File[]>([]);
+  const [dotacion, setDotacion] = useState<DotacionRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const selectedInstallation = useMemo(
+    () => installations.find((i) => i.id === selectedInstallationId) ?? null,
+    [installations, selectedInstallationId],
+  );
+
+  useEffect(() => {
+    async function fetchDotacion() {
+      if (!selectedInstallationId) {
+        setDotacion([]);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/crm/installations/${selectedInstallationId}/asignaciones?activeOnly=true`);
+        const json = await res.json();
+        if (res.ok && json.success) {
+          setDotacion(json.data ?? []);
+        } else {
+          setDotacion([]);
+        }
+      } catch {
+        setDotacion([]);
+      }
+    }
+    void fetchDotacion();
+  }, [selectedInstallationId]);
+
+  async function fetchNearby(lat: number, lng: number) {
+    const res = await fetch(`/api/ops/supervision/nearby?lat=${lat}&lng=${lng}&maxDistanceM=30000`);
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.error ?? "No se pudieron obtener instalaciones cercanas");
+    }
+    setInstallations(json.data);
+    if (json.data.length > 0) {
+      setSelectedInstallationId(json.data[0].id);
+    }
+  }
+
+  async function handleGetLocation() {
+    setLoadingLocation(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const coords = await new Promise<GeolocationCoordinates>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve(pos.coords),
+          (err) => reject(err),
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+        );
+      });
+      const nextLocation = { lat: coords.latitude, lng: coords.longitude };
+      setLocation(nextLocation);
+      await fetchNearby(nextLocation.lat, nextLocation.lng);
+    } catch (e) {
+      setError("No se pudo obtener tu ubicación actual.");
+    } finally {
+      setLoadingLocation(false);
+    }
+  }
+
+  async function handleStartVisit() {
+    if (!location || !selectedInstallationId) {
+      setError("Debes obtener ubicación y seleccionar una instalación.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const res = await fetch("/api/ops/supervision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          installationId: selectedInstallationId,
+          lat: location.lat,
+          lng: location.lng,
+          startedVia: "mobile",
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error ?? "No se pudo iniciar la visita");
+      }
+      setVisit(json.data);
+      setSuccessMessage("Check-in registrado. Completa el reporte y finaliza la visita.");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Error al iniciar visita";
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function uploadImages(visitId: string) {
+    for (const file of images) {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("caption", "Evidencia supervisión");
+      const res = await fetch(`/api/ops/supervision/${visitId}/images`, {
+        method: "POST",
+        body: form,
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error ?? "No se pudo subir una imagen");
+      }
+    }
+  }
+
+  async function handleCompleteVisit() {
+    if (!visit?.id || !location) {
+      setError("Debes iniciar una visita antes de finalizar.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const patchRes = await fetch(`/api/ops/supervision/${visit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          generalComments,
+          guardsCounted: guardsCounted ? Number(guardsCounted) : null,
+          installationState,
+          ratings: {
+            presentacion: Number(ratingPresentacion),
+            orden: Number(ratingOrden),
+            protocolo: Number(ratingProtocolo),
+          },
+        }),
+      });
+      const patchJson = await patchRes.json();
+      if (!patchRes.ok || !patchJson.success) {
+        throw new Error(patchJson.error ?? "No se pudo guardar el reporte");
+      }
+
+      if (images.length > 0) {
+        await uploadImages(visit.id);
+      }
+
+      const currentCoords = await new Promise<GeolocationCoordinates>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve(pos.coords),
+          (err) => reject(err),
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+        );
+      });
+
+      const checkoutRes = await fetch(`/api/ops/supervision/${visit.id}/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lat: currentCoords.latitude,
+          lng: currentCoords.longitude,
+          completedVia: "mobile",
+        }),
+      });
+      const checkoutJson = await checkoutRes.json();
+      if (!checkoutRes.ok || !checkoutJson.success) {
+        throw new Error(checkoutJson.error ?? "No se pudo cerrar la visita");
+      }
+
+      setSuccessMessage("Visita finalizada correctamente.");
+      setVisit(null);
+      setGeneralComments("");
+      setGuardsCounted("");
+      setImages([]);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Error al finalizar visita";
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Paso 1: Ubicación y check-in</CardTitle>
+          <CardDescription>
+            Obtén tu GPS, selecciona instalación y registra inicio de visita.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button onClick={handleGetLocation} disabled={loadingLocation || submitting} className="w-full">
+            <MapPin className="mr-2 h-4 w-4" />
+            {loadingLocation ? "Obteniendo ubicación..." : "Usar mi ubicación"}
+          </Button>
+
+          {location && (
+            <p className="text-xs text-muted-foreground">
+              Ubicación actual: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+            </p>
+          )}
+
+          <div className="space-y-2">
+            <Label>Instalación</Label>
+            <Select value={selectedInstallationId} onValueChange={setSelectedInstallationId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona instalación" />
+              </SelectTrigger>
+              <SelectContent>
+                {installations.map((inst) => (
+                  <SelectItem key={inst.id} value={inst.id}>
+                    {inst.name} ({inst.distanceM}m)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedInstallation && (
+            <div className="rounded-md border p-3 text-sm">
+              <p className="font-medium">{selectedInstallation.name}</p>
+              <p className="text-muted-foreground">{selectedInstallation.address ?? "Sin dirección"}</p>
+              <p className="mt-1 text-xs">
+                Distancia: {selectedInstallation.distanceM}m | Radio: {selectedInstallation.geoRadiusM}m
+              </p>
+            </div>
+          )}
+
+          <Button onClick={handleStartVisit} disabled={submitting || !location || !selectedInstallationId} className="w-full">
+            Iniciar visita (check-in)
+          </Button>
+
+          {selectedInstallationId && (
+            <div className="rounded-md border p-3">
+              <p className="mb-2 text-sm font-medium">Dotación actual (asignada)</p>
+              {dotacion.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No hay guardias asignados para esta instalación.</p>
+              ) : (
+                <div className="space-y-1">
+                  {dotacion.slice(0, 8).map((row) => (
+                    <p key={row.id} className="text-xs">
+                      {row.puesto.name} #{row.slotNumber} - {row.guardia.persona.firstName} {row.guardia.persona.lastName}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Paso 2: Reporte de visita</CardTitle>
+          <CardDescription>Completa estado, observaciones y evidencia.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <Label>Estado de la instalación</Label>
+            <Select value={installationState} onValueChange={setInstallationState}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="incidencia">Con observaciones</SelectItem>
+                <SelectItem value="critico">Crítico</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Guardias presentes contados</Label>
+            <Input
+              type="number"
+              min={0}
+              value={guardsCounted}
+              onChange={(e) => setGuardsCounted(e.target.value)}
+              placeholder="Ej: 6"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Presentación</Label>
+              <Input type="number" min={1} max={5} value={ratingPresentacion} onChange={(e) => setRatingPresentacion(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Orden</Label>
+              <Input type="number" min={1} max={5} value={ratingOrden} onChange={(e) => setRatingOrden(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Protocolo</Label>
+              <Input type="number" min={1} max={5} value={ratingProtocolo} onChange={(e) => setRatingProtocolo(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Comentarios</Label>
+            <Textarea
+              value={generalComments}
+              onChange={(e) => setGeneralComments(e.target.value)}
+              placeholder="Observaciones, hallazgos, acciones tomadas..."
+              rows={4}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Camera className="h-4 w-4" /> Imágenes de evidencia
+            </Label>
+            <Input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => setImages(Array.from(e.target.files ?? []))}
+            />
+            {images.length > 0 && (
+              <p className="text-xs text-muted-foreground">{images.length} imagen(es) seleccionadas</p>
+            )}
+          </div>
+
+          <Button onClick={handleCompleteVisit} disabled={submitting || !visit} className="w-full">
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+            Finalizar visita (checkout)
+          </Button>
+        </CardContent>
+      </Card>
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {successMessage && <p className="text-sm text-emerald-700">{successMessage}</p>}
+    </div>
+  );
+}

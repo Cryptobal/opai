@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 import { deleteFile } from "@/lib/storage";
 
 export async function PATCH(
@@ -16,6 +17,8 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx);
+    if (forbidden) return forbidden;
 
     const { id: fileId } = await params;
     const body = await request.json();
@@ -49,8 +52,8 @@ export async function PATCH(
 
     if (typeof portalVisible === "boolean") {
       updates.push(
-        prisma.crmFile.update({
-          where: { id: fileId },
+        prisma.crmFile.updateMany({
+          where: { id: fileId, tenantId: ctx.tenantId },
           data: { portalVisible },
         })
       );
@@ -58,8 +61,8 @@ export async function PATCH(
 
     if (folderId !== undefined) {
       updates.push(
-        prisma.crmFileLink.update({
-          where: { id: link.id },
+        prisma.crmFileLink.updateMany({
+          where: { id: link.id, tenantId: ctx.tenantId },
           data: { folderId: folderId || null },
         })
       );
@@ -105,6 +108,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmDelete(ctx);
+    if (forbidden) return forbidden;
 
     const { id: fileId } = await params;
 

@@ -6,7 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { canEdit, canDelete } from "@/lib/permissions";
 import { isNotesTableMissing, notesNotAvailableResponse } from "@/lib/note-utils";
 
 export async function PATCH(
@@ -31,8 +32,9 @@ export async function PATCH(
       );
     }
 
-    const isAdmin = ctx.userRole === "owner" || ctx.userRole === "admin";
-    if (note.authorId !== ctx.userId && !isAdmin) {
+    const perms = await resolveApiPerms(ctx);
+    const canEditOthers = canEdit(perms, "hub");
+    if (note.authorId !== ctx.userId && !canEditOthers) {
       return NextResponse.json(
         { success: false, error: "Solo puedes editar tus propias notas" },
         { status: 403 },
@@ -113,8 +115,9 @@ export async function DELETE(
       );
     }
 
-    const isAdmin = ctx.userRole === "owner" || ctx.userRole === "admin";
-    if (note.authorId !== ctx.userId && !isAdmin) {
+    const perms = await resolveApiPerms(ctx);
+    const canDeleteOthers = canDelete(perms, "hub");
+    if (note.authorId !== ctx.userId && !canDeleteOthers) {
       return NextResponse.json(
         { success: false, error: "Solo puedes eliminar tus propias notas" },
         { status: 403 },

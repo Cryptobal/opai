@@ -6,7 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqView, requireCpqEdit, requireCpqDelete } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 
@@ -18,8 +19,8 @@ export async function GET(
     const { id } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqView(ctx);
+    if (forbidden) return forbidden;
     const tenantId = ctx.tenantId;
 
     const quote = await prisma.cpqQuote.findFirst({
@@ -61,8 +62,8 @@ export async function PATCH(
     const { id } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
     const tenantId = ctx.tenantId;
     const body = await request.json();
 
@@ -188,8 +189,8 @@ export async function DELETE(
     const { id } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqDelete(ctx);
+    if (forbidden) return forbidden;
     const tenantId = ctx.tenantId;
 
     const existing = await prisma.cpqQuote.findFirst({

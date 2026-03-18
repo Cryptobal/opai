@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 import { updateContactSchema } from "@/lib/validations/crm";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 
@@ -18,6 +19,8 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmView(ctx, "contacts");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 
@@ -50,6 +53,8 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "contacts");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 
@@ -66,9 +71,18 @@ export async function PATCH(
     const parsed = await parseBody(request, updateContactSchema);
     if (parsed.error) return parsed.error;
 
-    const contact = await prisma.crmContact.update({
-      where: { id },
+    const result = await prisma.crmContact.updateMany({
+      where: { id, tenantId: ctx.tenantId },
       data: parsed.data,
+    });
+    if (result.count === 0) {
+      return NextResponse.json(
+        { success: false, error: "Contacto no encontrado" },
+        { status: 404 }
+      );
+    }
+    const contact = await prisma.crmContact.findFirst({
+      where: { id, tenantId: ctx.tenantId },
       include: { account: true },
     });
     const diff = computeChangedFields(
@@ -104,6 +118,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmDelete(ctx, "contacts");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
 

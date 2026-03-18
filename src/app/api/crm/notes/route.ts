@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import {
   buildNoteDeepLink,
   resolveMentionsFromContent,
@@ -269,6 +270,8 @@ async function sendThreadReplyNotifications(input: {
 export async function GET(request: NextRequest) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
+  const forbidden = await requireCrmView(ctx);
+  if (forbidden) return forbidden;
 
   const { searchParams } = new URL(request.url);
   const entityType = searchParams.get("entityType");
@@ -316,6 +319,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx);
+    if (forbidden) return forbidden;
 
     const body = await request.json().catch(() => ({}));
     const parentId = typeof body.parentId === "string" && body.parentId.trim()

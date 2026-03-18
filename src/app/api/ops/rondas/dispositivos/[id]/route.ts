@@ -20,10 +20,16 @@ export async function PUT(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ success: false, error: "Dispositivo no encontrado" }, { status: 404 });
     }
 
-    const updated = await prisma.opsDispositivoInstalacion.update({
-      where: { id },
+    const result = await prisma.opsDispositivoInstalacion.updateMany({
+      where: { id, tenantId: ctx.tenantId },
       data: { isAuthorized: !device.isAuthorized },
     });
+    if (result.count === 0) {
+      return NextResponse.json({ success: false, error: "Dispositivo no encontrado" }, { status: 404 });
+    }
+    const updated = await prisma.opsDispositivoInstalacion.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    })!;
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {

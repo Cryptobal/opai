@@ -6,7 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
 
 const KEY_PREFIX = "cpq.";
 const NUMERIC_DEFAULTS: Record<string, number> = {
@@ -29,8 +30,8 @@ export async function GET() {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqView(ctx);
+    if (forbidden) return forbidden;
     const tenantId = ctx.tenantId;
     const allKeys = [...Object.keys(NUMERIC_DEFAULTS), ...Object.keys(STRING_DEFAULTS)].map(buildKey);
     const settings = await prisma.setting.findMany({
@@ -76,8 +77,8 @@ export async function PUT(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
-    if (forbiddenMod) return forbiddenMod;
+    const forbidden = await requireCpqEdit(ctx);
+    if (forbidden) return forbidden;
     const tenantId = ctx.tenantId;
     const body = await request.json();
 

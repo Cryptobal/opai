@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { rejectLeadSchema } from "@/lib/validations/crm";
 import { decryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
@@ -95,6 +96,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbidden = await requireCrmEdit(ctx, "leads");
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const parsed = await parseBody(request, rejectLeadSchema);
