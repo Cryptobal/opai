@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { render } from "@react-email/render";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
+import { PortalClienteInviteEmail } from "@/emails/PortalClienteInviteEmail";
 
 export async function POST(
   request: NextRequest,
@@ -17,7 +19,7 @@ export async function POST(
     const { id } = await params;
     const contact = await prisma.crmContact.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      include: { account: { select: { name: true, rut: true } } },
+      include: { account: { select: { name: true } } },
     });
 
     if (!contact) {
@@ -33,35 +35,29 @@ export async function POST(
     }
 
     const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/cliente`;
+    const ejecutivo = await prisma.admin.findUnique({
+      where: { id: ctx.userId },
+      select: { name: true },
+    });
+    const ejecutivoName = ejecutivo?.name || "tu ejecutivo";
+
+    const contactName = `${contact.firstName} ${contact.lastName}`.trim() || contact.firstName || "Cliente";
+    const html = await render(
+      PortalClienteInviteEmail({
+        contactName,
+        companyName: contact.account.name,
+        email: contact.email,
+        pin: contact.portalPinVisible,
+        portalUrl,
+        ejecutivoName,
+      })
+    );
 
     await resend.emails.send({
       from: EMAIL_CONFIG.from,
       to: contact.email,
       subject: `Acceso al Portal de Seguridad — ${contact.account.name}`,
-      html: `
-        <div style="font-family: system-ui, sans-serif; max-width: 500px; margin: 0 auto; padding: 32px; background: #0f172a; color: #e2e8f0; border-radius: 12px;">
-          <div style="text-align: center; margin-bottom: 24px;">
-            <h2 style="color: #14b8a6; margin: 0;">🛡️ Portal de Seguridad</h2>
-            <p style="color: #94a3b8; font-size: 14px;">Gard Security</p>
-          </div>
-          <p>Hola <strong>${contact.firstName}</strong>,</p>
-          <p>Se ha habilitado tu acceso al Portal de Seguridad para <strong>${contact.account.name}</strong>.</p>
-          <div style="background: #1e293b; border-radius: 8px; padding: 16px; margin: 16px 0; text-align: center;">
-            <p style="margin: 0 0 4px; font-size: 12px; color: #94a3b8;">RUT de empresa</p>
-            <p style="margin: 0 0 12px; font-size: 18px; font-weight: bold;">${contact.account.rut ?? "—"}</p>
-            <p style="margin: 0 0 4px; font-size: 12px; color: #94a3b8;">PIN de acceso</p>
-            <p style="margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 0.2em; color: #14b8a6;">${contact.portalPinVisible}</p>
-          </div>
-          <div style="text-align: center; margin: 20px 0;">
-            <a href="${portalUrl}" style="display: inline-block; background: #14b8a6; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600;">
-              Acceder al Portal
-            </a>
-          </div>
-          <p style="font-size: 12px; color: #64748b; text-align: center; margin-top: 24px;">
-            Este enlace es confidencial. No lo comparta con personas ajenas a su organización.
-          </p>
-        </div>
-      `,
+      html,
     });
 
     return NextResponse.json({ success: true });
