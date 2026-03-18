@@ -14,7 +14,7 @@
 | Modelos Prisma | 249 |
 | Roles definidos | 15 |
 | Módulos de permisos | 10 |
-| Vulnerabilidades Críticas | 8 |
+| Vulnerabilidades Críticas | 9 |
 | Vulnerabilidades Altas | 12 |
 | Vulnerabilidades Medias | 20+ |
 | Vulnerabilidades Bajas | 5 |
@@ -350,7 +350,50 @@ const { subscription, portalType, userType, userId, tenantId } = await req.json(
 
 ---
 
-#### CRIT-07: PDF generation endpoints sin autenticación
+#### CRIT-07: Portal Cliente acepta tenantId desde query params (Cross-Tenant Data Leak)
+
+**Severidad:** 🔴 CRÍTICO
+**Archivos:**
+- `src/app/api/portal/cliente/activity/route.ts`
+- `src/app/api/portal/cliente/compliance/route.ts`
+- `src/app/api/portal/cliente/guards/route.ts`
+- `src/app/api/portal/cliente/contracts/route.ts`
+- `src/app/api/portal/cliente/gamification/comparativa/route.ts`
+
+**Patrón vulnerable (activity/route.ts:5-15):**
+```typescript
+export async function GET(request: NextRequest) {
+  const installationId = request.nextUrl.searchParams.get("installationId");
+  const tenantId = request.nextUrl.searchParams.get("tenantId"); // ← DEL CLIENTE
+  if (!installationId || !tenantId) {
+    return NextResponse.json({ error: "Parámetros requeridos" }, { status: 400 });
+  }
+  // Usa tenantId del query param directamente en Prisma queries
+  const rondas = await prisma.opsRondaEjecucion.findMany({
+    where: { tenantId, installationId, ... }, // ← CROSS-TENANT
+  });
+}
+```
+
+**Impacto:** Cualquier persona puede acceder a datos de CUALQUIER tenant simplemente cambiando `?tenantId=xxx` en la URL. Expone:
+- Actividad de rondas y alertas
+- Datos de compliance
+- Información de guardias/personal
+- Contratos
+- Métricas de gamificación
+
+**Sin autenticación de ningún tipo.** Estos endpoints confían ciegamente en parámetros de URL.
+
+**Fix:** Derivar tenantId de la sesión autenticada del portal, NUNCA del query param:
+```typescript
+const session = await getPortalSession(request);
+if (!session) return unauthorized();
+const tenantId = session.tenantId; // ← De la sesión verificada
+```
+
+---
+
+#### CRIT-08: PDF generation endpoints sin autenticación
 
 **Severidad:** 🔴 CRÍTICO
 **Archivos:**
@@ -362,7 +405,7 @@ Estos endpoints aceptan datos en el body y generan PDFs. Aunque no acceden direc
 
 ---
 
-#### CRIT-08: Payroll deleteMany sin tenantId
+#### CRIT-09: Payroll deleteMany sin tenantId
 
 **Severidad:** 🔴 CRÍTICO
 **Archivo:** `src/app/api/payroll/periodos/[id]/route.ts`
@@ -652,7 +695,7 @@ El sistema de permisos granulares se usa tanto en frontend (sidebar, botones) co
 | `/api/ai/*` | ~10 | ✅ | ✅ | ✅ | MED-01 queryRawUnsafe |
 | `/api/access-control/*` | ~25 | ❌ | ❌ | ❌ | CRIT-05 |
 | `/api/webhook/*` | ~4 | ⚠️ | N/A | N/A | CRIT-03, CRIT-04 |
-| `/api/portal/cliente/*` | ~75 | ⚠️ | ⚠️ | N/A | HIGH-09 |
+| `/api/portal/cliente/*` | ~75 | ❌ | ❌ | N/A | CRIT-07, HIGH-09 |
 | `/api/portal/guardia/*` | ~50 | ⚠️ | ⚠️ | N/A | HIGH-09 |
 | `/api/cron/*` | ~18 | ✅ | N/A | N/A | Via CRON_SECRET |
 | `/api/pdf/*` | ~3 | ❌ | N/A | N/A | CRIT-07 |
@@ -671,7 +714,8 @@ El sistema de permisos granulares se usa tanto en frontend (sidebar, botones) co
 | 5 | Access Control items sin auth | `access-control/lists/item/[id]/route.ts` | Agregar auth (device token o requireAuth) |
 | 6 | Access Control preregistrations sin auth | `access-control/preregistrations/item/[id]/route.ts` | Agregar auth |
 | 7 | Push subscribe acepta tenantId del body | `notifications/push/subscribe/route.ts:18` | Derivar tenantId de sesión autenticada |
-| 8 | Payroll deleteMany sin tenantId | `payroll/periodos/[id]/route.ts:192` | Agregar `tenantId` a deleteMany |
+| 8 | Portal Cliente acepta tenantId de query params | 5+ archivos en `portal/cliente/*` (ver CRIT-07) | Derivar de sesión portal, nunca de query |
+| 9 | Payroll deleteMany sin tenantId | `payroll/periodos/[id]/route.ts:192` | Agregar `tenantId` a deleteMany |
 
 #### 🟡 Altos (Arreglar esta semana)
 
@@ -855,6 +899,7 @@ export async function deleteOwned(
 - [ ] **Implementar Svix verification** en webhooks Resend e inbound-email
 - [ ] **Agregar auth** a access-control/lists/item y preregistrations/item endpoints
 - [ ] **Fix push subscribe** — derivar tenantId de sesión, no del body
+- [ ] **Fix Portal Cliente** — 5+ endpoints aceptan tenantId desde query params (CRIT-07). Migrar a sesión portal autenticada
 
 #### P1 — Alto (Próximo sprint)
 
