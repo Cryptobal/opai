@@ -109,6 +109,7 @@ export interface CrmActiveQuoteSummary {
 
 export interface CrmDeal {
   id: string;
+  stageId: string;
   title: string;
   amount: string;
   status: string;
@@ -151,5 +152,9 @@ export interface CrmDeal {
     sequence: number;
     status: string;
     scheduledAt: string;
+  }[];
+  stageHistory?: {
+    toStageId: string;
+    changedAt: Date | string;
   }[];
 }

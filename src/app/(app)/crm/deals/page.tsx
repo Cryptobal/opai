@@ -62,6 +62,10 @@ export default async function CrmDealsPage({
     stage: true,
     primaryContact: true,
     quotes: true,
+    stageHistory: {
+      orderBy: { changedAt: "desc" },
+      select: { toStageId: true, changedAt: true },
+    },
     followUpLogs: {
       where: { status: "pending" },
       orderBy: { scheduledAt: "asc" },

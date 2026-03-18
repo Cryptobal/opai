@@ -179,11 +179,45 @@ function getDealCommercialIndicators(deal: CrmDeal): {
   };
 }
 
+function getNegotiatingStageIds(stages: CrmPipelineStage[]): Set<string> {
+  return new Set(
+    stages
+      .filter((s) => (s.name ?? "").toLowerCase().includes("negoci"))
+      .map((s) => s.id)
+  );
+}
+
+function getNegotiationEnteredAt(
+  deal: { stageHistory?: { toStageId: string; changedAt: Date }[] },
+  negotiatingStageIds: Set<string>
+): Date | null {
+  if (!deal.stageHistory?.length || negotiatingStageIds.size === 0) return null;
+  const entry = deal.stageHistory.find((h) => negotiatingStageIds.has(h.toStageId));
+  return entry ? new Date(entry.changedAt) : null;
+}
+
+function daysSince(date: Date): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return Math.floor((today.getTime() - d.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+function formatDealDate(date: string | Date): string {
+  return new Date(date).toLocaleDateString("es-CL", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 type DealCardProps = {
   deal: CrmDeal;
   isOverlay?: boolean;
   onOpenSheet?: () => void;
   hasUnreadNotes?: boolean;
+  negotiatingStageIds?: Set<string>;
 };
 
 type DealColumnProps = {
@@ -270,6 +304,7 @@ function DealCard({
   isOverlay = false,
   onOpenSheet,
   hasUnreadNotes = false,
+  negotiatingStageIds = new Set(),
 }: DealCardProps) {
   const {
     attributes,
@@ -288,6 +323,9 @@ function DealCard({
   const followUpIndicator = getDealFollowUpIndicator(deal);
   const quotesCount = (deal.quotes || []).length;
   const indicators = getDealCommercialIndicators(deal);
+  const negotiationEnteredAt = getNegotiationEnteredAt(deal, negotiatingStageIds);
+  const isInNegotiation = negotiationEnteredAt && negotiatingStageIds.has(deal.stageId);
+  const daysOpen = isInNegotiation ? daysSince(negotiationEnteredAt) : null;
 
   return (
     <div
@@ -321,6 +359,14 @@ function DealCard({
           <p className="text-[11px] text-muted-foreground truncate mt-0.5">
             {deal.account?.name}
           </p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Creado: {formatDealDate(deal.createdAt)}
+          </p>
+          {isInNegotiation && daysOpen !== null && (
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Negociación: {formatDealDate(negotiationEnteredAt)} · {daysOpen} día{daysOpen !== 1 ? "s" : ""} abierto{daysOpen !== 1 ? "s" : ""}
+            </p>
+          )}
           <div className="mt-1 space-y-0.5">
             <p className="text-xs font-semibold text-primary tabular-nums">
               {formatCLP(indicators.amountClp)}
@@ -380,10 +426,12 @@ function MobileStageList({
   expandedStageIds,
   onToggleExpand,
   unreadNoteIds,
+  negotiatingStageIds = new Set(),
 }: {
   columns: { stage: CrmPipelineStage; deals: CrmDeal[] }[];
   expandedStageIds: Set<string>;
   unreadNoteIds?: Set<string>;
+  negotiatingStageIds?: Set<string>;
   onToggleExpand: (stageId: string) => void;
 }) {
   return (
@@ -425,6 +473,9 @@ function MobileStageList({
                   const followUpIndicator = getDealFollowUpIndicator(deal);
                   const quotesCount = (deal.quotes || []).length;
                   const indicators = getDealCommercialIndicators(deal);
+                  const negotiationEnteredAt = getNegotiationEnteredAt(deal, negotiatingStageIds);
+                  const isInNegotiation = negotiationEnteredAt && negotiatingStageIds.has(deal.stageId);
+                  const daysOpen = isInNegotiation ? daysSince(negotiationEnteredAt) : null;
                   return (
                     <Link
                       key={deal.id}
@@ -444,6 +495,14 @@ function MobileStageList({
                         <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                           {deal.account?.name}
                         </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Creado: {formatDealDate(deal.createdAt)}
+                        </p>
+                        {isInNegotiation && daysOpen !== null && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Negociación: {formatDealDate(negotiationEnteredAt)} · {daysOpen} día{daysOpen !== 1 ? "s" : ""} abierto{daysOpen !== 1 ? "s" : ""}
+                          </p>
+                        )}
                         <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px]">
                           <span className="font-semibold text-primary tabular-nums">
                             {formatCLP(indicators.amountClp)}
@@ -557,6 +616,7 @@ export function CrmDealsClient({
   const [sheetDealId, setSheetDealId] = useState<string | null>(null);
   const sheetDeal = sheetDealId ? deals.find((d) => d.id === sheetDealId) : null;
   const focusLabel = getDealsFocusLabel(initialFocus);
+  const negotiatingStageIds = useMemo(() => getNegotiatingStageIds(stages), [stages]);
 
   const resolveStageIdFromOverId = useCallback((overId: string): string | undefined => {
     if (overId.startsWith("stage-header-")) return overId.replace("stage-header-", "");
@@ -1040,6 +1100,7 @@ export function CrmDealsClient({
                   expandedStageIds={mobileExpandedStageIds}
                   onToggleExpand={toggleMobileStageExpand}
                   unreadNoteIds={unreadNoteIds}
+                  negotiatingStageIds={negotiatingStageIds}
                 />
               </div>
 
@@ -1090,6 +1151,7 @@ export function CrmDealsClient({
                                   deal={deal}
                                   onOpenSheet={() => setSheetDealId(deal.id)}
                                   hasUnreadNotes={unreadNoteIds.has(deal.id)}
+                                  negotiatingStageIds={negotiatingStageIds}
                                 />
                               ))}
                             </div>
@@ -1103,6 +1165,7 @@ export function CrmDealsClient({
                       <DealCard
                         deal={deals.find((deal) => deal.id === activeDealId)!}
                         isOverlay
+                        negotiatingStageIds={negotiatingStageIds}
                       />
                     ) : null}
                   </DragOverlay>
@@ -1134,6 +1197,9 @@ export function CrmDealsClient({
                   const stageColor = deal.stage?.color || "#94a3b8";
                   const quotesCount = (deal.quotes || []).length;
                   const indicators = getDealCommercialIndicators(deal);
+                  const negotiationEnteredAt = getNegotiationEnteredAt(deal, negotiatingStageIds);
+                  const isInNegotiation = negotiationEnteredAt && negotiatingStageIds.has(deal.stageId);
+                  const daysOpen = isInNegotiation ? daysSince(negotiationEnteredAt) : null;
                   return (
                     <Link
                       key={deal.id}
@@ -1170,6 +1236,14 @@ export function CrmDealsClient({
                           {deal.account?.name}
                           {deal.primaryContact && ` · ${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()}
                         </p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
+                          <span>Creado: {formatDealDate(deal.createdAt)}</span>
+                          {isInNegotiation && daysOpen !== null && (
+                            <span>
+                              Negociación: {formatDealDate(negotiationEnteredAt)} · {daysOpen} día{daysOpen !== 1 ? "s" : ""} abierto{daysOpen !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px]">
                           <span className="font-semibold text-primary tabular-nums">
                             {formatCLP(indicators.amountClp)}
