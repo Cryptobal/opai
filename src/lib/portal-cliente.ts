@@ -162,7 +162,7 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
         // Columnas de último acceso pueden no existir
       }
 
-      const portalConfig: PortalConfig = DEFAULT_PORTAL_CONFIG
+      let portalConfig: PortalConfig = DEFAULT_PORTAL_CONFIG
 
       let hasDemoData = false
       try {
@@ -187,13 +187,16 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
       try {
         const account = await prisma.crmAccount.findUnique({
           where: { id: contact.accountId },
-          select: { portalTourShown: true, portalEjecutivoId: true, logoUrl: true, rut: true, notes: true },
+          select: { portalTourShown: true, portalEjecutivoId: true, logoUrl: true, rut: true, notes: true, portalConfig: true },
         })
         if (account) {
           portalTourShown = account.portalTourShown ?? false
           ejecutivoId = account.portalEjecutivoId ?? null
           accountRut = account.rut ?? null
           accountLogoUrl = sanitizeLogoUrl(account.logoUrl ?? null)
+          if (account.portalConfig && typeof account.portalConfig === 'object' && !Array.isArray(account.portalConfig)) {
+            portalConfig = { ...DEFAULT_PORTAL_CONFIG, ...(account.portalConfig as Partial<PortalConfig>) }
+          }
           if (!accountLogoUrl && account.notes) {
             const marker = "[[ACCOUNT_LOGO_URL:";
             const start = account.notes.indexOf(marker);

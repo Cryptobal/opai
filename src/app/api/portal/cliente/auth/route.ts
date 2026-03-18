@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { validateClienteSession, parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
-import type { ClienteSession } from "@/lib/portal-cliente-types";
+import { DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
+import type { ClienteSession, PortalConfig } from "@/lib/portal-cliente-types";
 
 const PORTAL_CLIENTE_SESSION_COOKIE = "portal_cliente_session";
 const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60; // 90 días — sesión persistente del portal cliente
@@ -36,7 +37,12 @@ export async function GET() {
       where: { id: session.contactId },
       select: {
         email: true,
-        account: { select: { status: true } },
+        account: {
+          select: {
+            status: true,
+            portalConfig: true,
+          },
+        },
         companyPresentations: {
           where: { status: { in: ['sent', 'viewed'] } },
           select: { id: true },
@@ -56,6 +62,22 @@ export async function GET() {
       if (freshHasPresentation !== (session.hasActivePresentation ?? false)) {
         freshSession.hasActivePresentation = freshHasPresentation;
         needsCookieRefresh = true;
+      }
+
+      // Refrescar portalConfig desde BD para que cambios del admin se reflejen de inmediato
+      try {
+        const rawConfig = contact.account?.portalConfig;
+        const freshConfig: PortalConfig =
+          rawConfig && typeof rawConfig === 'object' && !Array.isArray(rawConfig)
+            ? { ...DEFAULT_PORTAL_CONFIG, ...(rawConfig as Partial<PortalConfig>) }
+            : DEFAULT_PORTAL_CONFIG;
+        const currentConfig = session.portalConfig ?? DEFAULT_PORTAL_CONFIG;
+        if (JSON.stringify(freshConfig) !== JSON.stringify(currentConfig)) {
+          freshSession.portalConfig = freshConfig;
+          needsCookieRefresh = true;
+        }
+      } catch {
+        // portalConfig column may not exist yet
       }
 
       try {

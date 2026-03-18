@@ -179,6 +179,7 @@ export async function POST(
             expirationDate: expirationDate ? new Date(expirationDate) : null,
             alertDaysBefore,
             pdfUrl: uploaded.publicUrl,
+            portalVisible: true,
             createdBy: ctx.userId,
           },
         });
@@ -352,6 +353,7 @@ export async function POST(
           effectiveDate: effectiveDate ? new Date(effectiveDate) : null,
           expirationDate: expirationDate ? new Date(expirationDate) : null,
           alertDaysBefore,
+          portalVisible: true,
           createdBy: ctx.userId,
         },
       });
