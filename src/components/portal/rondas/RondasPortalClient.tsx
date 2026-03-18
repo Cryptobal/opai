@@ -539,7 +539,7 @@ export function RondasPortalClient() {
   }
 
   // authMode === "ready"
-  const showGuardSelector = deviceToken && deviceInfo && screen !== "login";
+  const showGuardSelector = deviceToken && deviceInfo && screen !== "login" && screen !== "ronda-activa";
   const needsGuardWarning = authMode === "ready" && !currentGuard;
 
   return (
