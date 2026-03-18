@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Props {
   installations: SupervisorInstallation[];
@@ -188,14 +189,10 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
     };
   }, [initialVisitaId]);
 
-  // Create new visita on mount only when no id and no preselected
-  useEffect(() => {
-    if (!visitaId && form.installationId && form.accountId && !initialVisitaId) {
-      createVisita();
-    }
-  }, []);
+  const [backConfirmOpen, setBackConfirmOpen] = useState(false);
+  const [deletingOnBack, setDeletingOnBack] = useState(false);
 
-  async function createVisita() {
+  async function createVisita(): Promise<string | null> {
     try {
       const res = await fetch("/api/portal/supervisor/visitas-tecnicas", {
         method: "POST",
@@ -206,11 +203,16 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
         }),
       });
       const json = await res.json();
-      if (json.success) setVisitaId(json.data.id);
-      else toast.error("Error al crear visita");
+      if (json.success) {
+        const id = json.data.id;
+        setVisitaId(id);
+        return id;
+      }
+      toast.error("Error al crear visita");
     } catch {
       toast.error("Error de conexión");
     }
+    return null;
   }
 
   async function save(extraData?: Record<string, unknown>) {
@@ -258,10 +260,14 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
   }
 
   async function handleCheckIn() {
-    if (!visitaId) return;
+    let id = visitaId;
+    if (!id) {
+      id = await createVisita();
+      if (!id) return;
+    }
     setSaving(true);
     try {
-      const res = await fetch(`/api/portal/supervisor/visitas-tecnicas/${visitaId}`, {
+      const res = await fetch(`/api/portal/supervisor/visitas-tecnicas/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ checkIn: true }),
@@ -361,8 +367,11 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
   }
 
   async function handleNext() {
-    if (step === 0 && !checkedIn) {
-      // Allow skip check-in
+    if (step === 0) {
+      if (!visitaId) {
+        const id = await createVisita();
+        if (!id) return;
+      }
     }
     await save();
     if (step < STEPS.length - 1) {
@@ -374,6 +383,31 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
     await save({ surveySignatureUrl: signatureUrl || undefined, complete: true });
     toast.success("Visita técnica completada");
     onComplete();
+  }
+
+  function handleBackClick() {
+    if (visitaId && !initialVisitaId) {
+      setBackConfirmOpen(true);
+    } else {
+      onBack();
+    }
+  }
+
+  async function handleConfirmBack() {
+    if (!visitaId) return;
+    setDeletingOnBack(true);
+    try {
+      const res = await fetch(`/api/portal/supervisor/visitas-tecnicas/${visitaId}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Error al eliminar");
+      setBackConfirmOpen(false);
+      onBack();
+    } catch (err) {
+      console.error(err);
+      toast.error("No se pudo eliminar la visita");
+    } finally {
+      setDeletingOnBack(false);
+    }
   }
 
   if (loadingVisita) {
@@ -390,7 +424,7 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800 flex-shrink-0">
         <button
-          onClick={onBack}
+          onClick={handleBackClick}
           className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
         >
           <ArrowLeft size={18} />
@@ -400,6 +434,11 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
           <p className="text-[11px] text-zinc-500">
             Paso {step + 1} de {STEPS.length}: {STEPS[step]}
           </p>
+          {!initialVisitaId && (
+            <p className="text-[10px] text-amber-400/90 mt-0.5">
+              No puedes dejar visitas en borrador. Si inicias, debes completarla.
+            </p>
+          )}
         </div>
         {saving && <Loader2 size={16} className="animate-spin text-zinc-500 flex-shrink-0" />}
       </div>
@@ -502,6 +541,18 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
           </button>
         )}
       </div>
+
+      <ConfirmDialog
+        open={backConfirmOpen}
+        onOpenChange={setBackConfirmOpen}
+        title="No puedes dejar visitas en borrador"
+        description="Si sales sin completar, la visita se eliminará. Debes terminar la visita o eliminarla. ¿Salir de todos modos?"
+        confirmLabel="Sí, eliminar y salir"
+        onConfirm={handleConfirmBack}
+        variant="destructive"
+        loading={deletingOnBack}
+        loadingLabel="Eliminando..."
+      />
     </div>
   );
 }

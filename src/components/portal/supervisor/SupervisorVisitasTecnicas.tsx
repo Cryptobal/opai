@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ClipboardList, Plus, Loader2, MapPin, Clock, CheckCircle2, FileEdit } from "lucide-react";
+import { ClipboardList, Plus, Loader2, MapPin, Clock, CheckCircle2, FileEdit, Trash2 } from "lucide-react";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { SupervisorInstallation } from "@/lib/portal-supervisor";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "sonner";
 
 interface VisitaTecnica {
   id: string;
@@ -38,6 +40,8 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect, init
   const [items, setItems] = useState<VisitaTecnica[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"todos" | "programada" | "borrador" | "en_curso" | "completada">(initialFilter);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     load();
@@ -172,11 +176,51 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect, init
                     Iniciar visita técnica
                   </button>
                 )}
+                {(v.status === "borrador" || v.status === "en_curso") && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteId(v.id);
+                    }}
+                    className="mt-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-red-800/50 text-red-400 text-xs font-medium hover:bg-red-950/30 transition-colors"
+                  >
+                    <Trash2 size={12} />
+                    Eliminar
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Eliminar visita"
+        description="No puedes dejar visitas en borrador. Esta visita se eliminará. ¿Continuar?"
+        confirmLabel="Eliminar"
+        onConfirm={async () => {
+          if (!deleteId) return;
+          setDeleting(true);
+          try {
+            const res = await fetch(`/api/portal/supervisor/visitas-tecnicas/${deleteId}`, { method: "DELETE" });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || "Error al eliminar");
+            setItems((prev) => prev.filter((x) => x.id !== deleteId));
+            setDeleteId(null);
+            toast.success("Visita eliminada");
+          } catch (err) {
+            console.error(err);
+            toast.error("No se pudo eliminar");
+          } finally {
+            setDeleting(false);
+          }
+        }}
+        variant="destructive"
+        loading={deleting}
+        loadingLabel="Eliminando..."
+      />
     </div>
   );
 }

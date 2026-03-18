@@ -70,3 +70,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   return NextResponse.json({ success: true, data: updated });
 }
+
+/**
+ * DELETE — El supervisor puede eliminar sus propias visitas en borrador o en_curso.
+ * No se pueden dejar visitas en borrador; si sale sin completar, debe eliminarla.
+ */
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+
+  const result = await validateSupervisorSession(session);
+  if (!result.success || !result.data) return NextResponse.json({ success: false, error: result.error }, { status: 403 });
+
+  const { adminId } = result.data;
+
+  const existing = await prisma.opsVisitaTecnica.findFirst({ where: { id, userId: adminId } });
+  if (!existing) return NextResponse.json({ success: false, error: "No encontrado" }, { status: 404 });
+
+  if (!["borrador", "en_curso"].includes(existing.status)) {
+    return NextResponse.json(
+      { success: false, error: "Solo se pueden eliminar visitas en borrador o en curso" },
+      { status: 400 }
+    );
+  }
+
+  await prisma.opsVisitaTecnica.delete({ where: { id } });
+  return NextResponse.json({ success: true });
+}
