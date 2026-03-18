@@ -921,6 +921,7 @@ model CpqQuote {
   includesItems    CpqQuoteIncludesItem[]
   installation     CrmInstallation?         @relation(fields: [installationId], references: [id], onDelete: SetNull)
   proposalTemplate CpqProposalTemplate?     @relation(fields: [proposalTemplateId], references: [id])
+  visitasTecnicas  OpsVisitaTecnica[]       @relation("ops_visita_tecnica_quote")
 
   @@index([tenantId], map: "idx_cpq_quotes_tenant")
   @@index([status], map: "idx_cpq_quotes_status")
@@ -4391,13 +4392,20 @@ model OpsVisitaTecnica {
   installationId String   @map("installation_id") @db.Uuid
   accountId      String   @map("account_id") @db.Uuid
   dealId         String?  @map("deal_id") @db.Uuid
+  quoteId        String?  @map("quote_id") @db.Uuid
+
+  // Programación (creada desde cotización)
+  scheduledAt      DateTime? @map("scheduled_at") @db.Timestamptz(6)
+  scheduledContact String?   @map("scheduled_contact")
+  scheduledPhone   String?   @map("scheduled_phone")
+  puestosDetail    Json?     @map("puestos_detail") // [{ name, numGuards, numPuestos, shiftType }]
 
   // Check-in
   checkInAt      DateTime? @map("check_in_at") @db.Timestamptz(6)
   checkInLat     Float?    @map("check_in_lat")
   checkInLng     Float?    @map("check_in_lng")
   checkOutAt     DateTime? @map("check_out_at") @db.Timestamptz(6)
-  status         String    @default("borrador") // borrador | en_curso | completada
+  status         String    @default("borrador") // programada | borrador | en_curso | completada
 
   // Seguridad actual
   currentSecurityCompany String?  @map("current_security_company")
@@ -4445,6 +4453,7 @@ model OpsVisitaTecnica {
   installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
   account      CrmAccount      @relation(fields: [accountId], references: [id])
   deal         CrmDeal?        @relation(fields: [dealId], references: [id])
+  quote        CpqQuote?       @relation("ops_visita_tecnica_quote", fields: [quoteId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_ops_visitas_tecnicas_tenant")
   @@index([userId], map: "idx_ops_visitas_tecnicas_user")

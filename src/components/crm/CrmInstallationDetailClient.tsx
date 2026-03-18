@@ -32,6 +32,7 @@ import { FileAttachments } from "./FileAttachments";
 import { InstallationExpensesSection } from "@/components/finance/InstallationExpensesSection";
 import { InventarioInstallationSection } from "@/components/inventario/InventarioInstallationSection";
 import { OpsRefuerzosClient } from "@/components/ops";
+import { InstalacionVisitasTecnicasTab } from "./InstalacionVisitasTecnicasTab";
 import { ProtocolTab, type ProtocolSubTabId } from "./protocol/ProtocolTab";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CreateDealModal } from "./CreateDealModal";
@@ -1974,6 +1975,7 @@ export function CrmInstallationDetailClient({
     { id: "marcaciones", label: "Marcaciones", icon: Clock },
     { id: "documentos-guardias", label: "Documentos de Guardias", icon: FileCheck },
     { id: "access-control", label: "Control Acceso", icon: Shield },
+    { id: "visitas-tecnicas", label: "Visitas Técnicas", icon: Briefcase },
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
@@ -2475,6 +2477,9 @@ export function CrmInstallationDetailClient({
               <AccessControlListsManager installationId={installation.id} />
             </div>
           </div>
+        )}
+        {activeTab === "visitas-tecnicas" && (
+          <InstalacionVisitasTecnicasTab installationId={installation.id} />
         )}
       </EntityDetailLayout>
 

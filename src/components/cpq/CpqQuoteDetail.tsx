@@ -43,7 +43,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Shield, Mail, Send, Check } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Shield, Mail, Send, Check, Briefcase, Phone } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -51,6 +51,7 @@ import { FinancialPanel } from "@/components/cpq/FinancialPanel";
 import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
 import { FollowUpDecisionModal, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
 import { CrmActivityTimeline } from "@/components/crm/CrmActivityTimeline";
+import { VisitaTecnicaSolicitudModal } from "@/components/cpq/VisitaTecnicaSolicitudModal";
 
 type ActivityEvent = {
   id: string;
@@ -131,6 +132,15 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
   const [whatsappSentTo, setWhatsappSentTo] = useState<string>("");
   const [portalEmailCc, setPortalEmailCc] = useState("");
   const [portalEmailBcc, setPortalEmailBcc] = useState("");
+  // Visita técnica
+  const [visitaTecnicaModalOpen, setVisitaTecnicaModalOpen] = useState(false);
+  const [visitaTecnicaWaModalOpen, setVisitaTecnicaWaModalOpen] = useState(false);
+  const [visitaTecnicaWaData, setVisitaTecnicaWaData] = useState<{
+    supervisorName: string;
+    supervisorEmail: string;
+    installationAddress: string | null;
+    scheduledAt: string;
+  } | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savingFinancials, setSavingFinancials] = useState(false);
   const [financialError, setFinancialError] = useState<string | null>(null);
@@ -756,6 +766,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           followUp: {
             include: decision.includeFollowUp,
             targetStageId: decision.targetStageId,
+            skipAll: decision.skipAll ?? false,
           },
           ccEmails: portalEmailCc.trim() ? [portalEmailCc.trim()] : [],
           bccEmails: portalEmailBcc.trim() ? [portalEmailBcc.trim()] : [],
@@ -1126,6 +1137,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                   </button>
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleSendDotacionToInstallation(); }} disabled={sendingDotacion || !crmContext.installationId || positions.length === 0}>
                     <Building2 className="h-3.5 w-3.5" /> {sendingDotacion ? "Enviando..." : "Enviar dotacion"}
+                  </button>
+                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); setVisitaTecnicaModalOpen(true); }} disabled={!crmContext.installationId || positions.length === 0}>
+                    <Briefcase className="h-3.5 w-3.5" /> Visita técnica
                   </button>
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); refresh(); }}>
                     <RefreshCw className="h-3.5 w-3.5" /> Refrescar
@@ -2060,6 +2074,81 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               Compartir por WhatsApp
             </Button>
             <Button variant="ghost" className="w-full text-muted-foreground text-xs" onClick={() => setWhatsappModalOpen(false)}>
+              Omitir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal Visita Técnica ── */}
+      <VisitaTecnicaSolicitudModal
+        open={visitaTecnicaModalOpen}
+        onOpenChange={setVisitaTecnicaModalOpen}
+        quoteId={quoteId}
+        quoteCode={quote?.code ?? ""}
+        installation={
+          crmContext.installationId
+            ? crmInstallations.find((i) => i.id === crmContext.installationId) ?? null
+            : null
+        }
+        positions={positions}
+        onSuccess={(data) => {
+          setVisitaTecnicaWaData({
+            supervisorName: data.supervisorName,
+            supervisorEmail: data.supervisorEmail,
+            installationAddress: data.installationAddress,
+            scheduledAt: data.scheduledAt,
+          });
+          setVisitaTecnicaWaModalOpen(true);
+          refresh();
+        }}
+      />
+
+      {/* ── Modal WhatsApp post visita técnica ── */}
+      <Dialog open={visitaTecnicaWaModalOpen} onOpenChange={setVisitaTecnicaWaModalOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-green-400" />
+              ¡Visita programada! Avisa por WhatsApp
+            </DialogTitle>
+          </DialogHeader>
+          {visitaTecnicaWaData && (
+            <div className="py-2 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Email enviado a <strong className="text-foreground">{visitaTecnicaWaData.supervisorEmail}</strong>.
+                Puedes enviarle también un mensaje por WhatsApp.
+              </p>
+              {(() => {
+                const fecha = new Date(visitaTecnicaWaData.scheduledAt);
+                const fechaStr = fecha.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" });
+                const horaStr = fecha.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+                const dir = visitaTecnicaWaData.installationAddress ?? "";
+                const msg = `Hola ${visitaTecnicaWaData.supervisorName}, se te asignó una visita técnica 🏢\n📅 ${fechaStr} a las ${horaStr}${dir ? `\n📍 ${dir}` : ""}\nRevisa los detalles en tu portal de supervisor.`;
+                const encoded = encodeURIComponent(msg);
+                return (
+                  <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-1">
+                    <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">Mensaje prellenado</p>
+                    <p className="text-xs text-muted-foreground whitespace-pre-line">{msg}</p>
+                    <div className="flex flex-col gap-2 pt-2">
+                      <Button
+                        className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white"
+                        onClick={() => {
+                          window.open(`https://wa.me/?text=${encoded}`, "_blank");
+                          setVisitaTecnicaWaModalOpen(false);
+                        }}
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Elegir grupo / contacto en WhatsApp
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" className="w-full text-muted-foreground text-xs" onClick={() => setVisitaTecnicaWaModalOpen(false)}>
               Omitir
             </Button>
           </DialogFooter>

@@ -53,6 +53,7 @@ export function PortalSupervisorClient() {
   const [selectedVisitaTecnicaId, setSelectedVisitaTecnicaId] = useState<string | undefined>();
   const [moreOpen, setMoreOpen] = useState(false);
   const [novedadTrigger, setNovedadTrigger] = useState(0);
+  const [visitasPendientesCount, setVisitasPendientesCount] = useState(0);
 
   useEffect(() => {
     fetch("/api/portal/supervisor/session")
@@ -66,6 +67,15 @@ export function PortalSupervisorClient() {
       })
       .catch(() => setError("Error de conexión"))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/portal/supervisor/visitas-tecnicas/count")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) setVisitasPendientesCount(json.data?.count ?? 0);
+      })
+      .catch(() => {});
   }, []);
 
   const ACCENT = "#8b5cf6";
@@ -176,7 +186,7 @@ export function PortalSupervisorClient() {
     switch (activeSection) {
       case "dashboard":
         return (
-          <SupervisorDashboard session={session!} onAction={handleDashboardAction} onMoreOpen={() => setMoreOpen(true)} />
+          <SupervisorDashboard session={session!} onAction={handleDashboardAction} onMoreOpen={() => setMoreOpen(true)} visitasPendientes={visitasPendientesCount} />
         );
 
       case "visitas":
@@ -340,6 +350,7 @@ export function PortalSupervisorClient() {
           setShowCrearRendicion(false);
         }}
         onMoreOpen={() => setMoreOpen(true)}
+        visitasPendientes={visitasPendientesCount}
       />
 
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>

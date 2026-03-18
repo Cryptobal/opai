@@ -29,9 +29,10 @@ interface Props {
   session: SupervisorSession;
   onAction: (action: "nueva-visita" | "novedad" | "turno-extra" | "rendicion" | "visita-tecnica") => void;
   onMoreOpen?: () => void;
+  visitasPendientes?: number;
 }
 
-export function SupervisorDashboard({ session, onAction, onMoreOpen }: Props) {
+export function SupervisorDashboard({ session, onAction, onMoreOpen, visitasPendientes = 0 }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -116,6 +117,14 @@ export function SupervisorDashboard({ session, onAction, onMoreOpen }: Props) {
             icon={<Receipt size={16} />}
             variant={data?.rendicionesBorrador ? "amber" : "default"}
             size="sm"
+          />
+          <KpiCard
+            title="Visitas por realizar"
+            value={visitasPendientes}
+            icon={<Briefcase size={16} />}
+            variant={visitasPendientes > 0 ? "amber" : "default"}
+            size="sm"
+            onClick={visitasPendientes > 0 ? () => onAction("visita-tecnica") : undefined}
           />
         </div>
       )}

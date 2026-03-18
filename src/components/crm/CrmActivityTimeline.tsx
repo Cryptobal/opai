@@ -44,8 +44,10 @@ const ACTION_LABELS: Record<string, string> = {
   quote_ai_service_detail: "Detalle de servicio generado con IA",
   quote_approved: "Cotización aprobada por cliente",
   quote_rejected: "Cotización rechazada por cliente",
+  quote_visita_tecnica_programada: "Visita técnica programada",
   presentation_sent: "Presentación enviada",
   portal_cliente_access: "Acceso al portal del cliente",
+  visita_tecnica_programada: "Visita técnica programada",
 };
 
 const DOT_COLOR_BY_ACTION: Record<string, string> = {

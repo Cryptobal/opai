@@ -26,6 +26,7 @@ interface Props {
 }
 
 const STATUS_CFG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  programada: { label: "Por realizar", color: "text-orange-400", icon: <Clock size={12} /> },
   borrador: { label: "Borrador", color: "text-zinc-400", icon: <FileEdit size={12} /> },
   en_curso: { label: "En curso", color: "text-blue-400", icon: <MapPin size={12} /> },
   completada: { label: "Completada", color: "text-emerald-400", icon: <CheckCircle2 size={12} /> },
@@ -34,7 +35,7 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: React.Rea
 export function SupervisorVisitasTecnicas({ installations, onNew, onSelect }: Props) {
   const [items, setItems] = useState<VisitaTecnica[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"todos" | "borrador" | "en_curso" | "completada">("todos");
+  const [filter, setFilter] = useState<"todos" | "programada" | "borrador" | "en_curso" | "completada">("todos");
 
   useEffect(() => {
     load();
@@ -55,6 +56,8 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect }: Pr
 
   const filtered = filter === "todos" ? items : items.filter((v) => v.status === filter);
 
+  const pendientesCount = items.filter((v) => v.status === "programada").length;
+
   return (
     <div className="flex flex-col gap-3 px-4 py-4 pb-24">
       <div className="flex items-center justify-between">
@@ -70,7 +73,7 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect }: Pr
 
       {/* Filters */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {(["todos", "borrador", "en_curso", "completada"] as const).map((f) => (
+        {(["todos", "programada", "borrador", "en_curso", "completada"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -80,7 +83,16 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect }: Pr
                 : "bg-zinc-900 border border-zinc-800 text-zinc-400"
             }`}
           >
-            {f === "todos" ? "Todas" : STATUS_CFG[f]?.label ?? f}
+            {f === "todos" ? "Todas" : f === "programada" ? (
+              <span className="flex items-center gap-1">
+                Por realizar
+                {pendientesCount > 0 && (
+                  <span className="rounded-full bg-orange-500/20 text-orange-400 text-[9px] font-bold px-1.5 py-0.5">
+                    {pendientesCount}
+                  </span>
+                )}
+              </span>
+            ) : STATUS_CFG[f]?.label ?? f}
           </button>
         ))}
       </div>
@@ -100,30 +112,56 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect }: Pr
         <div className="flex flex-col gap-2">
           {filtered.map((v) => {
             const cfg = STATUS_CFG[v.status] ?? { label: v.status, color: "text-zinc-400", icon: null };
+            const isProgramada = v.status === "programada";
+            const scheduledDate = (v as unknown as { scheduledAt?: string }).scheduledAt;
             return (
-              <button
+              <div
                 key={v.id}
-                onClick={() => onSelect(v)}
-                className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors text-left flex flex-col gap-1.5"
+                className={`p-4 rounded-xl border transition-colors flex flex-col gap-1.5 ${
+                  isProgramada
+                    ? "bg-orange-950/30 border-orange-800/40"
+                    : "bg-zinc-900 border-zinc-800"
+                }`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium truncate">{v.account?.name ?? "Cuenta"}</p>
-                  <span className={`flex items-center gap-1 text-[10px] font-medium ${cfg.color} flex-shrink-0`}>
-                    {cfg.icon}
-                    {cfg.label}
-                  </span>
-                </div>
-                <p className="text-xs text-zinc-400 truncate">{v.installation?.name ?? "—"}</p>
-                <div className="flex items-center gap-3 text-[10px] text-zinc-600">
-                  <span>{new Date(v.createdAt).toLocaleDateString("es-CL")}</span>
-                  {v.durationMinutes && (
-                    <span className="flex items-center gap-0.5">
-                      <Clock size={10} />
-                      {v.durationMinutes} min
+                <button
+                  onClick={() => onSelect(v)}
+                  className="text-left flex flex-col gap-1.5 flex-1"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium truncate">{v.account?.name ?? "Cuenta"}</p>
+                    <span className={`flex items-center gap-1 text-[10px] font-medium ${cfg.color} flex-shrink-0`}>
+                      {cfg.icon}
+                      {cfg.label}
                     </span>
-                  )}
-                </div>
-              </button>
+                  </div>
+                  <p className="text-xs text-zinc-400 truncate">{v.installation?.name ?? "—"}</p>
+                  <div className="flex items-center gap-3 text-[10px] text-zinc-600">
+                    {isProgramada && scheduledDate ? (
+                      <span className="text-orange-400 font-medium">
+                        📅 {new Date(scheduledDate).toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })}
+                        {" · "}
+                        {new Date(scheduledDate).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    ) : (
+                      <span>{new Date(v.createdAt).toLocaleDateString("es-CL")}</span>
+                    )}
+                    {v.durationMinutes && (
+                      <span className="flex items-center gap-0.5">
+                        <Clock size={10} />
+                        {v.durationMinutes} min
+                      </span>
+                    )}
+                  </div>
+                </button>
+                {isProgramada && (
+                  <button
+                    onClick={() => onSelect(v)}
+                    className="mt-1 w-full py-2 rounded-lg bg-blue-700 text-white text-xs font-semibold hover:bg-blue-600 transition-colors text-center"
+                  >
+                    Iniciar visita técnica
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
