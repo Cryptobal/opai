@@ -457,7 +457,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   central_monitoreo: {
     modules: { hub: "view", ops: "view", crm: "none", docs: "none", cpq: "none", payroll: "none", finance: "none", config: "none" },
     submodules: {
-      "ops.rondas": "view",
+      "ops.rondas": "edit",
       "ops.supervision": "view",
       "ops.control_nocturno": "view",
       "crm.installations": "view",
