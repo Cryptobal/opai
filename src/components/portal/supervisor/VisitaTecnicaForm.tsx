@@ -260,7 +260,7 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
   }
 
   async function handleCheckIn() {
-    let id = visitaId;
+    let id: string | null | undefined = visitaId;
     if (!id) {
       id = await createVisita();
       if (!id) return;
