@@ -766,7 +766,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           followUp: {
             include: decision.includeFollowUp,
             targetStageId: decision.targetStageId,
-            skipAll: decision.skipAll ?? false,
+            skipAll: ("skipAll" in decision ? decision.skipAll : false) ?? false,
           },
           ccEmails: portalEmailCc.trim() ? [portalEmailCc.trim()] : [],
           bccEmails: portalEmailBcc.trim() ? [portalEmailBcc.trim()] : [],
@@ -2086,6 +2086,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         onOpenChange={setVisitaTecnicaModalOpen}
         quoteId={quoteId}
         quoteCode={quote?.code ?? ""}
+        accountId={crmContext.accountId || undefined}
         installation={
           crmContext.installationId
             ? crmInstallations.find((i) => i.id === crmContext.installationId) ?? null

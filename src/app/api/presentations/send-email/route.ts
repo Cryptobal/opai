@@ -248,7 +248,7 @@ export async function POST(req: NextRequest) {
           });
 
           // Update deal, schedule follow-ups, and move stage
-          const followUpDecision = zohoData._followUpDecision as { include: boolean; targetStageId: string | null } | undefined;
+          const followUpDecision = zohoData._followUpDecision as { include: boolean; targetStageId: string | null; skipAll?: boolean } | undefined;
           try {
             const deal = await prisma.crmDeal.findFirst({
               where: { id: cpqDealId, tenantId: dealTenantId },
@@ -260,7 +260,9 @@ export async function POST(req: NextRequest) {
                 data: { proposalLink: presentationUrl, proposalSentAt: new Date() },
               });
 
-              if (followUpDecision?.include === false) {
+              if (followUpDecision?.skipAll) {
+                // "No hacer nada": solo enviar, no tocar follow-ups ni etapa
+              } else if (followUpDecision?.include === false) {
                 // User chose NOT to include follow-up: cancel existing + move to chosen stage
                 const { cancelPendingFollowUps } = await import("@/lib/followup-scheduler");
                 await cancelPendingFollowUps(cpqDealId, "Usuario eligió no incluir seguimiento");

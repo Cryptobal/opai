@@ -37,7 +37,7 @@ export async function POST(
 
     // Parse optional body (follow-up decision)
     const body = await _request.json().catch(() => ({}));
-    const followUpDecision = (body?.followUp as { include: boolean; targetStageId: string | null } | undefined);
+    const followUpDecision = (body?.followUp as { include: boolean; targetStageId: string | null; skipAll?: boolean } | undefined);
     const ccEmails: string[] = Array.isArray(body?.ccEmails) ? body.ccEmails.filter(Boolean) : [];
     const bccEmails: string[] = Array.isArray(body?.bccEmails) ? body.bccEmails.filter(Boolean) : [];
 
@@ -478,7 +478,9 @@ export async function POST(
           },
         });
 
-        if (followUpDecision?.include === false) {
+        if (followUpDecision?.skipAll) {
+          // "No hacer nada": solo enviar, no tocar follow-ups ni etapa
+        } else if (followUpDecision?.include === false) {
           // User chose NOT to include follow-up: cancel existing + move to chosen stage
           const { cancelPendingFollowUps } = await import("@/lib/followup-scheduler");
           await cancelPendingFollowUps(quote.dealId, "Usuario eligió no incluir seguimiento");

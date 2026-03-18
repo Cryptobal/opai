@@ -27,11 +27,20 @@ interface CrmInstallationOption {
   address?: string | null;
 }
 
+interface AccountContact {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+  phone?: string | null;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   quoteId: string;
   quoteCode: string;
+  accountId?: string;
   installation: CrmInstallationOption | null;
   positions: CpqPosition[];
   onSuccess: (data: {
@@ -49,21 +58,30 @@ export function VisitaTecnicaSolicitudModal({
   onOpenChange,
   quoteId,
   quoteCode,
+  accountId,
   installation,
   positions,
   onSuccess,
 }: Props) {
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const [loadingSupervisors, setLoadingSupervisors] = useState(false);
+  const [accountContacts, setAccountContacts] = useState<AccountContact[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
 
   const [supervisorId, setSupervisorId] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [contactMode, setContactMode] = useState<"select" | "manual">("select");
+  const [selectedContactId, setSelectedContactId] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setContactMode("select");
+    setSelectedContactId("");
+    setContactName("");
+    setContactPhone("");
     setLoadingSupervisors(true);
     fetch("/api/ops/supervisors")
       .then((r) => r.json())
@@ -76,6 +94,28 @@ export function VisitaTecnicaSolicitudModal({
       .catch(() => toast.error("No se pudo cargar la lista de supervisores"))
       .finally(() => setLoadingSupervisors(false));
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !accountId) return;
+    setLoadingContacts(true);
+    fetch(`/api/crm/contacts?accountId=${accountId}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setAccountContacts(
+            json.data.map((c: { id: string; firstName: string; lastName: string; email?: string | null; phone?: string | null }) => ({
+              id: c.id,
+              firstName: c.firstName,
+              lastName: c.lastName,
+              email: c.email,
+              phone: c.phone,
+            }))
+          );
+        }
+      })
+      .catch(() => toast.error("No se pudieron cargar los contactos"))
+      .finally(() => setLoadingContacts(false));
+  }, [open, accountId]);
 
   // Default scheduledAt: tomorrow at 10:00
   useEffect(() => {
@@ -91,6 +131,14 @@ export function VisitaTecnicaSolicitudModal({
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(installation.address)}`
     : null;
 
+  const resolvedContact = selectedContactId
+    ? accountContacts.find((c) => c.id === selectedContactId)
+    : null;
+  const effectiveContactName =
+    contactMode === "manual" ? contactName : resolvedContact ? `${resolvedContact.firstName} ${resolvedContact.lastName}`.trim() : "";
+  const effectiveContactPhone =
+    contactMode === "manual" ? contactPhone : resolvedContact?.phone ?? "";
+
   async function handleSubmit() {
     if (!supervisorId) { toast.error("Selecciona un supervisor"); return; }
     if (!scheduledAt) { toast.error("Indica fecha y hora"); return; }
@@ -100,7 +148,12 @@ export function VisitaTecnicaSolicitudModal({
       const res = await fetch(`/api/cpq/quotes/${quoteId}/solicitar-visita-tecnica`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ supervisorId, scheduledAt, contactName, contactPhone }),
+        body: JSON.stringify({
+          supervisorId,
+          scheduledAt,
+          contactName: effectiveContactName,
+          contactPhone: effectiveContactPhone,
+        }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -206,32 +259,86 @@ export function VisitaTecnicaSolicitudModal({
             />
           </div>
 
-          {/* Contacto */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5" /> Contacto en visita
-              </Label>
-              <Input
-                placeholder="Nombre del contacto"
-                value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
-                disabled={sending}
-                className="bg-background"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5" /> Teléfono
-              </Label>
-              <Input
-                placeholder="+56 9 1234 5678"
-                value={contactPhone}
-                onChange={(e) => setContactPhone(e.target.value)}
-                disabled={sending}
-                className="bg-background"
-              />
-            </div>
+          {/* Contacto en visita */}
+          <div className="space-y-3">
+            <Label className="flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5" /> Contacto en visita
+            </Label>
+            {accountId && accountContacts.length > 0 && !loadingContacts ? (
+              <>
+                <div className="flex gap-2">
+                  <select
+                    value={contactMode === "select" ? selectedContactId || "__none__" : "__manual__"}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "__manual__") {
+                        setContactMode("manual");
+                        setSelectedContactId("");
+                      } else {
+                        setContactMode("select");
+                        setSelectedContactId(v === "__none__" ? "" : v);
+                      }
+                    }}
+                    className="flex h-9 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    disabled={sending}
+                  >
+                    <option value="__none__">Sin contacto</option>
+                    {accountContacts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {`${c.firstName} ${c.lastName}`.trim()}
+                        {c.phone ? ` · ${c.phone}` : c.email ? ` · ${c.email}` : ""}
+                      </option>
+                    ))}
+                    <option value="__manual__">Otro (ingresar manualmente)</option>
+                  </select>
+                </div>
+                {contactMode === "manual" && (
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <Input
+                      placeholder="Nombre del contacto"
+                      value={contactName}
+                      onChange={(e) => setContactName(e.target.value)}
+                      disabled={sending}
+                      className="bg-background"
+                    />
+                    <Input
+                      placeholder="+56 9 1234 5678"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      disabled={sending}
+                      className="bg-background"
+                    />
+                  </div>
+                )}
+                {contactMode === "select" && selectedContactId && resolvedContact && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    {resolvedContact.phone || resolvedContact.email || "Sin teléfono/email"}
+                  </p>
+                )}
+              </>
+            ) : accountId && loadingContacts ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Cargando contactos...
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  placeholder="Nombre del contacto"
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                  disabled={sending}
+                  className="bg-background"
+                />
+                <Input
+                  placeholder="+56 9 1234 5678"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  disabled={sending}
+                  className="bg-background"
+                />
+              </div>
+            )}
           </div>
 
           {/* Cotización */}

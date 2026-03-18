@@ -129,6 +129,7 @@ export function SendCpqQuoteModal({
               followUp: {
                 include: followUp.includeFollowUp,
                 targetStageId: followUp.targetStageId,
+                skipAll: followUp.skipAll ?? false,
               },
             }),
           }),

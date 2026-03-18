@@ -136,6 +136,7 @@ export function SendPdfEmailModal({
             followUp: {
               include: followUp.includeFollowUp,
               targetStageId: followUp.targetStageId,
+              skipAll: followUp.skipAll ?? false,
             },
           }),
         }),

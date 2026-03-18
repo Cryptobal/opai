@@ -19,6 +19,7 @@ import {
 import {
   CalendarClock,
   ArrowRightLeft,
+  MinusCircle,
   AlertTriangle,
   Loader2,
   MessageCircle,
@@ -29,6 +30,7 @@ export interface FollowUpDecision {
   includeFollowUp: boolean;
   targetStageId: string | null;
   sendWhatsApp?: boolean;
+  skipAll?: boolean;
 }
 
 interface PipelineStage {
@@ -57,7 +59,7 @@ export function FollowUpDecisionContent({
   loading,
   showWhatsApp = false,
 }: FollowUpDecisionContentProps) {
-  const [choice, setChoice] = useState<"yes" | "no">("yes");
+  const [choice, setChoice] = useState<"yes" | "no" | "nothing">("yes");
   const [selectedStageId, setSelectedStageId] = useState("");
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -94,6 +96,7 @@ export function FollowUpDecisionContent({
     includeFollowUp: choice === "yes",
     targetStageId: choice === "no" ? selectedStageId || null : null,
     sendWhatsApp,
+    skipAll: choice === "nothing",
   });
 
   const isDisabled = loading || (choice === "no" && !selectedStageId);
@@ -147,6 +150,24 @@ export function FollowUpDecisionContent({
             <p className="font-medium">No, mover a otra etapa</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Sin seguimiento automático, elige la etapa del negocio
+            </p>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setChoice("nothing")}
+          className={`w-full rounded-lg border p-3 text-left text-sm transition-colors flex items-center gap-3 ${
+            choice === "nothing"
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-border bg-card hover:bg-accent/30"
+          }`}
+        >
+          <MinusCircle className="h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">No hacer nada</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Solo enviar, sin modificar seguimiento ni etapa
             </p>
           </div>
         </button>
