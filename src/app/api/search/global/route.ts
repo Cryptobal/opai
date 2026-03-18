@@ -12,7 +12,9 @@ import { ensureOpsAccess } from "@/lib/ops";
 
 export type GlobalSearchResult = {
   id: string;
-  type: "lead" | "account" | "contact" | "deal" | "quote" | "installation" | "guardia" | "document" | "pauta_mensual" | "channel";
+  type: "lead" | "account" | "contact" | "deal" | "quote" | "installation" | "guardia" | "document" | "pauta_mensual" | "channel" | "inventory_product" | "inventory_asset" | "inventory_phone_line";
+  /** Agrupa resultados por módulo para mostrar secciones separadas en la UI */
+  group: "crm" | "ops" | "docs" | "chat" | "inventory";
   title: string;
   subtitle: string;
   href: string;
@@ -33,10 +35,11 @@ const LIFECYCLE_BADGE: Record<string, { label: string; class: string }> = {
   inactivo: { label: "Inactivo", class: "bg-red-500/20 text-red-400" },
 };
 
-const CRM_TYPE_LIMIT = 4;
+const CRM_TYPE_LIMIT = 6;
 const OPS_LIMIT = 6;
 const DOCS_LIMIT = 5;
 const CHANNEL_LIMIT = 5;
+const INVENTORY_LIMIT = 5;
 
 const QUOTE_STATUS_LABEL: Record<string, string> = {
   draft: "Borrador",
@@ -215,67 +218,13 @@ export async function GET(request: NextRequest) {
         }),
       ]);
 
-      for (const lead of leads) {
-        const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ");
-        results.push({
-          id: lead.id,
-          type: "lead",
-          title: lead.companyName || name || "Lead sin nombre",
-          subtitle: name ? `${name} · ${lead.email || ""}` : lead.email || lead.status || "",
-          href: `/crm/leads/${lead.id}`,
-        });
-      }
-      const ACCOUNT_LOGO_PREFIX = "[[ACCOUNT_LOGO_URL:";
-      const ACCOUNT_LOGO_SUFFIX = "]]";
-      function extractAccountLogoUrl(notes: string | null | undefined): string | null {
-        if (!notes) return null;
-        const start = notes.indexOf(ACCOUNT_LOGO_PREFIX);
-        if (start === -1) return null;
-        const end = notes.indexOf(ACCOUNT_LOGO_SUFFIX, start);
-        if (end === -1) return null;
-        const raw = notes.slice(start + ACCOUNT_LOGO_PREFIX.length, end).trim();
-        return raw || null;
-      }
-      const BROKEN_LOGO_PREFIX = "/uploads/company-logos/";
-      function useLogoUrl(url: string | null | undefined): string | undefined {
-        if (!url) return undefined;
-        if (url.startsWith(BROKEN_LOGO_PREFIX)) return undefined;
-        return url;
-      }
-      for (const acc of accounts) {
-        const raw = acc.logoUrl || extractAccountLogoUrl(acc.notes) || undefined;
-        const imageUrl = useLogoUrl(raw);
-        results.push({
-          id: acc.id,
-          type: "account",
-          title: acc.name,
-          subtitle: [acc.type === "client" ? "Cliente" : "Prospecto", acc.industry, acc.rut]
-            .filter(Boolean)
-            .join(" · "),
-          href: `/crm/accounts/${acc.id}`,
-          imageUrl,
-        });
-      }
-      for (const contact of contacts) {
-        const pinDisplay = contact.portalPinVisible
-          ? `PIN: ${contact.portalPinVisible}`
-          : contact.portalPin
-            ? "PIN: Configurado"
-            : "Sin PIN";
-        const subtitleParts = [contact.account?.name].filter(Boolean);
-        results.push({
-          id: contact.id,
-          type: "contact",
-          title: `${contact.firstName} ${contact.lastName}`.trim(),
-          subtitle: subtitleParts.length ? subtitleParts.join(" · ") : "Sin cuenta",
-          href: `/crm/contacts/${contact.id}`,
-          pinDisplay,
-        });
-      }
+      // ── CRM results in priority order: deals → quotes → accounts → contacts → leads → installations ──
+
       for (const deal of deals) {
         results.push({
           id: deal.id,
           type: "deal",
+          group: "crm",
           title: deal.title,
           subtitle: [
             deal.account?.name,
@@ -287,6 +236,7 @@ export async function GET(request: NextRequest) {
           href: `/crm/deals/${deal.id}`,
         });
       }
+
       const quoteDealIds = Array.from(
         new Set([
           ...quotes.map((q) => q.dealId).filter((id): id is string => Boolean(id)),
@@ -316,6 +266,7 @@ export async function GET(request: NextRequest) {
         results.push({
           id: quote.id,
           type: "quote",
+          group: "crm",
           title: quote.code,
           subtitle: [
             `Negocio: ${dealTitle}`,
@@ -323,6 +274,69 @@ export async function GET(request: NextRequest) {
             QUOTE_STATUS_LABEL[quote.status] || quote.status,
           ].filter(Boolean).join(" · "),
           href: `/crm/cotizaciones/${quote.id}`,
+        });
+      }
+
+      const ACCOUNT_LOGO_PREFIX = "[[ACCOUNT_LOGO_URL:";
+      const ACCOUNT_LOGO_SUFFIX = "]]";
+      function extractAccountLogoUrl(notes: string | null | undefined): string | null {
+        if (!notes) return null;
+        const start = notes.indexOf(ACCOUNT_LOGO_PREFIX);
+        if (start === -1) return null;
+        const end = notes.indexOf(ACCOUNT_LOGO_SUFFIX, start);
+        if (end === -1) return null;
+        const raw = notes.slice(start + ACCOUNT_LOGO_PREFIX.length, end).trim();
+        return raw || null;
+      }
+      const BROKEN_LOGO_PREFIX = "/uploads/company-logos/";
+      function useLogoUrl(url: string | null | undefined): string | undefined {
+        if (!url) return undefined;
+        if (url.startsWith(BROKEN_LOGO_PREFIX)) return undefined;
+        return url;
+      }
+      for (const acc of accounts) {
+        const raw = acc.logoUrl || extractAccountLogoUrl(acc.notes) || undefined;
+        const imageUrl = useLogoUrl(raw);
+        results.push({
+          id: acc.id,
+          type: "account",
+          group: "crm",
+          title: acc.name,
+          subtitle: [acc.type === "client" ? "Cliente" : "Prospecto", acc.industry, acc.rut]
+            .filter(Boolean)
+            .join(" · "),
+          href: `/crm/accounts/${acc.id}`,
+          imageUrl,
+        });
+      }
+
+      for (const contact of contacts) {
+        const pinDisplay = contact.portalPinVisible
+          ? `PIN: ${contact.portalPinVisible}`
+          : contact.portalPin
+            ? "PIN: Configurado"
+            : "Sin PIN";
+        const subtitleParts = [contact.account?.name].filter(Boolean);
+        results.push({
+          id: contact.id,
+          type: "contact",
+          group: "crm",
+          title: `${contact.firstName} ${contact.lastName}`.trim(),
+          subtitle: subtitleParts.length ? subtitleParts.join(" · ") : "Sin cuenta",
+          href: `/crm/contacts/${contact.id}`,
+          pinDisplay,
+        });
+      }
+
+      for (const lead of leads) {
+        const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ");
+        results.push({
+          id: lead.id,
+          type: "lead",
+          group: "crm",
+          title: lead.companyName || name || "Lead sin nombre",
+          subtitle: name ? `${name} · ${lead.email || ""}` : lead.email || lead.status || "",
+          href: `/crm/leads/${lead.id}`,
         });
       }
       const MESES_GLOBAL = [
@@ -342,6 +356,7 @@ export async function GET(request: NextRequest) {
         results.push({
           id: inst.id,
           type: "installation",
+          group: "crm",
           title: inst.name,
           subtitle: subtitleParts.join(" · "),
           href: `/crm/installations/${inst.id}`,
@@ -349,6 +364,7 @@ export async function GET(request: NextRequest) {
         results.push({
           id: `pauta-${inst.id}`,
           type: "pauta_mensual",
+          group: "ops",
           title: `Pauta mensual · ${inst.name}`,
           subtitle: [
             `${MESES_GLOBAL[curMonth - 1]} ${curYear}`,
@@ -408,6 +424,7 @@ export async function GET(request: NextRequest) {
           results.push({
             id: g.id,
             type: "guardia",
+            group: "ops",
             title,
             subtitle: subtitleParts.join(" · "),
             href: `/personas/guardias/${g.id}`,
@@ -460,6 +477,7 @@ export async function GET(request: NextRequest) {
         results.push({
           id: doc.id,
           type: "document",
+          group: "docs",
           title: doc.title,
           subtitle: [doc.template?.name, doc.status].filter(Boolean).join(" · "),
           href: `/opai/documentos/${doc.id}`,
@@ -498,6 +516,7 @@ export async function GET(request: NextRequest) {
         results.push({
           id: ch.id,
           type: "channel",
+          group: "chat",
           title: ch.name,
           subtitle,
           href: `/chat?channelId=${ch.id}`,
@@ -506,6 +525,109 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       console.error("[global search] channel query error:", err);
       // Don't fail entire search if channel query errors
+    }
+
+    // ── Inventario (productos, activos, líneas telefónicas) ──
+    if (hasOps) {
+      try {
+        const [invProducts, invAssets, invPhoneLines] = await Promise.all([
+          prisma.inventoryProduct.findMany({
+            where: {
+              tenantId,
+              active: true,
+              OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { sku: { contains: q, mode: "insensitive" } },
+              ],
+            },
+            take: INVENTORY_LIMIT,
+            orderBy: { createdAt: "desc" },
+            select: { id: true, name: true, sku: true, category: true },
+          }),
+          prisma.inventoryAsset.findMany({
+            where: {
+              tenantId,
+              OR: [
+                { serialNumber: { contains: q, mode: "insensitive" } },
+                { phoneNumber: { contains: q, mode: "insensitive" } },
+                { notes: { contains: q, mode: "insensitive" } },
+                { variant: { product: { name: { contains: q, mode: "insensitive" } } } },
+              ],
+            },
+            take: INVENTORY_LIMIT,
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              serialNumber: true,
+              phoneNumber: true,
+              status: true,
+              variant: { select: { product: { select: { name: true } } } },
+            },
+          }),
+          prisma.inventoryPhoneLine.findMany({
+            where: {
+              tenantId,
+              OR: [
+                { phoneNumber: { contains: q, mode: "insensitive" } },
+                { label: { contains: q, mode: "insensitive" } },
+                { carrier: { contains: q, mode: "insensitive" } },
+              ],
+            },
+            take: INVENTORY_LIMIT,
+            orderBy: { createdAt: "desc" },
+            select: { id: true, phoneNumber: true, carrier: true, label: true, status: true },
+          }),
+        ]);
+
+        const ASSET_STATUS_LABEL: Record<string, string> = {
+          available: "Disponible",
+          assigned: "Asignado",
+          maintenance: "En mantención",
+          broken: "Dañado",
+          retired: "Retirado",
+        };
+        const INV_CATEGORY_LABEL: Record<string, string> = {
+          uniform: "Uniforme",
+          asset: "Activo",
+        };
+
+        for (const prod of invProducts) {
+          results.push({
+            id: prod.id,
+            type: "inventory_product",
+            group: "inventory",
+            title: prod.name,
+            subtitle: [INV_CATEGORY_LABEL[prod.category] ?? prod.category, prod.sku ? `SKU: ${prod.sku}` : null].filter(Boolean).join(" · "),
+            href: `/ops/inventario/productos`,
+          });
+        }
+
+        for (const asset of invAssets) {
+          const productName = asset.variant?.product?.name ?? "Activo";
+          const identifier = asset.serialNumber || asset.phoneNumber || "";
+          results.push({
+            id: asset.id,
+            type: "inventory_asset",
+            group: "inventory",
+            title: productName,
+            subtitle: [identifier, ASSET_STATUS_LABEL[asset.status] ?? asset.status].filter(Boolean).join(" · "),
+            href: `/ops/inventario/activos`,
+          });
+        }
+
+        for (const line of invPhoneLines) {
+          results.push({
+            id: line.id,
+            type: "inventory_phone_line",
+            group: "inventory",
+            title: line.phoneNumber,
+            subtitle: [line.carrier, line.label, line.status === "active" ? "Activa" : "Inactiva"].filter(Boolean).join(" · "),
+            href: `/ops/inventario/lineas`,
+          });
+        }
+      } catch (err) {
+        console.error("[global search] inventory query error:", err);
+      }
     }
 
     return NextResponse.json({ success: true, data: results });

@@ -990,4 +990,9 @@ export const CATEGORY_LABELS: Record<string, string> = {
   action: 'Acciones rápidas',
   config: 'Configuración',
   search: 'Resultados',
+  search_crm: 'CRM',
+  search_ops: 'Operaciones',
+  search_inventory: 'Inventario',
+  search_docs: 'Documentos',
+  search_chat: 'Chat',
 };

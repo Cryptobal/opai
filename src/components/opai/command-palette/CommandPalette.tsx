@@ -27,6 +27,9 @@ import {
   File,
   CalendarDays,
   MessageCircle,
+  Package,
+  Cpu,
+  Phone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CommandItem } from './types';
@@ -100,11 +103,15 @@ function highlightMatch(text: string, query: string): ReactNode {
 
 type SearchResultType =
   | 'lead' | 'account' | 'contact' | 'deal' | 'quote'
-  | 'installation' | 'guardia' | 'document' | 'pauta_mensual' | 'channel';
+  | 'installation' | 'guardia' | 'document' | 'pauta_mensual' | 'channel'
+  | 'inventory_product' | 'inventory_asset' | 'inventory_phone_line';
+
+type SearchResultGroup = 'crm' | 'ops' | 'docs' | 'chat' | 'inventory';
 
 type ApiSearchResult = {
   id: string;
   type: SearchResultType;
+  group: SearchResultGroup;
   title: string;
   subtitle: string;
   href: string;
@@ -115,16 +122,27 @@ type ApiSearchResult = {
 };
 
 const SEARCH_TYPE_CONFIG: Record<SearchResultType, { icon: typeof Users; color: string; bgColor: string; label: string }> = {
-  lead:           { icon: Users,        color: 'text-emerald-400', bgColor: 'bg-emerald-400/10', label: 'Lead' },
-  account:        { icon: Building2,    color: 'text-blue-400',    bgColor: 'bg-blue-400/10',    label: 'Cuenta' },
-  contact:        { icon: Contact,      color: 'text-sky-400',     bgColor: 'bg-sky-400/10',     label: 'Contacto' },
-  deal:           { icon: TrendingUp,   color: 'text-purple-400',  bgColor: 'bg-purple-400/10',  label: 'Negocio' },
-  quote:          { icon: FileText,     color: 'text-amber-400',   bgColor: 'bg-amber-400/10',   label: 'Cotización' },
-  installation:   { icon: MapPin,       color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Instalación' },
-  guardia:        { icon: ShieldUser,   color: 'text-sky-400',     bgColor: 'bg-sky-400/10',     label: 'Guardia' },
-  document:       { icon: File,         color: 'text-orange-400',  bgColor: 'bg-orange-400/10',  label: 'Documento' },
-  pauta_mensual:  { icon: CalendarDays, color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Pauta' },
-  channel:        { icon: MessageCircle,color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Chat' },
+  lead:                  { icon: Users,        color: 'text-emerald-400', bgColor: 'bg-emerald-400/10', label: 'Lead' },
+  account:               { icon: Building2,    color: 'text-blue-400',    bgColor: 'bg-blue-400/10',    label: 'Cuenta' },
+  contact:               { icon: Contact,      color: 'text-sky-400',     bgColor: 'bg-sky-400/10',     label: 'Contacto' },
+  deal:                  { icon: TrendingUp,   color: 'text-purple-400',  bgColor: 'bg-purple-400/10',  label: 'Negocio' },
+  quote:                 { icon: FileText,     color: 'text-amber-400',   bgColor: 'bg-amber-400/10',   label: 'Cotización' },
+  installation:          { icon: MapPin,       color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Instalación' },
+  guardia:               { icon: ShieldUser,   color: 'text-sky-400',     bgColor: 'bg-sky-400/10',     label: 'Guardia' },
+  document:              { icon: File,         color: 'text-orange-400',  bgColor: 'bg-orange-400/10',  label: 'Documento' },
+  pauta_mensual:         { icon: CalendarDays, color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Pauta' },
+  channel:               { icon: MessageCircle,color: 'text-teal-400',    bgColor: 'bg-teal-400/10',    label: 'Chat' },
+  inventory_product:     { icon: Package,      color: 'text-violet-400',  bgColor: 'bg-violet-400/10',  label: 'Producto' },
+  inventory_asset:       { icon: Cpu,          color: 'text-indigo-400',  bgColor: 'bg-indigo-400/10',  label: 'Activo' },
+  inventory_phone_line:  { icon: Phone,        color: 'text-cyan-400',    bgColor: 'bg-cyan-400/10',    label: 'Línea' },
+};
+
+const GROUP_CATEGORY: Record<SearchResultGroup, string> = {
+  crm:       'search_crm',
+  ops:       'search_ops',
+  docs:      'search_docs',
+  chat:      'search_chat',
+  inventory: 'search_inventory',
 };
 
 // ── Main component ──
@@ -195,7 +213,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
         id: `search-${r.type}-${r.id}`,
         label: r.title,
         description: r.subtitle,
-        category: 'search' as const,
+        category: GROUP_CATEGORY[r.group] ?? 'search_crm',
         icon: config?.icon ?? File,
         href: r.type === 'channel' ? undefined : r.href,
         action: r.type === 'channel' && onOpenChat ? () => onOpenChat(r.id) : undefined,
@@ -214,7 +232,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   // Group by category
   const grouped = useMemo(() => {
     const groups: Record<string, CommandItem[]> = {};
-    const order = ['recent', 'navigation', 'action', 'config', 'search'];
+    const order = ['recent', 'navigation', 'action', 'config', 'search_crm', 'search_ops', 'search_inventory', 'search_docs', 'search_chat'];
 
     for (const cmd of allItems) {
       const cat = cmd.category;
@@ -346,7 +364,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
           loop
         >
           {/* ── Search input ── */}
-          <div className="flex items-center border-b border-border px-4 focus-within:ring-2 focus-within:ring-primary/20 focus-within:ring-inset transition-shadow">
+          <div className="flex items-center border-b border-border px-4">
             <Search className="mr-3 h-5 w-5 shrink-0 text-muted-foreground" />
             <Command.Input
               ref={inputRef}
@@ -398,7 +416,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                 )}
               >
                 {group.items.map((cmd) => {
-                  const isSearch = cmd.category === 'search';
+                  const isSearch = cmd.category.startsWith('search_');
                   const searchType = isSearch ? cmd.id.split('-')[1] as SearchResultType : null;
                   const searchConfig = searchType ? SEARCH_TYPE_CONFIG[searchType] : null;
 
