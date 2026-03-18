@@ -2029,13 +2029,14 @@ export function CrmInstallationDetailClient({
         />
         <DetailField label="Fecha creación" value={installation.createdAt ? new Date(installation.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
         <DetailField label="Última modificación" value={installation.updatedAt ? new Date(installation.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-        {/* Control Nocturno toggle */}
+        {/* Control Nocturno toggle — solo editable cuando instalación activa */}
         <div className="col-span-full">
           <button
             type="button"
-            onClick={() => openNocturnoToggle(!nocturnoEnabled)}
-            disabled={nocturnoSaving}
-            className={`flex items-center gap-2.5 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors ${nocturnoEnabled
+            onClick={() => isActive && openNocturnoToggle(!nocturnoEnabled)}
+            disabled={nocturnoSaving || !isActive}
+            title={!isActive ? "Activa la instalación para incluirla en control nocturno" : undefined}
+            className={`flex items-center gap-2.5 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors ${!isActive ? "opacity-60 cursor-not-allowed " : ""}${nocturnoEnabled
                 ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/15"
                 : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
               }`}
@@ -2054,13 +2055,14 @@ export function CrmInstallationDetailClient({
             </div>
           </button>
         </div>
-        {/* Chat toggle */}
+        {/* Chat toggle — solo editable cuando instalación activa */}
         <div className="col-span-full">
           <button
             type="button"
-            onClick={() => openChatToggle(!chatEnabled)}
-            disabled={chatSaving}
-            className={`flex items-center gap-2.5 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors ${chatEnabled
+            onClick={() => isActive && openChatToggle(!chatEnabled)}
+            disabled={chatSaving || !isActive}
+            title={!isActive ? "Activa la instalación para habilitar el chat grupal" : undefined}
+            className={`flex items-center gap-2.5 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors ${!isActive ? "opacity-60 cursor-not-allowed " : ""}${chatEnabled
                 ? "border-teal-500/30 bg-teal-500/10 text-teal-300 hover:bg-teal-500/15"
                 : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
               }`}

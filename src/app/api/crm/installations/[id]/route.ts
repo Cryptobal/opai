@@ -131,10 +131,24 @@ export async function PATCH(
 
     // Map status to data (remove activateAccount from Prisma data)
     const { activateAccount: _activateAccount, ...prismaData } = installationData as Record<string, unknown> & { activateAccount?: boolean };
-    const normalizedData =
+    let normalizedData =
       payload.name === undefined
         ? prismaData
         : { ...prismaData, name: toSentenceCase(payload.name) ?? payload.name };
+
+    // Sincronizar nocturnoEnabled y chatEnabled con status
+    const finalStatus = (payload.status ?? existing.status) as string;
+    if (payload.status !== undefined && payload.status !== existing.status) {
+      if (payload.status === "active") {
+        normalizedData = { ...normalizedData, nocturnoEnabled: true, chatEnabled: true };
+      } else {
+        normalizedData = { ...normalizedData, nocturnoEnabled: false, chatEnabled: false };
+      }
+    } else if (finalStatus !== "active") {
+      // Prospect/inactive: nunca permitir nocturno ni chat activos
+      normalizedData = { ...normalizedData, nocturnoEnabled: false, chatEnabled: false };
+    }
+
     const accountNeedsActivation =
       existing.accountId &&
       existing.account &&

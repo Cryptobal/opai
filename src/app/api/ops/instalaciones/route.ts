@@ -100,6 +100,8 @@ export async function POST(request: NextRequest) {
         geoRadiusM: body.geoRadiusM ?? 1000,
         teMontoClp: body.teMontoClp ?? 0,
         notes: body.notes || null,
+        nocturnoEnabled: false,
+        chatEnabled: false,
       },
       select: {
         id: true,

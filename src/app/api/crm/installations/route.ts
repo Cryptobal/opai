@@ -95,6 +95,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const status = body.status ?? "prospect";
+    const isActive = status === "active";
     const installation = await prisma.crmInstallation.create({
       data: {
         tenantId: ctx.tenantId,
@@ -105,10 +107,12 @@ export async function POST(request: NextRequest) {
         commune: body.commune || null,
         lat: body.lat || null,
         lng: body.lng || null,
-        status: body.status ?? "prospect",
+        status,
         geoRadiusM: body.geoRadiusM ?? 1000,
         teMontoClp: body.teMontoClp ?? 0,
         notes: body.notes || null,
+        nocturnoEnabled: isActive,
+        chatEnabled: isActive,
       },
       select: {
         id: true,

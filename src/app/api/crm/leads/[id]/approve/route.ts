@@ -639,6 +639,8 @@ export async function POST(
                   Array.isArray(inst?.dotacion) && inst.dotacion.length > 0
                     ? { dotacion: inst.dotacion }
                     : undefined,
+                nocturnoEnabled: false,
+                chatEnabled: false,
               },
             });
             installationId = newInst.id;
@@ -964,6 +966,8 @@ export async function POST(
             address: body?.installationAddress?.trim() || null,
             city: body?.installationCity?.trim() || null,
             commune: body?.installationCommune?.trim() || null,
+            nocturnoEnabled: false,
+            chatEnabled: false,
           },
         });
       }
