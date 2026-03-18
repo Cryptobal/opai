@@ -59,6 +59,7 @@ import { LeadSourceBadge } from "./LeadSourceBadge";
 import { DotacionSummary } from "./DotacionSummary";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
+import { LeadInstallationCpq, createDefaultLeadCpqConfig, type LeadCpqConfig } from "./LeadInstallationCpq";
 
 /* ─── Truncated text helper ─── */
 
@@ -526,10 +527,16 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const [inferringCosts, setInferringCosts] = useState(false);
   const [installations, setInstallations] = useState<InstallationDraft[]>([]);
 
-  // ─── Commercial config (mini-CPQ) ───
-  const [marginPercentage, setMarginPercentage] = useState(13);
-  const [proposalTemplateId, setProposalTemplateId] = useState<string>("estandar");
-  const [additionalLines, setAdditionalLines] = useState<{ name: string; monthlyAmount: number }[]>([]);
+  // ─── CPQ config per installation ───
+  const [cpqConfigs, setCpqConfigs] = useState<Record<string, LeadCpqConfig>>({});
+  const [proposalTemplates, setProposalTemplates] = useState<{ id: string; name: string; slug?: string }[]>([]);
+
+  // Backward compat aliases from cpqConfigs
+  const firstInstKey = installations[0]?._key;
+  const firstCpqConfig = firstInstKey ? cpqConfigs[firstInstKey] : undefined;
+  const marginPercentage = firstCpqConfig?.marginPercentage ?? 13;
+  const proposalTemplateId = firstCpqConfig?.conditions?.proposalTemplateId ?? "estandar";
+  const additionalLines = (firstCpqConfig?.additionalLines ?? []).map((l) => ({ name: l.nombre, monthlyAmount: Number(l.precio || 0) }));
 
   // ─── Express send state ───
   const [sendingExpress, setSendingExpress] = useState(false);
@@ -609,6 +616,10 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       .then((r) => r.json())
       .then((res) => res.success && setIndustries(res.data || []))
       .catch(() => {});
+
+    fetch("/api/cpq/proposal-templates").then((r) => r.json()).then((res) => {
+      if (res?.success && Array.isArray(res.data)) setProposalTemplates(res.data);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -708,12 +719,10 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         : DEFAULT_SELECTED_COST_GROUPS
     );
 
-    // Restore commercial config from metadata
-    const commercialConfig = meta?.commercialConfig as Record<string, unknown> | undefined;
-    if (commercialConfig) {
-      if (typeof commercialConfig.marginPercentage === "number") setMarginPercentage(commercialConfig.marginPercentage);
-      if (typeof commercialConfig.proposalTemplateId === "string") setProposalTemplateId(commercialConfig.proposalTemplateId);
-      if (Array.isArray(commercialConfig.additionalLines)) setAdditionalLines(commercialConfig.additionalLines as { name: string; monthlyAmount: number }[]);
+    // Restore CPQ configs from metadata
+    const savedCpqConfigs = meta?.cpqConfigs as Record<string, LeadCpqConfig> | undefined;
+    if (savedCpqConfigs && typeof savedCpqConfigs === "object") {
+      setCpqConfigs(savedCpqConfigs);
     }
 
     // Build installations from lead data
@@ -1025,11 +1034,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             dealTitle: approveForm.dealTitle, companyInfo: approveForm.companyInfo,
             selectedCostGroups,
           },
-          commercialConfig: {
-            marginPercentage,
-            proposalTemplateId,
-            additionalLines,
-          },
+          cpqConfigs,
         },
       };
       const res = await fetch(`/api/crm/leads/${lead.id}`, {
@@ -1049,6 +1054,52 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     }
   };
 
+  // ─── Build approve payload helper ───
+  const buildApprovePayload = () => {
+    const instPayload = installations
+      .filter((inst) => inst.name.trim())
+      .map((inst) => {
+        const { _key, ...rest } = inst;
+        const useExistingInstallationId = installationUseExisting[_key] || undefined;
+        const cpqCfg = cpqConfigs[_key];
+        const dotacion = cpqCfg?.positions?.length
+          ? cpqCfg.positions.map((p) => ({
+              puestoTrabajoId: p.puestoTrabajoId,
+              puesto: p.puesto,
+              customName: p.customName,
+              cargoId: p.cargoId,
+              rolId: p.rolId,
+              baseSalary: p.baseSalary,
+              shiftType: p.shiftType,
+              cantidad: p.cantidad,
+              numPuestos: p.numPuestos || 1,
+              horaInicio: p.horaInicio,
+              horaFin: p.horaFin,
+              dias: p.dias,
+            }))
+          : rest.dotacion;
+        return { ...rest, dotacion, ...(useExistingInstallationId ? { useExistingInstallationId } : {}) };
+      });
+
+    const firstCpq = cpqConfigs[installations[0]?._key];
+    return {
+      ...approveForm,
+      accountNotes: approveForm.companyInfo || undefined,
+      accountLogoUrl: detectedCompanyLogoUrl || undefined,
+      legalName: approveForm.legalName || undefined,
+      legalRepresentativeName: approveForm.legalRepresentativeName || undefined,
+      legalRepresentativeRut: approveForm.legalRepresentativeRut || undefined,
+      useExistingAccountId: useExistingAccountId || undefined,
+      contactResolution: existingContact ? contactResolution : undefined,
+      contactId: (existingContact && (contactResolution === "overwrite" || contactResolution === "use_existing")) ? existingContact.id : undefined,
+      installations: instPayload,
+      selectedCostGroups: firstCpq?.selectedCostGroups ?? selectedCostGroups,
+      marginPercentage: firstCpq?.marginPercentage ?? marginPercentage,
+      proposalTemplateId: firstCpq?.conditions?.proposalTemplateId ?? proposalTemplateId,
+      additionalLines: (firstCpq?.additionalLines ?? []).map((l) => ({ name: l.nombre, monthlyAmount: Number(l.precio || 0) })),
+    };
+  };
+
   // ─── Approve lead ───
   const approveLead = async () => {
     const accountNameToUse = useExistingAccountId ? "" : approveForm.accountName.trim();
@@ -1058,30 +1109,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     }
     setApproving(true);
     try {
-      const instPayload = installations
-        .filter((inst) => inst.name.trim())
-        .map((inst) => {
-          const { _key, ...rest } = inst;
-          const useExistingInstallationId = installationUseExisting[_key] || undefined;
-          return { ...rest, ...(useExistingInstallationId ? { useExistingInstallationId } : {}) };
-        });
-
-      const payload = {
-        ...approveForm,
-        accountNotes: approveForm.companyInfo || undefined,
-        accountLogoUrl: detectedCompanyLogoUrl || undefined,
-        legalName: approveForm.legalName || undefined,
-        legalRepresentativeName: approveForm.legalRepresentativeName || undefined,
-        legalRepresentativeRut: approveForm.legalRepresentativeRut || undefined,
-        useExistingAccountId: useExistingAccountId || undefined,
-        contactResolution: existingContact ? contactResolution : undefined,
-        contactId: (existingContact && (contactResolution === "overwrite" || contactResolution === "use_existing")) ? existingContact.id : undefined,
-        installations: instPayload,
-        selectedCostGroups,
-        marginPercentage,
-        proposalTemplateId,
-        additionalLines,
-      };
+      const payload = buildApprovePayload();
 
       if (!duplicateChecked) {
         const checkRes = await fetch(`/api/crm/leads/${lead.id}/approve`, {
@@ -1168,37 +1196,18 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       toast.error("El email del contacto es obligatorio para enviar la propuesta.");
       return;
     }
-    const hasDotacion = installations.some((inst) => inst.dotacion.length > 0);
+    // Check if any installation has positions (either in dotacion or cpqConfigs)
+    const hasDotacion = installations.some((inst) => {
+      const cpqCfg = cpqConfigs[inst._key];
+      return (cpqCfg?.positions?.length ?? 0) > 0 || inst.dotacion.length > 0;
+    });
     if (!hasDotacion) {
       toast.error("Agrega al menos un puesto de guardia.");
       return;
     }
     setSendingExpress(true);
     try {
-      const instPayload = installations
-        .filter((inst) => inst.name.trim())
-        .map((inst) => {
-          const { _key, ...rest } = inst;
-          const useExistingInstallationId = installationUseExisting[_key] || undefined;
-          return { ...rest, ...(useExistingInstallationId ? { useExistingInstallationId } : {}) };
-        });
-
-      const payload = {
-        ...approveForm,
-        accountNotes: approveForm.companyInfo || undefined,
-        accountLogoUrl: detectedCompanyLogoUrl || undefined,
-        legalName: approveForm.legalName || undefined,
-        legalRepresentativeName: approveForm.legalRepresentativeName || undefined,
-        legalRepresentativeRut: approveForm.legalRepresentativeRut || undefined,
-        useExistingAccountId: useExistingAccountId || undefined,
-        contactResolution: existingContact ? contactResolution : undefined,
-        contactId: (existingContact && (contactResolution === "overwrite" || contactResolution === "use_existing")) ? existingContact.id : undefined,
-        installations: instPayload,
-        selectedCostGroups,
-        marginPercentage,
-        proposalTemplateId,
-        additionalLines,
-      };
+      const payload = buildApprovePayload();
 
       const response = await fetch(`/api/crm/leads/${lead.id}/approve-and-send`, {
         method: "POST",
@@ -1974,139 +1983,20 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             </div>
           </div>
 
-          {/* ── Configuración Comercial (mini-CPQ) ── */}
-          <div className="rounded-lg border border-border bg-muted/10 p-4 space-y-4">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Configuración Comercial</span>
-
-            {/* Margen */}
-            <div className="space-y-1.5">
-              <Label className="text-[10px]">Margen (%)</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={0}
-                  max={50}
-                  step={0.5}
-                  value={marginPercentage}
-                  onChange={(e) => setMarginPercentage(Number(e.target.value) || 0)}
-                  className="h-8 w-24 text-sm"
-                />
-                <input
-                  type="range"
-                  min={5}
-                  max={30}
-                  step={0.5}
-                  value={marginPercentage}
-                  onChange={(e) => setMarginPercentage(Number(e.target.value))}
-                  className="flex-1 accent-primary"
-                />
-              </div>
+          {/* ── CPQ Embebido por Instalación ── */}
+          {installations.map((inst) => (
+            <div key={inst._key} className="rounded-lg border border-border bg-muted/5 p-3 space-y-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Cotizador — {inst.name || "Instalación"}
+              </span>
+              <LeadInstallationCpq
+                config={cpqConfigs[inst._key] || createDefaultLeadCpqConfig()}
+                onChange={(cfg) => setCpqConfigs((prev) => ({ ...prev, [inst._key]: cfg }))}
+                proposalTemplates={proposalTemplates}
+                catalogDefaults={defaultPuesto.id ? { puestoId: defaultPuesto.id, puestoName: defaultPuesto.name, cargoId: defaultCargoId, rolId: defaultRolId } : undefined}
+              />
             </div>
-
-            {/* Template de propuesta */}
-            <div className="space-y-1.5">
-              <Label className="text-[10px]">Template de Propuesta</Label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { id: "estandar", label: "Estándar" },
-                  { id: "detallado", label: "Detallado" },
-                  { id: "licitacion", label: "Licitación" },
-                ].map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setProposalTemplateId(t.id)}
-                    className={cn(
-                      "rounded-md px-3 py-1.5 text-xs font-medium border transition-colors",
-                      proposalTemplateId === t.id
-                        ? "bg-primary/15 text-primary border-primary/30"
-                        : "bg-muted text-muted-foreground border-transparent hover:border-border"
-                    )}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Líneas adicionales */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-[10px]">Líneas Adicionales</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-[10px] gap-1 px-2"
-                  onClick={() => setAdditionalLines((prev) => [...prev, { name: "", monthlyAmount: 0 }])}
-                >
-                  <Plus className="h-2.5 w-2.5" /> Línea
-                </Button>
-              </div>
-              {additionalLines.map((line, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <Input
-                    value={line.name}
-                    onChange={(e) => {
-                      const next = [...additionalLines];
-                      next[idx] = { ...next[idx], name: e.target.value };
-                      setAdditionalLines(next);
-                    }}
-                    placeholder="Concepto"
-                    className="h-8 text-xs flex-1"
-                  />
-                  <Input
-                    type="number"
-                    value={line.monthlyAmount || ""}
-                    onChange={(e) => {
-                      const next = [...additionalLines];
-                      next[idx] = { ...next[idx], monthlyAmount: Number(e.target.value) || 0 };
-                      setAdditionalLines(next);
-                    }}
-                    placeholder="$/mes"
-                    className="h-8 text-xs w-28"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-destructive shrink-0"
-                    onClick={() => setAdditionalLines((prev) => prev.filter((_, i) => i !== idx))}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            {/* Estimación rápida */}
-            {installations.some((inst) => inst.dotacion.length > 0) && (
-              <div className="rounded-md border border-dashed border-border/60 p-3 space-y-1.5">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase">Estimación rápida</span>
-                {(() => {
-                  const allDot = installations.flatMap((inst) => inst.dotacion);
-                  const totalCostoManoObra = allDot.reduce((sum, d) => {
-                    const salary = d.baseSalary || 550000;
-                    const costoEmpresa = salary * 1.45;
-                    return sum + costoEmpresa * (d.cantidad || 1) * (d.numPuestos || 1);
-                  }, 0);
-                  const totalLineas = additionalLines.reduce((sum, l) => sum + l.monthlyAmount, 0);
-                  const precioVenta = totalCostoManoObra * (1 + marginPercentage / 100) + totalLineas;
-                  return (
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                      <span className="text-muted-foreground">Costo empresa:</span>
-                      <span className="font-mono font-semibold text-right">${formatNumber(Math.round(totalCostoManoObra))}</span>
-                      <span className="text-muted-foreground">Precio venta:</span>
-                      <span className="font-mono font-semibold text-right text-emerald-400">${formatNumber(Math.round(precioVenta))}</span>
-                      <span className="text-muted-foreground">Margen bruto:</span>
-                      <span className="font-mono font-semibold text-right">{marginPercentage}%</span>
-                    </div>
-                  );
-                })()}
-                <p className="text-[9px] text-muted-foreground/70">Estimación. El valor final se calcula al aprobar.</p>
-              </div>
-            )}
-          </div>
+          ))}
         </div>
     );
 
@@ -2211,11 +2101,11 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               {approving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
               {!duplicateChecked
                 ? "Verificar y aprobar"
-                : duplicates.length > 0
+                : (duplicates.length > 0 || existingContact || installationConflicts.length > 0)
                   ? "Confirmar aprobación (con conflictos)"
                   : "Confirmar aprobación"}
             </Button>
-            {duplicateChecked && approveForm.email.trim() && installations.some((i) => i.dotacion.length > 0) && (
+            {duplicateChecked && approveForm.email.trim() && installations.some((i) => i.dotacion.length > 0 || (cpqConfigs[i._key]?.positions?.length ?? 0) > 0) && (
               <Button onClick={approveAndSend} disabled={approving || savingLead || sendingExpress} className="sm:order-4 bg-emerald-600 hover:bg-emerald-700 text-white">
                 {sendingExpress ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Aprobar y Enviar

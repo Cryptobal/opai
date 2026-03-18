@@ -777,30 +777,59 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
   const [applyingTemplate, setApplyingTemplate] = useState(false);
   const handleApplyServiceTemplate = async (template: ServiceTemplate) => {
     if (!quoteId || isLocked) return;
+
+    // If positions exist, ask whether to replace or add
+    if (positions.length > 0) {
+      const replace = window.confirm(
+        `Ya hay ${positions.length} puesto(s).\n\nAceptar = Reemplazar todos\nCancelar = Agregar a los existentes`
+      );
+      if (replace) {
+        for (const pos of positions) {
+          await fetch(`/api/cpq/quotes/${quoteId}/positions/${pos.id}`, { method: "DELETE" }).catch(() => {});
+        }
+      }
+    }
+
     setApplyingTemplate(true);
     try {
+      // Get catalog defaults for required fields
+      const [puestosRes, cargosRes, rolesRes] = await Promise.all([
+        fetch("/api/cpq/puestos?active=true").then((r) => r.json()),
+        fetch("/api/cpq/cargos?active=true").then((r) => r.json()),
+        fetch("/api/cpq/roles?active=true").then((r) => r.json()),
+      ]);
+      const defaultPuesto = puestosRes?.data?.[0];
+      const defaultCargo = cargosRes?.data?.[0];
+      const defaultRol = rolesRes?.data?.[0];
+
+      if (!defaultPuesto?.id || !defaultCargo?.id || !defaultRol?.id) {
+        toast.error("Faltan configuraciones CPQ (puesto, cargo o rol).");
+        setApplyingTemplate(false);
+        return;
+      }
+
       let createdCount = 0;
       for (const pos of template.positions) {
         const res = await fetch(`/api/cpq/quotes/${quoteId}/positions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            puestoTrabajoId: positions[0]?.puestoTrabajoId || null,
+            puestoTrabajoId: defaultPuesto.id,
             customName: pos.name,
             weekdays: pos.daysOfWeek,
             startTime: pos.shiftStart,
             endTime: pos.shiftEnd,
             numGuards: pos.guardsCount,
             numPuestos: 1,
-            cargoId: positions[0]?.cargoId || null,
-            rolId: positions[0]?.rolId || null,
+            cargoId: defaultCargo.id,
+            rolId: defaultRol.id,
             baseSalary: pos.baseSalary,
           }),
         });
         if (res.ok) createdCount++;
       }
       if (createdCount > 0) {
-        toast.success(`${createdCount} puesto(s) agregado(s) desde plantilla "${template.label}"`);
+        toast.success(`${createdCount} puesto(s) creado(s) desde plantilla "${template.label}"`);
         await refresh();
       }
     } catch (err) {

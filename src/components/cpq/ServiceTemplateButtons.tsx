@@ -2,13 +2,14 @@
 
 import { cn } from "@/lib/utils";
 import { SERVICE_TEMPLATES, type ServiceTemplate } from "@/lib/cpq/service-templates";
-import { ShieldCheck, Sun, Moon, Calendar } from "lucide-react";
+import { ShieldCheck, Sun, Moon, Calendar, CalendarClock } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   ShieldCheck,
   Sun,
   Moon,
   Calendar,
+  CalendarClock,
 };
 
 interface ServiceTemplateButtonsProps {
