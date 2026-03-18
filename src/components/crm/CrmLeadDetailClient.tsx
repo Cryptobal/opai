@@ -40,6 +40,8 @@ import {
   Globe,
   Info,
   Phone,
+  Send,
+  MessageCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -55,6 +57,9 @@ import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { FileAttachments } from "./FileAttachments";
 import { LeadSourceBadge } from "./LeadSourceBadge";
 import { DotacionSummary } from "./DotacionSummary";
+import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
+import type { ServiceTemplate } from "@/lib/cpq/service-templates";
+import { LeadInstallationCpq, createDefaultLeadCpqConfig, type LeadCpqConfig } from "./LeadInstallationCpq";
 
 /* ─── Truncated text helper ─── */
 
@@ -519,8 +524,26 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     website: "", companyInfo: "", notes: "",
   });
   const [selectedCostGroups, setSelectedCostGroups] = useState<string[]>(DEFAULT_SELECTED_COST_GROUPS);
-  const [inferringCosts, setInferringCosts] = useState(false);
   const [installations, setInstallations] = useState<InstallationDraft[]>([]);
+
+  // ─── CPQ config per installation ───
+  const [cpqConfigs, setCpqConfigs] = useState<Record<string, LeadCpqConfig>>({});
+  const [proposalTemplates, setProposalTemplates] = useState<{ id: string; name: string; slug?: string }[]>([]);
+  const [ufValue, setUfValue] = useState<number | null>(null);
+  const [expandedInstallations, setExpandedInstallations] = useState<Record<string, boolean>>({});
+
+  // Backward compat aliases from cpqConfigs
+  const firstInstKey = installations[0]?._key;
+  const firstCpqConfig = firstInstKey ? cpqConfigs[firstInstKey] : undefined;
+  const marginPercentage = firstCpqConfig?.marginPercentage ?? 13;
+  const proposalTemplateId = firstCpqConfig?.conditions?.proposalTemplateId ?? "estandar";
+  const additionalLines = (firstCpqConfig?.additionalLines ?? []).map((l) => ({ name: l.nombre, monthlyAmount: Number(l.precio || 0) }));
+
+  // ─── Express send state ───
+  const [sendingExpress, setSendingExpress] = useState(false);
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
+  const [whatsappSentTo, setWhatsappSentTo] = useState("");
   const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
   const [detectedCompanyLogoUrl, setDetectedCompanyLogoUrl] = useState<string | null>(null);
 
@@ -594,6 +617,14 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       .then((r) => r.json())
       .then((res) => res.success && setIndustries(res.data || []))
       .catch(() => {});
+
+    fetch("/api/cpq/proposal-templates").then((r) => r.json()).then((res) => {
+      if (res?.success && Array.isArray(res.data)) setProposalTemplates(res.data);
+    }).catch(() => {});
+
+    fetch("/api/fx/uf").then((r) => r.ok ? r.json() : null).then((d) => {
+      if (d?.success) setUfValue(d.value);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -692,6 +723,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         ? (draftCostGroups as string[])
         : DEFAULT_SELECTED_COST_GROUPS
     );
+
+    // Restore CPQ configs from metadata
+    const savedCpqConfigs = meta?.cpqConfigs as Record<string, LeadCpqConfig> | undefined;
+    if (savedCpqConfigs && typeof savedCpqConfigs === "object") {
+      setCpqConfigs(savedCpqConfigs);
+    }
 
     // Build installations from lead data
     const leadLat = meta?.lat as number | undefined;
@@ -890,6 +927,28 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       })
     );
   };
+  const applyServiceTemplate = (instKey: string, template: ServiceTemplate) => {
+    setInstallations((prev) =>
+      prev.map((inst) => {
+        if (inst._key !== instKey) return inst;
+        const newDotacion: DotacionItem[] = template.positions.map((pos) => ({
+          puestoTrabajoId: defaultPuesto.id || undefined,
+          puesto: defaultPuesto.name || pos.name,
+          customName: pos.name,
+          cargoId: defaultCargoId || undefined,
+          rolId: defaultRolId || undefined,
+          baseSalary: pos.baseSalary,
+          shiftType: pos.shiftStart === "20:00" ? "night" : "day",
+          cantidad: pos.guardsCount,
+          numPuestos: 1,
+          horaInicio: pos.shiftStart,
+          horaFin: pos.shiftEnd,
+          dias: [...pos.daysOfWeek],
+        }));
+        return { ...inst, dotacion: newDotacion };
+      })
+    );
+  };
   const setDotacionShift = (instKey: string, dotIdx: number, shiftType: "day" | "night") => {
     setInstallations((prev) =>
       prev.map((inst) => {
@@ -980,6 +1039,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             dealTitle: approveForm.dealTitle, companyInfo: approveForm.companyInfo,
             selectedCostGroups,
           },
+          cpqConfigs,
         },
       };
       const res = await fetch(`/api/crm/leads/${lead.id}`, {
@@ -999,6 +1059,52 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     }
   };
 
+  // ─── Build approve payload helper ───
+  const buildApprovePayload = () => {
+    const instPayload = installations
+      .filter((inst) => inst.name.trim())
+      .map((inst) => {
+        const { _key, ...rest } = inst;
+        const useExistingInstallationId = installationUseExisting[_key] || undefined;
+        const cpqCfg = cpqConfigs[_key];
+        const dotacion = cpqCfg?.positions?.length
+          ? cpqCfg.positions.map((p) => ({
+              puestoTrabajoId: p.puestoTrabajoId,
+              puesto: p.puesto,
+              customName: p.customName,
+              cargoId: p.cargoId,
+              rolId: p.rolId,
+              baseSalary: p.baseSalary,
+              shiftType: p.shiftType,
+              cantidad: p.cantidad,
+              numPuestos: p.numPuestos || 1,
+              horaInicio: p.horaInicio,
+              horaFin: p.horaFin,
+              dias: p.dias,
+            }))
+          : rest.dotacion;
+        return { ...rest, dotacion, ...(useExistingInstallationId ? { useExistingInstallationId } : {}) };
+      });
+
+    const firstCpq = cpqConfigs[installations[0]?._key];
+    return {
+      ...approveForm,
+      accountNotes: approveForm.companyInfo || undefined,
+      accountLogoUrl: detectedCompanyLogoUrl || undefined,
+      legalName: approveForm.legalName || undefined,
+      legalRepresentativeName: approveForm.legalRepresentativeName || undefined,
+      legalRepresentativeRut: approveForm.legalRepresentativeRut || undefined,
+      useExistingAccountId: useExistingAccountId || undefined,
+      contactResolution: existingContact ? contactResolution : undefined,
+      contactId: (existingContact && (contactResolution === "overwrite" || contactResolution === "use_existing")) ? existingContact.id : undefined,
+      installations: instPayload,
+      selectedCostGroups: firstCpq?.selectedCostGroups ?? selectedCostGroups,
+      marginPercentage: firstCpq?.marginPercentage ?? marginPercentage,
+      proposalTemplateId: firstCpq?.conditions?.proposalTemplateId ?? proposalTemplateId,
+      additionalLines: (firstCpq?.additionalLines ?? []).map((l) => ({ name: l.nombre, monthlyAmount: Number(l.precio || 0) })),
+    };
+  };
+
   // ─── Approve lead ───
   const approveLead = async () => {
     const accountNameToUse = useExistingAccountId ? "" : approveForm.accountName.trim();
@@ -1008,27 +1114,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     }
     setApproving(true);
     try {
-      const instPayload = installations
-        .filter((inst) => inst.name.trim())
-        .map((inst) => {
-          const { _key, ...rest } = inst;
-          const useExistingInstallationId = installationUseExisting[_key] || undefined;
-          return { ...rest, ...(useExistingInstallationId ? { useExistingInstallationId } : {}) };
-        });
-
-      const payload = {
-        ...approveForm,
-        accountNotes: approveForm.companyInfo || undefined,
-        accountLogoUrl: detectedCompanyLogoUrl || undefined,
-        legalName: approveForm.legalName || undefined,
-        legalRepresentativeName: approveForm.legalRepresentativeName || undefined,
-        legalRepresentativeRut: approveForm.legalRepresentativeRut || undefined,
-        useExistingAccountId: useExistingAccountId || undefined,
-        contactResolution: existingContact ? contactResolution : undefined,
-        contactId: (existingContact && (contactResolution === "overwrite" || contactResolution === "use_existing")) ? existingContact.id : undefined,
-        installations: instPayload,
-        selectedCostGroups,
-      };
+      const payload = buildApprovePayload();
 
       if (!duplicateChecked) {
         const checkRes = await fetch(`/api/crm/leads/${lead.id}/approve`, {
@@ -1101,6 +1187,76 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       toast.error("No se pudo aprobar el lead.");
     } finally {
       setApproving(false);
+    }
+  };
+
+  // ─── Express: Approve and Send ───
+  const approveAndSend = async () => {
+    const accountNameToUse = useExistingAccountId ? "" : approveForm.accountName.trim();
+    if (!useExistingAccountId && !accountNameToUse) {
+      toast.error("El nombre de la empresa es obligatorio.");
+      return;
+    }
+    if (!approveForm.email.trim()) {
+      toast.error("El email del contacto es obligatorio para enviar la propuesta.");
+      return;
+    }
+    // Check if any installation has positions (either in dotacion or cpqConfigs)
+    const hasDotacion = installations.some((inst) => {
+      const cpqCfg = cpqConfigs[inst._key];
+      return (cpqCfg?.positions?.length ?? 0) > 0 || inst.dotacion.length > 0;
+    });
+    if (!hasDotacion) {
+      toast.error("Agrega al menos un puesto de guardia.");
+      return;
+    }
+    setSendingExpress(true);
+    try {
+      const payload = buildApprovePayload();
+
+      const response = await fetch(`/api/crm/leads/${lead.id}/approve-and-send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        if (result.error === "CALCULATION_FAILED" || result.error === "SEND_FAILED") {
+          toast.error(result.message || "Error en el proceso express.");
+          if (result.quoteId) {
+            setApprovalResult({
+              account: { id: result.data?.accountId || "", name: approveForm.accountName },
+              contact: { id: result.data?.contactId || "", firstName: approveForm.contactFirstName, lastName: approveForm.contactLastName },
+              deal: { id: result.dealId, title: approveForm.dealTitle },
+              quotes: [{ id: result.quoteId, code: "", installationName: null }],
+            });
+          }
+          return;
+        }
+        throw new Error(result?.error || "Error al aprobar y enviar");
+      }
+
+      toast.success(`Propuesta enviada a ${result.data.sentTo}`);
+
+      // Open WhatsApp modal
+      if (result.data.whatsappPhone && result.data.whatsappMessage) {
+        const phone = result.data.whatsappPhone;
+        const message = result.data.whatsappMessage;
+        setWhatsappUrl(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
+        setWhatsappSentTo(result.data.sentTo);
+        setWhatsappModalOpen(true);
+      }
+
+      // Navigate away after a delay
+      setTimeout(() => {
+        if (!whatsappModalOpen) router.push("/crm/leads");
+      }, 2000);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "No se pudo aprobar y enviar.");
+    } finally {
+      setSendingExpress(false);
     }
   };
 
@@ -1580,35 +1736,61 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           {installations.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">Sin instalaciones. Agrega una para asignar dotación.</p>
           )}
-          {installations.map((inst, instIdx) => (
-            <div key={inst._key} className="rounded-lg border border-border bg-muted/10 overflow-hidden">
-              <div className="px-3 py-2 bg-muted/30 border-b border-border/60 flex items-center gap-2">
-                <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-xs font-semibold flex-1">Instalación {instIdx + 1}</span>
-                {installations.length > 1 && (
-                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => removeInstallation(inst._key)} aria-label="Eliminar instalación" title="Eliminar instalación">
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-              <div className="p-3 space-y-3">
-                <div className="space-y-1">
-                  <Label className="text-[11px]">Nombre *</Label>
-                  <Input value={inst.name} onChange={(e) => updateInstallation(inst._key, "name", e.target.value)} placeholder="Bodega central, Sucursal norte..." className={`h-9 text-sm ${inputClassName}`} />
+          {installations.map((inst, instIdx) => {
+            const instConfig = cpqConfigs[inst._key];
+            const isExpanded = expandedInstallations[inst._key] !== false; // default expanded
+            const instGuards = instConfig?.positions?.reduce((s, p) => s + (p.cantidad || 1) * (p.numPuestos || 1), 0) ?? 0;
+            return (
+            <div key={inst._key} className="rounded-xl border border-border/40 bg-card/50 overflow-hidden">
+              {/* Collapsible header */}
+              <button
+                type="button"
+                onClick={() => setExpandedInstallations((prev) => ({ ...prev, [inst._key]: !isExpanded }))}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <MapPin className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm font-semibold">
+                    Instalación {instIdx + 1}
+                    {inst.name && <span className="text-muted-foreground font-normal ml-1.5">— {inst.name}</span>}
+                  </span>
+                  {!isExpanded && instGuards > 0 && (
+                    <span className="text-[10px] text-muted-foreground ml-2">
+                      {instConfig?.positions?.length ?? 0} puesto(s) · {instGuards} guardias
+                    </span>
+                  )}
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px]">Dirección (Google Maps)</Label>
-                  <div className="flex gap-2 items-center">
-                    <AddressAutocomplete value={inst.address} onChange={(result) => handleAddressChange(inst._key, result)} placeholder="Buscar dirección..." className={`h-9 text-sm flex-1 ${inputClassName}`} showMap={false} />
-                    {(inst.address || (inst.lat != null && inst.lng != null)) && (
-                      <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" title="Abrir en Google Maps" asChild>
-                        <a href={inst.lat != null && inst.lng != null ? `https://www.google.com/maps/@${inst.lat},${inst.lng},17z` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inst.address)}`} target="_blank" rel="noreferrer">
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
-                    )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {installations.length > 1 && (
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); removeInstallation(inst._key); }}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
+                </div>
+              </button>
+              {/* Collapsible content */}
+              {isExpanded && (
+              <div className="px-4 pb-4 pt-1 space-y-3 border-t border-border/30">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Nombre *</Label>
+                    <Input value={inst.name} onChange={(e) => updateInstallation(inst._key, "name", e.target.value)} placeholder="Bodega central, Sucursal norte..." className={`h-9 text-sm ${inputClassName}`} />
                   </div>
-                  <MapsUrlPasteInput onResolve={(result) => handleAddressChange(inst._key, result)} className="mt-1.5" />
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Dirección (Google Maps)</Label>
+                    <div className="flex gap-2 items-center">
+                      <AddressAutocomplete value={inst.address} onChange={(result) => handleAddressChange(inst._key, result)} placeholder="Buscar dirección..." className={`h-9 text-sm flex-1 ${inputClassName}`} showMap={false} />
+                      {(inst.address || (inst.lat != null && inst.lng != null)) && (
+                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" title="Abrir en Google Maps" asChild>
+                          <a href={inst.lat != null && inst.lng != null ? `https://www.google.com/maps/@${inst.lat},${inst.lng},17z` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inst.address)}`} target="_blank" rel="noreferrer">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                    <MapsUrlPasteInput onResolve={(result) => handleAddressChange(inst._key, result)} className="mt-1.5" />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
@@ -1620,212 +1802,25 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                     <Input value={inst.city} onChange={(e) => updateInstallation(inst._key, "city", e.target.value)} placeholder="Santiago" className={`h-9 text-sm ${inputClassName}`} />
                   </div>
                 </div>
-                {/* Dotación */}
-                <div className="space-y-2 pt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <Users className="h-3 w-3" /> Dotación
-                      {inst.dotacion.length > 0 && (
-                        <span className="ml-1 text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                          {inst.dotacion.reduce((s, d) => s + (d.cantidad || 1) * (d.numPuestos || 1), 0)} guardia{inst.dotacion.reduce((s, d) => s + (d.cantidad || 1) * (d.numPuestos || 1), 0) !== 1 ? "s" : ""}
-                        </span>
-                      )}
-                    </span>
-                    <Button type="button" variant="ghost" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={() => addDotacionToInst(inst._key)}>
-                      <Plus className="h-2.5 w-2.5" /> Posición
-                    </Button>
-                  </div>
-                  {inst.dotacion.length === 0 && (
-                    <button type="button" onClick={() => addDotacionToInst(inst._key)} className="w-full py-3 rounded-md border border-dashed border-border text-xs text-muted-foreground hover:bg-muted/30 transition-colors">
-                      + Agregar posición de guardia
-                    </button>
-                  )}
-                  {inst.dotacion.map((dot, dotIdx) => (
-                    <div key={dotIdx} className="rounded-md border border-border/60 bg-background p-2.5 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold text-muted-foreground">Posición {dotIdx + 1}</span>
-                        <div className="flex items-center gap-1">
-                          <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] px-2 gap-1" onClick={() => cloneDotacionInInst(inst._key, dotIdx)}>
-                            <Copy className="h-3 w-3" /> Clonar
-                          </Button>
-                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => removeDotacionFromInst(inst._key, dotIdx)} aria-label="Eliminar posición" title="Eliminar posición">
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Cargo *</Label>
-                          <select className={selectCompactClassName} value={dot.cargoId || ""} onChange={(e) => updateDotacionField(inst._key, dotIdx, "cargoId", e.target.value)}>
-                            <option value="">Seleccionar cargo...</option>
-                            {cpqCargos.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Tipo de puesto *</Label>
-                          <select className={selectCompactClassName} value={dot.puestoTrabajoId || ""}
-                            onChange={(e) => { const puestoTrabajoId = e.target.value; const selected = cpqPuestos.find((p) => p.id === puestoTrabajoId); updateDotacionField(inst._key, dotIdx, "puestoTrabajoId", puestoTrabajoId); updateDotacionField(inst._key, dotIdx, "puesto", selected?.name || dot.puesto || ""); }}>
-                            <option value="">Seleccionar puesto...</option>
-                            {cpqPuestos.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-5">
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Rol *</Label>
-                          <select className={selectCompactClassName} value={dot.rolId || ""} onChange={(e) => updateDotacionField(inst._key, dotIdx, "rolId", e.target.value)}>
-                            <option value="">Seleccionar rol...</option>
-                            {cpqRoles.map((r) => (<option key={r.id} value={r.id}>{r.name}</option>))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Guardias</Label>
-                          <select className={selectCompactClassName} value={Math.min(10, Math.max(1, dot.cantidad ?? 1))} onChange={(e) => updateDotacionField(inst._key, dotIdx, "cantidad", Number(e.target.value))}>
-                            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (<option key={n} value={n}>{n}</option>))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">N° puestos</Label>
-                          <select
-                            className={selectCompactClassName}
-                            value={Math.min(20, Math.max(1, dot.numPuestos ?? 1))}
-                            onChange={(e) => updateDotacionField(inst._key, dotIdx, "numPuestos", Number(e.target.value))}
-                          >
-                            {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
-                              <option key={n} value={n}>
-                                {n}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Sueldo base</Label>
-                          <Input type="text" inputMode="numeric"
-                            value={dot.baseSalary != null ? formatNumber(dot.baseSalary, { minDecimals: 0, maxDecimals: 0 }) : ""}
-                            onChange={(e) => { const raw = e.target.value.replace(/\D/g, ""); updateDotacionField(inst._key, dotIdx, "baseSalary", raw === "" ? undefined : Math.max(0, parseLocalizedNumber(e.target.value))); }}
-                            onBlur={() => { if (dot.baseSalary == null) updateDotacionField(inst._key, dotIdx, "baseSalary", 550000); }}
-                            placeholder="550.000"
-                            className={`h-8 text-sm ${inputClassName}`} />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Label className="text-[10px]">Horario</Label>
-                          <div className="flex gap-1">
-                            <Button type="button" size="sm" variant={(dot.shiftType || "day") === "day" ? "default" : "outline"} className="h-6 px-2 text-[10px]" onClick={() => setDotacionShift(inst._key, dotIdx, "day")}>Día</Button>
-                            <Button type="button" size="sm" variant={(dot.shiftType || "day") === "night" ? "default" : "outline"} className="h-6 px-2 text-[10px]" onClick={() => setDotacionShift(inst._key, dotIdx, "night")}>Noche</Button>
-                          </div>
-                        </div>
-                        {(dot.shiftType || "day") === "day" ? (
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-[10px]">Inicio</Label>
-                              <select className={selectCompactClassName} value={dot.horaInicio} onChange={(e) => setDotacionDayStart(inst._key, dotIdx, e.target.value)}>
-                                {DAY_START_OPTIONS.map((time) => (<option key={time} value={time}>{time}</option>))}
-                              </select>
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-[10px]">Término</Label>
-                              <Input value={dot.horaFin} className={`h-8 text-sm ${inputClassName}`} readOnly />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1"><Label className="text-[10px]">Inicio</Label><Input value="20:00" className={`h-8 text-sm ${inputClassName}`} readOnly /></div>
-                            <div className="space-y-1"><Label className="text-[10px]">Término</Label><Input value="08:00" className={`h-8 text-sm ${inputClassName}`} readOnly /></div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px]">Días</Label>
-                        <div className="flex flex-wrap gap-1.5">
-                          <button type="button" onClick={() => updateDotacionField(inst._key, dotIdx, "dias", [...WEEKDAYS_LABORABLES])}
-                            className="min-h-[32px] px-2.5 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border transition-colors">
-                            Lun-Vie
-                          </button>
-                          <button type="button" onClick={() => updateDotacionField(inst._key, dotIdx, "dias", [...WEEKDAYS_FINDE])}
-                            className="min-h-[32px] px-2.5 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border transition-colors">
-                            Sáb-Dom
-                          </button>
-                          {WEEKDAYS.map((day) => {
-                            const active = dot.dias.includes(day);
-                            return (
-                              <button key={day} type="button" onClick={() => toggleDotacionDay(inst._key, dotIdx, day)}
-                                className={`min-h-[32px] min-w-[32px] px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"}`}>
-                                {WEEKDAYS_SHORT[day]}
-                              </button>
-                            );
-                          })}
-                          <button type="button" onClick={() => { const allSelected = dot.dias.length === 7; updateDotacionField(inst._key, dotIdx, "dias", allSelected ? [] : [...WEEKDAYS]); }}
-                            className="min-h-[32px] px-2.5 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border transition-colors">
-                            {dot.dias.length === 7 ? "Ninguno" : "Todos"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-          <p className="text-[10px] text-muted-foreground">Solo se crearán instalaciones con nombre. La dotación se guarda como referencia para el negocio.</p>
 
-          {/* Costos incluidos */}
-          <div className="space-y-3 pt-4 border-t border-border/60">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Costos incluidos</span>
+                {/* ── CPQ Embebido (dentro de cada instalación) ── */}
+                <LeadInstallationCpq
+                  config={cpqConfigs[inst._key] || createDefaultLeadCpqConfig()}
+                  onChange={(cfg) => setCpqConfigs((prev) => ({ ...prev, [inst._key]: cfg }))}
+                  proposalTemplates={proposalTemplates}
+                  catalogDefaults={defaultPuesto.id ? { puestoId: defaultPuesto.id, puestoName: defaultPuesto.name, cargoId: defaultCargoId, rolId: defaultRolId } : undefined}
+                  accountName={approveForm.accountName}
+                  industry={approveForm.industry}
+                  installationName={inst.name}
+                  installationCity={inst.city}
+                  ufValue={ufValue}
+                />
               </div>
-              <Button type="button" variant="outline" size="sm" className="text-xs" disabled={inferringCosts}
-                onClick={async () => {
-                  setInferringCosts(true);
-                  try {
-                    const res = await fetch("/api/ai/lead-cost-inference", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ leadId: lead.id }) });
-                    const data = await res.json();
-                    if (data.success && Array.isArray(data.groupIds)) { setSelectedCostGroups(data.groupIds); toast.success("Sugerencia aplicada."); }
-                    else toast.error(data?.error || "No se pudo obtener la sugerencia");
-                  } catch { toast.error("Error al sugerir costos"); }
-                  finally { setInferringCosts(false); }
-                }}>
-                {inferringCosts ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
-                Sugerir con IA
-              </Button>
+              )}
             </div>
-            <p className="text-[10px] text-muted-foreground">Marca qué ítems de costo incluir en la cotización. Los montos se configuran después en el cotizador.</p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2.5 rounded-md border border-border/60 bg-muted/10 p-3">
-                <span className="text-[10px] font-medium uppercase text-muted-foreground">Directos</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {COST_GROUPS_DIRECTOS.map((g) => {
-                    const active = selectedCostGroups.includes(g.id);
-                    return (
-                      <button key={g.id} type="button"
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-h-[32px] ${active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"}`}
-                        onClick={() => { if (active) setSelectedCostGroups((prev) => prev.filter((id) => id !== g.id)); else setSelectedCostGroups((prev) => [...prev, g.id]); }}>
-                        {g.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="space-y-2.5 rounded-md border border-border/60 bg-muted/10 p-3">
-                <span className="text-[10px] font-medium uppercase text-muted-foreground">Indirectos</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {COST_GROUPS_INDIRECTOS.map((g) => {
-                    const active = selectedCostGroups.includes(g.id);
-                    return (
-                      <button key={g.id} type="button"
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-h-[32px] ${active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"}`}
-                        onClick={() => { if (active) setSelectedCostGroups((prev) => prev.filter((id) => id !== g.id)); else setSelectedCostGroups((prev) => [...prev, g.id]); }}>
-                        {g.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
+            );
+          })}
+          <p className="text-[10px] text-muted-foreground">Cada instalación tiene su propia configuración de puestos, costos y margen.</p>
         </div>
     );
 
@@ -1926,14 +1921,20 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               <XCircle className="mr-2 h-4 w-4" />
               Rechazar
             </Button>
-            <Button onClick={approveLead} disabled={approving || savingLead} className="sm:order-3">
+            <Button onClick={approveLead} disabled={approving || savingLead || sendingExpress} className="sm:order-3">
               {approving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
               {!duplicateChecked
                 ? "Verificar y aprobar"
-                : duplicates.length > 0
+                : (duplicates.length > 0 || existingContact || installationConflicts.length > 0)
                   ? "Confirmar aprobación (con conflictos)"
                   : "Confirmar aprobación"}
             </Button>
+            {duplicateChecked && approveForm.email.trim() && installations.some((i) => i.dotacion.length > 0 || (cpqConfigs[i._key]?.positions?.length ?? 0) > 0) && (
+              <Button onClick={approveAndSend} disabled={approving || savingLead || sendingExpress} className="sm:order-4 bg-emerald-600 hover:bg-emerald-700 text-white">
+                {sendingExpress ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Aprobar y Enviar
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -1992,13 +1993,88 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           )}
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             {approvalResult && approvalResult.quotes.length > 0 && (
-              <Button className="w-full" onClick={() => router.push(`/cpq/${approvalResult.quotes[0].id}`)}>
-                Ir a cotización CPQ
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              <>
+                <Button className="w-full" onClick={() => router.push(`/cpq/${approvalResult.quotes[0].id}`)}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Ir al CPQ — Revisar y ajustar
+                </Button>
+                {approveForm.email.trim() && approvalResult.quotes.length > 0 && (
+                  <Button
+                    variant="default"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                    disabled={sendingExpress}
+                    onClick={async () => {
+                      setSendingExpress(true);
+                      try {
+                        const quoteId = approvalResult!.quotes[0].id;
+                        // Generate AI description first
+                        await fetch("/api/ai/quote-description", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ quoteId }),
+                        }).catch(() => {});
+                        // Send via portal
+                        const res = await fetch(`/api/cpq/quotes/${quoteId}/send-portal`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ followUp: { include: true, targetStageId: null } }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) throw new Error(data.error || "Error al enviar");
+                        toast.success(`Propuesta enviada a ${data.data.sentTo}`);
+                        setApprovalResult(null);
+                        if (data.data.whatsappPhone && data.data.whatsappMessage) {
+                          setWhatsappUrl(`https://wa.me/${data.data.whatsappPhone}?text=${encodeURIComponent(data.data.whatsappMessage)}`);
+                          setWhatsappSentTo(data.data.sentTo);
+                          setWhatsappModalOpen(true);
+                        } else {
+                          router.push("/crm/leads");
+                        }
+                      } catch (err) {
+                        console.error(err);
+                        toast.error(err instanceof Error ? err.message : "Error al enviar propuesta");
+                      } finally {
+                        setSendingExpress(false);
+                      }
+                    }}
+                  >
+                    {sendingExpress ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    Enviar propuesta ahora
+                  </Button>
+                )}
+              </>
             )}
             <Button variant="outline" className="w-full" onClick={() => { setApprovalResult(null); router.push("/crm/leads"); }}>
               Volver a leads
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── WhatsApp Modal (post-send) ── */}
+      <Dialog open={whatsappModalOpen} onOpenChange={setWhatsappModalOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              Propuesta enviada
+            </DialogTitle>
+            <DialogDescription>
+              Email enviado a {whatsappSentTo}. El mensaje incluye credenciales de acceso al portal y la propuesta técnica.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            {whatsappUrl && (
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => { window.open(whatsappUrl, "_blank"); setWhatsappModalOpen(false); router.push("/crm/leads"); }}
+              >
+                <MessageCircle className="mr-2 h-4 w-4" />
+                Compartir por WhatsApp
+              </Button>
+            )}
+            <Button variant="outline" className="w-full" onClick={() => { setWhatsappModalOpen(false); router.push("/crm/leads"); }}>
+              Omitir
             </Button>
           </DialogFooter>
         </DialogContent>

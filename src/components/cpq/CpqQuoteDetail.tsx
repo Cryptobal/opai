@@ -52,6 +52,8 @@ import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
 import { FollowUpDecisionModal, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
 import { CrmActivityTimeline } from "@/components/crm/CrmActivityTimeline";
 import { VisitaTecnicaSolicitudModal } from "@/components/cpq/VisitaTecnicaSolicitudModal";
+import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
+import type { ServiceTemplate } from "@/lib/cpq/service-templates";
 
 type ActivityEvent = {
   id: string;
@@ -749,6 +751,95 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
     }
   };
 
+  const [recalculatingAll, setRecalculatingAll] = useState(false);
+  const handleRecalculateAll = async () => {
+    if (!quoteId) return;
+    setRecalculatingAll(true);
+    try {
+      const res = await fetch(`/api/cpq/quotes/${quoteId}/costs`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recalculate: true }),
+      });
+      if (res.ok) {
+        toast.success("Costos recalculados");
+        await refresh();
+      } else {
+        toast.error("Error al recalcular");
+      }
+    } catch {
+      toast.error("Error al recalcular costos");
+    } finally {
+      setRecalculatingAll(false);
+    }
+  };
+
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const handleApplyServiceTemplate = async (template: ServiceTemplate) => {
+    if (!quoteId || isLocked) return;
+
+    // If positions exist, ask whether to replace or add
+    if (positions.length > 0) {
+      const replace = window.confirm(
+        `Ya hay ${positions.length} puesto(s).\n\nAceptar = Reemplazar todos\nCancelar = Agregar a los existentes`
+      );
+      if (replace) {
+        for (const pos of positions) {
+          await fetch(`/api/cpq/quotes/${quoteId}/positions/${pos.id}`, { method: "DELETE" }).catch(() => {});
+        }
+      }
+    }
+
+    setApplyingTemplate(true);
+    try {
+      // Get catalog defaults for required fields
+      const [puestosRes, cargosRes, rolesRes] = await Promise.all([
+        fetch("/api/cpq/puestos?active=true").then((r) => r.json()),
+        fetch("/api/cpq/cargos?active=true").then((r) => r.json()),
+        fetch("/api/cpq/roles?active=true").then((r) => r.json()),
+      ]);
+      const defaultPuesto = puestosRes?.data?.[0];
+      const defaultCargo = cargosRes?.data?.[0];
+      const defaultRol = rolesRes?.data?.[0];
+
+      if (!defaultPuesto?.id || !defaultCargo?.id || !defaultRol?.id) {
+        toast.error("Faltan configuraciones CPQ (puesto, cargo o rol).");
+        setApplyingTemplate(false);
+        return;
+      }
+
+      let createdCount = 0;
+      for (const pos of template.positions) {
+        const res = await fetch(`/api/cpq/quotes/${quoteId}/positions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            puestoTrabajoId: defaultPuesto.id,
+            customName: pos.name,
+            weekdays: pos.daysOfWeek,
+            startTime: pos.shiftStart,
+            endTime: pos.shiftEnd,
+            numGuards: pos.guardsCount,
+            numPuestos: 1,
+            cargoId: defaultCargo.id,
+            rolId: defaultRol.id,
+            baseSalary: pos.baseSalary,
+          }),
+        });
+        if (res.ok) createdCount++;
+      }
+      if (createdCount > 0) {
+        toast.success(`${createdCount} puesto(s) creado(s) desde plantilla "${template.label}"`);
+        await refresh();
+      }
+    } catch (err) {
+      console.error("Error applying service template:", err);
+      toast.error("Error al aplicar plantilla");
+    } finally {
+      setApplyingTemplate(false);
+    }
+  };
+
   const handleSendPortal = () => {
     if (!quote || !crmContext.accountId || !crmContext.contactId || !crmContext.dealId) {
       toast.error("Asigna cuenta, contacto y negocio antes de enviar por portal");
@@ -1323,6 +1414,20 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         </div>
         {secPuestos && (
           <div className="px-4 pb-4">
+            {!isLocked && (
+              <div className="mb-3">
+                <ServiceTemplateButtons
+                  compact
+                  onSelect={handleApplyServiceTemplate}
+                  existingPositionsCount={positions.length}
+                />
+                {applyingTemplate && (
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Creando puestos...
+                  </p>
+                )}
+              </div>
+            )}
             {positions.length === 0 ? (
               <EmptyState
                 icon={<Users className="h-6 w-6" />}
@@ -1347,7 +1452,21 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             )}
             {positions.length > 0 && (
               <div className="flex justify-between items-center px-3 py-2 border border-dashed border-border/60 rounded-lg mt-2">
-                <span className="text-xs font-semibold text-muted-foreground">Total mano de obra</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Total mano de obra</span>
+                  {!isLocked && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+                      disabled={recalculatingAll}
+                      onClick={handleRecalculateAll}
+                    >
+                      <RefreshCw className={cn("h-3 w-3 mr-1", recalculatingAll && "animate-spin")} />
+                      Recalcular todos
+                    </Button>
+                  )}
+                </div>
                 <span className="text-sm font-bold tabular-nums">
                   {formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}
                 </span>

@@ -15,7 +15,7 @@ import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { toSentenceCase } from "@/lib/text-format";
 import { isDefaultUniform } from "@/lib/cpq-constants";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
-import { refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
+import { computeCpqQuoteCosts, refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
 
 const CPQ_WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
 const WEEKDAY_ALIAS: Record<string, string> = {
@@ -559,19 +559,36 @@ export async function POST(
         : undefined;
 
       let resolvedTemplateId: string | undefined;
-      const industryType = lead.industryType;
-      if (industryType) {
-        let templateSlug: string | null = null;
-        if (industryType === "mining") templateSlug = "tender";
-        else if (industryType === "industrial" || industryType === "gobierno") templateSlug = "detailed";
-        if (templateSlug) {
-          const tpl = await tx.cpqProposalTemplate.findFirst({
-            where: { slug: templateSlug, active: true, OR: [{ tenantId: ctx.tenantId }, { tenantId: null }] },
-            select: { id: true },
-          });
-          if (tpl) resolvedTemplateId = tpl.id;
+
+      // Check if body provides proposalTemplateId from commercial config
+      const bodyProposalTemplateSlug = body?.proposalTemplateId as string | undefined;
+      if (bodyProposalTemplateSlug) {
+        const tpl = await tx.cpqProposalTemplate.findFirst({
+          where: { slug: bodyProposalTemplateSlug, active: true, OR: [{ tenantId: ctx.tenantId }, { tenantId: null }] },
+          select: { id: true },
+        });
+        if (tpl) resolvedTemplateId = tpl.id;
+      }
+
+      // Fallback: infer template from industry type
+      if (!resolvedTemplateId) {
+        const industryType = lead.industryType;
+        if (industryType) {
+          let templateSlug: string | null = null;
+          if (industryType === "mining") templateSlug = "tender";
+          else if (industryType === "industrial" || industryType === "gobierno") templateSlug = "detailed";
+          if (templateSlug) {
+            const tpl = await tx.cpqProposalTemplate.findFirst({
+              where: { slug: templateSlug, active: true, OR: [{ tenantId: ctx.tenantId }, { tenantId: null }] },
+              select: { id: true },
+            });
+            if (tpl) resolvedTemplateId = tpl.id;
+          }
         }
       }
+
+      const bodyMarginPct = typeof body?.marginPercentage === "number" ? body.marginPercentage : 13;
+      const bodyAdditionalLines = Array.isArray(body?.additionalLines) ? body.additionalLines : [];
 
       const leadEquipment = Array.isArray(lead.requiredEquipment) ? lead.requiredEquipment : [];
 
@@ -710,6 +727,43 @@ export async function POST(
           }
 
           if (quote) {
+            // Set margin parameters from commercial config
+            await tx.cpqQuoteParameters.upsert({
+              where: { quoteId: quote.id },
+              update: { marginPct: bodyMarginPct },
+              create: {
+                quoteId: quote.id,
+                monthlyHoursStandard: 180,
+                avgStayMonths: 4,
+                uniformChangesPerYear: 3,
+                financialRatePct: 2.5,
+                salePriceMonthly: 0,
+                policyRatePct: 0,
+                policyAdminRatePct: 0,
+                policyContractMonths: 12,
+                policyContractPct: 100,
+                contractMonths: 12,
+                contractAmount: 0,
+                marginPct: bodyMarginPct,
+              },
+            });
+
+            // Create additional lines from commercial config
+            for (let i = 0; i < bodyAdditionalLines.length; i++) {
+              const line = bodyAdditionalLines[i];
+              if (line && typeof line.name === "string" && line.name.trim() && typeof line.monthlyAmount === "number" && line.monthlyAmount > 0) {
+                await tx.cpqQuoteAdditionalLine.create({
+                  data: {
+                    quoteId: quote.id,
+                    nombre: line.name.trim(),
+                    descripcion: "",
+                    precio: line.monthlyAmount,
+                    orden: i + 1,
+                  },
+                });
+              }
+            }
+
             // Pre-cargar costos del catálogo según requiredEquipment del lead
             if (leadEquipment.length > 0) {
               const equipCatalogItems = await tx.cpqCatalogItem.findMany({
@@ -1116,6 +1170,24 @@ export async function POST(
         console.warn(`Could not refresh quote totals for ${q.code} (${q.id}):`, refreshErr);
       }
     }
+
+    // Auto-calcular costos completos para que la cotización esté lista desde el segundo 0
+    for (const q of result.quotes) {
+      try {
+        await computeCpqQuoteCosts(q.id);
+      } catch (err) {
+        console.error(`[Lead Approve] Auto-compute costs failed for ${q.code} (${q.id}):`, err);
+      }
+    }
+
+    // Auto-generar descripciones IA (fire-and-forget, no bloquea la respuesta)
+    import("@/modules/cpq/descriptions/generate-descriptions").then(({ generateQuoteDescription }) => {
+      for (const q of result.quotes) {
+        generateQuoteDescription(q.id, { tenantId: ctx.tenantId, userId: ctx.userId }).catch((err) =>
+          console.error(`[Lead Approve] Auto-gen description failed for ${q.code}:`, err)
+        );
+      }
+    });
 
     return NextResponse.json({ success: true, data: result });
   } catch (error: unknown) {
