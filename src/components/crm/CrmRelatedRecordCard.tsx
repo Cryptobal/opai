@@ -28,6 +28,8 @@ interface CrmRelatedRecordCardProps {
   href?: string;
   /** Slot derecho para acciones o contenido extra */
   actions?: React.ReactNode;
+  /** Si false, el título no se trunca (por defecto true) */
+  titleTruncate?: boolean;
   /** Clases CSS adicionales */
   className?: string;
 }
@@ -52,6 +54,7 @@ export function CrmRelatedRecordCard({
   meta,
   href,
   actions,
+  titleTruncate = true,
   className,
 }: CrmRelatedRecordCardProps) {
   const config = CRM_MODULES[module];
@@ -78,7 +81,7 @@ export function CrmRelatedRecordCard({
       {/* Contenido */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium truncate">{title}</span>
+          <span className={cn("text-sm font-medium", titleTruncate && "truncate")}>{title}</span>
           {badge && (
             badge.color ? (
               <span
@@ -99,7 +102,7 @@ export function CrmRelatedRecordCard({
           )}
         </div>
         {(subtitle || meta) && (
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+          <p className={cn("text-xs text-muted-foreground mt-0.5", titleTruncate && "truncate")}>
             {subtitle}
             {subtitle && meta && " · "}
             {meta}

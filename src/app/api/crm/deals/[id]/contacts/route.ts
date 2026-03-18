@@ -77,11 +77,26 @@ export async function POST(
         data: { role: "participant" },
       });
 
-      // Also update the deal's primaryContactId
+      // Update the deal's primaryContactId
       await prisma.crmDeal.update({
         where: { id: dealId },
         data: { primaryContactId: contactId },
       });
+
+      // Propagate to linked quotes
+      const linked = await prisma.crmDealQuote.findMany({
+        where: { dealId, tenantId: ctx.tenantId },
+        select: { quoteId: true },
+      });
+      if (linked.length > 0) {
+        await prisma.cpqQuote.updateMany({
+          where: {
+            id: { in: linked.map((q) => q.quoteId) },
+            tenantId: ctx.tenantId,
+          },
+          data: { contactId },
+        });
+      }
     }
 
     const dealContact = await prisma.crmDealContact.create({
@@ -189,6 +204,21 @@ export async function PATCH(
         where: { id: dealId },
         data: { primaryContactId: contactId },
       });
+
+      // Propagate to linked quotes
+      const linked = await prisma.crmDealQuote.findMany({
+        where: { dealId, tenantId: ctx.tenantId },
+        select: { quoteId: true },
+      });
+      if (linked.length > 0) {
+        await prisma.cpqQuote.updateMany({
+          where: {
+            id: { in: linked.map((q) => q.quoteId) },
+            tenantId: ctx.tenantId,
+          },
+          data: { contactId },
+        });
+      }
     }
 
     const existing = await prisma.crmDealContact.findFirst({

@@ -325,9 +325,17 @@ export function CrmDealDetailClient({
 
   // ── Deal contacts state ──
   const [dealContacts, setDealContacts] = useState<DealContactRow[]>(initialDealContacts);
-  const [addContactOpen, setAddContactOpen] = useState(false);
-  const [selectedContactId, setSelectedContactId] = useState("");
+  const [accountContactsList, setAccountContactsList] = useState<ContactRow[]>(accountContacts);
   const [addingContact, setAddingContact] = useState(false);
+  const [linkContactConfirmOpen, setLinkContactConfirmOpen] = useState(false);
+  const [linkContactId, setLinkContactId] = useState<string | null>(null);
+  const [newContactOpen, setNewContactOpen] = useState(false);
+  const [creatingContact, setCreatingContact] = useState(false);
+  const [newContactForm, setNewContactForm] = useState({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "" });
+
+  useEffect(() => {
+    setAccountContactsList(accountContacts);
+  }, [accountContacts]);
   const [currentStage, setCurrentStage] = useState<DealDetail["stage"]>(deal.stage || null);
   const [changingStage, setChangingStage] = useState(false);
   const [wonConfirmOpen, setWonConfirmOpen] = useState(false);
@@ -684,28 +692,69 @@ export function CrmDealDetailClient({
 
   // ── Deal contacts handlers ──
   const linkedContactIds = new Set(dealContacts.map((dc) => dc.contactId));
-  const availableContacts = accountContacts.filter((c) => !linkedContactIds.has(c.id));
+  const dealContactByContactId = useMemo(() => {
+    const m = new Map<string, DealContactRow>();
+    for (const dc of dealContacts) m.set(dc.contactId, dc);
+    return m;
+  }, [dealContacts]);
 
-  const addDealContact = async () => {
-    if (!selectedContactId) { toast.error("Selecciona un contacto."); return; }
+  const addDealContact = async (contactId: string) => {
     setAddingContact(true);
+    setLinkContactId(contactId);
     try {
       const role = dealContacts.length === 0 ? "primary" : "participant";
       const res = await fetch(`/api/crm/deals/${deal.id}/contacts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId: selectedContactId, role }),
+        body: JSON.stringify({ contactId, role }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error);
       setDealContacts((prev) => [...prev, data.data]);
-      setSelectedContactId("");
-      setAddContactOpen(false);
       toast.success("Contacto vinculado al negocio");
-    } catch (error: any) {
-      toast.error(error?.message || "No se pudo vincular.");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "No se pudo vincular.");
     } finally {
       setAddingContact(false);
+      setLinkContactId(null);
+    }
+  };
+
+  const createContact = async () => {
+    const accountId = deal.account?.id;
+    if (!accountId) { toast.error("Este negocio no tiene cuenta asociada."); return; }
+    const { firstName, lastName, email, phone, roleTitle } = newContactForm;
+    if (!firstName.trim() || !lastName.trim()) { toast.error("Nombre y apellido son obligatorios."); return; }
+    if (!email.trim()) { toast.error("Email es obligatorio."); return; }
+    setCreatingContact(true);
+    try {
+      const res = await fetch("/api/crm/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          phone: phone.trim() || null,
+          roleTitle: roleTitle.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error);
+      const created = data.data as ContactRow;
+      setAccountContactsList((prev) => [...prev, created]);
+      setNewContactForm({ firstName: "", lastName: "", email: "", phone: "", roleTitle: "" });
+      setNewContactOpen(false);
+      toast.success("Contacto creado");
+      setCreatingContact(false);
+      // Vincular automáticamente si no hay contactos en el negocio
+      if (dealContacts.length === 0) {
+        await addDealContact(created.id);
+      }
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "No se pudo crear el contacto.");
+      setCreatingContact(false);
     }
   };
 
@@ -1233,34 +1282,55 @@ export function CrmDealDetailClient({
   const associatedSections: AssociatedSection[] = [
     {
       id: "contacts",
-      label: "Contactos del negocio",
+      label: "Contactos de la cuenta",
       icon: ContactsIcon,
-      count: dealContacts.length,
-      content: dealContacts.length === 0 ? (
-        <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Vincula contactos de la cuenta a este negocio." compact />
+      count: accountContactsList.length,
+      content: !deal.account?.id ? (
+        <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin cuenta" description="Vincula este negocio a una cuenta para ver y gestionar contactos." compact />
+      ) : accountContactsList.length === 0 ? (
+        <EmptyState icon={<ContactsIcon className="h-8 w-8" />} title="Sin contactos" description="Crea un contacto para esta cuenta." compact />
       ) : (
         <CrmRelatedRecordGrid className="!grid-cols-1">
-          {dealContacts.map((dc) => {
-            const c = dc.contact;
+          {accountContactsList.map((c) => {
+            const dc = dealContactByContactId.get(c.id);
+            const isLinked = !!dc;
+            const contactName = `${c.firstName} ${c.lastName}`.trim();
             return (
               <CrmRelatedRecordCard
-                key={dc.id}
+                key={c.id}
                 module="contacts"
-                title={`${c.firstName} ${c.lastName}`.trim()}
+                title={contactName}
                 subtitle={c.roleTitle || "Sin cargo"}
                 meta={c.email || undefined}
-                badge={dc.role === "primary" ? { label: "Principal", variant: "default" } : undefined}
+                titleTruncate={false}
+                badge={dc?.role === "primary" ? { label: "Principal", variant: "default" } : dc ? { label: "Vinculado", variant: "secondary" } : undefined}
                 href={`/crm/contacts/${c.id}`}
                 actions={
                   <div className="flex items-center gap-0.5" onClick={(e) => e.preventDefault()}>
-                    {dc.role !== "primary" && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8" title="Marcar como principal" aria-label="Marcar como principal" onClick={() => markPrimary(c.id)}>
-                        <Star className="h-3.5 w-3.5" />
+                    {isLinked ? (
+                      <>
+                        {dc!.role !== "primary" && (
+                          <Button size="icon" variant="ghost" className="h-8 w-8" title="Marcar como principal" aria-label="Marcar como principal" onClick={() => markPrimary(c.id)}>
+                            <Star className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Desvincular contacto" aria-label="Desvincular contacto" onClick={() => removeDealContact(c.id)}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10"
+                        title="Vincular al negocio"
+                        aria-label="Vincular al negocio"
+                        onClick={() => { setLinkContactId(c.id); setLinkContactConfirmOpen(true); }}
+                        disabled={addingContact}
+                      >
+                        {addingContact && linkContactId === c.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
                       </Button>
                     )}
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Desvincular contacto" aria-label="Desvincular contacto" onClick={() => removeDealContact(c.id)}>
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
                   </div>
                 }
               />
@@ -1268,7 +1338,7 @@ export function CrmDealDetailClient({
           })}
         </CrmRelatedRecordGrid>
       ),
-      onAdd: availableContacts.length > 0 ? () => setAddContactOpen(true) : undefined,
+      onAdd: deal.account?.id ? () => setNewContactOpen(true) : undefined,
     },
     {
       id: "installations",
@@ -1575,25 +1645,64 @@ export function CrmDealDetailClient({
         </DialogContent>
       </Dialog>
 
-      {/* ── Add Contact Dialog (opened via panel onAdd) ── */}
-      <Dialog open={addContactOpen} onOpenChange={setAddContactOpen}>
+      {/* ── New Contact Dialog (opened via panel onAdd) ── */}
+      <Dialog open={newContactOpen} onOpenChange={setNewContactOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Vincular contacto al negocio</DialogTitle><DialogDescription>Selecciona un contacto de la cuenta.</DialogDescription></DialogHeader>
-          <div className="space-y-2">
-            <Label>Contacto</Label>
-            <SearchableSelect
-              value={selectedContactId}
-              options={availableContacts.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`.trim(), description: c.email || "Sin email" }))}
-              placeholder="Selecciona contacto"
-              disabled={addingContact}
-              onChange={setSelectedContactId}
-            />
+          <DialogHeader><DialogTitle>Nuevo contacto</DialogTitle><DialogDescription>Crea un contacto para la cuenta {deal.account?.name}.</DialogDescription></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nombre</Label>
+                <Input value={newContactForm.firstName} onChange={(e) => setNewContactForm((p) => ({ ...p, firstName: e.target.value }))} placeholder="Juan" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Apellido</Label>
+                <Input value={newContactForm.lastName} onChange={(e) => setNewContactForm((p) => ({ ...p, lastName: e.target.value }))} placeholder="Pérez" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Email</Label>
+              <Input type="email" value={newContactForm.email} onChange={(e) => setNewContactForm((p) => ({ ...p, email: e.target.value }))} placeholder="juan@empresa.cl" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Teléfono (opcional)</Label>
+              <Input type="tel" value={newContactForm.phone} onChange={(e) => setNewContactForm((p) => ({ ...p, phone: e.target.value }))} placeholder="+56 9 1234 5678" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Cargo (opcional)</Label>
+              <Input value={newContactForm.roleTitle} onChange={(e) => setNewContactForm((p) => ({ ...p, roleTitle: e.target.value }))} placeholder="Gerente Comercial" />
+            </div>
           </div>
           <DialogFooter>
-            <Button onClick={addDealContact} disabled={addingContact}>{addingContact && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Vincular</Button>
+            <Button variant="outline" onClick={() => setNewContactOpen(false)}>Cancelar</Button>
+            <Button onClick={createContact} disabled={creatingContact}>
+              {creatingContact && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Crear contacto
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={linkContactConfirmOpen}
+        onOpenChange={(open) => { setLinkContactConfirmOpen(open); if (!open) setLinkContactId(null); }}
+        title="Vincular contacto al negocio"
+        description={(() => {
+          const c = linkContactId ? accountContactsList.find((x) => x.id === linkContactId) : null;
+          const name = c ? `${c.firstName} ${c.lastName}`.trim() : "este contacto";
+          return `¿Vincular a ${name} como contacto de este negocio?`;
+        })()}
+        confirmLabel="Vincular"
+        cancelLabel="Cancelar"
+        variant="default"
+        onConfirm={async () => {
+          const id = linkContactId;
+          setLinkContactConfirmOpen(false);
+          if (id) await addDealContact(id);
+        }}
+        loading={addingContact}
+        loadingLabel="Vinculando..."
+      />
 
       <ConfirmDialog open={deleteConfirm} onOpenChange={setDeleteConfirm} title="Eliminar negocio" description="Se eliminarán las cotizaciones vinculadas y el historial." onConfirm={deleteDeal} />
 
