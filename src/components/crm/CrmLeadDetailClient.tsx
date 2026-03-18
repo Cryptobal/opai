@@ -524,7 +524,6 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     website: "", companyInfo: "", notes: "",
   });
   const [selectedCostGroups, setSelectedCostGroups] = useState<string[]>(DEFAULT_SELECTED_COST_GROUPS);
-  const [inferringCosts, setInferringCosts] = useState(false);
   const [installations, setInstallations] = useState<InstallationDraft[]>([]);
 
   // ─── CPQ config per installation ───
@@ -1771,232 +1770,18 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                     <Input value={inst.city} onChange={(e) => updateInstallation(inst._key, "city", e.target.value)} placeholder="Santiago" className={`h-9 text-sm ${inputClassName}`} />
                   </div>
                 </div>
-                {/* Dotación */}
-                <div className="space-y-2 pt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                      <Users className="h-3 w-3" /> Dotación
-                      {inst.dotacion.length > 0 && (
-                        <span className="ml-1 text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                          {inst.dotacion.reduce((s, d) => s + (d.cantidad || 1) * (d.numPuestos || 1), 0)} guardia{inst.dotacion.reduce((s, d) => s + (d.cantidad || 1) * (d.numPuestos || 1), 0) !== 1 ? "s" : ""}
-                        </span>
-                      )}
-                    </span>
-                    <Button type="button" variant="ghost" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={() => addDotacionToInst(inst._key)}>
-                      <Plus className="h-2.5 w-2.5" /> Posición
-                    </Button>
-                  </div>
-                  <ServiceTemplateButtons
-                    compact
-                    onSelect={(tpl) => applyServiceTemplate(inst._key, tpl)}
-                    existingPositionsCount={inst.dotacion.length}
-                  />
-                  {inst.dotacion.length === 0 && (
-                    <button type="button" onClick={() => addDotacionToInst(inst._key)} className="w-full py-3 rounded-md border border-dashed border-border text-xs text-muted-foreground hover:bg-muted/30 transition-colors">
-                      + Agregar posición de guardia
-                    </button>
-                  )}
-                  {inst.dotacion.map((dot, dotIdx) => (
-                    <div key={dotIdx} className="rounded-md border border-border/60 bg-background p-2.5 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold text-muted-foreground">Posición {dotIdx + 1}</span>
-                        <div className="flex items-center gap-1">
-                          <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] px-2 gap-1" onClick={() => cloneDotacionInInst(inst._key, dotIdx)}>
-                            <Copy className="h-3 w-3" /> Clonar
-                          </Button>
-                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => removeDotacionFromInst(inst._key, dotIdx)} aria-label="Eliminar posición" title="Eliminar posición">
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Cargo *</Label>
-                          <select className={selectCompactClassName} value={dot.cargoId || ""} onChange={(e) => updateDotacionField(inst._key, dotIdx, "cargoId", e.target.value)}>
-                            <option value="">Seleccionar cargo...</option>
-                            {cpqCargos.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Tipo de puesto *</Label>
-                          <select className={selectCompactClassName} value={dot.puestoTrabajoId || ""}
-                            onChange={(e) => { const puestoTrabajoId = e.target.value; const selected = cpqPuestos.find((p) => p.id === puestoTrabajoId); updateDotacionField(inst._key, dotIdx, "puestoTrabajoId", puestoTrabajoId); updateDotacionField(inst._key, dotIdx, "puesto", selected?.name || dot.puesto || ""); }}>
-                            <option value="">Seleccionar puesto...</option>
-                            {cpqPuestos.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-5">
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Rol *</Label>
-                          <select className={selectCompactClassName} value={dot.rolId || ""} onChange={(e) => updateDotacionField(inst._key, dotIdx, "rolId", e.target.value)}>
-                            <option value="">Seleccionar rol...</option>
-                            {cpqRoles.map((r) => (<option key={r.id} value={r.id}>{r.name}</option>))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Guardias</Label>
-                          <select className={selectCompactClassName} value={Math.min(10, Math.max(1, dot.cantidad ?? 1))} onChange={(e) => updateDotacionField(inst._key, dotIdx, "cantidad", Number(e.target.value))}>
-                            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (<option key={n} value={n}>{n}</option>))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">N° puestos</Label>
-                          <select
-                            className={selectCompactClassName}
-                            value={Math.min(20, Math.max(1, dot.numPuestos ?? 1))}
-                            onChange={(e) => updateDotacionField(inst._key, dotIdx, "numPuestos", Number(e.target.value))}
-                          >
-                            {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
-                              <option key={n} value={n}>
-                                {n}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[10px]">Sueldo base</Label>
-                          <Input type="text" inputMode="numeric"
-                            value={dot.baseSalary != null ? formatNumber(dot.baseSalary, { minDecimals: 0, maxDecimals: 0 }) : ""}
-                            onChange={(e) => { const raw = e.target.value.replace(/\D/g, ""); updateDotacionField(inst._key, dotIdx, "baseSalary", raw === "" ? undefined : Math.max(0, parseLocalizedNumber(e.target.value))); }}
-                            onBlur={() => { if (dot.baseSalary == null) updateDotacionField(inst._key, dotIdx, "baseSalary", 550000); }}
-                            placeholder="550.000"
-                            className={`h-8 text-sm ${inputClassName}`} />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Label className="text-[10px]">Horario</Label>
-                          <div className="flex gap-1">
-                            <Button type="button" size="sm" variant={(dot.shiftType || "day") === "day" ? "default" : "outline"} className="h-6 px-2 text-[10px]" onClick={() => setDotacionShift(inst._key, dotIdx, "day")}>Día</Button>
-                            <Button type="button" size="sm" variant={(dot.shiftType || "day") === "night" ? "default" : "outline"} className="h-6 px-2 text-[10px]" onClick={() => setDotacionShift(inst._key, dotIdx, "night")}>Noche</Button>
-                          </div>
-                        </div>
-                        {(dot.shiftType || "day") === "day" ? (
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-[10px]">Inicio</Label>
-                              <select className={selectCompactClassName} value={dot.horaInicio} onChange={(e) => setDotacionDayStart(inst._key, dotIdx, e.target.value)}>
-                                {DAY_START_OPTIONS.map((time) => (<option key={time} value={time}>{time}</option>))}
-                              </select>
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-[10px]">Término</Label>
-                              <Input value={dot.horaFin} className={`h-8 text-sm ${inputClassName}`} readOnly />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1"><Label className="text-[10px]">Inicio</Label><Input value="20:00" className={`h-8 text-sm ${inputClassName}`} readOnly /></div>
-                            <div className="space-y-1"><Label className="text-[10px]">Término</Label><Input value="08:00" className={`h-8 text-sm ${inputClassName}`} readOnly /></div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px]">Días</Label>
-                        <div className="flex flex-wrap gap-1.5">
-                          <button type="button" onClick={() => updateDotacionField(inst._key, dotIdx, "dias", [...WEEKDAYS_LABORABLES])}
-                            className="min-h-[32px] px-2.5 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border transition-colors">
-                            Lun-Vie
-                          </button>
-                          <button type="button" onClick={() => updateDotacionField(inst._key, dotIdx, "dias", [...WEEKDAYS_FINDE])}
-                            className="min-h-[32px] px-2.5 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border transition-colors">
-                            Sáb-Dom
-                          </button>
-                          {WEEKDAYS.map((day) => {
-                            const active = dot.dias.includes(day);
-                            return (
-                              <button key={day} type="button" onClick={() => toggleDotacionDay(inst._key, dotIdx, day)}
-                                className={`min-h-[32px] min-w-[32px] px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"}`}>
-                                {WEEKDAYS_SHORT[day]}
-                              </button>
-                            );
-                          })}
-                          <button type="button" onClick={() => { const allSelected = dot.dias.length === 7; updateDotacionField(inst._key, dotIdx, "dias", allSelected ? [] : [...WEEKDAYS]); }}
-                            className="min-h-[32px] px-2.5 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border transition-colors">
-                            {dot.dias.length === 7 ? "Ninguno" : "Todos"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+
+                {/* ── CPQ Embebido (dentro de cada instalación) ── */}
+                <LeadInstallationCpq
+                  config={cpqConfigs[inst._key] || createDefaultLeadCpqConfig()}
+                  onChange={(cfg) => setCpqConfigs((prev) => ({ ...prev, [inst._key]: cfg }))}
+                  proposalTemplates={proposalTemplates}
+                  catalogDefaults={defaultPuesto.id ? { puestoId: defaultPuesto.id, puestoName: defaultPuesto.name, cargoId: defaultCargoId, rolId: defaultRolId } : undefined}
+                />
               </div>
             </div>
           ))}
-          <p className="text-[10px] text-muted-foreground">Solo se crearán instalaciones con nombre. La dotación se guarda como referencia para el negocio.</p>
-
-          {/* Costos incluidos */}
-          <div className="space-y-3 pt-4 border-t border-border/60">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Costos incluidos</span>
-              </div>
-              <Button type="button" variant="outline" size="sm" className="text-xs" disabled={inferringCosts}
-                onClick={async () => {
-                  setInferringCosts(true);
-                  try {
-                    const res = await fetch("/api/ai/lead-cost-inference", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ leadId: lead.id }) });
-                    const data = await res.json();
-                    if (data.success && Array.isArray(data.groupIds)) { setSelectedCostGroups(data.groupIds); toast.success("Sugerencia aplicada."); }
-                    else toast.error(data?.error || "No se pudo obtener la sugerencia");
-                  } catch { toast.error("Error al sugerir costos"); }
-                  finally { setInferringCosts(false); }
-                }}>
-                {inferringCosts ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
-                Sugerir con IA
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground">Marca qué ítems de costo incluir en la cotización. Los montos se configuran después en el cotizador.</p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2.5 rounded-md border border-border/60 bg-muted/10 p-3">
-                <span className="text-[10px] font-medium uppercase text-muted-foreground">Directos</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {COST_GROUPS_DIRECTOS.map((g) => {
-                    const active = selectedCostGroups.includes(g.id);
-                    return (
-                      <button key={g.id} type="button"
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-h-[32px] ${active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"}`}
-                        onClick={() => { if (active) setSelectedCostGroups((prev) => prev.filter((id) => id !== g.id)); else setSelectedCostGroups((prev) => [...prev, g.id]); }}>
-                        {g.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="space-y-2.5 rounded-md border border-border/60 bg-muted/10 p-3">
-                <span className="text-[10px] font-medium uppercase text-muted-foreground">Indirectos</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {COST_GROUPS_INDIRECTOS.map((g) => {
-                    const active = selectedCostGroups.includes(g.id);
-                    return (
-                      <button key={g.id} type="button"
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-h-[32px] ${active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"}`}
-                        onClick={() => { if (active) setSelectedCostGroups((prev) => prev.filter((id) => id !== g.id)); else setSelectedCostGroups((prev) => [...prev, g.id]); }}>
-                        {g.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── CPQ Embebido por Instalación ── */}
-          {installations.map((inst) => (
-            <div key={inst._key} className="rounded-lg border border-border bg-muted/5 p-3 space-y-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Cotizador — {inst.name || "Instalación"}
-              </span>
-              <LeadInstallationCpq
-                config={cpqConfigs[inst._key] || createDefaultLeadCpqConfig()}
-                onChange={(cfg) => setCpqConfigs((prev) => ({ ...prev, [inst._key]: cfg }))}
-                proposalTemplates={proposalTemplates}
-                catalogDefaults={defaultPuesto.id ? { puestoId: defaultPuesto.id, puestoName: defaultPuesto.name, cargoId: defaultCargoId, rolId: defaultRolId } : undefined}
-              />
-            </div>
-          ))}
+          <p className="text-[10px] text-muted-foreground">Cada instalación tiene su propia configuración de puestos, costos y margen.</p>
         </div>
     );
 

@@ -53,16 +53,16 @@ interface LeadInstallationCpqProps {
 
 /* ─── Cost group constants ─── */
 const COST_GROUPS_DIRECTOS = [
-  { id: "uniform", label: "Uniformes" },
-  { id: "exam", label: "Exámenes" },
-  { id: "meal", label: "Alimentación" },
+  { id: "uniform", label: "Uniformes", icon: "\uD83E\uDDE5" },
+  { id: "exam", label: "Exámenes", icon: "\uD83D\uDD2C" },
+  { id: "meal", label: "Alimentación", icon: "\uD83C\uDF7D\uFE0F" },
 ] as const;
 const COST_GROUPS_INDIRECTOS = [
-  { id: "equipment", label: "Equipos operativos" },
-  { id: "transport", label: "Costos de transporte" },
-  { id: "vehicle", label: "Vehículos" },
-  { id: "infrastructure", label: "Infraestructura" },
-  { id: "system", label: "Sistemas" },
+  { id: "equipment", label: "Equipos operativos", icon: "\uD83D\uDCE6" },
+  { id: "transport", label: "Costos de transporte", icon: "\uD83D\uDE9A" },
+  { id: "vehicle", label: "Vehículos", icon: "\uD83D\uDE97" },
+  { id: "infrastructure", label: "Infraestructura", icon: "\uD83C\uDFD7\uFE0F" },
+  { id: "system", label: "Sistemas", icon: "\uD83D\uDCBB" },
 ] as const;
 
 const WEEKDAYS_SHORT: Record<string, string> = {
@@ -158,9 +158,15 @@ export function LeadInstallationCpq({
 
   // ─── Quick estimate ───
   const estimate = useMemo(() => {
+    const IMM = 500000;
     const totalCostoManoObra = config.positions.reduce((sum, p) => {
       const salary = p.baseSalary || 550000;
-      return sum + salary * 1.45 * (p.cantidad || 1) * (p.numPuestos || 1);
+      const guards = (p.cantidad || 1) * (p.numPuestos || 1);
+      const gratificacion = Math.min(salary * 0.25, (4.75 * IMM) / 12);
+      const baseConGrat = salary + gratificacion;
+      const cargasSociales = baseConGrat * 0.2435;
+      const costoGuardia = salary + gratificacion + cargasSociales;
+      return sum + costoGuardia * guards;
     }, 0);
     const totalLineas = config.additionalLines.reduce((sum, l) => {
       const base = Number(l.precio || 0) * Number(l.cantidad || 1);
@@ -241,14 +247,21 @@ export function LeadInstallationCpq({
                       <button
                         type="button"
                         className={cn("flex-1 h-7 rounded-md border text-[10px] font-medium", pos.shiftType !== "night" ? "border-amber-500/40 bg-amber-500/10 text-amber-400" : "border-border text-muted-foreground")}
-                        onClick={() => updatePosition(idx, { shiftType: "day", horaInicio: "08:00", horaFin: "20:00" })}
+                        onClick={() => {
+                          const patch: Partial<LeadPositionItem> = { shiftType: "day", horaInicio: "08:00", horaFin: "20:00" };
+                          // Auto-set salary for 5x2 day shift if not manually edited
+                          const allWeekdays = pos.dias?.length === 5 && !pos.dias.includes("sabado");
+                          if (allWeekdays) patch.baseSalary = 400000;
+                          else patch.baseSalary = 600000;
+                          updatePosition(idx, patch);
+                        }}
                       >
                         Día
                       </button>
                       <button
                         type="button"
                         className={cn("flex-1 h-7 rounded-md border text-[10px] font-medium", pos.shiftType === "night" ? "border-purple-500/40 bg-purple-500/10 text-purple-400" : "border-border text-muted-foreground")}
-                        onClick={() => updatePosition(idx, { shiftType: "night", horaInicio: "20:00", horaFin: "08:00" })}
+                        onClick={() => updatePosition(idx, { shiftType: "night", horaInicio: "20:00", horaFin: "08:00", baseSalary: 600000 })}
                       >
                         Noche
                       </button>
@@ -277,9 +290,29 @@ export function LeadInstallationCpq({
                     );
                   })}
                 </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {pos.horaInicio}-{pos.horaFin} · {(pos.cantidad || 1) * (pos.numPuestos || 1)} guardia(s) · Costo est. {formatCurrency(Math.round((pos.baseSalary || 550000) * 1.45 * (pos.cantidad || 1) * (pos.numPuestos || 1)))}
-                </div>
+                {(() => {
+                  const salary = pos.baseSalary || 550000;
+                  const guards = (pos.cantidad || 1) * (pos.numPuestos || 1);
+                  const IMM = 500000;
+                  const gratificacion = Math.min(salary * 0.25, (4.75 * IMM) / 12);
+                  const baseConGrat = salary + gratificacion;
+                  const cargasSociales = baseConGrat * 0.2435;
+                  const costoGuardia = salary + gratificacion + cargasSociales;
+                  const costoTotal = costoGuardia * guards;
+                  return (
+                    <div className="text-[10px] space-y-0.5">
+                      <div className="text-muted-foreground">
+                        {pos.horaInicio}-{pos.horaFin} · {guards} guardia(s)
+                      </div>
+                      <div className="text-emerald-400 font-semibold">
+                        Costo empresa: {formatCurrency(Math.round(costoTotal))}/mes
+                        <span className="text-muted-foreground font-normal ml-1">
+                          ({formatCurrency(Math.round(costoGuardia))}/guardia)
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             ))}
             <Button variant="outline" size="sm" className="w-full text-xs gap-1" onClick={addPosition}>
@@ -289,50 +322,72 @@ export function LeadInstallationCpq({
         )}
       </Card>
 
-      {/* ── Costos incluidos ── */}
+      {/* ── Costos adicionales (acordeón CPQ-style) ── */}
       <Card className="shadow-sm overflow-hidden">
         <button type="button" onClick={() => setSecCostos((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm font-bold shrink-0">Costos incluidos</h2>
-            {!secCostos && <span className="text-[11px] text-muted-foreground">{config.selectedCostGroups.length} grupos</span>}
+            <h2 className="text-sm font-bold shrink-0">Costos adicionales</h2>
+            {!secCostos && config.selectedCostGroups.length > 0 && (
+              <span className="text-[11px] text-muted-foreground">
+                {config.selectedCostGroups.length} categorías activas
+              </span>
+            )}
           </div>
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secCostos && "rotate-180")} />
         </button>
         {secCostos && (
-          <div className="px-3 pb-3 space-y-2">
-            <p className="text-[10px] text-muted-foreground">Los montos se configuran automáticamente del catálogo al aprobar.</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2 rounded-md border border-border/60 bg-muted/10 p-2.5">
-                <span className="text-[10px] font-medium uppercase text-muted-foreground">Directos</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {COST_GROUPS_DIRECTOS.map((g) => {
-                    const active = config.selectedCostGroups.includes(g.id);
-                    return (
-                      <button key={g.id} type="button"
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-h-[32px] ${active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"}`}
-                        onClick={() => toggleCostGroup(g.id)}>
-                        {g.label}
-                      </button>
-                    );
-                  })}
-                </div>
+          <div className="px-3 pb-3 space-y-1">
+            {/* DIRECTOS */}
+            <div className="rounded-md border border-border/40 overflow-hidden">
+              <div className="px-2.5 py-1.5 bg-muted/20 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase text-muted-foreground">Directos</span>
               </div>
-              <div className="space-y-2 rounded-md border border-border/60 bg-muted/10 p-2.5">
-                <span className="text-[10px] font-medium uppercase text-muted-foreground">Indirectos</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {COST_GROUPS_INDIRECTOS.map((g) => {
-                    const active = config.selectedCostGroups.includes(g.id);
-                    return (
-                      <button key={g.id} type="button"
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-h-[32px] ${active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent hover:border-border"}`}
-                        onClick={() => toggleCostGroup(g.id)}>
-                        {g.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              {COST_GROUPS_DIRECTOS.map((g) => {
+                const active = config.selectedCostGroups.includes(g.id);
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => toggleCostGroup(g.id)}
+                    className="flex items-center justify-between w-full px-2.5 py-1.5 hover:bg-muted/10 transition-colors border-t border-border/20"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={cn("h-2 w-2 rounded-full transition-colors", active ? "bg-emerald-500" : "bg-muted-foreground/30")} />
+                      <span className={cn("text-xs", active ? "text-foreground font-medium" : "text-muted-foreground")}>{g.icon} {g.label}</span>
+                    </div>
+                    <span className="text-xs font-mono text-muted-foreground">
+                      {active ? "Incluido" : "—"}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+            {/* INDIRECTOS */}
+            <div className="rounded-md border border-border/40 overflow-hidden">
+              <div className="px-2.5 py-1.5 bg-muted/20 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase text-muted-foreground">Indirectos</span>
+              </div>
+              {COST_GROUPS_INDIRECTOS.map((g) => {
+                const active = config.selectedCostGroups.includes(g.id);
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => toggleCostGroup(g.id)}
+                    className="flex items-center justify-between w-full px-2.5 py-1.5 hover:bg-muted/10 transition-colors border-t border-border/20"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={cn("h-2 w-2 rounded-full transition-colors", active ? "bg-emerald-500" : "bg-muted-foreground/30")} />
+                      <span className={cn("text-xs", active ? "text-foreground font-medium" : "text-muted-foreground")}>{g.icon} {g.label}</span>
+                    </div>
+                    <span className="text-xs font-mono text-muted-foreground">
+                      {active ? "Incluido" : "—"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[9px] text-muted-foreground/70 pt-1">Los montos exactos se cargan del catálogo al aprobar. Haz clic para incluir/excluir.</p>
           </div>
         )}
       </Card>
