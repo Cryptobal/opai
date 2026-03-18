@@ -1777,6 +1777,10 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   onChange={(cfg) => setCpqConfigs((prev) => ({ ...prev, [inst._key]: cfg }))}
                   proposalTemplates={proposalTemplates}
                   catalogDefaults={defaultPuesto.id ? { puestoId: defaultPuesto.id, puestoName: defaultPuesto.name, cargoId: defaultCargoId, rolId: defaultRolId } : undefined}
+                  accountName={approveForm.accountName}
+                  industry={approveForm.industry}
+                  installationName={inst.name}
+                  installationCity={inst.city}
                 />
               </div>
             </div>

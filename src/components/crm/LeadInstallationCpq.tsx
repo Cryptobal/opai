@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { formatCurrency } from "@/components/cpq/utils";
-import { ChevronDown, Users, Plus, Copy, Trash2, Moon, Sun } from "lucide-react";
+import { ChevronDown, Users, Plus, Copy, Trash2, Moon, Sun, Loader2, Sparkles, RefreshCw } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import MarginSection from "@/components/cpq/MarginSection";
 import { FinancialCostsSection, type FinancialCostsData } from "@/components/cpq/FinancialCostsSection";
@@ -34,14 +35,27 @@ export interface LeadPositionItem {
   dias: string[];
 }
 
+export interface LeadCostItem {
+  catalogItemId: string;
+  name: string;
+  type: string;
+  unit: string;
+  basePrice: number;
+  priceOverride: number | null;
+  enabled: boolean;
+}
+
 export interface LeadCpqConfig {
   positions: LeadPositionItem[];
   selectedCostGroups: string[];
+  costItems: LeadCostItem[];
   additionalLines: AdditionalLineItem[];
   financialCosts: FinancialCostsData;
   marginPercentage: number;
   marginMode: MarginMode;
   conditions: CommercialConditionsData;
+  companyDescription?: string;
+  serviceDescription?: string;
 }
 
 interface LeadInstallationCpqProps {
@@ -49,6 +63,10 @@ interface LeadInstallationCpqProps {
   onChange: (config: LeadCpqConfig) => void;
   proposalTemplates?: { id: string; name: string; slug?: string }[];
   catalogDefaults?: { puestoId: string; puestoName: string; cargoId: string; rolId: string };
+  accountName?: string;
+  industry?: string;
+  installationName?: string;
+  installationCity?: string;
 }
 
 /* ─── Cost group constants ─── */
@@ -69,6 +87,43 @@ const WEEKDAYS_SHORT: Record<string, string> = {
   lunes: "Lu", martes: "Ma", miercoles: "Mi", jueves: "Ju", viernes: "Vi", sabado: "Sa", domingo: "Do",
 };
 
+/* ─── Cost group → catalog type mapping ─── */
+const COST_GROUP_TYPES_MAP: Record<string, string[]> = {
+  uniform: ["uniform"],
+  exam: ["exam"],
+  meal: ["meal"],
+  equipment: ["phone", "radio", "flashlight"],
+  transport: ["transport"],
+  vehicle: ["vehicle_rent", "vehicle_fuel", "vehicle_tag"],
+  infrastructure: ["infrastructure", "fuel"],
+  system: ["system"],
+};
+
+/* ─── Cost type → category mapping ─── */
+const COST_TYPE_CATEGORY: Record<string, { category: "direct" | "indirect"; group: string }> = {
+  uniform: { category: "direct", group: "Uniformes" },
+  exam: { category: "direct", group: "Exámenes" },
+  meal: { category: "direct", group: "Alimentación" },
+  phone: { category: "indirect", group: "Equipos operativos" },
+  radio: { category: "indirect", group: "Equipos operativos" },
+  flashlight: { category: "indirect", group: "Equipos operativos" },
+  transport: { category: "indirect", group: "Transporte" },
+  vehicle_rent: { category: "indirect", group: "Vehículos" },
+  vehicle_fuel: { category: "indirect", group: "Vehículos" },
+  vehicle_tag: { category: "indirect", group: "Vehículos" },
+  infrastructure: { category: "indirect", group: "Infraestructura" },
+  fuel: { category: "indirect", group: "Infraestructura" },
+  system: { category: "indirect", group: "Sistemas" },
+};
+
+interface CatalogItem {
+  id: string;
+  type: string;
+  name: string;
+  unit: string;
+  basePrice: number;
+}
+
 /* ─── Component ─── */
 
 export function LeadInstallationCpq({
@@ -76,15 +131,115 @@ export function LeadInstallationCpq({
   onChange,
   proposalTemplates = [],
   catalogDefaults,
+  accountName,
+  industry,
+  installationName,
+  installationCity,
 }: LeadInstallationCpqProps) {
   const [secPuestos, setSecPuestos] = useState(true);
   const [secCostos, setSecCostos] = useState(false);
+
+  // Catalog items for cost accordion
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+
+  useEffect(() => {
+    if (catalogLoaded) return;
+    fetch("/api/cpq/catalog?active=true")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res?.success && Array.isArray(res.data)) {
+          setCatalogItems(res.data.map((item: any) => ({
+            id: item.id,
+            type: item.type,
+            name: item.name,
+            unit: item.unit,
+            basePrice: Number(item.basePrice) || 0,
+          })));
+          setCatalogLoaded(true);
+          // Auto-populate costItems from catalog if empty
+          if (config.costItems.length === 0 && config.selectedCostGroups.length > 0) {
+            const enabledTypes = new Set<string>();
+            for (const g of config.selectedCostGroups) {
+              const types = COST_GROUP_TYPES_MAP[g];
+              if (types) types.forEach((t) => enabledTypes.add(t));
+            }
+            const items: LeadCostItem[] = res.data.map((item: any) => ({
+              catalogItemId: item.id,
+              name: item.name,
+              type: item.type,
+              unit: item.unit,
+              basePrice: Number(item.basePrice) || 0,
+              priceOverride: null,
+              enabled: enabledTypes.has(item.type),
+            }));
+            onChange({ ...config, costItems: items });
+          }
+        }
+      })
+      .catch(() => {});
+  }, [catalogLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
   const [secLineas, setSecLineas] = useState(false);
   const [secFinancieros, setSecFinancieros] = useState(false);
   const [secMargen, setSecMargen] = useState(true);
   const [secCondiciones, setSecCondiciones] = useState(false);
+  const [secDescripciones, setSecDescripciones] = useState(false);
+  const [generatingCompany, setGeneratingCompany] = useState(false);
+  const [generatingService, setGeneratingService] = useState(false);
+  const [aiInstruction, setAiInstruction] = useState("");
 
   const update = (patch: Partial<LeadCpqConfig>) => onChange({ ...config, ...patch });
+
+  // ─── Cost item helpers ───
+  const toggleCostItem = (catalogItemId: string) => {
+    const items = config.costItems.map((item) =>
+      item.catalogItemId === catalogItemId ? { ...item, enabled: !item.enabled } : item
+    );
+    update({ costItems: items });
+  };
+
+  const updateCostItemPrice = (catalogItemId: string, price: number) => {
+    const items = config.costItems.map((item) =>
+      item.catalogItemId === catalogItemId ? { ...item, priceOverride: price, enabled: true } : item
+    );
+    update({ costItems: items });
+  };
+
+  // Group cost items by category → group
+  const groupedCostsDirect = useMemo(() => {
+    const groups: Record<string, LeadCostItem[]> = {};
+    for (const item of config.costItems) {
+      const cat = COST_TYPE_CATEGORY[item.type];
+      if (!cat || cat.category !== "direct") continue;
+      if (!groups[cat.group]) groups[cat.group] = [];
+      groups[cat.group].push(item);
+    }
+    return groups;
+  }, [config.costItems]);
+
+  const groupedCostsIndirect = useMemo(() => {
+    const groups: Record<string, LeadCostItem[]> = {};
+    for (const item of config.costItems) {
+      const cat = COST_TYPE_CATEGORY[item.type];
+      if (!cat || cat.category !== "indirect") continue;
+      if (!groups[cat.group]) groups[cat.group] = [];
+      groups[cat.group].push(item);
+    }
+    return groups;
+  }, [config.costItems]);
+
+  const costTotals = useMemo(() => {
+    let directos = 0;
+    let indirectos = 0;
+    for (const item of config.costItems) {
+      if (!item.enabled) continue;
+      const price = item.priceOverride ?? item.basePrice;
+      const cat = COST_TYPE_CATEGORY[item.type];
+      if (cat?.category === "direct") directos += price;
+      else if (cat?.category === "indirect") indirectos += price;
+    }
+    return { directos, indirectos, total: directos + indirectos };
+  }, [config.costItems]);
 
   // ─── Position helpers ───
   const totalGuards = config.positions.reduce(
@@ -156,6 +311,38 @@ export function LeadInstallationCpq({
     update({ selectedCostGroups: groups });
   };
 
+  // ─── AI description generation ───
+  const generateDescription = async (type: "company" | "service") => {
+    if (config.positions.length === 0) return;
+    const setter = type === "company" ? setGeneratingCompany : setGeneratingService;
+    setter(true);
+    try {
+      const res = await fetch("/api/ai/lead-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type,
+          accountName: accountName || "",
+          industry: industry || "",
+          installationName: installationName || "",
+          city: installationCity || "",
+          positions: config.positions,
+          costItems: config.costItems,
+          customInstruction: aiInstruction || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data?.success && data.data?.description) {
+        if (type === "company") update({ companyDescription: data.data.description });
+        else update({ serviceDescription: data.data.description });
+      }
+    } catch {
+      // silent fail
+    } finally {
+      setter(false);
+    }
+  };
+
   // ─── Quick estimate ───
   const estimate = useMemo(() => {
     const IMM = 500000;
@@ -174,10 +361,31 @@ export function LeadInstallationCpq({
       const venta = m > 0 && m < 100 ? base / (1 - m / 100) : base;
       return sum + (l.recurrencia === "unico" && config.conditions.contractDuration > 0 ? venta / config.conditions.contractDuration : venta);
     }, 0);
-    const precioVenta = totalCostoManoObra * (1 + config.marginPercentage / 100) + totalLineas;
-    const marginAmount = totalCostoManoObra * (config.marginPercentage / 100);
-    return { costoEmpresa: totalCostoManoObra, precioVenta, totalLineas, marginAmount };
-  }, [config.positions, config.additionalLines, config.marginPercentage, config.conditions.contractDuration]);
+    const costosAdicionales = costTotals.total;
+    const costoBase = totalCostoManoObra + costosAdicionales;
+    const financiero = config.financialCosts.financialEnabled
+      ? costoBase * (config.financialCosts.financialRatePct / 100)
+      : 0;
+    const costoConFinanciero = costoBase + financiero;
+    const marginPct = config.marginPercentage / 100;
+    const marginAmount = config.marginMode === "margin_on_sale" && marginPct < 1
+      ? costoConFinanciero / (1 - marginPct) - costoConFinanciero
+      : costoConFinanciero * marginPct;
+    const precioVenta = costoConFinanciero + marginAmount + totalLineas;
+    const totalGuardias = config.positions.reduce((s, p) => s + (p.cantidad || 1) * (p.numPuestos || 1), 0);
+    const totalPuestos = config.positions.reduce((s, p) => s + (p.numPuestos || 1), 0);
+    return {
+      manoDeObra: totalCostoManoObra,
+      directos: costTotals.directos,
+      indirectos: costTotals.indirectos,
+      financiero,
+      marginAmount,
+      totalLineas,
+      precioVenta,
+      totalGuardias,
+      totalPuestos,
+    };
+  }, [config.positions, config.additionalLines, config.marginPercentage, config.marginMode, config.conditions.contractDuration, config.financialCosts, costTotals]);
 
   return (
     <div className="space-y-2">
@@ -216,7 +424,7 @@ export function LeadInstallationCpq({
                     </Button>
                   </div>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-4">
+                <div className="grid gap-2 sm:grid-cols-5">
                   <div className="space-y-1">
                     <Label className="text-[10px]">Nombre</Label>
                     <Input value={pos.customName || ""} onChange={(e) => updatePosition(idx, { customName: e.target.value })} className="h-7 text-xs" placeholder="Control de Acceso" />
@@ -227,6 +435,16 @@ export function LeadInstallationCpq({
                       className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs"
                       value={pos.cantidad || 1}
                       onChange={(e) => updatePosition(idx, { cantidad: Number(e.target.value) })}
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px]">N° Puestos</Label>
+                    <select
+                      className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs"
+                      value={pos.numPuestos || 1}
+                      onChange={(e) => updatePosition(idx, { numPuestos: Number(e.target.value) })}
                     >
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => <option key={n} value={n}>{n}</option>)}
                     </select>
@@ -302,7 +520,7 @@ export function LeadInstallationCpq({
                   return (
                     <div className="text-[10px] space-y-0.5">
                       <div className="text-muted-foreground">
-                        {pos.horaInicio}-{pos.horaFin} · {guards} guardia(s)
+                        {pos.horaInicio}-{pos.horaFin} · {pos.cantidad || 1} guardia(s){(pos.numPuestos || 1) > 1 ? ` × ${pos.numPuestos} puestos = ${guards} guardias totales` : ""}
                       </div>
                       <div className="text-emerald-400 font-semibold">
                         Costo empresa: {formatCurrency(Math.round(costoTotal))}/mes
@@ -322,14 +540,14 @@ export function LeadInstallationCpq({
         )}
       </Card>
 
-      {/* ── Costos adicionales (acordeón CPQ-style) ── */}
+      {/* ── Costos adicionales (acordeón con ítems reales del catálogo) ── */}
       <Card className="shadow-sm overflow-hidden">
         <button type="button" onClick={() => setSecCostos((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Costos adicionales</h2>
-            {!secCostos && config.selectedCostGroups.length > 0 && (
+            {!secCostos && costTotals.total > 0 && (
               <span className="text-[11px] text-muted-foreground">
-                {config.selectedCostGroups.length} categorías activas
+                <span className="font-mono font-semibold text-amber-400">{formatCurrency(costTotals.total)}</span>
               </span>
             )}
           </div>
@@ -338,56 +556,27 @@ export function LeadInstallationCpq({
         {secCostos && (
           <div className="px-3 pb-3 space-y-1">
             {/* DIRECTOS */}
-            <div className="rounded-md border border-border/40 overflow-hidden">
-              <div className="px-2.5 py-1.5 bg-muted/20 flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase text-muted-foreground">Directos</span>
-              </div>
-              {COST_GROUPS_DIRECTOS.map((g) => {
-                const active = config.selectedCostGroups.includes(g.id);
-                return (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => toggleCostGroup(g.id)}
-                    className="flex items-center justify-between w-full px-2.5 py-1.5 hover:bg-muted/10 transition-colors border-t border-border/20"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className={cn("h-2 w-2 rounded-full transition-colors", active ? "bg-emerald-500" : "bg-muted-foreground/30")} />
-                      <span className={cn("text-xs", active ? "text-foreground font-medium" : "text-muted-foreground")}>{g.icon} {g.label}</span>
-                    </div>
-                    <span className="text-xs font-mono text-muted-foreground">
-                      {active ? "Incluido" : "—"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <CostCategoryBlock
+              title="DIRECTOS"
+              total={costTotals.directos}
+              groups={groupedCostsDirect}
+              costItems={config.costItems}
+              onToggleItem={toggleCostItem}
+              onPriceChange={updateCostItemPrice}
+            />
             {/* INDIRECTOS */}
-            <div className="rounded-md border border-border/40 overflow-hidden">
-              <div className="px-2.5 py-1.5 bg-muted/20 flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase text-muted-foreground">Indirectos</span>
-              </div>
-              {COST_GROUPS_INDIRECTOS.map((g) => {
-                const active = config.selectedCostGroups.includes(g.id);
-                return (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => toggleCostGroup(g.id)}
-                    className="flex items-center justify-between w-full px-2.5 py-1.5 hover:bg-muted/10 transition-colors border-t border-border/20"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className={cn("h-2 w-2 rounded-full transition-colors", active ? "bg-emerald-500" : "bg-muted-foreground/30")} />
-                      <span className={cn("text-xs", active ? "text-foreground font-medium" : "text-muted-foreground")}>{g.icon} {g.label}</span>
-                    </div>
-                    <span className="text-xs font-mono text-muted-foreground">
-                      {active ? "Incluido" : "—"}
-                    </span>
-                  </button>
-                );
-              })}
+            <CostCategoryBlock
+              title="INDIRECTOS"
+              total={costTotals.indirectos}
+              groups={groupedCostsIndirect}
+              costItems={config.costItems}
+              onToggleItem={toggleCostItem}
+              onPriceChange={updateCostItemPrice}
+            />
+            <div className="flex justify-between items-center pt-1 border-t border-amber-500/20">
+              <span className="text-[11px] font-medium text-amber-300">Total costos adicionales</span>
+              <span className="text-sm font-bold font-mono text-amber-300">{formatCurrency(costTotals.total)}</span>
             </div>
-            <p className="text-[9px] text-muted-foreground/70 pt-1">Los montos exactos se cargan del catálogo al aprobar. Haz clic para incluir/excluir.</p>
           </div>
         )}
       </Card>
@@ -476,26 +665,251 @@ export function LeadInstallationCpq({
         )}
       </Card>
 
-      {/* ── Estimación rápida ── */}
-      {config.positions.length > 0 && (
-        <Card className="shadow-sm p-3 space-y-1.5 border-dashed">
-          <span className="text-[10px] font-medium text-muted-foreground uppercase">Estimación rápida</span>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-            <span className="text-muted-foreground">Costo empresa:</span>
-            <span className="font-mono font-semibold text-right">{formatCurrency(Math.round(estimate.costoEmpresa))}</span>
-            <span className="text-muted-foreground">Precio venta:</span>
-            <span className="font-mono font-semibold text-right text-emerald-400">{formatCurrency(Math.round(estimate.precioVenta))}</span>
-            <span className="text-muted-foreground">Margen bruto:</span>
-            <span className="font-mono font-semibold text-right">{config.marginPercentage}%</span>
-            {estimate.totalLineas > 0 && (
-              <>
-                <span className="text-muted-foreground">Líneas adicionales:</span>
-                <span className="font-mono font-semibold text-right text-purple-400">{formatCurrency(Math.round(estimate.totalLineas))}</span>
-              </>
+      {/* ── Descripciones IA ── */}
+      <Card className="shadow-sm overflow-hidden">
+        <button type="button" onClick={() => setSecDescripciones((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Descripciones IA</h2>
+            {!secDescripciones && (config.companyDescription || config.serviceDescription) && (
+              <span className="text-[11px] text-muted-foreground">Generadas</span>
             )}
           </div>
-          <p className="text-[9px] text-muted-foreground/70">Estimación. El valor final se calcula al aprobar.</p>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secDescripciones && "rotate-180")} />
+        </button>
+        {secDescripciones && (
+          <div className="px-3 pb-3 space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {/* Company description */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px]">Descripción empresa</Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] gap-1 px-2"
+                    disabled={generatingCompany || config.positions.length === 0}
+                    onClick={() => generateDescription("company")}
+                  >
+                    {generatingCompany ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    {config.companyDescription ? "Regenerar" : "Generar"}
+                  </Button>
+                </div>
+                <Textarea
+                  value={config.companyDescription || ""}
+                  onChange={(e) => update({ companyDescription: e.target.value })}
+                  placeholder="Se genera automáticamente al hacer clic en Generar..."
+                  className="text-xs min-h-[100px] resize-y"
+                />
+              </div>
+              {/* Service detail */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[10px]">Detalle servicio</Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] gap-1 px-2"
+                    disabled={generatingService || config.positions.length === 0}
+                    onClick={() => generateDescription("service")}
+                  >
+                    {generatingService ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    {config.serviceDescription ? "Regenerar" : "Generar"}
+                  </Button>
+                </div>
+                <Textarea
+                  value={config.serviceDescription || ""}
+                  onChange={(e) => update({ serviceDescription: e.target.value })}
+                  placeholder="Se genera automáticamente al hacer clic en Generar..."
+                  className="text-xs min-h-[100px] resize-y"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px]">Instrucción IA (opcional)</Label>
+              <Input
+                value={aiInstruction}
+                onChange={(e) => setAiInstruction(e.target.value)}
+                placeholder="Ej: Enfocarse en el rubro minero..."
+                className="h-7 text-xs"
+              />
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* ── Vista previa de la propuesta (HTML) ── */}
+      {config.positions.length > 0 && (config.companyDescription || config.serviceDescription) && (
+        <Card className="shadow-sm overflow-hidden">
+          <div className="px-3 py-2 bg-muted/20 border-b border-border/40">
+            <span className="text-[11px] font-semibold text-muted-foreground">Vista previa de la propuesta</span>
+          </div>
+          <div className="p-3 space-y-3 text-xs">
+            <div className="text-center space-y-1">
+              <div className="text-sm font-bold">GARD SECURITY</div>
+              <div className="text-muted-foreground">Propuesta Comercial</div>
+            </div>
+            {config.companyDescription && (
+              <div className="space-y-1">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase">Descripción</div>
+                <p className="text-xs whitespace-pre-wrap leading-relaxed">{config.companyDescription}</p>
+              </div>
+            )}
+            <div className="space-y-1">
+              <div className="text-[10px] font-semibold text-muted-foreground uppercase">Puestos de trabajo</div>
+              <div className="space-y-0.5">
+                {config.positions.map((pos, i) => (
+                  <div key={i} className="flex justify-between text-[11px]">
+                    <span>{pos.customName || pos.puesto}</span>
+                    <span className="text-muted-foreground">{(pos.cantidad || 1) * (pos.numPuestos || 1)} guardia(s) · {pos.horaInicio}-{pos.horaFin}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="border-t border-border/40 pt-2 space-y-0.5">
+              <div className="text-[10px] font-semibold text-muted-foreground uppercase">Evaluación económica</div>
+              <div className="flex justify-between"><span>Mano de obra:</span><span className="font-mono">{formatCurrency(Math.round(estimate.manoDeObra))}</span></div>
+              {estimate.directos > 0 && <div className="flex justify-between"><span>Costos directos:</span><span className="font-mono">{formatCurrency(Math.round(estimate.directos))}</span></div>}
+              {estimate.indirectos > 0 && <div className="flex justify-between"><span>Costos indirectos:</span><span className="font-mono">{formatCurrency(Math.round(estimate.indirectos))}</span></div>}
+              <div className="flex justify-between font-bold text-emerald-400 pt-1 border-t border-border/20">
+                <span>PRECIO VENTA MENSUAL:</span>
+                <span className="font-mono">{formatCurrency(Math.round(estimate.precioVenta))}</span>
+              </div>
+            </div>
+            {config.serviceDescription && (
+              <div className="space-y-1">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase">Detalle del servicio</div>
+                <p className="text-xs whitespace-pre-wrap leading-relaxed">{config.serviceDescription}</p>
+              </div>
+            )}
+          </div>
         </Card>
+      )}
+
+      {/* ── Resumen de costos (desglose) ── */}
+      {config.positions.length > 0 && (
+        <Card className="shadow-sm overflow-hidden">
+          <div className="px-3 py-2.5 bg-emerald-500/5 border-b border-emerald-500/20">
+            <div className="text-center">
+              <div className="text-lg font-bold text-emerald-400 font-mono">{formatCurrency(Math.round(estimate.precioVenta))}</div>
+              <div className="text-[10px] text-muted-foreground">
+                Precio de venta mensual · {estimate.totalPuestos} puesto(s) · {estimate.totalGuardias} guardia(s) · {config.marginPercentage}%
+              </div>
+            </div>
+          </div>
+          <div className="px-3 py-2 space-y-1">
+            {[
+              { label: "Mano de obra", value: estimate.manoDeObra, color: "bg-blue-500" },
+              { label: "Directos", value: estimate.directos, color: "bg-amber-500" },
+              { label: "Indirectos", value: estimate.indirectos, color: "bg-orange-500" },
+              { label: "Financiero", value: estimate.financiero, color: "bg-red-400" },
+              { label: "Margen", value: estimate.marginAmount, color: "bg-emerald-500" },
+              ...(estimate.totalLineas > 0 ? [{ label: "Líneas adicionales", value: estimate.totalLineas, color: "bg-purple-500" }] : []),
+            ].map((row) => {
+              const pct = estimate.precioVenta > 0 ? (row.value / estimate.precioVenta) * 100 : 0;
+              return (
+                <div key={row.label} className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground w-24 shrink-0">{row.label}</span>
+                  <div className="flex-1 h-2 rounded-full bg-muted/30 overflow-hidden">
+                    <div className={cn("h-full rounded-full", row.color)} style={{ width: `${Math.min(100, pct)}%` }} />
+                  </div>
+                  <span className="text-[10px] font-mono font-semibold text-right w-24 shrink-0">{formatCurrency(Math.round(row.value))}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="px-3 py-1.5 border-t border-border/40 text-center">
+            <p className="text-[9px] text-muted-foreground/70">Estimación. Valores finales se calculan al aprobar.</p>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/* ─── Cost Category Block sub-component ─── */
+
+function CostCategoryBlock({
+  title,
+  total,
+  groups,
+  costItems,
+  onToggleItem,
+  onPriceChange,
+}: {
+  title: string;
+  total: number;
+  groups: Record<string, LeadCostItem[]>;
+  costItems: LeadCostItem[];
+  onToggleItem: (id: string) => void;
+  onPriceChange: (id: string, price: number) => void;
+}) {
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const groupNames = Object.keys(groups);
+
+  return (
+    <div className="rounded-md border border-border/40 overflow-hidden">
+      <div className="px-2.5 py-1.5 bg-muted/20 flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase text-muted-foreground">{title}</span>
+        <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+          {formatCurrency(total)}
+        </span>
+      </div>
+      {groupNames.map((groupName) => {
+        const items = groups[groupName];
+        const enabledCount = items.filter((i) => i.enabled).length;
+        const groupTotal = items.filter((i) => i.enabled).reduce((s, i) => s + (i.priceOverride ?? i.basePrice), 0);
+        const isExpanded = expandedGroup === groupName;
+
+        return (
+          <div key={groupName} className="border-t border-border/20">
+            <button
+              type="button"
+              onClick={() => setExpandedGroup(isExpanded ? null : groupName)}
+              className="flex items-center justify-between w-full px-2.5 py-1.5 hover:bg-muted/10 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className={cn("text-xs", enabledCount > 0 ? "text-foreground font-medium" : "text-muted-foreground")}>
+                  {groupName}{enabledCount > 0 ? ` (${enabledCount})` : ""}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-muted-foreground">
+                  {groupTotal > 0 ? formatCurrency(groupTotal) : "$0"}
+                </span>
+                <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
+              </div>
+            </button>
+            {isExpanded && (
+              <div className="px-2.5 pb-2 space-y-1">
+                {items.map((item) => (
+                  <div key={item.catalogItemId} className="flex items-center gap-2 rounded border border-border/30 bg-background px-2 py-1">
+                    <button
+                      type="button"
+                      onClick={() => onToggleItem(item.catalogItemId)}
+                      className={cn(
+                        "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                        item.enabled ? "bg-emerald-500 border-emerald-500 text-white" : "border-border"
+                      )}
+                    >
+                      {item.enabled && <span className="text-[8px]">✓</span>}
+                    </button>
+                    <span className={cn("text-[11px] flex-1 truncate", item.enabled ? "text-foreground" : "text-muted-foreground")}>{item.name}</span>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      value={formatNumber(item.priceOverride ?? item.basePrice)}
+                      onChange={(e) => onPriceChange(item.catalogItemId, parseLocalizedNumber(e.target.value) || 0)}
+                      className="h-6 w-20 text-[10px] text-right bg-card border-border"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {groupNames.length === 0 && (
+        <div className="px-2.5 py-2 text-[10px] text-muted-foreground">Cargando catálogo...</div>
       )}
     </div>
   );
@@ -505,6 +919,7 @@ export function createDefaultLeadCpqConfig(): LeadCpqConfig {
   return {
     positions: [],
     selectedCostGroups: ["uniform", "system", "equipment"],
+    costItems: [],
     additionalLines: [],
     financialCosts: {
       financialEnabled: false,
