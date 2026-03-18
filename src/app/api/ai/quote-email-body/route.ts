@@ -37,14 +37,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Contact name
+    // Contact name + portal credentials
     let contactName = quote.clientName || "Cliente";
+    let contactFirstName = contactName.split(" ")[0];
+    let portalPin: string | null = null;
+    let portalEnabled = false;
     if (quote.contactId) {
       const contact = await prisma.crmContact.findUnique({
         where: { id: quote.contactId },
-        select: { firstName: true, lastName: true },
+        select: { firstName: true, lastName: true, portalPinVisible: true, portalEnabled: true },
       });
-      if (contact) contactName = `${contact.firstName} ${contact.lastName}`.trim();
+      if (contact) {
+        contactName = `${contact.firstName} ${contact.lastName}`.trim();
+        contactFirstName = contact.firstName;
+        portalPin = contact.portalPinVisible || null;
+        portalEnabled = contact.portalEnabled ?? false;
+      }
     }
 
     // Sender (current user)
@@ -57,6 +65,8 @@ export async function POST(request: NextRequest) {
 
     // Company config
     const companyConfig = await getTenantCompanyConfig(ctx.tenantId);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
+    const portalUrl = `${baseUrl}/portal/cliente`;
 
     // Positions summary
     const totalGuards = quote.positions.reduce(
@@ -67,38 +77,60 @@ export async function POST(request: NextRequest) {
       .map((p) => p.customName || p.puestoTrabajo?.name || "Puesto")
       .join(", ");
 
+    const portalBlock = portalEnabled && portalPin
+      ? `
+Ademas del PDF, te invito a ingresar a tu Portal de Cliente de ${companyConfig.commercialName || "Gard Security"}, una experiencia que nos diferencia del mercado. Ahi puedes:
+
+- Revisar la propuesta en detalle: puestos, horarios, guardias asignados y precio mensual, todo claro y sin letra chica.
+- Acceder a la propuesta tecnica completa con condiciones comerciales y respaldo legal.
+- Monitorear el servicio en tiempo real: una vez activo el contrato, ver cumplimiento de rondas, alertas y metricas de seguridad desde tu celular.
+- Contactarme directamente para resolver dudas, ajustar condiciones o agendar una reunion.
+- Aprobar la propuesta en un clic si te convence, sin papeleo.
+
+Tu acceso al portal:
+Portal: ${portalUrl}
+Tu PIN: ${portalPin}`
+      : `
+Te invito tambien a conocer nuestro Portal de Cliente, donde podras revisar la propuesta de forma interactiva y monitorear el servicio en tiempo real una vez activo el contrato. Es una experiencia que nos diferencia del resto del mercado. Consulta tu ejecutivo para activar tu acceso.`;
+
+    const firmaBlock = `${senderName}
+${senderCargo}
+${companyConfig.commercialName || "Gard Security"}
+${companyConfig.phone || ""}
+${companyConfig.email || ""}`;
+
     const prompt = `Eres ${senderName}${senderCargo ? `, ${senderCargo}` : ""} de ${companyConfig.commercialName || "Gard Security"}, empresa de seguridad privada en Chile.
 
-Escribe un email profesional y breve (3-4 parrafos cortos) para enviar una propuesta economica adjunta en PDF.
+Escribe un email para enviar una propuesta economica adjunta en PDF. Usa el contenido exacto que se indica abajo, adaptando el lenguaje de forma natural. NO inventes informacion adicional.
 
-DATOS:
-- Destinatario: ${contactName}
+DATOS DE LA PROPUESTA:
+- Destinatario (primer nombre): ${contactFirstName}
 - Guardias: ${totalGuards}
 - Puestos: ${positionsList || "No definidos aun"}
 - Instalacion: ${quote.installation?.name || "No especificada"}
 - Vigencia: ${quote.validUntil ? new Date(quote.validUntil).toLocaleDateString("es-CL") : "No definida"}
-- Empresa: ${companyConfig.commercialName || "Gard Security"}
-- Telefono: ${companyConfig.phone}
-- Email contacto empresa: ${companyConfig.email}
-- Remitente: ${senderName}${senderCargo ? `, ${senderCargo}` : ""}
 
-INSTRUCCIONES:
-1. Comenzar directamente con "Estimado/a ${contactName}" (NO incluir linea de asunto ni titulo)
-2. Breve mencion de que se adjunta una propuesta economica
-3. Indicar que el detalle completo esta en el PDF adjunto
-4. Cierre profesional firmando como ${senderName}${senderCargo ? `, ${senderCargo}` : ""} con datos de contacto de la empresa
-5. NO incluir precios en el email (estan en el PDF)
-6. NO incluir linea de "Asunto:" ni el codigo de cotizacion como titulo
-7. Maximo 800 caracteres
-8. Tono profesional pero cercano
-9. Idioma: espanol Chile${
+INSTRUCCIONES ESTRICTAS:
+1. Comenzar con "Hola ${contactFirstName}," (tutear siempre, NUNCA usar "usted", NUNCA "Estimado/a")
+2. Dejar una linea en blanco entre cada parrafo
+3. Parrafo 1: presentar brevemente la propuesta adjunta (guardias, puestos, instalacion)
+4. Parrafo 2: indicar que el detalle completo esta en el PDF adjunto
+5. Incluir literalmente este bloque de portal (no modificar los datos):
+${portalBlock}
+6. Linea de cierre breve y cercana (ej: "Quedo disponible para cualquier consulta.")
+7. Dejar DOS lineas en blanco antes de la firma
+8. Firma exactamente asi, cada dato en su propia linea sin asteriscos ni markdown:
+${firmaBlock}
+9. NO incluir precios en el cuerpo del email (estan en el PDF)
+10. NO incluir "Asunto:" ni titulos
+11. Idioma: espanol Chile${
       customInstruction?.trim()
         ? `\n\nINSTRUCCION ADICIONAL DEL USUARIO: ${customInstruction.trim()}`
         : ""
     }`;
 
     const body = (
-      await aiService.generateText(prompt, { maxTokens: 400, temperature: 0.7 })
+      await aiService.generateText(prompt, { maxTokens: 700, temperature: 0.6 })
     ).trim();
 
     return NextResponse.json({ success: true, data: { body } });

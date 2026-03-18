@@ -11,6 +11,9 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { buildQuotationProps } from "@/lib/pdf/templates/quotation/build-quotation-props";
 import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-quotation";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { render } from "@react-email/render";
+import { CpqPdfEmail } from "@/emails/CpqPdfEmail";
 
 export async function POST(
   request: NextRequest,
@@ -31,14 +34,17 @@ export async function POST(
       );
     }
 
-    // Verify quote exists
+    // Verify quote exists and fetch contact info for portal data
     const quote = await prisma.cpqQuote.findFirst({
       where: { id, tenantId: ctx.tenantId },
       select: {
         id: true,
         code: true,
         dealId: true,
+        contactId: true,
+        clientName: true,
         positions: { select: { numGuards: true, numPuestos: true } },
+        installation: { select: { name: true } },
       },
     });
 
@@ -49,16 +55,52 @@ export async function POST(
       );
     }
 
+    // Fetch contact portal data
+    let contactFirstName = quote.clientName?.split(" ")[0] || "Cliente";
+    let portalPin: string | null = null;
+    let portalEnabled = false;
+    if (quote.contactId) {
+      const contact = await prisma.crmContact.findUnique({
+        where: { id: quote.contactId },
+        select: { firstName: true, portalPinVisible: true, portalEnabled: true },
+      });
+      if (contact) {
+        contactFirstName = contact.firstName;
+        portalPin = contact.portalPinVisible || null;
+        portalEnabled = contact.portalEnabled ?? false;
+      }
+    }
+
+    // Sender info
+    const sender = await prisma.admin.findUnique({
+      where: { id: ctx.userId },
+      select: { name: true, cargo: true },
+    });
+    const companyConfig = await getTenantCompanyConfig(ctx.tenantId);
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
+    const portalUrl = portalEnabled ? `${baseUrl}/portal/cliente` : undefined;
+
     // Generate PDF
     const { fileName, ...pdfProps } = await buildQuotationProps(id, ctx.tenantId);
     const pdfBuffer = await renderQuotationToBuffer(pdfProps);
 
-    // Wrap body in minimal HTML email structure
-    const fullHtml = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;max-width:600px;margin:0 auto;padding:20px">
-${htmlBody.replace(/\n/g, "<br>")}
-</body></html>`;
+    // Render full HTML with branded template
+    const fullHtml = await render(
+      CpqPdfEmail({
+        recipientFirstName: contactFirstName,
+        quoteCode: quote.code,
+        installationName: quote.installation?.name,
+        bodyText: htmlBody,
+        senderName: sender?.name || companyConfig.commercialName || "Equipo Comercial",
+        senderCargo: sender?.cargo || "",
+        brandName: companyConfig.commercialName || "Gard Security",
+        brandPhone: companyConfig.phone || "",
+        brandEmail: companyConfig.email || "",
+        portalUrl,
+        portalPin: portalEnabled ? portalPin : null,
+      })
+    );
 
     // Get tenant email config
     const emailConfig = await getTenantEmailConfig(ctx.tenantId);
