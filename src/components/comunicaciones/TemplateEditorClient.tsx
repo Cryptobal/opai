@@ -39,11 +39,13 @@ import {
   PanelBottom,
   Loader2,
   ArrowLeft,
+  ListChecks,
 } from "lucide-react";
 import type {
   EmailBlock,
   EmailBlockType,
   EmailBlockContent,
+  EmailFeatureItem,
 } from "@/lib/email/types";
 import { EMAIL_VARIABLES } from "@/lib/email/types";
 
@@ -62,6 +64,7 @@ const BLOCK_CATALOG: { tipo: EmailBlockType; label: string; icon: React.ReactNod
   { tipo: "imagen", label: "Imagen", icon: <Image className="h-4 w-4" /> },
   { tipo: "separador", label: "Separador", icon: <Minus className="h-4 w-4" /> },
   { tipo: "portales", label: "Portales", icon: <Monitor className="h-4 w-4" /> },
+  { tipo: "caracteristicas", label: "Features", icon: <ListChecks className="h-4 w-4" /> },
   { tipo: "pin", label: "PIN", icon: <Hash className="h-4 w-4" /> },
   { tipo: "footer", label: "Footer", icon: <PanelBottom className="h-4 w-4" /> },
 ];
@@ -74,6 +77,11 @@ function newBlock(tipo: EmailBlockType, orden: number): EmailBlock {
     imagen: { src: "", alt: "", width: 200 },
     separador: {},
     portales: { mostrarGuardia: true, mostrarRondas: true, mostrarAcceso: true },
+    caracteristicas: {
+      items: [
+        { emoji: "\u{2705}", titulo: "Título del beneficio", descripcion: "Descripción del beneficio." },
+      ],
+    },
     pin: { textoAntes: "Tu PIN de acceso es:", textoDespues: "" },
     footer: { texto: "OPAI — Gard Security" },
   };
@@ -251,6 +259,34 @@ function BlockPreview({ block }: { block: EmailBlock }) {
           )}
         </div>
       );
+
+    case "caracteristicas": {
+      const items = (c.items ?? []) as EmailFeatureItem[];
+      return (
+        <div className="py-3 px-4">
+          <div className="rounded-lg overflow-hidden" style={{ background: BG_CARD }}>
+            {items.map((item, idx) => (
+              <div
+                key={idx}
+                className="flex gap-3 px-4 py-3"
+                style={{ borderBottom: idx < items.length - 1 ? "1px solid #0a0a0f" : "none" }}
+              >
+                <span className="text-lg flex-shrink-0">{item.emoji}</span>
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: TEXT_LIGHT }}>{item.titulo}</p>
+                  <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: TEXT_MUTED }}>{item.descripcion}</p>
+                </div>
+              </div>
+            ))}
+            {items.length === 0 && (
+              <div className="px-4 py-6 text-center text-xs" style={{ color: TEXT_MUTED }}>
+                Agrega características desde el panel derecho
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     case "pin":
       return (
@@ -504,6 +540,73 @@ function PropertyEditor({
           ))}
         </div>
       );
+
+    case "caracteristicas": {
+      const items = (c.items ?? []) as EmailFeatureItem[];
+      const updateItem = (idx: number, field: keyof EmailFeatureItem, value: string) => {
+        const updated = items.map((item, i) =>
+          i === idx ? { ...item, [field]: value } : item,
+        );
+        onChange({ ...c, items: updated });
+      };
+      const addItem = () => {
+        onChange({
+          ...c,
+          items: [...items, { emoji: "\u{2705}", titulo: "", descripcion: "" }],
+        });
+      };
+      const removeItem = (idx: number) => {
+        onChange({ ...c, items: items.filter((_, i) => i !== idx) });
+      };
+      return (
+        <div className="space-y-3">
+          <Label className="text-xs">Características / Beneficios</Label>
+          {items.map((item, idx) => (
+            <div
+              key={idx}
+              className="rounded-lg border border-white/10 p-3 space-y-2"
+            >
+              <div className="flex items-center gap-2">
+                <Input
+                  value={item.emoji}
+                  onChange={(e) => updateItem(idx, "emoji", e.target.value)}
+                  className="w-14 text-center"
+                  maxLength={4}
+                />
+                <Input
+                  value={item.titulo}
+                  onChange={(e) => updateItem(idx, "titulo", e.target.value)}
+                  placeholder="Título"
+                  className="flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeItem(idx)}
+                  className="p-1 text-muted-foreground hover:text-red-400"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <Input
+                value={item.descripcion}
+                onChange={(e) => updateItem(idx, "descripcion", e.target.value)}
+                placeholder="Descripción"
+              />
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={addItem}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Agregar característica
+          </Button>
+        </div>
+      );
+    }
 
     case "pin":
       return (

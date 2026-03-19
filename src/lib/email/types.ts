@@ -9,8 +9,15 @@ export type EmailBlockType =
   | "imagen"
   | "separador"
   | "portales"
+  | "caracteristicas"
   | "pin"
   | "footer";
+
+export interface EmailFeatureItem {
+  emoji: string;
+  titulo: string;
+  descripcion: string;
+}
 
 export interface EmailBlockContent {
   titulo?: string;
@@ -27,6 +34,7 @@ export interface EmailBlockContent {
   mostrarAcceso?: boolean;
   textoAntes?: string;
   textoDespues?: string;
+  items?: EmailFeatureItem[];
 }
 
 export interface EmailBlock {

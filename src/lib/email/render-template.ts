@@ -3,7 +3,7 @@
  * Usa tablas y CSS inline para compatibilidad con clientes de email.
  */
 
-import type { EmailBlock } from "./types";
+import type { EmailBlock, EmailFeatureItem } from "./types";
 import { replaceVariables } from "./resolve-variables";
 
 const ACCENT_COLOR = "#f97316"; // OPAI coral/naranja
@@ -121,6 +121,33 @@ function renderBlock(block: EmailBlock, variables: Record<string, string>): stri
       return `
         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
           <tr>${cards.join("")}</tr>
+        </table>`;
+    }
+
+    case "caracteristicas": {
+      const items = (c.items ?? []) as EmailFeatureItem[];
+      if (items.length === 0) return "";
+      const rows = items
+        .map(
+          (item) => `
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #1a1a24;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td width="40" valign="top" style="font-size:20px;padding-right:12px;">${escapeHtml(item.emoji)}</td>
+                  <td valign="top">
+                    <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;font-weight:600;color:${TEXT_LIGHT};">${escapeHtml(r(item.titulo))}</p>
+                    <p style="margin:4px 0 0;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;color:${TEXT_MUTED};">${escapeHtml(r(item.descripcion))}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`,
+        )
+        .join("");
+      return `
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;background:#1a1a24;border-radius:8px;padding:8px 16px;">
+          ${rows}
         </table>`;
     }
 

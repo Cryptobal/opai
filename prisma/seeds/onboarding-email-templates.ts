@@ -28,8 +28,8 @@ const DEFAULT_ONBOARDING_BLOCKS = [
     id: "pin-1",
     tipo: "pin" as const,
     contenido: {
-      textoAntes: "Tu PIN para el Portal del Guardia es:",
-      textoDespues: "Guárdalo en un lugar seguro. Lo necesitarás para acceder a tu portal web.",
+      textoAntes: "Tu PIN de acceso es:",
+      textoDespues: "Guárdalo en un lugar seguro. Lo necesitarás para acceder al Portal del Guardia.",
     },
     orden: 2,
   },
@@ -38,28 +38,90 @@ const DEFAULT_ONBOARDING_BLOCKS = [
     tipo: "texto" as const,
     contenido: {
       texto:
-        "El Portal del Guardia es tu espacio web para gestionar tu día a día. Desde ahí podrás ver tus turnos, registrar asistencia, consultar documentos, comunicarte por chat y mucho más. Accede desde cualquier navegador:",
+        "OPAI es la plataforma que usamos para gestionar todas las operaciones de seguridad. Desde el Portal del Guardia podrás gestionar tu día a día. Estas son algunas de las cosas que puedes hacer:",
     },
     orden: 3,
   },
   {
-    id: "portales-1",
-    tipo: "portales" as const,
+    id: "features-1",
+    tipo: "caracteristicas" as const,
     contenido: {
-      mostrarGuardia: true,
-      mostrarRondas: false,
-      mostrarAcceso: false,
+      items: [
+        {
+          emoji: "\u{1F4C5}",
+          titulo: "Consulta tu pauta de turnos",
+          descripcion: "Ve tu calendario mensual con todos tus turnos, descansos, vacaciones y permisos.",
+        },
+        {
+          emoji: "\u{1F4DD}",
+          titulo: "Haz solicitudes",
+          descripcion: "Pide vacaciones, permisos, reporta problemas con tu pago, solicita uniforme o equipo, y más.",
+        },
+        {
+          emoji: "\u{1F3C6}",
+          titulo: "Revisa tu desempeño",
+          descripcion: "Consulta tu puntaje, ranking, insignias, desafíos y canjea beneficios por tus logros.",
+        },
+        {
+          emoji: "\u{1F4D6}",
+          titulo: "Accede a tu protocolo",
+          descripcion: "Lee el protocolo de tu instalación, documentos de referencia y contactos de emergencia.",
+        },
+        {
+          emoji: "\u{270F}\u{FE0F}",
+          titulo: "Rinde exámenes",
+          descripcion: "Completa los exámenes asignados, revisa tus resultados y mejora tu puntaje.",
+        },
+        {
+          emoji: "\u{1F4AC}",
+          titulo: "Chat con tu instalación",
+          descripcion: "Comunícate directamente con tu equipo en la instalación asignada.",
+        },
+      ],
     },
     orden: 4,
+  },
+  {
+    id: "separador-1",
+    tipo: "separador" as const,
+    contenido: {},
+    orden: 5,
   },
   {
     id: "texto-3",
     tipo: "texto" as const,
     contenido: {
       texto:
+        "Para acceder, ingresa con tu RUT y el PIN que te enviamos arriba desde cualquier navegador:",
+    },
+    orden: 6,
+  },
+  {
+    id: "boton-1",
+    tipo: "boton" as const,
+    contenido: {
+      label: "Acceder al Portal del Guardia",
+      url: "{{portalGuardia}}",
+    },
+    orden: 7,
+  },
+  {
+    id: "texto-4",
+    tipo: "texto" as const,
+    contenido: {
+      texto:
+        "\u{1F4F1} También puedes instalar OPAI como app en tu celular para acceder más rápido. Solo abre el portal desde tu navegador y selecciona \"Agregar a pantalla de inicio\".",
+    },
+    orden: 8,
+  },
+  {
+    id: "texto-5",
+    tipo: "texto" as const,
+    contenido: {
+      texto:
         "Si tienes dudas, contacta a tu supervisor o escríbenos por el chat interno de OPAI.",
     },
-    orden: 5,
+    orden: 9,
   },
   {
     id: "footer-1",
@@ -67,7 +129,7 @@ const DEFAULT_ONBOARDING_BLOCKS = [
     contenido: {
       texto: "OPAI — Gard Security",
     },
-    orden: 6,
+    orden: 10,
   },
 ];
 
