@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { formatCurrency } from "@/components/cpq/utils";
-import { ChevronDown, Users, Plus, Copy, Trash2, Moon, Sun, Loader2, Sparkles, RefreshCw } from "lucide-react";
+import { ChevronDown, Users, Plus, Copy, Trash2, Moon, Sun, Loader2, Sparkles, RefreshCw, FileText } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import MarginSection from "@/components/cpq/MarginSection";
@@ -1109,6 +1109,8 @@ const TEMPLATE_SLUGS = [
   { slug: "tender", label: "Licitación" },
 ] as const;
 
+type PdfPreviewMode = "cotizacion" | "presentacion";
+
 function PdfPreviewSection({
   leadId,
   config,
@@ -1125,30 +1127,40 @@ function PdfPreviewSection({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [selectedSlug, setSelectedSlug] = useState("standard");
+  const [mode, setMode] = useState<PdfPreviewMode>("cotizacion");
+
+  const commonPayload = {
+    accountName: accountName || "Cliente",
+    installationName: installationName || "",
+    positions: config.positions,
+    costItems: config.costItems,
+    additionalLines: config.additionalLines,
+    marginPercentage: config.marginPercentage,
+    marginMode: config.marginMode,
+    financialCosts: config.financialCosts,
+    companyDescription: config.companyDescription,
+    serviceDescription: config.serviceDescription,
+    conditions: config.conditions,
+    uniformChangesPerYear: config.uniformChangesPerYear ?? 3,
+    avgStayMonths: config.avgStayMonths ?? 4,
+    currency: config.currency || "CLP",
+  };
 
   const generatePreview = async () => {
     setPreviewLoading(true);
     try {
-      const res = await fetch(`/api/crm/leads/${leadId || "preview"}/cpq-preview`, {
+      const endpoint = mode === "presentacion"
+        ? `/api/crm/leads/${leadId || "preview"}/proposal-preview`
+        : `/api/crm/leads/${leadId || "preview"}/cpq-preview`;
+
+      const payload = mode === "cotizacion"
+        ? { ...commonPayload, templateSlug: selectedSlug }
+        : commonPayload;
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          templateSlug: selectedSlug,
-          accountName: accountName || "Cliente",
-          installationName: installationName || "",
-          positions: config.positions,
-          costItems: config.costItems,
-          additionalLines: config.additionalLines,
-          marginPercentage: config.marginPercentage,
-          marginMode: config.marginMode,
-          financialCosts: config.financialCosts,
-          companyDescription: config.companyDescription,
-          serviceDescription: config.serviceDescription,
-          conditions: config.conditions,
-          uniformChangesPerYear: config.uniformChangesPerYear ?? 3,
-          avgStayMonths: config.avgStayMonths ?? 4,
-          currency: config.currency || "CLP",
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const blob = await res.blob();
@@ -1161,12 +1173,44 @@ function PdfPreviewSection({
     }
   };
 
+  const switchMode = (m: PdfPreviewMode) => {
+    setMode(m);
+    setPreviewUrl(null);
+  };
+
   return (
     <Card className="shadow-sm overflow-hidden">
       <div className="px-3 py-2 bg-muted/20 border-b border-border/40 flex flex-wrap items-center gap-2">
-        <span className="text-[11px] font-semibold text-muted-foreground mr-auto">Vista previa de la propuesta</span>
+        <div className="flex items-center gap-1 mr-auto">
+          <button
+            type="button"
+            onClick={() => switchMode("cotizacion")}
+            className={cn(
+              "h-7 sm:h-6 rounded-md px-2.5 text-[10px] sm:text-[9px] font-semibold border transition-colors flex items-center gap-1",
+              mode === "cotizacion"
+                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
+            )}
+          >
+            <RefreshCw className="h-3 w-3" />
+            Cotización
+          </button>
+          <button
+            type="button"
+            onClick={() => switchMode("presentacion")}
+            className={cn(
+              "h-7 sm:h-6 rounded-md px-2.5 text-[10px] sm:text-[9px] font-semibold border transition-colors flex items-center gap-1",
+              mode === "presentacion"
+                ? "border-blue-500/40 bg-blue-500/10 text-blue-400"
+                : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
+            )}
+          >
+            <FileText className="h-3 w-3" />
+            Presentación
+          </button>
+        </div>
         <div className="flex items-center gap-1 flex-wrap">
-          {TEMPLATE_SLUGS.map((t) => (
+          {mode === "cotizacion" && TEMPLATE_SLUGS.map((t) => (
             <button
               key={t.slug}
               type="button"
@@ -1197,11 +1241,13 @@ function PdfPreviewSection({
         <iframe
           src={previewUrl}
           className="w-full h-[400px] sm:h-[600px] bg-white"
-          title="Preview propuesta PDF"
+          title={mode === "presentacion" ? "Preview presentación PDF" : "Preview propuesta PDF"}
         />
       ) : (
         <div className="flex items-center justify-center h-[200px] text-muted-foreground text-[11px]">
-          Click &quot;Generar PDF&quot; para ver la vista previa real
+          {mode === "presentacion"
+            ? "Click \"Generar PDF\" para ver la presentación técnica"
+            : "Click \"Generar PDF\" para ver la vista previa real"}
         </div>
       )}
     </Card>

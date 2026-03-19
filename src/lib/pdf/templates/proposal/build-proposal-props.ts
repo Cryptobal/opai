@@ -10,6 +10,7 @@ import { formatCurrency, formatUFSuffix } from '@/lib/utils';
 import { getUfValue, clpToUf } from '@/lib/uf';
 import { generateProposalAIContent } from './proposal-ai';
 import type { ProposalAIContent } from './proposal-ai';
+import type { QuoteBreakdownData, PositionBreakdownItem } from '@/types/cpq-breakdown';
 
 export interface ProposalProps {
   companyName: string;
@@ -58,7 +59,9 @@ export interface ProposalProps {
     email: string;
     brandingLogoWhite?: string;
     brandingLogoFull?: string;
+    brandingLogoIcon?: string;
   };
+  clientLogosWithNames: Array<{ name: string; url: string }>;
 
   companyStats: {
     yearsInOperation: string;
@@ -67,6 +70,7 @@ export interface ProposalProps {
     regionsCount: string;
   };
   regimeExplanation: string;
+  breakdown?: QuoteBreakdownData;
 }
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -112,7 +116,7 @@ export async function buildProposalProps(
   const contactPosition = contact?.roleTitle ?? undefined;
 
   const companyName = account?.name ?? quote.clientName ?? 'Cliente';
-  const companyLogo = account?.logoUrl ?? undefined;
+  const companyLogoRaw = account?.logoUrl ?? undefined;
 
   const installation = quote.installation;
   const installationName = installation?.name ?? '-';
@@ -242,11 +246,29 @@ export async function buildProposalProps(
   const companyConfig = await getTenantCompanyConfig(tenantId);
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://opai.gard.cl';
-  const gardLogo = companyConfig.brandingLogoWhite || companyConfig.brandingLogoFull || companyConfig.logoUrl || `${baseUrl}/Logo Gard Blanco.png`;
+  const abs = (url: string | undefined | null): string => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+    return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+  const gardLogo = abs(companyConfig.brandingLogoWhite) || abs(companyConfig.brandingLogoFull) || abs(companyConfig.logoUrl) || `${baseUrl}/logo-gard-blanco.svg`;
+  const companyLogo = companyLogoRaw ? abs(companyLogoRaw) : undefined;
   const opaiLogo = `${baseUrl}/opai-logo.png`;
   const lx3Logo = `${baseUrl}/lx3-logo.png`;
 
-  const clientLogos: string[] = [];
+  const clientesConLogo = await prisma.crmAccount.findMany({
+    where: {
+      tenantId,
+      status: 'client_active',
+      logoUrl: { not: null },
+    },
+    select: { name: true, logoUrl: true },
+    take: 20,
+  });
+  const clientLogos: string[] = clientesConLogo
+    .filter((c) => c.logoUrl)
+    .map((c) => c.logoUrl!);
+
   const portalScreenshots: Record<string, string> = {
     clientes: 'placeholder',
     guardias: 'placeholder',
@@ -293,6 +315,103 @@ export async function buildProposalProps(
     });
   }
 
+  let breakdown: QuoteBreakdownData | undefined;
+  try {
+    if (costSummary) {
+      const marginPct = Number(quote.parameters?.marginPct ?? 13);
+      const financialRatePctVal = Number(quote.parameters?.financialRatePct ?? 2.5);
+      const policyRatePctVal = Number(quote.parameters?.policyRatePct ?? 0);
+      const monthlyHoursStandard = Number(quote.parameters?.monthlyHoursStandard ?? 180);
+
+      const costItemsForBd = await prisma.cpqQuoteCostItem.findMany({
+        where: { quoteId: quotationId },
+        include: { catalogItem: true },
+      });
+      const normalizeUnit = (value: number, unit?: string | null) => {
+        if (!unit) return value;
+        const n = unit.toLowerCase();
+        if (n.includes('contrato') || n.includes('contract')) return value / 12;
+        if (n.includes('año') || n.includes('year')) return value / 12;
+        if (n.includes('semestre') || n.includes('semester')) return value / 6;
+        return value;
+      };
+      const sumByType = (types: string[]) =>
+        costItemsForBd.reduce((sum, item) => {
+          if (!item.isEnabled) return sum;
+          const cat = item.catalogItem;
+          if (!cat || !types.includes(cat.type)) return sum;
+          const base = Number(cat.basePrice || 0);
+          const override = item.unitPriceOverride != null ? Number(item.unitPriceOverride) : null;
+          const unitPrice = normalizeUnit(override ?? base, cat.unit);
+          const qty = Number(item.quantity ?? 1);
+          if (item.calcMode === 'per_guard') return sum + unitPrice * qty * totalGuards;
+          return sum + unitPrice * qty;
+        }, 0);
+
+      const subtotalBase = costSummary.costsBase ?? (
+        costSummary.monthlyPositions + costSummary.monthlyHolidayAdjustment +
+        costSummary.monthlyUniforms + costSummary.monthlyExams + costSummary.monthlyMeals +
+        costSummary.monthlyVehicles + costSummary.monthlyInfrastructure + costSummary.monthlyCostItems
+      );
+      const marginAmount = totalSalePrice - subtotalBase - costSummary.monthlyFinancial - costSummary.monthlyPolicy;
+      const fallback = positions.length > 0 ? 1 / positions.length : 0;
+
+      const positionItems: PositionBreakdownItem[] = positions.map((pos) => {
+        const snap = pos.payrollSnapshot as Record<string, unknown> | null;
+        const bd = (snap?.breakdown ?? {}) as Record<string, unknown>;
+        const costClp = Number(pos.monthlyPositionCost ?? 0);
+        const proportion = totalPositionCosts > 0 ? costClp / totalPositionCosts : fallback;
+        const salePrice = totalSalePrice * proportion;
+        const totalGuardsInPos = Math.max(1, pos.numGuards) * Math.max(1, pos.numPuestos ?? 1);
+        const getNum = (key: string) => Number(bd[key] ?? 0) * totalGuardsInPos;
+        const getNestedNum = (key: string, sub: string) => {
+          const val = bd[key] as Record<string, unknown> | undefined;
+          return Number(val?.[sub] ?? 0) * totalGuardsInPos;
+        };
+        const baseSalary = getNum('base_salary') || Number(pos.baseSalary ?? 0) * totalGuardsInPos;
+        let gratification = getNum('gratification');
+        if (gratification === 0 && baseSalary > 0) {
+          const perGuardSalary = baseSalary / totalGuardsInPos;
+          const monthlyCap = (500000 * 4.75) / 12;
+          gratification = Math.min(perGuardSalary * 0.25, monthlyCap) * totalGuardsInPos;
+        }
+        const totalImponible = getNum('total_taxable_income') || baseSalary + gratification;
+        return {
+          id: pos.id, name: pos.customName || pos.puestoTrabajo?.name || 'Puesto',
+          numGuards: pos.numGuards, numPuestos: pos.numPuestos ?? 1,
+          totalGuardsInPosition: totalGuardsInPos,
+          baseSalary, gratification, totalImponible,
+          sisEmployer: getNum('sis_employer'),
+          afcEmployer: getNestedNum('afc_employer', 'total'),
+          mutualEmployer: getNestedNum('work_injury_employer', 'amount'),
+          vacationProvision: getNum('vacation_provision'),
+          severanceProvision: getNum('severance_provision'),
+          totalLaborCost: costClp, salePrice,
+          hourlyRateSale: totalGuardsInPos > 0 && monthlyHoursStandard > 0
+            ? salePrice / (totalGuardsInPos * monthlyHoursStandard) : 0,
+        };
+      });
+
+      breakdown = {
+        positions: positionItems,
+        totalLaborCost: costSummary.monthlyPositions,
+        holidayAdjustment: costSummary.monthlyHolidayAdjustment,
+        uniforms: costSummary.monthlyUniforms, exams: costSummary.monthlyExams, meals: costSummary.monthlyMeals,
+        vehicles: costSummary.monthlyVehicles, infrastructure: costSummary.monthlyInfrastructure,
+        equipment: sumByType(['phone', 'radio', 'flashlight']),
+        transport: sumByType(['transport']), systems: sumByType(['system']),
+        subtotalBase, marginPct, marginAmount,
+        financial: costSummary.monthlyFinancial, financialRatePct: financialRatePctVal,
+        policy: costSummary.monthlyPolicy, policyRatePct: policyRatePctVal,
+        totalSalePrice, additionalLines: totalAdditionalLines, grandTotal,
+        monthlyHoursStandard, currency,
+        ufValue: ufVal > 0 ? ufVal : undefined,
+      };
+    }
+  } catch (err) {
+    console.error('[Proposal] breakdown build failed:', err);
+  }
+
   const props: ProposalProps = {
     companyName,
     companyLogo,
@@ -329,9 +448,13 @@ export async function buildProposalProps(
       website: companyConfig.website,
       phone: companyConfig.phone,
       email: companyConfig.email,
-      brandingLogoWhite: companyConfig.brandingLogoWhite || undefined,
-      brandingLogoFull: companyConfig.brandingLogoFull || undefined,
+      brandingLogoWhite: abs(companyConfig.brandingLogoWhite) || undefined,
+      brandingLogoFull: abs(companyConfig.brandingLogoFull) || undefined,
+      brandingLogoIcon: abs(companyConfig.brandingLogoIcon) || undefined,
     },
+    clientLogosWithNames: clientesConLogo
+      .filter((c) => c.logoUrl)
+      .map((c) => ({ name: c.name, url: abs(c.logoUrl)! })),
 
     companyStats: {
       yearsInOperation: '5+',
@@ -340,6 +463,7 @@ export async function buildProposalProps(
       regionsCount: '3+',
     },
     regimeExplanation,
+    breakdown,
   };
 
   const fileName = `Propuesta-Tecnica-${companyName.replace(/\s+/g, '-')}-${quote.code}.pdf`;

@@ -169,7 +169,6 @@ export async function renderQuotationToBuffer(
       family: 'PlusJakartaSans',
       fonts: [
         { src: path.join(fontsDir, 'PlusJakartaSans-Regular.ttf'), fontWeight: 400 },
-        { src: path.join(fontsDir, 'PlusJakartaSans-Regular.ttf'), fontWeight: 400, fontStyle: 'italic' },
         { src: path.join(fontsDir, 'PlusJakartaSans-Medium.ttf'), fontWeight: 500 },
         { src: path.join(fontsDir, 'PlusJakartaSans-SemiBold.ttf'), fontWeight: 600 },
         { src: path.join(fontsDir, 'PlusJakartaSans-Bold.ttf'), fontWeight: 700 },
@@ -844,7 +843,7 @@ export async function renderQuotationToBuffer(
                 ),
                 ...(item.technicalSpecs
                   ? [e(View, { key: `${itemIdx}_specs`, style: { paddingLeft: 16, paddingBottom: 4 } },
-                      e(Text, { style: { fontSize: 7, color: C.slate400, fontStyle: 'italic' as const } }, item.technicalSpecs),
+                      e(Text, { style: { fontSize: 7, color: C.slate400 } }, item.technicalSpecs),
                     )]
                   : []),
               ]),

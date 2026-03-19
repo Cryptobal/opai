@@ -10,9 +10,10 @@ function esc(s: string): string {
 }
 
 export interface ProposalAssets {
-  gardLogoBase64: string;
-  gardEscudoBase64: string;
-  clientLogos: Array<{ name: string; base64: string }>;
+  gardLogoUrl: string;
+  gardEscudoUrl: string;
+  clientLogos: Array<{ name: string; url: string }>;
+  guardPhotos: Array<{ label: string; url: string }>;
 }
 
 export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets): string {
@@ -25,9 +26,9 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
     companyConfig, companyStats, regimeExplanation,
   } = props;
 
-  const { gardLogoBase64: logo, gardEscudoBase64, clientLogos } = assets;
+  const { gardLogoUrl: logo, gardEscudoUrl, clientLogos, guardPhotos } = assets;
   const clientLogoImg = companyLogo
-    ? `<img src="${esc(companyLogo)}" style="height:36px;max-width:100px;border-radius:4px;background:white;padding:3px;object-fit:contain;" />`
+    ? `<img src="${esc(companyLogo)}" style="height:56px;max-width:180px;border-radius:6px;background:white;padding:6px;object-fit:contain;" />`
     : '';
 
   const resumenParrafos = ai.resumenEjecutivo.split(/\n\n+/).filter(p => p.trim());
@@ -194,7 +195,7 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
-@page { size: A4; margin: 0; }
+@page { size: A4; margin: 20mm 18mm 14mm 18mm; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   --navy: #0f172a; --navy-light: #1e293b; --navy-lighter: #334155;
@@ -204,13 +205,16 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
   --success: #16a34a; --success-bg: #f0fdf4; --danger: #dc2626; --danger-bg: #fef2f2;
   --highlight-bg: #fff1f2;
 }
-body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; color: var(--text); line-height: 1.5; }
-.cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(297mm - 55px - 35px); background: var(--navy); color: white; padding: 40px 48px 80px 48px; position: relative; border-left: 8px solid var(--accent); }
-.cover-footer { position: absolute; bottom: 20px; left: 48px; right: 48px; display: flex; justify-content: space-between; align-items: flex-end; }
-.watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 300px; opacity: 0.03; z-index: -1; pointer-events: none; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 10pt; color: var(--text); line-height: 1.6; margin: 0; padding: 0; }
+.cover-page { display: flex; flex-direction: column; align-items: center; background: var(--navy); color: white; margin: -20mm -18mm -14mm -18mm; padding: 28mm 24mm 18mm 24mm; min-height: 297mm; page-break-after: always; }
+.cover-spacer { flex: 1; }
+.cover-footer { margin-top: auto; width: 100%; display: flex; justify-content: space-between; align-items: flex-end; }
+.watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 300px; opacity: 0.02; z-index: -1; pointer-events: none; }
 .page-break { break-before: page; }
+.page-break + div { padding-top: 4mm; }
 .no-break { break-inside: avoid; }
-.section-title { font-size: 20pt; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+.section-wrap { break-inside: avoid; margin-top: 36px; }
+.section-title { font-size: 20pt; font-weight: 700; color: var(--navy); margin-top: 0; margin-bottom: 4px; page-break-after: avoid; }
 .section-title::after { content: ''; display: block; width: 40px; height: 3px; background: var(--accent); margin-top: 8px; margin-bottom: 16px; }
 .section-subtitle { font-size: 11pt; color: var(--text-light); font-style: italic; margin-bottom: 16px; }
 .body-text { font-size: 10pt; color: var(--text); line-height: 1.5; margin-bottom: 8px; }
@@ -273,15 +277,20 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
 .report-card .freq { font-size: 8pt; color: var(--text-light); margin-bottom: 6px; }
 .impl-grid { display: flex; gap: 12px; flex-wrap: wrap; }
 .impl-card { flex: 1; min-width: 40%; background: var(--bg-light); border-left: 3px solid var(--accent); padding: 12px; border-radius: 4px; break-inside: avoid; }
+.guard-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 12px; }
+.guard-card { border-radius: 6px; overflow: hidden; break-inside: avoid; }
+.guard-card img { width: 100%; height: 140px; object-fit: cover; display: block; }
+.guard-card .guard-label { padding: 6px 10px; font-size: 8pt; font-weight: 600; color: var(--navy); background: var(--bg-light); text-align: center; }
 </style>
 </head>
 <body>
 
-<div class="watermark"><img src="${gardEscudoBase64}" style="width:100%;height:100%;" /></div>
+<div class="watermark"><img src="${esc(gardEscudoUrl)}" style="width:100%;height:100%;" /></div>
 
 <!-- PÁG 1: PORTADA -->
 <div class="cover-page">
-  <img src="${logo}" style="height:60px;margin-bottom:40px;" />
+  <div class="cover-spacer"></div>
+  <img src="${esc(logo)}" style="height:60px;margin-bottom:40px;" />
   <div style="width:40px;height:3px;background:var(--accent);margin-bottom:40px;"></div>
   <h1 style="font-size:28pt;letter-spacing:6px;font-weight:300;text-align:center;">PROPUESTA TÉCNICA</h1>
   <p style="font-size:13pt;letter-spacing:4px;opacity:0.7;text-align:center;margin-bottom:40px;">DE SERVICIO DE SEGURIDAD INTEGRAL</p>
@@ -296,6 +305,7 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
     <div style="width:1px;background:rgba(255,255,255,0.2);"></div>
     <div style="text-align:center;"><div style="font-size:32pt;font-weight:800;color:var(--accent);">94%</div><div style="font-size:8pt;opacity:0.6;">Renovación</div></div>
   </div>
+  <div class="cover-spacer"></div>
   <div class="cover-footer">
     <div>
       <div style="font-size:10pt;">Preparada para: ${esc(contactName)}${contactPosition ? ` · ${esc(contactPosition)}` : ''}</div>
@@ -318,9 +328,8 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   </div>
 </div>
 
-<!-- PÁG 3: ECOSISTEMA -->
-<div class="page-break"></div>
-<div>
+<!-- ECOSISTEMA -->
+<div class="section-wrap">
   ${sectionTitle('Más que una empresa de seguridad. Un ecosistema tecnológico.')}
   <div class="two-col">
     <div><p class="body-text" style="font-weight:600;">Gard Security</p><p class="body-text">${esc(gardText1)}</p><p class="body-text">${esc(gardText2)}</p></div>
@@ -335,9 +344,19 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   </div>
 </div>
 
-<!-- PÁG 4: ORGANIGRAMA -->
-<div class="page-break"></div>
-<div>
+${guardPhotos.length > 0 ? `
+<!-- NUESTRA GENTE -->
+<div class="section-wrap">
+  ${sectionTitle('Nuestra gente: profesionales comprometidos con su seguridad')}
+  <p class="body-text">Cada guardia de Gard pasa por un riguroso proceso de selección (de cada 100 postulantes, solo 12 son contratados), evaluación psicológica, verificación de antecedentes y capacitación continua. No son vigilantes genéricos — son profesionales entrenados y gestionados con tecnología.</p>
+  <div class="guard-grid">
+    ${guardPhotos.map(g => `<div class="guard-card"><img src="${esc(g.url)}" alt="${esc(g.label)}" /><div class="guard-label">${esc(g.label)}</div></div>`).join('')}
+  </div>
+  ${highlight('Tasa de permanencia: 85%. La industria promedia 50-60%. Nuestros guardias se quedan porque trabajan con las mejores condiciones y tecnología.')}
+</div>` : ''}
+
+<!-- ORGANIGRAMA -->
+<div class="section-wrap">
   ${sectionTitle('Estructura corporativa Gard Security')}
   <div class="org-chart" style="text-align:center;margin-top:16px;">
     <div class="org-box level-1">GERENCIA GENERAL<br/><span style="font-weight:400;font-size:7pt;opacity:0.8;">Dirección estratégica</span></div>
@@ -372,9 +391,8 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   ${highlight('Usted no contrata guardias. Contrata una organización completa dedicada a su seguridad.')}
 </div>
 
-<!-- PÁG 5: OPAI -->
-<div class="page-break"></div>
-<div>
+<!-- OPAI -->
+<div class="section-wrap">
   ${sectionTitle('OPAI — La única plataforma integral de gestión de seguridad privada en Chile')}
   <p class="section-subtitle">Cada guardia, cada ronda, cada incidente, cada reporte — todo en un solo sistema.</p>
   <p class="body-text">OPAI no es un software genérico adaptado a seguridad. Es una plataforma diseñada desde cero para operar empresas de seguridad privada, con más de 20 módulos en producción y 6 aplicaciones especializadas que trabajan en tiempo real.</p>
@@ -384,9 +402,8 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   </div>
 </div>
 
-<!-- PÁG 6: PORTALES 3x2 -->
-<div class="page-break"></div>
-<div>
+<!-- PORTALES 3x2 -->
+<div class="section-wrap">
   ${sectionTitle('6 portales especializados')}
   <p class="section-subtitle">Cada usuario ve exactamente lo que necesita.</p>
   <div class="portals-grid">
@@ -395,9 +412,8 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   <p style="font-size:9pt;color:var(--text-light);margin-top:16px;text-align:center;font-style:italic;">Cada portal es una PWA instalable. Funciona en cualquier dispositivo, incluso sin conexión.</p>
 </div>
 
-<!-- PÁG 7: TECNOLOGÍA INCLUIDA -->
-<div class="page-break"></div>
-<div>
+<!-- TECNOLOGÍA INCLUIDA -->
+<div class="section-wrap">
   ${sectionTitle('Todo esto está incluido. Sin costo adicional. Sin licencias.')}
   <table class="table-gard">
     <thead><tr><th style="width:28%;">Funcionalidad</th><th style="width:36%;">Qué es</th><th style="width:36%;">Beneficio para usted</th></tr></thead>
@@ -406,9 +422,8 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   ${highlight('Otros proveedores le venden el guardia y usted no sabe qué pasa. Nosotros le entregamos el control completo.')}
 </div>
 
-<!-- PÁG 8: DESARROLLO A MEDIDA -->
-<div class="page-break"></div>
-<div>
+<!-- DESARROLLO A MEDIDA -->
+<div class="section-wrap">
   ${sectionTitle('¿Necesita algo que no existe? Lo construimos.')}
   <p class="body-text">Gracias a LX3.ai, nuestro Software Studio con capacidad de desarrollo full-stack e inteligencia artificial, Gard puede construir módulos y aplicaciones a medida para complementar su servicio de seguridad.</p>
   <p class="body-text">Si su operación requiere integraciones específicas, automatizaciones, o herramientas que hoy no existen en el mercado — podemos diseñarlas, desarrollarlas e integrarlas directamente en OPAI.</p>
@@ -416,9 +431,8 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   ${highlight('No somos una empresa de seguridad que compró un software. Somos una empresa de seguridad que construye su propia tecnología.')}
 </div>
 
-<!-- PÁG 9: TABLA COMPARATIVA -->
-<div class="page-break"></div>
-<div>
+<!-- TABLA COMPARATIVA -->
+<div class="section-wrap">
   ${sectionTitle('El verdadero riesgo no es la ausencia de seguridad. Es la falsa sensación de control.')}
   <p class="section-subtitle">73% de las empresas descubre fallas solo después de un incidente grave.</p>
   <table class="table-gard table-compare">
@@ -427,9 +441,8 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   </table>
 </div>
 
-<!-- PÁG 10: PIRÁMIDE -->
-<div class="page-break"></div>
-<div>
+<!-- PIRÁMIDE -->
+<div class="section-wrap">
   ${sectionTitle('No vendemos guardias. Implementamos un sistema de seguridad gestionado.')}
   <div style="margin:24px 0;">
     ${niveles.map(n => `<div class="pyramid-level ${n.cls}"><strong>${esc(n.label)}:</strong> ${esc(n.desc)}</div>`).join('')}
@@ -437,18 +450,16 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   ${highlight('Cada capa refuerza la anterior. Ninguna funciona aislada.')}
 </div>
 
-<!-- PÁG 11: 4 PILARES -->
-<div class="page-break"></div>
-<div>
+<!-- 4 PILARES -->
+<div class="section-wrap">
   ${sectionTitle('Framework estructurado que sostiene toda nuestra operación')}
   <div class="pillars-grid">
     ${pilares.map((p, i) => `<div class="pillar-card no-break"><div class="pillar-number">${i + 1}</div><h4>${esc(p.title)}</h4><ul>${p.items.map(it => `<li>${esc(it)}</li>`).join('')}</ul></div>`).join('')}
   </div>
 </div>
 
-<!-- PÁG 11: SLA + ESCALAMIENTO -->
-<div class="page-break"></div>
-<div>
+<!-- SLA + ESCALAMIENTO -->
+<div class="section-wrap">
   ${sectionTitle('Usted se entera de TODO, PRIMERO. Sin filtros, sin demoras.')}
   <div style="display:flex;gap:16px;margin-bottom:16px;">
     <div class="report-card"><h4>1. Detección</h4><p style="font-size:8pt;color:var(--text-light);">Inmediato: Identificación del evento</p></div>
@@ -466,9 +477,8 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   </div>
 </div>
 
-<!-- PÁG 12: REPORTABILIDAD -->
-<div class="page-break"></div>
-<div>
+<!-- REPORTABILIDAD -->
+<div class="section-wrap">
   ${sectionTitle('Información cuando la necesitas')}
   <div class="reports-grid">
     ${reportes.map(r => `<div class="report-card"><h4>${esc(r.tipo)}</h4><div class="freq">${esc(r.freq)}</div>${r.items.map(it => `<div class="bullet-item"><span class="bullet-dot">•</span><span style="font-size:9pt;">${esc(it)}</span></div>`).join('')}</div>`).join('')}
@@ -476,9 +486,8 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   ${highlight('Acceso web 24/7 a tu dashboard personalizado. Incluido en el servicio.')}
 </div>
 
-<!-- PÁG 13: CUMPLIMIENTO LEGAL + SEGUROS -->
-<div class="page-break"></div>
-<div>
+<!-- CUMPLIMIENTO LEGAL + SEGUROS -->
+<div class="section-wrap">
   ${sectionTitle('Tranquilidad operativa, legal y financiera')}
   <p class="body-text" style="font-weight:600;">Certificaciones:</p>
   ${bullet(certItems, '✓')}
@@ -489,9 +498,8 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   ${highlight('Si la Dirección del Trabajo solicita documentación, la tendrá en su email en menos de 24 horas hábiles.')}
 </div>
 
-<!-- PÁG 15: CONTINGENCIA -->
-<div class="page-break"></div>
-<div>
+<!-- CONTINGENCIA -->
+<div class="section-wrap">
   ${sectionTitle('Planes de contingencia para cualquier escenario')}
   <table class="table-gard">
     <thead><tr><th style="width:35%;">Escenario</th><th>Respuesta</th></tr></thead>
@@ -500,9 +508,8 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   <div style="text-align:center;margin:16px 0;"><div class="metric-badge"><div class="number">99,5%</div><div class="label">Cumplimiento turnos</div></div></div>
 </div>
 
-<!-- PÁG 16: RESULTADOS -->
-<div class="page-break"></div>
-<div>
+<!-- RESULTADOS -->
+<div class="section-wrap">
   ${sectionTitle('Resultados con clientes reales')}
   <div style="display:flex;gap:24px;margin-bottom:16px;">
     <div class="metric-badge"><div class="number">67%</div><div class="label">Reducción incidentes</div></div>
@@ -511,19 +518,18 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
     <div class="metric-badge"><div class="number">94%</div><div class="label">Renovación</div></div>
   </div>
   <p class="body-text" style="font-weight:600;">Sectores con experiencia:</p>
-  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:24px;">
     ${ai.sectoresRelevantes.map(s => `<span style="background:var(--bg-alt);padding:4px 8px;border-radius:4px;font-size:8pt;">${esc(s)}</span>`).join('')}
   </div>
-  <p class="body-text" style="font-weight:600;">Clientes que confían en Gard:</p>
-  ${clientLogos.length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;align-items:center;margin:12px 0;">
-    ${clientLogos.map(l => `<img src="${l.base64}" alt="${esc(l.name)}" style="height:30px;max-width:80px;object-fit:contain;filter:grayscale(100%);opacity:0.6;" />`).join('')}
+  <p class="body-text" style="font-weight:600;margin-bottom:12px;">Clientes que confían en Gard:</p>
+  ${clientLogos.length > 0 ? `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px 16px;margin:8px 0 16px 0;">
+    ${clientLogos.map(l => `<div style="height:60px;display:flex;align-items:center;justify-content:center;background:var(--bg-light);border-radius:6px;padding:8px;"><img src="${esc(l.url)}" alt="${esc(l.name)}" style="max-height:44px;max-width:130px;object-fit:contain;" /></div>`).join('')}
   </div>` : `<p class="body-text" style="font-size:9pt;color:var(--text-light);">Polpaico · International Paper · Tritec · Sparta · Tattersall · Transmat · BBosch · Embajada de Brasil · GL Events · y más</p>`}
-  <p style="font-size:8pt;color:var(--text-light);">Referencias disponibles bajo solicitud y NDA.</p>
+  <p style="font-size:8pt;color:var(--text-light);text-align:center;">Referencias disponibles bajo solicitud y NDA.</p>
 </div>
 
-<!-- PÁG 15: FAQ -->
-<div class="page-break"></div>
-<div>
+<!-- FAQ -->
+<div class="section-wrap">
   ${sectionTitle('Preguntas frecuentes')}
   ${faqItems.map(f => `<div class="faq-item"><div class="faq-question">${esc(f.q)}</div><div class="faq-answer">${esc(f.a)}</div></div>`).join('')}
 </div>
@@ -568,9 +574,8 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
   <p class="body-text">Presencia de supervisor durante el primer turno completo. Verificación de todos los sistemas: checkpoints NFC instalados, app configurada, portal activado con sus credenciales. Usted recibe su primer reporte antes de cumplirse 24 horas de operación.</p>
 </div>
 
-<!-- PÁG 21: TÉRMINOS + GARANTÍA -->
-<div class="page-break"></div>
-<div>
+<!-- TÉRMINOS + GARANTÍA -->
+<div class="section-wrap">
   ${sectionTitle('Transparencia en qué necesitamos y qué incluimos')}
   <div class="two-col">
     <div>
