@@ -380,6 +380,12 @@ export async function POST(
         monthlyTotal: grandTotal,
         installationName: installationName || undefined,
         existingAiDescription: companyDescription || serviceDescription || undefined,
+        items: items.map((i) => ({
+          description: i.description,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          specifications: i.specifications,
+        })),
       });
     } catch {
       aiContent = {
