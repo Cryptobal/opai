@@ -246,7 +246,7 @@ export async function POST(
     const uniformCat = categoryMap.get("uniform");
     if (uniformCat) {
       uniformCat.items = uniformCat.items.map((i) => {
-        const c = enabledCosts.find((ci) => ci.name === i.name && ci.type === "uniform");
+        const c = enabledCosts.find((ci: LeadCostItem) => ci.name === i.name && ci.type === "uniform");
         const logic = c?.priceLogic ?? "uniform";
         if (logic === "prorated") {
           return { ...i, amount: totalGuards > 0 ? i.amount * totalGuards : 0 };

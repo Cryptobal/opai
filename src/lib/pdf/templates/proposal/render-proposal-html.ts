@@ -9,18 +9,13 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function logoSvgBase64(brandName = 'GARD', brandSubtitle = 'SECURITY'): string {
-  return `data:image/svg+xml;base64,${Buffer.from(`<svg width="180" height="60" viewBox="0 0 180 60" xmlns="http://www.w3.org/2000/svg">
-  <g transform="translate(0, 5)">
-    <path d="M15 8 L25 3 L35 8 L35 20 C35 28 25 35 25 35 C25 35 15 28 15 20 Z" fill="white" opacity="0.95"/>
-    <path d="M20 13 L24 17 L30 11" stroke="#5dc1b9" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
-  <text x="50" y="33" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="900" fill="white" letter-spacing="1.2">${brandName}</text>
-  <text x="50" y="47" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="white" letter-spacing="4.5" opacity="0.9">${brandSubtitle}</text>
-</svg>`).toString('base64')}`;
+export interface ProposalAssets {
+  gardLogoBase64: string;
+  gardEscudoBase64: string;
+  clientLogos: Array<{ name: string; base64: string }>;
 }
 
-export function renderProposalHTML(props: ProposalProps): string {
+export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets): string {
   const {
     companyName, companyLogo, quotationCode, proposalDate,
     contactName, contactPosition, ai,
