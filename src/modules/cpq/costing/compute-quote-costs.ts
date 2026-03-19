@@ -32,9 +32,13 @@ interface QuoteCostSummary {
 }
 
 const safeNumber = (value: unknown) => Number(value || 0);
-const normalizeUnitPrice = (value: number, unit?: string | null) => {
+const normalizeUnitPrice = (value: number, unit?: string | null, contractMonths?: number) => {
   if (!unit) return value;
   const normalized = unit.toLowerCase();
+  if (normalized.includes("contrato") || normalized.includes("contract")) {
+    const months = contractMonths && contractMonths > 0 ? contractMonths : 12;
+    return value / months;
+  }
   if (normalized.includes("año") || normalized.includes("year")) {
     return value / 12;
   }
@@ -306,16 +310,26 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
 
   /* ── Uniforms ── */
 
-  const uniformSetCost = mergedUniforms.reduce((sum, item) => {
-    if (!item.active) return sum;
+  let uniformRotatingCost = 0;
+  let uniformProratedCost = 0;
+
+  for (const item of mergedUniforms) {
+    if (!item.active) continue;
     const base = safeNumber(item.catalogItem?.basePrice ?? 0);
     const override = item.unitPriceOverride ? safeNumber(item.unitPriceOverride) : null;
-    const unitPrice = normalizeUnitPrice(override ?? base, item.catalogItem?.unit);
-    return sum + unitPrice;
-  }, 0);
+    const price = override ?? base;
+    const logic = (item as { priceLogic?: string }).priceLogic ?? item.catalogItem?.priceLogic ?? "uniform";
+
+    if (logic === "prorated") {
+      uniformProratedCost += normalizeUnitPrice(price, item.catalogItem?.unit, contractDuration);
+    } else {
+      uniformRotatingCost += normalizeUnitPrice(price, item.catalogItem?.unit, contractDuration);
+    }
+  }
+
   const monthlyUniforms =
     totalGuards > 0
-      ? ((uniformSetCost * uniformChangesPerYear) / 12) * totalGuards
+      ? (((uniformRotatingCost * uniformChangesPerYear) / 12) + uniformProratedCost) * totalGuards
       : 0;
 
   /* ── Exams ── */

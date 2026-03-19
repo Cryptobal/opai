@@ -6,7 +6,10 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/api/cpq/quotes/\\[id\\]/export-pdf': ['./public/fonts/**/*'],
     '/api/cpq/quotes/\\[id\\]/send-email': ['./public/fonts/**/*'],
-    '/api/cpq/quotes/\\[id\\]/send-portal': ['./public/fonts/**/*'],
+    '/api/cpq/quotes/\\[id\\]/send-portal': ['./public/fonts/**/*', 'node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/cpq/quotes/\\[id\\]/send-portal/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/crm/leads/\\[id\\]/approve-and-send/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/crm/leads/\\[id\\]/approve-and-send': ['node_modules/@sparticuz/chromium/bin/**/*'],
     '/api/portal/cliente/cotizaciones/\\[id\\]/pdf': ['./public/fonts/**/*'],
     // Chromium bin para generación de PDFs (Playwright + @sparticuz/chromium)
     '/api/pdf/generate-presentation/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
@@ -16,6 +19,12 @@ const nextConfig = {
     '/api/ops/pauta-mensual/export-pdf/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
     '/api/ops/guard-events/\\[id\\]/send-doc/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
     '/api/ops/control-nocturno/\\[id\\]/test-email/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/cpq/quotes/\\[id\\]/proposal-pdf/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/cpq/quotes/\\[id\\]/proposal-pdf': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/portal/cliente/cotizaciones/\\[id\\]/proposal-pdf/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/portal/cliente/cotizaciones/\\[id\\]/proposal-pdf': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/cpq/quotes/\\[id\\]/send-pdf-email/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/cpq/quotes/\\[id\\]/send-pdf-email': ['node_modules/@sparticuz/chromium/bin/**/*'],
   },
   turbopack: {
     root: __dirname,

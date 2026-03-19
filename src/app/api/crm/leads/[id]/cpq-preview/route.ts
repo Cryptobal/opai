@@ -41,11 +41,16 @@ interface LeadCostItem {
   basePrice: number;
   priceOverride: number | null;
   enabled: boolean;
+  priceLogic?: string;
 }
 
-function normalizeUnitPrice(value: number, unit?: string | null): number {
+function normalizeUnitPrice(value: number, unit?: string | null, contractMonths?: number): number {
   if (!unit) return value;
   const n = unit.toLowerCase();
+  if (n.includes("contrato") || n.includes("contract")) {
+    const months = contractMonths && contractMonths > 0 ? contractMonths : 12;
+    return value / months;
+  }
   if (n.includes("año") || n.includes("year")) return value / 12;
   if (n.includes("semestre") || n.includes("semester")) return value / 6;
   return value;
@@ -190,8 +195,10 @@ export async function POST(
 
     /* ── Cost items with CPQ formulas ── */
     const enabledCosts = costItems.filter((c: LeadCostItem) => c.enabled);
+    const previewContractMonths = Number(conditions.contractDuration || 12);
 
-    let uniformSetCost = 0;
+    let uniformRotatingCost = 0;
+    let uniformProratedCost = 0;
     let examSetCost = 0;
     let otherCostItemsTotal = 0;
 
@@ -200,10 +207,15 @@ export async function POST(
     for (const c of enabledCosts) {
       const meta = COST_TYPE_CATEGORY[c.type];
       if (!meta) continue;
-      const unitPrice = normalizeUnitPrice(c.priceOverride ?? c.basePrice, c.unit);
+      const unitPrice = normalizeUnitPrice(c.priceOverride ?? c.basePrice, c.unit, previewContractMonths);
 
       if (c.type === "uniform") {
-        uniformSetCost += unitPrice;
+        const logic = c.priceLogic ?? "uniform";
+        if (logic === "prorated") {
+          uniformProratedCost += unitPrice;
+        } else {
+          uniformRotatingCost += unitPrice;
+        }
       } else if (c.type === "exam") {
         examSetCost += unitPrice;
       } else {
@@ -222,7 +234,7 @@ export async function POST(
     }
 
     const monthlyUniforms = totalGuards > 0
-      ? ((uniformSetCost * uniformChangesPerYear) / 12) * totalGuards : 0;
+      ? (((uniformRotatingCost * uniformChangesPerYear) / 12) + uniformProratedCost) * totalGuards : 0;
     const examEntriesPerYear = avgStayMonths > 0 ? 12 / avgStayMonths : 0;
     const examFrequency = Math.max(examEntriesPerYear, uniformChangesPerYear);
     const monthlyExams = totalGuards > 0
@@ -233,10 +245,14 @@ export async function POST(
     // Update category subtotals with mensualised amounts
     const uniformCat = categoryMap.get("uniform");
     if (uniformCat) {
-      uniformCat.items = uniformCat.items.map((i) => ({
-        ...i,
-        amount: totalGuards > 0 ? ((i.amount * uniformChangesPerYear) / 12) * totalGuards : 0,
-      }));
+      uniformCat.items = uniformCat.items.map((i) => {
+        const c = enabledCosts.find((ci) => ci.name === i.name && ci.type === "uniform");
+        const logic = c?.priceLogic ?? "uniform";
+        if (logic === "prorated") {
+          return { ...i, amount: totalGuards > 0 ? i.amount * totalGuards : 0 };
+        }
+        return { ...i, amount: totalGuards > 0 ? ((i.amount * uniformChangesPerYear) / 12) * totalGuards : 0 };
+      });
     }
     const examCat = categoryMap.get("exam");
     if (examCat) {

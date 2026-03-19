@@ -30,6 +30,7 @@ type CatalogItem = {
   isDefault: boolean;
   active: boolean;
   defaultTechnicalSpecs?: string | null;
+  priceLogic?: string;
 };
 
 const TYPE_NAMES: Record<string, string> = {
@@ -197,6 +198,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
           isDefault: item.isDefault,
           active: item.active,
           defaultTechnicalSpecs: item.defaultTechnicalSpecs || null,
+          priceLogic: item.priceLogic ?? "uniform",
         }),
       });
       const data = await res.json();
@@ -252,6 +254,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
           isDefault: payload.isDefault ?? false,
           active: true,
           defaultTechnicalSpecs: payload.defaultTechnicalSpecs?.trim() || null,
+          priceLogic: payload.priceLogic ?? "uniform",
         }),
       });
       const data = await res.json();
@@ -597,16 +600,35 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                                 className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
                               />
                             </div>
+                            {item.type === "uniform" && (
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="text-muted-foreground">Cálculo:</span>
+                                <select
+                                  className="flex h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground"
+                                  value={item.priceLogic ?? "uniform"}
+                                  onChange={(e) => updateItemLocal(item.id, { priceLogic: e.target.value })}
+                                >
+                                  <option value="uniform">Rotación (×cambios/año)</option>
+                                  <option value="prorated">Prorrateo por período</option>
+                                </select>
+                              </div>
+                            )}
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 text-xs">
                                 <select
                                   className="flex h-9 rounded-md border border-border bg-card px-2 text-xs text-foreground"
-                                  value={item.unit === "año" ? "año" : item.unit === "semestre" ? "semestre" : "mes"}
+                                  value={
+                                    item.unit === "año" ? "año"
+                                    : item.unit === "semestre" ? "semestre"
+                                    : item.unit === "contrato" ? "contrato"
+                                    : "mes"
+                                  }
                                   onChange={(e) => updateItemLocal(item.id, { unit: e.target.value })}
                                 >
                                   <option value="mes">Mes</option>
                                   <option value="semestre">Semestre</option>
                                   <option value="año">Año</option>
+                                  <option value="contrato">Contrato</option>
                                 </select>
                                 <label className="flex items-center gap-2">
                                   <input
@@ -704,6 +726,8 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                             ? "año"
                             : newItems[group.id]?.unit === "semestre"
                             ? "semestre"
+                            : newItems[group.id]?.unit === "contrato"
+                            ? "contrato"
                             : "mes"
                         }
                         onChange={(e) =>
@@ -716,6 +740,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                         <option value="mes">Mes</option>
                         <option value="semestre">Semestre</option>
                         <option value="año">Año</option>
+                        <option value="contrato">Contrato</option>
                       </select>
                       <Button
                         size="sm"

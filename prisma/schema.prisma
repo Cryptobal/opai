@@ -1120,6 +1120,7 @@ model CpqCatalogItem {
   defaultVisibility String   @default("visible") @map("default_visibility")
   active                Boolean  @default(true)
   defaultTechnicalSpecs String?  @map("default_technical_specs")
+  priceLogic            String   @default("uniform") @map("price_logic") @db.VarChar(20)
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -1169,6 +1170,7 @@ model CpqQuoteUniformItem {
   catalogItemId     String   @map("catalog_item_id") @db.Uuid
   unitPriceOverride Decimal? @map("unit_price_override") @db.Decimal(12, 2)
   technicalSpecs    String?  @map("technical_specs")
+  priceLogic        String   @default("uniform") @map("price_logic") @db.VarChar(20)
   active            Boolean  @default(true)
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)

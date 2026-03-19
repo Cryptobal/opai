@@ -832,7 +832,7 @@ export async function POST(
                 if (!catId) continue;
                 const catItem = await tx.cpqCatalogItem.findFirst({
                   where: { id: catId, active: true, OR: [{ tenantId: ctx.tenantId }, { tenantId: null }] },
-                  select: { id: true, type: true, name: true, defaultVisibility: true, isDefault: true, defaultTechnicalSpecs: true },
+                  select: { id: true, type: true, name: true, defaultVisibility: true, isDefault: true, defaultTechnicalSpecs: true, priceLogic: true },
                 });
                 if (!catItem) continue;
                 if (catItem.type === "uniform") {
@@ -842,6 +842,7 @@ export async function POST(
                       catalogItemId: catItem.id,
                       unitPriceOverride: ci.priceOverride != null ? ci.priceOverride : null,
                       technicalSpecs: ci.technicalSpecs || catItem.defaultTechnicalSpecs || null,
+                      priceLogic: (ci as { priceLogic?: string }).priceLogic ?? catItem.priceLogic ?? "uniform",
                       active: true,
                     },
                   });
@@ -1071,6 +1072,7 @@ export async function POST(
                         catalogItemId: item.id,
                         unitPriceOverride: null,
                         technicalSpecs: item.defaultTechnicalSpecs || null,
+                        priceLogic: item.priceLogic ?? "uniform",
                         active: true,
                       },
                     });
@@ -1205,7 +1207,7 @@ export async function POST(
                 if (item.type === "uniform") {
                   if (!isDefaultUniform(item.name, item.isDefault)) continue;
                   await tx.cpqQuoteUniformItem.create({
-                    data: { quoteId: fallbackQuote.id, catalogItemId: item.id, unitPriceOverride: null, active: true },
+                    data: { quoteId: fallbackQuote.id, catalogItemId: item.id, unitPriceOverride: null, priceLogic: item.priceLogic ?? "uniform", active: true },
                   });
                 } else if (item.type === "exam") {
                   await tx.cpqQuoteExamItem.create({

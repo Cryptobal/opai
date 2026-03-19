@@ -131,6 +131,7 @@ export async function GET(
             catalogItemId: item.id,
             unitPriceOverride: null,
             technicalSpecs: item.defaultTechnicalSpecs || null,
+            priceLogic: item.priceLogic ?? "uniform",
             active: true,
             catalogItem: item,
           }));
@@ -353,6 +354,7 @@ export async function PUT(
             catalogItemId: item.catalogItemId,
             unitPriceOverride: item.unitPriceOverride ?? null,
             technicalSpecs: item.technicalSpecs ?? null,
+            priceLogic: item.priceLogic ?? "uniform",
             active: item.active ?? true,
           },
         ])
@@ -363,6 +365,7 @@ export async function PUT(
           quoteId: id,
           unitPriceOverride: item.unitPriceOverride ?? null,
           technicalSpecs: item.technicalSpecs ?? null,
+          priceLogic: item.priceLogic ?? "uniform",
           active: item.active ?? true,
         });
       });
@@ -373,6 +376,7 @@ export async function PUT(
             catalogItemId: item.id,
             unitPriceOverride: null,
             technicalSpecs: item.defaultTechnicalSpecs ?? null,
+            priceLogic: item.priceLogic ?? "uniform",
             active: true,
           });
         }
@@ -384,6 +388,7 @@ export async function PUT(
           catalogItemId: item.catalogItemId,
           unitPriceOverride: item.unitPriceOverride ?? null,
           technicalSpecs: item.technicalSpecs ?? null,
+          priceLogic: item.priceLogic ?? "uniform",
           active: item.active ?? true,
         })),
       });

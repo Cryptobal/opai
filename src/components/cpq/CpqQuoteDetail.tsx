@@ -953,9 +953,13 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
   // Per-category cost breakdown for the sidebar (breaks down monthlyCostItems by type)
   const costCategoryBreakdown = useMemo(() => {
     const totalGuards = costSummary?.totalGuards ?? 0;
-    const normalizeUnit = (value: number, unit?: string | null) => {
+    const normalizeUnit = (value: number, unit?: string | null, contractMonths?: number) => {
       if (!unit) return value;
       const n = unit.toLowerCase();
+      if (n.includes("contrato") || n.includes("contract")) {
+        const months = contractMonths && contractMonths > 0 ? contractMonths : 12;
+        return value / months;
+      }
       if (n.includes("año") || n.includes("year")) return value / 12;
       if (n.includes("semestre") || n.includes("semester")) return value / 6;
       return value;

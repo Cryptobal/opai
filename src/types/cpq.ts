@@ -170,6 +170,7 @@ export interface CpqCatalogItem {
   defaultVisibility: string;
   active: boolean;
   defaultTechnicalSpecs?: string | null;
+  priceLogic?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -203,6 +204,7 @@ export interface CpqQuoteUniformItem {
   catalogItemId: string;
   unitPriceOverride?: number | null;
   technicalSpecs?: string | null;
+  priceLogic?: string;
   active: boolean;
   catalogItem?: CpqCatalogItem;
 }

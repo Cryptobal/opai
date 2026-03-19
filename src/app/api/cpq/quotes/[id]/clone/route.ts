@@ -142,6 +142,7 @@ export async function POST(
             quoteId: newQuote.id,
             catalogItemId: item.catalogItemId,
             unitPriceOverride: item.unitPriceOverride,
+            priceLogic: item.priceLogic ?? "uniform",
             active: item.active,
           })),
         });

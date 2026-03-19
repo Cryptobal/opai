@@ -74,7 +74,7 @@ export async function seedCpqData() {
     { type: "uniform", name: "Velo", unit: "unidad", basePrice: 8000, isDefault: true, defaultTechnicalSpecs: "Gorro tipo velo o pasamontañas para protección contra frío." },
     { type: "uniform", name: "Casco", unit: "unidad", basePrice: 12000, isDefault: false, defaultTechnicalSpecs: "Casco de seguridad industrial, ajuste regulable, certificación ANSI/EN." },
     { type: "uniform", name: "EPP", unit: "unidad", basePrice: 20000, isDefault: false, defaultTechnicalSpecs: "Elementos de protección personal: guantes, anteojos, protectores auditivos según riesgo." },
-    { type: "uniform", name: "Chaleco Antikorper", unit: "unidad", basePrice: 28000, isDefault: false, defaultTechnicalSpecs: "Chaleco antibalas/cortantes, nivel según requerimiento del cliente." },
+    { type: "uniform", name: "Chaleco Antibalas", unit: "año", basePrice: 400000, isDefault: false, defaultTechnicalSpecs: "Chaleco antibalas Nivel IIIA (tipo MICH o PASGT), duración mínima 1 año, uno por guardia.", priceLogic: "prorated" },
 
     // Exámenes
     { type: "exam", name: "Preocupacional", unit: "examen", basePrice: 25000, isDefault: false, defaultTechnicalSpecs: "Examen médico pre-empleo según DS 594, aptitud para labores de seguridad." },
@@ -101,7 +101,7 @@ export async function seedCpqData() {
     const existing = await prisma.cpqCatalogItem.findFirst({
       where: { name: item.name, type: item.type },
     });
-    const payload = item as typeof item & { defaultTechnicalSpecs?: string };
+    const payload = item as typeof item & { defaultTechnicalSpecs?: string; priceLogic?: string };
     if (existing) {
       await prisma.cpqCatalogItem.update({
         where: { id: existing.id },
@@ -110,6 +110,7 @@ export async function seedCpqData() {
           basePrice: payload.basePrice,
           isDefault: payload.isDefault ?? false,
           defaultTechnicalSpecs: payload.defaultTechnicalSpecs ?? null,
+          ...(payload.priceLogic ? { priceLogic: payload.priceLogic } : {}),
         },
       });
     } else {
@@ -121,6 +122,7 @@ export async function seedCpqData() {
           basePrice: payload.basePrice,
           isDefault: payload.isDefault ?? false,
           defaultTechnicalSpecs: payload.defaultTechnicalSpecs ?? null,
+          priceLogic: payload.priceLogic ?? "uniform",
         },
       });
     }

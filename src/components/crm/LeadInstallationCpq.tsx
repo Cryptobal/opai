@@ -44,6 +44,7 @@ export interface LeadCostItem {
   priceOverride: number | null;
   enabled: boolean;
   technicalSpecs?: string | null;
+  priceLogic?: string;
 }
 
 export interface LeadCpqConfig {
@@ -122,9 +123,13 @@ const COST_GROUP_TYPES_MAP: Record<string, string[]> = {
 };
 
 /* ─── Unit price normalizer (matches CPQ compute-quote-costs) ─── */
-function normalizeUnitPrice(value: number, unit?: string | null): number {
+function normalizeUnitPrice(value: number, unit?: string | null, contractMonths?: number): number {
   if (!unit) return value;
   const n = unit.toLowerCase();
+  if (n.includes("contrato") || n.includes("contract")) {
+    const months = contractMonths && contractMonths > 0 ? contractMonths : 12;
+    return value / months;
+  }
   if (n.includes("año") || n.includes("year")) return value / 12;
   if (n.includes("semestre") || n.includes("semester")) return value / 6;
   return value;
@@ -302,40 +307,48 @@ export function LeadInstallationCpq({
   const costTotals = useMemo(() => {
     const uniformChangesPerYear = config.uniformChangesPerYear ?? 3;
     const avgStayMonths = config.avgStayMonths ?? 4;
+    const contractMonths = config.conditions?.contractDuration ?? 12;
     const guards = config.positions.reduce(
       (s, p) => s + (p.cantidad || 1) * (p.numPuestos || 1), 0
     );
 
-    let uniformSetCost = 0;
+    let uniformRotatingCost = 0;
+    let uniformProratedCost = 0;
     let examSetCost = 0;
     let otherDirectos = 0;
     let indirectos = 0;
 
     for (const item of config.costItems) {
       if (!item.enabled) continue;
-      const unitPrice = normalizeUnitPrice(item.priceOverride ?? item.basePrice, item.unit);
       const cat = COST_TYPE_CATEGORY[item.type];
       if (!cat) continue;
 
       if (item.type === "uniform") {
-        uniformSetCost += unitPrice;
+        const price = item.priceOverride ?? item.basePrice;
+        const logic = item.priceLogic ?? "uniform";
+        if (logic === "prorated") {
+          uniformProratedCost += normalizeUnitPrice(price, item.unit, contractMonths);
+        } else {
+          uniformRotatingCost += normalizeUnitPrice(price, item.unit, contractMonths);
+        }
       } else if (item.type === "exam") {
-        examSetCost += unitPrice;
+        examSetCost += normalizeUnitPrice(item.priceOverride ?? item.basePrice, item.unit);
       } else if (cat.category === "direct") {
-        otherDirectos += unitPrice;
+        otherDirectos += normalizeUnitPrice(item.priceOverride ?? item.basePrice, item.unit);
       } else {
-        indirectos += unitPrice;
+        indirectos += normalizeUnitPrice(item.priceOverride ?? item.basePrice, item.unit);
       }
     }
 
     const monthlyUniforms = guards > 0
-      ? ((uniformSetCost * uniformChangesPerYear) / 12) * guards : 0;
+      ? (((uniformRotatingCost * uniformChangesPerYear) / 12) + uniformProratedCost) * guards : 0;
 
     const examEntriesPerYear = avgStayMonths > 0 ? 12 / avgStayMonths : 0;
     const examFrequency = Math.max(examEntriesPerYear, uniformChangesPerYear);
     const monthlyExams = guards > 0
       ? ((examSetCost * examFrequency) / 12) * guards : 0;
 
+    const uniformSetCost = uniformRotatingCost + uniformProratedCost;
     const directos = monthlyUniforms + monthlyExams + otherDirectos;
     return {
       directos,
@@ -346,7 +359,7 @@ export function LeadInstallationCpq({
       uniformSetCost,
       examSetCost,
     };
-  }, [config.costItems, config.positions, config.uniformChangesPerYear, config.avgStayMonths]);
+  }, [config.costItems, config.positions, config.uniformChangesPerYear, config.avgStayMonths, config.conditions?.contractDuration]);
 
   // ─── Position helpers ───
   const totalGuards = config.positions.reduce(

@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
         defaultVisibility: body?.defaultVisibility || "visible",
         active: body?.active ?? true,
         defaultTechnicalSpecs: body?.defaultTechnicalSpecs || null,
+        priceLogic: body?.priceLogic || "uniform",
         tenantId,
       },
     });

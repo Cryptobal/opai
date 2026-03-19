@@ -723,9 +723,13 @@ export function CpqQuoteCosts({
 
   const totalGuards = summary?.totalGuards ?? 0;
 
-  const normalizeUnitPrice = (value: number, unit?: string | null) => {
+  const normalizeUnitPrice = (value: number, unit?: string | null, contractMonths?: number) => {
     if (!unit) return value;
     const normalized = unit.toLowerCase();
+    if (normalized.includes("contrato") || normalized.includes("contract")) {
+      const months = contractMonths && contractMonths > 0 ? contractMonths : 12;
+      return value / months;
+    }
     if (normalized.includes("año") || normalized.includes("year")) {
       return value / 12;
     }
@@ -756,20 +760,31 @@ export function CpqQuoteCosts({
     }, 0);
 
   const uniformTotal = useMemo(() => {
-    const total = uniforms.reduce((sum, item) => {
-      if (!item.active) return sum;
+    let rotatingCost = 0;
+    let proratedCost = 0;
+    const cMonths = parameters.contractMonths || 12;
+
+    for (const item of uniforms) {
+      if (!item.active) continue;
       const base = Number(item.catalogItem?.basePrice ?? 0);
       const override =
         item.unitPriceOverride !== null && item.unitPriceOverride !== undefined
           ? Number(item.unitPriceOverride)
           : null;
-      const unitPrice = normalizeUnitPrice(override ?? base, item.catalogItem?.unit);
-      return sum + unitPrice;
-    }, 0);
+      const price = override ?? base;
+      const logic = item.priceLogic ?? item.catalogItem?.priceLogic ?? "uniform";
+
+      if (logic === "prorated") {
+        proratedCost += normalizeUnitPrice(price, item.catalogItem?.unit, cMonths);
+      } else {
+        rotatingCost += normalizeUnitPrice(price, item.catalogItem?.unit, cMonths);
+      }
+    }
+
     const changes = parameters.uniformChangesPerYear || 0;
     const guards = summary?.totalGuards ?? 0;
-    return guards > 0 ? ((total * changes) / 12) * guards : 0;
-  }, [uniforms, parameters.uniformChangesPerYear, summary?.totalGuards]);
+    return guards > 0 ? (((rotatingCost * changes) / 12) + proratedCost) * guards : 0;
+  }, [uniforms, parameters.uniformChangesPerYear, parameters.contractMonths, summary?.totalGuards]);
 
   const examTotal = useMemo(() => {
     const total = exams.reduce((sum, item) => {
