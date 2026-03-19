@@ -172,12 +172,19 @@ export function VisitaTecnicaSolicitudModal({
 
     setSending(true);
     try {
+      // Enviar scheduledAt como ISO UTC para que el servidor interprete correctamente la hora en Chile
+      const [y, m, d] = scheduledAt.slice(0, 10).split("-").map(Number);
+      const h = parseInt(scheduledHour, 10);
+      const min = parseInt(scheduledMinute, 10);
+      const dateObj = new Date(y, m - 1, d, h, min, 0, 0);
+      const scheduledAtIso = dateObj.toISOString();
+
       const res = await fetch(`/api/cpq/quotes/${quoteId}/solicitar-visita-tecnica`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           supervisorId,
-          scheduledAt,
+          scheduledAt: scheduledAtIso,
           contactName: effectiveContactName,
           contactPhone: effectiveContactPhone,
         }),

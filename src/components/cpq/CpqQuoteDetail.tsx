@@ -43,7 +43,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Shield, Mail, Send, Check, Briefcase, Phone } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Shield, Mail, Send, Check, Briefcase, Phone, FileText } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -126,6 +126,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
   const [statusChangePending, setStatusChangePending] = useState<"draft" | "sent" | null>(null);
   const [changingStatus, setChangingStatus] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloadingProposalPdf, setDownloadingProposalPdf] = useState(false);
   const [sendingDotacion, setSendingDotacion] = useState(false);
   const [sendingPortal, setSendingPortal] = useState(false);
   const [portalFollowUpModalOpen, setPortalFollowUpModalOpen] = useState(false);
@@ -713,6 +714,33 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
     }
   };
 
+  const handleDownloadProposalPdf = async () => {
+    setDownloadingProposalPdf(true);
+    try {
+      await flushPendingSaves();
+      const response = await fetch(`/api/cpq/quotes/${quoteId}/proposal-pdf`);
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || "Error al generar propuesta técnica");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Propuesta-Tecnica-${quote?.code || "cotizacion"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Propuesta técnica descargada");
+    } catch (error) {
+      console.error("Error downloading proposal PDF:", error);
+      toast.error(error instanceof Error ? error.message : "No se pudo generar la propuesta técnica");
+    } finally {
+      setDownloadingProposalPdf(false);
+    }
+  };
+
   const handleSendDotacionToInstallation = async () => {
     if (!quote) return;
     if (!crmContext.installationId) {
@@ -1217,8 +1245,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               {changingStatus ? "..." : "Enviada"}
             </Button>
           )}
-          <Button size="icon" variant="outline" className="h-7 w-7" onClick={handleDownloadPdf} disabled={downloadingPdf || !quote} title="Descargar PDF">
+          <Button size="icon" variant="outline" className="h-7 w-7" onClick={handleDownloadPdf} disabled={downloadingPdf || !quote} title="Descargar PDF cotización">
             {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+          </Button>
+          <Button size="icon" variant="outline" className="h-7 w-7" onClick={handleDownloadProposalPdf} disabled={downloadingProposalPdf || !quote} title="Descargar Propuesta Técnica">
+            {downloadingProposalPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
           </Button>
           {/* Overflow menu for secondary actions */}
           <div className="relative">
@@ -2277,7 +2308,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                   d.puestosDetail.forEach((p) => {
                     const horario = [p.startTime, p.endTime].filter(Boolean).join("–") || "";
                     const detalle = `${p.name} — ${p.numGuards} guardia${p.numGuards !== 1 ? "s" : ""}${horario ? ` · ${horario}` : ""}`;
-                    lines.push(`• ${detalle}`);
+                    lines.push(`- ${detalle}`);
                   });
                 }
                 if (d.quoteCode) lines.push("", `Cotización: ${d.quoteCode}`);
