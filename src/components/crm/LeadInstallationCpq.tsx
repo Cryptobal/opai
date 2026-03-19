@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,6 +56,15 @@ export interface LeadCpqConfig {
   conditions: CommercialConditionsData;
   companyDescription?: string;
   serviceDescription?: string;
+  uniformChangesPerYear?: number;
+  avgStayMonths?: number;
+  quoteName?: string;
+  currency?: "CLP" | "UF";
+}
+
+export interface CpqCatalogOption {
+  id: string;
+  name: string;
 }
 
 interface LeadInstallationCpqProps {
@@ -63,6 +72,10 @@ interface LeadInstallationCpqProps {
   onChange: (config: LeadCpqConfig) => void;
   proposalTemplates?: { id: string; name: string; slug?: string }[];
   catalogDefaults?: { puestoId: string; puestoName: string; cargoId: string; rolId: string };
+  cpqPuestos?: CpqCatalogOption[];
+  cpqCargos?: CpqCatalogOption[];
+  cpqRoles?: CpqCatalogOption[];
+  leadId?: string;
   accountName?: string;
   industry?: string;
   installationName?: string;
@@ -100,6 +113,15 @@ const COST_GROUP_TYPES_MAP: Record<string, string[]> = {
   system: ["system"],
 };
 
+/* ─── Unit price normalizer (matches CPQ compute-quote-costs) ─── */
+function normalizeUnitPrice(value: number, unit?: string | null): number {
+  if (!unit) return value;
+  const n = unit.toLowerCase();
+  if (n.includes("año") || n.includes("year")) return value / 12;
+  if (n.includes("semestre") || n.includes("semester")) return value / 6;
+  return value;
+}
+
 /* ─── Cost type → category mapping ─── */
 const COST_TYPE_CATEGORY: Record<string, { category: "direct" | "indirect"; group: string }> = {
   uniform: { category: "direct", group: "Uniformes" },
@@ -132,6 +154,10 @@ export function LeadInstallationCpq({
   onChange,
   proposalTemplates = [],
   catalogDefaults,
+  cpqPuestos = [],
+  cpqCargos = [],
+  cpqRoles = [],
+  leadId,
   accountName,
   industry,
   installationName,
@@ -160,7 +186,7 @@ export function LeadInstallationCpq({
           })));
           setCatalogLoaded(true);
           // Auto-populate costItems from catalog if empty
-          if (config.costItems.length === 0 && config.selectedCostGroups.length > 0) {
+          if (config.costItems.length === 0) {
             const enabledTypes = new Set<string>();
             for (const g of config.selectedCostGroups) {
               const types = COST_GROUP_TYPES_MAP[g];
@@ -173,7 +199,7 @@ export function LeadInstallationCpq({
               unit: item.unit,
               basePrice: Number(item.basePrice) || 0,
               priceOverride: null,
-              enabled: enabledTypes.has(item.type),
+              enabled: Boolean(item.isDefault) && enabledTypes.has(item.type),
             }));
             onChange({ ...config, costItems: items });
           }
@@ -231,17 +257,53 @@ export function LeadInstallationCpq({
   }, [config.costItems]);
 
   const costTotals = useMemo(() => {
-    let directos = 0;
+    const uniformChangesPerYear = config.uniformChangesPerYear ?? 3;
+    const avgStayMonths = config.avgStayMonths ?? 4;
+    const guards = config.positions.reduce(
+      (s, p) => s + (p.cantidad || 1) * (p.numPuestos || 1), 0
+    );
+
+    let uniformSetCost = 0;
+    let examSetCost = 0;
+    let otherDirectos = 0;
     let indirectos = 0;
+
     for (const item of config.costItems) {
       if (!item.enabled) continue;
-      const price = item.priceOverride ?? item.basePrice;
+      const unitPrice = normalizeUnitPrice(item.priceOverride ?? item.basePrice, item.unit);
       const cat = COST_TYPE_CATEGORY[item.type];
-      if (cat?.category === "direct") directos += price;
-      else if (cat?.category === "indirect") indirectos += price;
+      if (!cat) continue;
+
+      if (item.type === "uniform") {
+        uniformSetCost += unitPrice;
+      } else if (item.type === "exam") {
+        examSetCost += unitPrice;
+      } else if (cat.category === "direct") {
+        otherDirectos += unitPrice;
+      } else {
+        indirectos += unitPrice;
+      }
     }
-    return { directos, indirectos, total: directos + indirectos };
-  }, [config.costItems]);
+
+    const monthlyUniforms = guards > 0
+      ? ((uniformSetCost * uniformChangesPerYear) / 12) * guards : 0;
+
+    const examEntriesPerYear = avgStayMonths > 0 ? 12 / avgStayMonths : 0;
+    const examFrequency = Math.max(examEntriesPerYear, uniformChangesPerYear);
+    const monthlyExams = guards > 0
+      ? ((examSetCost * examFrequency) / 12) * guards : 0;
+
+    const directos = monthlyUniforms + monthlyExams + otherDirectos;
+    return {
+      directos,
+      indirectos,
+      total: directos + indirectos,
+      monthlyUniforms,
+      monthlyExams,
+      uniformSetCost,
+      examSetCost,
+    };
+  }, [config.costItems, config.positions, config.uniformChangesPerYear, config.avgStayMonths]);
 
   // ─── Position helpers ───
   const totalGuards = config.positions.reduce(
@@ -252,7 +314,6 @@ export function LeadInstallationCpq({
     const newPositions: LeadPositionItem[] = template.positions.map((pos) => ({
       puestoTrabajoId: catalogDefaults?.puestoId,
       puesto: catalogDefaults?.puestoName || pos.name,
-      customName: pos.name,
       cargoId: catalogDefaults?.cargoId,
       rolId: catalogDefaults?.rolId,
       baseSalary: pos.baseSalary,
@@ -273,7 +334,6 @@ export function LeadInstallationCpq({
         {
           puestoTrabajoId: catalogDefaults?.puestoId,
           puesto: catalogDefaults?.puestoName || "Control de Acceso",
-          customName: "Control de Acceso",
           cargoId: catalogDefaults?.cargoId,
           rolId: catalogDefaults?.rolId,
           baseSalary: 550000,
@@ -333,34 +393,40 @@ export function LeadInstallationCpq({
           customInstruction: aiInstruction || undefined,
         }),
       });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || `Error ${res.status} al generar descripción`);
+      }
       const data = await res.json();
       if (data?.success && data.data?.description) {
         if (type === "company") update({ companyDescription: data.data.description });
         else update({ serviceDescription: data.data.description });
+      } else {
+        throw new Error(data?.error || "La IA no generó descripción");
       }
-    } catch {
-      // silent fail
+    } catch (err) {
+      console.error("[Lead IA] Error generating description:", err);
     } finally {
       setter(false);
     }
   };
 
   // ─── Auto-generate AI descriptions when first position is added ───
-  const [autoGenTriggered, setAutoGenTriggered] = useState(false);
+  const autoGenTriggered = useRef(false);
   useEffect(() => {
-    if (autoGenTriggered) return;
+    if (autoGenTriggered.current) return;
     if (config.positions.length === 0) return;
     if (config.companyDescription || config.serviceDescription) return;
     if (generatingCompany || generatingService) return;
-    setAutoGenTriggered(true);
+    autoGenTriggered.current = true;
     const timer = setTimeout(() => {
       generateDescription("company");
       generateDescription("service");
     }, 800);
     return () => clearTimeout(timer);
-  }, [config.positions.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [config.positions.length, config.companyDescription, config.serviceDescription]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Quick estimate ───
+  // ─── Quick estimate (mirrors CPQ compute-quote-costs) ───
   const estimate = useMemo(() => {
     const IMM = 500000;
     const totalCostoManoObra = config.positions.reduce((sum, p) => {
@@ -372,40 +438,99 @@ export function LeadInstallationCpq({
       const costoGuardia = salary + gratificacion + cargasSociales;
       return sum + costoGuardia * guards;
     }, 0);
+
+    // Holiday adjustment (same as CPQ: (positions/30) * 0.5 * holidays/12 * (1+buffer%))
+    const holidayAnnualCount = 12;
+    const holidayBufferPct = 10;
+    const holidayAdjustment = totalCostoManoObra > 0
+      ? (totalCostoManoObra / 30) * 0.5 * (holidayAnnualCount / 12) * (1 + holidayBufferPct / 100)
+      : 0;
+
     const totalLineas = config.additionalLines.reduce((sum, l) => {
       const base = Number(l.precio || 0) * Number(l.cantidad || 1);
       const m = Number(l.marginPct || 0);
       const venta = m > 0 && m < 100 ? base / (1 - m / 100) : base;
       return sum + (l.recurrencia === "unico" && config.conditions.contractDuration > 0 ? venta / config.conditions.contractDuration : venta);
     }, 0);
+
     const costosAdicionales = costTotals.total;
-    const costoBase = totalCostoManoObra + costosAdicionales;
-    const financiero = config.financialCosts.financialEnabled
-      ? costoBase * (config.financialCosts.financialRatePct / 100)
-      : 0;
-    const costoConFinanciero = costoBase + financiero;
+    // costsBase mirrors CPQ: labor + holidayAdj + all cost items
+    const costoBase = totalCostoManoObra + holidayAdjustment + costosAdicionales;
     const marginPct = config.marginPercentage / 100;
-    const marginAmount = config.marginMode === "margin_on_sale" && marginPct < 1
-      ? costoConFinanciero / (1 - marginPct) - costoConFinanciero
-      : costoConFinanciero * marginPct;
-    const precioVenta = costoConFinanciero + marginAmount + totalLineas;
+    // laborCost = positions + holidays (same as CPQ)
+    const laborCost = totalCostoManoObra + holidayAdjustment;
+    const nonLaborCost = costosAdicionales;
+    let baseConMargen: number;
+    if (config.marginMode === "markup") {
+      baseConMargen = costoBase * (1 + marginPct);
+    } else if (config.marginMode === "margin_on_labor") {
+      const laborWithMargin = marginPct < 1 ? laborCost / (1 - marginPct) : laborCost;
+      baseConMargen = laborWithMargin + nonLaborCost;
+    } else {
+      baseConMargen = marginPct < 1 ? costoBase / (1 - marginPct) : costoBase;
+    }
+    const salePriceBaseManual = config.financialCosts.salePriceBase;
+    const effectiveBase = salePriceBaseManual > 0 ? salePriceBaseManual : baseConMargen;
+    const financiero = config.financialCosts.financialEnabled
+      ? effectiveBase * (config.financialCosts.financialRatePct / 100)
+      : 0;
+
+    // Policy (same as CPQ)
+    const policyEnabled = config.financialCosts.policyEnabled ?? false;
+    const policyRatePct = (config.financialCosts.policyRatePct ?? 0) / 100;
+    const policyContractMonths = config.financialCosts.policyContractMonths ?? 12;
+    const policyContractPct = (config.financialCosts.policyContractPct ?? 100) / 100;
+    const montoAnual = effectiveBase * policyContractMonths;
+    const valorGarantia = montoAnual * policyContractPct;
+    const poliza = policyEnabled && effectiveBase > 0
+      ? (valorGarantia * policyRatePct) / 12 : 0;
+
+    const marginAmount = baseConMargen - costoBase;
+    const precioVenta = baseConMargen + financiero + poliza + totalLineas;
     const totalGuardias = config.positions.reduce((s, p) => s + (p.cantidad || 1) * (p.numPuestos || 1), 0);
     const totalPuestos = config.positions.reduce((s, p) => s + (p.numPuestos || 1), 0);
     return {
       manoDeObra: totalCostoManoObra,
+      holidayAdjustment,
       directos: costTotals.directos,
       indirectos: costTotals.indirectos,
       financiero,
+      poliza,
       marginAmount,
       totalLineas,
       precioVenta,
       totalGuardias,
       totalPuestos,
+      baseConMargen,
     };
   }, [config.positions, config.additionalLines, config.marginPercentage, config.marginMode, config.conditions.contractDuration, config.financialCosts, costTotals]);
 
   return (
     <div className="space-y-2">
+      {/* ── Nombre cotización + Moneda ── */}
+      <div className="flex gap-2 items-end">
+        <div className="flex-1 space-y-1">
+          <Label className="text-[10px] text-muted-foreground">Nombre cotización</Label>
+          <Input
+            value={config.quoteName || ""}
+            onChange={(e) => update({ quoteName: e.target.value })}
+            className="h-7 text-xs"
+            placeholder="Ej: Propuesta Control de Acceso"
+          />
+        </div>
+        <div className="w-24 space-y-1">
+          <Label className="text-[10px] text-muted-foreground">Moneda</Label>
+          <select
+            className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs"
+            value={config.currency || "CLP"}
+            onChange={(e) => update({ currency: e.target.value as "CLP" | "UF" })}
+          >
+            <option value="CLP">CLP</option>
+            <option value="UF">UF</option>
+          </select>
+        </div>
+      </div>
+
       {/* ── Puestos ── */}
       <Card className="shadow-sm overflow-hidden">
         <button type="button" onClick={() => setSecPuestos((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
@@ -427,7 +552,15 @@ export function LeadInstallationCpq({
             {config.positions.map((pos, idx) => (
               <div key={idx} className="rounded-md border border-border/60 bg-background p-2.5 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-semibold">{pos.customName || pos.puesto || `Posición ${idx + 1}`}</span>
+                  <span className="text-[12px] font-semibold">{
+                    (() => {
+                      const pName = cpqPuestos.find(p => p.id === (pos.puestoTrabajoId || catalogDefaults?.puestoId))?.name;
+                      const cName = cpqCargos.find(c => c.id === (pos.cargoId || catalogDefaults?.cargoId))?.name;
+                      const rName = cpqRoles.find(r => r.id === (pos.rolId || catalogDefaults?.rolId))?.name;
+                      const label = [pName, cName, rName].filter(Boolean).join(" · ");
+                      return label || pos.puesto || `Posición ${idx + 1}`;
+                    })()
+                  }</span>
                   <div className="flex items-center gap-1">
                     <Badge variant="outline" className="h-5 text-[10px] gap-0.5">
                       {pos.shiftType === "night" ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
@@ -441,11 +574,7 @@ export function LeadInstallationCpq({
                     </Button>
                   </div>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-5">
-                  <div className="space-y-1">
-                    <Label className="text-[10px]">Nombre</Label>
-                    <Input value={pos.customName || ""} onChange={(e) => updatePosition(idx, { customName: e.target.value })} className="h-7 text-xs" placeholder="Control de Acceso" />
-                  </div>
+                <div className="grid gap-2 sm:grid-cols-6">
                   <div className="space-y-1">
                     <Label className="text-[10px]">Guardias</Label>
                     <select
@@ -484,7 +613,6 @@ export function LeadInstallationCpq({
                         className={cn("flex-1 h-7 rounded-md border text-[10px] font-medium", pos.shiftType !== "night" ? "border-amber-500/40 bg-amber-500/10 text-amber-400" : "border-border text-muted-foreground")}
                         onClick={() => {
                           const patch: Partial<LeadPositionItem> = { shiftType: "day", horaInicio: "08:00", horaFin: "20:00" };
-                          // Auto-set salary for 5x2 day shift if not manually edited
                           const allWeekdays = pos.dias?.length === 5 && !pos.dias.includes("sabado");
                           if (allWeekdays) patch.baseSalary = 400000;
                           else patch.baseSalary = 600000;
@@ -502,7 +630,78 @@ export function LeadInstallationCpq({
                       </button>
                     </div>
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px]">Inicio</Label>
+                    <select
+                      className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs font-mono"
+                      value={pos.horaInicio || (pos.shiftType === "night" ? "20:00" : "08:00")}
+                      onChange={(e) => updatePosition(idx, { horaInicio: e.target.value })}
+                    >
+                      {Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`).map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px]">Término</Label>
+                    <select
+                      className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs font-mono"
+                      value={pos.horaFin || (pos.shiftType === "night" ? "08:00" : "20:00")}
+                      onChange={(e) => updatePosition(idx, { horaFin: e.target.value })}
+                    >
+                      {Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`).map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+                {/* Tipo de Puesto, Cargo, Rol */}
+                {(cpqPuestos.length > 0 || cpqCargos.length > 0 || cpqRoles.length > 0) && (
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {cpqPuestos.length > 0 && (
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">Tipo de Puesto</Label>
+                        <select
+                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs"
+                          value={pos.puestoTrabajoId || catalogDefaults?.puestoId || ""}
+                          onChange={(e) => {
+                            const selected = cpqPuestos.find((p) => p.id === e.target.value);
+                            updatePosition(idx, { puestoTrabajoId: e.target.value, puesto: selected?.name || pos.puesto });
+                          }}
+                        >
+                          <option value="">Seleccionar...</option>
+                          {cpqPuestos.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </div>
+                    )}
+                    {cpqCargos.length > 0 && (
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">Cargo</Label>
+                        <select
+                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs"
+                          value={pos.cargoId || catalogDefaults?.cargoId || ""}
+                          onChange={(e) => updatePosition(idx, { cargoId: e.target.value })}
+                        >
+                          <option value="">Seleccionar...</option>
+                          {cpqCargos.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </div>
+                    )}
+                    {cpqRoles.length > 0 && (
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">Rol</Label>
+                        <select
+                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs"
+                          value={pos.rolId || catalogDefaults?.rolId || ""}
+                          onChange={(e) => updatePosition(idx, { rolId: e.target.value })}
+                        >
+                          <option value="">Seleccionar...</option>
+                          {cpqRoles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center gap-1 flex-wrap">
                   <span className="text-[10px] text-muted-foreground mr-1">Días:</span>
                   {["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"].map((d) => {
@@ -580,6 +779,10 @@ export function LeadInstallationCpq({
               costItems={config.costItems}
               onToggleItem={toggleCostItem}
               onPriceChange={updateCostItemPrice}
+              groupMonthlyOverrides={{
+                "Uniformes": costTotals.monthlyUniforms,
+                "Exámenes": costTotals.monthlyExams,
+              }}
             />
             {/* INDIRECTOS */}
             <CostCategoryBlock
@@ -615,6 +818,22 @@ export function LeadInstallationCpq({
               lines={config.additionalLines}
               onChange={(lines) => update({ additionalLines: lines })}
               contractDuration={config.conditions.contractDuration}
+              onSaveToCatalog={async (payload) => {
+                const res = await fetch("/api/cpq/catalog", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    type: payload.type || "other",
+                    name: payload.name.trim(),
+                    unit: payload.unit || "mes",
+                    basePrice: payload.basePrice ?? 0,
+                    isDefault: false,
+                    active: true,
+                  }),
+                });
+                const data = await res.json();
+                if (!data?.success) throw new Error("Error al guardar");
+              }}
             />
           </div>
         )}
@@ -631,6 +850,7 @@ export function LeadInstallationCpq({
             <FinancialCostsSection
               value={config.financialCosts}
               onChange={(fc) => update({ financialCosts: fc })}
+              calculatedBase={estimate.baseConMargen}
             />
           </div>
         )}
@@ -754,97 +974,15 @@ export function LeadInstallationCpq({
         )}
       </Card>
 
-      {/* ── Vista previa de la propuesta (HTML) ── */}
+      {/* ── Vista previa de la propuesta (PDF real) ── */}
       {config.positions.length > 0 && (
-        <Card className="shadow-sm overflow-hidden">
-          <div className="px-3 py-2 bg-muted/20 border-b border-border/40 flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-muted-foreground">Vista previa de la propuesta</span>
-            {proposalTemplates.length > 0 && (
-              <div className="flex gap-1">
-                {proposalTemplates.filter((t) => !((t.name || "").toLowerCase().includes("presentación") && (t.name || "").toLowerCase().includes("empresa"))).map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => update({ conditions: { ...config.conditions, proposalTemplateId: t.id } })}
-                    className={cn(
-                      "h-5 rounded px-2 text-[9px] font-medium border transition-colors",
-                      config.conditions.proposalTemplateId === t.id
-                        ? "border-primary/40 bg-primary/10 text-primary"
-                        : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
-                    )}
-                  >
-                    {t.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="p-4 space-y-4 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 max-h-[500px] overflow-y-auto text-xs">
-            {/* Header */}
-            <div className="text-center space-y-1 pb-3 border-b">
-              <div className="text-sm font-bold tracking-wide">GARD SECURITY</div>
-              <div className="text-[10px] text-zinc-500">Propuesta Comercial</div>
-              {accountName && <div className="text-[11px] font-semibold mt-1">{accountName}</div>}
-              {installationName && <div className="text-[10px] text-zinc-500">{installationName}{installationCity ? `, ${installationCity}` : ""}</div>}
-            </div>
-
-            {/* Company description */}
-            {config.companyDescription && (
-              <p className="text-[11px] whitespace-pre-wrap leading-relaxed text-zinc-700 dark:text-zinc-300">{config.companyDescription}</p>
-            )}
-
-            {/* Positions table */}
-            <div>
-              <div className="text-[10px] font-bold text-zinc-500 uppercase mb-2">
-                Puestos de trabajo · {estimate.totalGuardias} guardia(s)
-              </div>
-              <table className="w-full text-[10px] border-collapse">
-                <thead>
-                  <tr className="border-b border-zinc-200 dark:border-zinc-700">
-                    <th className="text-left py-1.5 font-semibold">Puesto</th>
-                    <th className="text-center py-1.5 font-semibold w-16">Guardias</th>
-                    <th className="text-center py-1.5 font-semibold w-16">Puestos</th>
-                    <th className="text-center py-1.5 font-semibold w-20">Horario</th>
-                    <th className="text-center py-1.5 font-semibold w-16">Turno</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {config.positions.map((pos, i) => (
-                    <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800">
-                      <td className="py-1.5">{pos.customName || pos.puesto}</td>
-                      <td className="text-center">{pos.cantidad || 1}</td>
-                      <td className="text-center">{pos.numPuestos || 1}</td>
-                      <td className="text-center">{pos.horaInicio}-{pos.horaFin}</td>
-                      <td className="text-center">{pos.shiftType === "night" ? "Nocturno" : "Diurno"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Economic evaluation */}
-            <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 p-3 text-center">
-              <div className="text-[9px] text-emerald-600 dark:text-emerald-400 uppercase font-semibold">Precio venta mensual neto</div>
-              <div className="text-xl font-bold text-emerald-700 dark:text-emerald-300 font-mono">{formatCurrency(Math.round(estimate.precioVenta))}</div>
-              {ufValue && ufValue > 0 && <div className="text-[11px] text-emerald-600 dark:text-emerald-400">{(estimate.precioVenta / ufValue).toFixed(2)} UF</div>}
-            </div>
-
-            {/* Service detail */}
-            {config.serviceDescription && (
-              <div>
-                <div className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Detalle del servicio</div>
-                <p className="text-[11px] whitespace-pre-wrap leading-relaxed text-zinc-700 dark:text-zinc-300">{config.serviceDescription}</p>
-              </div>
-            )}
-
-            {/* Conditions footer */}
-            <div className="text-[9px] text-zinc-400 border-t border-zinc-200 dark:border-zinc-700 pt-2 space-y-0.5">
-              <div>Forma de pago: {config.conditions.paymentTerms === "contrafactura" ? "Contrafactura" : config.conditions.paymentTerms === "30_dias" ? "30 días" : "Pago anticipado"}</div>
-              <div>Duración del contrato: {config.conditions.contractDuration} meses</div>
-              <div>Inicio de servicios: {config.conditions.serviceStartDays} días hábiles desde la firma</div>
-            </div>
-          </div>
-        </Card>
+        <PdfPreviewSection
+          leadId={leadId}
+          config={config}
+          accountName={accountName}
+          installationName={installationName}
+          proposalTemplates={proposalTemplates}
+        />
       )}
 
       {/* ── Resumen de costos (desglose) ── */}
@@ -864,9 +1002,11 @@ export function LeadInstallationCpq({
           <div className="px-3 py-2 space-y-1">
             {[
               { label: "Mano de obra", value: estimate.manoDeObra, color: "bg-blue-500" },
+              ...(estimate.holidayAdjustment > 0 ? [{ label: "Ajuste feriados", value: estimate.holidayAdjustment, color: "bg-blue-400" }] : []),
               { label: "Directos", value: estimate.directos, color: "bg-amber-500" },
               { label: "Indirectos", value: estimate.indirectos, color: "bg-orange-500" },
               { label: "Financiero", value: estimate.financiero, color: "bg-red-400" },
+              ...(estimate.poliza > 0 ? [{ label: "Póliza", value: estimate.poliza, color: "bg-red-300" }] : []),
               { label: "Margen", value: estimate.marginAmount, color: "bg-emerald-500" },
               ...(estimate.totalLineas > 0 ? [{ label: "Líneas adicionales", value: estimate.totalLineas, color: "bg-purple-500" }] : []),
             ].map((row) => {
@@ -891,6 +1031,113 @@ export function LeadInstallationCpq({
   );
 }
 
+/* ─── PDF Preview sub-component ─── */
+
+const TEMPLATE_SLUGS = [
+  { slug: "standard", label: "Estándar" },
+  { slug: "detailed", label: "Detallado" },
+  { slug: "tender", label: "Licitación" },
+] as const;
+
+function PdfPreviewSection({
+  leadId,
+  config,
+  accountName,
+  installationName,
+  proposalTemplates,
+}: {
+  leadId?: string;
+  config: LeadCpqConfig;
+  accountName?: string;
+  installationName?: string;
+  proposalTemplates?: { id: string; name: string; slug?: string }[];
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [selectedSlug, setSelectedSlug] = useState("standard");
+
+  const generatePreview = async () => {
+    setPreviewLoading(true);
+    try {
+      const res = await fetch(`/api/crm/leads/${leadId || "preview"}/cpq-preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateSlug: selectedSlug,
+          accountName: accountName || "Cliente",
+          installationName: installationName || "",
+          positions: config.positions,
+          costItems: config.costItems,
+          additionalLines: config.additionalLines,
+          marginPercentage: config.marginPercentage,
+          marginMode: config.marginMode,
+          financialCosts: config.financialCosts,
+          companyDescription: config.companyDescription,
+          serviceDescription: config.serviceDescription,
+          conditions: config.conditions,
+          uniformChangesPerYear: config.uniformChangesPerYear ?? 3,
+          avgStayMonths: config.avgStayMonths ?? 4,
+          currency: config.currency || "CLP",
+        }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const blob = await res.blob();
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(URL.createObjectURL(blob));
+    } catch (err) {
+      console.error("[Lead PDF Preview]", err);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  return (
+    <Card className="shadow-sm overflow-hidden">
+      <div className="px-3 py-2 bg-muted/20 border-b border-border/40 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-muted-foreground">Vista previa de la propuesta</span>
+        <div className="flex items-center gap-1">
+          {TEMPLATE_SLUGS.map((t) => (
+            <button
+              key={t.slug}
+              type="button"
+              onClick={() => { setSelectedSlug(t.slug); setPreviewUrl(null); }}
+              className={cn(
+                "h-5 rounded px-2 text-[9px] font-medium border transition-colors",
+                selectedSlug === t.slug
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-5 text-[9px] px-2 ml-1"
+            disabled={previewLoading}
+            onClick={generatePreview}
+          >
+            {previewLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            <span className="ml-1">Generar PDF</span>
+          </Button>
+        </div>
+      </div>
+      {previewUrl ? (
+        <iframe
+          src={previewUrl}
+          className="w-full h-[600px] bg-white"
+          title="Preview propuesta PDF"
+        />
+      ) : (
+        <div className="flex items-center justify-center h-[200px] text-muted-foreground text-[11px]">
+          Click &quot;Generar PDF&quot; para ver la vista previa real
+        </div>
+      )}
+    </Card>
+  );
+}
+
 /* ─── Cost Category Block sub-component ─── */
 
 function CostCategoryBlock({
@@ -900,6 +1147,7 @@ function CostCategoryBlock({
   costItems,
   onToggleItem,
   onPriceChange,
+  groupMonthlyOverrides,
 }: {
   title: string;
   total: number;
@@ -907,6 +1155,7 @@ function CostCategoryBlock({
   costItems: LeadCostItem[];
   onToggleItem: (id: string) => void;
   onPriceChange: (id: string, price: number) => void;
+  groupMonthlyOverrides?: Record<string, number>;
 }) {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const groupNames = Object.keys(groups);
@@ -921,8 +1170,11 @@ function CostCategoryBlock({
       </div>
       {groupNames.map((groupName) => {
         const items = groups[groupName];
-        const enabledCount = items.filter((i) => i.enabled).length;
-        const groupTotal = items.filter((i) => i.enabled).reduce((s, i) => s + (i.priceOverride ?? i.basePrice), 0);
+        const enabledItems = items.filter((i) => i.enabled);
+        const enabledCount = enabledItems.length;
+        const groupTotal = groupMonthlyOverrides?.[groupName]
+          ?? enabledItems.reduce((s, i) => s + normalizeUnitPrice(i.priceOverride ?? i.basePrice, i.unit), 0);
+        const disabledItems = items.filter((i) => !i.enabled);
         const isExpanded = expandedGroup === groupName;
 
         return (
@@ -945,29 +1197,48 @@ function CostCategoryBlock({
               </div>
             </button>
             {isExpanded && (
-              <div className="px-2.5 pb-2 space-y-1">
-                {items.map((item) => (
-                  <div key={item.catalogItemId} className="flex items-center gap-2 rounded border border-border/30 bg-background px-2 py-1">
-                    <button
-                      type="button"
-                      onClick={() => onToggleItem(item.catalogItemId)}
-                      className={cn(
-                        "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors",
-                        item.enabled ? "bg-emerald-500 border-emerald-500 text-white" : "border-border"
-                      )}
-                    >
-                      {item.enabled && <span className="text-[8px]">✓</span>}
-                    </button>
-                    <span className={cn("text-[11px] flex-1 truncate", item.enabled ? "text-foreground" : "text-muted-foreground")}>{item.name}</span>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      value={formatNumber(item.priceOverride ?? item.basePrice)}
-                      onChange={(e) => onPriceChange(item.catalogItemId, parseLocalizedNumber(e.target.value) || 0)}
-                      className="h-6 w-20 text-[10px] text-right bg-card border-border"
-                    />
+              <div className="px-2.5 pb-2 space-y-2">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
+                  {enabledItems.map((item) => (
+                    <div key={item.catalogItemId} className="p-2.5 rounded-lg bg-card border border-border/50 relative group">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[12px] font-semibold truncate">{item.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => onToggleItem(item.catalogItemId)}
+                          className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition shrink-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mb-1.5">
+                        Base: {formatCurrency(item.basePrice)}
+                      </div>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Precio mensual"
+                        value={formatNumber(item.priceOverride ?? item.basePrice)}
+                        onChange={(e) => onPriceChange(item.catalogItemId, parseLocalizedNumber(e.target.value) || 0)}
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
+                {disabledItems.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {disabledItems.map((item) => (
+                      <button
+                        key={item.catalogItemId}
+                        type="button"
+                        onClick={() => onToggleItem(item.catalogItemId)}
+                        className="h-6 rounded-md border border-dashed border-primary/30 px-2 text-[10px] text-primary hover:bg-primary/5 transition-colors"
+                      >
+                        + {item.name}
+                      </button>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>
@@ -987,7 +1258,7 @@ export function createDefaultLeadCpqConfig(): LeadCpqConfig {
     costItems: [],
     additionalLines: [],
     financialCosts: {
-      financialEnabled: false,
+      financialEnabled: true,
       financialRatePct: 2.5,
       salePriceBase: 0,
       policyEnabled: false,
@@ -1003,5 +1274,9 @@ export function createDefaultLeadCpqConfig(): LeadCpqConfig {
       contractDuration: 12,
       proposalTemplateId: null,
     },
+    uniformChangesPerYear: 3,
+    avgStayMonths: 4,
+    quoteName: "",
+    currency: "CLP",
   };
 }

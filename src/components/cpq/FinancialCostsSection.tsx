@@ -21,10 +21,12 @@ interface FinancialCostsSectionProps {
   value: FinancialCostsData;
   onChange: (data: FinancialCostsData) => void;
   isLocked?: boolean;
+  calculatedBase?: number;
 }
 
-export function FinancialCostsSection({ value, onChange, isLocked }: FinancialCostsSectionProps) {
+export function FinancialCostsSection({ value, onChange, isLocked, calculatedBase }: FinancialCostsSectionProps) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [showManualBase, setShowManualBase] = useState(value.salePriceBase > 0);
 
   const getDraft = (key: string, val: number, decimals = 2) => {
     if (key in drafts) return drafts[key];
@@ -34,6 +36,9 @@ export function FinancialCostsSection({ value, onChange, isLocked }: FinancialCo
   const clearDraft = (key: string) => setDrafts((prev) => { const n = { ...prev }; delete n[key]; return n; });
 
   const update = (patch: Partial<FinancialCostsData>) => onChange({ ...value, ...patch });
+
+  const effectiveBase = value.salePriceBase > 0 ? value.salePriceBase : (calculatedBase ?? 0);
+  const monthlyFinancial = value.financialEnabled ? effectiveBase * (value.financialRatePct / 100) : 0;
 
   return (
     <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
@@ -56,26 +61,7 @@ export function FinancialCostsSection({ value, onChange, isLocked }: FinancialCo
             {value.financialEnabled ? "On" : "Off"}
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-1.5">
-          <div>
-            <Label className="text-[10px] text-muted-foreground">Base venta</Label>
-            <Input
-              type="text"
-              inputMode="numeric"
-              disabled={isLocked}
-              value={getDraft("salePriceBase", value.salePriceBase, 0)}
-              onChange={(e) => setDraft("salePriceBase", e.target.value)}
-              onBlur={() => {
-                const raw = drafts.salePriceBase;
-                if (raw === undefined) return;
-                const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
-                update({ salePriceBase: Math.max(0, parsed), financialEnabled: true });
-                clearDraft("salePriceBase");
-              }}
-              className="h-7 text-xs bg-card text-foreground border-border"
-              placeholder="4.000.000"
-            />
-          </div>
+        <div className="space-y-1.5">
           <div>
             <Label className="text-[10px] text-muted-foreground">Tasa %</Label>
             <Input
@@ -95,10 +81,59 @@ export function FinancialCostsSection({ value, onChange, isLocked }: FinancialCo
               placeholder="2,5"
             />
           </div>
+          {!showManualBase ? (
+            <div className="space-y-1">
+              {calculatedBase != null && calculatedBase > 0 && (
+                <div className="text-[10px] text-muted-foreground">
+                  Base: {formatCurrency(calculatedBase)} (automática)
+                </div>
+              )}
+              {!isLocked && (
+                <button
+                  type="button"
+                  onClick={() => setShowManualBase(true)}
+                  className="text-[10px] text-primary/70 hover:text-primary underline"
+                >
+                  Usar base manual
+                </button>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] text-muted-foreground">Base venta (manual)</Label>
+                {!isLocked && (
+                  <button
+                    type="button"
+                    onClick={() => { setShowManualBase(false); update({ salePriceBase: 0 }); }}
+                    className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                  >
+                    Usar automática
+                  </button>
+                )}
+              </div>
+              <Input
+                type="text"
+                inputMode="numeric"
+                disabled={isLocked}
+                value={getDraft("salePriceBase", value.salePriceBase, 0)}
+                onChange={(e) => setDraft("salePriceBase", e.target.value)}
+                onBlur={() => {
+                  const raw = drafts.salePriceBase;
+                  if (raw === undefined) return;
+                  const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
+                  update({ salePriceBase: Math.max(0, parsed), financialEnabled: true });
+                  clearDraft("salePriceBase");
+                }}
+                className="h-7 text-xs bg-card text-foreground border-border"
+                placeholder="4.000.000"
+              />
+            </div>
+          )}
         </div>
-        {value.salePriceBase > 0 && (
-          <div className="text-[10px] text-emerald-700 dark:text-emerald-400">
-            = {formatCurrency(value.salePriceBase * (value.financialRatePct / 100))}/mes
+        {value.financialEnabled && monthlyFinancial > 0 && (
+          <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+            = {formatCurrency(monthlyFinancial)}/mes
           </div>
         )}
       </div>
@@ -180,7 +215,7 @@ export function FinancialCostsSection({ value, onChange, isLocked }: FinancialCo
 
 export function financialCostsDataFromParams(params: CpqQuoteParameters | null): FinancialCostsData {
   return {
-    financialEnabled: params?.financialEnabled ?? false,
+    financialEnabled: params?.financialEnabled ?? true,
     financialRatePct: params?.financialRatePct ?? 2.5,
     salePriceBase: params?.salePriceBase ?? 0,
     policyEnabled: params?.policyEnabled ?? false,

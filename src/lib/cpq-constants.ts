@@ -26,8 +26,12 @@ export function normalizeCatalogName(name: string): string {
     .trim();
 }
 
-/** Indica si un ítem de uniforme debe estar preseleccionado por defecto */
-export function isDefaultUniform(name: string): boolean {
+/**
+ * Indica si un ítem de uniforme debe estar preseleccionado por defecto.
+ * Prioridad: campo isDefault de la BD (si se pasa), luego lista de nombres hardcodeada como fallback.
+ */
+export function isDefaultUniform(name: string, isDefault?: boolean): boolean {
+  if (isDefault !== undefined) return isDefault;
   const normalized = normalizeCatalogName(name);
   return DEFAULT_UNIFORM_NAMES_SET.has(normalized);
 }

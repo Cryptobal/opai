@@ -224,7 +224,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   const defaultCatalog = catalogItems.filter((item) => item.isDefault);
   const uniformCatalog = catalogItems.filter((item) => item.type === "uniform");
   const uniformDefaultIds = new Set(
-    uniformCatalog.filter((item) => isDefaultUniform(item.name)).map((item) => item.id)
+    uniformCatalog.filter((item) => isDefaultUniform(item.name, item.isDefault)).map((item) => item.id)
   );
   const examDefaultIds = new Set(
     defaultCatalog.filter((item) => item.type === "exam").map((item) => item.id)
@@ -233,7 +233,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   const costDefaultIds = new Set(
     defaultCatalog
       .filter((item) =>
-        ["phone", "radio", "flashlight", "infrastructure", "fuel", "transport", "system", "financial", "policy"].includes(
+        ["phone", "radio", "flashlight", "infrastructure", "fuel", "transport", "system"].includes(
           item.type
         )
       )
@@ -604,6 +604,18 @@ export async function refreshQuoteTotals(quoteId: string) {
     0
   );
   const costSummary = await computeCpqQuoteCosts(quoteId);
+
+  const salePriceMonthly =
+    costSummary.baseWithMargin +
+    (costSummary.monthlyFinancial ?? 0) +
+    (costSummary.monthlyPolicy ?? 0) +
+    costSummary.additionalLinesTotalWithMargin;
+
+  await prisma.cpqQuoteParameters.upsert({
+    where: { quoteId },
+    update: { salePriceMonthly },
+    create: { quoteId, salePriceMonthly },
+  });
 
   return prisma.cpqQuote.update({
     where: { id: quoteId },

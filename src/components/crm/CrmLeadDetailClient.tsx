@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -334,172 +334,6 @@ function getSourceLabel(source: string | null | undefined): string {
   }
 }
 
-/* ─── Service Requirements sub-component ─── */
-
-const GEOGRAPHIC_ZONES = [
-  { value: "norte", label: "Norte" },
-  { value: "centro", label: "Centro" },
-  { value: "sur", label: "Sur" },
-  { value: "austral", label: "Austral" },
-];
-const INDUSTRY_TYPES = [
-  { value: "mining", label: "Minería" },
-  { value: "retail", label: "Retail" },
-  { value: "residential", label: "Residencial" },
-  { value: "industrial", label: "Industrial" },
-  { value: "gobierno", label: "Gobierno" },
-  { value: "other", label: "Otro" },
-];
-const EQUIPMENT_OPTIONS = [
-  { value: "radio", label: "Radio" },
-  { value: "vehicle", label: "Vehículo" },
-  { value: "cctv", label: "CCTV" },
-  { value: "vest", label: "Chaleco antibalas" },
-  { value: "drone", label: "Dron" },
-  { value: "other_equipment", label: "Otro" },
-];
-const SHIFT_OPTIONS = [
-  { value: "24/7", label: "24/7" },
-  { value: "diurno", label: "Diurno" },
-  { value: "nocturno", label: "Nocturno" },
-];
-
-function ServiceRequirementsSection({ lead, isEditable, onUpdate }: { lead: CrmLead; isEditable: boolean; onUpdate: (updater: (prev: CrmLead) => CrmLead) => void }) {
-  const [saving, setSaving] = useState(false);
-  const [localZone, setLocalZone] = useState(lead.geographicZone ?? "");
-  const [localIndustry, setLocalIndustry] = useState(lead.industryType ?? "");
-  const [localEquipment, setLocalEquipment] = useState<string[]>(lead.requiredEquipment ?? []);
-  const [localShift, setLocalShift] = useState(lead.preferredShift ?? "");
-  const [localDuration, setLocalDuration] = useState(lead.estimatedDuration?.toString() ?? "");
-
-  const hasChanges =
-    localZone !== (lead.geographicZone ?? "") ||
-    localIndustry !== (lead.industryType ?? "") ||
-    JSON.stringify(localEquipment.sort()) !== JSON.stringify([...(lead.requiredEquipment ?? [])].sort()) ||
-    localShift !== (lead.preferredShift ?? "") ||
-    localDuration !== (lead.estimatedDuration?.toString() ?? "");
-
-  const saveRequirements = async () => {
-    setSaving(true);
-    try {
-      const payload: Record<string, unknown> = {
-        geographicZone: localZone || null,
-        industryType: localIndustry || null,
-        requiredEquipment: localEquipment,
-        preferredShift: localShift || null,
-        estimatedDuration: localDuration ? Number(localDuration) : null,
-      };
-      const res = await fetch(`/api/crm/leads/${lead.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "Error al guardar");
-      onUpdate((prev) => ({ ...prev, ...data.data }));
-      toast.success("Requerimientos guardados");
-    } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : "No se pudo guardar");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleEquipment = (value: string) => {
-    setLocalEquipment((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
-    );
-  };
-
-  const readOnly = !isEditable;
-  const selectCls = "w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[40px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60";
-
-  const hasAnyValue = localZone || localIndustry || localEquipment.length > 0 || localShift || localDuration;
-  if (readOnly && !hasAnyValue) return null;
-
-  return (
-    <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-muted-foreground">Requerimientos de servicio</h4>
-        {isEditable && hasChanges && (
-          <Button variant="outline" size="sm" onClick={saveRequirements} disabled={saving}>
-            {saving ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-2 h-3.5 w-3.5" />}
-            Guardar
-          </Button>
-        )}
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Zona geográfica</Label>
-          {readOnly ? (
-            <p className="text-sm">{(GEOGRAPHIC_ZONES.find((z) => z.value === localZone)?.label ?? localZone) || "—"}</p>
-          ) : (
-            <select className={selectCls} value={localZone} onChange={(e) => setLocalZone(e.target.value)}>
-              <option value="">Sin definir</option>
-              {GEOGRAPHIC_ZONES.map((z) => <option key={z.value} value={z.value}>{z.label}</option>)}
-            </select>
-          )}
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Tipo de industria</Label>
-          {readOnly ? (
-            <p className="text-sm">{(INDUSTRY_TYPES.find((i) => i.value === localIndustry)?.label ?? localIndustry) || "—"}</p>
-          ) : (
-            <select className={selectCls} value={localIndustry} onChange={(e) => setLocalIndustry(e.target.value)}>
-              <option value="">Sin definir</option>
-              {INDUSTRY_TYPES.map((i) => <option key={i.value} value={i.value}>{i.label}</option>)}
-            </select>
-          )}
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Turno preferido</Label>
-          {readOnly ? (
-            <p className="text-sm">{(SHIFT_OPTIONS.find((s) => s.value === localShift)?.label ?? localShift) || "—"}</p>
-          ) : (
-            <select className={selectCls} value={localShift} onChange={(e) => setLocalShift(e.target.value)}>
-              <option value="">Sin definir</option>
-              {SHIFT_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-          )}
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Duración estimada (meses)</Label>
-          {readOnly ? (
-            <p className="text-sm">{localDuration ? `${localDuration} meses` : "—"}</p>
-          ) : (
-            <Input type="number" min={1} max={120} placeholder="Ej: 12" value={localDuration}
-              onChange={(e) => setLocalDuration(e.target.value)} className="h-10" />
-          )}
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs text-muted-foreground">Equipamiento requerido</Label>
-          {readOnly ? (
-            <div className="flex flex-wrap gap-1.5">
-              {localEquipment.length > 0 ? localEquipment.map((eq) => (
-                <Badge key={eq} variant="secondary" className="text-xs">
-                  {EQUIPMENT_OPTIONS.find((o) => o.value === eq)?.label ?? eq}
-                </Badge>
-              )) : <span className="text-sm text-muted-foreground">—</span>}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {EQUIPMENT_OPTIONS.map((opt) => (
-                <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
-                  <input type="checkbox" checked={localEquipment.includes(opt.value)}
-                    onChange={() => toggleEquipment(opt.value)}
-                    className="rounded border-input h-4 w-4" />
-                  {opt.label}
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ─── Component ─── */
 
 export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
@@ -546,6 +380,55 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const [whatsappSentTo, setWhatsappSentTo] = useState("");
   const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
   const [detectedCompanyLogoUrl, setDetectedCompanyLogoUrl] = useState<string | null>(null);
+
+  // ─── Autosave CPQ configs (debounced 3s) ───
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialLoadDone = useRef(false);
+  const lastSavedJson = useRef<string>("");
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "pending" | "saving" | "saved" | "error">("idle");
+  const autoSaveStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const autoSaveCpqConfigs = useCallback(async (configs: Record<string, LeadCpqConfig>) => {
+    if (!lead.id || !isEditable) return;
+    const json = JSON.stringify(configs);
+    if (json === lastSavedJson.current) return;
+    lastSavedJson.current = json;
+    setAutoSaveStatus("saving");
+    try {
+      const currentMeta = (lead.metadata && typeof lead.metadata === "object") ? lead.metadata as Record<string, unknown> : {};
+      const res = await fetch(`/api/crm/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          metadata: { ...currentMeta, cpqConfigs: configs },
+        }),
+      });
+      if (res.ok) {
+        setAutoSaveStatus("saved");
+        if (autoSaveStatusTimer.current) clearTimeout(autoSaveStatusTimer.current);
+        autoSaveStatusTimer.current = setTimeout(() => setAutoSaveStatus("idle"), 2500);
+      } else {
+        setAutoSaveStatus("error");
+      }
+    } catch {
+      setAutoSaveStatus("error");
+    }
+  }, [lead.id, lead.metadata, isEditable]);
+
+  useEffect(() => {
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      lastSavedJson.current = JSON.stringify(cpqConfigs);
+      return;
+    }
+    if (Object.keys(cpqConfigs).length === 0) return;
+    setAutoSaveStatus("pending");
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      autoSaveCpqConfigs(cpqConfigs);
+    }, 3000);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, [cpqConfigs, autoSaveCpqConfigs]);
 
   // ─── Approval success modal state ───
   const [approvalResult, setApprovalResult] = useState<{
@@ -1023,11 +906,6 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         notes: approveForm.notes.trim() || null,
         industry: approveForm.industry.trim() || null,
         website: approveForm.website.trim() || null,
-        geographicZone: lead.geographicZone || null,
-        industryType: lead.industryType || null,
-        requiredEquipment: lead.requiredEquipment ?? [],
-        preferredShift: lead.preferredShift || null,
-        estimatedDuration: lead.estimatedDuration ?? null,
         status: "in_review",
         metadata: {
           ...(lead.metadata && typeof lead.metadata === "object" ? lead.metadata : {}),
@@ -1083,7 +961,44 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               dias: p.dias,
             }))
           : rest.dotacion;
-        return { ...rest, dotacion, ...(useExistingInstallationId ? { useExistingInstallationId } : {}) };
+
+        const cpqData = cpqCfg ? {
+          quoteName: cpqCfg.quoteName || undefined,
+          currency: cpqCfg.currency || "CLP",
+          marginPercentage: cpqCfg.marginPercentage,
+          marginMode: cpqCfg.marginMode,
+          financialCosts: cpqCfg.financialCosts,
+          selectedCostGroups: cpqCfg.selectedCostGroups,
+          costItems: cpqCfg.costItems.filter((c) => c.enabled).map((c) => ({
+            catalogItemId: c.catalogItemId,
+            name: c.name,
+            type: c.type,
+            unit: c.unit,
+            basePrice: c.basePrice,
+            priceOverride: c.priceOverride,
+          })),
+          additionalLines: cpqCfg.additionalLines.map((l) => ({
+            nombre: l.nombre,
+            precio: l.precio,
+            cantidad: l.cantidad,
+            marginPct: l.marginPct,
+            recurrencia: l.recurrencia,
+            tipo: l.tipo,
+            descripcion: l.descripcion,
+          })),
+          conditions: cpqCfg.conditions,
+          companyDescription: cpqCfg.companyDescription || undefined,
+          serviceDescription: cpqCfg.serviceDescription || undefined,
+          uniformChangesPerYear: cpqCfg.uniformChangesPerYear ?? 3,
+          avgStayMonths: cpqCfg.avgStayMonths ?? 4,
+        } : undefined;
+
+        return {
+          ...rest,
+          dotacion,
+          ...(useExistingInstallationId ? { useExistingInstallationId } : {}),
+          ...(cpqData ? { cpqData } : {}),
+        };
       });
 
     const firstCpq = cpqConfigs[installations[0]?._key];
@@ -1099,9 +1014,19 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       contactId: (existingContact && (contactResolution === "overwrite" || contactResolution === "use_existing")) ? existingContact.id : undefined,
       installations: instPayload,
       selectedCostGroups: firstCpq?.selectedCostGroups ?? selectedCostGroups,
-      marginPercentage: firstCpq?.marginPercentage ?? marginPercentage,
+      marginPercentage: firstCpq?.marginPercentage ?? 13,
+      marginMode: firstCpq?.marginMode ?? "margin_on_sale",
+      financialCosts: firstCpq?.financialCosts ?? {},
       proposalTemplateId: firstCpq?.conditions?.proposalTemplateId ?? proposalTemplateId,
-      additionalLines: (firstCpq?.additionalLines ?? []).map((l) => ({ name: l.nombre, monthlyAmount: Number(l.precio || 0) })),
+      additionalLines: (firstCpq?.additionalLines ?? []).map((l) => ({
+        name: l.nombre,
+        monthlyAmount: Number(l.precio || 0),
+        cantidad: l.cantidad,
+        marginPct: l.marginPct,
+        recurrencia: l.recurrencia,
+        tipo: l.tipo,
+        descripcion: l.descripcion,
+      })),
     };
   };
 
@@ -1413,9 +1338,6 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           <DetailField label="Última modificación" value={lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
           <DetailField label="Fuente" value={<LeadSourceBadge source={lead.source} />} />
         </DetailFieldGrid>
-
-        {/* Requerimientos de servicio */}
-        <ServiceRequirementsSection lead={lead} isEditable={isEditable} onUpdate={setLead} />
 
         {/* Dotación solicitada (read-only summary) */}
         {dotacion && dotacion.length > 0 && (
@@ -1733,6 +1655,14 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     // TAB: Installations & Dotación
     const installationsContent = (
         <div className="space-y-4 pb-40 lg:pb-32 rounded-lg border border-border bg-card p-4 sm:p-5">
+          {autoSaveStatus !== "idle" && (
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground justify-end -mt-1 mb-1">
+              {autoSaveStatus === "pending" && <span className="text-amber-500">● Cambios sin guardar</span>}
+              {autoSaveStatus === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> Guardando...</>}
+              {autoSaveStatus === "saved" && <><CheckCircle2 className="h-3 w-3 text-emerald-500" /> Guardado</>}
+              {autoSaveStatus === "error" && <span className="text-destructive">Error al guardar</span>}
+            </div>
+          )}
           {installations.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">Sin instalaciones. Agrega una para asignar dotación.</p>
           )}
@@ -1741,18 +1671,18 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             const isExpanded = expandedInstallations[inst._key] !== false; // default expanded
             const instGuards = instConfig?.positions?.reduce((s, p) => s + (p.cantidad || 1) * (p.numPuestos || 1), 0) ?? 0;
             return (
-            <div key={inst._key} className="rounded-xl border border-border/40 bg-card/50 overflow-hidden">
+            <div key={inst._key} className={cn("rounded-xl border-2 bg-card/50", instIdx === 0 ? "border-border/60" : "border-border/40 mt-6")}>
               {/* Collapsible header */}
               <button
                 type="button"
                 onClick={() => setExpandedInstallations((prev) => ({ ...prev, [inst._key]: !isExpanded }))}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors rounded-t-xl"
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <MapPin className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">#{instIdx + 1}</span>
                   <span className="text-sm font-semibold">
-                    Instalación {instIdx + 1}
-                    {inst.name && <span className="text-muted-foreground font-normal ml-1.5">— {inst.name}</span>}
+                    {inst.name || <span className="text-muted-foreground italic">Sin nombre</span>}
                   </span>
                   {!isExpanded && instGuards > 0 && (
                     <span className="text-[10px] text-muted-foreground ml-2">
@@ -1809,6 +1739,10 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   onChange={(cfg) => setCpqConfigs((prev) => ({ ...prev, [inst._key]: cfg }))}
                   proposalTemplates={proposalTemplates}
                   catalogDefaults={defaultPuesto.id ? { puestoId: defaultPuesto.id, puestoName: defaultPuesto.name, cargoId: defaultCargoId, rolId: defaultRolId } : undefined}
+                  cpqPuestos={cpqPuestos}
+                  cpqCargos={cpqCargos}
+                  cpqRoles={cpqRoles}
+                  leadId={lead.id}
                   accountName={approveForm.accountName}
                   industry={approveForm.industry}
                   installationName={inst.name}

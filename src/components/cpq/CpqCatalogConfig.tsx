@@ -45,6 +45,7 @@ const TYPE_NAMES: Record<string, string> = {
   vehicle_fuel: "Bencina",
   vehicle_tag: "TAG",
   system: "Sistema",
+  other: "Otro",
 };
 
 const GROUPS = [
@@ -60,6 +61,7 @@ const GROUPS = [
     types: ["infrastructure", "fuel"],
   },
   { id: "system", label: "Sistemas", types: ["system"] },
+  { id: "other", label: "Otros costos adicionales", types: ["other"] },
 ];
 
 type NewItemState = {
@@ -456,6 +458,13 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
           </Button>
         </div>
       </Card>
+
+      <div className="pt-2">
+        <h2 className="text-sm font-semibold text-foreground mb-3">Catálogo de ítems</h2>
+        <p className="text-xs text-muted-foreground mb-4">
+          Ítems reutilizables en cotizaciones. Los marcados como <strong>Default</strong> se pre-seleccionan automáticamente al crear nuevas cotizaciones.
+        </p>
+      </div>
 
       {GROUPS.map((group) => {
         const sectionItems = grouped[group.id] || [];

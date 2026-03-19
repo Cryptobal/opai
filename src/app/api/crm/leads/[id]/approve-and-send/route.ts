@@ -52,82 +52,122 @@ export async function POST(
       }, { status: 422 });
     }
 
-    const quoteId = quotes[0].id;
+    // 2-5. Process ALL quotes (not just the first one)
+    const sendResults: Array<{
+      quoteId: string;
+      status: "sent" | "error";
+      error?: string;
+      [key: string]: unknown;
+    }> = [];
 
-    // 2. Compute costs (already done in approve, but ensure it's complete)
-    try {
-      await computeCpqQuoteCosts(quoteId);
-    } catch (err) {
-      console.error("[approve-and-send] Cost computation failed:", err);
-      return NextResponse.json({
-        success: false,
-        error: "CALCULATION_FAILED",
-        message: "Error al calcular costos. Revisa la cotización en el CPQ.",
-        quoteId,
-        dealId: deal.id,
-      }, { status: 422 });
-    }
+    for (const quote of quotes) {
+      const quoteId = quote.id;
 
-    // 3. Generate AI descriptions (await, since we need them for the PDF)
-    try {
-      await generateQuoteDescription(quoteId, {
-        tenantId: ctx.tenantId,
-        userId: ctx.userId,
-      });
-    } catch (err) {
-      console.error("[approve-and-send] AI description generation failed:", err);
-      // Non-fatal: continue without description
-    }
-
-    // 4. Validate that positions have non-zero costs
-    const updatedQuote = await prisma.cpqQuote.findUnique({
-      where: { id: quoteId },
-      include: { positions: true },
-    });
-
-    const hasZeroValues = updatedQuote?.positions.some(
-      (p) => !p.monthlyPositionCost || Number(p.monthlyPositionCost) === 0
-    );
-
-    if (hasZeroValues) {
-      return NextResponse.json({
-        success: false,
-        error: "CALCULATION_FAILED",
-        message: "Algunos puestos tienen costo $0. Revisa en el CPQ.",
-        quoteId,
-        dealId: deal.id,
-      }, { status: 422 });
-    }
-
-    // 5. Send via portal
-    try {
-      const sendResult = await sendQuoteToPortal({
-        quoteId,
-        tenantId: ctx.tenantId,
-        userId: ctx.userId,
-        followUp: { include: true, targetStageId: null },
-      });
-
-      return NextResponse.json({
-        success: true,
-        data: {
+      // 2. Compute costs
+      try {
+        await computeCpqQuoteCosts(quoteId);
+      } catch (err) {
+        console.error(`[approve-and-send] Cost computation failed for ${quoteId}:`, err);
+        sendResults.push({
           quoteId,
-          dealId: deal.id,
-          accountId: approveData.data.account.id,
-          contactId: approveData.data.contact.id,
-          ...sendResult,
-        },
+          status: "error",
+          error: "CALCULATION_FAILED",
+        });
+        continue;
+      }
+
+      // 3. Transfer marginMode and financial config from body
+      try {
+        const paramUpdates: Record<string, unknown> = {};
+        if (body.marginMode) paramUpdates.marginMode = body.marginMode;
+        if (typeof body.financialRatePct === "number") paramUpdates.financialRatePct = body.financialRatePct;
+        if (typeof body.financialEnabled === "boolean") paramUpdates.financialEnabled = body.financialEnabled;
+        if (typeof body.policyEnabled === "boolean") paramUpdates.policyEnabled = body.policyEnabled;
+        if (typeof body.policyRatePct === "number") paramUpdates.policyRatePct = body.policyRatePct;
+        if (typeof body.policyContractMonths === "number") paramUpdates.policyContractMonths = body.policyContractMonths;
+        if (typeof body.policyContractPct === "number") paramUpdates.policyContractPct = body.policyContractPct;
+
+        if (Object.keys(paramUpdates).length > 0) {
+          await prisma.cpqQuoteParameters.update({
+            where: { quoteId },
+            data: paramUpdates,
+          });
+        }
+      } catch (err) {
+        console.error(`[approve-and-send] Failed to transfer params for ${quoteId}:`, err);
+        // Non-fatal: continue with defaults
+      }
+
+      // 4. Generate AI descriptions
+      try {
+        await generateQuoteDescription(quoteId, {
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
+        });
+      } catch (err) {
+        console.error(`[approve-and-send] AI description generation failed for ${quoteId}:`, err);
+        // Non-fatal: continue without description
+      }
+
+      // 5. Validate that positions have non-zero costs
+      const updatedQuote = await prisma.cpqQuote.findUnique({
+        where: { id: quoteId },
+        include: { positions: true },
       });
-    } catch (sendErr) {
-      console.error("[approve-and-send] Send portal failed:", sendErr);
-      return NextResponse.json({
-        success: false,
-        error: "SEND_FAILED",
-        message: "Lead aprobado pero falló el envío. Puedes enviar desde el CPQ.",
-        quoteId,
-        dealId: deal.id,
-      }, { status: 422 });
+
+      const hasZeroValues = updatedQuote?.positions.some(
+        (p) => !p.monthlyPositionCost || Number(p.monthlyPositionCost) === 0
+      );
+
+      if (hasZeroValues) {
+        sendResults.push({
+          quoteId,
+          status: "error",
+          error: "Posiciones con costo $0",
+        });
+        continue;
+      }
+
+      // 6. Send via portal
+      try {
+        const sendResult = await sendQuoteToPortal({
+          quoteId,
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
+          followUp: { include: true, targetStageId: null },
+        });
+
+        sendResults.push({
+          quoteId,
+          status: "sent",
+          ...sendResult,
+        });
+      } catch (sendErr) {
+        console.error(`[approve-and-send] Send portal failed for ${quoteId}:`, sendErr);
+        sendResults.push({
+          quoteId,
+          status: "error",
+          error: sendErr instanceof Error ? sendErr.message : "Error al enviar",
+        });
+      }
     }
+
+    const anySent = sendResults.some((r) => r.status === "sent");
+    const firstSent = sendResults.find((r) => r.status === "sent");
+
+    return NextResponse.json({
+      success: anySent,
+      data: {
+        dealId: deal.id,
+        accountId: approveData.data.account.id,
+        contactId: approveData.data.contact.id,
+        results: sendResults,
+        // Keep backward-compatible quoteId field (first sent quote)
+        quoteId: firstSent?.quoteId ?? quotes[0].id,
+        ...(firstSent || {}),
+      },
+      ...(!anySent ? { error: "Ninguna cotización pudo enviarse. Revisa en el CPQ." } : {}),
+    }, { status: anySent ? 200 : 422 });
   } catch (error) {
     console.error("Error in approve-and-send:", error);
     const message = error instanceof Error ? error.message : "Error al aprobar y enviar";

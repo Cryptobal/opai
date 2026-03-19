@@ -100,7 +100,7 @@ export async function GET(
     const defaultCatalog = catalogItems.filter((item) => item.isDefault);
     const uniformCatalog = catalogItems.filter((item) => item.type === "uniform");
     const uniformDefaultIds = new Set(
-      uniformCatalog.filter((item) => isDefaultUniform(item.name)).map((item) => item.id)
+      uniformCatalog.filter((item) => isDefaultUniform(item.name, item.isDefault)).map((item) => item.id)
     );
     const examDefaultIds = new Set(
       defaultCatalog.filter((item) => item.type === "exam").map((item) => item.id)
@@ -109,7 +109,7 @@ export async function GET(
     const costDefaultIds = new Set(
       defaultCatalog
         .filter((item) =>
-          ["phone", "radio", "flashlight", "infrastructure", "fuel", "transport", "system", "financial", "policy"].includes(
+          ["phone", "radio", "flashlight", "infrastructure", "fuel", "transport", "system"].includes(
             item.type
           )
         )
@@ -332,11 +332,11 @@ export async function PUT(
           type: "uniform",
         },
       });
-      const uniformDefaults = uniformCatalogForPut.filter((item) => isDefaultUniform(item.name));
+      const uniformDefaults = uniformCatalogForPut.filter((item) => isDefaultUniform(item.name, item.isDefault));
       const examDefaults = defaultCatalog.filter((item) => item.type === "exam");
       const mealDefaults = defaultCatalog.filter((item) => item.type === "meal");
     const costDefaults = defaultCatalog.filter((item) =>
-      ["phone", "radio", "flashlight", "infrastructure", "fuel", "transport", "system", "financial", "policy"].includes(
+      ["phone", "radio", "flashlight", "infrastructure", "fuel", "transport", "system"].includes(
         item.type
       )
     );

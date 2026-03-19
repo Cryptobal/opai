@@ -25,7 +25,7 @@ interface CpqQuickAddCostProps {
     investmentAmount?: number;
     investmentMonths?: number;
   }) => void;
-  onSaveToCatalog?: (payload: { name: string; unit: string; basePrice: number }) => Promise<CpqCatalogItem | null>;
+  onSaveToCatalog?: (payload: { name: string; unit: string; basePrice: number; type?: string }) => Promise<CpqCatalogItem | null>;
   onClose: () => void;
 }
 
@@ -43,6 +43,7 @@ export function CpqQuickAddCost({
   const [amount, setAmount] = useState(0);
   const [investmentMonths, setInvestmentMonths] = useState(contractDuration || 12);
   const [saveToCatalog, setSaveToCatalog] = useState(false);
+  const [catalogType, setCatalogType] = useState("other");
   const [showResults, setShowResults] = useState(false);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +91,7 @@ export function CpqQuickAddCost({
           name,
           unit: "mes",
           basePrice: amount,
+          type: catalogType,
         });
         if (created) catalogItemId = created.id;
       }
@@ -232,15 +234,35 @@ export function CpqQuickAddCost({
 
       {/* Footer */}
       <div className="flex items-center justify-between pt-1">
-        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            checked={saveToCatalog}
-            onChange={(e) => setSaveToCatalog(e.target.checked)}
-            className="accent-emerald-500 h-3.5 w-3.5"
-          />
-          Guardar en catálogo
-        </label>
+        <div className="flex flex-col gap-1.5">
+          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={saveToCatalog}
+              onChange={(e) => setSaveToCatalog(e.target.checked)}
+              className="accent-emerald-500 h-3.5 w-3.5"
+            />
+            Guardar en catálogo
+          </label>
+          {saveToCatalog && (
+            <select
+              value={catalogType}
+              onChange={(e) => setCatalogType(e.target.value)}
+              className="h-6 text-[10px] rounded border border-border bg-card px-1 text-foreground"
+            >
+              <option value="other">Otros costos adicionales</option>
+              <option value="uniform">Uniforme</option>
+              <option value="exam">Examen</option>
+              <option value="meal">Alimentación</option>
+              <option value="phone">Teléfono</option>
+              <option value="radio">Radio</option>
+              <option value="flashlight">Linterna</option>
+              <option value="transport">Transporte</option>
+              <option value="infrastructure">Infraestructura</option>
+              <option value="system">Sistema</option>
+            </select>
+          )}
+        </div>
         <Button
           size="sm"
           className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"

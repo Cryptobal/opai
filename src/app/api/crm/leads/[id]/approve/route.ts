@@ -587,8 +587,10 @@ export async function POST(
         }
       }
 
-      const bodyMarginPct = typeof body?.marginPercentage === "number" ? body.marginPercentage : 13;
-      const bodyAdditionalLines = Array.isArray(body?.additionalLines) ? body.additionalLines : [];
+      const topLevelMarginPct = typeof body?.marginPercentage === "number" ? body.marginPercentage : 13;
+      const topLevelMarginMode = typeof body?.marginMode === "string" ? body.marginMode : "margin_on_sale";
+      const topLevelFinancial = body?.financialCosts ?? {};
+      const topLevelAdditionalLines = Array.isArray(body?.additionalLines) ? body.additionalLines : [];
 
       const leadEquipment = Array.isArray(lead.requiredEquipment) ? lead.requiredEquipment : [];
 
@@ -666,6 +668,7 @@ export async function POST(
 
         // Crear cotización CPQ si la instalación tiene dotación
         const dotacion = Array.isArray(inst?.dotacion) ? inst.dotacion : [];
+        const instCpq = inst?.cpqData ?? null;
         if (dotacion.length > 0) {
           const dotacionTotals = dotacion.reduce(
             (
@@ -683,14 +686,38 @@ export async function POST(
           quoteCodeCounter++;
           const baseCode = `CPQ-${year}-${String(quoteCodeCounter).padStart(3, "0")}`;
           const quoteCode = `${baseCode}-${randomBytes(2).toString("hex")}`;
+
+          const instConditions = instCpq?.conditions ?? {};
+          const instCurrency = instCpq?.currency || "CLP";
+          const instContractDuration = typeof instConditions.contractDuration === "number"
+            ? instConditions.contractDuration
+            : resolvedContractDuration ?? 12;
+          const instPaymentTerms = typeof instConditions.paymentTerms === "string" && instConditions.paymentTerms
+            ? instConditions.paymentTerms
+            : "contrafactura";
+          const instServiceStartDays = typeof instConditions.serviceStartDays === "number"
+            ? instConditions.serviceStartDays
+            : 5;
+
+          let instTemplateId = resolvedTemplateId;
+          if (instConditions.proposalTemplateId) {
+            const tpl = await tx.cpqProposalTemplate.findFirst({
+              where: { slug: instConditions.proposalTemplateId, active: true, OR: [{ tenantId: ctx.tenantId }, { tenantId: null }] },
+              select: { id: true },
+            });
+            if (tpl) instTemplateId = tpl.id;
+          }
+
           let quote;
           try {
             quote = await tx.cpqQuote.create({
               data: {
                 tenantId: ctx.tenantId,
                 code: quoteCode,
+                name: instCpq?.quoteName || null,
                 status: "draft",
                 clientName: accountName,
+                currency: instCurrency,
                 accountId: account.id,
                 contactId: contact.id,
                 dealId: deal.id,
@@ -699,8 +726,10 @@ export async function POST(
                 totalPositions: dotacionTotals.totalPositions,
                 totalGuards: dotacionTotals.totalGuards,
                 notes: dealNotes,
-                ...(resolvedContractDuration != null && { contractDuration: resolvedContractDuration }),
-                ...(resolvedTemplateId && { proposalTemplateId: resolvedTemplateId }),
+                contractDuration: instContractDuration,
+                paymentTerms: instPaymentTerms,
+                serviceStartDays: instServiceStartDays,
+                ...(instTemplateId && { proposalTemplateId: instTemplateId }),
               },
             });
 
@@ -727,45 +756,119 @@ export async function POST(
           }
 
           if (quote) {
-            // Set margin parameters from commercial config
+            const instFinancial = instCpq?.financialCosts ?? topLevelFinancial;
+            const instMarginPct = instCpq?.marginPercentage ?? topLevelMarginPct;
+            const instMarginMode = instCpq?.marginMode ?? topLevelMarginMode;
+            const financialEnabled = instFinancial.financialEnabled !== false;
+            const financialRatePct = typeof instFinancial.financialRatePct === "number" ? instFinancial.financialRatePct : 2.5;
+            const policyEnabled = instFinancial.policyEnabled === true;
+            const policyRatePct = typeof instFinancial.policyRatePct === "number" ? instFinancial.policyRatePct : 0;
+            const policyContractMonths = typeof instFinancial.policyContractMonths === "number" ? instFinancial.policyContractMonths : 12;
+            const policyContractPct = typeof instFinancial.policyContractPct === "number" ? instFinancial.policyContractPct : 100;
+            const instUniformChanges = typeof instCpq?.uniformChangesPerYear === "number" ? instCpq.uniformChangesPerYear : 3;
+            const instAvgStay = typeof instCpq?.avgStayMonths === "number" ? instCpq.avgStayMonths : 4;
             await tx.cpqQuoteParameters.upsert({
               where: { quoteId: quote.id },
-              update: { marginPct: bodyMarginPct },
+              update: {
+                marginPct: instMarginPct,
+                marginMode: instMarginMode,
+                financialEnabled,
+                financialRatePct,
+                policyEnabled,
+                policyRatePct,
+                policyContractMonths,
+                policyContractPct,
+                uniformChangesPerYear: instUniformChanges,
+                avgStayMonths: instAvgStay,
+                contractMonths: instContractDuration,
+              },
               create: {
                 quoteId: quote.id,
                 monthlyHoursStandard: 180,
-                avgStayMonths: 4,
-                uniformChangesPerYear: 3,
-                financialRatePct: 2.5,
+                avgStayMonths: instAvgStay,
+                uniformChangesPerYear: instUniformChanges,
+                financialEnabled,
+                financialRatePct,
                 salePriceMonthly: 0,
-                policyRatePct: 0,
+                policyEnabled,
+                policyRatePct,
                 policyAdminRatePct: 0,
-                policyContractMonths: 12,
-                policyContractPct: 100,
-                contractMonths: 12,
+                policyContractMonths,
+                policyContractPct,
+                contractMonths: instContractDuration,
                 contractAmount: 0,
-                marginPct: bodyMarginPct,
+                marginPct: instMarginPct,
+                marginMode: instMarginMode,
               },
             });
 
-            // Create additional lines from commercial config
-            for (let i = 0; i < bodyAdditionalLines.length; i++) {
-              const line = bodyAdditionalLines[i];
-              if (line && typeof line.name === "string" && line.name.trim() && typeof line.monthlyAmount === "number" && line.monthlyAmount > 0) {
+            const instAdditionalLines = Array.isArray(instCpq?.additionalLines) ? instCpq.additionalLines : topLevelAdditionalLines;
+            for (let i = 0; i < instAdditionalLines.length; i++) {
+              const line = instAdditionalLines[i];
+              const nombre = (line?.nombre || line?.name || "").toString().trim();
+              const precio = Number(line?.precio || line?.monthlyAmount || 0);
+              if (nombre && precio > 0) {
                 await tx.cpqQuoteAdditionalLine.create({
                   data: {
                     quoteId: quote.id,
-                    nombre: line.name.trim(),
-                    descripcion: "",
-                    precio: line.monthlyAmount,
+                    nombre,
+                    descripcion: line?.descripcion || "",
+                    precio,
+                    cantidad: typeof line?.cantidad === "number" ? line.cantidad : 1,
+                    marginPct: typeof line?.marginPct === "number" ? line.marginPct : null,
+                    recurrencia: line?.recurrencia || "monthly",
+                    tipo: line?.tipo || "service",
                     orden: i + 1,
                   },
                 });
               }
             }
 
-            // Pre-cargar costos del catálogo según requiredEquipment del lead
-            if (leadEquipment.length > 0) {
+            // Transferir costItems del Lead si están disponibles; sino, fallback a catálogo por requiredEquipment
+            const leadCostItems = Array.isArray(instCpq?.costItems) ? instCpq.costItems : [];
+            if (leadCostItems.length > 0) {
+              for (const ci of leadCostItems) {
+                const catId = ci.catalogItemId;
+                if (!catId) continue;
+                const catItem = await tx.cpqCatalogItem.findFirst({
+                  where: { id: catId, active: true, OR: [{ tenantId: ctx.tenantId }, { tenantId: null }] },
+                  select: { id: true, type: true, name: true, defaultVisibility: true, isDefault: true },
+                });
+                if (!catItem) continue;
+                if (catItem.type === "uniform") {
+                  await tx.cpqQuoteUniformItem.create({
+                    data: {
+                      quoteId: quote.id,
+                      catalogItemId: catItem.id,
+                      unitPriceOverride: ci.priceOverride != null ? ci.priceOverride : null,
+                      active: true,
+                    },
+                  });
+                } else if (catItem.type === "exam") {
+                  await tx.cpqQuoteExamItem.create({
+                    data: {
+                      quoteId: quote.id,
+                      catalogItemId: catItem.id,
+                      unitPriceOverride: ci.priceOverride != null ? ci.priceOverride : null,
+                      active: true,
+                    },
+                  });
+                } else {
+                  await tx.cpqQuoteCostItem.create({
+                    data: {
+                      quoteId: quote.id,
+                      catalogItemId: catItem.id,
+                      calcMode: "per_month",
+                      quantity: 1,
+                      unitPriceOverride: ci.priceOverride != null ? ci.priceOverride : null,
+                      isEnabled: true,
+                      visibility: catItem.defaultVisibility || "visible",
+                      notes: null,
+                    },
+                  });
+                }
+              }
+            } else if (leadEquipment.length > 0) {
               const equipCatalogItems = await tx.cpqCatalogItem.findMany({
                 where: {
                   OR: [{ tenantId: ctx.tenantId }, { tenantId: null }],
@@ -791,11 +894,7 @@ export async function POST(
 
             // Crear posiciones CPQ a partir de la dotación
             for (const d of dotacion) {
-              const customName =
-                typeof d.customName === "string" && d.customName.trim().length > 0
-                  ? d.customName.trim()
-                  : null;
-              const fallbackPuestoName = (d.puesto || customName || "Guardia de Seguridad").trim();
+              const fallbackPuestoName = (d.puesto || "Guardia de Seguridad").trim();
               const requestedPuestoTrabajoId =
                 typeof d.puestoTrabajoId === "string" && d.puestoTrabajoId.trim().length > 0
                   ? d.puestoTrabajoId.trim()
@@ -869,7 +968,10 @@ export async function POST(
               const cargoNameForPosition = cargoIdToUse
                 ? (await tx.cpqCargo.findFirst({ where: { id: cargoIdToUse }, select: { name: true } }))?.name || ""
                 : "";
-              const resolvedPositionName = [cargoNameForPosition, puestoNameToUse].filter(Boolean).join(" - ") || puestoNameToUse;
+              const rolNameForPosition = rolIdToUse
+                ? (await tx.cpqRol.findFirst({ where: { id: rolIdToUse }, select: { name: true } }))?.name || ""
+                : "";
+              const resolvedPositionName = [puestoNameToUse, cargoNameForPosition, rolNameForPosition].filter(Boolean).join(" - ") || puestoNameToUse;
 
               const numGuardsValue = normalizePositiveInt(d.cantidad, 1);
 
@@ -941,8 +1043,7 @@ export async function POST(
             anyQuoteCreated = true;
             createdQuotes.push({ id: quote.id, code: quoteCode, installationName: instName });
 
-            // Crear ítems de costo preseleccionados según selectedCostGroups
-            if (selectedCostGroups.length > 0) {
+            if (leadCostItems.length === 0 && selectedCostGroups.length > 0) {
               const typesSet = new Set<string>();
               for (const g of selectedCostGroups) {
                 const types = COST_GROUP_TYPES[g];
@@ -959,7 +1060,7 @@ export async function POST(
                 });
                 for (const item of catalogItems) {
                   if (item.type === "uniform") {
-                    if (!isDefaultUniform(item.name)) continue;
+                    if (!isDefaultUniform(item.name, item.isDefault)) continue;
                     await tx.cpqQuoteUniformItem.create({
                       data: {
                         quoteId: quote.id,
@@ -1094,7 +1195,7 @@ export async function POST(
               });
               for (const item of catalogItems) {
                 if (item.type === "uniform") {
-                  if (!isDefaultUniform(item.name)) continue;
+                  if (!isDefaultUniform(item.name, item.isDefault)) continue;
                   await tx.cpqQuoteUniformItem.create({
                     data: { quoteId: fallbackQuote.id, catalogItemId: item.id, unitPriceOverride: null, active: true },
                   });

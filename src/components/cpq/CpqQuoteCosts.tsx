@@ -452,7 +452,7 @@ export function CpqQuoteCosts({
     if (defaultsApplied.current || skipDefaultCosts) return;
 
     const uniformDefaults = (catalogByType.uniform || []).filter((item) =>
-      typeof item.name === "string" && isDefaultUniform(item.name)
+      typeof item.name === "string" && isDefaultUniform(item.name, item.isDefault)
     );
     if (uniformDefaults.length) {
       setUniforms((prev) => {
@@ -1032,7 +1032,7 @@ export function CpqQuoteCosts({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  type: "other",
+                  type: payload.type || "other",
                   name: payload.name.trim(),
                   unit: payload.unit || "mes",
                   basePrice: payload.basePrice ?? 0,

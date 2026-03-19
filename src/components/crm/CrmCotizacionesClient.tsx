@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { KpiCard } from "@/components/opai";
-import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink, CalendarClock } from "lucide-react";
+import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink, CalendarClock, Zap } from "lucide-react";
 import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { CrmDates } from "@/components/crm/CrmDates";
@@ -40,6 +40,7 @@ type QuoteRow = {
   dealStageName?: string | null;
   dealStageColor?: string | null;
   pendingFollowUps?: number;
+  createdFromLeadId?: string | null;
 };
 
 type AccountRow = {
@@ -236,6 +237,17 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
           <Badge variant="outline" className={status.className}>
             {status.label}
           </Badge>
+          {quote.createdFromLeadId && (
+            <Link
+              href={`/crm/leads/${quote.createdFromLeadId}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-cyan-500/30 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 transition-colors cursor-pointer">
+                <Zap className="h-3 w-3" />
+                Desde Lead
+              </Badge>
+            </Link>
+          )}
           {quote.dealStageName && (
             <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0">
               {quote.dealStageColor && (
@@ -345,9 +357,20 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
           {status.label}
         </Badge>
       </div>
-      {/* Stage & follow-up badges */}
-      {(quote.dealStageName || (quote.pendingFollowUps ?? 0) > 0) && (
+      {/* Stage, follow-up & lead-origin badges */}
+      {(quote.dealStageName || (quote.pendingFollowUps ?? 0) > 0 || quote.createdFromLeadId) && (
         <div className="flex items-center gap-1.5 flex-wrap mb-1">
+          {quote.createdFromLeadId && (
+            <Link
+              href={`/crm/leads/${quote.createdFromLeadId}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 border-cyan-500/30 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 transition-colors cursor-pointer">
+                <Zap className="h-3 w-3" />
+                Desde Lead
+              </Badge>
+            </Link>
+          )}
           {quote.dealStageName && (
             <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0">
               {quote.dealStageColor && (

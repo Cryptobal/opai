@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/components/cpq/utils";
 import { cn, parseLocalizedNumber, formatNumber } from "@/lib/utils";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, BookmarkPlus, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export interface AdditionalLineItem {
   nombre: string;
@@ -23,6 +25,7 @@ interface AdditionalLinesSectionProps {
   onChange: (lines: AdditionalLineItem[]) => void;
   contractDuration?: number;
   isLocked?: boolean;
+  onSaveToCatalog?: (payload: { name: string; unit: string; basePrice: number; type: string }) => Promise<void>;
 }
 
 const LINE_TYPES = [
@@ -39,7 +42,9 @@ const RECURRENCE_TYPES = [
   { value: "por_evento", label: "Por evento" },
 ] as const;
 
-export function AdditionalLinesSection({ lines, onChange, contractDuration = 12, isLocked }: AdditionalLinesSectionProps) {
+export function AdditionalLinesSection({ lines, onChange, contractDuration = 12, isLocked, onSaveToCatalog }: AdditionalLinesSectionProps) {
+  const [savingIdx, setSavingIdx] = useState<number | null>(null);
+
   const addLine = () => {
     onChange([
       ...lines,
@@ -64,6 +69,29 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
 
   const removeLine = (idx: number) => {
     onChange(lines.filter((_, i) => i !== idx));
+  };
+
+  const handleSaveToCatalog = async (idx: number, line: AdditionalLineItem) => {
+    if (!onSaveToCatalog) return;
+    const name = line.nombre.trim();
+    if (!name) {
+      toast.error("Ingresa un nombre antes de guardar en catálogo");
+      return;
+    }
+    setSavingIdx(idx);
+    try {
+      await onSaveToCatalog({
+        name,
+        unit: "mes",
+        basePrice: Number(line.precio || 0),
+        type: "other",
+      });
+      toast.success(`"${name}" guardado en catálogo`);
+    } catch {
+      toast.error("Error al guardar en catálogo");
+    } finally {
+      setSavingIdx(null);
+    }
   };
 
   const total = lines.reduce((sum, line) => {
@@ -95,11 +123,28 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
                   className="h-7 text-xs bg-card border-border"
                 />
               </div>
-              {!isLocked && (
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => removeLine(idx)}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              )}
+              <div className="flex items-center gap-1 shrink-0">
+                {!isLocked && onSaveToCatalog && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-emerald-400"
+                    title="Guardar en catálogo"
+                    onClick={() => handleSaveToCatalog(idx, line)}
+                    disabled={savingIdx === idx}
+                  >
+                    {savingIdx === idx
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : <BookmarkPlus className="h-3 w-3" />
+                    }
+                  </Button>
+                )}
+                {!isLocked && (
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => removeLine(idx)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div className="mt-1.5">

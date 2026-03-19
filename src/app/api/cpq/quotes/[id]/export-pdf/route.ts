@@ -36,7 +36,7 @@ async function resolveTemplateSections(
     if (Object.keys(rawSections).length > 0) {
       const normalized = normalizeDbSectionsToProposalFormat(rawSections, templateSlug);
       const canonical = resolveCanonicalSections(templateSlug);
-      return canonical ? { ...normalized, ...canonical } : normalized;
+      return canonical ? { ...canonical, ...normalized } : normalized;
     }
     return resolveCanonicalSections(templateSlug) ?? null;
   }

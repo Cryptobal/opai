@@ -425,7 +425,7 @@ export async function buildQuotationProps(
   let effectiveSections: Partial<ProposalTemplateSections> =
     options?.templateSectionsOverride ??
     (dbSectionsEmpty && slugFallback ? slugFallback : dbSectionsNormalized);
-  if (slugFallback && !options?.templateSectionsOverride) {
+  if (slugFallback && !options?.templateSectionsOverride && dbSectionsEmpty) {
     effectiveSections = { ...effectiveSections, ...slugFallback };
   }
   const templateSections: ProposalTemplateSections = { ...DEFAULT_TEMPLATE_SECTIONS, ...effectiveSections };
