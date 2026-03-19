@@ -1654,7 +1654,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
     // TAB: Installations & Dotación
     const installationsContent = (
-        <div className="space-y-4 pb-40 lg:pb-32 rounded-lg border border-border bg-card p-4 sm:p-5">
+        <div className="space-y-4 pb-52 sm:pb-40 lg:pb-32 rounded-lg border border-border bg-card p-4 sm:p-5">
           {autoSaveStatus !== "idle" && (
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground justify-end -mt-1 mb-1">
               {autoSaveStatus === "pending" && <span className="text-amber-500">● Cambios sin guardar</span>}
@@ -1761,7 +1761,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   return (
     <>
       <EntityDetailLayout
-        className={isEditable ? "pb-28" : undefined}
+        className={isEditable ? "pb-52 sm:pb-28" : undefined}
         breadcrumb={["CRM", "Prospectos", lead.companyName || fullName]}
         breadcrumbHrefs={["/crm", "/crm/leads"]}
         header={{
@@ -1806,7 +1806,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
       {/* ── Sticky action bar for editable leads ── */}
       {isEditable && (
-        <div className="sticky bottom-14 lg:bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 z-10">
+        <div className="sticky bottom-14 lg:bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] z-10">
           {!duplicateChecked && (
             <p className="text-xs text-muted-foreground mb-2 w-full text-center sm:text-left">
               Nada se crea hasta que hagas clic en &quot;Verificar y aprobar&quot; y luego confirmes.

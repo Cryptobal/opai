@@ -574,7 +574,7 @@ export function LeadInstallationCpq({
                     </Button>
                   </div>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-6">
+                <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
                   <div className="space-y-1">
                     <Label className="text-[10px]">Guardias</Label>
                     <select
@@ -657,7 +657,7 @@ export function LeadInstallationCpq({
                 </div>
                 {/* Tipo de Puesto, Cargo, Rol */}
                 {(cpqPuestos.length > 0 || cpqCargos.length > 0 || cpqRoles.length > 0) && (
-                  <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {cpqPuestos.length > 0 && (
                       <div className="space-y-1">
                         <Label className="text-[10px]">Tipo de Puesto</Label>
@@ -1014,7 +1014,7 @@ export function LeadInstallationCpq({
               return (
                 <div key={row.label} className="flex items-center gap-2">
                   <span className="text-[10px] text-muted-foreground w-24 shrink-0">{row.label}</span>
-                  <div className="flex-1 h-2 rounded-full bg-muted/30 overflow-hidden">
+                  <div className="flex-1 min-w-0 h-2 rounded-full bg-muted/30 overflow-hidden">
                     <div className={cn("h-full rounded-full", row.color)} style={{ width: `${Math.min(100, pct)}%` }} />
                   </div>
                   <span className="text-[10px] font-mono font-semibold text-right w-24 shrink-0">{formatCurrency(Math.round(row.value))}</span>
@@ -1093,16 +1093,16 @@ function PdfPreviewSection({
 
   return (
     <Card className="shadow-sm overflow-hidden">
-      <div className="px-3 py-2 bg-muted/20 border-b border-border/40 flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-muted-foreground">Vista previa de la propuesta</span>
-        <div className="flex items-center gap-1">
+      <div className="px-3 py-2 bg-muted/20 border-b border-border/40 flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-semibold text-muted-foreground mr-auto">Vista previa de la propuesta</span>
+        <div className="flex items-center gap-1 flex-wrap">
           {TEMPLATE_SLUGS.map((t) => (
             <button
               key={t.slug}
               type="button"
               onClick={() => { setSelectedSlug(t.slug); setPreviewUrl(null); }}
               className={cn(
-                "h-5 rounded px-2 text-[9px] font-medium border transition-colors",
+                "h-7 sm:h-5 rounded px-2 text-[10px] sm:text-[9px] font-medium border transition-colors",
                 selectedSlug === t.slug
                   ? "border-primary/40 bg-primary/10 text-primary"
                   : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
@@ -1114,7 +1114,7 @@ function PdfPreviewSection({
           <Button
             variant="outline"
             size="sm"
-            className="h-5 text-[9px] px-2 ml-1"
+            className="h-7 sm:h-5 text-[10px] sm:text-[9px] px-2 ml-1"
             disabled={previewLoading}
             onClick={generatePreview}
           >
@@ -1126,7 +1126,7 @@ function PdfPreviewSection({
       {previewUrl ? (
         <iframe
           src={previewUrl}
-          className="w-full h-[600px] bg-white"
+          className="w-full h-[400px] sm:h-[600px] bg-white"
           title="Preview propuesta PDF"
         />
       ) : (

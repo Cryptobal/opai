@@ -195,7 +195,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
             </div>
 
             {/* Price row */}
-            <div className="grid grid-cols-3 gap-1.5 mt-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-1.5">
               <div>
                 <Label className="text-[10px] text-muted-foreground">Precio base</Label>
                 <Input

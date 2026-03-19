@@ -128,9 +128,10 @@ export async function DELETE(
       );
     }
 
-    if (existing.status !== "rejected") {
+    const DELETABLE_STATUSES = ["new", "pending", "in_review", "rejected"];
+    if (!DELETABLE_STATUSES.includes(existing.status)) {
       return NextResponse.json(
-        { success: false, error: "Solo se pueden eliminar leads rechazados" },
+        { success: false, error: "No se puede eliminar un lead aprobado" },
         { status: 400 }
       );
     }

@@ -157,7 +157,7 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
             {value.policyEnabled ? "On" : "Off"}
           </button>
         </div>
-        <div className="grid grid-cols-3 gap-1">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
           <div>
             <Label className="text-[10px] text-muted-foreground">Meses</Label>
             <Input

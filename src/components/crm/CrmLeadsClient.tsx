@@ -119,7 +119,7 @@ export function CrmLeadsClient({
   initialStatusFilter?: LeadStatusFilter;
   userRole?: string;
 }) {
-  const canDeleteRejectedLead =
+  const canDeleteLead =
     (userRole === "owner" || userRole === "admin") as boolean;
   const [leads, setLeads] = useState<CrmLead[]>(initialLeads);
   const [form, setForm] = useState<LeadFormState>(DEFAULT_FORM);
@@ -400,7 +400,7 @@ export function CrmLeadsClient({
                     <div className="flex items-center justify-between pt-0.5">
                       <CrmDates createdAt={lead.createdAt} />
                       <div className="flex items-center gap-1">
-                        {lead.status === "rejected" && canDeleteRejectedLead && (
+                        {lead.status !== "approved" && canDeleteLead && (
                           <Button
                             size="icon"
                             variant="ghost"
@@ -494,7 +494,7 @@ export function CrmLeadsClient({
                             {lead.status === "in_review" ? "Revisar" : "Revisar y aprobar"}
                           </span>
                         )}
-                        {lead.status === "rejected" && canDeleteRejectedLead && (
+                        {lead.status !== "approved" && canDeleteLead && (
                           <Button
                             size="icon"
                             variant="ghost"
@@ -531,8 +531,8 @@ export function CrmLeadsClient({
       <ConfirmDialog
         open={!!deleteLeadId}
         onOpenChange={(open) => !open && setDeleteLeadId(null)}
-        title="¿Eliminar lead rechazado?"
-        description="Esta acción no se puede deshacer. El lead se eliminará permanentemente."
+        title="¿Eliminar prospecto?"
+        description="Esta acción no se puede deshacer. El prospecto se eliminará permanentemente."
         confirmLabel="Eliminar"
         cancelLabel="Cancelar"
         onConfirm={handleConfirmDelete}
