@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Check, XCircle, FileDown, FileText, MessageSquare, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
+import { getErrorMessageFromResponse } from "@/lib/parse-fetch-error";
 import { WhatsAppButton } from "./WhatsAppButton";
 
 interface ProposalTotalAccionesProps {
@@ -41,13 +43,21 @@ export function ProposalTotalAcciones({
     setProposalPdfLoading(true);
     try {
       const res = await fetch(`/api/portal/cliente/cotizaciones/${quoteId}/proposal-pdf`);
-      if (!res.ok) throw new Error("Error al generar propuesta técnica");
+      if (!res.ok) {
+        const message = await getErrorMessageFromResponse(
+          res,
+          "No se pudo generar la propuesta técnica"
+        );
+        throw new Error(message);
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       window.open(url, "_blank");
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch {
-      // Silent
+      toast.success("Propuesta técnica lista");
+    } catch (e) {
+      console.error("[Portal] Propuesta técnica PDF:", e);
+      toast.error(e instanceof Error ? e.message : "No se pudo generar la propuesta técnica");
     } finally {
       setProposalPdfLoading(false);
     }
@@ -58,7 +68,13 @@ export function ProposalTotalAcciones({
     setPdfLoading(true);
     try {
       const res = await fetch(`/api/portal/cliente/cotizaciones/${quoteId}/pdf`);
-      if (!res.ok) throw new Error("Error al generar PDF");
+      if (!res.ok) {
+        const message = await getErrorMessageFromResponse(
+          res,
+          "No se pudo generar la propuesta económica"
+        );
+        throw new Error(message);
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -70,8 +86,10 @@ export function ProposalTotalAcciones({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch {
-      // Silent
+      toast.success("PDF descargado");
+    } catch (e) {
+      console.error("[Portal] Propuesta económica PDF:", e);
+      toast.error(e instanceof Error ? e.message : "No se pudo generar el PDF");
     } finally {
       setPdfLoading(false);
     }

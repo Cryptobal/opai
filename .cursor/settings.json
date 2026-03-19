@@ -8,6 +8,9 @@
     },
     "sentry": {
       "enabled": true
+    },
+    "cloudflare": {
+      "enabled": true
     }
   }
 }

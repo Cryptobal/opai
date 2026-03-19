@@ -56,9 +56,18 @@ export async function GET(
     });
   } catch (error) {
     console.error('[Portal Cliente] Error generating proposal PDF:', error);
-    return NextResponse.json(
-      { error: 'Error al generar propuesta técnica' },
-      { status: 500 }
-    );
+    const raw = error instanceof Error ? error.message : String(error);
+    let userMessage =
+      'No pudimos generar la propuesta técnica. Intenta de nuevo en unos minutos o contacta a tu ejecutivo.';
+    if (
+      raw.includes('Cannot find module') ||
+      raw.includes("'sharp'") ||
+      raw.includes('"sharp"') ||
+      raw.includes('MODULE_NOT_FOUND')
+    ) {
+      userMessage =
+        'El generador de documentos no está disponible en este momento. Tu ejecutivo puede enviarte el PDF por correo.';
+    }
+    return NextResponse.json({ error: userMessage }, { status: 500 });
   }
 }

@@ -20,6 +20,7 @@ import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { SendPortalProposalModal } from "@/components/cpq/SendPortalProposalModal";
 import { formatCurrency } from "@/components/cpq/utils";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { getErrorMessageFromResponse } from "@/lib/parse-fetch-error";
 import type {
   CpqQuote,
   CpqPosition,
@@ -47,7 +48,7 @@ import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, D
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
-import { FinancialPanel, buildBreakdownData } from "@/components/cpq/FinancialPanel";
+import { buildBreakdownData } from "@/components/cpq/FinancialPanel";
 import { QuoteBreakdownPanel } from "@/components/cpq/QuoteBreakdownPanel";
 import { QuoteIncludesEditor } from "@/components/cpq/QuoteIncludesEditor";
 import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
@@ -740,8 +741,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         method: "POST",
       });
       if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.error || "Error al generar PDF");
+        const message = await getErrorMessageFromResponse(response, "Error al generar PDF");
+        throw new Error(message);
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -767,8 +768,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
       await flushPendingSaves();
       const response = await fetch(`/api/cpq/quotes/${quoteId}/proposal-pdf`);
       if (!response.ok) {
-        const body = await response.json().catch(() => null);
-        throw new Error(body?.error || "Error al generar propuesta técnica");
+        const message = await getErrorMessageFromResponse(
+          response,
+          "Error al generar propuesta técnica"
+        );
+        throw new Error(message);
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -1166,20 +1170,24 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
     <div className="space-y-2 pb-4 lg:pb-4 overflow-x-hidden min-w-0">
       {/* -- Compact header -- */}
       <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-5 px-5 py-1.5 mb-1">
-      <div className="flex items-center gap-2 min-h-[40px]">
-        <Link href="/crm/cotizaciones">
+      <div className="flex items-start gap-2 min-h-[40px]">
+        <Link href="/crm/cotizaciones" className="shrink-0 pt-0.5">
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-base font-bold tracking-tight shrink-0">{quote.code}</h1>
-            {quote.name && <span className="text-sm font-medium truncate text-foreground/80 min-w-0">— {quote.name}</span>}
+        <div className="flex-1 min-w-0 min-h-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 pr-1">
+            <h1 className="text-base font-bold tracking-tight shrink-0 max-w-[100%] sm:max-w-none truncate">{quote.code}</h1>
+            {quote.name && (
+              <span className="text-sm font-medium truncate text-foreground/80 min-w-0 basis-full sm:basis-auto sm:max-w-[40%]">
+                — {quote.name}
+              </span>
+            )}
             <Badge
               variant="outline"
               className={cn(
-                "text-xs h-6 shrink-0 font-medium",
+                "text-xs h-6 shrink-0 font-medium whitespace-nowrap w-fit max-lg:basis-full max-lg:mt-0.5",
                 quote.status === "sent" && "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
                 quote.status === "draft" && "border-amber-500/30 text-amber-600 dark:text-amber-400",
                 quote.status === "approved" && "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
@@ -1231,7 +1239,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             </div>
           ) : null}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 pt-0.5">
           <div className="hidden lg:flex items-center gap-1 border-r border-border/60 pr-2 mr-1">
             <Button
               size="sm"
@@ -1250,15 +1258,18 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               <Send className="h-3.5 w-3.5" />
             </Button>
           </div>
-          {quote.status === "sent" ? (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setStatusChangePending("draft")} disabled={changingStatus}>
-              {changingStatus ? "..." : "Borrador"}
-            </Button>
-          ) : (
-            <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10" onClick={() => setStatusChangePending("sent")} disabled={changingStatus}>
-              {changingStatus ? "..." : "Enviada"}
-            </Button>
-          )}
+          {/* Desktop: acciones de estado (en móvil van al menú ⋮ para no duplicar el badge de estado) */}
+          <div className="hidden lg:flex items-center gap-1">
+            {quote.status === "sent" ? (
+              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setStatusChangePending("draft")} disabled={changingStatus}>
+                {changingStatus ? "..." : "Marcar borrador"}
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10" onClick={() => setStatusChangePending("sent")} disabled={changingStatus}>
+                {changingStatus ? "..." : "Marcar enviada"}
+              </Button>
+            )}
+          </div>
           {/* Overflow menu for secondary actions */}
           <div className="relative">
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOverflowMenuOpen((v) => !v)}>
@@ -1268,6 +1279,34 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               <>
                 <div className="fixed inset-0 z-20" onClick={() => setOverflowMenuOpen(false)} />
                 <div className="absolute right-0 top-full mt-1 z-30 min-w-[180px] max-w-[calc(100vw-2rem)] rounded-md border bg-popover p-1 shadow-md">
+                  <div className="lg:hidden border-b border-border pb-1 mb-1">
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent font-medium"
+                      onClick={() => {
+                        setOverflowMenuOpen(false);
+                        setPortalProposalOpen(true);
+                      }}
+                      disabled={
+                        !quote ||
+                        (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
+                        quote.status === "sent" ||
+                        !crmContext.accountId ||
+                        !crmContext.contactId ||
+                        !crmContext.dealId
+                      }
+                    >
+                      <Send className="h-3.5 w-3.5" /> Enviar propuesta al portal
+                    </button>
+                    {quote.status === "sent" ? (
+                      <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); setStatusChangePending("draft"); }} disabled={changingStatus}>
+                        Marcar como borrador
+                      </button>
+                    ) : (
+                      <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); setStatusChangePending("sent"); }} disabled={changingStatus}>
+                        Marcar como enviada
+                      </button>
+                    )}
+                  </div>
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
                     <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotizacion"}
                   </button>
@@ -2130,13 +2169,21 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                     ? `/api/cpq/quotes/${quoteId}/proposal-pdf`
                     : `/api/cpq/quotes/${quoteId}/export-pdf?templateSlug=${encodeURIComponent(pdfTemplateSlug)}`;
                   const res = await fetch(url);
-                  if (!res.ok) throw new Error(`Error ${res.status}`);
+                  if (!res.ok) {
+                    const message = await getErrorMessageFromResponse(
+                      res,
+                      pdfPreviewMode === "presentacion"
+                        ? "Error al generar la presentación técnica"
+                        : "Error al generar el PDF de cotización"
+                    );
+                    throw new Error(message);
+                  }
                   const blob = await res.blob();
                   if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
                   setPdfPreviewUrl(URL.createObjectURL(blob));
                 } catch (err) {
                   console.error("[CPQ PDF Preview]", err);
-                  toast.error("Error al generar el PDF");
+                  toast.error(err instanceof Error ? err.message : "Error al generar el PDF");
                 } finally {
                   setPdfPreviewLoading(false);
                 }
@@ -2328,74 +2375,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         marginPct={marginPct}
         ufValue={ufValue}
         totalGuards={stats.totalGuards}
-        financialPanelContent={
-          <FinancialPanel
-            positionsCount={positions.length}
-            totalGuards={stats.totalGuards}
-            marginPct={marginPct}
-            salePriceMonthly={salePriceMonthly}
-            additionalLinesTotal={additionalLinesTotal}
-            ufValue={ufValue}
-            costSummary={costSummary}
-            costCategoryBreakdown={costCategoryBreakdown}
-            marginAmount={marginAmount}
-            positions={positions}
-            positionSalePrices={positionSalePrices}
-            positionHourlyRates={positionHourlyRates}
-            monthlyHoursStandard={monthlyHours}
-            quote={quote}
-            crmContext={crmContext}
-            crmContacts={crmContacts}
-            crmInstallations={crmInstallations}
-            crmDeals={crmDeals}
-            additionalLines={additionalLines}
-            tenantBranding={tenantBranding}
-            onGenerateAiDescription={generateAiDescription}
-            generatingAi={generatingAi}
-            aiCustomInstruction={aiCustomInstruction}
-            setAiCustomInstruction={setAiCustomInstruction}
-            onGenerateServiceDetail={generateServiceDetail}
-            generatingServiceDetail={generatingServiceDetail}
-            serviceDetailInstruction={serviceDetailInstruction}
-            setServiceDetailInstruction={setServiceDetailInstruction}
-            aiDescription={quote.aiDescription ?? null}
-            onAiDescriptionChange={(v) => {
-              setQuote({ ...quote, aiDescription: v });
-              fetch(`/api/cpq/quotes/${quoteId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ aiDescription: v }),
-              }).catch(() => {});
-            }}
-            serviceDetail={quote.serviceDetail ?? null}
-            onServiceDetailChange={(v) => {
-              setQuote({ ...quote, serviceDetail: v });
-              fetch(`/api/cpq/quotes/${quoteId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ serviceDetail: v }),
-              }).catch(() => {});
-            }}
-            quoteId={quoteId}
-            quoteCode={quote.code}
-            sendingPortal={false}
-            onSendPortal={() => setPortalProposalOpen(true)}
-            isLocked={isLocked}
-            hasAccount={!!crmContext.accountId}
-            hasContact={!!crmContext.contactId}
-            hasDeal={!!crmContext.dealId}
-            dealId={crmContext.dealId || undefined}
-            contactName={(() => {
-              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-              return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
-            })()}
-            contactEmail={(() => {
-              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-              return c?.email || undefined;
-            })()}
-            proposalTemplateSlug={proposalTemplates.find((t) => t.id === proposalTemplateId)?.slug || "standard"}
-          />
-        }
         portalButton={
           <Button
             className="w-full h-11 gap-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -2410,7 +2389,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             onClick={() => setPortalProposalOpen(true)}
           >
             <Send className="h-4 w-4" />
-            Enviar propuesta
+            Enviar
           </Button>
         }
       />

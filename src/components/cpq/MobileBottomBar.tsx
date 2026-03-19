@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronUp, Send, Shield, Mail } from "lucide-react";
+import { Send } from "lucide-react";
 import { formatCLP, formatUFSuffix, cn } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import {
@@ -17,7 +17,6 @@ interface MobileBottomBarProps {
   additionalLinesTotal: number;
   marginPct: number;
   ufValue: number | null;
-  financialPanelContent: React.ReactNode;
   sendButton?: React.ReactNode;
   portalButton?: React.ReactNode;
   pdfEmailButton?: React.ReactNode;
@@ -31,7 +30,6 @@ export function MobileBottomBar({
   additionalLinesTotal,
   marginPct,
   ufValue,
-  financialPanelContent,
   sendButton,
   portalButton,
   pdfEmailButton,
@@ -39,13 +37,19 @@ export function MobileBottomBar({
   totalGuards,
   className,
 }: MobileBottomBarProps) {
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [sendSheetOpen, setSendSheetOpen] = useState(false);
 
   const total = salePriceMonthly + additionalLinesTotal;
   const ufTotal = ufValue ? clpToUf(total, ufValue) : null;
 
-  const hasMultipleSendOptions = portalButton || pdfEmailButton || emailButton;
+  const sendOptionSlots = [portalButton, pdfEmailButton, emailButton].filter(Boolean);
+  const sendOptionsCount = sendOptionSlots.length;
+  const hasMultipleSendOptions = sendOptionsCount > 1;
+
+  const singleSendTrigger =
+    sendOptionsCount === 1
+      ? portalButton ?? pdfEmailButton ?? emailButton
+      : null;
 
   return (
     <>
@@ -58,12 +62,8 @@ export function MobileBottomBar({
           className
         )}
       >
-        {/* Left: price info */}
-        <button
-          type="button"
-          onClick={() => setSheetOpen(true)}
-          className="flex flex-col min-w-0 text-left"
-        >
+        {/* Left: precio (solo lectura; el desglose está en la ficha al hacer scroll) */}
+        <div className="flex flex-col min-w-0 text-left">
           <span className="text-base font-extrabold font-mono text-white truncate">
             {formatCLP(total)}
           </span>
@@ -75,49 +75,26 @@ export function MobileBottomBar({
           <span className="text-[10px] text-emerald-400">
             Margen {Number(marginPct || 0).toFixed(0)}%{totalGuards ? ` · ${totalGuards} guardias` : ""}
           </span>
-        </button>
+        </div>
 
-        {/* Right: send button */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => setSheetOpen(true)}
-            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
-            <ChevronUp className="h-3 w-3" />
-          </button>
+        {/* Right: enviar */}
+        <div className="flex items-center gap-1.5 shrink-0 min-w-0 flex-1 justify-end max-w-[58%]">
           {hasMultipleSendOptions ? (
             <button
               type="button"
               onClick={() => setSendSheetOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors w-full max-w-[200px]"
             >
-              <Send className="h-3 w-3" />
+              <Send className="h-3 w-3 shrink-0" />
               Enviar
             </button>
+          ) : singleSendTrigger ? (
+            <div className="w-full max-w-[220px] min-w-0 [&_button]:w-full">{singleSendTrigger}</div>
           ) : (
             sendButton
           )}
         </div>
       </div>
-
-      {/* Bottom sheet with financial breakdown */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent
-          side="bottom"
-          className="max-h-[85vh] overflow-y-auto rounded-t-xl"
-        >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Detalle financiero</SheetTitle>
-            <SheetDescription>
-              Desglose completo de la cotización
-            </SheetDescription>
-          </SheetHeader>
-          <div className="[&>div]:h-auto [&>div]:min-h-0">
-            {financialPanelContent}
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {/* Send options bottom sheet */}
       {hasMultipleSendOptions && (
