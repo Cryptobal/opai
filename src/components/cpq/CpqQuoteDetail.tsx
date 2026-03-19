@@ -1022,6 +1022,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
       vehicle: sumByType(["vehicle_rent", "vehicle_fuel", "vehicle_tag"]) + dedicatedVehicles,
       infra: sumByType(["infrastructure", "fuel"]) + dedicatedInfra,
       system: sumByType(["system"]),
+      other: sumByType(["other"]),
     };
   }, [costItems, vehicles, infrastructure, costSummary?.totalGuards]);
 

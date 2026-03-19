@@ -394,6 +394,7 @@ export async function buildQuotationProps(
         equipment: sumByType(['phone', 'radio', 'flashlight']),
         transport: sumByType(['transport']),
         systems: sumByType(['system']),
+        other: sumByType(['other']),
         subtotalBase,
         marginPct,
         marginAmount,

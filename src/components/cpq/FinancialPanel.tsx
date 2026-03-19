@@ -41,6 +41,7 @@ export interface FinancialPanelProps {
     vehicle: number;
     infra: number;
     system: number;
+    other?: number;
   };
   marginAmount: number;
   // Positions for hourly rates
@@ -190,6 +191,7 @@ export function buildBreakdownData(
     equipment: costCategoryBreakdown.equipment,
     transport: costCategoryBreakdown.transport,
     systems: costCategoryBreakdown.system,
+    other: costCategoryBreakdown.other ?? 0,
     subtotalBase,
     marginPct,
     marginAmount,
