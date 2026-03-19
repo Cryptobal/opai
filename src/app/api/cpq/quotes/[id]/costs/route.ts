@@ -388,7 +388,6 @@ export async function PUT(
           catalogItemId: item.catalogItemId,
           unitPriceOverride: item.unitPriceOverride ?? null,
           technicalSpecs: item.technicalSpecs ?? null,
-          priceLogic: item.priceLogic ?? "uniform",
           active: item.active ?? true,
         })),
       });
@@ -674,7 +673,7 @@ export async function PUT(
           })),
         });
       }
-    }, { timeout: 15000 });
+    }, { timeout: 45000 });
 
     let summary;
     try {
