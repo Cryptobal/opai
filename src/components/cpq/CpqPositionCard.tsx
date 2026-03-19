@@ -439,7 +439,6 @@ export function CpqPositionCard({
             </Button>
           </div>
         </div>
-      </div>
     </div>
   );
 }
