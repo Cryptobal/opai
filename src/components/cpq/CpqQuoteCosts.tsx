@@ -238,7 +238,13 @@ export function CpqQuoteCosts({
           ...globalDefaults,
           ...(payload.parameters || {}),
         });
-        setUniforms(payload.uniforms || []);
+        const catalogById = new Map((catalogData?.data || []).map((c: { id: string; priceLogic?: string }) => [c.id, c]));
+        const uniformsWithCatalogLogic = (payload.uniforms || []).map((u: { catalogItemId: string; priceLogic?: string } & object) => {
+          const cat = catalogById.get(u.catalogItemId);
+          const priceLogic = cat?.priceLogic ?? u.priceLogic ?? "uniform";
+          return { ...u, priceLogic };
+        });
+        setUniforms(uniformsWithCatalogLogic);
         setExams(payload.exams || []);
         setCostItems(normalizeCostItems(payload.costItems || []));
         setMeals(payload.meals || []);
@@ -895,7 +901,7 @@ export function CpqQuoteCosts({
     onRemove: () => void,
     onSpecsChange?: (specs: string | null) => void
   ) => {
-    const logic = (sel as { priceLogic?: string } | undefined)?.priceLogic ?? item.priceLogic ?? "uniform";
+    const logic = item.priceLogic ?? (sel as { priceLogic?: string } | undefined)?.priceLogic ?? "uniform";
     const unitLabel = item.unit === "año" ? "año" : item.unit === "semestre" ? "sem" : item.unit === "contrato" ? "contrato" : item.unit === "examen" ? "examen" : item.unit || "ud";
     return (
     <div className="p-2.5 rounded-lg bg-card border border-border/50">

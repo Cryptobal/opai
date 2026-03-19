@@ -171,6 +171,7 @@ interface CatalogItem {
   unit: string;
   basePrice: number;
   defaultTechnicalSpecs?: string | null;
+  priceLogic?: string;
 }
 
 /* ─── Component ─── */
@@ -210,18 +211,21 @@ export function LeadInstallationCpq({
             unit: item.unit,
             basePrice: Number(item.basePrice) || 0,
             defaultTechnicalSpecs: item.defaultTechnicalSpecs || null,
+            priceLogic: item.priceLogic ?? "uniform",
           })));
           setCatalogLoaded(true);
-          // Hidratar costItems existentes con defaultTechnicalSpecs del catálogo si no tienen
-          const catalogMap = new Map(res.data.map((c: any) => [c.id, c.defaultTechnicalSpecs || null]));
+          // Hidratar costItems existentes con catálogo (specs si faltan, priceLogic y unit siempre)
+          const catalogById = new Map(res.data.map((c: any) => [c.id, c]));
           if (config.costItems.length > 0) {
             const hydrated: LeadCostItem[] = config.costItems.map((item) => {
-              if (item.technicalSpecs) return item;
-              const def = catalogMap.get(item.catalogItemId);
-              const specs = def != null ? toTechnicalSpecs(def) : null;
-              return specs != null ? { ...item, technicalSpecs: specs } : item;
+              const def = catalogById.get(item.catalogItemId) as { defaultTechnicalSpecs?: string | null; priceLogic?: string; unit?: string } | undefined;
+              if (!def) return item;
+              const specs = item.technicalSpecs ?? (def.defaultTechnicalSpecs != null ? toTechnicalSpecs(def.defaultTechnicalSpecs) : null);
+              const priceLogic = def.priceLogic ?? item.priceLogic ?? "uniform";
+              const unit = def.unit ?? item.unit;
+              return { ...item, technicalSpecs: specs ?? item.technicalSpecs, priceLogic, unit };
             });
-            if (hydrated.some((h, i) => h.technicalSpecs !== config.costItems[i]?.technicalSpecs)) {
+            if (hydrated.some((h, i) => h.technicalSpecs !== config.costItems[i]?.technicalSpecs || h.priceLogic !== config.costItems[i]?.priceLogic || h.unit !== config.costItems[i]?.unit)) {
               onChange({ ...config, costItems: hydrated });
             }
           }
@@ -1228,6 +1232,10 @@ function CostCategoryBlock({
     () => new Map(catalogItems.map((c) => [c.id, c.defaultTechnicalSpecs || null])),
     [catalogItems]
   );
+  const catalogPriceLogicMap = useMemo(
+    () => new Map(catalogItems.map((c) => [c.id, c.priceLogic ?? "uniform"])),
+    [catalogItems]
+  );
 
   return (
     <div className="rounded-md border border-border/40 overflow-hidden">
@@ -1287,8 +1295,8 @@ function CostCategoryBlock({
                         <div className="text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1 flex-wrap">
                           <span>Base: {formatCurrency(item.basePrice)} / {item.unit === "año" ? "año" : item.unit === "semestre" ? "sem" : item.unit === "contrato" ? "contrato" : item.unit === "examen" ? "examen" : item.unit || "mes"}</span>
                           {item.type === "uniform" && (
-                            <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${item.priceLogic === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400"}`}>
-                              {item.priceLogic === "prorated" ? "prorrateo" : "rotación"}
+                            <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${(catalogPriceLogicMap.get(item.catalogItemId) ?? item.priceLogic ?? "uniform") === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400"}`}>
+                              {(catalogPriceLogicMap.get(item.catalogItemId) ?? item.priceLogic ?? "uniform") === "prorated" ? "prorrateo" : "rotación"}
                             </span>
                           )}
                         </div>
