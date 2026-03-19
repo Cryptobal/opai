@@ -885,6 +885,8 @@ model CpqQuote {
   code                String    @unique @map("code")
   name                String?   @map("name")
   status              String    @default("draft")
+  /// null = legado: visible en portal si no es borrador; true = forzar visible (p. ej. borrador editable); false = ocultar del portal
+  visibleInClientPortal Boolean? @map("visible_in_client_portal")
   clientName          String?   @map("client_name")
   validUntil          DateTime? @map("valid_until") @db.Date
   notes               String?

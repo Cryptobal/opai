@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { buildQuotationProps } from "@/lib/pdf/templates/quotation/build-quotation-props";
 import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-quotation";
+import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,12 @@ export async function GET(
 
     // Verify the quote belongs to the user's account
     const quote = await prisma.cpqQuote.findFirst({
-      where: { id, accountId: session.accountId, tenantId: session.tenantId },
+      where: {
+        id,
+        accountId: session.accountId,
+        tenantId: session.tenantId,
+        ...cpqQuoteListedInClientPortalWhere(),
+      },
       select: { id: true, code: true },
     });
 

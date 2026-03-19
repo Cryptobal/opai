@@ -6,6 +6,7 @@ import { getUfValue } from "@/lib/uf";
 import { clpToUf } from "@/lib/uf-utils";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import type { QuoteBreakdownData, PositionBreakdownItem } from "@/types/cpq-breakdown";
+import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 
 export async function GET(
   _request: Request,
@@ -20,7 +21,12 @@ export async function GET(
   const { id } = await params;
 
   const quote = await prisma.cpqQuote.findFirst({
-    where: { id, accountId: session.accountId, tenantId: session.tenantId },
+    where: {
+      id,
+      accountId: session.accountId,
+      tenantId: session.tenantId,
+      ...cpqQuoteListedInClientPortalWhere(),
+    },
     include: {
       parameters: {
         select: {

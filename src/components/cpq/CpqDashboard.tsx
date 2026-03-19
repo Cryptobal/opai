@@ -15,7 +15,8 @@ import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { CpqQuotesList } from "@/components/cpq/CpqQuotesList";
 import { formatCurrency } from "@/components/cpq/utils";
 import type { CpqQuote } from "@/types/cpq";
-import { FileText, Plus, Settings } from "lucide-react";
+import { FileText, Plus, Settings, Globe } from "lucide-react";
+import { isCpqQuoteListedInClientPortal } from "@/lib/cpq-portal-visibility";
 
 interface CpqDashboardProps {
   initialQuotes?: CpqQuote[];
@@ -28,6 +29,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
   const [statusFilter, setStatusFilter] = useState<
     "all" | "draft" | "sent" | "approved" | "rejected"
   >("all");
+  const [portalOnly, setPortalOnly] = useState(false);
 
   const refresh = async () => {
     setLoading(true);
@@ -49,7 +51,13 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
   const totals = useMemo(() => {
     const totalQuotes = quotes.length;
     const totalMonthly = quotes.reduce((sum, q) => sum + Number(q.monthlyCost), 0);
-    return { totalQuotes, totalMonthly };
+    const visibleInPortal = quotes.filter((q) =>
+      isCpqQuoteListedInClientPortal({
+        visibleInClientPortal: q.visibleInClientPortal ?? null,
+        status: q.status,
+      })
+    ).length;
+    return { totalQuotes, totalMonthly, visibleInPortal };
   }, [quotes]);
 
   const filteredQuotes = useMemo(() => {
@@ -60,9 +68,15 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
       const searchMatch = query
         ? `${quote.code} ${quote.clientName ?? ""}`.toLowerCase().includes(query)
         : true;
-      return statusMatch && searchMatch;
+      const portalMatch = portalOnly
+        ? isCpqQuoteListedInClientPortal({
+            visibleInClientPortal: quote.visibleInClientPortal ?? null,
+            status: quote.status,
+          })
+        : true;
+      return statusMatch && searchMatch && portalMatch;
     });
-  }, [quotes, search, statusFilter]);
+  }, [quotes, search, statusFilter, portalOnly]);
 
   return (
     <div className="space-y-6">
@@ -85,7 +99,7 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
         </div>
       </div>
 
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-3">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <KpiCard
           title="Cotizaciones"
           value={totals.totalQuotes}
@@ -98,11 +112,28 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
           variant="emerald"
           size="lg"
         />
-        <Card className="border-muted/40 bg-card p-4 col-span-2 md:col-span-1">
-          <p className="text-sm uppercase text-muted-foreground">Estado</p>
-          <div className="mt-2 flex items-center gap-2">
-            <Badge variant="outline">Borradores</Badge>
-            <Badge variant="secondary">Enviadas</Badge>
+        <KpiCard
+          title="Visibles en portal"
+          value={totals.visibleInPortal}
+          variant="teal"
+          size="lg"
+          icon={<Globe className="h-4 w-4" />}
+          description="Prospecto / cliente"
+          titleInfoTooltip={
+            <span className="text-xs max-w-xs block">
+              Cotizaciones que el cliente puede ver en su portal (según estado y el interruptor
+              &quot;Visible en portal del cliente&quot;).
+            </span>
+          }
+        />
+        <Card className="border-muted/40 bg-card p-4">
+          <p className="text-xs uppercase text-muted-foreground">Leyenda estado</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Badge variant="outline">Borrador</Badge>
+            <Badge variant="secondary">Enviada</Badge>
+            <Badge className="border-teal-500/40 text-teal-600 dark:text-teal-400" variant="outline">
+              Portal
+            </Badge>
           </div>
         </Card>
       </div>
@@ -163,9 +194,23 @@ export function CpqDashboard({ initialQuotes }: CpqDashboardProps) {
             >
               Rechazadas
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPortalOnly((v) => !v)}
+              className={
+                portalOnly
+                  ? "bg-teal-500/15 border-teal-500/30 text-teal-700 dark:text-teal-400"
+                  : "bg-background border-border text-muted-foreground hover:bg-accent"
+              }
+              title="Filtrar cotizaciones visibles en el portal del cliente"
+            >
+              <Globe className="h-3.5 w-3.5 mr-1 inline" />
+              En portal
+            </Button>
           </div>
         </div>
-        <CpqQuotesList quotes={filteredQuotes} loading={loading} />
+        <CpqQuotesList quotes={filteredQuotes} loading={loading} onRefresh={refresh} />
         {!loading && !filteredQuotes.length && (
           <div className="text-sm text-muted-foreground">
             No hay cotizaciones para los filtros seleccionados.

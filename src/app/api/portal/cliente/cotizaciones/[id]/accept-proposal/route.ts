@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 
 export async function POST(
   request: Request,
@@ -24,7 +25,12 @@ export async function POST(
   try {
     // 1. Find quote with deal (verify ownership via accountId)
     const quote = await prisma.cpqQuote.findFirst({
-      where: { id: quoteId, accountId: session.accountId, tenantId: session.tenantId },
+      where: {
+        id: quoteId,
+        accountId: session.accountId,
+        tenantId: session.tenantId,
+        ...cpqQuoteListedInClientPortalWhere(),
+      },
       select: {
         id: true,
         code: true,

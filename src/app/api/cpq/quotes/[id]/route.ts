@@ -88,6 +88,10 @@ export async function PATCH(
     if (body.contractDuration !== undefined) updateData.contractDuration = Number(body.contractDuration) || 12;
     if (body.includedItems !== undefined) updateData.includedItems = { set: Array.isArray(body.includedItems) ? body.includedItems : [] };
     if (body.proposalTemplateId !== undefined) updateData.proposalTemplateId = body.proposalTemplateId || null;
+    if (body.visibleInClientPortal !== undefined) {
+      updateData.visibleInClientPortal =
+        body.visibleInClientPortal === null ? null : Boolean(body.visibleInClientPortal);
+    }
 
     // Verify ownership and fetch existing for audit diff
     const existing = await prisma.cpqQuote.findFirst({
@@ -111,6 +115,7 @@ export async function PATCH(
         contractDuration: true,
         includedItems: true,
         proposalTemplateId: true,
+        visibleInClientPortal: true,
       },
     });
 

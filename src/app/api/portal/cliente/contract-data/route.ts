@@ -11,6 +11,7 @@ import { cookies } from "next/headers";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 
 type ContractDataBody = {
   quoteId: string;
@@ -60,7 +61,12 @@ export async function POST(request: NextRequest) {
 
     // ── 1. Verify quote ownership ─────────────────────────────
     const quote = await prisma.cpqQuote.findFirst({
-      where: { id: quoteId, accountId: session.accountId, tenantId: session.tenantId },
+      where: {
+        id: quoteId,
+        accountId: session.accountId,
+        tenantId: session.tenantId,
+        ...cpqQuoteListedInClientPortalWhere(),
+      },
       select: { id: true, name: true, code: true },
     });
 

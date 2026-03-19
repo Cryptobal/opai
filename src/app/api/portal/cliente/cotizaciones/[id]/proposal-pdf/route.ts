@@ -11,6 +11,7 @@ import { prisma } from '@/lib/prisma';
 import { parsePortalClienteSessionCookie } from '@/lib/portal-cliente';
 import { renderProposalToBufferFromProps } from '@/lib/pdf/templates/proposal/render-proposal';
 import { buildProposalProps } from '@/lib/pdf/templates/proposal/build-proposal-props';
+import { cpqQuoteListedInClientPortalWhere } from '@/lib/cpq-portal-visibility';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -31,7 +32,12 @@ export async function GET(
     const { id } = await params;
 
     const quote = await prisma.cpqQuote.findFirst({
-      where: { id, accountId: session.accountId, tenantId: session.tenantId },
+      where: {
+        id,
+        accountId: session.accountId,
+        tenantId: session.tenantId,
+        ...cpqQuoteListedInClientPortalWhere(),
+      },
       select: { id: true, code: true },
     });
 

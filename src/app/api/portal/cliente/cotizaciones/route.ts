@@ -5,6 +5,7 @@ import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { getUfValue } from "@/lib/uf";
 import { clpToUf } from "@/lib/uf-utils";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
+import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -14,7 +15,11 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "No session" }, { status: 401 });
 
   const quotes = await prisma.cpqQuote.findMany({
-    where: { accountId: session.accountId, tenantId: session.tenantId, status: { not: "draft" } },
+    where: {
+      accountId: session.accountId,
+      tenantId: session.tenantId,
+      ...cpqQuoteListedInClientPortalWhere(),
+    },
     include: {
       positions: { select: { id: true, numGuards: true } },
       parameters: { select: { salePriceMonthly: true, marginPct: true } },

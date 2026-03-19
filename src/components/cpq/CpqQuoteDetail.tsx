@@ -4,9 +4,10 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +56,7 @@ import { CrmActivityTimeline } from "@/components/crm/CrmActivityTimeline";
 import { VisitaTecnicaSolicitudModal } from "@/components/cpq/VisitaTecnicaSolicitudModal";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
+import { isCpqQuoteListedInClientPortal } from "@/lib/cpq-portal-visibility";
 
 type ActivityEvent = {
   id: string;
@@ -126,6 +128,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
   const [statusChangePending, setStatusChangePending] = useState<"draft" | "sent" | null>(null);
   const [changingStatus, setChangingStatus] = useState(false);
+  const [portalVisibilitySaving, setPortalVisibilitySaving] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingProposalPdf, setDownloadingProposalPdf] = useState(false);
   const [sendingDotacion, setSendingDotacion] = useState(false);
@@ -194,6 +197,40 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
   const [serviceDetailInstruction, setServiceDetailInstruction] = useState("");
 
   const isLocked = quote?.status === "sent";
+
+  const portalListedEffective = useMemo(() => {
+    if (!quote) return false;
+    return isCpqQuoteListedInClientPortal({
+      visibleInClientPortal: quote.visibleInClientPortal ?? null,
+      status: quote.status,
+    });
+  }, [quote]);
+
+  const handlePortalVisibilityChange = useCallback(
+    async (checked: boolean) => {
+      if (!quote) return;
+      setPortalVisibilitySaving(true);
+      try {
+        const res = await fetch(`/api/cpq/quotes/${quoteId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ visibleInClientPortal: checked }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || "Error");
+        setQuote(data.data);
+        toast.success(
+          checked ? "La cotización se muestra en el portal del cliente" : "Cotización oculta del portal del cliente"
+        );
+      } catch (e) {
+        console.error(e);
+        toast.error("No se pudo actualizar la visibilidad en el portal");
+      } finally {
+        setPortalVisibilitySaving(false);
+      }
+    },
+    [quote, quoteId]
+  );
   const [secDatos, setSecDatos] = useState(true);
   const [secPuestos, setSecPuestos] = useState(true);
   const [secCostos, setSecCostos] = useState(true);
@@ -617,10 +654,18 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
     if (!quote) return;
     setChangingStatus(true);
     try {
+      const payload: Record<string, unknown> = { status: newStatus };
+      if (
+        newStatus === "draft" &&
+        quote.status !== "draft" &&
+        quote.visibleInClientPortal !== false
+      ) {
+        payload.visibleInClientPortal = true;
+      }
       const res = await fetch(`/api/cpq/quotes/${quoteId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Error");
@@ -1159,6 +1204,32 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               return c ? ` · ${c.firstName} ${c.lastName}`.trim() : "";
             })()}
           </span>
+          {crmContext.accountId ? (
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap max-w-full">
+              <Label htmlFor="cpq-portal-visible" className="text-[11px] text-muted-foreground font-normal cursor-pointer shrink-0">
+                Visible en portal del cliente
+              </Label>
+              <Switch
+                id="cpq-portal-visible"
+                checked={portalListedEffective}
+                disabled={portalVisibilitySaving}
+                onCheckedChange={(v) => void handlePortalVisibilityChange(v)}
+                title={
+                  portalListedEffective
+                    ? "El prospecto o cliente puede ver esta cotización en su portal"
+                    : "Activa para mostrar la cotización en el portal aunque esté en borrador"
+                }
+              />
+              {portalVisibilitySaving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" aria-hidden />
+              ) : null}
+              <span className="text-[10px] text-muted-foreground/80 leading-tight hidden sm:inline max-w-[220px]">
+                {quote.status === "draft"
+                  ? "Puedes dejarla visible mientras editas en borrador."
+                  : "Desactiva para ocultarla del portal sin cambiar el estado."}
+              </span>
+            </div>
+          ) : null}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <div className="hidden lg:flex items-center gap-1 border-r border-border/60 pr-2 mr-1">
@@ -2532,7 +2603,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             <DialogTitle>Volver a borrador</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Volver esta cotizacion a borrador? Podras editar los valores nuevamente. Para marcarla como enviada otra vez, usa &quot;Marcar como enviada&quot;.
+            Volver esta cotizacion a borrador? Podras editar los valores nuevamente. La cotización seguirá visible en el portal del cliente (puedes desactivarlo con el interruptor &quot;Visible en portal del cliente&quot;). Para marcarla como enviada otra vez, usa &quot;Marcar como enviada&quot;.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStatusChangePending(null)} disabled={changingStatus}>

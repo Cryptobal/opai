@@ -271,8 +271,11 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     console.error("Error creating presentation in send-portal:", presentationError);
   }
 
-  // Update quote status
-  await prisma.cpqQuote.update({ where: { id: quoteId }, data: { status: "sent" } });
+  // Update quote status + visibilidad en portal del cliente
+  await prisma.cpqQuote.update({
+    where: { id: quoteId },
+    data: { status: "sent", visibleInClientPortal: true },
+  });
 
   // Send email
   const tenantConfig = await getTenantCompanyConfig(tenantId);

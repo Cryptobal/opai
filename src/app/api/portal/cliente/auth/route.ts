@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { validateClienteSession, parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
 import type { ClienteSession, PortalConfig } from "@/lib/portal-cliente-types";
+import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 
 const PORTAL_CLIENTE_SESSION_COOKIE = "portal_cliente_session";
 const SESSION_MAX_AGE_SECONDS = 90 * 24 * 60 * 60; // 90 días — sesión persistente del portal cliente
@@ -99,7 +100,11 @@ export async function GET() {
 
         if (!freshUrl && session.accountId) {
           const accountQuote = await prisma.cpqQuote.findFirst({
-            where: { accountId: session.accountId, tenantId: session.tenantId, status: 'sent' },
+            where: {
+              accountId: session.accountId,
+              tenantId: session.tenantId,
+              ...cpqQuoteListedInClientPortalWhere(),
+            },
             select: { id: true },
             orderBy: { createdAt: 'desc' },
           });

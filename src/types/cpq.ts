@@ -131,6 +131,8 @@ export interface CpqQuote {
   code: string;
   name?: string | null;
   status: CpqQuoteStatus;
+  /** null = legado (visible en portal si no es borrador); true/false = forzar */
+  visibleInClientPortal?: boolean | null;
   clientName?: string | null;
   validUntil?: string | null;
   notes?: string | null;
