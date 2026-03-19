@@ -10,7 +10,8 @@ import { renderProposalToBufferFromProps } from "@/lib/pdf/templates/proposal/re
 import type { ProposalProps } from "@/lib/pdf/templates/proposal/build-proposal-props";
 import type { ProposalAIContent } from "@/lib/pdf/templates/proposal/proposal-ai";
 import type { QuoteBreakdownData, PositionBreakdownItem, ResourceBreakdownCategory, ResourceBreakdownItem } from "@/types/cpq-breakdown";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatUFSuffix } from "@/lib/utils";
+import { clpToUf } from "@/lib/uf-utils";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { prisma } from "@/lib/prisma";
 import { generateProposalAIContent } from "@/lib/pdf/templates/proposal/proposal-ai";
@@ -138,7 +139,16 @@ export async function POST(
     let uniformRotatingCost = 0;
     let uniformProratedCost = 0;
     let examSetCost = 0;
-    let otherCostItemsTotal = 0;
+
+    const typeToSlug: Record<string, string> = {
+      phone: "operational", radio: "operational", flashlight: "operational",
+      system: "system", transport: "transport",
+      vehicle_rent: "vehicle", vehicle_fuel: "vehicle", vehicle_tag: "vehicle",
+      infrastructure: "infrastructure", fuel: "infrastructure",
+      meal: "meal",
+      other: "other",
+    };
+    const costItemBySlug: Record<string, number> = {};
 
     for (const c of enabledCosts) {
       const unitPrice = normalizeUnitPrice(c.priceOverride ?? c.basePrice, c.unit, previewContractMonths);
@@ -148,8 +158,9 @@ export async function POST(
         else uniformRotatingCost += unitPrice;
       } else if (c.type === "exam") {
         examSetCost += unitPrice;
-      } else {
-        otherCostItemsTotal += unitPrice;
+      } else if (c.type !== "financial" && c.type !== "policy") {
+        const slug = typeToSlug[c.type] ?? "other";
+        costItemBySlug[slug] = (costItemBySlug[slug] ?? 0) + unitPrice;
       }
     }
 
@@ -158,6 +169,16 @@ export async function POST(
     const examFrequency = Math.max(avgStayMonths > 0 ? 12 / avgStayMonths : 0, uniformChangesPerYear);
     const monthlyExams = totalGuards > 0
       ? ((examSetCost * examFrequency) / 12) * totalGuards : 0;
+
+    const monthlyEquipment = costItemBySlug["operational"] ?? 0;
+    const monthlyTransport = costItemBySlug["transport"] ?? 0;
+    const monthlySystems = costItemBySlug["system"] ?? 0;
+    const monthlyVehicleItems = costItemBySlug["vehicle"] ?? 0;
+    const monthlyInfraItems = costItemBySlug["infrastructure"] ?? 0;
+    const monthlyMealItems = costItemBySlug["meal"] ?? 0;
+    const monthlyOther = costItemBySlug["other"] ?? 0;
+    const otherCostItemsTotal = monthlyEquipment + monthlyTransport + monthlySystems
+      + monthlyVehicleItems + monthlyInfraItems + monthlyMealItems + monthlyOther;
     const totalAdditionalCosts = monthlyUniforms + monthlyExams + otherCostItemsTotal;
 
     /* ── Margin ── */
@@ -216,7 +237,10 @@ export async function POST(
     const grandTotal = totalSalePrice + totalAdditionalLinesAmount;
 
     /* ── Items for PDF ── */
-    const fmt = (n: number) => formatCurrency(n, "CLP");
+    const fmt = (n: number) =>
+      currency === "UF" && ufValue && ufValue > 0
+        ? formatUFSuffix(clpToUf(n, ufValue))
+        : formatCurrency(n, "CLP");
     let idx = 1;
     const items: ProposalProps["items"] = [];
 
@@ -279,12 +303,13 @@ export async function POST(
       holidayAdjustment,
       uniforms: monthlyUniforms,
       exams: monthlyExams,
-      meals: 0,
-      vehicles: 0,
-      infrastructure: 0,
-      equipment: 0,
-      transport: 0,
-      systems: 0,
+      meals: monthlyMealItems,
+      vehicles: monthlyVehicleItems,
+      infrastructure: monthlyInfraItems,
+      equipment: monthlyEquipment,
+      transport: monthlyTransport,
+      systems: monthlySystems,
+      other: monthlyOther,
       subtotalBase: costoBase,
       marginPct: marginPercentage,
       marginAmount,
@@ -297,6 +322,7 @@ export async function POST(
       grandTotal,
       monthlyHoursStandard,
       currency: currency || "CLP",
+      ufValue: ufValue ?? undefined,
     };
 
     /* ── Service / regime ── */
@@ -376,63 +402,61 @@ export async function POST(
     const proposalDate = new Date().toLocaleDateString("es-CL");
 
     /* ── Resource breakdown for detailed section ── */
-    const resourceBreakdown: ResourceBreakdownCategory[] = [];
-    const directItemsByType = new Map<string, ResourceBreakdownItem[]>();
-    const indirectItems: ResourceBreakdownItem[] = [];
+    const resCats: ResourceBreakdownCategory[] = [];
+
+    const slugToCategory: Record<string, { name: string; type: "direct" | "indirect" }> = {
+      uniform: { name: "Uniformes", type: "direct" },
+      exam: { name: "Exámenes Médicos", type: "direct" },
+      meal: { name: "Alimentación", type: "direct" },
+      operational: { name: "Equipos Operativos", type: "indirect" },
+      system: { name: "Sistemas", type: "indirect" },
+      transport: { name: "Transporte", type: "indirect" },
+      vehicle: { name: "Vehículos", type: "indirect" },
+      infrastructure: { name: "Infraestructura", type: "indirect" },
+      other: { name: "Otros Costos", type: "indirect" },
+    };
+
+    const findOrCreateResCat = (slug: string) => {
+      const meta = slugToCategory[slug] ?? { name: "Otros Costos", type: "indirect" as const };
+      let cat = resCats.find((c) => c.category === meta.name);
+      if (!cat) {
+        cat = { category: meta.name, categoryType: meta.type, items: [], subtotal: 0 };
+        resCats.push(cat);
+      }
+      return cat;
+    };
 
     for (const c of enabledCosts) {
+      if (c.type === "financial" || c.type === "policy") continue;
       const unitPrice = normalizeUnitPrice(c.priceOverride ?? c.basePrice, c.unit, previewContractMonths);
-      let monthlyAmount = unitPrice;
+      let monthlyAmount: number;
+      let unit: string | undefined;
 
       if (c.type === "uniform") {
         const logic = c.priceLogic ?? "uniform";
         monthlyAmount = logic === "prorated"
           ? unitPrice * totalGuards
           : ((unitPrice * uniformChangesPerYear) / 12) * totalGuards;
+        unit = "por guardia/mes";
       } else if (c.type === "exam") {
         monthlyAmount = ((unitPrice * examFrequency) / 12) * totalGuards;
-      }
-
-      const item: ResourceBreakdownItem = {
-        name: c.name,
-        amount: monthlyAmount,
-        unit: c.unit || undefined,
-        technicalSpecs: null,
-      };
-
-      const typeLower = (c.type || "").toLowerCase();
-      if (["uniform", "exam", "meal", "vehicle", "equipment", "transport"].includes(typeLower)) {
-        const cat = typeLower === "uniform" ? "Uniformes"
-          : typeLower === "exam" ? "Exámenes"
-          : typeLower === "meal" ? "Alimentación"
-          : typeLower === "vehicle" ? "Vehículos"
-          : typeLower === "equipment" ? "Equipamiento"
-          : typeLower === "transport" ? "Transporte"
-          : c.type;
-        const existing = directItemsByType.get(cat) || [];
-        existing.push(item);
-        directItemsByType.set(cat, existing);
+        unit = "por guardia/mes";
       } else {
-        indirectItems.push(item);
+        monthlyAmount = unitPrice;
+        unit = c.unit || undefined;
       }
+
+      const itemSlug = c.type === "uniform" ? "uniform"
+        : c.type === "exam" ? "exam"
+        : c.type === "meal" ? "meal"
+        : (typeToSlug[c.type] ?? "other");
+
+      const cat = findOrCreateResCat(itemSlug);
+      cat.items.push({ name: c.name, amount: monthlyAmount, unit, technicalSpecs: null });
+      cat.subtotal += monthlyAmount;
     }
 
-    for (const [cat, items] of directItemsByType) {
-      resourceBreakdown.push({
-        category: cat,
-        categoryType: "direct",
-        items,
-        subtotal: items.reduce((s, i) => s + i.amount, 0),
-      });
-    }
-    if (indirectItems.length > 0) {
-      resourceBreakdown.push({
-        category: "Otros Costos Indirectos",
-        categoryType: "indirect",
-        items: indirectItems,
-        subtotal: indirectItems.reduce((s, i) => s + i.amount, 0),
-      });
-    }
+    const resourceBreakdown = resCats.filter((c) => c.items.length > 0);
 
     const props: ProposalProps = {
       companyName: accountName,

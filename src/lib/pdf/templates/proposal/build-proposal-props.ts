@@ -158,7 +158,9 @@ export async function buildProposalProps(
     0
   );
 
-  const totalSalePrice = costSummary?.baseWithMargin ?? 0;
+  const totalSalePrice = (costSummary?.baseWithMargin ?? 0)
+    + (costSummary?.monthlyFinancial ?? 0)
+    + (costSummary?.monthlyPolicy ?? 0);
   const grandTotal = totalSalePrice + totalAdditionalLines;
 
   const positions = quote.positions;
@@ -405,9 +407,11 @@ export async function buildProposalProps(
         totalLaborCost: costSummary.monthlyPositions,
         holidayAdjustment: costSummary.monthlyHolidayAdjustment,
         uniforms: costSummary.monthlyUniforms, exams: costSummary.monthlyExams, meals: costSummary.monthlyMeals,
-        vehicles: costSummary.monthlyVehicles, infrastructure: costSummary.monthlyInfrastructure,
+        vehicles: costSummary.monthlyVehicles + sumByType(['vehicle_rent', 'vehicle_fuel', 'vehicle_tag']),
+        infrastructure: costSummary.monthlyInfrastructure + sumByType(['infrastructure', 'fuel']),
         equipment: sumByType(['phone', 'radio', 'flashlight']),
         transport: sumByType(['transport']), systems: sumByType(['system']),
+        other: sumByType(['other']),
         subtotalBase, marginPct, marginAmount,
         financial: costSummary.monthlyFinancial, financialRatePct: financialRatePctVal,
         policy: costSummary.monthlyPolicy, policyRatePct: policyRatePctVal,

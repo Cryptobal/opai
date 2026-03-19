@@ -15,7 +15,8 @@ import { DEFAULT_TEMPLATE_SECTIONS, DEFAULT_COMPLIANCE_ITEMS } from "@/lib/pdf/t
 import type { QuotationPDFProps, AdditionalLinePDF, LaborBreakdownPDF, LaborPositionDetailPDF } from "@/lib/pdf/templates/quotation/render-quotation";
 import type { ProposalTemplateSections, CostByCategory, CostByCategoryItem } from "@/types/cpq";
 import type { QuoteBreakdownData, PositionBreakdownItem } from "@/types/cpq-breakdown";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatUFSuffix } from "@/lib/utils";
+import { clpToUf } from "@/lib/uf-utils";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { prisma } from "@/lib/prisma";
 import {
@@ -105,6 +106,7 @@ const COST_TYPE_CATEGORY: Record<string, { category: "direct" | "indirect"; grou
   infrastructure: { category: "indirect", group: "Infraestructura", slug: "infrastructure" },
   fuel: { category: "indirect", group: "Infraestructura", slug: "infrastructure" },
   system: { category: "indirect", group: "Sistemas", slug: "system" },
+  other: { category: "indirect", group: "Otros Costos", slug: "other" },
 };
 
 export async function POST(
@@ -308,12 +310,17 @@ export async function POST(
           precioMensual: base,
           marginPct: marginPctLine,
           precioVenta: mensual,
-          precioVentaFmt: formatCurrency(Math.round(mensual)),
+          precioVentaFmt: fmt(mensual),
         };
       });
 
     const totalAdditionalLinesAmount = pdfAdditionalLines.reduce((s, l) => s + l.precioVenta, 0);
     const grandTotal = totalSalePrice + totalAdditionalLinesAmount;
+
+    const fmt = (n: number) =>
+      currency === "UF" && ufValue && ufValue > 0
+        ? formatUFSuffix(clpToUf(n, ufValue))
+        : formatCurrency(n, "CLP");
 
     /* ── Positions for PDF ── */
     const pdfPositions = positionCosts.map((pos: PositionCostResult) => {
@@ -325,7 +332,7 @@ export async function POST(
         quantity: pos.numPuestos,
         days: pos.days,
         schedule: pos.schedule,
-        monthlyValue: formatCurrency(Math.round(positionSaleValue)),
+        monthlyValue: fmt(positionSaleValue),
       };
     });
 
@@ -365,6 +372,7 @@ export async function POST(
       equipment: sumBySlug(["operational"]),
       transport: sumBySlug(["transport"]),
       systems: sumBySlug(["system"]),
+      other: sumBySlug(["other"]),
       subtotalBase: costoBase,
       marginPct: marginPercentage,
       marginAmount,
@@ -377,6 +385,7 @@ export async function POST(
       grandTotal,
       monthlyHoursStandard,
       currency: currency || "CLP",
+      ufValue: ufValue ?? undefined,
     };
 
     /* ── Labor breakdown ── */
@@ -416,7 +425,7 @@ export async function POST(
     for (const cat of costsByCategory) {
       for (const item of cat.items) {
         if (item.amount > 0) {
-          includedItems.push(`${item.name}: ${formatCurrency(Math.round(item.amount))}/mes`);
+          includedItems.push(`${item.name}: ${fmt(item.amount)}/mes`);
         }
       }
     }
@@ -473,9 +482,9 @@ export async function POST(
       positions: pdfPositions,
       additionalServices,
       totals: {
-        subtotalGuards: formatCurrency(Math.round(totalSalePrice)),
-        subtotalAdditional: formatCurrency(Math.round(totalAdditionalLinesAmount)),
-        totalNet: formatCurrency(Math.round(grandTotal)),
+        subtotalGuards: fmt(totalSalePrice),
+        subtotalAdditional: fmt(totalAdditionalLinesAmount),
+        totalNet: fmt(grandTotal),
       },
       conditions: {
         paymentTerms:

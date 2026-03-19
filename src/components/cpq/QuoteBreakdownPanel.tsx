@@ -195,6 +195,7 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
         { label: "Vehículos", amount: data.vehicles },
         { label: "Infraestructura", amount: data.infrastructure },
         { label: "Sistemas", amount: data.systems },
+        { label: "Otros costos", amount: data.other ?? 0 },
       ].filter((i) => i.amount > 0),
     },
   ];

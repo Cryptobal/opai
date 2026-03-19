@@ -104,37 +104,29 @@ export async function GET(
   }
 
   /* ── Compute costs ── */
-  let salePriceClp = quote.parameters?.salePriceMonthly != null
-    ? Number(quote.parameters.salePriceMonthly)
-    : 0;
-
   let costSummary: Awaited<ReturnType<typeof computeCpqQuoteCosts>> | null = null;
   try {
     costSummary = await computeCpqQuoteCosts(id);
   } catch {}
 
-  if (salePriceClp <= 0 && costSummary) {
-    const marginPct = Number(quote.parameters?.marginPct ?? 13) / 100;
-    const costsBase =
-      costSummary.monthlyPositions +
-      (costSummary.monthlyHolidayAdjustment ?? 0) +
-      (costSummary.monthlyUniforms ?? 0) +
-      (costSummary.monthlyExams ?? 0) +
-      (costSummary.monthlyMeals ?? 0) +
-      (costSummary.monthlyVehicles ?? 0) +
-      (costSummary.monthlyInfrastructure ?? 0) +
-      (costSummary.monthlyCostItems ?? 0);
-    const bwm = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
-    salePriceClp = bwm + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
-  }
-  if (salePriceClp <= 0) {
-    salePriceClp = quote.monthlyCost?.toNumber() ?? 0;
+  let salePriceClp: number;
+  let additionalLinesTotal: number;
+
+  if (costSummary) {
+    salePriceClp = (costSummary.baseWithMargin ?? 0)
+      + (costSummary.monthlyFinancial ?? 0)
+      + (costSummary.monthlyPolicy ?? 0);
+    additionalLinesTotal = costSummary.additionalLinesTotalWithMargin ?? 0;
+  } else {
+    salePriceClp = quote.parameters?.salePriceMonthly != null
+      ? Number(quote.parameters.salePriceMonthly)
+      : (quote.monthlyCost?.toNumber() ?? 0);
+    additionalLinesTotal = quote.additionalLines.reduce(
+      (s, l) => s + Number(l.precio || 0),
+      0
+    );
   }
 
-  const additionalLinesTotal = quote.additionalLines.reduce(
-    (s, l) => s + Number(l.precio || 0),
-    0
-  );
   const rawMonthly = salePriceClp + additionalLinesTotal;
 
   /* ── Assign sale price to each position ── */
@@ -208,6 +200,9 @@ export async function GET(
       const equipment = sumByType(["phone", "radio", "flashlight"]);
       const transport = sumByType(["transport"]);
       const systems = sumByType(["system"]);
+      const vehicleCostItems = sumByType(["vehicle_rent", "vehicle_fuel", "vehicle_tag"]);
+      const infraCostItems = sumByType(["infrastructure", "fuel"]);
+      const otherCostItems = sumByType(["other"]);
 
       /* ── Per-position breakdown ── */
       const positionItems: PositionBreakdownItem[] = quote.positions.map((pos) => {
@@ -265,11 +260,12 @@ export async function GET(
         uniforms: costSummary.monthlyUniforms,
         exams: costSummary.monthlyExams,
         meals: costSummary.monthlyMeals,
-        vehicles: costSummary.monthlyVehicles,
-        infrastructure: costSummary.monthlyInfrastructure,
+        vehicles: costSummary.monthlyVehicles + vehicleCostItems,
+        infrastructure: costSummary.monthlyInfrastructure + infraCostItems,
         equipment,
         transport,
         systems,
+        other: otherCostItems,
         subtotalBase,
         marginPct,
         marginAmount,

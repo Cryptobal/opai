@@ -50,7 +50,8 @@ export function ProposalEstructuraCostos({
     breakdown.transport +
     breakdown.vehicles +
     breakdown.infrastructure +
-    breakdown.systems;
+    breakdown.systems +
+    (breakdown.other ?? 0);
 
   return (
     <div className={cn("rounded-xl border border-slate-700/50 overflow-hidden", className)}>
@@ -146,6 +147,9 @@ export function ProposalEstructuraCostos({
               )}
               {breakdown.systems > 0 && (
                 <CostRow label="Sistemas" value={fmt(breakdown.systems)} />
+              )}
+              {(breakdown.other ?? 0) > 0 && (
+                <CostRow label="Otros costos" value={fmt(breakdown.other ?? 0)} />
               )}
             </CostSection>
           )}

@@ -905,7 +905,7 @@ export async function renderProposalToBufferFromProps(
   if (breakdown) {
     const bd: QuoteBreakdownData = breakdown;
     const directCosts = bd.holidayAdjustment + bd.uniforms + bd.exams + bd.meals;
-    const indirectCosts = bd.equipment + bd.transport + bd.vehicles + bd.infrastructure + bd.systems;
+    const indirectCosts = bd.equipment + bd.transport + bd.vehicles + bd.infrastructure + bd.systems + (bd.other ?? 0);
 
     const bdRow = (label: string, value: number, indent?: boolean) =>
       e(View, { style: [s.bdRow, indent ? { paddingLeft: 16 } : null] },
@@ -961,6 +961,7 @@ export async function renderProposalToBufferFromProps(
               bd.vehicles > 0 ? bdRow('Vehículos', bd.vehicles, true) : null,
               bd.infrastructure > 0 ? bdRow('Infraestructura', bd.infrastructure, true) : null,
               bd.systems > 0 ? bdRow('Sistemas', bd.systems, true) : null,
+              (bd.other ?? 0) > 0 ? bdRow('Otros costos', bd.other, true) : null,
             )
           : null,
 

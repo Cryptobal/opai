@@ -337,11 +337,11 @@ export function LeadInstallationCpq({
           uniformRotatingCost += normalizeUnitPrice(price, item.unit, contractMonths);
         }
       } else if (item.type === "exam") {
-        examSetCost += normalizeUnitPrice(item.priceOverride ?? item.basePrice, item.unit);
+        examSetCost += normalizeUnitPrice(item.priceOverride ?? item.basePrice, item.unit, contractMonths);
       } else if (cat.category === "direct") {
-        otherDirectos += normalizeUnitPrice(item.priceOverride ?? item.basePrice, item.unit);
+        otherDirectos += normalizeUnitPrice(item.priceOverride ?? item.basePrice, item.unit, contractMonths);
       } else {
-        indirectos += normalizeUnitPrice(item.priceOverride ?? item.basePrice, item.unit);
+        indirectos += normalizeUnitPrice(item.priceOverride ?? item.basePrice, item.unit, contractMonths);
       }
     }
 

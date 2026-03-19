@@ -63,6 +63,7 @@ export interface QuoteBreakdownData {
   equipment: number;
   transport: number;
   systems: number;
+  other: number;
 
   /* ── Subtotal & pricing ── */
   subtotalBase: number;

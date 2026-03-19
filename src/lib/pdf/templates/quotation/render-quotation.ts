@@ -722,8 +722,16 @@ export async function renderQuotationToBuffer(
     );
 
   /* ─── Currency format helper ─── */
-  const fmtMoney = (n: number) =>
-    new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Math.round(n));
+  const quoteCurrency = props.quote?.currency || 'CLP';
+  const bdUfValue = props.breakdown?.ufValue ?? 0;
+  const fmtMoney = (n: number) => {
+    if (quoteCurrency === 'UF' && bdUfValue > 0) {
+      const uf = n / bdUfValue;
+      const formatted = new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(uf);
+      return `${formatted} UF`;
+    }
+    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Math.round(n));
+  };
 
   /* ─── Footer with dynamic page numbers via render prop ─── */
   const pageFooter = () =>
@@ -1089,16 +1097,17 @@ export async function renderQuotationToBuffer(
               )
             : null,
 
-          (breakdown.equipment + breakdown.transport + breakdown.vehicles + breakdown.infrastructure + breakdown.systems) > 0
+          (breakdown.equipment + breakdown.transport + breakdown.vehicles + breakdown.infrastructure + breakdown.systems + (breakdown.other ?? 0)) > 0
             ? e(
                 View,
                 { style: { marginBottom: 8 } },
-                e(View, { style: [s.tblRow, { backgroundColor: '#fef3c7' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#b45309' }] }, 'Costos Indirectos'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#b45309' }] }, fmtMoney(breakdown.equipment + breakdown.transport + breakdown.vehicles + breakdown.infrastructure + breakdown.systems))),
+                e(View, { style: [s.tblRow, { backgroundColor: '#fef3c7' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#b45309' }] }, 'Costos Indirectos'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#b45309' }] }, fmtMoney(breakdown.equipment + breakdown.transport + breakdown.vehicles + breakdown.infrastructure + breakdown.systems + (breakdown.other ?? 0)))),
                 breakdown.equipment > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Equipo operativo'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.equipment))) : null,
                 breakdown.transport > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Transporte'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.transport))) : null,
                 breakdown.vehicles > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Vehiculos'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.vehicles))) : null,
                 breakdown.infrastructure > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Infraestructura'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.infrastructure))) : null,
                 breakdown.systems > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Sistemas'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.systems))) : null,
+                (breakdown.other ?? 0) > 0 ? e(View, { style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Otros costos'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.other ?? 0))) : null,
               )
             : null,
 
