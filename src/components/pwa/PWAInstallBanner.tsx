@@ -42,12 +42,27 @@ export function PWAInstallBanner({
   };
 
   if (isInstalled || dismissed) return null;
-  // En variantes inline/banner: ocultar solo si no es instalable y no es iOS (evitar banner vacío sin "Instalar" ni instrucciones)
   if (variant !== 'fullscreen' && !canInstall && !isIOS) return null;
 
   const handleInstall = async () => {
     const accepted = await install();
     if (!accepted) handleDismiss();
+  };
+
+  const handleIOSInstall = async () => {
+    if (typeof navigator.share !== 'undefined') {
+      try {
+        await navigator.share({
+          title: appName,
+          text: appName,
+          url: window.location.href,
+        });
+      } catch {
+        setShowHowToModal(true);
+      }
+    } else {
+      setShowHowToModal(true);
+    }
   };
 
   if (variant === 'fullscreen') {
@@ -56,15 +71,32 @@ export function PWAInstallBanner({
         <div className="fixed inset-0 z-50 bg-[#0a0a0f] flex flex-col items-center justify-center p-8 text-center">
           <img src={iconSrc} alt={appName} className="w-24 h-24 rounded-2xl mb-6 shadow-lg" />
           <h1 className="text-2xl font-bold text-white mb-2">{appName}</h1>
-          <p className="text-zinc-400 mb-6 max-w-xs">{appDescription}</p>
+          <p className="text-zinc-400 mb-8 max-w-xs">{appDescription}</p>
 
-          {canInstall && (
+          {canInstall ? (
             <button
               onClick={handleInstall}
-              className="w-full max-w-xs bg-teal-600 hover:bg-teal-500 text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-colors"
+              className="w-full max-w-xs bg-teal-600 hover:bg-teal-500 text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-colors text-lg"
             >
               <Download className="w-5 h-5" />
-              Descargar App
+              Instalar App
+            </button>
+          ) : isIOS ? (
+            <button
+              onClick={handleIOSInstall}
+              className="w-full max-w-xs bg-teal-600 hover:bg-teal-500 text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-colors text-lg"
+            >
+              <Share className="w-5 h-5" />
+              Agregar a pantalla de inicio
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowHowToModal(true)}
+              className="w-full max-w-xs bg-teal-600 hover:bg-teal-500 text-white font-semibold py-4 px-6 rounded-2xl flex items-center justify-center gap-3 transition-colors text-lg"
+            >
+              <Download className="w-5 h-5" />
+              Ver cómo instalar
             </button>
           )}
 
@@ -73,8 +105,7 @@ export function PWAInstallBanner({
             onClick={() => setShowHowToModal(true)}
             className="mt-4 text-teal-400 hover:text-teal-300 text-sm font-medium flex items-center justify-center gap-2 transition-colors"
           >
-            <Share className="w-4 h-4" />
-            Ver cómo agregar al inicio
+            ¿No funciona? Ver instrucciones paso a paso
           </button>
 
           <button
@@ -100,22 +131,30 @@ export function PWAInstallBanner({
             <p className="text-white text-sm font-medium truncate">{appName}</p>
             <p className="text-zinc-400 text-xs truncate">{appDescription}</p>
           </div>
-          {canInstall && (
+          {canInstall ? (
             <button
               onClick={handleInstall}
               className="bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
             >
               Instalar
             </button>
+          ) : isIOS ? (
+            <button
+              onClick={handleIOSInstall}
+              className="bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
+            >
+              Agregar
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowHowToModal(true)}
+              className="shrink-0 flex flex-col items-center gap-0.5 text-teal-400 hover:text-teal-300 text-xs font-medium transition-colors"
+            >
+              <Share className="w-4 h-4" />
+              <span>Ver cómo</span>
+            </button>
           )}
-          <button
-            type="button"
-            onClick={() => setShowHowToModal(true)}
-            className="shrink-0 flex flex-col items-center gap-0.5 text-teal-400 hover:text-teal-300 text-xs font-medium transition-colors"
-          >
-            <Share className="w-4 h-4" />
-            <span>Ver cómo agregar</span>
-          </button>
           <button onClick={handleDismiss} className="text-zinc-500 hover:text-zinc-300 shrink-0 ml-1">
             <X className="w-4 h-4" />
           </button>
@@ -137,22 +176,30 @@ export function PWAInstallBanner({
             <p className="text-white text-sm font-medium truncate">{appName}</p>
             <p className="text-zinc-400 text-xs truncate">{appDescription}</p>
           </div>
-          {canInstall && (
+          {canInstall ? (
             <button
               onClick={handleInstall}
               className="bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
             >
               Instalar
             </button>
+          ) : isIOS ? (
+            <button
+              onClick={handleIOSInstall}
+              className="bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 transition-colors"
+            >
+              Agregar
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowHowToModal(true)}
+              className="shrink-0 flex flex-col items-center gap-0.5 text-teal-400 hover:text-teal-300 text-xs font-medium transition-colors"
+            >
+              <Share className="w-4 h-4" />
+              <span>Ver cómo</span>
+            </button>
           )}
-          <button
-            type="button"
-            onClick={() => setShowHowToModal(true)}
-            className="shrink-0 flex flex-col items-center gap-0.5 text-teal-400 hover:text-teal-300 text-xs font-medium transition-colors"
-          >
-            <Share className="w-4 h-4" />
-            <span>Ver cómo agregar</span>
-          </button>
           <button onClick={handleDismiss} className="text-zinc-500 hover:text-zinc-300 shrink-0">
             <X className="w-5 h-5" />
           </button>

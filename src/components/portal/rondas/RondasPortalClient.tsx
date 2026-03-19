@@ -11,7 +11,7 @@ import { RondaActiva } from "./RondaActiva";
 import type { RondaData, CompletionData } from "./RondaActiva";
 import { RondaCompletada } from "./RondaCompletada";
 import { ReportarIncidente } from "./ReportarIncidente";
-import { InstallBanner } from "./InstallBanner";
+import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { ChatRondasPortal } from "./ChatRondasPortal";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import { PortalBottomNav } from "./PortalBottomNav";
@@ -728,7 +728,13 @@ export function RondasPortalClient() {
         />
       )}
 
-      <InstallBanner />
+      <PWAInstallBanner
+        appName="OPAI Rondas"
+        appDescription="Rondas y marcaciones sin complicaciones"
+        iconSrc="/icons/icon-192x192.png"
+        variant="banner"
+        dismissKey="rondas"
+      />
 
       <LogoutPinModal
         open={showLogoutPin}

@@ -16,7 +16,6 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "OPAI - Presentaciones Comerciales",
   description: "Suite de aplicaciones inteligentes",
-  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: '/icons/favicon.svg', type: 'image/svg+xml' },

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Share, ChevronLeft, Smartphone } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Share, ChevronLeft, Smartphone, ArrowUp, MoreVertical, Menu } from 'lucide-react';
 
 export type PwaBrowserChoice = 'safari_ios' | 'chrome_android' | 'samsung' | 'other';
 
@@ -10,12 +10,32 @@ interface PWAHowToInstallModalProps {
   onClose: () => void;
 }
 
+function detectBrowser(): PwaBrowserChoice {
+  if (typeof navigator === 'undefined') return 'other';
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+  if (isIOS) return 'safari_ios';
+  const isSamsung = /SamsungBrowser/i.test(ua);
+  if (isSamsung) return 'samsung';
+  const isAndroid = /Android/i.test(ua);
+  if (isAndroid) return 'chrome_android';
+  return 'other';
+}
+
 const BROWSER_OPTIONS: { id: PwaBrowserChoice; label: string; sublabel: string }[] = [
   { id: 'safari_ios', label: 'Safari (iPhone o iPad)', sublabel: 'Apple' },
   { id: 'chrome_android', label: 'Chrome (Android)', sublabel: 'Celular' },
   { id: 'samsung', label: 'Samsung Internet', sublabel: 'Android' },
   { id: 'other', label: 'Otro o escritorio', sublabel: 'Ver opciones' },
 ];
+
+function StepBubble({ n }: { n: number }) {
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-teal-400 font-bold text-base">
+      {n}
+    </span>
+  );
+}
 
 function InstructionsContent({
   browser,
@@ -40,31 +60,50 @@ function InstructionsContent({
   if (browser === 'safari_ios') {
     return (
       <div className="space-y-5">
-        <p className="text-zinc-400 text-sm">
-          En iPhone o iPad se usa el menú <strong className="text-white">Compartir</strong> de Safari.
-        </p>
-        <ol className="space-y-4 text-sm">
-          <li className="flex gap-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-teal-400 font-semibold">1</span>
-            <span className="text-zinc-300">
-              Toca el botón <strong className="text-white">Compartir</strong> en la barra inferior (icono con flecha hacia arriba).
-            </span>
+        <div className="rounded-xl bg-teal-500/10 border border-teal-500/20 p-4 text-center">
+          <p className="text-teal-300 text-sm font-medium">
+            En iPhone se agrega desde el menú <strong className="text-white">Compartir</strong>
+          </p>
+        </div>
+        <ol className="space-y-5 text-sm">
+          <li className="flex gap-4 items-start">
+            <StepBubble n={1} />
+            <div className="flex-1">
+              <p className="text-white font-medium mb-1">Toca el botón Compartir</p>
+              <p className="text-zinc-400 text-xs">
+                Es el ícono con la flecha hacia arriba
+                <ArrowUp className="inline w-3.5 h-3.5 ml-1 -mt-0.5" />
+                {' '}en la barra inferior de Safari.
+              </p>
+            </div>
           </li>
-          <li className="flex gap-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-teal-400 font-semibold">2</span>
-            <span className="text-zinc-300">
-              Desliza y elige <strong className="text-white">Agregar a pantalla de inicio</strong>.
-            </span>
+          <li className="flex gap-4 items-start">
+            <StepBubble n={2} />
+            <div className="flex-1">
+              <p className="text-white font-medium mb-1">Busca &quot;Agregar a pantalla de inicio&quot;</p>
+              <p className="text-zinc-400 text-xs">
+                Desliza hacia abajo en el menú que aparece hasta encontrar esta opción.
+              </p>
+            </div>
+          </li>
+          <li className="flex gap-4 items-start">
+            <StepBubble n={3} />
+            <div className="flex-1">
+              <p className="text-white font-medium mb-1">Toca &quot;Agregar&quot;</p>
+              <p className="text-zinc-400 text-xs">
+                ¡Listo! La app aparecerá en tu pantalla de inicio.
+              </p>
+            </div>
           </li>
         </ol>
-        {typeof navigator.share !== 'undefined' && (
+        {typeof navigator !== 'undefined' && typeof navigator.share !== 'undefined' && (
           <button
             type="button"
             onClick={openShareSheet}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium py-3 px-4 transition-colors"
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold py-3.5 px-4 transition-colors text-base"
           >
             <Share className="w-5 h-5" />
-            Abrir menú Compartir
+            Abrir menú Compartir ahora
           </button>
         )}
       </div>
@@ -74,21 +113,40 @@ function InstructionsContent({
   if (browser === 'chrome_android') {
     return (
       <div className="space-y-5">
-        <p className="text-zinc-400 text-sm">
-          En Chrome para Android puedes instalar la app desde el menú.
-        </p>
-        <ol className="space-y-4 text-sm">
-          <li className="flex gap-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-teal-400 font-semibold">1</span>
-            <span className="text-zinc-300">
-              Toca los <strong className="text-white">tres puntos</strong> (⋮) en la esquina superior derecha.
-            </span>
+        <div className="rounded-xl bg-teal-500/10 border border-teal-500/20 p-4 text-center">
+          <p className="text-teal-300 text-sm font-medium">
+            En Chrome se instala desde el menú <strong className="text-white">⋮</strong> (tres puntos)
+          </p>
+        </div>
+        <ol className="space-y-5 text-sm">
+          <li className="flex gap-4 items-start">
+            <StepBubble n={1} />
+            <div className="flex-1">
+              <p className="text-white font-medium mb-1">Toca los tres puntos ⋮</p>
+              <p className="text-zinc-400 text-xs">
+                Están en la esquina superior derecha
+                <MoreVertical className="inline w-3.5 h-3.5 ml-1 -mt-0.5" />
+                {' '}de Chrome.
+              </p>
+            </div>
           </li>
-          <li className="flex gap-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-teal-400 font-semibold">2</span>
-            <span className="text-zinc-300">
-              Elige <strong className="text-white">Instalar app</strong> o <strong className="text-white">Agregar a pantalla de inicio</strong>.
-            </span>
+          <li className="flex gap-4 items-start">
+            <StepBubble n={2} />
+            <div className="flex-1">
+              <p className="text-white font-medium mb-1">Toca &quot;Instalar app&quot;</p>
+              <p className="text-zinc-400 text-xs">
+                También puede aparecer como &quot;Agregar a pantalla de inicio&quot;.
+              </p>
+            </div>
+          </li>
+          <li className="flex gap-4 items-start">
+            <StepBubble n={3} />
+            <div className="flex-1">
+              <p className="text-white font-medium mb-1">Confirma tocando &quot;Instalar&quot;</p>
+              <p className="text-zinc-400 text-xs">
+                ¡Listo! La app aparecerá en tu pantalla de inicio.
+              </p>
+            </div>
           </li>
         </ol>
       </div>
@@ -98,21 +156,39 @@ function InstructionsContent({
   if (browser === 'samsung') {
     return (
       <div className="space-y-5">
-        <p className="text-zinc-400 text-sm">
-          En Samsung Internet el acceso está en el menú principal.
-        </p>
-        <ol className="space-y-4 text-sm">
-          <li className="flex gap-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-teal-400 font-semibold">1</span>
-            <span className="text-zinc-300">
-              Toca el menú (三条) y luego <strong className="text-white">Agregar página a</strong>.
-            </span>
+        <div className="rounded-xl bg-teal-500/10 border border-teal-500/20 p-4 text-center">
+          <p className="text-teal-300 text-sm font-medium">
+            En Samsung Internet usa el menú
+            <Menu className="inline w-3.5 h-3.5 ml-1 -mt-0.5" />
+          </p>
+        </div>
+        <ol className="space-y-5 text-sm">
+          <li className="flex gap-4 items-start">
+            <StepBubble n={1} />
+            <div className="flex-1">
+              <p className="text-white font-medium mb-1">Toca el menú ☰</p>
+              <p className="text-zinc-400 text-xs">
+                Las tres líneas horizontales en la parte inferior.
+              </p>
+            </div>
           </li>
-          <li className="flex gap-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-500/20 text-teal-400 font-semibold">2</span>
-            <span className="text-zinc-300">
-              Selecciona <strong className="text-white">Pantalla de inicio</strong>.
-            </span>
+          <li className="flex gap-4 items-start">
+            <StepBubble n={2} />
+            <div className="flex-1">
+              <p className="text-white font-medium mb-1">Toca &quot;Agregar página a&quot;</p>
+              <p className="text-zinc-400 text-xs">
+                Luego selecciona &quot;Pantalla de inicio&quot;.
+              </p>
+            </div>
+          </li>
+          <li className="flex gap-4 items-start">
+            <StepBubble n={3} />
+            <div className="flex-1">
+              <p className="text-white font-medium mb-1">Confirma</p>
+              <p className="text-zinc-400 text-xs">
+                ¡Listo! La app aparecerá en tu pantalla de inicio.
+              </p>
+            </div>
           </li>
         </ol>
       </div>
@@ -122,24 +198,34 @@ function InstructionsContent({
   // other / desktop
   return (
     <div className="space-y-5">
-      <p className="text-zinc-400 text-sm">
-        Para tener la app en la pantalla de inicio necesitas abrir esta misma página en tu celular.
-      </p>
       <div className="flex gap-3 rounded-xl bg-zinc-800/80 p-4">
         <Smartphone className="w-8 h-8 shrink-0 text-teal-400" />
         <div className="text-sm text-zinc-300">
-          Abre <strong className="text-white">{typeof window !== 'undefined' ? window.location.href : 'esta URL'}</strong> en Safari (iPhone) o Chrome (Android) y sigue los pasos de esa pantalla.
+          <p className="font-medium text-white mb-1">Abre esta página en tu celular</p>
+          <p className="text-xs text-zinc-400">
+            Abre <strong className="text-white break-all">{typeof window !== 'undefined' ? window.location.href : 'esta URL'}</strong> en Safari (iPhone) o Chrome (Android) y sigue los pasos.
+          </p>
         </div>
       </div>
-      <p className="text-zinc-500 text-xs">
-        En escritorio no se instala como app; usa el acceso directo o favoritos si lo prefieres.
+      <p className="text-zinc-500 text-xs text-center">
+        En escritorio no se puede instalar como app móvil.
       </p>
     </div>
   );
 }
 
 export function PWAHowToInstallModal({ appName, onClose }: PWAHowToInstallModalProps) {
+  const [detected, setDetected] = useState<PwaBrowserChoice | null>(null);
   const [selected, setSelected] = useState<PwaBrowserChoice | null>(null);
+  const [showManualPicker, setShowManualPicker] = useState(false);
+
+  useEffect(() => {
+    const browser = detectBrowser();
+    setDetected(browser);
+    setSelected(browser);
+  }, []);
+
+  const showingInstructions = selected && !showManualPicker;
 
   return (
     <div
@@ -147,14 +233,15 @@ export function PWAHowToInstallModal({ appName, onClose }: PWAHowToInstallModalP
       role="dialog"
       aria-modal="true"
       aria-labelledby="pwa-howto-title"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-sm rounded-2xl bg-zinc-900 border border-zinc-700/80 shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-full max-w-sm rounded-2xl bg-zinc-900 border border-zinc-700/80 shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:fade-in sm:zoom-in-95 sm:duration-200">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-zinc-700/50">
-          {selected ? (
+          {showManualPicker ? (
             <button
               type="button"
-              onClick={() => setSelected(null)}
+              onClick={() => { setShowManualPicker(false); setSelected(detected); }}
               className="flex items-center gap-1.5 text-zinc-400 hover:text-white text-sm font-medium transition-colors"
               aria-label="Volver"
             >
@@ -163,7 +250,7 @@ export function PWAHowToInstallModal({ appName, onClose }: PWAHowToInstallModalP
             </button>
           ) : (
             <h2 id="pwa-howto-title" className="text-lg font-semibold text-white">
-              Agregar al inicio
+              Cómo instalar la app
             </h2>
           )}
           <button
@@ -177,18 +264,18 @@ export function PWAHowToInstallModal({ appName, onClose }: PWAHowToInstallModalP
         </div>
 
         <div className="p-5">
-          {!selected ? (
+          {showManualPicker ? (
             <>
-              <p className="text-zinc-400 text-sm mb-5">
-                Elige tu navegador para ver los pasos y agregar <strong className="text-white">{appName}</strong> a la pantalla de inicio.
+              <p className="text-zinc-400 text-sm mb-4">
+                Elige tu navegador:
               </p>
               <div className="space-y-2">
                 {BROWSER_OPTIONS.map((opt) => (
                   <button
                     key={opt.id}
                     type="button"
-                    onClick={() => setSelected(opt.id)}
-                    className="w-full flex items-center justify-between rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/50 hover:border-zinc-600 px-4 py-3 text-left transition-colors group"
+                    onClick={() => { setSelected(opt.id); setShowManualPicker(false); }}
+                    className="w-full flex items-center justify-between rounded-xl bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/50 hover:border-zinc-600 px-4 py-3 text-left transition-colors"
                   >
                     <span className="text-white font-medium text-sm">{opt.label}</span>
                     <span className="text-zinc-500 text-xs">{opt.sublabel}</span>
@@ -196,17 +283,24 @@ export function PWAHowToInstallModal({ appName, onClose }: PWAHowToInstallModalP
                 ))}
               </div>
             </>
-          ) : (
+          ) : selected ? (
             <InstructionsContent browser={selected} appName={appName} />
-          )}
+          ) : null}
         </div>
 
-        {selected && (
-          <div className="border-t border-zinc-700/50 p-3">
+        {showingInstructions && (
+          <div className="border-t border-zinc-700/50 p-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowManualPicker(true)}
+              className="flex-1 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 text-xs font-medium py-2.5 transition-colors"
+            >
+              No es mi navegador
+            </button>
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-xl bg-zinc-700/80 hover:bg-zinc-600 text-white text-sm font-medium py-2.5 transition-colors"
+              className="flex-1 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium py-2.5 transition-colors"
             >
               Entendido
             </button>
