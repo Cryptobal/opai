@@ -116,10 +116,10 @@ export async function renderProposalToBufferFromProps(
       const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
       if (!res.ok) return null;
       const arrBuf = await res.arrayBuffer();
-      let buf = Buffer.from(arrBuf);
+      let buf: Buffer = Buffer.from(arrBuf);
       const ct = res.headers.get('content-type') || '';
       if (ct.includes('webp') || url.endsWith('.webp')) {
-        buf = await sharpMod(buf).png().toBuffer() as Buffer;
+        buf = Buffer.from(await sharpMod(buf).png().toBuffer());
       }
       const mime = ct.includes('png') || url.endsWith('.png') ? 'image/png' : 'image/jpeg';
       return `data:${mime};base64,${buf.toString('base64')}`;
