@@ -1649,6 +1649,7 @@ export function CrmInstallationDetailClient({
   canEditDotacion = false,
   canForceDeletePuesto = false,
   canDeleteVisitasTecnicas = false,
+  canCloseVisitasTecnicas = false,
   hasInventarioAccess = false,
   activityEvents = [],
   currentUserId = "",
@@ -1657,6 +1658,7 @@ export function CrmInstallationDetailClient({
   canEditDotacion?: boolean;
   canForceDeletePuesto?: boolean;
   canDeleteVisitasTecnicas?: boolean;
+  canCloseVisitasTecnicas?: boolean;
   hasInventarioAccess?: boolean;
   activityEvents?: ActivityEvent[];
   currentUserId?: string;
@@ -2484,6 +2486,7 @@ export function CrmInstallationDetailClient({
           <InstalacionVisitasTecnicasTab
             installationId={installation.id}
             canDeleteVisitas={canDeleteVisitasTecnicas}
+            canCloseVisitas={canCloseVisitasTecnicas}
           />
         )}
       </EntityDetailLayout>

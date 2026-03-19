@@ -219,7 +219,7 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
     if (!visitaId) return;
     setSaving(true);
     try {
-      await fetch(`/api/portal/supervisor/visitas-tecnicas/${visitaId}`, {
+      const res = await fetch(`/api/portal/supervisor/visitas-tecnicas/${visitaId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -252,8 +252,12 @@ export function VisitaTecnicaForm({ installations, visitaId: initialVisitaId, on
           ...extraData,
         }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        toast.error(json.error || "Error al guardar los datos");
+      }
     } catch {
-      // noop
+      toast.error("Error de conexión al guardar");
     } finally {
       setSaving(false);
     }
@@ -1019,7 +1023,7 @@ function Step5({
   return (
     <div className="flex flex-col gap-4 py-4">
       <p className="text-xs text-zinc-500">
-        Datos del contacto que presenció la visita y su opinión.
+        Datos del contacto que presenció la visita y su opinión. La firma es opcional — puedes completar la visita sin ella.
       </p>
 
       <Field label="Nombre del contacto">
@@ -1055,7 +1059,7 @@ function Step5({
       </Field>
 
       {/* Signature */}
-      <Field label="Firma del contacto">
+      <Field label="Firma del contacto (opcional)">
         {signatureUrl ? (
           <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900 border border-emerald-500/30">
             <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />

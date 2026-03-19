@@ -238,6 +238,7 @@ export default async function CrmInstallationDetailPage({
   const hasInventarioAccess = canView(perms, "ops", "inventario");
   const canForceDeletePuesto = ["owner", "admin"].includes(session.user.role ?? "");
   const canDeleteVisitasTecnicas = ["owner", "admin"].includes(session.user.role ?? "");
+  const canCloseVisitasTecnicas = ["owner", "admin"].includes(session.user.role ?? "");
   const activityActorIds = Array.from(
     new Set(activityLogs.map((log) => log.createdBy).filter((actorId): actorId is string => Boolean(actorId)))
   );
@@ -259,6 +260,7 @@ export default async function CrmInstallationDetailPage({
       canEditDotacion={canEditDotacion}
       canForceDeletePuesto={canForceDeletePuesto}
       canDeleteVisitasTecnicas={canDeleteVisitasTecnicas}
+      canCloseVisitasTecnicas={canCloseVisitasTecnicas}
       hasInventarioAccess={hasInventarioAccess}
       activityEvents={JSON.parse(JSON.stringify(activityEvents))}
       currentUserId={session.user.id ?? ""}
