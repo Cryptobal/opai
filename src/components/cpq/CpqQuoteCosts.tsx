@@ -466,6 +466,7 @@ export function CpqQuoteCosts({
             map.set(item.id, {
               catalogItemId: item.id,
               unitPriceOverride: null,
+              priceLogic: item.priceLogic ?? "uniform",
               active: true,
               catalogItem: item,
             });
@@ -889,11 +890,14 @@ export function CpqQuoteCosts({
   /** Item card for uniforms/exams (with simple override input + specs) */
   const renderSimpleItemCard = (
     item: CpqCatalogItem,
-    sel: { unitPriceOverride?: number | null; technicalSpecs?: string | null } | undefined,
+    sel: { unitPriceOverride?: number | null; technicalSpecs?: string | null; priceLogic?: string } | undefined,
     onOverride: (v: number) => void,
     onRemove: () => void,
     onSpecsChange?: (specs: string | null) => void
-  ) => (
+  ) => {
+    const logic = (sel as { priceLogic?: string } | undefined)?.priceLogic ?? item.priceLogic ?? "uniform";
+    const unitLabel = item.unit === "año" ? "año" : item.unit === "semestre" ? "sem" : item.unit === "contrato" ? "contrato" : item.unit === "examen" ? "examen" : item.unit || "ud";
+    return (
     <div className="p-2.5 rounded-lg bg-card border border-border/50">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[13px] font-semibold truncate">{item.name}</span>
@@ -901,8 +905,13 @@ export function CpqQuoteCosts({
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
-      <div className="text-[11px] text-muted-foreground mb-1.5">
-        Base: {formatCurrency(Number(item.basePrice))}
+      <div className="text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1 flex-wrap">
+        <span>Base: {formatCurrency(Number(item.basePrice))} / {unitLabel}</span>
+        {item.type === "uniform" && (
+          <span className={cn("px-1 py-0.5 rounded text-[9px] font-medium", logic === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400")}>
+            {logic === "prorated" ? "prorrateo" : "rotación"}
+          </span>
+        )}
       </div>
       <Input
         type="text"
@@ -928,12 +937,15 @@ export function CpqQuoteCosts({
       )}
     </div>
   );
+  };
 
   /** Item card for cost items (operational, transport, infra, systems) */
   const renderCostItemCard = (
     item: CpqCatalogItem,
     costItem: CpqQuoteCostItem | undefined
-  ) => (
+  ) => {
+    const unitLabel = item.unit === "año" ? "año" : item.unit === "semestre" ? "sem" : item.unit === "contrato" ? "contrato" : item.unit || "mes";
+    return (
     <div key={item.id} className="p-2.5 rounded-lg bg-card border border-border/50">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[13px] font-semibold truncate">{item.name}</span>
@@ -942,7 +954,7 @@ export function CpqQuoteCosts({
         </button>
       </div>
       <div className="text-[11px] text-muted-foreground mb-1.5">
-        Base: {formatCurrency(Number(item.basePrice))}
+        Base: {formatCurrency(Number(item.basePrice))} / {unitLabel}
       </div>
       <Input
         type="text"
@@ -966,6 +978,7 @@ export function CpqQuoteCosts({
       </div>
     </div>
   );
+  };
 
   /** Vehicle fuel calculator card */
   const renderFuelCard = (item: CpqCatalogItem, costItem: CpqQuoteCostItem | undefined) => {
@@ -1146,7 +1159,7 @@ export function CpqQuoteCosts({
                 if (existing) return prev.map((u) => u.catalogItemId === id ? { ...u, active: true } : u);
                 const catalogItem = catalogById.get(id);
                 if (!catalogItem) return prev;
-                return [...prev, { catalogItemId: id, unitPriceOverride: null, active: true, catalogItem }];
+                return [...prev, { catalogItemId: id, unitPriceOverride: null, priceLogic: catalogItem.priceLogic ?? "uniform", active: true, catalogItem }];
               });
             }}
           />
@@ -1210,7 +1223,7 @@ export function CpqQuoteCosts({
                         <Trash2 className="h-3 w-3" />
                       </button>
                     </div>
-                    <div className="text-[11px] text-muted-foreground mb-1.5">Base: {formatCurrency(Number(item.basePrice))}</div>
+                    <div className="text-[11px] text-muted-foreground mb-1.5">Base: {formatCurrency(Number(item.basePrice))} / {item.unit || "ud"}</div>
                     <div className="grid grid-cols-2 gap-1.5">
                       <Input type="text" inputMode="numeric" placeholder="Comidas/día" value={fmtN(meal?.mealsPerDay ?? 0)} onChange={(e) => updateMeal(item.name, { mealsPerDay: toNumber(e.target.value) })} className={inputClass} />
                       <Input type="text" inputMode="numeric" placeholder="Días/mes" value={fmtN(meal?.daysOfService ?? 0)} onChange={(e) => updateMeal(item.name, { daysOfService: toNumber(e.target.value) })} className={inputClass} />
@@ -1350,7 +1363,7 @@ export function CpqQuoteCosts({
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
-                  <div className="text-[11px] text-muted-foreground mb-1.5">Base: {formatCurrency(Number(ci?.basePrice ?? 0))}</div>
+                  <div className="text-[11px] text-muted-foreground mb-1.5">Base: {formatCurrency(Number(ci?.basePrice ?? 0))} / {ci?.unit || "mes"}</div>
                   <Input
                     type="text"
                     inputMode="numeric"

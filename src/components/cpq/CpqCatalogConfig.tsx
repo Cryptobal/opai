@@ -73,6 +73,7 @@ type NewItemState = {
   basePrice: string;
   isDefault: boolean;
   defaultTechnicalSpecs: string;
+  priceLogic?: string;
 };
 
 const makeNewItemState = (type: string): NewItemState => ({
@@ -82,6 +83,7 @@ const makeNewItemState = (type: string): NewItemState => ({
   basePrice: "",
   isDefault: false,
   defaultTechnicalSpecs: "",
+  priceLogic: "uniform",
 });
 
 export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }) {

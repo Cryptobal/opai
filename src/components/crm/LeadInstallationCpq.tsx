@@ -241,6 +241,7 @@ export function LeadInstallationCpq({
               priceOverride: null,
               enabled: Boolean(item.isDefault) && enabledTypes.has(item.type),
               technicalSpecs: toTechnicalSpecs(item.defaultTechnicalSpecs) ?? null,
+              priceLogic: item.priceLogic ?? "uniform",
             }));
             onChange({ ...config, costItems: items });
           }
@@ -1283,8 +1284,13 @@ function CostCategoryBlock({
                             <Trash2 className="h-3 w-3" />
                           </button>
                         </div>
-                        <div className="text-[11px] text-muted-foreground mb-1.5">
-                          Base: {formatCurrency(item.basePrice)}
+                        <div className="text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1 flex-wrap">
+                          <span>Base: {formatCurrency(item.basePrice)} / {item.unit === "año" ? "año" : item.unit === "semestre" ? "sem" : item.unit === "contrato" ? "contrato" : item.unit === "examen" ? "examen" : item.unit || "mes"}</span>
+                          {item.type === "uniform" && (
+                            <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${item.priceLogic === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400"}`}>
+                              {item.priceLogic === "prorated" ? "prorrateo" : "rotación"}
+                            </span>
+                          )}
                         </div>
                         <Input
                           type="text"
