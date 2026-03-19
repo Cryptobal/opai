@@ -238,7 +238,9 @@ export function CpqQuoteCosts({
           ...globalDefaults,
           ...(payload.parameters || {}),
         });
-        const catalogById = new Map((catalogData?.data || []).map((c: { id: string; priceLogic?: string }) => [c.id, c]));
+        const catalogById = new Map<string, { priceLogic?: string }>(
+          (catalogData?.data || []).map((c: { id: string; priceLogic?: string }) => [c.id, c])
+        );
         const uniformsWithCatalogLogic = (payload.uniforms || []).map((u: { catalogItemId: string; priceLogic?: string } & object) => {
           const cat = catalogById.get(u.catalogItemId);
           const priceLogic = cat?.priceLogic ?? u.priceLogic ?? "uniform";
