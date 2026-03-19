@@ -846,6 +846,11 @@ export function LeadInstallationCpq({
                 "Uniformes": costTotals.monthlyUniforms,
                 "Exámenes": costTotals.monthlyExams,
               }}
+              uniformCalcParams={{
+                uniformChangesPerYear: config.uniformChangesPerYear ?? 3,
+                totalGuards,
+                contractMonths: config.conditions?.contractDuration ?? 12,
+              }}
             />
             {/* INDIRECTOS */}
             <CostCategoryBlock
@@ -1205,6 +1210,26 @@ function PdfPreviewSection({
 
 /* ─── Cost Category Block sub-component ─── */
 
+function buildUniformCalcTooltip(
+  price: number,
+  unit: string | null | undefined,
+  logic: string,
+  changesPerYear: number,
+  guards: number,
+  contractMonths: number
+): string {
+  if (guards === 0) return "Sin guardias en la cotización";
+  if (logic === "prorated") {
+    const monthlyPerGuard = normalizeUnitPrice(price, unit, contractMonths);
+    const total = monthlyPerGuard * guards;
+    const unitDesc = (unit || "").toLowerCase().includes("año") ? "÷ 12" : (unit || "").toLowerCase().includes("semestre") ? "÷ 6" : (unit || "").toLowerCase().includes("contrato") ? `÷ ${contractMonths}` : "";
+    return `${formatCurrency(price)}${unitDesc ? ` ${unitDesc}` : ""} = ${formatCurrency(Math.round(monthlyPerGuard))}/guardia/mes → × ${guards} = ${formatCurrency(Math.round(total))}`;
+  }
+  const monthlyPerGuard = (price * changesPerYear) / 12;
+  const total = monthlyPerGuard * guards;
+  return `${formatCurrency(price)} × ${changesPerYear} cambios/año ÷ 12 = ${formatCurrency(Math.round(monthlyPerGuard))}/guardia/mes → × ${guards} = ${formatCurrency(Math.round(total))}`;
+}
+
 function CostCategoryBlock({
   title,
   total,
@@ -1215,6 +1240,7 @@ function CostCategoryBlock({
   onPriceChange,
   onTechnicalSpecsChange,
   groupMonthlyOverrides,
+  uniformCalcParams,
 }: {
   title: string;
   total: number;
@@ -1225,6 +1251,7 @@ function CostCategoryBlock({
   onPriceChange: (id: string, price: number) => void;
   onTechnicalSpecsChange?: (id: string, specs: string | null) => void;
   groupMonthlyOverrides?: Record<string, number>;
+  uniformCalcParams?: { uniformChangesPerYear: number; totalGuards: number; contractMonths: number };
 }) {
   const costGroupNames = Object.keys(groups);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(costGroupNames[0] ?? null);
@@ -1280,6 +1307,18 @@ function CostCategoryBlock({
                   {enabledItems.map((item) => {
                     const defaultSpecs = catalogSpecsMap.get(item.catalogItemId) || null;
                     const displaySpecs = item.technicalSpecs ?? defaultSpecs ?? "";
+                    const logic = catalogPriceLogicMap.get(item.catalogItemId) ?? item.priceLogic ?? "uniform";
+                    const effectivePrice = item.priceOverride ?? item.basePrice;
+                    const calcTooltip = item.type === "uniform" && uniformCalcParams
+                      ? buildUniformCalcTooltip(
+                          effectivePrice,
+                          item.unit,
+                          logic,
+                          uniformCalcParams.uniformChangesPerYear,
+                          uniformCalcParams.totalGuards,
+                          uniformCalcParams.contractMonths
+                        )
+                      : "";
                     return (
                       <div key={item.catalogItemId} className="p-2.5 rounded-lg bg-card border border-border/50 relative group">
                         <div className="flex items-center justify-between mb-1">
@@ -1292,11 +1331,16 @@ function CostCategoryBlock({
                             <Trash2 className="h-3 w-3" />
                           </button>
                         </div>
-                        <div className="text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1 flex-wrap">
-                          <span>Base: {formatCurrency(item.basePrice)} / {item.unit === "año" ? "año" : item.unit === "semestre" ? "sem" : item.unit === "contrato" ? "contrato" : item.unit === "examen" ? "examen" : item.unit || "mes"}</span>
+                        <div
+                          title={calcTooltip}
+                          className={cn("text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1 flex-wrap", calcTooltip && "cursor-help")}
+                        >
+                          <span className={cn(calcTooltip && "border-b border-dotted border-muted-foreground/50")}>
+                            Base: {formatCurrency(item.basePrice)} / {item.unit === "año" ? "año" : item.unit === "semestre" ? "sem" : item.unit === "contrato" ? "contrato" : item.unit === "examen" ? "examen" : item.unit || "mes"}
+                          </span>
                           {item.type === "uniform" && (
-                            <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${(catalogPriceLogicMap.get(item.catalogItemId) ?? item.priceLogic ?? "uniform") === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400"}`}>
-                              {(catalogPriceLogicMap.get(item.catalogItemId) ?? item.priceLogic ?? "uniform") === "prorated" ? "prorrateo" : "rotación"}
+                            <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${logic === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400"}`}>
+                              {logic === "prorated" ? "prorrateo" : "rotación"}
                             </span>
                           )}
                         </div>

@@ -895,6 +895,27 @@ export function CpqQuoteCosts({
     );
   };
 
+  /** Build tooltip text for uniform item calculation */
+  const buildUniformCalcTooltip = (
+    price: number,
+    unit: string | null | undefined,
+    logic: string,
+    changesPerYear: number,
+    guards: number,
+    contractMonths: number
+  ): string => {
+    if (guards === 0) return "Sin guardias en la cotización";
+    if (logic === "prorated") {
+      const monthlyPerGuard = normalizeUnitPrice(price, unit, contractMonths);
+      const total = monthlyPerGuard * guards;
+      const unitDesc = (unit || "").toLowerCase().includes("año") ? "÷ 12" : (unit || "").toLowerCase().includes("semestre") ? "÷ 6" : (unit || "").toLowerCase().includes("contrato") ? `÷ ${contractMonths}` : "";
+      return `${formatCurrency(price)}${unitDesc ? ` ${unitDesc}` : ""} = ${formatCurrency(Math.round(monthlyPerGuard))}/guardia/mes → × ${guards} = ${formatCurrency(Math.round(total))}`;
+    }
+    const monthlyPerGuard = (price * changesPerYear) / 12;
+    const total = monthlyPerGuard * guards;
+    return `${formatCurrency(price)} × ${changesPerYear} cambios/año ÷ 12 = ${formatCurrency(Math.round(monthlyPerGuard))}/guardia/mes → × ${guards} = ${formatCurrency(Math.round(total))}`;
+  };
+
   /** Item card for uniforms/exams (with simple override input + specs) */
   const renderSimpleItemCard = (
     item: CpqCatalogItem,
@@ -905,6 +926,17 @@ export function CpqQuoteCosts({
   ) => {
     const logic = item.priceLogic ?? (sel as { priceLogic?: string } | undefined)?.priceLogic ?? "uniform";
     const unitLabel = item.unit === "año" ? "año" : item.unit === "semestre" ? "sem" : item.unit === "contrato" ? "contrato" : item.unit === "examen" ? "examen" : item.unit || "ud";
+    const effectivePrice = (sel?.unitPriceOverride != null ? Number(sel.unitPriceOverride) : null) ?? Number(item.basePrice);
+    const calcTooltip = item.type === "uniform"
+      ? buildUniformCalcTooltip(
+          effectivePrice,
+          item.unit,
+          logic,
+          parameters.uniformChangesPerYear ?? 3,
+          totalGuards,
+          parameters.contractMonths ?? 12
+        )
+      : "";
     return (
     <div className="p-2.5 rounded-lg bg-card border border-border/50">
       <div className="flex items-center justify-between mb-1.5">
@@ -913,8 +945,13 @@ export function CpqQuoteCosts({
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
-      <div className="text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1 flex-wrap">
-        <span>Base: {formatCurrency(Number(item.basePrice))} / {unitLabel}</span>
+      <div
+        title={calcTooltip}
+        className={cn("text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1 flex-wrap", calcTooltip && "cursor-help")}
+      >
+        <span className={cn(calcTooltip && "border-b border-dotted border-muted-foreground/50")}>
+          Base: {formatCurrency(Number(item.basePrice))} / {unitLabel}
+        </span>
         {item.type === "uniform" && (
           <span className={cn("px-1 py-0.5 rounded text-[9px] font-medium", logic === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400")}>
             {logic === "prorated" ? "prorrateo" : "rotación"}
