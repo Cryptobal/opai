@@ -18,6 +18,10 @@ import type { QuoteBreakdownData, PositionBreakdownItem } from "@/types/cpq-brea
 import { formatCurrency } from "@/lib/utils";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { prisma } from "@/lib/prisma";
+import {
+  computeLeadPositionCostsFromPayroll,
+  type LeadPositionLike,
+} from "@/lib/cpq/lead-labor-from-payroll";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -130,6 +134,7 @@ export async function POST(
       uniformChangesPerYear = 3,
       avgStayMonths = 4,
       currency = "CLP",
+      ufValue: bodyUfValue,
     } = body;
 
     if (!positions || positions.length === 0) {
@@ -139,50 +144,19 @@ export async function POST(
       );
     }
 
-    const IMM = 500000;
+    const ufValue =
+      typeof bodyUfValue === "number" && bodyUfValue > 0 ? bodyUfValue : null;
     const monthlyHoursStandard = 180;
     const totalGuards = positions.reduce(
       (s: number, p: LeadPosition) => s + (p.cantidad || 1) * (p.numPuestos || 1),
       0
     );
 
-    /* ── Labor cost per position ── */
-    const positionCosts: PositionCostResult[] = positions.map((pos: LeadPosition) => {
-      const salary = pos.baseSalary || 550000;
-      const guards = pos.cantidad || 1;
-      const numPuestos = pos.numPuestos || 1;
-      const totalGuardsInPos = guards * numPuestos;
-      const gratificacion = Math.min(salary * 0.25, (4.75 * IMM) / 12);
-      const baseConGrat = salary + gratificacion;
-      const cargasSociales = baseConGrat * 0.2435;
-      const sisEmployer = baseConGrat * 0.0141;
-      const afcEmployer = baseConGrat * 0.024;
-      const mutualEmployer = baseConGrat * 0.0093;
-      const vacationProvision = salary * (15 / 360);
-      const severanceProvision = (salary + gratificacion) / 12;
-      const costoGuardia = salary + gratificacion + cargasSociales;
-
-      return {
-        name: pos.puesto || "Puesto",
-        guards,
-        numPuestos,
-        totalGuardsInPos,
-        salary,
-        gratificacion,
-        totalImponible: baseConGrat,
-        sisEmployer: sisEmployer * totalGuardsInPos,
-        afcEmployer: afcEmployer * totalGuardsInPos,
-        mutualEmployer: mutualEmployer * totalGuardsInPos,
-        vacationProvision: vacationProvision * totalGuardsInPos,
-        severanceProvision: severanceProvision * totalGuardsInPos,
-        costoGuardia,
-        totalCost: costoGuardia * totalGuardsInPos,
-        baseSalaryTotal: salary * totalGuardsInPos,
-        gratificacionTotal: gratificacion * totalGuardsInPos,
-        days: (pos.dias || []).join(", ") || "-",
-        schedule: `${pos.horaInicio || "-"} - ${pos.horaFin || "-"}`,
-      };
-    });
+    /* ── Labor cost per position (motor payroll, mismo que CPQ) ── */
+    const positionCosts: PositionCostResult[] = await computeLeadPositionCostsFromPayroll(
+      positions as LeadPositionLike[],
+      ufValue
+    );
 
     const totalLaborCost = positionCosts.reduce((s: number, p: PositionCostResult) => s + p.totalCost, 0);
 

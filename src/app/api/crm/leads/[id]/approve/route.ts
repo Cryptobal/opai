@@ -15,6 +15,7 @@ import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { toSentenceCase } from "@/lib/text-format";
 import { isDefaultUniform } from "@/lib/cpq-constants";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
+import { buildCpqStyleEmployerCostInput } from "@/lib/cpq/cpq-employer-cost-input";
 import { computeCpqQuoteCosts, refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
 
 const CPQ_WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
@@ -988,19 +989,9 @@ export async function POST(
               let calculatedAt: Date | null = null;
 
               try {
-                const payroll = await computeEmployerCost({
-                  base_salary_clp: baseSalaryValue,
-                  contract_type: "indefinite",
-                  afp_name: "modelo",
-                  health_system: "fonasa",
-                  health_plan_pct: 0.07,
-                  assumptions: {
-                    include_vacation_provision: true,
-                    include_severance_provision: true,
-                    vacation_provision_pct: 0.0833,
-                    severance_provision_pct: 0.04166,
-                  },
-                });
+                const payroll = await computeEmployerCost(
+                  buildCpqStyleEmployerCostInput(baseSalaryValue, {})
+                );
                 employerCost = payroll.monthly_employer_cost_clp;
                 netSalary = payroll.worker_net_salary_estimate;
                 monthlyPositionCost = employerCost * numGuardsValue * numPuestos;

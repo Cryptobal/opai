@@ -10,6 +10,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqEdit, requireCpqDelete } from "@/lib/api-auth-cpq";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
+import { buildCpqStyleEmployerCostInput } from "@/lib/cpq/cpq-employer-cost-input";
 import { refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
 
 export async function PATCH(
@@ -85,19 +86,13 @@ export async function PATCH(
     let calculatedAt = current.calculatedAt;
 
     if (shouldRecalc) {
-      const payroll = await computeEmployerCost({
-        base_salary_clp: nextBaseSalary,
-        contract_type: "indefinite",
-        afp_name: nextAfpName,
-        health_system: nextHealthSystem,
-        health_plan_pct: nextHealthPlan,
-        assumptions: {
-          include_vacation_provision: true,
-          include_severance_provision: true,
-          vacation_provision_pct: 0.0833,
-          severance_provision_pct: 0.04166,
-        },
-      });
+      const payroll = await computeEmployerCost(
+        buildCpqStyleEmployerCostInput(nextBaseSalary, {
+          afpName: nextAfpName,
+          healthSystem: nextHealthSystem,
+          healthPlanPct: nextHealthPlan,
+        })
+      );
 
       employerCost = payroll.monthly_employer_cost_clp;
       netSalary = payroll.worker_net_salary_estimate;

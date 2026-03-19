@@ -9,6 +9,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqEdit } from "@/lib/api-auth-cpq";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
+import { buildCpqStyleEmployerCostInput } from "@/lib/cpq/cpq-employer-cost-input";
 import { refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
 
 export async function POST(
@@ -62,19 +63,13 @@ export async function POST(
         ? healthPlanPct ?? 0.07
         : 0.07;
 
-    const payroll = await computeEmployerCost({
-      base_salary_clp: Number(baseSalary),
-      contract_type: "indefinite",
-      afp_name: afpName || "modelo",
-      health_system: healthSystem || "fonasa",
-      health_plan_pct: healthPlan,
-      assumptions: {
-        include_vacation_provision: true,
-        include_severance_provision: true,
-        vacation_provision_pct: 0.0833,
-        severance_provision_pct: 0.04166,
-      },
-    });
+    const payroll = await computeEmployerCost(
+      buildCpqStyleEmployerCostInput(Number(baseSalary), {
+        afpName: afpName || "modelo",
+        healthSystem: healthSystem || "fonasa",
+        healthPlanPct: healthPlanPct ?? 0.07,
+      })
+    );
 
     const employerCost = payroll.monthly_employer_cost_clp;
     const netSalary = payroll.worker_net_salary_estimate;

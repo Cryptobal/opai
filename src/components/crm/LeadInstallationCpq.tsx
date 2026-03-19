@@ -487,18 +487,71 @@ export function LeadInstallationCpq({
     return () => clearTimeout(timer);
   }, [config.positions.length, config.companyDescription, config.serviceDescription]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Quick estimate (mirrors CPQ compute-quote-costs) ───
+  const payrollPreviewSig = useMemo(
+    () =>
+      JSON.stringify({
+        uf: ufValue ?? null,
+        salaries: config.positions.map((p) => Number(p.baseSalary) || 550000),
+      }),
+    [config.positions, ufValue]
+  );
+
+  const [payrollPreview, setPayrollPreview] = useState<
+    Array<{ employerCostPerGuard: number; netSalary: number }>
+  >([]);
+
+  useEffect(() => {
+    if (config.positions.length === 0) {
+      setPayrollPreview([]);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch("/api/crm/leads/employer-cost-preview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              positions: config.positions.map((p) => ({
+                baseSalary: Number(p.baseSalary) || 550000,
+              })),
+              ufValue: ufValue ?? undefined,
+            }),
+          });
+          const json = await res.json();
+          if (cancelled || !json.success || !Array.isArray(json.data?.items)) return;
+          setPayrollPreview(
+            json.data.items.map(
+              (it: { employerCostPerGuard: number; netSalary: number }) => ({
+                employerCostPerGuard: it.employerCostPerGuard,
+                netSalary: it.netSalary,
+              })
+            )
+          );
+        } catch {
+          if (!cancelled) setPayrollPreview([]);
+        }
+      })();
+    }, 320);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [payrollPreviewSig, config.positions.length, ufValue]);
+
+  // ─── Quick estimate (mirrors CPQ compute-quote-costs; mano de obra = payroll engine) ───
   const estimate = useMemo(() => {
-    const IMM = 500000;
-    const totalCostoManoObra = config.positions.reduce((sum, p) => {
-      const salary = p.baseSalary || 550000;
-      const guards = (p.cantidad || 1) * (p.numPuestos || 1);
-      const gratificacion = Math.min(salary * 0.25, (4.75 * IMM) / 12);
-      const baseConGrat = salary + gratificacion;
-      const cargasSociales = baseConGrat * 0.2435;
-      const costoGuardia = salary + gratificacion + cargasSociales;
-      return sum + costoGuardia * guards;
-    }, 0);
+    const laborPayrollReady =
+      payrollPreview.length === config.positions.length && config.positions.length > 0;
+
+    const totalCostoManoObra = laborPayrollReady
+      ? config.positions.reduce((sum, p, i) => {
+          const per = payrollPreview[i].employerCostPerGuard;
+          const guards = (p.cantidad || 1) * (p.numPuestos || 1);
+          return sum + per * guards;
+        }, 0)
+      : 0;
 
     // Holiday adjustment (same as CPQ: (positions/30) * 0.5 * holidays/12 * (1+buffer%))
     const holidayAnnualCount = 12;
@@ -552,6 +605,7 @@ export function LeadInstallationCpq({
     const totalPuestos = config.positions.reduce((s, p) => s + (p.numPuestos || 1), 0);
     return {
       manoDeObra: totalCostoManoObra,
+      laborPayrollReady,
       holidayAdjustment,
       directos: costTotals.directos,
       indirectos: costTotals.indirectos,
@@ -564,7 +618,7 @@ export function LeadInstallationCpq({
       totalPuestos,
       baseConMargen,
     };
-  }, [config.positions, config.additionalLines, config.marginPercentage, config.marginMode, config.conditions.contractDuration, config.financialCosts, costTotals]);
+  }, [config.positions, config.additionalLines, config.marginPercentage, config.marginMode, config.conditions.contractDuration, config.financialCosts, costTotals, payrollPreview]);
 
   return (
     <div className="space-y-2">
@@ -786,14 +840,16 @@ export function LeadInstallationCpq({
                   })}
                 </div>
                 {(() => {
-                  const salary = pos.baseSalary || 550000;
                   const guards = (pos.cantidad || 1) * (pos.numPuestos || 1);
-                  const IMM = 500000;
-                  const gratificacion = Math.min(salary * 0.25, (4.75 * IMM) / 12);
-                  const baseConGrat = salary + gratificacion;
-                  const cargasSociales = baseConGrat * 0.2435;
-                  const costoGuardia = salary + gratificacion + cargasSociales;
-                  const costoTotal = costoGuardia * guards;
+                  const row = payrollPreview[idx];
+                  if (!row) {
+                    return (
+                      <div className="text-[10px] text-muted-foreground">
+                        Calculando costo empresa (nómina)…
+                      </div>
+                    );
+                  }
+                  const costoTotal = row.employerCostPerGuard * guards;
                   return (
                     <div className="text-[10px] space-y-0.5">
                       <div className="text-muted-foreground">
@@ -802,7 +858,7 @@ export function LeadInstallationCpq({
                       <div className="text-emerald-400 font-semibold">
                         Costo empresa: {formatCurrency(Math.round(costoTotal))}/mes
                         <span className="text-muted-foreground font-normal ml-1">
-                          ({formatCurrency(Math.round(costoGuardia))}/guardia)
+                          ({formatCurrency(Math.round(row.employerCostPerGuard))}/guardia)
                         </span>
                       </div>
                     </div>
@@ -1052,6 +1108,7 @@ export function LeadInstallationCpq({
           accountName={accountName}
           installationName={installationName}
           proposalTemplates={proposalTemplates}
+          ufValue={ufValue}
         />
       )}
 
@@ -1063,6 +1120,11 @@ export function LeadInstallationCpq({
               <div className="text-lg font-bold text-emerald-400 font-mono">{formatCurrency(Math.round(estimate.precioVenta))}</div>
               {ufValue && ufValue > 0 && (
                 <div className="text-sm text-emerald-300/80 font-mono">{(estimate.precioVenta / ufValue).toFixed(2)} UF</div>
+              )}
+              {!estimate.laborPayrollReady && (
+                <div className="text-[10px] text-amber-500/90 font-medium">
+                  Calculando mano de obra (motor nómina)…
+                </div>
               )}
               <div className="text-[10px] text-muted-foreground">
                 Precio de venta mensual · {estimate.totalPuestos} puesto(s) · {estimate.totalGuardias} guardia(s) · {config.marginPercentage}%
@@ -1081,19 +1143,25 @@ export function LeadInstallationCpq({
               ...(estimate.totalLineas > 0 ? [{ label: "Líneas adicionales", value: estimate.totalLineas, color: "bg-purple-500" }] : []),
             ].map((row) => {
               const pct = estimate.precioVenta > 0 ? (row.value / estimate.precioVenta) * 100 : 0;
+              const displayAmount =
+                row.label === "Mano de obra" && !estimate.laborPayrollReady
+                  ? "…"
+                  : formatCurrency(Math.round(row.value));
               return (
                 <div key={row.label} className="flex items-center gap-2">
                   <span className="text-[10px] text-muted-foreground w-24 shrink-0">{row.label}</span>
                   <div className="flex-1 min-w-0 h-2 rounded-full bg-muted/30 overflow-hidden">
                     <div className={cn("h-full rounded-full", row.color)} style={{ width: `${Math.min(100, pct)}%` }} />
                   </div>
-                  <span className="text-[10px] font-mono font-semibold text-right w-24 shrink-0">{formatCurrency(Math.round(row.value))}</span>
+                  <span className="text-[10px] font-mono font-semibold text-right w-24 shrink-0">{displayAmount}</span>
                 </div>
               );
             })}
           </div>
           <div className="px-3 py-1.5 border-t border-border/40 text-center">
-            <p className="text-[9px] text-muted-foreground/70">Estimación. Valores finales se calculan al aprobar.</p>
+            <p className="text-[9px] text-muted-foreground/70">
+              Mano de obra con el mismo motor de nómina que CPQ (parámetros UF/UTM/IMM vigentes). Total actualizado al aprobar con la cotización generada.
+            </p>
           </div>
         </Card>
       )}
@@ -1117,12 +1185,14 @@ function PdfPreviewSection({
   accountName,
   installationName,
   proposalTemplates,
+  ufValue,
 }: {
   leadId?: string;
   config: LeadCpqConfig;
   accountName?: string;
   installationName?: string;
   proposalTemplates?: { id: string; name: string; slug?: string }[];
+  ufValue?: number | null;
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -1144,6 +1214,7 @@ function PdfPreviewSection({
     uniformChangesPerYear: config.uniformChangesPerYear ?? 3,
     avgStayMonths: config.avgStayMonths ?? 4,
     currency: config.currency || "CLP",
+    ...(ufValue != null && ufValue > 0 ? { ufValue } : {}),
   };
 
   const generatePreview = async () => {
