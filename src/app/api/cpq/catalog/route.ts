@@ -26,7 +26,12 @@ export async function GET(request: NextRequest) {
       orderBy: { name: "asc" },
     });
 
-    return NextResponse.json({ success: true, data: items });
+    const serialized = items.map((item) => ({
+      ...item,
+      basePrice: Number(item.basePrice),
+      defaultTechnicalSpecs: item.defaultTechnicalSpecs ?? null,
+    }));
+    return NextResponse.json({ success: true, data: serialized });
   } catch (error) {
     console.error("Error fetching CPQ catalog:", error);
     return NextResponse.json(
@@ -61,6 +66,7 @@ export async function POST(request: NextRequest) {
         isDefault: body?.isDefault ?? false,
         defaultVisibility: body?.defaultVisibility || "visible",
         active: body?.active ?? true,
+        defaultTechnicalSpecs: body?.defaultTechnicalSpecs || null,
         tenantId,
       },
     });

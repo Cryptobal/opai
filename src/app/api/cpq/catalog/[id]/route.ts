@@ -28,6 +28,7 @@ export async function PATCH(
     if (body?.defaultVisibility !== undefined)
       data.defaultVisibility = body.defaultVisibility;
     if (body?.active !== undefined) data.active = body.active;
+    if (body?.defaultTechnicalSpecs !== undefined) data.defaultTechnicalSpecs = body.defaultTechnicalSpecs;
 
     const existing = await prisma.cpqCatalogItem.findFirst({
       where: {

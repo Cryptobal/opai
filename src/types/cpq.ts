@@ -95,6 +95,7 @@ export interface CostByCategoryItem {
   name: string;
   amount: number;
   calcMode: string;
+  technicalSpecs?: string | null;
 }
 
 export interface CostByCategory {
@@ -119,6 +120,7 @@ export interface ProposalTemplateSections {
   showIncludedItems: boolean;
   showSignature: boolean;
   showComplianceSection: boolean;
+  showTechnicalSpecs: boolean;
   numberedSections: boolean;
   headerStyle: "standard" | "detailed" | "formal";
 }
@@ -167,6 +169,7 @@ export interface CpqCatalogItem {
   isDefault?: boolean;
   defaultVisibility: string;
   active: boolean;
+  defaultTechnicalSpecs?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -225,6 +228,7 @@ export interface CpqQuoteCostItem {
   isEnabled: boolean;
   visibility: string;
   notes?: string | null;
+  technicalSpecs?: string | null;
   catalogItem?: CpqCatalogItem;
 }
 

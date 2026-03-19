@@ -175,6 +175,7 @@ export async function GET(
             isEnabled: true,
             visibility: item.defaultVisibility || "visible",
             notes: null,
+            technicalSpecs: item.defaultTechnicalSpecs || null,
             catalogItem: item,
           }));
 
@@ -529,6 +530,7 @@ export async function PUT(
             isEnabled: item.isEnabled ?? true,
             visibility: item.visibility || "visible",
             notes: item.notes ?? null,
+            technicalSpecs: item.technicalSpecs ?? null,
             customName: item.customName ? String(item.customName).slice(0, 200) : null,
             customType: item.customType ? String(item.customType).slice(0, 50) : null,
             customCategory: item.customCategory ? String(item.customCategory).slice(0, 50) : null,

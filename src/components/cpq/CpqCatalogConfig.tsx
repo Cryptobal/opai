@@ -29,6 +29,7 @@ type CatalogItem = {
   basePrice: number;
   isDefault: boolean;
   active: boolean;
+  defaultTechnicalSpecs?: string | null;
 };
 
 const TYPE_NAMES: Record<string, string> = {
@@ -70,6 +71,7 @@ type NewItemState = {
   unit: string;
   basePrice: string;
   isDefault: boolean;
+  defaultTechnicalSpecs: string;
 };
 
 const makeNewItemState = (type: string): NewItemState => ({
@@ -78,6 +80,7 @@ const makeNewItemState = (type: string): NewItemState => ({
   unit: "mes",
   basePrice: "",
   isDefault: false,
+  defaultTechnicalSpecs: "",
 });
 
 export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }) {
@@ -119,12 +122,22 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
     setLoading(true);
     try {
       const [res, settingsRes] = await Promise.all([
-        fetch("/api/cpq/catalog?active=true", { cache: "no-store" }),
+        fetch(`/api/cpq/catalog?active=true&_=${Date.now()}`, {
+          cache: "no-store",
+          headers: { Pragma: "no-cache", "Cache-Control": "no-cache" },
+        }),
         fetch("/api/cpq/settings", { cache: "no-store" }),
       ]);
       const data = await res.json();
       const settingsData = await settingsRes.json();
-      if (data.success) setItems(data.data || []);
+      if (data.success) {
+        const raw = data.data || [];
+        setItems(raw.map((item: Record<string, unknown>) => ({
+          ...item,
+          basePrice: typeof item.basePrice === "number" ? item.basePrice : Number(item.basePrice || 0),
+          defaultTechnicalSpecs: item.defaultTechnicalSpecs ?? null,
+        })));
+      }
       if (settingsData?.success && settingsData.data) {
         setGlobalParams((prev) => ({ ...prev, ...settingsData.data }));
       }
@@ -183,6 +196,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
           basePrice: Number(item.basePrice || 0),
           isDefault: item.isDefault,
           active: item.active,
+          defaultTechnicalSpecs: item.defaultTechnicalSpecs || null,
         }),
       });
       const data = await res.json();
@@ -237,6 +251,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
           basePrice: parseNumber(payload.basePrice || "0"),
           isDefault: payload.isDefault ?? false,
           active: true,
+          defaultTechnicalSpecs: payload.defaultTechnicalSpecs?.trim() || null,
         }),
       });
       const data = await res.json();
@@ -570,6 +585,18 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                                 className={`${inputClass} w-28`}
                               />
                             </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                                Especificaciones técnicas (default)
+                              </label>
+                              <textarea
+                                rows={2}
+                                placeholder="Ej: Camioneta doble cabina 4x4, motor 2.8L diesel..."
+                                value={item.defaultTechnicalSpecs || ""}
+                                onChange={(e) => updateItemLocal(item.id, { defaultTechnicalSpecs: e.target.value })}
+                                className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                              />
+                            </div>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 text-xs">
                                 <select
@@ -702,6 +729,18 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                       </Button>
                     </div>
                   </div>
+                  <textarea
+                    rows={2}
+                    placeholder="Especificaciones técnicas (opcional)"
+                    value={newItems[group.id]?.defaultTechnicalSpecs || ""}
+                    onChange={(e) =>
+                      setNewItems((prev) => ({
+                        ...prev,
+                        [group.id]: { ...prev[group.id], defaultTechnicalSpecs: e.target.value },
+                      }))
+                    }
+                    className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
                 </div>
               </>
             )}

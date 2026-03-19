@@ -64,6 +64,7 @@ export const DEFAULT_TEMPLATE_SECTIONS: ProposalTemplateSections = {
   showIncludedItems: true,
   showSignature: true,
   showComplianceSection: false,
+  showTechnicalSpecs: false,
   numberedSections: false,
   headerStyle: 'standard',
 };
@@ -833,14 +834,19 @@ export async function renderQuotationToBuffer(
                 e(Text, { style: [s.tblCellBold, { flex: 3, color: cat.categoryType === 'indirect' ? '#b45309' : '#0d9488' }] }, cat.category),
                 e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: cat.categoryType === 'indirect' ? '#b45309' : '#0d9488' }] }, fmtMoney(cat.subtotal)),
               ),
-              ...cat.items.map((item, itemIdx) =>
+              ...cat.items.flatMap((item, itemIdx) => [
                 e(
                   View,
                   { key: itemIdx, style: [s.tblRow, { paddingLeft: 14 }] },
                   e(Text, { style: [s.tblCell, { flex: 3, fontSize: 7.5, color: C.slate400 }] }, item.name),
                   e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const, fontSize: 7.5, color: C.slate400 }] }, fmtMoney(item.amount)),
                 ),
-              ),
+                ...(item.technicalSpecs
+                  ? [e(View, { key: `${itemIdx}_specs`, style: { paddingLeft: 16, paddingBottom: 4 } },
+                      e(Text, { style: { fontSize: 7, color: C.slate400, fontStyle: 'italic' as const } }, item.technicalSpecs),
+                    )]
+                  : []),
+              ]),
             ),
           ),
         )
@@ -868,6 +874,35 @@ export async function renderQuotationToBuffer(
           ),
         )
       : null;
+
+  /* ─── Technical Specs section sub-tree (deferred numbering) ─── */
+  const hasTechSpecs = !!(sec.showTechnicalSpecs && costsByCategory && costsByCategory.some((cat) => cat.items.some((i) => i.technicalSpecs)));
+  const buildTechSpecs = (num: number) => {
+    const specsCategories = (costsByCategory ?? [])
+      .map((cat) => ({ ...cat, items: cat.items.filter((i) => i.technicalSpecs) }))
+      .filter((cat) => cat.items.length > 0);
+    if (specsCategories.length === 0) return null;
+    return e(
+      View,
+      { wrap: false },
+      sectionTitle('Especificaciones Tecnicas Requeridas', num),
+      ...specsCategories.map((cat, catIdx) =>
+        e(
+          View,
+          { key: catIdx, style: { marginBottom: 6 } },
+          e(Text, { style: { fontSize: 8, fontWeight: 700, color: C.slate700, marginBottom: 3 } }, cat.category),
+          ...cat.items.map((item, itemIdx) =>
+            e(
+              View,
+              { key: itemIdx, style: { paddingLeft: 10, marginBottom: 4 } },
+              e(Text, { style: { fontSize: 8, fontWeight: 600, color: C.slate700 } }, `\u2022 ${item.name}`),
+              e(Text, { style: { fontSize: 7.5, color: C.slate400, paddingLeft: 10, paddingTop: 1 } }, item.technicalSpecs),
+            ),
+          ),
+        ),
+      ),
+    );
+  };
 
   /* ─── BUILD DOCUMENT ─── */
   const pages: unknown[] = [];
@@ -907,7 +942,7 @@ export async function renderQuotationToBuffer(
 
   // ─── PAGE 2: Conditions + Labor Detail + Cost Breakdown + Compliance ───
   const hasPage2 = sec.showConditions || sec.showIncludedItems || sec.showSignature ||
-    hasLaborDetail || hasCostBreakdown || hasCompliance;
+    hasLaborDetail || hasCostBreakdown || hasCompliance || hasTechSpecs;
 
   /* Reusable signature + contact block - fixed at bottom of page above footer */
   const sigBlock = () =>
@@ -955,6 +990,7 @@ export async function renderQuotationToBuffer(
           hasLaborDetail ? buildLaborDetail(nextNum()) : null,
           hasCostBreakdown ? buildCostBreakdown(nextNum()) : null,
           hasCompliance ? buildCompliance(nextNum()) : null,
+          hasTechSpecs ? buildTechSpecs(nextNum()) : null,
           sec.showConditions
             ? e(
                 View,

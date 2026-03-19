@@ -34,21 +34,21 @@ const CANONICAL_SECTIONS: Record<string, Partial<ProposalTemplateSections>> = {
     showCostBreakdown: false, showCostSummaryByCategory: false, showLaborDetail: false,
     showEquipmentDetail: false, showVehicleDetail: false, showAdditionalServices: true,
     showConditions: true, showIncludedItems: true, showSignature: true,
-    showComplianceSection: false, numberedSections: false, headerStyle: 'standard',
+    showComplianceSection: false, showTechnicalSpecs: false, numberedSections: false, headerStyle: 'standard',
   },
   detailed: {
     showCoverPage: true, showCompanyIntro: true, showPositionsTable: true,
     showCostBreakdown: true, showCostSummaryByCategory: true, showLaborDetail: true,
     showEquipmentDetail: true, showVehicleDetail: true, showAdditionalServices: true,
     showConditions: true, showIncludedItems: true, showSignature: true,
-    showComplianceSection: false, numberedSections: false, headerStyle: 'detailed',
+    showComplianceSection: false, showTechnicalSpecs: true, numberedSections: false, headerStyle: 'detailed',
   },
   tender: {
     showCoverPage: true, showCompanyIntro: true, showPositionsTable: true,
     showCostBreakdown: true, showCostSummaryByCategory: true, showLaborDetail: true,
     showEquipmentDetail: true, showVehicleDetail: true, showAdditionalServices: true,
     showConditions: true, showIncludedItems: true, showSignature: true,
-    showComplianceSection: true, numberedSections: true, headerStyle: 'formal',
+    showComplianceSection: true, showTechnicalSpecs: true, numberedSections: true, headerStyle: 'formal',
   },
 };
 

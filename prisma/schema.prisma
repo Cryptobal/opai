@@ -1117,9 +1117,10 @@ model CpqCatalogItem {
   basePrice         Decimal  @default(0) @map("base_price") @db.Decimal(12, 2)
   isDefault         Boolean  @default(false) @map("is_default")
   defaultVisibility String   @default("visible") @map("default_visibility")
-  active            Boolean  @default(true)
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  active                Boolean  @default(true)
+  defaultTechnicalSpecs String?  @map("default_technical_specs")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   uniformSelections CpqQuoteUniformItem[]
   examSelections    CpqQuoteExamItem[]
@@ -1207,6 +1208,7 @@ model CpqQuoteCostItem {
   isEnabled          Boolean  @default(true) @map("is_enabled")
   visibility         String   @default("visible")
   notes              String?
+  technicalSpecs     String?  @map("technical_specs")
   customName         String?  @map("custom_name") @db.VarChar(200)
   customType         String?  @map("custom_type") @db.VarChar(50)
   customCategory     String?  @map("custom_category") @db.VarChar(50)

@@ -43,6 +43,7 @@ export interface LeadCostItem {
   basePrice: number;
   priceOverride: number | null;
   enabled: boolean;
+  technicalSpecs?: string | null;
 }
 
 export interface LeadCpqConfig {
@@ -145,6 +146,7 @@ interface CatalogItem {
   name: string;
   unit: string;
   basePrice: number;
+  defaultTechnicalSpecs?: string | null;
 }
 
 /* ─── Component ─── */
@@ -183,6 +185,7 @@ export function LeadInstallationCpq({
             name: item.name,
             unit: item.unit,
             basePrice: Number(item.basePrice) || 0,
+            defaultTechnicalSpecs: item.defaultTechnicalSpecs || null,
           })));
           setCatalogLoaded(true);
           // Auto-populate costItems from catalog if empty
@@ -200,6 +203,7 @@ export function LeadInstallationCpq({
               basePrice: Number(item.basePrice) || 0,
               priceOverride: null,
               enabled: Boolean(item.isDefault) && enabledTypes.has(item.type),
+              technicalSpecs: item.defaultTechnicalSpecs || null,
             }));
             onChange({ ...config, costItems: items });
           }
@@ -229,6 +233,13 @@ export function LeadInstallationCpq({
   const updateCostItemPrice = (catalogItemId: string, price: number) => {
     const items = config.costItems.map((item) =>
       item.catalogItemId === catalogItemId ? { ...item, priceOverride: price, enabled: true } : item
+    );
+    update({ costItems: items });
+  };
+
+  const updateCostItemSpecs = (catalogItemId: string, specs: string | null) => {
+    const items = config.costItems.map((item) =>
+      item.catalogItemId === catalogItemId ? { ...item, technicalSpecs: specs } : item
     );
     update({ costItems: items });
   };
@@ -779,6 +790,7 @@ export function LeadInstallationCpq({
               costItems={config.costItems}
               onToggleItem={toggleCostItem}
               onPriceChange={updateCostItemPrice}
+              onTechnicalSpecsChange={updateCostItemSpecs}
               groupMonthlyOverrides={{
                 "Uniformes": costTotals.monthlyUniforms,
                 "Exámenes": costTotals.monthlyExams,
@@ -792,6 +804,7 @@ export function LeadInstallationCpq({
               costItems={config.costItems}
               onToggleItem={toggleCostItem}
               onPriceChange={updateCostItemPrice}
+              onTechnicalSpecsChange={updateCostItemSpecs}
             />
             <div className="flex justify-between items-center pt-1 border-t border-amber-500/20">
               <span className="text-[11px] font-medium text-amber-300">Total costos adicionales</span>
@@ -1147,6 +1160,7 @@ function CostCategoryBlock({
   costItems,
   onToggleItem,
   onPriceChange,
+  onTechnicalSpecsChange,
   groupMonthlyOverrides,
 }: {
   title: string;
@@ -1155,9 +1169,11 @@ function CostCategoryBlock({
   costItems: LeadCostItem[];
   onToggleItem: (id: string) => void;
   onPriceChange: (id: string, price: number) => void;
+  onTechnicalSpecsChange?: (id: string, specs: string | null) => void;
   groupMonthlyOverrides?: Record<string, number>;
 }) {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [expandedSpecs, setExpandedSpecs] = useState<Record<string, boolean>>({});
   const groupNames = Object.keys(groups);
 
   return (
@@ -1199,31 +1215,57 @@ function CostCategoryBlock({
             {isExpanded && (
               <div className="px-2.5 pb-2 space-y-2">
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
-                  {enabledItems.map((item) => (
-                    <div key={item.catalogItemId} className="p-2.5 rounded-lg bg-card border border-border/50 relative group">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[12px] font-semibold truncate">{item.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => onToggleItem(item.catalogItemId)}
-                          className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition shrink-0"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
+                  {enabledItems.map((item) => {
+                    const specKey = item.catalogItemId;
+                    const hasSpecs = !!item.technicalSpecs;
+                    const isSpecsOpen = expandedSpecs[specKey] ?? false;
+                    return (
+                      <div key={item.catalogItemId} className="p-2.5 rounded-lg bg-card border border-border/50 relative group">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[12px] font-semibold truncate">{item.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => onToggleItem(item.catalogItemId)}
+                            className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition shrink-0"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mb-1.5">
+                          Base: {formatCurrency(item.basePrice)}
+                        </div>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Precio mensual"
+                          value={formatNumber(item.priceOverride ?? item.basePrice)}
+                          onChange={(e) => onPriceChange(item.catalogItemId, parseLocalizedNumber(e.target.value) || 0)}
+                          className="h-7 text-xs"
+                        />
+                        {onTechnicalSpecsChange && (
+                          <>
+                            <button
+                              type="button"
+                              className={cn("mt-1.5 text-[10px] flex items-center gap-1", hasSpecs ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+                              onClick={() => setExpandedSpecs((prev) => ({ ...prev, [specKey]: !prev[specKey] }))}
+                            >
+                              <ChevronDown className={cn("h-3 w-3 transition-transform", isSpecsOpen ? "rotate-180" : "-rotate-90")} />
+                              Espec. técnicas{hasSpecs && !isSpecsOpen ? " *" : ""}
+                            </button>
+                            {isSpecsOpen && (
+                              <textarea
+                                rows={2}
+                                placeholder="Ej: Camioneta doble cabina 4x4..."
+                                value={item.technicalSpecs ?? ""}
+                                onChange={(e) => onTechnicalSpecsChange(item.catalogItemId, e.target.value || null)}
+                                className="mt-1 w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                              />
+                            )}
+                          </>
+                        )}
                       </div>
-                      <div className="text-[11px] text-muted-foreground mb-1.5">
-                        Base: {formatCurrency(item.basePrice)}
-                      </div>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="Precio mensual"
-                        value={formatNumber(item.priceOverride ?? item.basePrice)}
-                        onChange={(e) => onPriceChange(item.catalogItemId, parseLocalizedNumber(e.target.value) || 0)}
-                        className="h-7 text-xs"
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {disabledItems.length > 0 && (
                   <div className="flex flex-wrap gap-1 pt-1">

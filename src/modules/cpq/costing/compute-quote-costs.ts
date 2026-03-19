@@ -543,6 +543,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
             name: (item as any).customName ?? item.catalogItem?.name ?? "Sin nombre",
             amount: calculateItemAmount(item),
             calcMode: item.isAmortizable ? "amortizable" : item.calcMode,
+            technicalSpecs: (item as any).technicalSpecs ?? item.catalogItem?.defaultTechnicalSpecs ?? null,
           }));
 
         return {

@@ -832,7 +832,7 @@ export async function POST(
                 if (!catId) continue;
                 const catItem = await tx.cpqCatalogItem.findFirst({
                   where: { id: catId, active: true, OR: [{ tenantId: ctx.tenantId }, { tenantId: null }] },
-                  select: { id: true, type: true, name: true, defaultVisibility: true, isDefault: true },
+                  select: { id: true, type: true, name: true, defaultVisibility: true, isDefault: true, defaultTechnicalSpecs: true },
                 });
                 if (!catItem) continue;
                 if (catItem.type === "uniform") {
@@ -864,6 +864,7 @@ export async function POST(
                       isEnabled: true,
                       visibility: catItem.defaultVisibility || "visible",
                       notes: null,
+                      technicalSpecs: ci.technicalSpecs || catItem.defaultTechnicalSpecs || null,
                     },
                   });
                 }
@@ -887,6 +888,7 @@ export async function POST(
                     isEnabled: true,
                     visibility: eqItem.defaultVisibility || "visible",
                     notes: null,
+                    technicalSpecs: eqItem.defaultTechnicalSpecs || null,
                   },
                 });
               }
@@ -1101,6 +1103,7 @@ export async function POST(
                         isEnabled: true,
                         visibility: item.defaultVisibility || "visible",
                         notes: null,
+                        technicalSpecs: item.defaultTechnicalSpecs || null,
                       },
                     });
                   }
@@ -1216,6 +1219,7 @@ export async function POST(
                       quoteId: fallbackQuote.id, catalogItemId: item.id,
                       calcMode: "per_month", quantity: 1, unitPriceOverride: null,
                       isEnabled: true, visibility: item.defaultVisibility || "visible", notes: null,
+                      technicalSpecs: item.defaultTechnicalSpecs || null,
                     },
                   });
                 }

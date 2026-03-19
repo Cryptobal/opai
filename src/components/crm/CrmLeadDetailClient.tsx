@@ -60,6 +60,7 @@ import { DotacionSummary } from "./DotacionSummary";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
 import { LeadInstallationCpq, createDefaultLeadCpqConfig, type LeadCpqConfig } from "./LeadInstallationCpq";
+import { SERVICE_TYPES } from "@/lib/constants";
 
 /* ─── Truncated text helper ─── */
 
@@ -1164,18 +1165,23 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
       toast.success(`Propuesta enviada a ${result.data.sentTo}`);
 
-      // Open WhatsApp modal
-      if (result.data.whatsappPhone && result.data.whatsappMessage) {
-        const phone = result.data.whatsappPhone;
+      // Open WhatsApp modal (igual que en CPQ: abre aunque no haya teléfono)
+      let openedWhatsAppModal = false;
+      if (result.data.whatsappMessage) {
+        const phone = result.data.whatsappPhone ?? "";
         const message = result.data.whatsappMessage;
-        setWhatsappUrl(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
+        const waUrl = phone
+          ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+          : `https://wa.me/?text=${encodeURIComponent(message)}`;
+        setWhatsappUrl(waUrl);
         setWhatsappSentTo(result.data.sentTo);
         setWhatsappModalOpen(true);
+        openedWhatsAppModal = true;
       }
 
-      // Navigate away after a delay
+      // Navigate away after a delay (solo si no se abrió el modal de WhatsApp)
       setTimeout(() => {
-        if (!whatsappModalOpen) router.push("/crm/leads");
+        if (!openedWhatsAppModal) router.push("/crm/leads");
       }, 2000);
     } catch (error) {
       console.error(error);
@@ -1359,6 +1365,27 @@ Conoce más sobre nosotros en https://gard.cl`;
           <DetailField label="Fuente" value={<LeadSourceBadge source={lead.source} />} />
         </DetailFieldGrid>
 
+        {/* Solicitud del cliente — siempre visible en General */}
+        {(lead.serviceType || lead.notes) && (
+          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 space-y-3">
+            <h4 className="text-sm font-medium text-blue-400 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-blue-400 shrink-0" />
+              Solicitud
+            </h4>
+            <div className="space-y-2 text-sm">
+              {lead.serviceType && (
+                <DetailField
+                  label="Servicio"
+                  value={SERVICE_TYPES.find((s) => s.value === lead.serviceType)?.label ?? lead.serviceType}
+                />
+              )}
+              {lead.notes && (
+                <TruncatedText label="Detalle de la solicitud" text={lead.notes} maxChars={300} />
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Dotación solicitada (read-only summary) */}
         {dotacion && dotacion.length > 0 && (
           <DotacionSummary dotacion={dotacion} totalGuards={totalGuards} />
@@ -1466,8 +1493,6 @@ Conoce más sobre nosotros en https://gard.cl`;
           </div>
         )}
 
-        {/* Notes (when not editable) — truncated if long */}
-        {!isEditable && lead.notes && <TruncatedText label="Solicitud" text={lead.notes} maxChars={200} />}
       </div>
   );
 
@@ -1977,8 +2002,12 @@ Conoce más sobre nosotros en https://gard.cl`;
                         if (!res.ok || !data.success) throw new Error(data.error || "Error al enviar");
                         toast.success(`Propuesta enviada a ${data.data.sentTo}`);
                         setApprovalResult(null);
-                        if (data.data.whatsappPhone && data.data.whatsappMessage) {
-                          setWhatsappUrl(`https://wa.me/${data.data.whatsappPhone}?text=${encodeURIComponent(data.data.whatsappMessage)}`);
+                        if (data.data.whatsappMessage) {
+                          const phone = data.data.whatsappPhone ?? "";
+                          const waUrl = phone
+                            ? `https://wa.me/${phone}?text=${encodeURIComponent(data.data.whatsappMessage)}`
+                            : `https://wa.me/?text=${encodeURIComponent(data.data.whatsappMessage)}`;
+                          setWhatsappUrl(waUrl);
                           setWhatsappSentTo(data.data.sentTo);
                           setWhatsappModalOpen(true);
                         } else {

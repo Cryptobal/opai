@@ -777,9 +777,18 @@ function CostBreakdownByCategory({
             </Text>
           </View>
           {cat.items.map((item, itemIdx) => (
-            <View key={itemIdx} style={ls.catItemRow}>
-              <Text style={ls.catItemLabel}>{item.name}</Text>
-              <Text style={ls.catItemAmount}>{fmtFn(item.amount)}</Text>
+            <View key={itemIdx}>
+              <View style={ls.catItemRow}>
+                <Text style={ls.catItemLabel}>{item.name}</Text>
+                <Text style={ls.catItemAmount}>{fmtFn(item.amount)}</Text>
+              </View>
+              {item.technicalSpecs ? (
+                <View style={{ paddingLeft: 16, paddingBottom: 4 }}>
+                  <Text style={{ fontSize: 7, color: pdfColors.slate500, fontStyle: 'italic' }}>
+                    {item.technicalSpecs}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           ))}
         </View>
@@ -810,6 +819,50 @@ function ComplianceSection({
           </View>
         ))}
       </View>
+    </>
+  );
+}
+
+/* ─── TechnicalSpecsSection — Especificaciones técnicas (Detallado / Licitación) ─── */
+
+function TechnicalSpecsSection({
+  costsByCategory,
+  numbered,
+  sectionNum,
+}: {
+  costsByCategory: QuotationPDFProps['costsByCategory'];
+  numbered: boolean;
+  sectionNum?: number;
+}) {
+  const specsItems = (costsByCategory ?? [])
+    .map((cat) => ({
+      ...cat,
+      items: cat.items.filter((i) => i.technicalSpecs),
+    }))
+    .filter((cat) => cat.items.length > 0);
+
+  if (specsItems.length === 0) return null;
+
+  return (
+    <>
+      <SectionTitle numbered={numbered} num={sectionNum}>Especificaciones Técnicas Requeridas</SectionTitle>
+      {specsItems.map((cat, catIdx) => (
+        <View key={catIdx} style={{ marginBottom: 6 }}>
+          <Text style={{ fontSize: 8, fontWeight: 700, color: pdfColors.slate700, marginBottom: 3 }}>
+            {cat.category}
+          </Text>
+          {cat.items.map((item, itemIdx) => (
+            <View key={itemIdx} style={{ paddingLeft: 10, marginBottom: 4 }}>
+              <Text style={{ fontSize: 8, fontWeight: 600, color: pdfColors.slate700 }}>
+                {'\u2022 '}{item.name}
+              </Text>
+              <Text style={{ fontSize: 7.5, color: pdfColors.slate500, paddingLeft: 10, paddingTop: 1 }}>
+                {item.technicalSpecs}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ))}
     </>
   );
 }
@@ -1020,7 +1073,8 @@ export function QuotationPDF(props: QuotationPDFProps) {
       {(sec.showConditions || sec.showIncludedItems || sec.showSignature ||
         (sec.showLaborDetail && laborBreakdown) ||
         (sec.showCostBreakdown && costsByCategory.length > 0) ||
-        (sec.showComplianceSection && complianceItems)) && (
+        (sec.showComplianceSection && complianceItems) ||
+        (sec.showTechnicalSpecs && costsByCategory.length > 0)) && (
         <Page size="A4" style={ls.page}>
           <PDFHeader
             brandName={brandName}
@@ -1053,6 +1107,15 @@ export function QuotationPDF(props: QuotationPDFProps) {
             {sec.showComplianceSection && complianceItems && complianceItems.length > 0 && (
               <ComplianceSection
                 items={complianceItems}
+                numbered={numbered}
+                sectionNum={nextNum()}
+              />
+            )}
+
+            {/* Technical Specifications (Detailed / Tender) */}
+            {sec.showTechnicalSpecs && costsByCategory.length > 0 && (
+              <TechnicalSpecsSection
+                costsByCategory={costsByCategory}
                 numbered={numbered}
                 sectionNum={nextNum()}
               />

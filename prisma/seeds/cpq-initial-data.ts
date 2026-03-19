@@ -64,50 +64,65 @@ export async function seedCpqData() {
   }
 
   const catalogItems = [
-    { type: "uniform", name: "Camisa", unit: "unidad", basePrice: 15000, isDefault: true },
-    { type: "uniform", name: "Pantalon", unit: "unidad", basePrice: 18000, isDefault: true },
-    { type: "uniform", name: "Zapato", unit: "unidad", basePrice: 32000, isDefault: true },
-    { type: "uniform", name: "Polar", unit: "unidad", basePrice: 22000, isDefault: true },
-    { type: "uniform", name: "Geologo", unit: "unidad", basePrice: 25000, isDefault: true },
-    { type: "uniform", name: "Chaqueta", unit: "unidad", basePrice: 35000, isDefault: true },
-    { type: "uniform", name: "Velo", unit: "unidad", basePrice: 8000, isDefault: true },
-    { type: "uniform", name: "Casco", unit: "unidad", basePrice: 12000, isDefault: false },
-    { type: "uniform", name: "EPP", unit: "unidad", basePrice: 20000, isDefault: false },
-    { type: "uniform", name: "Chaleco Antikorper", unit: "unidad", basePrice: 28000, isDefault: false },
+    // Uniformes
+    { type: "uniform", name: "Camisa", unit: "unidad", basePrice: 15000, isDefault: true, defaultTechnicalSpecs: "Camisa operativa tipo polo u oxford, tela resistente, cuello reforzado, colores corporativos." },
+    { type: "uniform", name: "Pantalon", unit: "unidad", basePrice: 18000, isDefault: true, defaultTechnicalSpecs: "Pantalón cargo u operativo, tela resistente, bolsillos reforzados, corte funcional." },
+    { type: "uniform", name: "Zapato", unit: "unidad", basePrice: 32000, isDefault: true, defaultTechnicalSpecs: "Calzado de seguridad punta de acero, suela antideslizante, certificación según normativa vigente." },
+    { type: "uniform", name: "Polar", unit: "unidad", basePrice: 22000, isDefault: true, defaultTechnicalSpecs: "Chaqueta polar tipo fleece, abrigo ligero, cuello alto, bolsillos." },
+    { type: "uniform", name: "Geologo", unit: "unidad", basePrice: 25000, isDefault: true, defaultTechnicalSpecs: "Parka tipo geólogo, impermeable, reflectante, capucha desmontable." },
+    { type: "uniform", name: "Chaqueta", unit: "unidad", basePrice: 35000, isDefault: true, defaultTechnicalSpecs: "Chaqueta impermeable, alta visibilidad, forro térmico, bolsillos internos." },
+    { type: "uniform", name: "Velo", unit: "unidad", basePrice: 8000, isDefault: true, defaultTechnicalSpecs: "Gorro tipo velo o pasamontañas para protección contra frío." },
+    { type: "uniform", name: "Casco", unit: "unidad", basePrice: 12000, isDefault: false, defaultTechnicalSpecs: "Casco de seguridad industrial, ajuste regulable, certificación ANSI/EN." },
+    { type: "uniform", name: "EPP", unit: "unidad", basePrice: 20000, isDefault: false, defaultTechnicalSpecs: "Elementos de protección personal: guantes, anteojos, protectores auditivos según riesgo." },
+    { type: "uniform", name: "Chaleco Antikorper", unit: "unidad", basePrice: 28000, isDefault: false, defaultTechnicalSpecs: "Chaleco antibalas/cortantes, nivel según requerimiento del cliente." },
 
-    { type: "exam", name: "Preocupacional", unit: "examen", basePrice: 25000, isDefault: false },
-    { type: "exam", name: "Fisico", unit: "examen", basePrice: 12000, isDefault: false },
-    { type: "exam", name: "Psicotecnico", unit: "examen", basePrice: 18000, isDefault: false },
-    { type: "exam", name: "Altura", unit: "examen", basePrice: 22000, isDefault: false },
-    { type: "exam", name: "Drogas", unit: "examen", basePrice: 20000, isDefault: false },
+    // Exámenes
+    { type: "exam", name: "Preocupacional", unit: "examen", basePrice: 25000, isDefault: false, defaultTechnicalSpecs: "Examen médico pre-empleo según DS 594, aptitud para labores de seguridad." },
+    { type: "exam", name: "Fisico", unit: "examen", basePrice: 12000, isDefault: false, defaultTechnicalSpecs: "Control de aptitud física para funciones operativas." },
+    { type: "exam", name: "Psicotecnico", unit: "examen", basePrice: 18000, isDefault: false, defaultTechnicalSpecs: "Evaluación psicotécnica de idoneidad para labores de seguridad." },
+    { type: "exam", name: "Altura", unit: "examen", basePrice: 22000, isDefault: false, defaultTechnicalSpecs: "Certificación trabajo en altura según normativa vigente." },
+    { type: "exam", name: "Drogas", unit: "examen", basePrice: 20000, isDefault: false, defaultTechnicalSpecs: "Examen de detección de sustancias en orina o saliva." },
 
-    { type: "system", name: "Sistema", unit: "mes", basePrice: 3500, isDefault: false },
-    { type: "phone", name: "Telefono", unit: "mes", basePrice: 12000, isDefault: false },
-    { type: "radio", name: "Radio", unit: "mes", basePrice: 8000, isDefault: false },
-    { type: "flashlight", name: "Linterna", unit: "mes", basePrice: 3000, isDefault: false },
-    { type: "transport", name: "Transporte", unit: "mes", basePrice: 0, isDefault: false },
+    // Equipo operativo
+    { type: "system", name: "Sistema", unit: "mes", basePrice: 3500, isDefault: false, defaultTechnicalSpecs: "Plataforma de gestión operativa: novedades, rondas, reportes, monitoreo." },
+    { type: "phone", name: "Telefono", unit: "mes", basePrice: 12000, isDefault: false, defaultTechnicalSpecs: "Teléfono celular corporativo, plan voz y datos, uso exclusivo laboral." },
+    { type: "radio", name: "Radio", unit: "mes", basePrice: 8000, isDefault: false, defaultTechnicalSpecs: "Radio comunicador VHF/UHF, alcance según cobertura del sitio." },
+    { type: "flashlight", name: "Linterna", unit: "mes", basePrice: 3000, isDefault: false, defaultTechnicalSpecs: "Linterna recargable LED, alta luminosidad, resistencia IP." },
+    { type: "transport", name: "Transporte", unit: "mes", basePrice: 0, isDefault: false, defaultTechnicalSpecs: "Servicio de transporte personal ida y vuelta al lugar de trabajo." },
 
-    { type: "meal", name: "Desayuno", unit: "comida", basePrice: 3500, isDefault: false },
-    { type: "meal", name: "Almuerzo", unit: "comida", basePrice: 6500, isDefault: false },
-    { type: "meal", name: "Comida", unit: "comida", basePrice: 6500, isDefault: false },
-    { type: "meal", name: "Merienda", unit: "comida", basePrice: 2500, isDefault: false },
+    // Alimentación
+    { type: "meal", name: "Desayuno", unit: "comida", basePrice: 3500, isDefault: false, defaultTechnicalSpecs: "Incluye café/té, pan, lácteos, fruta o similar." },
+    { type: "meal", name: "Almuerzo", unit: "comida", basePrice: 6500, isDefault: false, defaultTechnicalSpecs: "Menú ejecutivo completo: entrada, plato de fondo, postre, bebida." },
+    { type: "meal", name: "Comida", unit: "comida", basePrice: 6500, isDefault: false, defaultTechnicalSpecs: "Menú completo equivalente a almuerzo o cena según turno." },
+    { type: "meal", name: "Merienda", unit: "comida", basePrice: 2500, isDefault: false, defaultTechnicalSpecs: "Colación ligera: fruta, galleta, jugo o similar." },
   ];
 
   for (const item of catalogItems) {
     const existing = await prisma.cpqCatalogItem.findFirst({
       where: { name: item.name, type: item.type },
     });
+    const payload = item as typeof item & { defaultTechnicalSpecs?: string };
     if (existing) {
       await prisma.cpqCatalogItem.update({
         where: { id: existing.id },
         data: {
-          unit: item.unit,
-          basePrice: item.basePrice,
-          isDefault: item.isDefault ?? false,
+          unit: payload.unit,
+          basePrice: payload.basePrice,
+          isDefault: payload.isDefault ?? false,
+          defaultTechnicalSpecs: payload.defaultTechnicalSpecs ?? null,
         },
       });
     } else {
-      await prisma.cpqCatalogItem.create({ data: item });
+      await prisma.cpqCatalogItem.create({
+        data: {
+          type: payload.type,
+          name: payload.name,
+          unit: payload.unit,
+          basePrice: payload.basePrice,
+          isDefault: payload.isDefault ?? false,
+          defaultTechnicalSpecs: payload.defaultTechnicalSpecs ?? null,
+        },
+      });
     }
   }
 

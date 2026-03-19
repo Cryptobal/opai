@@ -183,6 +183,7 @@ export function CpqQuoteCosts({
   const [vehicles, setVehicles] = useState<CpqQuoteVehicle[]>([]);
   const [infrastructure, setInfrastructure] = useState<CpqQuoteInfrastructure[]>([]);
   const [additionalLines, setAdditionalLines] = useState<CpqQuoteAdditionalLine[]>([]);
+  const [expandedSpecs, setExpandedSpecs] = useState<Record<string, boolean>>({});
   const [skipDefaultCosts, setSkipDefaultCosts] = useState(false);
   const defaultsApplied = useRef(false);
   const inputClass =
@@ -276,6 +277,7 @@ export function CpqQuoteCosts({
           isEnabled: true,
           visibility: catalogItem.defaultVisibility || "visible",
           notes: "",
+          technicalSpecs: catalogItem.defaultTechnicalSpecs || null,
           catalogItem,
           ...patch,
         },
@@ -902,27 +904,49 @@ export function CpqQuoteCosts({
   const renderCostItemCard = (
     item: CpqCatalogItem,
     costItem: CpqQuoteCostItem | undefined
-  ) => (
-    <div key={item.id} className="p-2.5 rounded-lg bg-card border border-border/50">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[13px] font-semibold truncate">{item.name}</span>
-        <button type="button" onClick={() => upsertCostItem(item, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
-          <Trash2 className="h-3 w-3" />
+  ) => {
+    const specKey = item.id;
+    const hasSpecs = !!(costItem?.technicalSpecs || item.defaultTechnicalSpecs);
+    const isSpecsOpen = expandedSpecs[specKey] ?? false;
+    return (
+      <div key={item.id} className="p-2.5 rounded-lg bg-card border border-border/50">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[13px] font-semibold truncate">{item.name}</span>
+          <button type="button" onClick={() => upsertCostItem(item, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
+        <div className="text-[11px] text-muted-foreground mb-1.5">
+          Base: {formatCurrency(Number(item.basePrice))}
+        </div>
+        <Input
+          type="text"
+          inputMode="numeric"
+          placeholder="Precio mensual"
+          value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
+          onChange={(e) => upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })}
+          className={inputClass}
+        />
+        <button
+          type="button"
+          className={cn("mt-1.5 text-[10px] flex items-center gap-1", hasSpecs ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+          onClick={() => setExpandedSpecs((prev) => ({ ...prev, [specKey]: !prev[specKey] }))}
+        >
+          <ChevronRight className={cn("h-3 w-3 transition-transform", isSpecsOpen && "rotate-90")} />
+          Espec. técnicas{hasSpecs && !isSpecsOpen ? " *" : ""}
         </button>
+        {isSpecsOpen && (
+          <textarea
+            rows={2}
+            placeholder="Ej: Camioneta doble cabina 4x4, motor 2.8L..."
+            value={costItem?.technicalSpecs ?? item.defaultTechnicalSpecs ?? ""}
+            onChange={(e) => upsertCostItem(item, { technicalSpecs: e.target.value || null })}
+            className="mt-1 w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        )}
       </div>
-      <div className="text-[11px] text-muted-foreground mb-1.5">
-        Base: {formatCurrency(Number(item.basePrice))}
-      </div>
-      <Input
-        type="text"
-        inputMode="numeric"
-        placeholder="Precio mensual"
-        value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
-        onChange={(e) => upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })}
-        className={inputClass}
-      />
-    </div>
-  );
+    );
+  };
 
   /** Vehicle fuel calculator card */
   const renderFuelCard = (item: CpqCatalogItem, costItem: CpqQuoteCostItem | undefined) => {
@@ -980,6 +1004,32 @@ export function CpqQuoteCosts({
           <span className="text-muted-foreground">&divide; {fuelParams.kmPerLiter} = <strong>{litrosMes.toLocaleString("es-CL", { maximumFractionDigits: 1 })} l/m</strong></span>
           <span className="ml-auto font-semibold text-foreground">{formatCurrency(costoMensual)}</span>
         </div>
+        {(() => {
+          const specKey = `fuel_${item.id}`;
+          const hasSpecs = !!(costItem?.technicalSpecs || item.defaultTechnicalSpecs);
+          const isSpecsOpen = expandedSpecs[specKey] ?? false;
+          return (
+            <>
+              <button
+                type="button"
+                className={cn("mt-1.5 text-[10px] flex items-center gap-1", hasSpecs ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+                onClick={() => setExpandedSpecs((prev) => ({ ...prev, [specKey]: !prev[specKey] }))}
+              >
+                <ChevronRight className={cn("h-3 w-3 transition-transform", isSpecsOpen && "rotate-90")} />
+                Espec. técnicas{hasSpecs && !isSpecsOpen ? " *" : ""}
+              </button>
+              {isSpecsOpen && (
+                <textarea
+                  rows={2}
+                  placeholder="Ej: Camioneta doble cabina 4x4, motor 2.8L..."
+                  value={costItem?.technicalSpecs ?? item.defaultTechnicalSpecs ?? ""}
+                  onChange={(e) => upsertCostItem(item, { technicalSpecs: e.target.value || null })}
+                  className="mt-1 w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              )}
+            </>
+          );
+        })()}
       </div>
     );
   };
@@ -1290,6 +1340,32 @@ export function CpqQuoteCosts({
                     onChange={(e) => setCostItems((prev) => prev.map((c) => (item.id ? c.id === item.id : c.catalogItemId === item.catalogItemId) ? { ...c, unitPriceOverride: toNumber(e.target.value) } : c))}
                     className={inputClass}
                   />
+                  {(() => {
+                    const specKey = `sys_${item.id ?? item.catalogItemId}`;
+                    const hasSpecs = !!(item.technicalSpecs || ci?.defaultTechnicalSpecs);
+                    const isSpecsOpen = expandedSpecs[specKey] ?? false;
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          className={cn("mt-1.5 text-[10px] flex items-center gap-1", hasSpecs ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+                          onClick={() => setExpandedSpecs((prev) => ({ ...prev, [specKey]: !prev[specKey] }))}
+                        >
+                          <ChevronRight className={cn("h-3 w-3 transition-transform", isSpecsOpen && "rotate-90")} />
+                          Espec. técnicas{hasSpecs && !isSpecsOpen ? " *" : ""}
+                        </button>
+                        {isSpecsOpen && (
+                          <textarea
+                            rows={2}
+                            placeholder="Ej: Sistema CCTV 4 cámaras IP..."
+                            value={item.technicalSpecs ?? ci?.defaultTechnicalSpecs ?? ""}
+                            onChange={(e) => setCostItems((prev) => prev.map((c) => (item.id ? c.id === item.id : c.catalogItemId === item.catalogItemId) ? { ...c, technicalSpecs: e.target.value || null } : c))}
+                            className="mt-1 w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               );
             })}
