@@ -61,6 +61,27 @@ interface LeadAdditionalLine {
   recurrencia?: string;
 }
 
+type PositionCostResult = {
+  name: string;
+  guards: number;
+  numPuestos: number;
+  totalGuardsInPos: number;
+  salary: number;
+  gratificacion: number;
+  totalImponible: number;
+  sisEmployer: number;
+  afcEmployer: number;
+  mutualEmployer: number;
+  vacationProvision: number;
+  severanceProvision: number;
+  costoGuardia: number;
+  totalCost: number;
+  baseSalaryTotal: number;
+  gratificacionTotal: number;
+  days: string;
+  schedule: string;
+};
+
 const COST_TYPE_CATEGORY: Record<string, { category: "direct" | "indirect"; group: string; slug: string }> = {
   uniform: { category: "direct", group: "Uniformes", slug: "uniform" },
   exam: { category: "direct", group: "Exámenes", slug: "exam" },
@@ -121,7 +142,7 @@ export async function POST(
     );
 
     /* ── Labor cost per position ── */
-    const positionCosts = positions.map((pos: LeadPosition) => {
+    const positionCosts: PositionCostResult[] = positions.map((pos: LeadPosition) => {
       const salary = pos.baseSalary || 550000;
       const guards = pos.cantidad || 1;
       const numPuestos = pos.numPuestos || 1;
@@ -158,7 +179,7 @@ export async function POST(
       };
     });
 
-    const totalLaborCost = positionCosts.reduce((s: number, p: { totalCost: number }) => s + p.totalCost, 0);
+    const totalLaborCost = positionCosts.reduce((s: number, p: PositionCostResult) => s + p.totalCost, 0);
 
     /* ── Holiday adjustment (same as CPQ) ── */
     const holidayAnnualCount = 12;
@@ -305,7 +326,7 @@ export async function POST(
     const grandTotal = totalSalePrice + totalAdditionalLinesAmount;
 
     /* ── Positions for PDF ── */
-    const pdfPositions = positionCosts.map((pos) => {
+    const pdfPositions = positionCosts.map((pos: PositionCostResult) => {
       const proportion = totalLaborCost > 0 ? pos.totalCost / totalLaborCost : 1 / positionCosts.length;
       const positionSaleValue = totalSalePrice * proportion;
       return {
@@ -319,7 +340,7 @@ export async function POST(
     });
 
     /* ── Breakdown (estructura de costos) ── */
-    const positionBreakdownItems: PositionBreakdownItem[] = positionCosts.map((pos, idx) => {
+    const positionBreakdownItems: PositionBreakdownItem[] = positionCosts.map((pos: PositionCostResult, idx: number) => {
       const proportion = totalLaborCost > 0 ? pos.totalCost / totalLaborCost : 1 / positionCosts.length;
       return {
         id: `lead-pos-${idx}`,
@@ -370,13 +391,13 @@ export async function POST(
 
     /* ── Labor breakdown ── */
     const avgSalary = totalGuards > 0
-      ? positionCosts.reduce((s, p) => s + p.salary * p.totalGuardsInPos, 0) / totalGuards : 0;
+      ? positionCosts.reduce((s: number, p: PositionCostResult) => s + p.salary * p.totalGuardsInPos, 0) / totalGuards : 0;
     const avgGrat = totalGuards > 0
-      ? positionCosts.reduce((s, p) => s + p.gratificacion * p.totalGuardsInPos, 0) / totalGuards : 0;
+      ? positionCosts.reduce((s: number, p: PositionCostResult) => s + p.gratificacion * p.totalGuardsInPos, 0) / totalGuards : 0;
     const avgCostPerGuard = totalGuards > 0 ? totalLaborCost / totalGuards : 0;
     const cargasPct = avgSalary > 0 ? ((avgCostPerGuard - avgSalary - avgGrat) / (avgSalary + avgGrat)) * 100 : 24.35;
 
-    const laborPositionDetails: LaborPositionDetailPDF[] = positionCosts.map((pos) => ({
+    const laborPositionDetails: LaborPositionDetailPDF[] = positionCosts.map((pos: PositionCostResult) => ({
       name: pos.name,
       totalGuardsInPosition: pos.totalGuardsInPos,
       baseSalary: pos.baseSalaryTotal,
