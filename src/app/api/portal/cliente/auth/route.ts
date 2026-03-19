@@ -22,26 +22,50 @@ function setSessionCookie(session: ClienteSession) {
   };
 }
 
+function clearPortalClienteSessionCookie() {
+  return {
+    name: PORTAL_CLIENTE_SESSION_COOKIE,
+    value: "",
+    path: "/",
+    maxAge: 0,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+  };
+}
+
 export async function GET() {
   const cookieStore = await cookies();
   const session = parsePortalClienteSessionCookie(
     cookieStore.get(PORTAL_CLIENTE_SESSION_COOKIE)?.value
   );
-  if (!session?.installations?.length)
+  if (!session) {
     return NextResponse.json({ success: false }, { status: 401 });
+  }
 
   let needsCookieRefresh = false;
   const freshSession = { ...session };
+  if (!Array.isArray(freshSession.installations)) {
+    freshSession.installations = [];
+    needsCookieRefresh = true;
+  }
 
   try {
     const contact = await prisma.crmContact.findUnique({
       where: { id: session.contactId },
       select: {
+        portalEnabled: true,
         email: true,
         account: {
           select: {
             status: true,
+            isActive: true,
             portalConfig: true,
+            installations: {
+              where: { status: "active" },
+              select: { id: true, name: true },
+              orderBy: { name: "asc" },
+            },
           },
         },
         companyPresentations: {
@@ -52,78 +76,99 @@ export async function GET() {
       },
     });
 
-    if (contact) {
-      const freshIsProspect = contact.account?.status === 'prospect';
-      const freshHasPresentation = (contact.companyPresentations?.length ?? 0) > 0;
+    if (!contact || !contact.portalEnabled) {
+      const res = NextResponse.json({ success: false }, { status: 401 });
+      res.cookies.set(clearPortalClienteSessionCookie());
+      return res;
+    }
 
-      if (freshIsProspect !== session.isProspect) {
-        freshSession.isProspect = freshIsProspect;
+    const acct = contact.account;
+    const accountStillAllowed =
+      acct.status === "client_active" ||
+      acct.status === "prospect" ||
+      (acct.isActive && acct.status !== "client_inactive");
+    if (!accountStillAllowed) {
+      const res = NextResponse.json({ success: false }, { status: 401 });
+      res.cookies.set(clearPortalClienteSessionCookie());
+      return res;
+    }
+
+    const freshInstallations = acct.installations;
+    if (JSON.stringify(freshInstallations) !== JSON.stringify(freshSession.installations)) {
+      freshSession.installations = freshInstallations;
+      needsCookieRefresh = true;
+    }
+
+    const freshIsProspect = acct.status === 'prospect';
+    const freshHasPresentation = (contact.companyPresentations?.length ?? 0) > 0;
+
+    if (freshIsProspect !== session.isProspect) {
+      freshSession.isProspect = freshIsProspect;
+      needsCookieRefresh = true;
+    }
+    if (freshHasPresentation !== (session.hasActivePresentation ?? false)) {
+      freshSession.hasActivePresentation = freshHasPresentation;
+      needsCookieRefresh = true;
+    }
+
+    // Refrescar portalConfig desde BD para que cambios del admin se reflejen de inmediato
+    try {
+      const rawConfig = acct.portalConfig;
+      const freshConfig: PortalConfig =
+        rawConfig && typeof rawConfig === 'object' && !Array.isArray(rawConfig)
+          ? { ...DEFAULT_PORTAL_CONFIG, ...(rawConfig as Partial<PortalConfig>) }
+          : DEFAULT_PORTAL_CONFIG;
+      const currentConfig = session.portalConfig ?? DEFAULT_PORTAL_CONFIG;
+      if (JSON.stringify(freshConfig) !== JSON.stringify(currentConfig)) {
+        freshSession.portalConfig = freshConfig;
         needsCookieRefresh = true;
       }
-      if (freshHasPresentation !== (session.hasActivePresentation ?? false)) {
-        freshSession.hasActivePresentation = freshHasPresentation;
-        needsCookieRefresh = true;
+    } catch {
+      // portalConfig column may not exist yet
+    }
+
+    try {
+      const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://opai.gard.cl';
+      let freshUrl: string | null = null;
+
+      if (contact.email) {
+        const byEmail = await prisma.presentation.findFirst({
+          where: {
+            recipientEmail: { equals: contact.email, mode: 'insensitive' },
+            status: { in: ['sent', 'viewed'] },
+            tenantId: session.tenantId,
+          },
+          select: { uniqueId: true },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (byEmail) freshUrl = `${siteUrl}/p/${byEmail.uniqueId}?mode=commercial`;
       }
 
-      // Refrescar portalConfig desde BD para que cambios del admin se reflejen de inmediato
-      try {
-        const rawConfig = contact.account?.portalConfig;
-        const freshConfig: PortalConfig =
-          rawConfig && typeof rawConfig === 'object' && !Array.isArray(rawConfig)
-            ? { ...DEFAULT_PORTAL_CONFIG, ...(rawConfig as Partial<PortalConfig>) }
-            : DEFAULT_PORTAL_CONFIG;
-        const currentConfig = session.portalConfig ?? DEFAULT_PORTAL_CONFIG;
-        if (JSON.stringify(freshConfig) !== JSON.stringify(currentConfig)) {
-          freshSession.portalConfig = freshConfig;
-          needsCookieRefresh = true;
-        }
-      } catch {
-        // portalConfig column may not exist yet
-      }
-
-      try {
-        const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://opai.gard.cl';
-        let freshUrl: string | null = null;
-
-        if (contact.email) {
-          const byEmail = await prisma.presentation.findFirst({
-            where: {
-              recipientEmail: { equals: contact.email, mode: 'insensitive' },
-              status: { in: ['sent', 'viewed'] },
-              tenantId: session.tenantId,
-            },
+      if (!freshUrl && session.accountId) {
+        const accountQuote = await prisma.cpqQuote.findFirst({
+          where: {
+            accountId: session.accountId,
+            tenantId: session.tenantId,
+            ...cpqQuoteListedInClientPortalWhere(),
+          },
+          select: { id: true },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (accountQuote) {
+          const byQuote = await prisma.presentation.findFirst({
+            where: { quoteId: accountQuote.id, status: { in: ['sent', 'viewed'] } },
             select: { uniqueId: true },
             orderBy: { createdAt: 'desc' },
           });
-          if (byEmail) freshUrl = `${siteUrl}/p/${byEmail.uniqueId}?mode=commercial`;
+          if (byQuote) freshUrl = `${siteUrl}/p/${byQuote.uniqueId}?mode=commercial`;
         }
+      }
 
-        if (!freshUrl && session.accountId) {
-          const accountQuote = await prisma.cpqQuote.findFirst({
-            where: {
-              accountId: session.accountId,
-              tenantId: session.tenantId,
-              ...cpqQuoteListedInClientPortalWhere(),
-            },
-            select: { id: true },
-            orderBy: { createdAt: 'desc' },
-          });
-          if (accountQuote) {
-            const byQuote = await prisma.presentation.findFirst({
-              where: { quoteId: accountQuote.id, status: { in: ['sent', 'viewed'] } },
-              select: { uniqueId: true },
-              orderBy: { createdAt: 'desc' },
-            });
-            if (byQuote) freshUrl = `${siteUrl}/p/${byQuote.uniqueId}?mode=commercial`;
-          }
-        }
-
-        if (freshUrl !== (session.commercialPresentationUrl ?? null)) {
-          freshSession.commercialPresentationUrl = freshUrl;
-          needsCookieRefresh = true;
-        }
-      } catch {}
-    }
+      if (freshUrl !== (session.commercialPresentationUrl ?? null)) {
+        freshSession.commercialPresentationUrl = freshUrl;
+        needsCookieRefresh = true;
+      }
+    } catch {}
   } catch {
     // companyPresentations table may not exist in prod yet
   }
