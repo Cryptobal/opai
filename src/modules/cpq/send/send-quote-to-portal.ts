@@ -264,6 +264,11 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     tags: [{ name: "type", value: "portal-prospecto-invite" }, { name: "quote", value: quote.code }],
   });
 
+  await prisma.crmContact.update({
+    where: { id: contact.id },
+    data: { portalInvitationSentAt: new Date() },
+  });
+
   // Follow-up handling
   if (quote.dealId) {
     try {

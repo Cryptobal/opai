@@ -60,6 +60,11 @@ export async function POST(
       html,
     });
 
+    await prisma.crmContact.update({
+      where: { id },
+      data: { portalInvitationSentAt: new Date() },
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[CRM] contact portal send-email", error);

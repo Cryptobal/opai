@@ -21,6 +21,7 @@ interface Contact {
   isPrimary: boolean;
   portalEnabled?: boolean;
   portalPinVisible?: string | null;
+  portalInvitationSentAt?: string | null;
   portalLastAccessAt?: string | null;
   portalLastAccessIp?: string | null;
 }
@@ -187,6 +188,7 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
       const json = await res.json();
       if (json.success) {
         toast.success("Email enviado con credenciales de acceso");
+        onRefresh();
       } else {
         toast.error(json.error || "Error enviando email");
       }
@@ -195,7 +197,7 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
     } finally {
       setContactLoading(contactId, false);
     }
-  }, []);
+  }, [onRefresh]);
 
   if (!hasPortalAccess) {
     return (
@@ -285,6 +287,24 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {c.email ?? "Sin email"} {c.phone ? `· ${c.phone}` : ""}
                       </p>
+                      {hasPin && (c.portalInvitationSentAt || c.portalLastAccessAt) && (
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
+                          {c.portalInvitationSentAt && (
+                            <span title="Invitación enviada">
+                              Enviada: {new Date(c.portalInvitationSentAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+                            </span>
+                          )}
+                          {c.portalLastAccessAt ? (
+                            <span className="text-emerald-400/90" title="Último ingreso al portal">
+                              Ingresó: {new Date(c.portalLastAccessAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          ) : (
+                            <span className="text-amber-400/80" title="Aún no ha ingresado al portal">
+                              Nunca ingresó
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
@@ -335,8 +355,11 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 w-7 p-0"
-                                  title="Enviar credenciales por email"
+                                  className={cn(
+                                    "h-7 w-7 p-0",
+                                    c.portalInvitationSentAt && "text-emerald-400/80",
+                                  )}
+                                  title={c.portalInvitationSentAt ? "Reenviar invitación" : "Enviar credenciales por email"}
                                   onClick={() => sendEmail(c.id)}
                                 >
                                   <Send className="h-3 w-3" />
