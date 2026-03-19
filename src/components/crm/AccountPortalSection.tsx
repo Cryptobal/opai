@@ -287,11 +287,15 @@ export function AccountPortalSection({ accountId, contacts, accountStatus, accou
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {c.email ?? "Sin email"} {c.phone ? `· ${c.phone}` : ""}
                       </p>
-                      {hasPin && (c.portalInvitationSentAt || c.portalLastAccessAt) && (
+                      {hasPin && (
                         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
-                          {c.portalInvitationSentAt && (
+                          {c.portalInvitationSentAt ? (
                             <span title="Invitación enviada">
                               Enviada: {new Date(c.portalInvitationSentAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}
+                            </span>
+                          ) : (
+                            <span className="text-amber-400/80" title="Invitación no enviada">
+                              Invitación no enviada
                             </span>
                           )}
                           {c.portalLastAccessAt ? (

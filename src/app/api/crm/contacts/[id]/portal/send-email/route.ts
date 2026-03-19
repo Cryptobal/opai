@@ -3,7 +3,7 @@ import { render } from "@react-email/render";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
-import { resend, EMAIL_CONFIG } from "@/lib/resend";
+import { resend, getTenantEmailConfig } from "@/lib/resend";
 import { PortalClienteInviteEmail } from "@/emails/PortalClienteInviteEmail";
 
 export async function POST(
@@ -53,21 +53,47 @@ export async function POST(
       })
     );
 
-    await resend.emails.send({
-      from: EMAIL_CONFIG.from,
+    const emailConfig = await getTenantEmailConfig(ctx.tenantId);
+
+    const emailResult = await resend.emails.send({
+      from: emailConfig.from,
+      replyTo: emailConfig.replyTo,
       to: contact.email,
       subject: `Acceso al Portal de Seguridad — ${contact.account.name}`,
       html,
     });
 
-    await prisma.crmContact.update({
-      where: { id },
-      data: { portalInvitationSentAt: new Date() },
-    });
+    if (emailResult.error) {
+      const msg = emailResult.error.message || "Resend rechazó el envío";
+      console.error("[CRM] contact portal send-email Resend error:", emailResult.error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: process.env.NODE_ENV === "development" ? msg : "Error enviando email. Verifica RESEND_API_KEY y que el dominio esté verificado en Resend.",
+        },
+        { status: 500 },
+      );
+    }
+
+    try {
+      await prisma.crmContact.update({
+        where: { id },
+        data: { portalInvitationSentAt: new Date() },
+      });
+    } catch (e) {
+      console.error("[CRM] contact portal send-email: email enviado pero falló actualizar portalInvitationSentAt:", e);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[CRM] contact portal send-email", error);
-    return NextResponse.json({ success: false, error: "Error enviando email" }, { status: 500 });
+    const errMsg = error instanceof Error ? error.message : "Error desconocido";
+    return NextResponse.json(
+      {
+        success: false,
+        error: process.env.NODE_ENV === "development" ? errMsg : "Error enviando email",
+      },
+      { status: 500 },
+    );
   }
 }
