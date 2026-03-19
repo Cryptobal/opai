@@ -184,6 +184,11 @@ export function isActionable(quote: QuoteSummary): boolean {
   return quote.status === "sent" && !isExpired(quote);
 }
 
+/** Propuesta “abierta” para el cliente: todo lo que no está cerrado por aprobación o rechazo (incl. borrador). */
+export function isOpenPortalQuote(quote: QuoteSummary): boolean {
+  return quote.status !== "approved" && quote.status !== "rejected";
+}
+
 export function groupByDeal(quotes: QuoteSummary[]): DealGroup[] {
   const map = new Map<string, DealGroup>();
   for (const q of quotes) {

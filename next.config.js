@@ -1,13 +1,30 @@
 const { withSentryConfig } = require("@sentry/nextjs");
 
+/** Binarios nativos de sharp (logos WebP → PNG en PDF). Debe coincidir con la plataforma de Vercel (linux x64). */
+const sharpTraceGlobs = [
+  "node_modules/sharp/**/*",
+  "node_modules/@img/sharp-libvips-linux-x64/**/*",
+  "node_modules/@img/sharp-linux-x64/**/*",
+  "node_modules/@img/sharp-libvips-linuxmusl-x64/**/*",
+  "node_modules/@img/sharp-linuxmusl-x64/**/*",
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: __dirname,
   outputFileTracingIncludes: {
     '/api/cpq/quotes/\\[id\\]/export-pdf': ['./public/fonts/**/*'],
     '/api/cpq/quotes/\\[id\\]/send-email': ['./public/fonts/**/*'],
-    '/api/cpq/quotes/\\[id\\]/send-portal': ['./public/fonts/**/*', 'node_modules/@sparticuz/chromium/bin/**/*'],
-    '/api/cpq/quotes/\\[id\\]/send-portal/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/cpq/quotes/\\[id\\]/send-portal': [
+      './public/fonts/**/*',
+      'node_modules/@sparticuz/chromium/bin/**/*',
+      ...sharpTraceGlobs,
+    ],
+    '/api/cpq/quotes/\\[id\\]/send-portal/route': [
+      'node_modules/@sparticuz/chromium/bin/**/*',
+      './public/fonts/**/*',
+      ...sharpTraceGlobs,
+    ],
     '/api/crm/leads/\\[id\\]/approve-and-send/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
     '/api/crm/leads/\\[id\\]/approve-and-send': ['node_modules/@sparticuz/chromium/bin/**/*'],
     '/api/portal/cliente/cotizaciones/\\[id\\]/pdf': ['./public/fonts/**/*'],
@@ -19,17 +36,44 @@ const nextConfig = {
     '/api/ops/pauta-mensual/export-pdf/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
     '/api/ops/guard-events/\\[id\\]/send-doc/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
     '/api/ops/control-nocturno/\\[id\\]/test-email/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
-    '/api/cpq/quotes/\\[id\\]/proposal-pdf/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
-    '/api/cpq/quotes/\\[id\\]/proposal-pdf': ['node_modules/@sparticuz/chromium/bin/**/*'],
-    '/api/portal/cliente/cotizaciones/\\[id\\]/proposal-pdf/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
-    '/api/portal/cliente/cotizaciones/\\[id\\]/proposal-pdf': ['node_modules/@sparticuz/chromium/bin/**/*'],
-    '/api/cpq/quotes/\\[id\\]/send-pdf-email/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
-    '/api/cpq/quotes/\\[id\\]/send-pdf-email': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/cpq/quotes/\\[id\\]/proposal-pdf/route': [
+      'node_modules/@sparticuz/chromium/bin/**/*',
+      './public/fonts/**/*',
+      ...sharpTraceGlobs,
+    ],
+    '/api/cpq/quotes/\\[id\\]/proposal-pdf': [
+      'node_modules/@sparticuz/chromium/bin/**/*',
+      './public/fonts/**/*',
+      ...sharpTraceGlobs,
+    ],
+    '/api/portal/cliente/cotizaciones/\\[id\\]/proposal-pdf/route': [
+      'node_modules/@sparticuz/chromium/bin/**/*',
+      './public/fonts/**/*',
+      ...sharpTraceGlobs,
+    ],
+    '/api/portal/cliente/cotizaciones/\\[id\\]/proposal-pdf': [
+      'node_modules/@sparticuz/chromium/bin/**/*',
+      './public/fonts/**/*',
+      ...sharpTraceGlobs,
+    ],
+    '/api/crm/leads/\\[id\\]/proposal-preview/route': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/crm/leads/\\[id\\]/proposal-preview': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/cpq/quotes/\\[id\\]/send-pdf-email/route': [
+      'node_modules/@sparticuz/chromium/bin/**/*',
+      './public/fonts/**/*',
+      ...sharpTraceGlobs,
+    ],
+    '/api/cpq/quotes/\\[id\\]/send-pdf-email': [
+      'node_modules/@sparticuz/chromium/bin/**/*',
+      './public/fonts/**/*',
+      ...sharpTraceGlobs,
+    ],
   },
   turbopack: {
     root: __dirname,
   },
   serverExternalPackages: [
+    'sharp',
     '@sparticuz/chromium',
     'playwright-core',
     '@react-pdf/renderer',

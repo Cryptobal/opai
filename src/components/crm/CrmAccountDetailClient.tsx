@@ -43,6 +43,7 @@ import {
   ScrollText,
   MessageCircle,
   GitMerge,
+  Key,
 } from "lucide-react";
 import { DuplicateAccountModal } from "./DuplicateAccountModal";
 import { toast } from "sonner";
@@ -102,6 +103,7 @@ type ContactRow = {
   roleTitle?: string | null;
   isPrimary?: boolean;
   portalEnabled?: boolean;
+  portalPinVisible?: string | null;
 };
 
 type DealRow = {
@@ -1009,6 +1011,50 @@ export function CrmAccountDetailClient({
         <DetailField label="Fecha creación" value={account.createdAt ? new Date(account.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
         <DetailField label="Última modificación" value={account.updatedAt ? new Date(account.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
       </DetailFieldGrid>
+
+      {/* ── Portal del cliente (PIN visible en General) ── */}
+      <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Key className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Portal del cliente</span>
+          </div>
+          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setActiveTab("portal")}>
+            Gestionar accesos
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Cada contacto ingresa con su <strong className="text-foreground/90 font-medium">correo</strong> y su{" "}
+          <strong className="text-foreground/90 font-medium">PIN</strong> en{" "}
+          <span className="font-mono text-foreground/80">/portal/cliente</span>.
+        </p>
+        {account.contacts.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Sin contactos. Agrega uno para poder habilitar el portal.</p>
+        ) : (
+          <ul className="space-y-2">
+            {account.contacts.map((c) => {
+              const pin = c.portalPinVisible?.trim();
+              const label = [c.firstName, c.lastName].filter(Boolean).join(" ").trim() || "Sin nombre";
+              return (
+                <li
+                  key={c.id}
+                  className="flex flex-col gap-1 rounded-md border border-border/60 bg-background/50 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4"
+                >
+                  <span className="text-sm font-medium min-w-0">{label}</span>
+                  {c.email ? (
+                    <span className="text-xs text-muted-foreground truncate min-w-0">{c.email}</span>
+                  ) : (
+                    <span className="text-xs text-amber-600/90">Sin email — necesario para el portal</span>
+                  )}
+                  <span className="text-sm font-mono tabular-nums sm:ml-auto">
+                    {pin ? <>PIN: {pin}</> : <span className="text-muted-foreground font-sans text-xs">Sin PIN</span>}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
 
       {/* ── Información empresa (web + IA) ── */}
       <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">

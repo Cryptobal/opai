@@ -44,6 +44,7 @@ import {
   DollarSign,
   History,
   XCircle,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -109,6 +110,7 @@ type ContactDetail = {
   roleTitle?: string | null;
   isPrimary?: boolean;
   portalEnabled?: boolean;
+  portalPinVisible?: string | null;
   accountId?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -626,6 +628,18 @@ export function CrmContactDetailClient({
         value={contact.isPrimary ? (
           <Badge variant="outline" className="border-primary/30 text-primary">Principal</Badge>
         ) : "Secundario"}
+      />
+      <DetailField
+        label="PIN portal"
+        value={contact.portalPinVisible?.trim() || undefined}
+        icon={<KeyRound className="h-3 w-3" />}
+        mono
+        copyable={!!contact.portalPinVisible?.trim()}
+        placeholder={
+          contact.portalEnabled
+            ? "Sin PIN — genera uno en la ficha de la cuenta (pestaña Portal)"
+            : "Portal no habilitado para este contacto"
+        }
       />
       <DetailField label="Fecha creación" value={contact.createdAt ? new Date(contact.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
       <DetailField label="Última modificación" value={contact.updatedAt ? new Date(contact.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { FileText } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
-import { QuoteSummary, isActionable } from "./types";
+import { formatCurrency, cn } from "@/lib/utils";
+import { QuoteSummary, isOpenPortalQuote, getDisplayStatus, STATUS_LABEL, STATUS_BADGE } from "./types";
 
 interface DashboardCotizacionesPendientesProps {
   isProspect: boolean;
@@ -23,8 +23,8 @@ export function DashboardCotizacionesPendientes({
       .then((r) => r.json())
       .then((json) => {
         if (json.success) {
-          const actionable = (json.data as QuoteSummary[]).filter(isActionable);
-          setQuotes(actionable);
+          const openQuotes = (json.data as QuoteSummary[]).filter(isOpenPortalQuote);
+          setQuotes(openQuotes);
         }
       })
       .catch(() => {})
@@ -115,7 +115,7 @@ export function DashboardCotizacionesPendientes({
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-teal-400" />
           </span>
           <span className="text-sm font-medium text-white">
-            Tienes {quotes.length} cotización{quotes.length !== 1 ? "es" : ""} por revisar
+            Tienes {quotes.length} propuesta{quotes.length !== 1 ? "s" : ""} abierta{quotes.length !== 1 ? "s" : ""}
           </span>
         </div>
 
@@ -142,7 +142,7 @@ export function DashboardCotizacionesPendientes({
             onClick={() => onNavigateToDetail(navigateSection)}
             className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
           >
-            Ver todas las cotizaciones →
+            Ver todas en Propuestas →
           </button>
         )}
       </div>
@@ -159,6 +159,9 @@ function ProspectQuoteCard({
   onView: () => void;
   className?: string;
 }) {
+  const disp = getDisplayStatus(quote);
+  const badgeCls = STATUS_BADGE[disp] ?? STATUS_BADGE.draft;
+  const badgeLabel = STATUS_LABEL[disp] ?? quote.status;
   const displayCost = quote.currency === "UF"
     ? `${quote.monthlyCost?.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? "—"} UF/mes`
     : `$${quote.monthlyCost?.toLocaleString("es-CL") ?? "—"}/mes`;
@@ -170,8 +173,8 @@ function ProspectQuoteCard({
     >
       <div className="flex justify-between items-start mb-2">
         <span className="text-xs text-zinc-400">{quote.code}</span>
-        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300">
-          Enviada
+        <span className={cn("text-xs px-2 py-0.5 rounded-full", badgeCls)}>
+          {badgeLabel}
         </span>
       </div>
       <div className="text-lg font-bold text-white mb-1">{displayCost}</div>

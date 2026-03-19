@@ -32,7 +32,6 @@ export async function renderProposalToBufferFromProps(
   const React = nodeRequire('react');
   const pdf = await import('@react-pdf/renderer');
   const fs = nodeRequire('fs') as typeof import('fs');
-  const sharpMod = nodeRequire('sharp') as typeof import('sharp');
 
   const {
     renderToBuffer,
@@ -118,10 +117,20 @@ export async function renderProposalToBufferFromProps(
       const arrBuf = await res.arrayBuffer();
       let buf: Buffer = Buffer.from(arrBuf);
       const ct = res.headers.get('content-type') || '';
-      if (ct.includes('webp') || url.endsWith('.webp')) {
-        buf = Buffer.from(await sharpMod(buf).png().toBuffer());
+      const urlLower = url.toLowerCase();
+      const isWebp = ct.includes('webp') || urlLower.endsWith('.webp');
+      let mime: string;
+      if (isWebp) {
+        try {
+          const sharpMod = nodeRequire('sharp') as typeof import('sharp');
+          buf = Buffer.from(await sharpMod(buf).png().toBuffer());
+          mime = 'image/png';
+        } catch {
+          return null;
+        }
+      } else {
+        mime = ct.includes('png') || urlLower.endsWith('.png') ? 'image/png' : 'image/jpeg';
       }
-      const mime = ct.includes('png') || url.endsWith('.png') ? 'image/png' : 'image/jpeg';
       return `data:${mime};base64,${buf.toString('base64')}`;
     } catch { return null; }
   };
