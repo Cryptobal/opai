@@ -43,11 +43,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Shield, Mail, Send, Check, Briefcase, Phone, FileText } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Shield, Mail, Send, Check, Briefcase, Phone, FileText, Sparkles } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
-import { FinancialPanel } from "@/components/cpq/FinancialPanel";
+import { FinancialPanel, buildBreakdownData } from "@/components/cpq/FinancialPanel";
+import { QuoteBreakdownPanel } from "@/components/cpq/QuoteBreakdownPanel";
+import { QuoteIncludesEditor } from "@/components/cpq/QuoteIncludesEditor";
 import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
 import { FollowUpDecisionModal, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
 import { CrmActivityTimeline } from "@/components/crm/CrmActivityTimeline";
@@ -203,7 +205,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
   const [secFinancieros, setSecFinancieros] = useState(true);
   const [secCondiciones, setSecCondiciones] = useState(true);
   const [secMargen, setSecMargen] = useState(true);
-  const [secAuditoria, setSecAuditoria] = useState(true);
+  const [secAiContent, setSecAiContent] = useState(false);
+  const [secDesglose, setSecDesglose] = useState(false);
+  const [secAuditoria, setSecAuditoria] = useState(false);
+  const [pdfPreviewMode, setPdfPreviewMode] = useState<"cotizacion" | "presentacion">("cotizacion");
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
+  const [pdfTemplateSlug, setPdfTemplateSlug] = useState("standard");
+  const [docAiTab, setDocAiTab] = useState<"description" | "service">("description");
   const initialLoadDone = useRef(false);
   const skipAutoSave = useRef(false);
   const financialsAutoSaveTimer = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -1197,7 +1206,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {/* Action buttons: Enviar por Portal, Enviar PDF, Enviar cotización (desktop) */}
+          {/* Action buttons: Enviar por Portal (desktop) */}
           <div className="hidden lg:flex items-center gap-1 border-r border-border/60 pr-2 mr-1">
             <Button
               size="sm"
@@ -1216,17 +1225,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               {sendingPortal ? <Loader2 className="h-3 w-3 animate-spin" /> : <Shield className="h-3 w-3" />}
               {sendingPortal ? "Enviando..." : "Portal"}
             </Button>
-            <SendPdfEmailModal
-              quoteId={quoteId}
-              quoteCode={quote.code}
-              contactEmail={crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId)?.email ?? undefined : undefined}
-              contactName={crmContext.contactId ? (() => { const c = crmContacts.find((x) => x.id === crmContext.contactId); return c ? `${c.firstName} ${c.lastName}`.trim() : undefined; })() : undefined}
-              companyName={quote.clientName || undefined}
-              disabled={!crmContext.contactId || !crmContacts.find((x) => x.id === crmContext.contactId)?.email}
-              dealId={crmContext.dealId || undefined}
-              triggerClassName="h-7 px-2 text-[11px] gap-1.5 shrink-0"
-              onBeforeSend={flushPendingSaves}
-            />
             <SendCpqQuoteModal
               quoteId={quoteId}
               quoteCode={quote.code}
@@ -1250,12 +1248,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               {changingStatus ? "..." : "Enviada"}
             </Button>
           )}
-          <Button size="icon" variant="outline" className="h-7 w-7" onClick={handleDownloadPdf} disabled={downloadingPdf || !quote} title="Descargar PDF cotización">
-            {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          </Button>
-          <Button size="icon" variant="outline" className="h-7 w-7" onClick={handleDownloadProposalPdf} disabled={downloadingProposalPdf || !quote} title="Descargar Propuesta Técnica">
-            {downloadingProposalPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-          </Button>
           {/* Overflow menu for secondary actions */}
           <div className="relative">
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOverflowMenuOpen((v) => !v)}>
@@ -1289,11 +1281,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
       </div>
       </div>{/* end sticky header */}
 
-      {/* -- 2-column layout: pt-14 reserva espacio para que el header sticky no tape el contenido -- */}
-      <div className="pt-14 lg:grid lg:grid-cols-[1fr_320px] lg:gap-0 lg:h-[calc(100vh-10rem)] lg:min-h-[420px] min-w-0 overflow-x-hidden">
-
-      {/* -- Editor: scrollable left column (only this scrolls on desktop) -- */}
-      <div className="space-y-2 min-w-0 overflow-x-hidden lg:pr-5 overflow-y-auto lg:min-h-0 lg:overscroll-contain">
+      {/* -- Single-column layout: pt-14 reserva espacio para que el header sticky no tape el contenido -- */}
+      <div className="pt-14 space-y-2 min-w-0 overflow-x-hidden">
       {/* -- Section: Datos (scroll-mt-14: visible below sticky header when scrolled) -- */}
       <Card className="shadow-sm overflow-visible scroll-mt-14">
         <button type="button" onClick={() => setSecDatos(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
@@ -1942,6 +1931,349 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
       {/* -- Section: Adjuntos para enviar con el mail -- */}
       <QuoteAttachmentsSection quoteId={quoteId} isLocked={isLocked} />
 
+      {/* -- Section: Contenido AI (Descripcion + Detalle servicio) -- */}
+      <Card className="shadow-sm overflow-hidden scroll-mt-14" inert={isLocked ? true : undefined}>
+        <button type="button" onClick={() => setSecAiContent(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="h-4 w-4 text-purple-400 shrink-0" />
+            <h2 className="text-sm font-bold shrink-0">Contenido AI</h2>
+            {!secAiContent && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                {quote.aiDescription ? "Descripción generada" : "Sin descripción"}
+              </span>
+            )}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secAiContent && "rotate-180")} />
+        </button>
+        {secAiContent && (
+          <div className="px-4 pb-4 space-y-3">
+            <div className="inline-flex rounded-md border border-border overflow-hidden">
+              <button
+                type="button"
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium transition-colors",
+                  docAiTab === "description"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent/50",
+                )}
+                onClick={() => setDocAiTab("description")}
+              >
+                Descripción AI
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium border-l border-border transition-colors",
+                  docAiTab === "service"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent/50",
+                )}
+                onClick={() => setDocAiTab("service")}
+              >
+                Detalle servicio
+              </button>
+            </div>
+
+            {docAiTab === "description" && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={aiCustomInstruction}
+                    onChange={(e) => setAiCustomInstruction(e.target.value)}
+                    placeholder="Instrucción AI (opcional)"
+                    className="h-8 text-xs flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1 text-xs shrink-0"
+                    onClick={generateAiDescription}
+                    disabled={generatingAi}
+                  >
+                    {generatingAi ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    {generatingAi ? "..." : "Generar"}
+                  </Button>
+                </div>
+                <textarea
+                  value={quote.aiDescription ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setQuote({ ...quote, aiDescription: v });
+                    fetch(`/api/cpq/quotes/${quoteId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ aiDescription: v }),
+                    }).catch(() => {});
+                  }}
+                  placeholder="Clic en 'Generar' para crear una descripción profesional..."
+                  className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={5}
+                />
+              </div>
+            )}
+
+            {docAiTab === "service" && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={serviceDetailInstruction}
+                    onChange={(e) => setServiceDetailInstruction(e.target.value)}
+                    placeholder="Instrucción AI (opcional)"
+                    className="h-8 text-xs flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1 text-xs shrink-0"
+                    onClick={generateServiceDetail}
+                    disabled={generatingServiceDetail}
+                  >
+                    {generatingServiceDetail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    {generatingServiceDetail ? "..." : "Generar"}
+                  </Button>
+                </div>
+                <textarea
+                  value={quote.serviceDetail ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setQuote({ ...quote, serviceDetail: v });
+                    fetch(`/api/cpq/quotes/${quoteId}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ serviceDetail: v }),
+                    }).catch(() => {});
+                  }}
+                  placeholder="Clic en 'Generar' para detalle de servicios..."
+                  className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={5}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* -- Section: Incluye (items incluidos en la cotización) -- */}
+      <QuoteIncludesEditor quoteId={quoteId} isLocked={isLocked} />
+
+      {/* -- Section: Preview PDF (estilo Leads — Cotización + Presentación) -- */}
+      <Card className="shadow-sm overflow-hidden scroll-mt-14">
+        <div className="px-3 py-2 bg-muted/20 border-b border-border/40 flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 mr-auto">
+            <button
+              type="button"
+              onClick={() => { setPdfPreviewMode("cotizacion"); setPdfPreviewUrl(null); }}
+              className={cn(
+                "h-7 rounded-md px-2.5 text-[10px] font-semibold border transition-colors flex items-center gap-1",
+                pdfPreviewMode === "cotizacion"
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                  : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
+              )}
+            >
+              <RefreshCw className="h-3 w-3" />
+              Cotización
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPdfPreviewMode("presentacion"); setPdfPreviewUrl(null); }}
+              className={cn(
+                "h-7 rounded-md px-2.5 text-[10px] font-semibold border transition-colors flex items-center gap-1",
+                pdfPreviewMode === "presentacion"
+                  ? "border-blue-500/40 bg-blue-500/10 text-blue-400"
+                  : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
+              )}
+            >
+              <FileText className="h-3 w-3" />
+              Presentación
+            </button>
+          </div>
+          <div className="flex items-center gap-1 flex-wrap">
+            {pdfPreviewMode === "cotizacion" && [
+              { slug: "standard", label: "Estándar" },
+              { slug: "detailed", label: "Detallado" },
+              { slug: "tender", label: "Licitación" },
+            ].map((t) => (
+              <button
+                key={t.slug}
+                type="button"
+                onClick={() => { setPdfTemplateSlug(t.slug); setPdfPreviewUrl(null); }}
+                className={cn(
+                  "h-5 rounded px-2 text-[9px] font-medium border transition-colors",
+                  pdfTemplateSlug === t.slug
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] px-2 ml-1"
+              disabled={pdfPreviewLoading}
+              onClick={async () => {
+                setPdfPreviewLoading(true);
+                try {
+                  const url = pdfPreviewMode === "presentacion"
+                    ? `/api/cpq/quotes/${quoteId}/proposal-pdf`
+                    : `/api/cpq/quotes/${quoteId}/export-pdf?templateSlug=${encodeURIComponent(pdfTemplateSlug)}`;
+                  const res = await fetch(url);
+                  if (!res.ok) throw new Error(`Error ${res.status}`);
+                  const blob = await res.blob();
+                  if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+                  setPdfPreviewUrl(URL.createObjectURL(blob));
+                } catch (err) {
+                  console.error("[CPQ PDF Preview]", err);
+                  toast.error("Error al generar el PDF");
+                } finally {
+                  setPdfPreviewLoading(false);
+                }
+              }}
+            >
+              {pdfPreviewLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+              <span className="ml-1">Generar PDF</span>
+            </Button>
+          </div>
+        </div>
+        {pdfPreviewUrl ? (
+          <iframe
+            src={pdfPreviewUrl}
+            className="w-full h-[500px] sm:h-[700px] bg-white"
+            title={pdfPreviewMode === "presentacion" ? "Preview presentación PDF" : "Preview cotización PDF"}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-[200px] text-muted-foreground text-[11px]">
+            {pdfPreviewMode === "presentacion"
+              ? "Click \"Generar PDF\" para ver la presentación técnica"
+              : "Click \"Generar PDF\" para ver la vista previa de la cotización"}
+          </div>
+        )}
+      </Card>
+
+      {/* -- Section: Desglose (resumen financiero) -- */}
+      <Card className="shadow-sm overflow-hidden scroll-mt-14">
+        <button type="button" onClick={() => setSecDesglose(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Desglose</h2>
+            {!secDesglose && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                {formatCurrency(salePriceMonthly)}/mes · {marginPct}% margen
+              </span>
+            )}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secDesglose && "rotate-180")} />
+        </button>
+        {secDesglose && (
+          <div className="px-4 pb-4 space-y-3">
+            {/* Hero Card */}
+            <div className="rounded-lg bg-gradient-to-br from-emerald-950 to-card border border-emerald-500/20 p-4">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-400 mb-1.5">
+                Precio de venta mensual
+              </div>
+              <div className="text-2xl font-extrabold text-white tabular-nums transition-all duration-300">
+                {formatCurrency(salePriceMonthly)}
+              </div>
+              {ufValue && ufValue > 0 && (
+                <div className="text-[11px] text-emerald-400 mt-0.5">{(salePriceMonthly / ufValue).toFixed(2)} UF</div>
+              )}
+              <div className="flex gap-6 mt-3 pt-3 border-t border-emerald-500/20">
+                <div>
+                  <div className="text-[10px] text-muted-foreground">Puestos</div>
+                  <div className="text-base font-bold text-foreground">{positions.length}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground">Guardias</div>
+                  <div className="text-base font-bold text-foreground">{stats.totalGuards}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground">Margen</div>
+                  <div className="text-base font-bold text-emerald-400">{marginPct}%</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Breakdown bars */}
+            {(() => {
+              const laborCost = costSummary?.monthlyPositions ?? 0;
+              const directCosts = (costSummary?.monthlyUniforms ?? 0) + (costSummary?.monthlyExams ?? 0) + (costSummary?.monthlyMeals ?? 0) + (costSummary?.monthlyHolidayAdjustment ?? 0);
+              const indirectCosts = (costSummary?.monthlyCostItems ?? 0) + (costSummary?.monthlyVehicles ?? 0) + (costSummary?.monthlyInfrastructure ?? 0);
+              const financialCosts = (costSummary?.monthlyFinancial ?? 0) + (costSummary?.monthlyPolicy ?? 0);
+              const totalBase = laborCost + directCosts + indirectCosts + financialCosts + marginAmount;
+              const pctOf = (v: number) => totalBase > 0 ? Math.round((v / totalBase) * 100) : 0;
+
+              return (
+                <div className="rounded-lg border border-border bg-card p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-3">Desglose de costos</div>
+                  {[
+                    { label: "Mano de obra", amount: laborCost, color: "bg-emerald-500" },
+                    { label: "Directos", amount: directCosts, color: "bg-blue-500" },
+                    { label: "Indirectos", amount: indirectCosts, color: "bg-purple-500" },
+                    { label: "Financiero", amount: financialCosts, color: "bg-amber-500" },
+                    { label: "Margen", amount: marginAmount, color: "bg-foreground/60" },
+                  ].map((item) => (
+                    <div key={item.label} className="mb-2.5 last:mb-0">
+                      <div className="flex justify-between mb-0.5">
+                        <span className="text-[11px] text-muted-foreground">{item.label}</span>
+                        <span className="text-[11px] font-semibold tabular-nums transition-all duration-300">{formatCurrency(item.amount)}</span>
+                      </div>
+                      <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                        <div
+                          className={cn("h-full rounded-full opacity-70 transition-all duration-500", item.color)}
+                          style={{ width: `${pctOf(item.amount)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* Additional lines summary */}
+            {additionalLinesTotal > 0 && (
+              <div className="rounded-lg border border-border bg-card p-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1">Líneas adicionales</div>
+                <div className="text-lg font-bold text-amber-400 tabular-nums transition-all duration-300">{formatCurrency(additionalLinesTotal)}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {additionalLines.length} {additionalLines.length === 1 ? "servicio/producto" : "servicios/productos"}
+                </div>
+                <div className="mt-2 pt-2 border-t border-border">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-0.5">Total facturación</div>
+                  <div className="text-xl font-extrabold text-white tabular-nums transition-all duration-300">{formatCurrency(salePriceMonthly + additionalLinesTotal)}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Detailed breakdown panel */}
+            {costSummary && (() => {
+              const breakdownData = buildBreakdownData(
+                costSummary,
+                costCategoryBreakdown,
+                positions,
+                positionSalePrices,
+                marginPct,
+                marginAmount,
+                salePriceMonthly,
+                additionalLinesTotal,
+                monthlyHours,
+                crmContext.currency || "UF",
+                ufValue,
+              );
+              return (
+                <details className="group">
+                  <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                    Ver desglose detallado
+                  </summary>
+                  <div className="mt-2">
+                    <QuoteBreakdownPanel data={breakdownData} variant="default" />
+                  </div>
+                </details>
+              );
+            })()}
+          </div>
+        )}
+      </Card>
+
       {/* -- Section: Auditoría (registro de todos los cambios) -- */}
       <Card className="shadow-sm overflow-visible">
         <div className="flex items-center justify-between w-full px-4 py-3">
@@ -1972,79 +2304,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         )}
       </Card>
 
-      </div>{/* end editor column */}
-
-      {/* -- Sidebar: fixed right column (desktop only), stays visible while left column scrolls -- */}
-      <aside className="hidden lg:flex flex-col lg:self-start lg:h-full border-l border-border/40 overflow-y-auto pl-4 min-h-0">
-        <FinancialPanel
-          positionsCount={positions.length}
-          totalGuards={stats.totalGuards}
-          marginPct={marginPct}
-          salePriceMonthly={salePriceMonthly}
-          additionalLinesTotal={additionalLinesTotal}
-          ufValue={ufValue}
-          costSummary={costSummary}
-          costCategoryBreakdown={costCategoryBreakdown}
-          marginAmount={marginAmount}
-          positions={positions}
-          positionSalePrices={positionSalePrices}
-          positionHourlyRates={positionHourlyRates}
-          monthlyHoursStandard={monthlyHours}
-          quote={quote}
-          crmContext={crmContext}
-          crmContacts={crmContacts}
-          crmInstallations={crmInstallations}
-          crmDeals={crmDeals}
-          additionalLines={additionalLines}
-          tenantBranding={tenantBranding}
-          onGenerateAiDescription={generateAiDescription}
-          generatingAi={generatingAi}
-          aiCustomInstruction={aiCustomInstruction}
-          setAiCustomInstruction={setAiCustomInstruction}
-          onGenerateServiceDetail={generateServiceDetail}
-          generatingServiceDetail={generatingServiceDetail}
-          serviceDetailInstruction={serviceDetailInstruction}
-          setServiceDetailInstruction={setServiceDetailInstruction}
-          aiDescription={quote.aiDescription ?? null}
-          onAiDescriptionChange={(v) => {
-            setQuote({ ...quote, aiDescription: v });
-            fetch(`/api/cpq/quotes/${quoteId}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ aiDescription: v }),
-            }).catch(() => {});
-          }}
-          serviceDetail={quote.serviceDetail ?? null}
-          onServiceDetailChange={(v) => {
-            setQuote({ ...quote, serviceDetail: v });
-            fetch(`/api/cpq/quotes/${quoteId}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ serviceDetail: v }),
-            }).catch(() => {});
-          }}
-          quoteId={quoteId}
-          quoteCode={quote.code}
-          sendingPortal={sendingPortal}
-          onSendPortal={handleSendPortal}
-          isLocked={isLocked}
-          hasAccount={!!crmContext.accountId}
-          hasContact={!!crmContext.contactId}
-          hasDeal={!!crmContext.dealId}
-          dealId={crmContext.dealId || undefined}
-          contactName={(() => {
-            const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-            return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
-          })()}
-          contactEmail={(() => {
-            const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-            return c?.email || undefined;
-          })()}
-          proposalTemplateSlug={proposalTemplates.find((t) => t.id === proposalTemplateId)?.slug || "standard"}
-        />
-      </aside>
-
-      </div>{/* end 2-column grid */}
+      </div>{/* end single-column layout */}
 
       {/* Mobile spacer for fixed bottom bar */}
       <div className="h-14 lg:hidden" />
