@@ -33,7 +33,25 @@ export function ProposalTotalAcciones({
   className,
 }: ProposalTotalAccionesProps) {
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [proposalPdfLoading, setProposalPdfLoading] = useState(false);
   const currencyKey = currency === "UF" ? "UF" : "CLP";
+
+  async function handleDownloadProposalPdf() {
+    if (proposalPdfLoading) return;
+    setProposalPdfLoading(true);
+    try {
+      const res = await fetch(`/api/portal/cliente/cotizaciones/${quoteId}/proposal-pdf`);
+      if (!res.ok) throw new Error("Error al generar propuesta técnica");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch {
+      // Silent
+    } finally {
+      setProposalPdfLoading(false);
+    }
+  }
 
   async function handleDownloadPdf() {
     if (pdfLoading) return;
@@ -104,6 +122,21 @@ export function ProposalTotalAcciones({
         >
           {pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
           {pdfLoading ? "Generando..." : "Descargar PDF"}
+        </button>
+
+        <button
+          type="button"
+          onClick={handleDownloadProposalPdf}
+          disabled={proposalPdfLoading}
+          className="flex items-center gap-2 px-4 h-10 rounded-lg text-sm font-semibold transition-all"
+          style={{
+            background: "linear-gradient(135deg, rgba(20,184,166,0.18), rgba(6,182,212,0.12))",
+            border: "1px solid rgba(45,212,191,0.4)",
+            color: "#5eead4",
+          }}
+        >
+          {proposalPdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+          {proposalPdfLoading ? "Generando..." : "Ver Propuesta Técnica"}
         </button>
 
         {onViewProposal && (

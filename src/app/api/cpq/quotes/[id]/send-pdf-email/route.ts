@@ -11,6 +11,8 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { buildQuotationProps } from "@/lib/pdf/templates/quotation/build-quotation-props";
 import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-quotation";
+import { buildProposalProps } from "@/lib/pdf/templates/proposal/build-proposal-props";
+import { renderProposalToBufferFromProps } from "@/lib/pdf/templates/proposal/render-proposal";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { render } from "@react-email/render";
 import { CpqPdfEmail } from "@/emails/CpqPdfEmail";
@@ -24,7 +26,7 @@ export async function POST(
     if (!ctx) return unauthorized();
 
     const { id } = await params;
-    const { to, cc, bcc, subject, htmlBody, followUp } = await request.json();
+    const { to, cc, bcc, subject, htmlBody, followUp, includeProposalPdf } = await request.json();
     const followUpDecision = followUp as { include: boolean; targetStageId: string | null; skipAll?: boolean } | undefined;
 
     if (!to || !subject || !htmlBody) {
@@ -139,7 +141,7 @@ export async function POST(
       data: { status: "sent" },
     });
 
-    // Build attachments: PDF + quote attachments
+    // Build attachments: PDF + optional proposal PDF + quote attachments
     const emailAttachments: { filename: string; content: Buffer; contentType: string }[] = [
       {
         filename: fileName,
@@ -147,6 +149,20 @@ export async function POST(
         contentType: "application/pdf",
       },
     ];
+
+    if (includeProposalPdf) {
+      try {
+        const { fileName: proposalFileName, ...proposalProps } = await buildProposalProps(id, ctx.tenantId);
+        const proposalBuffer = await renderProposalToBufferFromProps(proposalProps);
+        emailAttachments.push({
+          filename: proposalFileName,
+          content: proposalBuffer,
+          contentType: "application/pdf",
+        });
+      } catch (err) {
+        console.warn("[CPQ] Could not generate proposal PDF for email:", err);
+      }
+    }
 
     // Add quote attachments (documents from "Para adjuntar documentos")
     const quoteAttachments = await prisma.cpqQuoteAttachment.findMany({

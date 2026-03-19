@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Loader2, Send, RefreshCw, Paperclip, CheckCircle2, ChevronLeft } from "lucide-react";
+import { Mail, Loader2, Send, RefreshCw, Paperclip, CheckCircle2, ChevronLeft, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { FollowUpDecisionContent, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
 
@@ -52,6 +52,7 @@ export function SendPdfEmailModal({
   const [subject, setSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
+  const [includeProposalPdf, setIncludeProposalPdf] = useState(false);
   const [generatingBody, setGeneratingBody] = useState(false);
   const [sending, setSending] = useState(false);
 
@@ -132,6 +133,7 @@ export function SendPdfEmailModal({
           bcc: bcc || undefined,
           subject,
           htmlBody: emailBody,
+          includeProposalPdf: includeProposalPdf || undefined,
           ...(followUp && {
             followUp: {
               include: followUp.includeFollowUp,
@@ -258,12 +260,24 @@ export function SendPdfEmailModal({
             />
           </div>
 
-          {/* PDF Badge */}
-          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2">
-            <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="text-sm text-muted-foreground">
-              {quoteCode}-propuesta.pdf
-            </span>
+          {/* PDF Badge + Proposal option */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2">
+              <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm text-muted-foreground">
+                {quoteCode}-propuesta.pdf
+              </span>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="checkbox"
+                checked={includeProposalPdf}
+                onChange={(e) => setIncludeProposalPdf(e.target.checked)}
+                className="rounded border-border"
+              />
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              Incluir Propuesta Técnica (20 páginas, puede tardar unos segundos)
+            </label>
           </div>
 
           {/* Email Body */}

@@ -24,6 +24,7 @@ import {
   Loader2,
   MessageCircle,
   Send,
+  FileText,
 } from "lucide-react";
 
 export interface FollowUpDecision {
@@ -31,6 +32,7 @@ export interface FollowUpDecision {
   targetStageId: string | null;
   sendWhatsApp?: boolean;
   skipAll?: boolean;
+  includeProposalPdf?: boolean;
 }
 
 interface PipelineStage {
@@ -50,6 +52,7 @@ interface FollowUpDecisionContentProps {
   onCancel: () => void;
   loading?: boolean;
   showWhatsApp?: boolean;
+  showProposalPdf?: boolean;
 }
 
 export function FollowUpDecisionContent({
@@ -58,12 +61,14 @@ export function FollowUpDecisionContent({
   onCancel,
   loading,
   showWhatsApp = false,
+  showProposalPdf = false,
 }: FollowUpDecisionContentProps) {
   const [choice, setChoice] = useState<"yes" | "no" | "nothing">("yes");
   const [selectedStageId, setSelectedStageId] = useState("");
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [loadingData, setLoadingData] = useState(true);
+  const [includeProposalPdf, setIncludeProposalPdf] = useState(false);
 
   useEffect(() => {
     if (!dealId) return;
@@ -97,6 +102,7 @@ export function FollowUpDecisionContent({
     targetStageId: choice === "no" ? selectedStageId || null : null,
     sendWhatsApp,
     skipAll: choice === "nothing",
+    ...(showProposalPdf && { includeProposalPdf: includeProposalPdf }),
   });
 
   const isDisabled = loading || (choice === "no" && !selectedStageId);
@@ -213,6 +219,20 @@ export function FollowUpDecisionContent({
         </div>
       )}
 
+      {/* Propuesta técnica PDF (portal flow) */}
+      {showProposalPdf && (
+        <label className="flex items-center gap-2 cursor-pointer text-sm py-2">
+          <input
+            type="checkbox"
+            checked={includeProposalPdf}
+            onChange={(e) => setIncludeProposalPdf(e.target.checked)}
+            className="rounded border-border"
+          />
+          <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+          Incluir Propuesta Técnica PDF en el email (20 páginas)
+        </label>
+      )}
+
       {/* Actions */}
       <div className="flex flex-col gap-2 pt-2">
         {showWhatsApp ? (
@@ -278,6 +298,7 @@ interface FollowUpDecisionModalProps {
   onConfirm: (decision: FollowUpDecision) => void;
   loading?: boolean;
   showWhatsApp?: boolean;
+  showProposalPdf?: boolean;
   recipientEmail?: string;
   ccEmail?: string;
   onCcChange?: (v: string) => void;
@@ -292,6 +313,7 @@ export function FollowUpDecisionModal({
   onConfirm,
   loading,
   showWhatsApp = false,
+  showProposalPdf = false,
   recipientEmail,
   ccEmail,
   onCcChange,
@@ -350,6 +372,7 @@ export function FollowUpDecisionModal({
           onCancel={() => onOpenChange(false)}
           loading={loading}
           showWhatsApp={showWhatsApp}
+          showProposalPdf={showProposalPdf}
         />
       </DialogContent>
     </Dialog>

@@ -895,6 +895,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           },
           ccEmails: portalEmailCc.trim() ? [portalEmailCc.trim()] : [],
           bccEmails: portalEmailBcc.trim() ? [portalEmailBcc.trim()] : [],
+          includeProposalPdf: decision.includeProposalPdf ?? false,
         }),
       });
       const payload = await response.json();
@@ -2187,6 +2188,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           onConfirm={handleSendPortalConfirmed}
           loading={sendingPortal}
           showWhatsApp
+          showProposalPdf
           recipientEmail={(() => {
             const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
             return c?.email || "";

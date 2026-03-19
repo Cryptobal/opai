@@ -23,6 +23,7 @@ export async function POST(
     const followUpDecision = (body?.followUp as { include: boolean; targetStageId: string | null; skipAll?: boolean } | undefined);
     const ccEmails: string[] = Array.isArray(body?.ccEmails) ? body.ccEmails.filter(Boolean) : [];
     const bccEmails: string[] = Array.isArray(body?.bccEmails) ? body.bccEmails.filter(Boolean) : [];
+    const includeProposalPdf = Boolean(body?.includeProposalPdf);
 
     const result = await sendQuoteToPortal({
       quoteId: id,
@@ -31,6 +32,7 @@ export async function POST(
       followUp: followUpDecision,
       ccEmails,
       bccEmails,
+      includeProposalPdf,
     });
 
     return NextResponse.json({

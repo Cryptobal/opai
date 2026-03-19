@@ -12,6 +12,8 @@ import { mapCpqDataToPresentation } from "@/lib/cpq-mapper";
 import { getUfValue } from "@/lib/uf";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { PortalProspectoInviteEmail } from "@/emails/PortalProspectoInviteEmail";
+import { buildProposalProps } from "@/lib/pdf/templates/proposal/build-proposal-props";
+import { renderProposalToBufferFromProps } from "@/lib/pdf/templates/proposal/render-proposal";
 import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 
@@ -22,6 +24,7 @@ export interface SendQuoteToPortalOptions {
   followUp?: { include: boolean; targetStageId: string | null; skipAll?: boolean };
   ccEmails?: string[];
   bccEmails?: string[];
+  includeProposalPdf?: boolean;
 }
 
 export interface SendQuoteToPortalResult {
@@ -36,7 +39,7 @@ export interface SendQuoteToPortalResult {
 }
 
 export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Promise<SendQuoteToPortalResult> {
-  const { quoteId, tenantId, userId, followUp, ccEmails = [], bccEmails = [] } = options;
+  const { quoteId, tenantId, userId, followUp, ccEmails = [], bccEmails = [], includeProposalPdf = false } = options;
 
   const quote = await prisma.cpqQuote.findFirst({
     where: { id: quoteId, tenantId },
@@ -253,6 +256,21 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     })
   );
 
+  const attachments: { filename: string; content: Buffer; contentType: string }[] = [];
+  if (includeProposalPdf) {
+    try {
+      const { fileName: proposalFileName, ...proposalProps } = await buildProposalProps(quoteId, tenantId);
+      const proposalBuffer = await renderProposalToBufferFromProps(proposalProps);
+      attachments.push({
+        filename: proposalFileName,
+        content: proposalBuffer,
+        contentType: "application/pdf",
+      });
+    } catch (err) {
+      console.warn("[CPQ] Could not generate proposal PDF for portal invite:", err);
+    }
+  }
+
   const emailResult = await resend.emails.send({
     from: EMAIL_CONFIG.from,
     to: contact.email,
@@ -261,6 +279,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     replyTo: tenantConfig.emailReplyTo || EMAIL_CONFIG.replyTo,
     subject: `Propuesta comercial para ${account.name} - ${tenantConfig.commercialName}`,
     html: emailHtml,
+    ...(attachments.length > 0 && { attachments }),
     tags: [{ name: "type", value: "portal-prospecto-invite" }, { name: "quote", value: quote.code }],
   });
 

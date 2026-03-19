@@ -899,6 +899,8 @@ model CpqQuote {
   proposalTemplateId  String?   @map("proposal_template_id") @db.Uuid
   currency            String    @default("UF")
   aiDescription       String?   @map("ai_description")
+  proposalAiContent   Json?     @map("proposal_ai_content")
+  proposalAiGeneratedAt DateTime? @map("proposal_ai_generated_at")
   serviceDetail       String?   @map("service_detail")
   paymentTerms        String    @default("contrafactura") @map("payment_terms")
   serviceStartDays    Int       @default(5) @map("service_start_days")
