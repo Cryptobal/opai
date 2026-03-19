@@ -5,16 +5,22 @@
 
 import type { EmployerCostInput } from "@/modules/payroll/engine";
 
+type CpqHealthSystem = NonNullable<EmployerCostInput["health_system"]>;
+
+function normalizeCpqHealthSystem(value: string | undefined | null): CpqHealthSystem {
+  return value === "isapre" ? "isapre" : "fonasa";
+}
+
 export function buildCpqStyleEmployerCostInput(
   baseSalary: number,
   opts?: {
     ufValue?: number | null;
     afpName?: string;
-    healthSystem?: string;
+    healthSystem?: string | null;
     healthPlanPct?: number;
   }
 ): EmployerCostInput {
-  const healthSystem = opts?.healthSystem ?? "fonasa";
+  const healthSystem = normalizeCpqHealthSystem(opts?.healthSystem);
   const healthPlanPct =
     healthSystem === "isapre"
       ? opts?.healthPlanPct ?? 0.07

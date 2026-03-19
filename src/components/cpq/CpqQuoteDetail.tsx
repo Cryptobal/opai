@@ -1511,7 +1511,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                 compact
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+              <div className="space-y-2">
                 {positions.map((position) => (
                   <CpqPositionCard
                     key={position.id}

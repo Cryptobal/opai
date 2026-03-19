@@ -665,7 +665,7 @@ export function LeadInstallationCpq({
               existingPositionsCount={config.positions.length}
             />
             {config.positions.map((pos, idx) => (
-              <div key={idx} className="rounded-md border border-border/60 bg-background p-2.5 space-y-2">
+              <div key={idx} className="rounded-md border border-border/60 bg-[#0a0a0a] p-2.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] font-semibold">{
                     (() => {
@@ -693,7 +693,7 @@ export function LeadInstallationCpq({
                   <div className="space-y-1">
                     <Label className="text-[10px]">Guardias</Label>
                     <select
-                      className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs"
+                      className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs"
                       value={pos.cantidad || 1}
                       onChange={(e) => updatePosition(idx, { cantidad: Number(e.target.value) })}
                     >
@@ -703,7 +703,7 @@ export function LeadInstallationCpq({
                   <div className="space-y-1">
                     <Label className="text-[10px]">N° Puestos</Label>
                     <select
-                      className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs"
+                      className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs"
                       value={pos.numPuestos || 1}
                       onChange={(e) => updatePosition(idx, { numPuestos: Number(e.target.value) })}
                     >
@@ -717,7 +717,7 @@ export function LeadInstallationCpq({
                       inputMode="numeric"
                       value={formatNumber(pos.baseSalary || 550000)}
                       onChange={(e) => updatePosition(idx, { baseSalary: parseLocalizedNumber(e.target.value) || 550000 })}
-                      className="h-7 text-xs"
+                      className="h-7 text-xs bg-[#1a1a1a] border-border/60"
                     />
                   </div>
                   <div className="space-y-1">
@@ -748,7 +748,7 @@ export function LeadInstallationCpq({
                   <div className="space-y-1">
                     <Label className="text-[10px]">Inicio</Label>
                     <select
-                      className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs font-mono"
+                      className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs font-mono"
                       value={pos.horaInicio || (pos.shiftType === "night" ? "20:00" : "08:00")}
                       onChange={(e) => updatePosition(idx, { horaInicio: e.target.value })}
                     >
@@ -760,7 +760,7 @@ export function LeadInstallationCpq({
                   <div className="space-y-1">
                     <Label className="text-[10px]">Término</Label>
                     <select
-                      className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs font-mono"
+                      className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs font-mono"
                       value={pos.horaFin || (pos.shiftType === "night" ? "08:00" : "20:00")}
                       onChange={(e) => updatePosition(idx, { horaFin: e.target.value })}
                     >
@@ -777,7 +777,7 @@ export function LeadInstallationCpq({
                       <div className="space-y-1">
                         <Label className="text-[10px]">Tipo de Puesto</Label>
                         <select
-                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs"
+                          className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs"
                           value={pos.puestoTrabajoId || catalogDefaults?.puestoId || ""}
                           onChange={(e) => {
                             const selected = cpqPuestos.find((p) => p.id === e.target.value);
@@ -793,7 +793,7 @@ export function LeadInstallationCpq({
                       <div className="space-y-1">
                         <Label className="text-[10px]">Cargo</Label>
                         <select
-                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs"
+                          className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs"
                           value={pos.cargoId || catalogDefaults?.cargoId || ""}
                           onChange={(e) => updatePosition(idx, { cargoId: e.target.value })}
                         >
@@ -806,7 +806,7 @@ export function LeadInstallationCpq({
                       <div className="space-y-1">
                         <Label className="text-[10px]">Rol</Label>
                         <select
-                          className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs"
+                          className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs"
                           value={pos.rolId || catalogDefaults?.rolId || ""}
                           onChange={(e) => updatePosition(idx, { rolId: e.target.value })}
                         >
