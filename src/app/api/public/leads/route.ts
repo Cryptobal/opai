@@ -95,7 +95,8 @@ export async function POST(request: NextRequest) {
       const notesLines: string[] = [];
       if (data.detalle) notesLines.push(`Detalle: ${data.detalle}`);
       if (data.dotacion && data.dotacion.length > 0) {
-        notesLines.push(`\n--- Dotación solicitada (${totalGuards} guardias) ---`);
+        if (notesLines.length > 0) notesLines.push("");
+        notesLines.push(`--- Dotación solicitada (${totalGuards} guardias) ---`);
         data.dotacion.forEach((d, i) => {
           const dias = d.dias?.join(", ") || "No especificado";
           const horario = d.horaInicio && d.horaFin ? `${d.horaInicio} - ${d.horaFin}` : "No especificado";

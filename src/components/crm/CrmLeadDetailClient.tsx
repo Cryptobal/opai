@@ -1282,8 +1282,13 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     const solicitud = lead.notes || "";
     const message = `Hola ${nombre}, soy Carlos de Gard Security 👋
 Hemos recibido tu consulta para ${nombreEmpresa}. La vamos a trabajar con mucho gusto.
-Quería confirmar contigo que el servicio requerido es: ${solicitud}
+
+Quería confirmar contigo que el servicio requerido es: 
+
+${solicitud}
+
 ¿Es correcto? Así avanzamos de inmediato.
+
 Conoce más sobre nosotros en https://gard.cl`;
     return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   };
