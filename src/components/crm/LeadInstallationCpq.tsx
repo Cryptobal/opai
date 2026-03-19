@@ -123,6 +123,18 @@ function normalizeUnitPrice(value: number, unit?: string | null): number {
   return value;
 }
 
+/* ─── Group name → emoji (for cost categories) ─── */
+const GROUP_ICON: Record<string, string> = {
+  Uniformes: "\uD83E\uDDE5",
+  Exámenes: "\uD83D\uDD2C",
+  Alimentación: "\uD83C\uDF7D\uFE0F",
+  "Equipos operativos": "\uD83D\uDCE6",
+  Transporte: "\uD83D\uDE9A",
+  Vehículos: "\uD83D\uDE97",
+  Infraestructura: "\uD83C\uDFD7\uFE0F",
+  Sistemas: "\uD83D\uDCBB",
+};
+
 /* ─── Cost type → category mapping ─── */
 const COST_TYPE_CATEGORY: Record<string, { category: "direct" | "indirect"; group: string }> = {
   uniform: { category: "direct", group: "Uniformes" },
@@ -167,7 +179,7 @@ export function LeadInstallationCpq({
   ufValue,
 }: LeadInstallationCpqProps) {
   const [secPuestos, setSecPuestos] = useState(true);
-  const [secCostos, setSecCostos] = useState(false);
+  const [secCostos, setSecCostos] = useState(true);
 
   // Catalog items for cost accordion
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
@@ -175,7 +187,7 @@ export function LeadInstallationCpq({
 
   useEffect(() => {
     if (catalogLoaded) return;
-    fetch("/api/cpq/catalog?active=true")
+    fetch(`/api/cpq/catalog?active=true&_=${Date.now()}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((res) => {
         if (res?.success && Array.isArray(res.data)) {
@@ -188,6 +200,18 @@ export function LeadInstallationCpq({
             defaultTechnicalSpecs: item.defaultTechnicalSpecs || null,
           })));
           setCatalogLoaded(true);
+          // Hidratar costItems existentes con defaultTechnicalSpecs del catálogo si no tienen
+          const catalogMap = new Map(res.data.map((c: any) => [c.id, c.defaultTechnicalSpecs || null]));
+          if (config.costItems.length > 0) {
+            const hydrated = config.costItems.map((item) => {
+              if (item.technicalSpecs) return item;
+              const def = catalogMap.get(item.catalogItemId);
+              return def ? { ...item, technicalSpecs: def } : item;
+            });
+            if (hydrated.some((h, i) => h.technicalSpecs !== config.costItems[i]?.technicalSpecs)) {
+              onChange({ ...config, costItems: hydrated });
+            }
+          }
           // Auto-populate costItems from catalog if empty
           if (config.costItems.length === 0) {
             const enabledTypes = new Set<string>();
@@ -788,6 +812,7 @@ export function LeadInstallationCpq({
               total={costTotals.directos}
               groups={groupedCostsDirect}
               costItems={config.costItems}
+              catalogItems={catalogItems}
               onToggleItem={toggleCostItem}
               onPriceChange={updateCostItemPrice}
               onTechnicalSpecsChange={updateCostItemSpecs}
@@ -802,6 +827,7 @@ export function LeadInstallationCpq({
               total={costTotals.indirectos}
               groups={groupedCostsIndirect}
               costItems={config.costItems}
+              catalogItems={catalogItems}
               onToggleItem={toggleCostItem}
               onPriceChange={updateCostItemPrice}
               onTechnicalSpecsChange={updateCostItemSpecs}
@@ -1158,6 +1184,7 @@ function CostCategoryBlock({
   total,
   groups,
   costItems,
+  catalogItems = [],
   onToggleItem,
   onPriceChange,
   onTechnicalSpecsChange,
@@ -1167,14 +1194,18 @@ function CostCategoryBlock({
   total: number;
   groups: Record<string, LeadCostItem[]>;
   costItems: LeadCostItem[];
+  catalogItems?: { id: string; defaultTechnicalSpecs?: string | null }[];
   onToggleItem: (id: string) => void;
   onPriceChange: (id: string, price: number) => void;
   onTechnicalSpecsChange?: (id: string, specs: string | null) => void;
   groupMonthlyOverrides?: Record<string, number>;
 }) {
-  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
-  const [expandedSpecs, setExpandedSpecs] = useState<Record<string, boolean>>({});
-  const groupNames = Object.keys(groups);
+  const costGroupNames = Object.keys(groups);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(costGroupNames[0] ?? null);
+  const catalogSpecsMap = useMemo(
+    () => new Map(catalogItems.map((c) => [c.id, c.defaultTechnicalSpecs || null])),
+    [catalogItems]
+  );
 
   return (
     <div className="rounded-md border border-border/40 overflow-hidden">
@@ -1184,7 +1215,7 @@ function CostCategoryBlock({
           {formatCurrency(total)}
         </span>
       </div>
-      {groupNames.map((groupName) => {
+      {costGroupNames.map((groupName) => {
         const items = groups[groupName];
         const enabledItems = items.filter((i) => i.enabled);
         const enabledCount = enabledItems.length;
@@ -1201,6 +1232,7 @@ function CostCategoryBlock({
               className="flex items-center justify-between w-full px-2.5 py-1.5 hover:bg-muted/10 transition-colors"
             >
               <div className="flex items-center gap-2">
+                <span className="text-base">{GROUP_ICON[groupName] ?? ""}</span>
                 <span className={cn("text-xs", enabledCount > 0 ? "text-foreground font-medium" : "text-muted-foreground")}>
                   {groupName}{enabledCount > 0 ? ` (${enabledCount})` : ""}
                 </span>
@@ -1216,9 +1248,8 @@ function CostCategoryBlock({
               <div className="px-2.5 pb-2 space-y-2">
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
                   {enabledItems.map((item) => {
-                    const specKey = item.catalogItemId;
-                    const hasSpecs = !!item.technicalSpecs;
-                    const isSpecsOpen = expandedSpecs[specKey] ?? false;
+                    const defaultSpecs = catalogSpecsMap.get(item.catalogItemId) || null;
+                    const displaySpecs = item.technicalSpecs ?? defaultSpecs ?? "";
                     return (
                       <div key={item.catalogItemId} className="p-2.5 rounded-lg bg-card border border-border/50 relative group">
                         <div className="flex items-center justify-between mb-1">
@@ -1243,25 +1274,18 @@ function CostCategoryBlock({
                           className="h-7 text-xs"
                         />
                         {onTechnicalSpecsChange && (
-                          <>
-                            <button
-                              type="button"
-                              className={cn("mt-1.5 text-[10px] flex items-center gap-1", hasSpecs ? "text-primary" : "text-muted-foreground hover:text-foreground")}
-                              onClick={() => setExpandedSpecs((prev) => ({ ...prev, [specKey]: !prev[specKey] }))}
-                            >
-                              <ChevronDown className={cn("h-3 w-3 transition-transform", isSpecsOpen ? "rotate-180" : "-rotate-90")} />
-                              Espec. técnicas{hasSpecs && !isSpecsOpen ? " *" : ""}
-                            </button>
-                            {isSpecsOpen && (
-                              <textarea
-                                rows={2}
-                                placeholder="Ej: Camioneta doble cabina 4x4..."
-                                value={item.technicalSpecs ?? ""}
-                                onChange={(e) => onTechnicalSpecsChange(item.catalogItemId, e.target.value || null)}
-                                className="mt-1 w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                              />
-                            )}
-                          </>
+                          <div className="mt-1.5 space-y-1">
+                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                              Especificaciones técnicas
+                            </label>
+                            <textarea
+                              rows={2}
+                              placeholder="Ej: Camioneta doble cabina 4x4..."
+                              value={item.technicalSpecs ?? defaultSpecs ?? ""}
+                              onChange={(e) => onTechnicalSpecsChange(item.catalogItemId, e.target.value || null)}
+                              className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                            />
+                          </div>
                         )}
                       </div>
                     );
@@ -1286,7 +1310,7 @@ function CostCategoryBlock({
           </div>
         );
       })}
-      {groupNames.length === 0 && (
+      {costGroupNames.length === 0 && (
         <div className="px-2.5 py-2 text-[10px] text-muted-foreground">Cargando catálogo...</div>
       )}
     </div>

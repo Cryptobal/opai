@@ -841,6 +841,7 @@ export async function POST(
                       quoteId: quote.id,
                       catalogItemId: catItem.id,
                       unitPriceOverride: ci.priceOverride != null ? ci.priceOverride : null,
+                      technicalSpecs: ci.technicalSpecs || catItem.defaultTechnicalSpecs || null,
                       active: true,
                     },
                   });
@@ -850,6 +851,7 @@ export async function POST(
                       quoteId: quote.id,
                       catalogItemId: catItem.id,
                       unitPriceOverride: ci.priceOverride != null ? ci.priceOverride : null,
+                      technicalSpecs: ci.technicalSpecs || catItem.defaultTechnicalSpecs || null,
                       active: true,
                     },
                   });
@@ -1068,6 +1070,7 @@ export async function POST(
                         quoteId: quote.id,
                         catalogItemId: item.id,
                         unitPriceOverride: null,
+                        technicalSpecs: item.defaultTechnicalSpecs || null,
                         active: true,
                       },
                     });
@@ -1077,6 +1080,7 @@ export async function POST(
                         quoteId: quote.id,
                         catalogItemId: item.id,
                         unitPriceOverride: null,
+                        technicalSpecs: item.defaultTechnicalSpecs || null,
                         active: true,
                       },
                     });
@@ -1088,6 +1092,7 @@ export async function POST(
                         mealsPerDay: 0,
                         daysOfService: 0,
                         priceOverride: null,
+                        technicalSpecs: item.defaultTechnicalSpecs || null,
                         isEnabled: true,
                         visibility: "visible",
                       },
@@ -1210,7 +1215,9 @@ export async function POST(
                   await tx.cpqQuoteMeal.create({
                     data: {
                       quoteId: fallbackQuote.id, mealType: item.name,
-                      mealsPerDay: 0, daysOfService: 0, priceOverride: null, isEnabled: true, visibility: "visible",
+                      mealsPerDay: 0, daysOfService: 0, priceOverride: null,
+                      technicalSpecs: item.defaultTechnicalSpecs || null,
+                      isEnabled: true, visibility: "visible",
                     },
                   });
                 } else {

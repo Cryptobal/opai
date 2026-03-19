@@ -1167,6 +1167,7 @@ model CpqQuoteUniformItem {
   quoteId           String   @map("quote_id") @db.Uuid
   catalogItemId     String   @map("catalog_item_id") @db.Uuid
   unitPriceOverride Decimal? @map("unit_price_override") @db.Decimal(12, 2)
+  technicalSpecs    String?  @map("technical_specs")
   active            Boolean  @default(true)
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1185,6 +1186,7 @@ model CpqQuoteExamItem {
   quoteId           String   @map("quote_id") @db.Uuid
   catalogItemId     String   @map("catalog_item_id") @db.Uuid
   unitPriceOverride Decimal? @map("unit_price_override") @db.Decimal(12, 2)
+  technicalSpecs    String?  @map("technical_specs")
   active            Boolean  @default(true)
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1229,14 +1231,15 @@ model CpqQuoteCostItem {
 }
 
 model CpqQuoteMeal {
-  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  quoteId       String   @map("quote_id") @db.Uuid
-  mealType      String   @map("meal_type")
-  mealsPerDay   Int      @default(0) @map("meals_per_day")
-  daysOfService Int      @default(0) @map("days_of_service")
-  priceOverride Decimal? @map("price_override") @db.Decimal(12, 2)
-  isEnabled     Boolean  @default(true) @map("is_enabled")
-  visibility    String   @default("visible")
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  quoteId         String   @map("quote_id") @db.Uuid
+  mealType        String   @map("meal_type")
+  mealsPerDay     Int      @default(0) @map("meals_per_day")
+  daysOfService   Int      @default(0) @map("days_of_service")
+  priceOverride   Decimal? @map("price_override") @db.Decimal(12, 2)
+  technicalSpecs  String?  @map("technical_specs")
+  isEnabled       Boolean  @default(true) @map("is_enabled")
+  visibility      String   @default("visible")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

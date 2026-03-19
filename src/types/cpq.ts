@@ -202,6 +202,7 @@ export interface CpqQuoteUniformItem {
   quoteId?: string;
   catalogItemId: string;
   unitPriceOverride?: number | null;
+  technicalSpecs?: string | null;
   active: boolean;
   catalogItem?: CpqCatalogItem;
 }
@@ -211,6 +212,7 @@ export interface CpqQuoteExamItem {
   quoteId?: string;
   catalogItemId: string;
   unitPriceOverride?: number | null;
+  technicalSpecs?: string | null;
   active: boolean;
   catalogItem?: CpqCatalogItem;
 }
@@ -239,6 +241,7 @@ export interface CpqQuoteMeal {
   mealsPerDay: number;
   daysOfService: number;
   priceOverride?: number | null;
+  technicalSpecs?: string | null;
   isEnabled: boolean;
   visibility: string;
 }

@@ -130,6 +130,7 @@ export async function GET(
             quoteId: id,
             catalogItemId: item.id,
             unitPriceOverride: null,
+            technicalSpecs: item.defaultTechnicalSpecs || null,
             active: true,
             catalogItem: item,
           }));
@@ -143,6 +144,7 @@ export async function GET(
             quoteId: id,
             catalogItemId: item.id,
             unitPriceOverride: null,
+            technicalSpecs: item.defaultTechnicalSpecs || null,
             active: true,
             catalogItem: item,
           }));
@@ -157,6 +159,7 @@ export async function GET(
             mealsPerDay: 0,
             daysOfService: 0,
             priceOverride: null,
+            technicalSpecs: item.defaultTechnicalSpecs || null,
             isEnabled: true,
             visibility: "visible",
           }));
@@ -349,6 +352,7 @@ export async function PUT(
             quoteId: id,
             catalogItemId: item.catalogItemId,
             unitPriceOverride: item.unitPriceOverride ?? null,
+            technicalSpecs: item.technicalSpecs ?? null,
             active: item.active ?? true,
           },
         ])
@@ -358,6 +362,7 @@ export async function PUT(
           ...item,
           quoteId: id,
           unitPriceOverride: item.unitPriceOverride ?? null,
+          technicalSpecs: item.technicalSpecs ?? null,
           active: item.active ?? true,
         });
       });
@@ -367,6 +372,7 @@ export async function PUT(
             quoteId: id,
             catalogItemId: item.id,
             unitPriceOverride: null,
+            technicalSpecs: item.defaultTechnicalSpecs ?? null,
             active: true,
           });
         }
@@ -377,6 +383,7 @@ export async function PUT(
           quoteId: id,
           catalogItemId: item.catalogItemId,
           unitPriceOverride: item.unitPriceOverride ?? null,
+          technicalSpecs: item.technicalSpecs ?? null,
           active: item.active ?? true,
         })),
       });
@@ -388,6 +395,7 @@ export async function PUT(
             quoteId: id,
             catalogItemId: item.catalogItemId,
             unitPriceOverride: item.unitPriceOverride ?? null,
+            technicalSpecs: item.technicalSpecs ?? null,
             active: item.active ?? true,
           },
         ])
@@ -397,6 +405,7 @@ export async function PUT(
           ...item,
           quoteId: id,
           unitPriceOverride: item.unitPriceOverride ?? null,
+          technicalSpecs: item.technicalSpecs ?? null,
           active: item.active ?? true,
         });
       });
@@ -406,6 +415,7 @@ export async function PUT(
             quoteId: id,
             catalogItemId: item.id,
             unitPriceOverride: null,
+            technicalSpecs: item.defaultTechnicalSpecs ?? null,
             active: true,
           });
         }
@@ -416,6 +426,7 @@ export async function PUT(
           quoteId: id,
           catalogItemId: item.catalogItemId,
           unitPriceOverride: item.unitPriceOverride ?? null,
+          technicalSpecs: item.technicalSpecs ?? null,
           active: item.active ?? true,
         })),
       });
@@ -445,6 +456,7 @@ export async function PUT(
               isEnabled: item.isEnabled ?? true,
               visibility: item.visibility || "visible",
               notes: item.notes ?? null,
+              technicalSpecs: item.technicalSpecs ?? null,
               isAmortizable: item.isAmortizable ?? false,
               investmentAmount: item.investmentAmount ?? null,
               amortizationMonths: item.amortizationMonths ?? null,
@@ -464,6 +476,7 @@ export async function PUT(
           isEnabled: item.isEnabled ?? true,
           visibility: item.visibility || "visible",
           notes: item.notes ?? null,
+          technicalSpecs: item.technicalSpecs ?? null,
           isAmortizable: item.isAmortizable ?? false,
           investmentAmount: item.investmentAmount ?? null,
           amortizationMonths: item.amortizationMonths ?? null,
@@ -483,6 +496,7 @@ export async function PUT(
             isEnabled: true,
             visibility: item.defaultVisibility || "visible",
             notes: null,
+            technicalSpecs: item.defaultTechnicalSpecs ?? null,
             isAmortizable: false,
             investmentAmount: null,
             amortizationMonths: null,
@@ -550,6 +564,7 @@ export async function PUT(
             mealsPerDay: meal.mealsPerDay ?? 0,
             daysOfService: meal.daysOfService ?? 0,
             priceOverride: meal.priceOverride ?? null,
+            technicalSpecs: meal.technicalSpecs ?? null,
             isEnabled: meal.isEnabled ?? true,
             visibility: meal.visibility || "visible",
           },
@@ -565,6 +580,7 @@ export async function PUT(
             meal.priceOverride === null || meal.priceOverride === undefined
               ? null
               : normalizeDecimal(meal.priceOverride),
+          technicalSpecs: meal.technicalSpecs ?? null,
           isEnabled: meal.isEnabled ?? true,
           visibility: meal.visibility || "visible",
         });
@@ -577,6 +593,7 @@ export async function PUT(
             mealsPerDay: 0,
             daysOfService: 0,
             priceOverride: null,
+            technicalSpecs: item.defaultTechnicalSpecs ?? null,
             isEnabled: true,
             visibility: "visible",
           });
@@ -593,6 +610,7 @@ export async function PUT(
             meal.priceOverride === null || meal.priceOverride === undefined
               ? null
               : normalizeDecimal(meal.priceOverride),
+          technicalSpecs: meal.technicalSpecs ?? null,
           isEnabled: meal.isEnabled ?? true,
           visibility: meal.visibility || "visible",
         })),
@@ -690,9 +708,10 @@ export async function PUT(
 
     return NextResponse.json({ success: true, data: summary });
   } catch (error: any) {
-    console.error("Error updating CPQ costs:", error?.message, error?.code, error?.meta);
+    console.error("Error updating CPQ costs:", error?.message, error?.code, error?.meta, error?.stack);
+    const msg = error?.message || "Failed to update costs";
     return NextResponse.json(
-      { success: false, error: error?.message || "Failed to update costs" },
+      { success: false, error: msg },
       { status: 500 }
     );
   }
