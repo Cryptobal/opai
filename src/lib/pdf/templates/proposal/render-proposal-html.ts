@@ -25,13 +25,10 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
     companyConfig, companyStats, regimeExplanation,
   } = props;
 
-  const logo = logoSvgBase64();
+  const { gardLogoBase64: logo, gardEscudoBase64, clientLogos } = assets;
   const clientLogoImg = companyLogo
     ? `<img src="${esc(companyLogo)}" style="height:36px;max-width:100px;border-radius:4px;background:white;padding:3px;object-fit:contain;" />`
     : '';
-  const clientLogoHeader = companyLogo
-    ? `<img src="${esc(companyLogo)}" style="height:22px;border-radius:50%;background:white;padding:2px;object-fit:contain;" />`
-    : '<span></span>';
 
   const resumenParrafos = ai.resumenEjecutivo.split(/\n\n+/).filter(p => p.trim());
   const analisisParrafos = ai.analisisNecesidades.split(/\n\n+/).filter(p => p.trim());
@@ -185,19 +182,6 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
     { n: 6, cls: '', role: 'Portal Cliente 24/7', roleColor: '', desc: 'Dashboard, reportes, chat, documentos — acceso permanente' },
   ];
 
-  const pageHeader = `
-    <div class="page-header">
-      <img src="${logo}" style="height:22px;" />
-      <span style="color:white;font-size:10pt;">Propuesta Técnica — ${esc(companyName)}</span>
-      ${clientLogoHeader}
-    </div>`;
-
-  const pageFooter = `
-    <div class="page-footer">
-      <span>Confidencial · N° ${esc(quotationCode)}</span>
-      <span>${esc(companyConfig.commercialName)} · ${esc(companyConfig.website)} · ${esc(companyConfig.phone)}</span>
-    </div>`;
-
   const sectionTitle = (t: string) => `<h2 class="section-title">${esc(t)}</h2>`;
   const highlight = (t: string) => `<div class="highlight-box">${esc(t)}</div>`;
   const bullet = (items: string[], dot = '•') => items.map(i => `<div class="bullet-item"><span class="bullet-dot">${dot}</span><span>${esc(i)}</span></div>`).join('');
@@ -206,9 +190,11 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
 @page { size: A4; margin: 0; }
-@page:first { margin: 0; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   --navy: #0f172a; --navy-light: #1e293b; --navy-lighter: #334155;
@@ -219,11 +205,9 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
   --highlight-bg: #fff1f2;
 }
 body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; color: var(--text); line-height: 1.5; }
-.page-header { position: running(header); display: flex; align-items: center; justify-content: space-between; height: 45px; background: var(--navy); border-bottom: 3px solid var(--accent); padding: 0 15mm; }
-.page-footer { position: running(footer); display: flex; align-items: center; justify-content: space-between; height: 25px; padding: 0 15mm; font-size: 7pt; color: var(--text-lighter); border-top: 1px solid var(--border); }
-@page { @top-center { content: element(header); } @bottom-center { content: element(footer); } margin: 48px 15mm 30px 15mm; }
-@page:first { @top-center { content: none; } @bottom-center { content: none; } margin: 0; }
-.cover-page { width: 210mm; height: 297mm; background: var(--navy); color: white; position: relative; padding: 60px 48px; border-left: 8px solid var(--accent); display: flex; flex-direction: column; align-items: center; }
+.cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(297mm - 55px - 35px); background: var(--navy); color: white; padding: 40px 48px 80px 48px; position: relative; border-left: 8px solid var(--accent); }
+.cover-footer { position: absolute; bottom: 20px; left: 48px; right: 48px; display: flex; justify-content: space-between; align-items: flex-end; }
+.watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; height: 300px; opacity: 0.03; z-index: -1; pointer-events: none; }
 .page-break { break-before: page; }
 .no-break { break-inside: avoid; }
 .section-title { font-size: 20pt; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
@@ -293,8 +277,7 @@ body { font-family: 'Inter','Helvetica Neue',Arial,sans-serif; font-size: 10pt; 
 </head>
 <body>
 
-${pageHeader}
-${pageFooter}
+<div class="watermark"><img src="${gardEscudoBase64}" style="width:100%;height:100%;" /></div>
 
 <!-- PÁG 1: PORTADA -->
 <div class="cover-page">
@@ -304,7 +287,7 @@ ${pageFooter}
   <p style="font-size:13pt;letter-spacing:4px;opacity:0.7;text-align:center;margin-bottom:40px;">DE SERVICIO DE SEGURIDAD INTEGRAL</p>
   <h2 style="font-size:36pt;font-weight:800;text-align:center;margin-bottom:8px;">${esc(companyName)}</h2>
   <p style="font-size:11pt;opacity:0.8;font-style:italic;text-align:center;max-width:450px;margin-bottom:50px;">${esc(ai.descripcionBreve)}</p>
-  <div style="display:flex;justify-content:center;gap:40px;margin-bottom:auto;">
+  <div style="display:flex;justify-content:center;gap:40px;margin-bottom:40px;">
     <div style="text-align:center;"><div style="font-size:32pt;font-weight:800;color:var(--accent);">67%</div><div style="font-size:8pt;opacity:0.6;">Reducción incidentes</div></div>
     <div style="width:1px;background:rgba(255,255,255,0.2);"></div>
     <div style="text-align:center;"><div style="font-size:32pt;font-weight:800;color:var(--accent);">96%</div><div style="font-size:8pt;opacity:0.6;">Rondas cumplidas</div></div>
@@ -313,7 +296,7 @@ ${pageFooter}
     <div style="width:1px;background:rgba(255,255,255,0.2);"></div>
     <div style="text-align:center;"><div style="font-size:32pt;font-weight:800;color:var(--accent);">94%</div><div style="font-size:8pt;opacity:0.6;">Renovación</div></div>
   </div>
-  <div style="position:absolute;bottom:40px;left:48px;right:48px;display:flex;justify-content:space-between;align-items:flex-end;">
+  <div class="cover-footer">
     <div>
       <div style="font-size:10pt;">Preparada para: ${esc(contactName)}${contactPosition ? ` · ${esc(contactPosition)}` : ''}</div>
       <div style="font-size:9pt;opacity:0.6;margin-top:4px;">${esc(proposalDate)} · N° ${esc(quotationCode)}</div>
@@ -444,7 +427,7 @@ ${pageFooter}
   </table>
 </div>
 
-<!-- PÁG 10: PIRÁMIDE + PILARES -->
+<!-- PÁG 10: PIRÁMIDE -->
 <div class="page-break"></div>
 <div>
   ${sectionTitle('No vendemos guardias. Implementamos un sistema de seguridad gestionado.')}
@@ -452,6 +435,11 @@ ${pageFooter}
     ${niveles.map(n => `<div class="pyramid-level ${n.cls}"><strong>${esc(n.label)}:</strong> ${esc(n.desc)}</div>`).join('')}
   </div>
   ${highlight('Cada capa refuerza la anterior. Ninguna funciona aislada.')}
+</div>
+
+<!-- PÁG 11: 4 PILARES -->
+<div class="page-break"></div>
+<div>
   ${sectionTitle('Framework estructurado que sostiene toda nuestra operación')}
   <div class="pillars-grid">
     ${pilares.map((p, i) => `<div class="pillar-card no-break"><div class="pillar-number">${i + 1}</div><h4>${esc(p.title)}</h4><ul>${p.items.map(it => `<li>${esc(it)}</li>`).join('')}</ul></div>`).join('')}
@@ -501,7 +489,7 @@ ${pageFooter}
   ${highlight('Si la Dirección del Trabajo solicita documentación, la tendrá en su email en menos de 24 horas hábiles.')}
 </div>
 
-<!-- PÁG 14: CONTINGENCIA + RESULTADOS -->
+<!-- PÁG 15: CONTINGENCIA -->
 <div class="page-break"></div>
 <div>
   ${sectionTitle('Planes de contingencia para cualquier escenario')}
@@ -510,6 +498,11 @@ ${pageFooter}
     <tbody>${contRows.map(r => `<tr><td>${esc(r.e)}</td><td>${esc(r.r)}</td></tr>`).join('')}</tbody>
   </table>
   <div style="text-align:center;margin:16px 0;"><div class="metric-badge"><div class="number">99,5%</div><div class="label">Cumplimiento turnos</div></div></div>
+</div>
+
+<!-- PÁG 16: RESULTADOS -->
+<div class="page-break"></div>
+<div>
   ${sectionTitle('Resultados con clientes reales')}
   <div style="display:flex;gap:24px;margin-bottom:16px;">
     <div class="metric-badge"><div class="number">67%</div><div class="label">Reducción incidentes</div></div>
@@ -522,7 +515,9 @@ ${pageFooter}
     ${ai.sectoresRelevantes.map(s => `<span style="background:var(--bg-alt);padding:4px 8px;border-radius:4px;font-size:8pt;">${esc(s)}</span>`).join('')}
   </div>
   <p class="body-text" style="font-weight:600;">Clientes que confían en Gard:</p>
-  <p class="body-text" style="font-size:9pt;color:var(--text-light);">Polpaico · International Paper · Tritec · Sparta · Tattersall · Transmat · BBosch · Embajada de Brasil · GL Events · y más</p>
+  ${clientLogos.length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;align-items:center;margin:12px 0;">
+    ${clientLogos.map(l => `<img src="${l.base64}" alt="${esc(l.name)}" style="height:30px;max-width:80px;object-fit:contain;filter:grayscale(100%);opacity:0.6;" />`).join('')}
+  </div>` : `<p class="body-text" style="font-size:9pt;color:var(--text-light);">Polpaico · International Paper · Tritec · Sparta · Tattersall · Transmat · BBosch · Embajada de Brasil · GL Events · y más</p>`}
   <p style="font-size:8pt;color:var(--text-light);">Referencias disponibles bajo solicitud y NDA.</p>
 </div>
 
@@ -573,7 +568,7 @@ ${pageFooter}
   <p class="body-text">Presencia de supervisor durante el primer turno completo. Verificación de todos los sistemas: checkpoints NFC instalados, app configurada, portal activado con sus credenciales. Usted recibe su primer reporte antes de cumplirse 24 horas de operación.</p>
 </div>
 
-<!-- PÁG 19: TÉRMINOS + GARANTÍA + CTA + FIRMAS -->
+<!-- PÁG 21: TÉRMINOS + GARANTÍA -->
 <div class="page-break"></div>
 <div>
   ${sectionTitle('Transparencia en qué necesitamos y qué incluimos')}
@@ -588,15 +583,17 @@ ${pageFooter}
     </div>
   </div>
   ${highlight('Garantía Gard: Si durante los primeros 30 días de operación el servicio no cumple con los estándares comprometidos en esta propuesta, puede desvincularse sin penalidad. Así de seguros estamos de nuestro nivel de servicio.')}
+</div>
 
-  <div style="margin-top:24px;">
-    ${sectionTitle('Próximos pasos')}
-    ${['Agendar visita técnica sin costo', 'Revisar y ajustar propuesta si es necesario', 'Firma de contrato', 'Servicio activo en ≤15 días'].map((s, i) => `<div class="bullet-item"><span class="bullet-dot">${i + 1}.</span><span>${esc(s)}</span></div>`).join('')}
-    <p class="body-text" style="font-weight:600;margin-top:16px;">¿Tiene dudas? Conversemos:</p>
-    <p class="body-text">WhatsApp: +56 98 230 7771 · Email: ${esc(companyConfig.email)} · Web: ${esc(companyConfig.website)}</p>
-  </div>
+<!-- PÁG 22: CTA + FIRMAS -->
+<div class="page-break"></div>
+<div>
+  ${sectionTitle('Próximos pasos')}
+  ${['Agendar visita técnica sin costo', 'Revisar y ajustar propuesta si es necesario', 'Firma de contrato', 'Servicio activo en ≤15 días'].map((s, i) => `<div class="bullet-item"><span class="bullet-dot">${i + 1}.</span><span>${esc(s)}</span></div>`).join('')}
+  <p class="body-text" style="font-weight:600;margin-top:16px;">¿Tiene dudas? Conversemos:</p>
+  <p class="body-text">WhatsApp: +56 98 230 7771 · Email: ${esc(companyConfig.email)} · Web: ${esc(companyConfig.website)}</p>
 
-  <div style="margin-top:24px;">
+  <div style="margin-top:32px;">
     ${sectionTitle('Aceptación de Propuesta')}
     <div style="display:flex;gap:40px;">
       <div class="signature-block">

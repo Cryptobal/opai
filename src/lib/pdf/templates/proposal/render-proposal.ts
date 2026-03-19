@@ -5,7 +5,7 @@
 
 import type { ProposalProps } from './build-proposal-props';
 import { readFileSync, readdirSync } from 'fs';
-import path from 'path';
+import * as path from 'path';
 
 function esc(s: string): string {
   return s
