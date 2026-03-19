@@ -158,7 +158,7 @@ export async function POST(
       };
     });
 
-    const totalLaborCost = positionCosts.reduce((s: number, p) => s + p.totalCost, 0);
+    const totalLaborCost = positionCosts.reduce((s: number, p: { totalCost: number }) => s + p.totalCost, 0);
 
     /* ── Holiday adjustment (same as CPQ) ── */
     const holidayAnnualCount = 12;
