@@ -49,26 +49,33 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
   const C = {
     navy: '#0f172a',
     navyLight: '#1e293b',
+    navyLighter: '#334155',
     teal: '#14b8a6',
     accent: '#e94560',
     slate50: '#f8fafc',
     slate200: '#e2e8f0',
     slate400: '#94a3b8',
     slate500: '#64748b',
+    slate600: '#475569',
     slate700: '#334155',
     white: '#ffffff',
     success: '#22c55e',
     danger: '#ef4444',
+    redLight: '#fef2f2',
+    greenLight: '#f0fdf4',
+    redHeader: '#dc2626',
+    greenHeader: '#16a34a',
+    rose50: '#fff1f2',
   };
   const F = { sans: 'PlusJakartaSans', mono: 'JetBrainsMono' };
 
   const s = StyleSheet.create({
     page: {
       fontFamily: F.sans,
-      fontSize: 9,
+      fontSize: 10,
       color: C.slate700,
       backgroundColor: C.white,
-      paddingTop: 50,
+      paddingTop: 55,
       paddingBottom: 50,
       paddingHorizontal: 40,
     },
@@ -86,34 +93,35 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
       top: 0,
       left: 0,
       right: 0,
+      height: 45,
       backgroundColor: C.navy,
       paddingHorizontal: 40,
-      paddingVertical: 12,
+      paddingVertical: 10,
       flexDirection: 'row' as const,
       justifyContent: 'space-between' as const,
       alignItems: 'center' as const,
+      borderBottomWidth: 3,
+      borderBottomColor: C.accent,
     },
     headerTitle: { fontFamily: F.sans, fontSize: 10, fontWeight: 600, color: C.white },
     accentLine: { height: 2, backgroundColor: C.accent },
     sectionTitle: {
       fontFamily: F.sans,
-      fontSize: 12,
+      fontSize: 22,
       fontWeight: 700,
       color: C.navy,
-      marginBottom: 10,
-      paddingBottom: 4,
-      borderBottomWidth: 2,
-      borderBottomColor: C.accent,
+      marginBottom: 4,
     },
+    sectionTitleAccent: { width: 40, height: 3, backgroundColor: C.accent, marginBottom: 10 },
     bodyText: {
       fontFamily: F.sans,
-      fontSize: 9,
+      fontSize: 10,
       color: C.slate700,
       lineHeight: 1.5,
       marginBottom: 8,
     },
     highlightBox: {
-      backgroundColor: C.slate50,
+      backgroundColor: C.rose50,
       borderLeftWidth: 4,
       borderLeftColor: C.accent,
       padding: 12,
@@ -222,6 +230,8 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
     paymentTerms,
     gardLogo,
     companyConfig,
+    companyStats,
+    regimeExplanation,
   } = props;
 
   const proposalHeader = () =>
@@ -231,17 +241,18 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
       e(
         View,
         { style: s.headerBand },
-        e(View, { style: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10 } },
-          gardLogo
-            ? e(PDFImage, { src: gardLogo, style: { height: 24, maxWidth: 100, objectFit: 'contain' as const } })
-            : e(Text, { style: [s.headerTitle, { fontSize: 14, fontWeight: 800 }] }, 'GARD'),
+        gardLogo
+          ? e(PDFImage, { src: gardLogo, style: { height: 25, maxWidth: 100, objectFit: 'contain' as const } })
+          : e(Text, { style: [s.headerTitle, { fontSize: 14, fontWeight: 800 }] }, 'GARD'),
+        e(View, { style: { flex: 1, alignItems: 'center' as const, justifyContent: 'center' as const } },
+          e(Text, { style: [s.headerTitle, { fontSize: 11, fontWeight: 400 }] }, `Propuesta Técnica — ${companyName}`),
         ),
-        e(Text, { style: s.headerTitle }, `Propuesta Técnica — ${companyName}`),
         companyLogo
-          ? e(PDFImage, { src: companyLogo, style: { height: 24, maxWidth: 80, objectFit: 'contain' as const } })
-          : null,
+          ? e(View, { style: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.white, alignItems: 'center' as const, justifyContent: 'center' as const, overflow: 'hidden' as const } },
+            e(PDFImage, { src: companyLogo, style: { height: 25, maxWidth: 80, objectFit: 'contain' as const } }),
+          )
+          : e(View, { style: { width: 30 } }),
       ),
-      e(View, { style: s.accentLine }),
     );
 
   const proposalFooter = () =>
@@ -257,7 +268,11 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
       }),
     );
 
-  const sectionTitleEl = (text: string) => e(Text, { style: s.sectionTitle }, text);
+  const sectionTitleEl = (text: string) =>
+    e(View, { style: { marginBottom: 10 } },
+      e(Text, { style: s.sectionTitle }, text),
+      e(View, { style: s.sectionTitleAccent }),
+    );
   const paragraph = (text: string) => e(Text, { style: s.bodyText }, text);
   const highlightBox = (text: string) =>
     e(View, { style: s.highlightBox }, e(Text, { style: [s.bodyText, { fontWeight: 600, color: C.navy }] }, text));
@@ -271,19 +286,32 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
   pages.push(
     e(
       Page,
-      { key: 'p1', size: 'A4' as const, style: s.coverPage },
+      { key: 'p1', size: 'A4' as const, style: [s.coverPage, { paddingLeft: 48 }] },
+      e(View, { style: { position: 'absolute' as const, left: 0, top: 0, bottom: 0, width: 8, backgroundColor: C.accent } }),
       gardLogo
-        ? e(PDFImage, { src: gardLogo, style: { height: 48, maxWidth: 180, objectFit: 'contain' as const, marginBottom: 30 } })
-        : e(Text, { style: { fontSize: 28, fontWeight: 800, letterSpacing: 2, marginBottom: 30 } }, 'GARD SECURITY'),
-      e(Text, { style: { fontSize: 14, fontWeight: 600, marginBottom: 8, opacity: 0.9 } }, 'Propuesta Técnica'),
-      e(Text, { style: { fontSize: 20, fontWeight: 700, marginBottom: 20 } }, companyName),
-      e(Text, { style: { fontSize: 10, marginBottom: 30, textAlign: 'center' as const, maxWidth: 400 } }, ai.descripcionBreve),
-      e(View, { style: { flexDirection: 'row' as const, gap: 20, marginTop: 20 } },
-        metricBadge(String(staffingCount), 'Guardias'),
-        metricBadge(totalNetoFormatted.split(' ')[0]?.slice(0, 8) || '-', 'Inversión'),
+        ? e(PDFImage, { src: gardLogo, style: { height: 56, maxWidth: 200, objectFit: 'contain' as const, marginBottom: 12, alignSelf: 'center' as const } })
+        : e(Text, { style: { fontFamily: F.sans, fontSize: 28, fontWeight: 800, letterSpacing: 2, marginBottom: 12, color: C.white, alignSelf: 'center' as const } }, 'GARD SECURITY'),
+      e(View, { style: { width: 80, height: 2, backgroundColor: C.accent, alignSelf: 'center' as const, marginBottom: 16 } }),
+      e(Text, { style: { fontFamily: F.sans, fontSize: 28, fontWeight: 700, color: C.white, letterSpacing: 3, textTransform: 'uppercase' as const, marginBottom: 6, alignSelf: 'center' as const } }, 'Propuesta Técnica'),
+      e(Text, { style: { fontFamily: F.sans, fontSize: 14, color: C.white, opacity: 0.7, letterSpacing: 2, textTransform: 'uppercase' as const, marginBottom: 24, alignSelf: 'center' as const } }, 'De Servicio de Seguridad Integral'),
+      e(Text, { style: { fontFamily: F.sans, fontSize: 36, fontWeight: 700, color: C.white, marginBottom: 8, alignSelf: 'center' as const } }, companyName),
+      e(Text, { style: { fontFamily: F.sans, fontSize: 12, fontStyle: 'italic' as const, color: C.white, opacity: 0.8, textAlign: 'center' as const, maxWidth: 450, marginBottom: 24 } }, ai.descripcionBreve),
+      e(View, { style: { flexDirection: 'row' as const, justifyContent: 'center' as const, alignItems: 'center' as const, gap: 16, marginBottom: 32 } },
+        e(View, { style: { alignItems: 'center' as const } }, e(Text, { style: { fontFamily: F.sans, fontSize: 28, fontWeight: 800, color: C.accent } }, '67%'), e(Text, { style: { fontFamily: F.sans, fontSize: 8, color: C.white, opacity: 0.6 } }, 'Reducción incidentes')),
+        e(Text, { style: { fontFamily: F.sans, fontSize: 10, color: C.white, opacity: 0.5 } }, '|'),
+        e(View, { style: { alignItems: 'center' as const } }, e(Text, { style: { fontFamily: F.sans, fontSize: 28, fontWeight: 800, color: C.accent } }, '96%'), e(Text, { style: { fontFamily: F.sans, fontSize: 8, color: C.white, opacity: 0.6 } }, 'Rondas cumplidas')),
+        e(Text, { style: { fontFamily: F.sans, fontSize: 10, color: C.white, opacity: 0.5 } }, '|'),
+        e(View, { style: { alignItems: 'center' as const } }, e(Text, { style: { fontFamily: F.sans, fontSize: 28, fontWeight: 800, color: C.accent } }, '100%'), e(Text, { style: { fontFamily: F.sans, fontSize: 8, color: C.white, opacity: 0.6 } }, 'Documentado')),
+        e(Text, { style: { fontFamily: F.sans, fontSize: 10, color: C.white, opacity: 0.5 } }, '|'),
+        e(View, { style: { alignItems: 'center' as const } }, e(Text, { style: { fontFamily: F.sans, fontSize: 28, fontWeight: 800, color: C.accent } }, '94%'), e(Text, { style: { fontFamily: F.sans, fontSize: 8, color: C.white, opacity: 0.6 } }, 'Renovación')),
       ),
-      e(Text, { style: { fontSize: 9, marginTop: 40 } }, `Para: ${contactName}${contactPosition ? `, ${contactPosition}` : ''}`),
-      e(Text, { style: { fontSize: 8, marginTop: 4, opacity: 0.8 } }, `${proposalDate} · ${quotationCode}`),
+      e(View, { style: { position: 'absolute' as const, bottom: 40, left: 48, right: 48, flexDirection: 'row' as const, justifyContent: 'space-between' as const, alignItems: 'flex-end' as const } },
+        e(View, {},
+          e(Text, { style: { fontFamily: F.sans, fontSize: 9, color: C.white, opacity: 0.9 } }, `Preparada para: ${contactName}${contactPosition ? ` · ${contactPosition}` : ''}`),
+          e(Text, { style: { fontFamily: F.sans, fontSize: 8, color: C.white, opacity: 0.7, marginTop: 4 } }, `${proposalDate} · N° ${quotationCode}`),
+        ),
+        companyLogo ? e(PDFImage, { src: companyLogo, style: { height: 36, maxWidth: 100, objectFit: 'contain' as const } }) : null,
+      ),
     ),
   );
 
@@ -326,6 +354,97 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
             ...lx3Text.split(/\n\n+/).map((p, i) => e(Text, { key: i, style: s.bodyText }, p)),
           ),
         ),
+        e(Text, { style: [s.bodyText, { fontWeight: 600, marginTop: 16, marginBottom: 8 }] }, 'Gard en números:'),
+        e(View, { style: { flexDirection: 'row' as const, gap: 24 } },
+          e(View, { style: { alignItems: 'center' as const } }, e(Text, { style: [s.tblCellBold, { fontSize: 18, color: C.accent }] }, companyStats.yearsInOperation), e(Text, { style: [s.bodyText, { fontSize: 8, color: C.slate500 }] }, 'años de operación')),
+          e(View, { style: { alignItems: 'center' as const } }, e(Text, { style: [s.tblCellBold, { fontSize: 18, color: C.accent }] }, companyStats.activeGuards), e(Text, { style: [s.bodyText, { fontSize: 8, color: C.slate500 }] }, 'guardias activos')),
+          e(View, { style: { alignItems: 'center' as const } }, e(Text, { style: [s.tblCellBold, { fontSize: 18, color: C.accent }] }, companyStats.protectedFacilities), e(Text, { style: [s.bodyText, { fontSize: 8, color: C.slate500 }] }, 'instalaciones protegidas')),
+          e(View, { style: { alignItems: 'center' as const } }, e(Text, { style: [s.tblCellBold, { fontSize: 18, color: C.accent }] }, companyStats.regionsCount), e(Text, { style: [s.bodyText, { fontSize: 8, color: C.slate500 }] }, 'regiones de Chile')),
+        ),
+      ),
+      proposalFooter(),
+    ),
+  );
+
+  pages.push(
+    e(
+      Page,
+      { key: 'p3b', size: 'A4' as const, style: s.page },
+      proposalHeader(),
+      e(View, { style: { marginTop: 20 } },
+        sectionTitleEl('Estructura corporativa Gard Security'),
+        e(View, { style: { alignItems: 'center' as const, marginVertical: 12 } },
+          e(View, { style: { width: '35%', backgroundColor: C.navy, padding: 10, alignItems: 'center' as const } },
+            e(Text, { style: { fontFamily: F.sans, fontSize: 10, fontWeight: 700, color: C.white } }, 'GERENCIA GENERAL'),
+            e(Text, { style: { fontFamily: F.sans, fontSize: 8, color: C.white, opacity: 0.9 } }, 'Dirección estratégica'),
+          ),
+          e(View, { style: { width: 2, height: 12, backgroundColor: C.slate400 } }),
+          e(View, { style: { flexDirection: 'row' as const, gap: 8, marginTop: 8 } },
+            e(View, { style: { flex: 1, backgroundColor: C.navyLight, padding: 8, alignItems: 'center' as const } },
+              e(Text, { style: { fontFamily: F.sans, fontSize: 9, fontWeight: 600, color: C.white } }, 'DIRECCIÓN DE OPERACIONES'),
+            ),
+            e(View, { style: { flex: 1, backgroundColor: C.navyLight, padding: 8, alignItems: 'center' as const } },
+              e(Text, { style: { fontFamily: F.sans, fontSize: 9, fontWeight: 600, color: C.white } }, 'DIRECCIÓN DE ADM. Y FINANZAS'),
+            ),
+            e(View, { style: { flex: 1, backgroundColor: C.navyLight, padding: 8, alignItems: 'center' as const } },
+              e(Text, { style: { fontFamily: F.sans, fontSize: 9, fontWeight: 600, color: C.white } }, 'ASESORÍA LEGAL'),
+              e(Text, { style: { fontFamily: F.sans, fontSize: 7, color: C.white, opacity: 0.8 } }, 'OS-10 · Karin · DT · Contratos'),
+            ),
+          ),
+          e(View, { style: { flexDirection: 'row' as const, gap: 8, marginTop: 8 } },
+            e(View, { style: { flex: 1, backgroundColor: C.slate50, padding: 8 } },
+              e(Text, { style: [s.bodyText, { fontWeight: 600, marginBottom: 4 }] }, 'Jefe de Operaciones'),
+              e(Text, { style: [s.bodyText, { fontSize: 8 }] }, 'RRHH y Selección'),
+              e(Text, { style: [s.bodyText, { fontSize: 8 }] }, 'Prev. de Riesgos'),
+              e(Text, { style: [s.bodyText, { fontSize: 8 }] }, 'Coord. Tecnología (OPAI/LX3)'),
+            ),
+            e(View, { style: { flex: 1, backgroundColor: C.slate50, padding: 8 } },
+              e(Text, { style: [s.bodyText, { fontWeight: 600, marginBottom: 4 }] }, 'Jefe de Administración'),
+              e(Text, { style: [s.bodyText, { fontSize: 8 }] }, 'Contabilidad y Finanzas'),
+            ),
+          ),
+          e(View, { style: { flexDirection: 'row' as const, gap: 8, marginTop: 8 } },
+            e(View, { style: { flex: 1, backgroundColor: C.rose50, padding: 8, borderLeftWidth: 3, borderLeftColor: C.accent } },
+              e(Text, { style: [s.bodyText, { fontWeight: 600 }] }, 'Coordinadores de Zona'),
+              e(Text, { style: [s.bodyText, { fontSize: 8 }] }, 'Supervisión regional'),
+            ),
+            e(View, { style: { flex: 1, backgroundColor: C.rose50, padding: 8, borderLeftWidth: 3, borderLeftColor: C.accent } },
+              e(Text, { style: [s.bodyText, { fontWeight: 600 }] }, 'Supervisores'),
+              e(Text, { style: [s.bodyText, { fontSize: 8 }] }, 'Verificación en terreno'),
+            ),
+            e(View, { style: { flex: 1, backgroundColor: C.rose50, padding: 8, borderLeftWidth: 3, borderLeftColor: C.accent } },
+              e(Text, { style: [s.bodyText, { fontWeight: 600 }] }, 'Guardias'),
+              e(Text, { style: [s.bodyText, { fontSize: 8 }] }, 'Ejecución del servicio'),
+            ),
+          ),
+        ),
+        sectionTitleEl('Su cadena de servicio directa'),
+        e(Text, { style: [s.bodyText, { color: C.slate500, fontStyle: 'italic' as const, marginBottom: 12 }] }, 'Cada nivel tiene nombre, cargo y responsabilidad ante usted.'),
+        e(View, { style: { flexDirection: 'row' as const, gap: 16 } },
+          e(View, { style: { width: 24, alignItems: 'center' as const } },
+            e(View, { style: { width: 20, height: 20, borderRadius: 10, backgroundColor: C.accent, alignItems: 'center' as const, justifyContent: 'center' as const } }, e(Text, { style: { fontFamily: F.sans, fontSize: 8, fontWeight: 700, color: C.white } }, '1')),
+            e(View, { style: { width: 2, flex: 1, backgroundColor: C.accent, marginVertical: 4 } }),
+            e(View, { style: { width: 20, height: 20, borderRadius: 10, backgroundColor: C.slate400, alignItems: 'center' as const, justifyContent: 'center' as const } }, e(Text, { style: { fontFamily: F.sans, fontSize: 8, fontWeight: 700, color: C.white } }, '2')),
+            e(View, { style: { width: 2, flex: 1, backgroundColor: C.slate400, marginVertical: 4 } }),
+            e(View, { style: { width: 20, height: 20, borderRadius: 10, backgroundColor: C.slate400, alignItems: 'center' as const, justifyContent: 'center' as const } }, e(Text, { style: { fontFamily: F.sans, fontSize: 8, fontWeight: 700, color: C.white } }, '3')),
+            e(View, { style: { width: 2, flex: 1, backgroundColor: C.slate400, marginVertical: 4 } }),
+            e(View, { style: { width: 20, height: 20, borderRadius: 10, backgroundColor: C.slate400, alignItems: 'center' as const, justifyContent: 'center' as const } }, e(Text, { style: { fontFamily: F.sans, fontSize: 8, fontWeight: 700, color: C.white } }, '4')),
+            e(View, { style: { width: 2, flex: 1, backgroundColor: C.slate400, marginVertical: 4 } }),
+            e(View, { style: { width: 20, height: 20, borderRadius: 10, backgroundColor: C.slate400, alignItems: 'center' as const, justifyContent: 'center' as const } }, e(Text, { style: { fontFamily: F.sans, fontSize: 8, fontWeight: 700, color: C.white } }, '5')),
+            e(View, { style: { width: 2, flex: 1, backgroundColor: C.slate400, marginVertical: 4 } }),
+            e(View, { style: { width: 20, height: 20, borderRadius: 10, backgroundColor: C.slate400, alignItems: 'center' as const, justifyContent: 'center' as const } }, e(Text, { style: { fontFamily: F.sans, fontSize: 8, fontWeight: 700, color: C.white } }, '6')),
+          ),
+          e(View, { style: { flex: 1 } },
+            e(View, { style: { marginBottom: 10 } }, e(Text, { style: [s.bodyText, { fontWeight: 600, color: C.accent }] }, 'USTED'), e(Text, { style: s.bodyText }, ` (${companyName})`)),
+            e(View, { style: { marginBottom: 10 } }, e(Text, { style: [s.bodyText, { fontWeight: 600 }] }, 'Ejecutivo de Cuenta'), e(Text, { style: s.bodyText }, ' — Consultas comerciales, ajustes, reuniones de gestión')),
+            e(View, { style: { marginBottom: 10 } }, e(Text, { style: [s.bodyText, { fontWeight: 600 }] }, 'Coordinador de Zona'), e(Text, { style: s.bodyText }, ' — Responsable operacional de su instalación, gestión del equipo')),
+            e(View, { style: { marginBottom: 10 } }, e(Text, { style: [s.bodyText, { fontWeight: 600 }] }, 'Supervisor Asignado'), e(Text, { style: s.bodyText }, ' — Verificación en terreno, mínimo 2 visitas por turno')),
+            e(View, { style: { marginBottom: 10 } }, e(Text, { style: [s.bodyText, { fontWeight: 600 }] }, 'Guardias Asignados'), e(Text, { style: s.bodyText }, ' — Ejecución del servicio en su instalación')),
+            e(View, { style: { marginBottom: 10 } }, e(Text, { style: [s.bodyText, { fontWeight: 600 }] }, 'Portal Cliente 24/7'), e(Text, { style: s.bodyText }, ' — Dashboard, reportes, chat, documentos')),
+            e(View, { style: { marginBottom: 10 } }, e(Text, { style: [s.bodyText, { fontWeight: 600 }] }, 'Línea de Emergencia'), e(Text, { style: s.bodyText }, ' — +56 98 230 7771 — disponible 24/7')),
+          ),
+        ),
+        highlightBox('Usted no contrata guardias. Contrata una organización completa dedicada a su seguridad.'),
       ),
       proposalFooter(),
     ),
@@ -365,12 +484,12 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
   );
 
   const portales = [
-    { name: 'Portal Clientes', desc: 'Acceso web exclusivo. Vea estado del servicio, reportes, rondas, cotizaciones. Disponible 24/7.' },
-    { name: 'Portal Guardias', desc: 'App móvil (PWA) para registrar turnos, marcar rondas, reportar incidentes con foto y GPS.' },
-    { name: 'Portal Supervisores', desc: 'Herramienta de terreno. Verificación de personal, inspecciones, rondas aleatorias.' },
-    { name: 'Portal Rondas', desc: 'Checkpoints NFC/QR. El guardia marca cada punto con hora, GPS y foto.' },
-    { name: 'Portal Acceso', desc: 'Control de acceso. Lectura cédula chilena, OCR patentes, registro de visitas.' },
-    { name: 'Portal Admin (OPAI)', desc: 'Centro de comando. Gestión de personal, turnos, finanzas, incidentes — todo integrado.' },
+    { name: 'Portal Clientes', desc: 'Dashboard 24/7 con reportes, rondas, cotizaciones y chat directo.' },
+    { name: 'Portal Guardias', desc: 'App móvil para turnos, rondas, incidentes con foto y GPS.' },
+    { name: 'Portal Supervisores', desc: 'Verificación en terreno, inspecciones y rondas aleatorias.' },
+    { name: 'Portal Rondas', desc: 'Checkpoints NFC/QR con hora, GPS y evidencia fotográfica.' },
+    { name: 'Portal Acceso', desc: 'Control de acceso, lectura cédula QR, OCR patentes, offline.' },
+    { name: 'Portal Admin', desc: 'Centro de comando: personal, turnos, finanzas, reportes, legal.' },
   ];
 
   pages.push(
@@ -380,13 +499,16 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
       proposalHeader(),
       e(View, { style: { marginTop: 20 } },
         sectionTitleEl('6 portales especializados. Cada usuario ve exactamente lo que necesita.'),
-        ...portales.map((p, i) =>
-          e(View, { key: i, style: { flexDirection: 'row' as const, marginBottom: 16, gap: 12 } },
-            e(View, { style: s.portalPlaceholder }, e(Text, { style: [s.tblHeaderCell, { color: C.slate500 }] }, p.name)),
-            e(View, { style: { flex: 1 } }, e(Text, { style: [s.bodyText, { fontWeight: 600 }] }, p.name), e(Text, { style: s.bodyText }, p.desc)),
+        e(View, { style: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 12 } },
+          ...portales.map((p, i) =>
+            e(View, { key: i, style: { width: '31%' } },
+              e(View, { style: [s.portalPlaceholder, { width: 150, height: 90 }] }, e(Text, { style: [s.tblHeaderCell, { color: C.slate500, fontSize: 10 }] }, p.name)),
+              e(Text, { style: [s.bodyText, { fontWeight: 600, marginTop: 4 }] }, p.name),
+              e(Text, { style: [s.bodyText, { fontSize: 8, marginTop: 2 }] }, p.desc),
+            ),
           ),
         ),
-        e(Text, { style: [s.bodyText, { fontSize: 8, color: C.slate500, marginTop: 8 }] }, 'Cada portal es una PWA instalable. Funciona en cualquier dispositivo, incluso sin conexión.'),
+        e(Text, { style: [s.bodyText, { fontSize: 8, color: C.slate500, marginTop: 12 }] }, 'Cada portal es una PWA instalable. Funciona en cualquier dispositivo, incluso sin conexión.'),
       ),
       proposalFooter(),
     ),
@@ -477,13 +599,13 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
         sectionTitleEl('El verdadero riesgo no es la ausencia de seguridad. Es la falsa sensación de control.'),
         e(Text, { style: [s.bodyText, { color: C.slate500, marginBottom: 12 }] }, '73% de las empresas descubre fallas solo después de un incidente grave.'),
         e(View, { style: s.tblHeader },
-          e(Text, { style: [s.tblHeaderCell, { flex: 2, backgroundColor: C.danger }] }, 'Mercado Tradicional'),
-          e(Text, { style: [s.tblHeaderCell, { flex: 2, backgroundColor: C.success }] }, 'Gard + OPAI'),
+          e(Text, { style: [s.tblHeaderCell, { flex: 2, backgroundColor: C.redHeader }] }, 'Mercado Tradicional'),
+          e(Text, { style: [s.tblHeaderCell, { flex: 2, backgroundColor: C.greenHeader }] }, 'Gard + OPAI'),
         ),
         ...compRows.map((r, i) =>
-          e(View, { key: i, style: i % 2 === 1 ? s.tblRowAlt : s.tblRow },
-            e(Text, { style: [s.tblCell, { flex: 2, color: C.slate600 }] }, r.mercado),
-            e(Text, { style: [s.tblCellBold, { flex: 2, color: C.teal }] }, r.gard),
+          e(View, { key: i, style: { flexDirection: 'row' as const, borderBottomWidth: 0.5, borderBottomColor: C.slate200 } },
+            e(View, { style: { flex: 2, backgroundColor: C.redLight, paddingVertical: 5, paddingHorizontal: 8 } }, e(Text, { style: s.tblCell }, r.mercado)),
+            e(View, { style: { flex: 2, backgroundColor: C.greenLight, paddingVertical: 5, paddingHorizontal: 8 } }, e(Text, { style: s.tblCellBold }, r.gard)),
           ),
         ),
       ),
@@ -492,11 +614,11 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
   );
 
   const niveles = [
-    'Nivel 5 — Gestión: Análisis, KPIs, mejora continua, reuniones mensuales',
-    'Nivel 4 — Reportabilidad: Informes automáticos, dashboard ejecutivo',
-    'Nivel 3 — Control: Trazabilidad digital completa vía OPAI',
-    'Nivel 2 — Supervisión: Verificación activa en terreno, mínimo 2x por turno',
-    'Nivel 1 — Guardia: Presencia física profesional, selección rigurosa',
+    { label: 'Nivel 5 — Gestión', desc: 'Análisis, KPIs, mejora continua, reuniones mensuales', width: 50, bg: C.navy },
+    { label: 'Nivel 4 — Reportabilidad', desc: 'Informes automáticos, dashboard ejecutivo', width: 62, bg: C.navyLight },
+    { label: 'Nivel 3 — Control', desc: 'Trazabilidad digital completa vía OPAI', width: 74, bg: C.navyLighter },
+    { label: 'Nivel 2 — Supervisión', desc: 'Verificación activa en terreno, mínimo 2x por turno', width: 86, bg: C.slate200 },
+    { label: 'Nivel 1 — Guardia', desc: 'Presencia física profesional, selección rigurosa', width: 98, bg: C.slate50 },
   ];
 
   pages.push(
@@ -506,18 +628,18 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
       proposalHeader(),
       e(View, { style: { marginTop: 20 } },
         sectionTitleEl('No vendemos guardias. Implementamos un sistema de seguridad gestionado.'),
-        e(View, { style: { alignItems: 'center' as const, marginVertical: 20 } },
+        e(View, { style: { alignItems: 'center' as const, marginVertical: 16 } },
           ...niveles.map((n, i) =>
             e(View, {
               key: i,
               style: {
-                width: `${60 + (niveles.length - i) * 15}%`,
-                backgroundColor: C.navyLight,
-                padding: 8,
-                marginVertical: 2,
-                borderRadius: 2,
+                width: `${n.width}%`,
+                backgroundColor: n.bg,
+                padding: 10,
+                marginVertical: 4,
+                alignItems: 'center' as const,
               },
-            }, e(Text, { style: { fontFamily: F.sans, fontSize: 8, color: C.white, fontWeight: 600 } }, n)),
+            }, e(Text, { style: { fontFamily: F.sans, fontSize: i < 3 ? 9 : 8, color: i < 3 ? C.white : C.slate700, fontWeight: 600 } }, `${n.label}: ${n.desc}`)),
           ),
         ),
         highlightBox('Cada capa refuerza la anterior. Ninguna funciona aislada.'),
@@ -540,12 +662,12 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
       proposalHeader(),
       e(View, { style: { marginTop: 20 } },
         sectionTitleEl('Framework estructurado que sostiene toda nuestra operación'),
-        e(View, { style: { flexDirection: 'row' as const, flexWrap: 'wrap' as const } },
+        e(View, { style: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 12 } },
           ...pilares.map((p, i) =>
-            e(View, { key: i, style: s.pillarCard },
-              e(Text, { style: [s.tblCellBold, { marginBottom: 6 }] }, `${i + 1}. ${p.title}`),
+            e(View, { key: i, style: [s.pillarCard, { width: '48%' }] },
+              e(Text, { style: [s.tblCellBold, { marginBottom: 6, fontSize: 10 }] }, `${i + 1}. ${p.title}`),
               ...p.items.map((it, j) =>
-                e(View, { key: j, style: s.bulletItem }, e(Text, { style: s.bulletDot }, '•'), e(Text, { style: s.bulletText }, it)),
+                e(View, { key: j, style: s.bulletItem }, e(Text, { style: s.bulletDot }, '•'), e(Text, { style: [s.bulletText, { fontSize: 9 }] }, it)),
               ),
             ),
           ),
@@ -564,6 +686,14 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
     { label: 'Documentación ante DT', value: '< 24 horas' },
   ];
 
+  const escalamientoSteps = [
+    { time: 'Inmediato', action: 'Guardia registra en OPAI (foto + GPS + descripción)' },
+    { time: '≤5 min', action: 'Supervisor notificado automáticamente' },
+    { time: '≤15 min', action: 'Coordinador de zona activado + Cliente notificado' },
+    { time: 'Si crítico', action: 'Director de Operaciones informado' },
+    { time: 'Si mayor', action: 'Gerencia General + Plan de contingencia' },
+  ];
+
   pages.push(
     e(
       Page,
@@ -571,7 +701,7 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
       proposalHeader(),
       e(View, { style: { marginTop: 20 } },
         sectionTitleEl('Usted se entera de TODO, PRIMERO. Sin filtros, sin demoras.'),
-        e(View, { style: { flexDirection: 'row' as const, gap: 16, marginBottom: 20 } },
+        e(View, { style: { flexDirection: 'row' as const, gap: 16, marginBottom: 16 } },
           e(View, { style: s.pillarCard }, e(Text, { style: [s.tblCellBold, { marginBottom: 4 }] }, '1. Detección'), e(Text, { style: [s.bodyText, { fontSize: 8 }] }, 'Inmediato: Identificación del evento')),
           e(View, { style: s.pillarCard }, e(Text, { style: [s.tblCellBold, { marginBottom: 4 }] }, '2. Reporte'), e(Text, { style: [s.bodyText, { fontSize: 8 }] }, '≤15 minutos: Notificación al cliente')),
           e(View, { style: s.pillarCard }, e(Text, { style: [s.tblCellBold, { marginBottom: 4 }] }, '3. Acción'), e(Text, { style: [s.bodyText, { fontSize: 8 }] }, '≤2 horas: Respuesta coordinada')),
@@ -581,6 +711,14 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
           e(View, { key: i, style: i % 2 === 1 ? s.tblRowAlt : s.tblRow },
             e(Text, { style: [s.tblCell, { flex: 2 }] }, r.label),
             e(Text, { style: [s.tblCellBold, { flex: 1 }] }, r.value),
+          ),
+        ),
+        sectionTitleEl('Protocolo de escalamiento'),
+        e(Text, { style: [s.bodyText, { fontSize: 8, marginBottom: 8 }] }, 'Evento/Incidente detectado'),
+        ...escalamientoSteps.map((st, i) =>
+          e(View, { key: i, style: { flexDirection: 'row' as const, marginBottom: 6 } },
+            e(View, { style: { width: 60, borderLeftWidth: 3, borderLeftColor: C.accent, paddingLeft: 8 } }, e(Text, { style: [s.bodyText, { fontSize: 8, fontWeight: 600 }] }, st.time)),
+            e(Text, { style: [s.bodyText, { fontSize: 8, flex: 1 }] }, st.action),
           ),
         ),
       ),
@@ -620,6 +758,7 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
 
   const certItems = ['OS-10 vigente y verificable', 'Resolución Exenta N°38 implementada en OPAI', 'Ley Karin — Canal de denuncias activo', 'Código de Ética y Anticorrupción', 'Control biométrico facial + GPS según Art. 19'];
   const screenItems = ['Verificación antecedentes penales', 'Evaluación psicológica', 'Examen de salud ocupacional', 'Referencias laborales verificadas'];
+  const seguroItems = ['Responsabilidad civil contra terceros', 'Seguros de accidentes laborales (mutual)', 'Fidelidad funcionaria (protección ante actos deshonestos del personal)', 'Póliza todo riesgo operacional', 'Documentación disponible para auditoría en menos de 24 horas'];
 
   pages.push(
     e(
@@ -633,6 +772,9 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
         ),
         e(Text, { style: [s.bodyText, { fontWeight: 600, marginTop: 12, marginBottom: 6 }] }, 'Screening de personal:'),
         ...screenItems.map((it, i) => e(View, { key: i, style: s.bulletItem }, e(Text, { style: s.bulletDot }, '✓'), e(Text, { style: s.bulletText }, it)),
+        ),
+        e(Text, { style: [s.bodyText, { fontWeight: 600, marginTop: 12, marginBottom: 6 }] }, 'Cobertura de seguros:'),
+        ...seguroItems.map((it, i) => e(View, { key: i, style: s.bulletItem }, e(Text, { style: s.bulletDot }, '•'), e(Text, { style: s.bulletText }, it)),
         ),
         highlightBox('Si la Dirección del Trabajo solicita documentación, la tendrá en su email en menos de 24 horas hábiles.'),
       ),
@@ -677,6 +819,8 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
     { v: '94%', l: 'Renovación' },
   ];
 
+  const clientNames = 'Polpaico · International Paper · Tritec · Sparta · Tattersall · Transmat · BBosch · Embajada de Brasil · GL Events · y más';
+
   pages.push(
     e(
       Page,
@@ -695,7 +839,38 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
             ),
           ),
         ),
+        e(Text, { style: [s.bodyText, { fontWeight: 600, marginTop: 12, marginBottom: 6 }] }, 'Clientes que confían en Gard:'),
+        e(Text, { style: [s.bodyText, { fontSize: 9, color: C.slate500 }] }, clientNames),
         e(Text, { style: [s.bodyText, { fontSize: 8, color: C.slate500, marginTop: 12 }] }, 'Referencias disponibles bajo solicitud y NDA.'),
+      ),
+      proposalFooter(),
+    ),
+  );
+
+  const faqItems = [
+    { q: '¿Qué pasa si un guardia no se presenta?', a: 'Cobertura garantizada en menos de 2 horas. Nuestro régimen de turnos y dotación de reemplazo asegura que su instalación nunca quede descubierta.' },
+    { q: '¿Cómo sé que las rondas se están haciendo?', a: 'Verificable en tiempo real desde su Portal. Cada checkpoint se registra con hora, GPS y fotografía. Si una ronda no se cumple, el sistema genera alerta automática.' },
+    { q: '¿Qué pasa si necesito más guardias un día puntual?', a: 'Refuerzo disponible con 24 horas de aviso previo. Para eventos planificados, coordinamos dotación adicional según sus necesidades.' },
+    { q: '¿Puedo cambiar horarios o dotación?', a: 'Sí, con coordinación previa de 72 horas. La flexibilidad operativa es parte de nuestro servicio.' },
+    { q: '¿Qué pasa si hoy tengo otro proveedor?', a: 'Gestionamos la transición completa. Realizamos inducción específica de su instalación, relevamos protocolos existentes y garantizamos que el cambio sea imperceptible para su operación.' },
+    { q: '¿Cómo me aseguro de que Gard cumple lo que promete?', a: 'Pida a su proveedor actual un reporte de rondas de ayer. Si no puede entregárselo en 5 minutos, ahí está la diferencia. Nosotros se lo mostramos en tiempo real desde su Portal.' },
+    { q: '¿Qué incluye la inversión mensual?', a: 'Todo: personal, supervisión, tecnología (Portal, dashboard, app), reportes, equipamiento (celulares, radios, linternas, uniformes), seguros y cumplimiento legal. Sin costos ocultos ni licencias adicionales.' },
+    { q: '¿Y si no quedo conforme?', a: 'Ofrecemos un período de evaluación durante los primeros 30 días. Si el servicio no cumple sus expectativas, puede desvincularse sin penalidad.' },
+  ];
+
+  pages.push(
+    e(
+      Page,
+      { key: 'p15b', size: 'A4' as const, style: s.page },
+      proposalHeader(),
+      e(View, { style: { marginTop: 20 } },
+        sectionTitleEl('Preguntas frecuentes'),
+        ...faqItems.map((faq, i) =>
+          e(View, { key: i, style: { marginBottom: 12, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: C.slate200 } },
+            e(Text, { style: [s.bodyText, { fontWeight: 600, marginBottom: 4 }] }, faq.q),
+            e(Text, { style: s.bodyText }, faq.a),
+          ),
+        ),
       ),
       proposalFooter(),
     ),
@@ -727,6 +902,7 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
             ),
           ),
         ),
+        regimeExplanation ? highlightBox(regimeExplanation) : null,
       ),
       proposalFooter(),
     ),
@@ -786,6 +962,8 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
       proposalHeader(),
       e(View, { style: { marginTop: 20 } },
         sectionTitleEl('De la firma al servicio operativo en ≤15 días'),
+        e(Text, { style: [s.bodyText, { fontWeight: 600, marginBottom: 6 }] }, '¿Viene de otro proveedor? Transición sin interrupciones.'),
+        e(Text, { style: [s.bodyText, { marginBottom: 16 }] }, 'Si hoy trabaja con otra empresa de seguridad, Gard gestiona la transición completa. Relevamos planos, puntos críticos, protocolos existentes y realizamos inducción específica de su instalación antes del día 1. El cambio es imperceptible para su operación.'),
         e(View, { style: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 12 } },
           ...implSteps.map((st, i) =>
             e(View, { key: i, style: s.pillarCard },
@@ -794,6 +972,8 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
             ),
           ),
         ),
+        e(Text, { style: [s.bodyText, { fontWeight: 600, marginTop: 16, marginBottom: 6 }] }, 'Qué ocurre el Día 1'),
+        e(Text, { style: s.bodyText }, 'Presencia de supervisor durante el primer turno completo. Verificación de todos los sistemas: checkpoints NFC instalados, app configurada, portal activado con sus credenciales. Usted recibe su primer reporte antes de cumplirse 24 horas de operación.'),
       ),
       proposalFooter(),
     ),
@@ -821,10 +1001,13 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
             ),
           ),
         ),
+        highlightBox('Garantía Gard: Si durante los primeros 30 días de operación el servicio no cumple con los estándares comprometidos en esta propuesta, puede desvincularse sin penalidad. Así de seguros estamos de nuestro nivel de servicio.'),
       ),
       proposalFooter(),
     ),
   );
+
+  const ctaSteps = ['Agendar visita técnica sin costo', 'Revisar y ajustar propuesta si es necesario', 'Firma de contrato', 'Servicio activo en ≤15 días'];
 
   pages.push(
     e(
@@ -832,6 +1015,11 @@ export async function renderProposalToBufferFromProps(props: ProposalProps): Pro
       { key: 'p20', size: 'A4' as const, style: s.page },
       proposalHeader(),
       e(View, { style: { marginTop: 20 } },
+        sectionTitleEl('Próximos pasos'),
+        ...ctaSteps.map((step, i) => e(View, { key: i, style: s.bulletItem }, e(Text, { style: s.bulletDot }, `${i + 1}.`), e(Text, { style: s.bulletText }, step)),
+        ),
+        e(Text, { style: [s.bodyText, { fontWeight: 600, marginTop: 16, marginBottom: 8 }] }, '¿Tiene dudas? Conversemos:'),
+        e(Text, { style: s.bodyText }, `WhatsApp: +56 98 230 7771 · Email: ${companyConfig.email} · Web: ${companyConfig.website}`),
         sectionTitleEl('Aceptación de Propuesta'),
         e(View, { style: { flexDirection: 'row' as const, gap: 40 } },
           e(View, { style: s.sigBlock },

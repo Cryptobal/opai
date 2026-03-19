@@ -55,12 +55,11 @@ function buildPrompt(input: ProposalAIInput): string {
     )
     .join('\n');
 
-  return `Eres un asesor comercial senior de Gard Security, empresa chilena de seguridad privada.
-Genera contenido para una propuesta técnica profesional.
+  return `Eres un asesor comercial senior de Gard Security, empresa chilena de seguridad privada que opera con OPAI (plataforma tecnológica propietaria desarrollada por LX3.ai).
 
 DATOS DEL CLIENTE:
 - Empresa: ${input.companyName}
-- Industria: ${input.companyIndustry || 'No especificada'}
+- Industria/Rubro: ${input.companyIndustry || 'No especificada'}
 - Segmento: ${input.companySegment || 'No especificado'}
 - Instalación: ${input.installationName || '-'}, ${input.installationCity || '-'}
 - Contacto: ${input.contactName}, ${input.contactPosition || 'Sin cargo'}
@@ -75,28 +74,41 @@ ITEMS COTIZADOS:
 ${itemsText}
 ${input.existingAiDescription ? `\nCONTEXTO ADICIONAL (descripción existente de la cotización):\n${input.existingAiDescription}` : ''}
 
-GENERA (en español chileno formal, profesional, sin ser pomposo):
+GENERA (en español chileno formal, directo, con autoridad pero sin ser pomposo):
 
-1. DESCRIPCION_BREVE: Una línea que describa la empresa y su operación crítica.
-Ejemplo: "Centro de diálisis con operación continua 24/7 en Puerto Montt"
+1. DESCRIPCION_BREVE (máximo 15 palabras):
+   Una línea que describa la empresa y su operación.
+   Ejemplo: 'Centro de diálisis con operación continua 24/7 en Puerto Montt'
 
-2. RESUMEN_EJECUTIVO: 3-4 párrafos que cubran:
-- Contexto de la empresa y por qué la seguridad es crítica para su operación
-- Qué servicio propone Gard y por qué es la dotación adecuada
-- Mencionar que Gard opera con OPAI, su plataforma tecnológica propietaria desarrollada por LX3.ai
-- Cerrar con la inversión mensual y el valor que representa
+2. RESUMEN_EJECUTIVO (4 párrafos, ~250 palabras total):
+   Párrafo 1: Contexto de la empresa — a qué se dedica, por qué su operación es sensible o crítica, qué riesgos específicos enfrenta en su sector.
+   Párrafo 2: Qué servicio propone Gard — dotación, horarios, por qué este esquema es el adecuado para sus necesidades específicas. Ser concreto.
+   Párrafo 3: Mencionar que Gard opera con OPAI, su plataforma tecnológica propietaria desarrollada por LX3.ai. Qué significa esto para el cliente: visibilidad total, control en tiempo real, reportes automáticos, portal exclusivo. No es solo vigilancia — es un sistema de seguridad gestionado.
+   Párrafo 4: Cierre con la inversión mensual y el valor que representa. Posicionar como inversión (no gasto), comparar implícitamente con el costo de no tenerlo (incidentes, pérdidas, multas DT).
 
-3. ANALISIS_NECESIDADES: 1-2 párrafos analizando:
-- Riesgos específicos del sector/industria del cliente
-- Puntos críticos que la dotación propuesta cubre
-- Por qué un proveedor tradicional no cubriría estos riesgos
+3. ANALISIS_NECESIDADES (2 párrafos, ~150 palabras total):
+   Párrafo 1: Riesgos específicos del sector del cliente. No generalidades. Si es salud: acceso no autorizado a áreas restringidas, protección de equipos médicos, manejo de situaciones con pacientes/familiares, regulaciones sanitarias que exigen control de acceso. Si es logística: sustracción, control de carga/descarga, acceso de contratistas. Si es retail: hurto, seguridad de clientes, manejo de dinero. SER ESPECÍFICO AL RUBRO.
+   Párrafo 2: Cómo la dotación propuesta cubre estos riesgos, y por qué un proveedor tradicional (sin tecnología, sin supervisión activa, sin trazabilidad) no puede cubrirlos adecuadamente.
 
-4. SECTORES_RELEVANTES: Lista de 3-4 sectores industriales donde Gard tiene experiencia
-que sean más afines al rubro del cliente. Elegir de: ${SECTORES_DISPONIBLES.join(', ')}.
+4. SECTORES_RELEVANTES (array de 3-4 strings):
+   Elegir los sectores más afines al rubro del cliente de esta lista:
+   'Salud y Clínicas', 'Manufactura e Industria', 'Logística y Bodegas', 'Retail y Centros Comerciales', 'Construcción e Inmobiliaria', 'Educación', 'Corporativo/Oficinas', 'Energía', 'Minería', 'Agroindustria'
+   El primer sector debe ser el del cliente. Los otros 3 complementarios.
 
-Responde ÚNICAMENTE con un JSON válido con las keys: descripcionBreve, resumenEjecutivo, analisisNecesidades, sectoresRelevantes.
-NO uses markdown dentro de los textos. Solo texto plano con saltos de línea (\\n).
-sectoresRelevantes debe ser un array de strings.`;
+REGLAS:
+- NO uses markdown (ni **, ni ##, ni bullets). Solo texto plano con saltos de línea.
+- NO uses frases genéricas tipo 'en el mundo actual' o 'es fundamental contar con'.
+- SÉ directo y específico. Cada frase debe aportar información concreta.
+- Cuando menciones cifras o datos, usa los datos reales proporcionados.
+- El tono es de un ejecutivo que habla de igual a igual con otro ejecutivo.
+
+Responde SOLO con JSON válido:
+{
+  "descripcionBreve": "...",
+  "resumenEjecutivo": "...",
+  "analisisNecesidades": "...",
+  "sectoresRelevantes": ["...", "...", "...", "..."]
+}`;
 }
 
 export async function generateProposalAIContent(

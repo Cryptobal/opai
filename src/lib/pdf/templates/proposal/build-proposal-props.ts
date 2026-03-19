@@ -59,6 +59,14 @@ export interface ProposalProps {
     brandingLogoWhite?: string;
     brandingLogoFull?: string;
   };
+
+  companyStats: {
+    yearsInOperation: string;
+    activeGuards: string;
+    protectedFacilities: string;
+    regionsCount: string;
+  };
+  regimeExplanation: string;
 }
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -204,6 +212,19 @@ export async function buildProposalProps(
 
   const supervisionFrequency = 'Mínimo 2 supervisiones por turno';
 
+  const regimeRaw = staffingRegime.toLowerCase();
+  let regimeExplanation = '';
+  if (regimeRaw.includes('4x4') || regimeRaw.includes('4×4')) {
+    regimeExplanation =
+      'El turno 4x4 (4 días trabajados, 4 días de descanso) es el esquema óptimo para turnos nocturnos: reduce el desgaste del personal, mantiene la alerta del guardia, y garantiza continuidad porque siempre hay equipo de reemplazo en rotación. La alternativa (turnos corridos o 7x7) genera mayor ausentismo y fatiga, comprometiendo la calidad del servicio.';
+  } else if (regimeRaw.includes('5x2') || regimeRaw.includes('5×2')) {
+    regimeExplanation =
+      'El turno 5x2 (5 días de trabajo, 2 de descanso) es ideal para coberturas diurnas en horario de oficina. Permite continuidad operativa de lunes a viernes con descanso de fin de semana, alineado con la operación del cliente.';
+  } else if (regimeRaw.includes('7x7') || regimeRaw.includes('7×7')) {
+    regimeExplanation =
+      'El turno 7x7 (7 días trabajados, 7 de descanso) ofrece bloques de cobertura continua, ideal para instalaciones remotas o servicios que requieren estabilidad por períodos extendidos.';
+  }
+
   const paymentTerms = PAYMENT_LABELS[quote.paymentTerms ?? 'contrafactura'] ?? quote.paymentTerms ?? 'Mensual, contra entrega de factura';
 
   let validUntil: string | undefined;
@@ -311,6 +332,14 @@ export async function buildProposalProps(
       brandingLogoWhite: companyConfig.brandingLogoWhite || undefined,
       brandingLogoFull: companyConfig.brandingLogoFull || undefined,
     },
+
+    companyStats: {
+      yearsInOperation: '5+',
+      activeGuards: '50+',
+      protectedFacilities: '20+',
+      regionsCount: '3+',
+    },
+    regimeExplanation,
   };
 
   const fileName = `Propuesta-Tecnica-${companyName.replace(/\s+/g, '-')}-${quote.code}.pdf`;
