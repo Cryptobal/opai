@@ -1,6 +1,5 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["multiSchema"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -72,7 +71,7 @@ model WebhookSession {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([sessionId])
   @@index([status])
@@ -98,7 +97,7 @@ model Template {
   updatedAt     DateTime       @updatedAt
   tenantId      String
   presentations Presentation[]
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([slug])
   @@index([active])
@@ -142,7 +141,7 @@ model Presentation {
   quoteId          String?            @map("quote_id") // Links to CpqQuote for document generation
   archivedAt       DateTime?          @map("archived_at") // Set when linked deal closes (won/lost); null = active
   template         Template           @relation(fields: [templateId], references: [id])
-  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   views            PresentationView[]
 
   @@index([uniqueId])
@@ -192,7 +191,7 @@ model Admin {
   invitedBy             String?
   invitedAt             DateTime?
   activatedAt           DateTime?
-  tenant                Tenant                    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenant                Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   roleTemplate          RoleTemplate?             @relation(fields: [roleTemplateId], references: [id], onDelete: SetNull)
   aiChatConversations   AiChatConversation[]
   groupMemberships      AdminGroupMembership[]
@@ -1632,6 +1631,7 @@ model CrmContact {
   portalPin          String?   @map("portal_pin") // bcrypt hash del PIN de 4-6 dígitos
   portalPinVisible   String?   @map("portal_pin_visible") // PIN visible para operación
   portalEnabled      Boolean   @default(false) @map("portal_enabled")
+  portalInvitationSentAt DateTime? @map("portal_invitation_sent_at") @db.Timestamptz(6)
   portalLastAccessAt   DateTime? @map("portal_last_access_at") @db.Timestamptz(6)
   portalLastAccessIp   String?   @map("portal_last_access_ip")
   portalMagicToken     String?   @map("portal_magic_token")    // Token único para primer acceso / reset PIN
