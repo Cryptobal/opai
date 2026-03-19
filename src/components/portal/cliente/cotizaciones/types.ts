@@ -67,6 +67,21 @@ export interface CostByCategoryPortal {
   subtotal: number;
 }
 
+export interface ResourceBreakdownItemPortal {
+  name: string;
+  amount: number;
+  quantity?: number;
+  unit?: string;
+  technicalSpecs?: string | null;
+}
+
+export interface ResourceBreakdownCategoryPortal {
+  category: string;
+  categoryType: string;
+  items: ResourceBreakdownItemPortal[];
+  subtotal: number;
+}
+
 /** Per-position labor detail for portal display */
 export interface LaborPositionDetail {
   name: string;
@@ -106,6 +121,7 @@ export interface QuoteDetail extends QuoteSummary {
   templateSlug?: string;
   templateSections?: Record<string, boolean> | null;
   costsByCategory?: CostByCategoryPortal[];
+  resourceBreakdown?: ResourceBreakdownCategoryPortal[];
   /** Labor breakdown for "Detalle de Mano de Obra" section */
   laborBreakdown?: LaborBreakdownPortal;
   /** Compliance items for "Cumplimiento Normativo" section */

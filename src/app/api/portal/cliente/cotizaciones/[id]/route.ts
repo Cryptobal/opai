@@ -291,6 +291,9 @@ export async function GET(
 
   /* ── Build costs by category for "Detailed" portal view ── */
   let costsByCategory: Array<{ category: string; slug: string; type: string; items: Array<{ name: string; value: number }>; subtotal: number }> | undefined;
+  type ResourceItem = { name: string; amount: number; quantity?: number; unit?: string; technicalSpecs?: string | null };
+  type ResourceCat = { category: string; categoryType: string; items: ResourceItem[]; subtotal: number };
+  let resourceBreakdown: ResourceCat[] | undefined;
   try {
     if (costSummary) {
       const costItems = await prisma.cpqQuoteCostItem.findMany({
@@ -304,7 +307,6 @@ export async function GET(
       const catBySlug = new Map(categories.map((c) => [c.slug, c]));
       const catByType = new Map(categories.map((c) => [c.type, c]));
 
-      /** Fallback display names when no DB category matches */
       const TYPE_DISPLAY: Record<string, string> = {
         phone: "Equipamiento operativo",
         radio: "Equipamiento operativo",
@@ -341,6 +343,150 @@ export async function GET(
       }
       for (const e of grouped.values()) e.subtotal = convertCost(e.subtotal);
       costsByCategory = Array.from(grouped.values()).filter((g) => g.items.length > 0);
+
+      /* ── Resource breakdown with technicalSpecs + uniforms/exams/meals ── */
+      const resCats: ResourceCat[] = [];
+      const tg = costSummary.totalGuards;
+      const contractDur = quote.contractDuration ?? 12;
+      const normalizeUnit = (v: number, unit?: string | null) => {
+        if (!unit) return v;
+        const n = unit.toLowerCase();
+        if (n.includes('contrato') || n.includes('contract')) return v / contractDur;
+        if (n.includes('año') || n.includes('year')) return v / 12;
+        if (n.includes('semestre') || n.includes('semester')) return v / 6;
+        return v;
+      };
+
+      const [uniforms, exams, dbMeals, dbVehicles, dbInfra] = await Promise.all([
+        prisma.cpqQuoteUniformItem.findMany({ where: { quoteId: id, active: true }, include: { catalogItem: true } }),
+        prisma.cpqQuoteExamItem.findMany({ where: { quoteId: id, active: true }, include: { catalogItem: true } }),
+        prisma.cpqQuoteMeal.findMany({ where: { quoteId: id, isEnabled: true } }),
+        prisma.cpqQuoteVehicle.findMany({ where: { quoteId: id, isEnabled: true } }),
+        prisma.cpqQuoteInfrastructure.findMany({ where: { quoteId: id, isEnabled: true } }),
+      ]);
+
+      if (uniforms.length > 0) {
+        const uItems: ResourceItem[] = uniforms.map((u) => {
+          const base = Number(u.catalogItem?.basePrice ?? 0);
+          const ov = u.unitPriceOverride != null ? Number(u.unitPriceOverride) : null;
+          const price = normalizeUnit(ov ?? base, u.catalogItem?.unit);
+          const logic = (u as Record<string, unknown>).priceLogic as string ?? u.catalogItem?.priceLogic ?? 'uniform';
+          const monthly = logic === 'prorated' ? price * tg : ((price * 3) / 12) * tg;
+          return { name: u.catalogItem?.name ?? 'Uniforme', amount: convertCost(monthly), quantity: tg, unit: 'por guardia/mes', technicalSpecs: u.technicalSpecs ?? u.catalogItem?.defaultTechnicalSpecs ?? null };
+        });
+        resCats.push({ category: 'Uniformes', categoryType: 'direct', items: uItems, subtotal: uItems.reduce((s, i) => s + i.amount, 0) });
+      }
+
+      if (exams.length > 0) {
+        const freq = Math.max(12 / 4, 3);
+        const eItems: ResourceItem[] = exams.map((ex) => {
+          const base = Number(ex.catalogItem?.basePrice ?? 0);
+          const ov = ex.unitPriceOverride != null ? Number(ex.unitPriceOverride) : null;
+          const uPrice = normalizeUnit(ov ?? base, ex.catalogItem?.unit);
+          const monthly = tg > 0 ? ((uPrice * freq) / 12) * tg : 0;
+          return { name: ex.catalogItem?.name ?? 'Examen', amount: convertCost(monthly), quantity: tg, unit: 'por guardia/mes', technicalSpecs: ex.technicalSpecs ?? ex.catalogItem?.defaultTechnicalSpecs ?? null };
+        });
+        resCats.push({ category: 'Exámenes Médicos', categoryType: 'direct', items: eItems, subtotal: eItems.reduce((s, i) => s + i.amount, 0) });
+      }
+
+      const activeMeals = dbMeals.filter((m) => m.mealsPerDay > 0);
+      if (activeMeals.length > 0) {
+        const mealCatalog = await prisma.cpqCatalogItem.findMany({ where: { type: 'meal', active: true, OR: [{ tenantId: session.tenantId }, { tenantId: null }] } });
+        const mealMap = new Map(mealCatalog.map((m) => [m.name.toLowerCase(), m]));
+        const mItems: ResourceItem[] = activeMeals.map((m) => {
+          const ci = mealMap.get(m.mealType.toLowerCase());
+          const base = Number(ci?.basePrice ?? 0);
+          const ov = m.priceOverride != null ? Number(m.priceOverride) : null;
+          const price = normalizeUnit(ov ?? base, ci?.unit);
+          const monthly = price * m.mealsPerDay * m.daysOfService;
+          return { name: m.mealType, amount: convertCost(monthly), quantity: m.mealsPerDay, unit: `${m.mealsPerDay} comidas/día × ${m.daysOfService} días`, technicalSpecs: m.technicalSpecs ?? ci?.defaultTechnicalSpecs ?? null };
+        });
+        resCats.push({ category: 'Alimentación', categoryType: 'direct', items: mItems, subtotal: mItems.reduce((s, i) => s + i.amount, 0) });
+      }
+
+      /* — Vehículos (cpqQuoteVehicle) — */
+      if (dbVehicles.length > 0) {
+        const safeNum = (v: unknown) => Number(v || 0);
+        const vItems: ResourceItem[] = dbVehicles.map((v, vi) => {
+          const kmPerDay = safeNum(v.kmPerDay);
+          const daysPerMonth = safeNum(v.daysPerMonth);
+          const kmPerLiter = safeNum(v.kmPerLiter);
+          const liters = kmPerLiter > 0 ? (kmPerDay * daysPerMonth) / kmPerLiter : 0;
+          const fuelCost = liters * safeNum(v.fuelPrice);
+          const vehicleMonthly = safeNum(v.rentMonthly) + safeNum(v.maintenanceMonthly) + fuelCost;
+          const total = vehicleMonthly * v.vehiclesCount;
+          const specs = [
+            safeNum(v.rentMonthly) > 0 ? `Arriendo: $${Math.round(safeNum(v.rentMonthly)).toLocaleString('es-CL')}/mes` : null,
+            safeNum(v.maintenanceMonthly) > 0 ? `Mantención: $${Math.round(safeNum(v.maintenanceMonthly)).toLocaleString('es-CL')}/mes` : null,
+            kmPerDay > 0 ? `${kmPerDay} km/día · ${daysPerMonth} días/mes` : null,
+            fuelCost > 0 ? `Combustible: $${Math.round(fuelCost).toLocaleString('es-CL')}/mes` : null,
+          ].filter(Boolean).join(' · ');
+          return {
+            name: `Vehículo ${vi + 1} (×${v.vehiclesCount})`,
+            amount: convertCost(total),
+            quantity: v.vehiclesCount,
+            unit: `${v.vehiclesCount} unidad(es)`,
+            technicalSpecs: specs || null,
+          };
+        });
+        resCats.push({ category: 'Vehículos', categoryType: 'indirect', items: vItems, subtotal: vItems.reduce((s, i) => s + i.amount, 0) });
+      }
+
+      /* — Infraestructura (cpqQuoteInfrastructure) — */
+      if (dbInfra.length > 0) {
+        const safeNum = (v: unknown) => Number(v || 0);
+        const iItems: ResourceItem[] = dbInfra.map((inf) => {
+          const base = safeNum(inf.rentMonthly);
+          let fuelCost = 0;
+          if (inf.hasFuel) {
+            const liters = safeNum(inf.fuelLitersPerHour) * safeNum(inf.fuelHoursPerDay) * safeNum(inf.fuelDaysPerMonth);
+            fuelCost = liters * safeNum(inf.fuelPrice);
+          }
+          const total = (base + fuelCost) * inf.quantity;
+          const specs = [
+            base > 0 ? `Arriendo: $${Math.round(base).toLocaleString('es-CL')}/mes` : null,
+            fuelCost > 0 ? `Combustible: $${Math.round(fuelCost).toLocaleString('es-CL')}/mes` : null,
+          ].filter(Boolean).join(' · ');
+          return {
+            name: inf.itemType || 'Infraestructura',
+            amount: convertCost(total),
+            quantity: inf.quantity,
+            unit: `${inf.quantity} unidad(es)`,
+            technicalSpecs: specs || null,
+          };
+        });
+        resCats.push({ category: 'Infraestructura', categoryType: 'indirect', items: iItems, subtotal: iItems.reduce((s, i) => s + i.amount, 0) });
+      }
+
+      /* — Cost items agrupados por tipo (cpqQuoteCostItem) — */
+      const excludeTypes = new Set(['uniform', 'exam', 'meal', 'financial', 'policy']);
+      const TYPE_VEHICLE: Record<string, string> = { vehicle_rent: 'Vehículos', vehicle_fuel: 'Vehículos', vehicle_tag: 'Vehículos' };
+      for (const item of costItems) {
+        const cat = item.catalogItem;
+        if (!cat) continue;
+        const itemType = (cat as Record<string, unknown>).type as string ?? "other";
+        if (excludeTypes.has(itemType)) continue;
+        const catInfo = catBySlug.get(itemType) ?? catByType.get(itemType);
+        const displayName = TYPE_VEHICLE[itemType] ?? catInfo?.name ?? TYPE_DISPLAY[itemType] ?? itemType;
+        let resCat = resCats.find((c) => c.category === displayName);
+        if (!resCat) {
+          resCat = { category: displayName, categoryType: catInfo?.type ?? 'indirect', items: [], subtotal: 0 };
+          resCats.push(resCat);
+        }
+        const base = Number(cat.basePrice || 0);
+        const override = item.unitPriceOverride != null ? Number(item.unitPriceOverride) : null;
+        const unitPrice = override ?? base;
+        const qty = Number(item.quantity ?? 1);
+        const val = item.calcMode === "per_guard" ? unitPrice * qty * tg : unitPrice * qty;
+        resCat.items.push({
+          name: (item as Record<string, unknown>).customName as string ?? cat.name,
+          amount: convertCost(val),
+          technicalSpecs: item.technicalSpecs ?? cat.defaultTechnicalSpecs ?? null,
+        });
+        resCat.subtotal += convertCost(val);
+      }
+
+      resourceBreakdown = resCats.filter((c) => c.items.length > 0);
     }
   } catch {}
 
@@ -411,6 +557,7 @@ export async function GET(
       templateSlug: quote.proposalTemplate?.slug ?? "standard",
       templateSections,
       costsByCategory,
+      resourceBreakdown,
       laborBreakdown,
       complianceItems,
     },

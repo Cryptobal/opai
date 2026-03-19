@@ -9,7 +9,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { renderProposalToBufferFromProps } from "@/lib/pdf/templates/proposal/render-proposal";
 import type { ProposalProps } from "@/lib/pdf/templates/proposal/build-proposal-props";
 import type { ProposalAIContent } from "@/lib/pdf/templates/proposal/proposal-ai";
-import type { QuoteBreakdownData, PositionBreakdownItem } from "@/types/cpq-breakdown";
+import type { QuoteBreakdownData, PositionBreakdownItem, ResourceBreakdownCategory, ResourceBreakdownItem } from "@/types/cpq-breakdown";
 import { formatCurrency } from "@/lib/utils";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { prisma } from "@/lib/prisma";
@@ -375,6 +375,65 @@ export async function POST(
 
     const proposalDate = new Date().toLocaleDateString("es-CL");
 
+    /* ── Resource breakdown for detailed section ── */
+    const resourceBreakdown: ResourceBreakdownCategory[] = [];
+    const directItemsByType = new Map<string, ResourceBreakdownItem[]>();
+    const indirectItems: ResourceBreakdownItem[] = [];
+
+    for (const c of enabledCosts) {
+      const unitPrice = normalizeUnitPrice(c.priceOverride ?? c.basePrice, c.unit, previewContractMonths);
+      let monthlyAmount = unitPrice;
+
+      if (c.type === "uniform") {
+        const logic = c.priceLogic ?? "uniform";
+        monthlyAmount = logic === "prorated"
+          ? unitPrice * totalGuards
+          : ((unitPrice * uniformChangesPerYear) / 12) * totalGuards;
+      } else if (c.type === "exam") {
+        monthlyAmount = ((unitPrice * examFrequency) / 12) * totalGuards;
+      }
+
+      const item: ResourceBreakdownItem = {
+        name: c.name,
+        amount: monthlyAmount,
+        unit: c.unit || undefined,
+        technicalSpecs: null,
+      };
+
+      const typeLower = (c.type || "").toLowerCase();
+      if (["uniform", "exam", "meal", "vehicle", "equipment", "transport"].includes(typeLower)) {
+        const cat = typeLower === "uniform" ? "Uniformes"
+          : typeLower === "exam" ? "Exámenes"
+          : typeLower === "meal" ? "Alimentación"
+          : typeLower === "vehicle" ? "Vehículos"
+          : typeLower === "equipment" ? "Equipamiento"
+          : typeLower === "transport" ? "Transporte"
+          : c.type;
+        const existing = directItemsByType.get(cat) || [];
+        existing.push(item);
+        directItemsByType.set(cat, existing);
+      } else {
+        indirectItems.push(item);
+      }
+    }
+
+    for (const [cat, items] of directItemsByType) {
+      resourceBreakdown.push({
+        category: cat,
+        categoryType: "direct",
+        items,
+        subtotal: items.reduce((s, i) => s + i.amount, 0),
+      });
+    }
+    if (indirectItems.length > 0) {
+      resourceBreakdown.push({
+        category: "Otros Costos Indirectos",
+        categoryType: "indirect",
+        items: indirectItems,
+        subtotal: indirectItems.reduce((s, i) => s + i.amount, 0),
+      });
+    }
+
     const props: ProposalProps = {
       companyName: accountName,
       quotationCode: "PREVIEW",
@@ -395,6 +454,7 @@ export async function POST(
       totalNeto: grandTotal,
       totalNetoFormatted: fmt(grandTotal),
       currency: currency || "CLP",
+      ufValue: ufValue ?? undefined,
       paymentTerms,
 
       gardLogo,
@@ -421,6 +481,8 @@ export async function POST(
       },
       regimeExplanation,
       breakdown,
+      resourceBreakdown: resourceBreakdown.length > 0 ? resourceBreakdown : undefined,
+      includedItems: [],
     };
 
     const pdfBuffer = await renderProposalToBufferFromProps(props);

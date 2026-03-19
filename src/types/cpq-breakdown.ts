@@ -3,6 +3,22 @@
  * Shared between CPQ internal view and client portal.
  */
 
+export interface ResourceBreakdownItem {
+  name: string;
+  amount: number;
+  quantity?: number;
+  unit?: string;
+  calcMode?: string;
+  technicalSpecs?: string | null;
+}
+
+export interface ResourceBreakdownCategory {
+  category: string;
+  categoryType: "direct" | "indirect";
+  items: ResourceBreakdownItem[];
+  subtotal: number;
+}
+
 export interface PositionBreakdownItem {
   id: string;
   name: string;

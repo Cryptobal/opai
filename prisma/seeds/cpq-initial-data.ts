@@ -138,12 +138,12 @@ export async function seedCpqData() {
     { text: "Seguro responsabilidad civil y accidentes laborales", isDefault: true, sortOrder: 4 },
     { text: "Libro de novedades digital vía OPAI", isDefault: true, sortOrder: 5 },
     { text: "Reportería mensual de operaciones", isDefault: true, sortOrder: 6 },
-    { text: "Uniformes e implementos de seguridad", isDefault: false, sortOrder: 7 },
-    { text: "Capacitación inicial y continua del personal", isDefault: false, sortOrder: 8 },
-    { text: "Central de monitoreo 24/7", isDefault: false, sortOrder: 9 },
-    { text: "Sistema de rondas con geolocalización", isDefault: false, sortOrder: 10 },
-    { text: "Protocolo de emergencia personalizado", isDefault: false, sortOrder: 11 },
-    { text: "Informe de incidentes en tiempo real", isDefault: false, sortOrder: 12 },
+    { text: "Capacitación inicial y continua del personal", isDefault: true, sortOrder: 7 },
+    { text: "Central de monitoreo 24/7", isDefault: true, sortOrder: 8 },
+    { text: "Informe de incidentes en tiempo real", isDefault: true, sortOrder: 9 },
+    { text: "Protocolo de emergencia personalizado", isDefault: true, sortOrder: 10 },
+    { text: "Sistema de rondas con geolocalización", isDefault: true, sortOrder: 11 },
+    { text: "Uniformes e implementos de seguridad", isDefault: true, sortOrder: 12 },
   ];
 
   for (const suggestion of includesSuggestions) {

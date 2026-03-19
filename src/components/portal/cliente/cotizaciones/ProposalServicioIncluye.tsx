@@ -3,13 +3,20 @@
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/** Fallback portal si la cotización aún no tiene includedItems (alineado al catálogo CPQ). */
 const DEFAULT_ITEMS = [
-  "Personal acreditado ante OS-10",
+  "Personal acreditado ante OS-10 de Carabineros",
   "Supervisión periódica en terreno",
   "Cobertura por ausencias (reemplazo máx. 4 hrs)",
   "Seguro responsabilidad civil y accidentes laborales",
   "Libro de novedades digital vía OPAI",
   "Reportería mensual de operaciones",
+  "Capacitación inicial y continua del personal",
+  "Central de monitoreo 24/7",
+  "Informe de incidentes en tiempo real",
+  "Protocolo de emergencia personalizado",
+  "Sistema de rondas con geolocalización",
+  "Uniformes e implementos de seguridad",
 ];
 
 interface ProposalServicioIncluyeProps {

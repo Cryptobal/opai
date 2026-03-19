@@ -161,7 +161,16 @@ export async function renderProposalToBufferFromProps(
   ].map(cl => ({ name: cl.name, src: loadLocalImage(cl.file) }))
    .filter(cl => cl.src !== null) as { name: string; src: string }[];
 
-  const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString('es-CL')}`;
+  const quoteCurrency = props.currency || 'CLP';
+  const ufValue = props.ufValue ?? 0;
+  const fmtMoney = (clp: number) => {
+    if (quoteCurrency === 'UF' && ufValue > 0) {
+      const uf = clp / ufValue;
+      const formatted = new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(uf);
+      return `${formatted} UF`;
+    }
+    return `$${Math.round(clp).toLocaleString('es-CL')}`;
+  };
 
   /* ─── Styles ─── */
   const s = StyleSheet.create({
@@ -306,7 +315,7 @@ export async function renderProposalToBufferFromProps(
     staffingCount, staffingRegime, supervisionFrequency,
     items, totalNetoFormatted, paymentTerms, regimeExplanation,
     companyConfig, companyStats, clientLogosWithNames, gardLogo,
-    breakdown,
+    breakdown, resourceBreakdown, includedItems,
   } = props;
 
   const clientLogosData: { name: string; src: string }[] = await (async () => {
@@ -871,6 +880,24 @@ export async function renderProposalToBufferFromProps(
         e(Text, { style: s.cardTitle }, 'Condiciones de pago'),
         e(Text, { style: s.cardText }, paymentTerms),
       ),
+      ...(() => {
+        const includesList = includedItems && includedItems.length > 0
+          ? includedItems
+          : [
+            'Personal seleccionado y capacitado',
+            'Uniformes, equipamiento y tecnología',
+            'Supervisión presencial y remota',
+            'Plataforma OPAI + Portal de Clientes',
+            'Reportes automáticos y soporte 24/7',
+            'Reemplazos sin costo adicional',
+          ];
+        return [
+          e(View, { style: { marginTop: 14 } },
+            e(Text, { style: s.sectionSubtitle }, 'El servicio incluye'),
+            ...includesList.map((txt: string, i: number) => bullet(txt, i)),
+          ),
+        ];
+      })(),
     ),
   );
 
@@ -973,6 +1000,83 @@ export async function renderProposalToBufferFromProps(
     );
   }
 
+  /* ── 20b. Desglose de Equipamiento y Recursos ── */
+  if (resourceBreakdown && resourceBreakdown.length > 0) {
+    const directCats = resourceBreakdown.filter((c) => c.categoryType === 'direct');
+    const indirectCats = resourceBreakdown.filter((c) => c.categoryType === 'indirect');
+    const allCats = [...directCats, ...indirectCats];
+    const totalResources = allCats.reduce((acc, c) => acc + c.subtotal, 0);
+    const totalItems = allCats.reduce((acc, c) => acc + c.items.length, 0);
+
+    const renderCatBlock = (cat: typeof allCats[number]) => {
+      const isDirect = cat.categoryType === 'direct';
+      const headerBg = isDirect ? '#ccfbf1' : '#fef3c7';
+      const headerColor = isDirect ? '#0d9488' : '#b45309';
+
+      return e(View, { style: { marginTop: 8 }, wrap: false },
+        e(View, { style: [s.bdCatHeader, { backgroundColor: headerBg, borderRadius: 3 }] },
+          e(Text, { style: [s.tblCellBold, { flex: 3, color: headerColor, fontSize: 9 }] }, cat.category),
+          e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: headerColor, fontSize: 9 }] }, fmtMoney(cat.subtotal)),
+        ),
+        ...cat.items.map((item) =>
+          e(View, { style: { paddingLeft: 12 } },
+            e(View, { style: [s.bdRow, { borderBottom: `0.5 solid ${C.border}` }] },
+              e(Text, { style: [s.bdLabel, { fontSize: 8 }] }, item.name),
+              e(Text, { style: [s.bdValue, { fontSize: 8 }] }, fmtMoney(item.amount)),
+            ),
+            item.technicalSpecs
+              ? e(View, { style: { paddingLeft: 10, paddingRight: 10, paddingBottom: 4, paddingTop: 1, flexDirection: 'row' as const } },
+                  e(Text, { style: { fontFamily: F.sans, fontSize: 6.5, color: C.teal, marginRight: 3 } }, '\u25B8'),
+                  e(Text, { style: { fontFamily: F.sans, fontSize: 7, color: C.textLight, lineHeight: 1.4, flex: 1 } }, item.technicalSpecs),
+                )
+              : null,
+            item.unit
+              ? e(View, { style: { paddingLeft: 10, paddingBottom: 2 } },
+                  e(Text, { style: { fontFamily: F.sans, fontSize: 6.5, color: C.textLighter } }, item.unit),
+                )
+              : null,
+          ),
+        ),
+      );
+    };
+
+    sections.push(
+      e(View, { key: 'sec20b', break: true },
+        sectionTitle('Desglose de Equipamiento y Recursos'),
+        e(Text, { style: [s.para, { marginBottom: 8 }] },
+          'A continuación se presenta el detalle de cada ítem incluido en la estructura de costos, con sus especificaciones técnicas y montos mensuales asociados.',
+        ),
+
+        e(View, { style: { backgroundColor: C.bgLight, borderRadius: 6, border: `0.5 solid ${C.border}`, padding: 8, marginBottom: 6 }, wrap: false },
+          e(View, { style: { flexDirection: 'row' as const, marginBottom: 4 } },
+            e(View, { style: { flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4 } },
+              e(View, { style: { width: 8, height: 8, borderRadius: 2, backgroundColor: '#ccfbf1' } }),
+              e(Text, { style: { fontFamily: F.sans, fontSize: 7, color: C.textLight } }, 'Costos Directos'),
+            ),
+            e(View, { style: { flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4 } },
+              e(View, { style: { width: 8, height: 8, borderRadius: 2, backgroundColor: '#fef3c7' } }),
+              e(Text, { style: { fontFamily: F.sans, fontSize: 7, color: C.textLight } }, 'Costos Indirectos'),
+            ),
+          ),
+          e(Text, { style: { fontFamily: F.sans, fontSize: 7, color: C.textLighter } },
+            `${allCats.length} categorías \u00B7 ${totalItems} ítems detallados`,
+          ),
+        ),
+
+        ...allCats.map(renderCatBlock),
+
+        e(View, { style: [s.grandTotal, { marginTop: 10 }], wrap: false },
+          e(Text, { style: [s.grandTotalLabel, { fontSize: 10 }] }, 'TOTAL EQUIPAMIENTO Y RECURSOS'),
+          e(Text, { style: [s.grandTotalAmount, { fontSize: 12 }] }, fmtMoney(totalResources)),
+        ),
+
+        e(Text, { style: { fontFamily: F.sans, fontSize: 7, color: C.textLighter, marginTop: 6, textAlign: 'right' as const } },
+          'Montos mensuales \u00B7 Especificaciones sujetas a disponibilidad',
+        ),
+      ),
+    );
+  }
+
   /* ── 21. Implementación ── */
   const implSteps = [
     { day: 'Día 1-2', desc: 'Reunión de kick-off, relevamiento de sitio y definición de protocolos específicos.' },
@@ -1015,13 +1119,19 @@ export async function renderProposalToBufferFromProps(
         ),
         e(View, { style: s.col },
           e(Text, { style: s.sectionSubtitle }, 'El servicio incluye'),
-          ...['Personal seleccionado y capacitado',
-            'Uniformes, equipamiento y tecnología',
-            'Supervisión presencial y remota',
-            'Plataforma OPAI + Portal de Clientes',
-            'Reportes automáticos y soporte 24/7',
-            'Reemplazos sin costo adicional',
-          ].map((txt, i) => bullet(txt, i)),
+          ...(() => {
+            const list = includedItems && includedItems.length > 0
+              ? includedItems
+              : [
+                'Personal seleccionado y capacitado',
+                'Uniformes, equipamiento y tecnología',
+                'Supervisión presencial y remota',
+                'Plataforma OPAI + Portal de Clientes',
+                'Reportes automáticos y soporte 24/7',
+                'Reemplazos sin costo adicional',
+              ];
+            return list.map((txt: string, i: number) => bullet(txt, i));
+          })(),
         ),
       ),
       e(View, { style: [s.cardAccent, { marginTop: 10, backgroundColor: C.highlightBg }] },

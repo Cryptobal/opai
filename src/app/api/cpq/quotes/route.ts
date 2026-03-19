@@ -9,6 +9,7 @@ import { requireAuth, unauthorized, ensureCanCreateQuote } from "@/lib/api-auth"
 import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { createCrmHistoryLog } from "@/lib/crm-history";
+import { applyDefaultQuoteIncludes } from "@/lib/cpq/apply-default-quote-includes";
 
 export async function GET(request: NextRequest) {
   try {
@@ -113,40 +114,10 @@ export async function POST(request: NextRequest) {
       createdBy: ctx.userId,
     });
 
-    // Auto-insert default includes
     try {
-      const defaultSuggestions = await prisma.cpqIncludesSuggestion.findMany({
-        where: {
-          isDefault: true,
-          isActive: true,
-          OR: [{ tenantId: null }, { tenantId }],
-        },
-        orderBy: { sortOrder: "asc" },
-      });
-
-      if (defaultSuggestions.length > 0) {
-        await prisma.cpqQuoteIncludesItem.createMany({
-          data: defaultSuggestions.map((s, idx) => ({
-            quoteId: quote!.id,
-            text: s.text,
-            sortOrder: idx,
-            showInPdf: true,
-            source: "suggestion",
-            suggestionId: s.id,
-          })),
-        });
-
-        // Sync legacy includedItems field
-        await prisma.cpqQuote.update({
-          where: { id: quote!.id },
-          data: {
-            includedItems: defaultSuggestions.map((s) => s.text),
-          },
-        });
-      }
+      await applyDefaultQuoteIncludes(prisma, quote.id, tenantId);
     } catch (err) {
       console.error("Error auto-inserting default includes:", err);
-      // Non-blocking: quote was created successfully
     }
 
     return NextResponse.json({ success: true, data: quote }, { status: 201 });

@@ -10,7 +10,7 @@ import { formatCurrency, formatUFSuffix } from '@/lib/utils';
 import { getUfValue, clpToUf } from '@/lib/uf';
 import { generateProposalAIContent } from './proposal-ai';
 import type { ProposalAIContent } from './proposal-ai';
-import type { QuoteBreakdownData, PositionBreakdownItem } from '@/types/cpq-breakdown';
+import type { QuoteBreakdownData, PositionBreakdownItem, ResourceBreakdownCategory, ResourceBreakdownItem } from '@/types/cpq-breakdown';
 
 export interface ProposalProps {
   companyName: string;
@@ -43,6 +43,7 @@ export interface ProposalProps {
   totalNeto: number;
   totalNetoFormatted: string;
   currency: string;
+  ufValue?: number;
   paymentTerms: string;
   validUntil?: string;
 
@@ -71,6 +72,8 @@ export interface ProposalProps {
   };
   regimeExplanation: string;
   breakdown?: QuoteBreakdownData;
+  resourceBreakdown?: ResourceBreakdownCategory[];
+  includedItems?: string[];
 }
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -92,6 +95,11 @@ export async function buildProposalProps(
       parameters: true,
       installation: true,
       costItems: { include: { catalogItem: true } },
+      uniformItems: { include: { catalogItem: true } },
+      examItems: { include: { catalogItem: true } },
+      meals: true,
+      vehicles: true,
+      infrastructure: true,
       additionalLines: { orderBy: { orden: 'asc' } },
     },
   });
@@ -412,6 +420,236 @@ export async function buildProposalProps(
     console.error('[Proposal] breakdown build failed:', err);
   }
 
+  /* ── Build resource breakdown with individual items + specs ── */
+  let resourceBreakdown: ResourceBreakdownCategory[] | undefined;
+  try {
+    const categories: ResourceBreakdownCategory[] = [];
+    const contractDur = quote.contractDuration ?? 12;
+    const avgStayMonths = Number(quote.parameters?.avgStayMonths ?? 4);
+    const uniformChangesPerYear = Number(quote.parameters?.uniformChangesPerYear ?? 3);
+    const safeNum = (v: unknown) => Number(v || 0);
+    const normalizeUnit = (value: number, unit?: string | null) => {
+      if (!unit) return value;
+      const n = unit.toLowerCase();
+      if (n.includes('contrato') || n.includes('contract')) return value / contractDur;
+      if (n.includes('año') || n.includes('year')) return value / 12;
+      if (n.includes('semestre') || n.includes('semester')) return value / 6;
+      return value;
+    };
+
+    /* — Uniformes — */
+    const activeUniforms = (quote.uniformItems ?? []).filter((u) => u.active);
+    if (activeUniforms.length > 0) {
+      const items: ResourceBreakdownItem[] = activeUniforms.map((u) => {
+        const base = safeNum(u.catalogItem?.basePrice);
+        const override = u.unitPriceOverride != null ? safeNum(u.unitPriceOverride) : null;
+        const price = normalizeUnit(override ?? base, u.catalogItem?.unit);
+        const logic = (u as Record<string, unknown>).priceLogic as string ?? u.catalogItem?.priceLogic ?? 'uniform';
+        const monthlyPerGuard = logic === 'prorated' ? price : (price * uniformChangesPerYear) / 12;
+        return {
+          name: u.catalogItem?.name ?? 'Uniforme',
+          amount: monthlyPerGuard * totalGuards,
+          quantity: totalGuards,
+          unit: 'por guardia/mes',
+          technicalSpecs: u.technicalSpecs ?? u.catalogItem?.defaultTechnicalSpecs ?? null,
+        };
+      });
+      categories.push({ category: 'Uniformes', categoryType: 'direct', items, subtotal: items.reduce((s, i) => s + i.amount, 0) });
+    }
+
+    /* — Exámenes Médicos — */
+    const activeExams = (quote.examItems ?? []).filter((ex) => ex.active);
+    if (activeExams.length > 0) {
+      const examEntriesPerYear = avgStayMonths > 0 ? 12 / avgStayMonths : 0;
+      const examFrequency = Math.max(examEntriesPerYear, uniformChangesPerYear);
+      const items: ResourceBreakdownItem[] = activeExams.map((ex) => {
+        const base = safeNum(ex.catalogItem?.basePrice);
+        const override = ex.unitPriceOverride != null ? safeNum(ex.unitPriceOverride) : null;
+        const unitPrice = normalizeUnit(override ?? base, ex.catalogItem?.unit);
+        const monthly = totalGuards > 0 ? ((unitPrice * examFrequency) / 12) * totalGuards : 0;
+        return {
+          name: ex.catalogItem?.name ?? 'Examen',
+          amount: monthly,
+          quantity: totalGuards,
+          unit: 'por guardia/mes',
+          technicalSpecs: ex.technicalSpecs ?? ex.catalogItem?.defaultTechnicalSpecs ?? null,
+        };
+      });
+      categories.push({ category: 'Exámenes Médicos', categoryType: 'direct', items, subtotal: items.reduce((s, i) => s + i.amount, 0) });
+    }
+
+    /* — Alimentación — */
+    const activeMeals = (quote.meals ?? []).filter((m) => m.isEnabled);
+    if (activeMeals.length > 0) {
+      const mealCatalog = await prisma.cpqCatalogItem.findMany({
+        where: { type: 'meal', active: true, OR: [{ tenantId }, { tenantId: null }] },
+      });
+      const mealMap = new Map(mealCatalog.map((m) => [m.name.toLowerCase(), m]));
+      const items: ResourceBreakdownItem[] = activeMeals.map((m) => {
+        const catalogItem = mealMap.get(m.mealType.toLowerCase());
+        const base = safeNum(catalogItem?.basePrice);
+        const override = m.priceOverride != null ? safeNum(m.priceOverride) : null;
+        const price = normalizeUnit(override ?? base, catalogItem?.unit);
+        const monthly = price * m.mealsPerDay * m.daysOfService;
+        return {
+          name: m.mealType, amount: monthly, quantity: m.mealsPerDay,
+          unit: `${m.mealsPerDay} comidas/día × ${m.daysOfService} días`,
+          technicalSpecs: (m as Record<string, unknown>).technicalSpecs as string ?? catalogItem?.defaultTechnicalSpecs ?? null,
+        };
+      });
+      categories.push({ category: 'Alimentación', categoryType: 'direct', items, subtotal: items.reduce((s, i) => s + i.amount, 0) });
+    }
+
+    /* — Vehículos (tabla separada: cpqQuoteVehicle) — */
+    const activeVehicles = (quote.vehicles ?? []).filter((v) => v.isEnabled);
+    if (activeVehicles.length > 0) {
+      const items: ResourceBreakdownItem[] = activeVehicles.map((v, vi) => {
+        const kmPerDay = safeNum(v.kmPerDay);
+        const daysPerMonth = safeNum(v.daysPerMonth);
+        const kmPerLiter = safeNum(v.kmPerLiter);
+        const liters = kmPerLiter > 0 ? (kmPerDay * daysPerMonth) / kmPerLiter : 0;
+        const fuelCost = liters * safeNum(v.fuelPrice);
+        const vehicleMonthly = safeNum(v.rentMonthly) + safeNum(v.maintenanceMonthly) + fuelCost;
+        const total = vehicleMonthly * v.vehiclesCount;
+        const specs = [
+          safeNum(v.rentMonthly) > 0 ? `Arriendo: $${Math.round(safeNum(v.rentMonthly)).toLocaleString('es-CL')}/mes` : null,
+          safeNum(v.maintenanceMonthly) > 0 ? `Mantención: $${Math.round(safeNum(v.maintenanceMonthly)).toLocaleString('es-CL')}/mes` : null,
+          kmPerDay > 0 ? `${kmPerDay} km/día · ${daysPerMonth} días/mes` : null,
+          fuelCost > 0 ? `Combustible: $${Math.round(fuelCost).toLocaleString('es-CL')}/mes` : null,
+        ].filter(Boolean).join(' · ');
+        return {
+          name: `Vehículo ${vi + 1} (×${v.vehiclesCount})`,
+          amount: total,
+          quantity: v.vehiclesCount,
+          unit: `${v.vehiclesCount} unidad(es)`,
+          technicalSpecs: specs || null,
+        };
+      });
+      categories.push({ category: 'Vehículos', categoryType: 'indirect', items, subtotal: items.reduce((s, i) => s + i.amount, 0) });
+    }
+
+    /* — Infraestructura (tabla separada: cpqQuoteInfrastructure) — */
+    const activeInfra = (quote.infrastructure ?? []).filter((inf) => inf.isEnabled);
+    if (activeInfra.length > 0) {
+      const items: ResourceBreakdownItem[] = activeInfra.map((inf) => {
+        const base = safeNum(inf.rentMonthly);
+        let fuelCost = 0;
+        if (inf.hasFuel) {
+          const liters = safeNum(inf.fuelLitersPerHour) * safeNum(inf.fuelHoursPerDay) * safeNum(inf.fuelDaysPerMonth);
+          fuelCost = liters * safeNum(inf.fuelPrice);
+        }
+        const total = (base + fuelCost) * inf.quantity;
+        const specs = [
+          base > 0 ? `Arriendo: $${Math.round(base).toLocaleString('es-CL')}/mes` : null,
+          fuelCost > 0 ? `Combustible: $${Math.round(fuelCost).toLocaleString('es-CL')}/mes` : null,
+        ].filter(Boolean).join(' · ');
+        return {
+          name: inf.itemType || 'Infraestructura',
+          amount: total,
+          quantity: inf.quantity,
+          unit: `${inf.quantity} unidad(es)`,
+          technicalSpecs: specs || null,
+        };
+      });
+      categories.push({ category: 'Infraestructura', categoryType: 'indirect', items, subtotal: items.reduce((s, i) => s + i.amount, 0) });
+    }
+
+    /* — Cost items agrupados por tipo (cpqQuoteCostItem) — */
+    const dbCategories = await prisma.cpqCostCategory.findMany({
+      where: { active: true, OR: [{ tenantId }, { tenantId: null }] },
+      orderBy: { sortOrder: 'asc' },
+    }).catch(() => [] as Array<{ slug: string; name: string; type: string }>);
+    const catBySlug = new Map(dbCategories.map((c) => [c.slug, c]));
+
+    const slugToTypes: Record<string, string[]> = {
+      operational: ['phone', 'radio', 'flashlight'],
+      system: ['system'],
+      transport: ['transport'],
+      vehicle: ['vehicle_rent', 'vehicle_fuel', 'vehicle_tag'],
+      infrastructure: ['infrastructure', 'fuel'],
+      other: ['other'],
+    };
+    const typeToSlug = new Map<string, string>();
+    for (const [slug, types] of Object.entries(slugToTypes)) {
+      for (const t of types) typeToSlug.set(t, slug);
+    }
+    const fallbackNames: Record<string, string> = {
+      operational: 'Equipos Operativos', system: 'Sistemas', transport: 'Transporte',
+      vehicle: 'Vehículos', infrastructure: 'Infraestructura', other: 'Otros Costos',
+    };
+
+    const excludeTypes = new Set(['uniform', 'exam', 'meal', 'financial', 'policy']);
+
+    const findOrCreateCat = (catName: string, catType: 'direct' | 'indirect') => {
+      let existing = categories.find((c) => c.category.toLowerCase() === catName.toLowerCase());
+      if (!existing) {
+        existing = { category: catName, categoryType: catType, items: [], subtotal: 0 };
+        categories.push(existing);
+      }
+      return existing;
+    };
+
+    for (const ci of (quote.costItems ?? [])) {
+      if (!ci.isEnabled) continue;
+      const itemType = (ci as Record<string, unknown>).customType as string ?? ci.catalogItem?.type ?? 'other';
+      if (excludeTypes.has(itemType)) continue;
+
+      let amount: number;
+      if (ci.isAmortizable && ci.investmentAmount && safeNum(ci.investmentAmount) > 0) {
+        const months = ci.amortizationMonths ?? contractDur;
+        const qty = safeNum(ci.quantity);
+        amount = (ci.calcMode || 'per_month') === 'per_guard'
+          ? (safeNum(ci.investmentAmount) / months) * qty * totalGuards
+          : (safeNum(ci.investmentAmount) / months) * qty;
+      } else {
+        const base = safeNum(ci.catalogItem?.basePrice);
+        const override = ci.unitPriceOverride != null ? safeNum(ci.unitPriceOverride) : null;
+        const unitPrice = normalizeUnit(override ?? base, ci.catalogItem?.unit);
+        const qty = safeNum(ci.quantity);
+        amount = (ci.calcMode || 'per_month') === 'per_guard'
+          ? unitPrice * qty * totalGuards
+          : unitPrice * qty;
+      }
+
+      const slug = typeToSlug.get(itemType) ?? 'other';
+      const dbCat = catBySlug.get(slug);
+      const catName = dbCat?.name ?? fallbackNames[slug] ?? 'Otros Costos';
+      const catType = (dbCat?.type as 'direct' | 'indirect') ?? 'indirect';
+      const itemName = (ci as Record<string, unknown>).customName as string ?? ci.catalogItem?.name ?? 'Sin nombre';
+      const specs = (ci as Record<string, unknown>).technicalSpecs as string ?? ci.catalogItem?.defaultTechnicalSpecs ?? null;
+
+      const cat = findOrCreateCat(catName, catType);
+      cat.items.push({ name: itemName, amount, technicalSpecs: specs, calcMode: ci.isAmortizable ? 'amortizable' : ci.calcMode ?? undefined });
+      cat.subtotal += amount;
+    }
+
+    /* — Use costsByCategory as fallback for any categories we missed — */
+    if (costSummary?.costsByCategory) {
+      const existingCatNames = new Set(categories.map((c) => c.category.toLowerCase()));
+      for (const cat of costSummary.costsByCategory) {
+        if (cat.items.length === 0) continue;
+        const slug = cat.categorySlug?.toLowerCase() ?? '';
+        if (['uniform', 'exam', 'meal'].includes(slug)) continue;
+        if (existingCatNames.has(cat.category.toLowerCase())) continue;
+        categories.push({
+          category: cat.category,
+          categoryType: cat.categoryType,
+          items: cat.items.map((item) => ({
+            name: item.name, amount: item.amount,
+            calcMode: item.calcMode, technicalSpecs: item.technicalSpecs,
+          })),
+          subtotal: cat.subtotal,
+        });
+      }
+    }
+
+    if (categories.length > 0) {
+      resourceBreakdown = categories.filter((c) => c.items.length > 0);
+    }
+  } catch (err) {
+    console.error('[Proposal] resourceBreakdown build failed:', err);
+  }
+
   const props: ProposalProps = {
     companyName,
     companyLogo,
@@ -434,6 +672,7 @@ export async function buildProposalProps(
     totalNeto: grandTotal,
     totalNetoFormatted: fmt(grandTotal),
     currency: currency === 'UF' ? 'UF' : 'CLP',
+    ufValue: ufVal > 0 ? ufVal : undefined,
     paymentTerms,
     validUntil,
 
@@ -464,6 +703,8 @@ export async function buildProposalProps(
     },
     regimeExplanation,
     breakdown,
+    resourceBreakdown,
+    includedItems: (quote.includedItems ?? []).filter((t) => t.trim().length > 0),
   };
 
   const fileName = `Propuesta-Tecnica-${companyName.replace(/\s+/g, '-')}-${quote.code}.pdf`;

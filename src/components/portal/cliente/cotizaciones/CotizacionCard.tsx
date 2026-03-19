@@ -20,6 +20,7 @@ import { ProposalServicioIncluye } from "./ProposalServicioIncluye";
 import { ProposalDetalleServicio } from "./ProposalDetalleServicio";
 import { ProposalTecnologia } from "./ProposalTecnologia";
 import { ProposalEstructuraCostos } from "./ProposalEstructuraCostos";
+import { ProposalDesgloseRecursos } from "./ProposalDesgloseRecursos";
 import { ProposalTotalAcciones } from "./ProposalTotalAcciones";
 
 /* ══════════════════════════════════════════════════════ */
@@ -268,6 +269,16 @@ export function CotizacionCard({
                     breakdown={detail.costBreakdown}
                     sectionNumber={++sn}
                     defaultOpen={detail.templateSections?.showCostBreakdown === true}
+                  />
+                )}
+
+                {/* Section 9: Desglose de Equipamiento y Recursos */}
+                {detail.resourceBreakdown && detail.resourceBreakdown.length > 0 && (
+                  <ProposalDesgloseRecursos
+                    resourceBreakdown={detail.resourceBreakdown}
+                    currency={detail.currency}
+                    sectionNumber={++sn}
+                    defaultOpen={false}
                   />
                 )}
 

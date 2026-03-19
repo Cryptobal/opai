@@ -17,6 +17,7 @@ import { isDefaultUniform } from "@/lib/cpq-constants";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
 import { buildCpqStyleEmployerCostInput } from "@/lib/cpq/cpq-employer-cost-input";
 import { computeCpqQuoteCosts, refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
+import { applyDefaultQuoteIncludes } from "@/lib/cpq/apply-default-quote-includes";
 
 const CPQ_WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
 const WEEKDAY_ALIAS: Record<string, string> = {
@@ -734,6 +735,12 @@ export async function POST(
               },
             });
 
+            try {
+              await applyDefaultQuoteIncludes(tx, quote.id, ctx.tenantId);
+            } catch (includesErr) {
+              console.error("Error auto-inserting default includes (approve):", includesErr);
+            }
+
             if (dealNotes) {
               await tx.crmNote.create({
                 data: {
@@ -1157,6 +1164,11 @@ export async function POST(
               ...(resolvedTemplateId && { proposalTemplateId: resolvedTemplateId }),
             },
           });
+          try {
+            await applyDefaultQuoteIncludes(tx, fallbackQuote.id, ctx.tenantId);
+          } catch (includesErr) {
+            console.error("Error auto-inserting default includes (approve fallback):", includesErr);
+          }
           if (dealNotes) {
             await tx.crmNote.create({
               data: {
