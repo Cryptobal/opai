@@ -84,6 +84,13 @@ interface LeadInstallationCpqProps {
   ufValue?: number | null;
 }
 
+/** Normaliza technicalSpecs a string | null (la API puede devolver objeto) */
+function toTechnicalSpecs(val: unknown): string | null {
+  if (val == null) return null;
+  if (typeof val === "string") return val;
+  return JSON.stringify(val);
+}
+
 /* ─── Cost group constants ─── */
 const COST_GROUPS_DIRECTOS = [
   { id: "uniform", label: "Uniformes", icon: "\uD83E\uDDE5" },
@@ -203,10 +210,11 @@ export function LeadInstallationCpq({
           // Hidratar costItems existentes con defaultTechnicalSpecs del catálogo si no tienen
           const catalogMap = new Map(res.data.map((c: any) => [c.id, c.defaultTechnicalSpecs || null]));
           if (config.costItems.length > 0) {
-            const hydrated = config.costItems.map((item) => {
+            const hydrated: LeadCostItem[] = config.costItems.map((item) => {
               if (item.technicalSpecs) return item;
               const def = catalogMap.get(item.catalogItemId);
-              return def ? { ...item, technicalSpecs: def } : item;
+              const specs = def != null ? toTechnicalSpecs(def) : null;
+              return specs != null ? { ...item, technicalSpecs: specs } : item;
             });
             if (hydrated.some((h, i) => h.technicalSpecs !== config.costItems[i]?.technicalSpecs)) {
               onChange({ ...config, costItems: hydrated });
@@ -227,7 +235,7 @@ export function LeadInstallationCpq({
               basePrice: Number(item.basePrice) || 0,
               priceOverride: null,
               enabled: Boolean(item.isDefault) && enabledTypes.has(item.type),
-              technicalSpecs: item.defaultTechnicalSpecs || null,
+              technicalSpecs: toTechnicalSpecs(item.defaultTechnicalSpecs) ?? null,
             }));
             onChange({ ...config, costItems: items });
           }
