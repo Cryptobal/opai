@@ -42,6 +42,7 @@ const SECTION_LABELS: Record<keyof ProposalTemplateSections, string> = {
   showIncludedItems: "Ítems incluidos",
   showSignature: "Área de firma",
   showComplianceSection: "Cumplimiento normativo",
+  showTechnicalSpecs: "Especificaciones técnicas",
   numberedSections: "Secciones numeradas",
   headerStyle: "Estilo de encabezado",
 };
@@ -60,6 +61,7 @@ const TOGGLE_KEYS: (keyof ProposalTemplateSections)[] = [
   "showIncludedItems",
   "showSignature",
   "showComplianceSection",
+  "showTechnicalSpecs",
   "numberedSections",
 ];
 
