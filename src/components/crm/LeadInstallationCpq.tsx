@@ -1220,7 +1220,7 @@ function CostCategoryBlock({
   total: number;
   groups: Record<string, LeadCostItem[]>;
   costItems: LeadCostItem[];
-  catalogItems?: { id: string; defaultTechnicalSpecs?: string | null }[];
+  catalogItems?: { id: string; defaultTechnicalSpecs?: string | null; priceLogic?: string }[];
   onToggleItem: (id: string) => void;
   onPriceChange: (id: string, price: number) => void;
   onTechnicalSpecsChange?: (id: string, specs: string | null) => void;
