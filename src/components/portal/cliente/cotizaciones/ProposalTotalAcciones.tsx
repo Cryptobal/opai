@@ -29,7 +29,7 @@ export function ProposalTotalAcciones({
   onApprove,
   onReject,
   onConsult,
-  onViewProposal,
+  onViewProposal: _onViewProposal,
   className,
 }: ProposalTotalAccionesProps) {
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -89,85 +89,68 @@ export function ProposalTotalAcciones({
         </p>
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2">
-        {canAct && onApprove && (
-          <button
-            type="button"
-            onClick={onApprove}
-            className="flex items-center gap-2 px-4 h-10 rounded-lg text-sm font-semibold text-white transition-colors"
-            style={{ background: "linear-gradient(135deg, #0d9488, #14b8a6)" }}
-          >
-            <Check className="w-4 h-4" />
-            {context === "prospect" ? "Aceptar propuesta" : "Aprobar cotización"}
-          </button>
-        )}
+      {/* Row 1: Accept / Reject */}
+      {canAct && (onApprove || onReject) && (
+        <div className="grid grid-cols-2 gap-2">
+          {onApprove && (
+            <button
+              type="button"
+              onClick={onApprove}
+              className="flex items-center justify-center gap-2 h-11 rounded-lg text-sm font-semibold text-white transition-colors"
+              style={{ background: "linear-gradient(135deg, #0d9488, #14b8a6)" }}
+            >
+              <Check className="w-4 h-4" />
+              {context === "prospect" ? "Aceptar propuesta" : "Aprobar cotización"}
+            </button>
+          )}
+          {onReject && (
+            <button
+              type="button"
+              onClick={onReject}
+              className="flex items-center justify-center gap-2 h-11 rounded-lg border border-red-700/50 text-red-400 hover:bg-red-500/10 text-sm font-semibold transition-colors"
+            >
+              <XCircle className="w-4 h-4" />
+              Rechazar propuesta
+            </button>
+          )}
+        </div>
+      )}
 
-        {canAct && onReject && (
-          <button
-            type="button"
-            onClick={onReject}
-            className="flex items-center gap-2 px-4 h-10 rounded-lg border border-red-700/50 text-red-400 hover:bg-red-500/10 text-sm transition-colors"
-          >
-            <XCircle className="w-4 h-4" />
-            Rechazar
-          </button>
-        )}
-
+      {/* Row 2: Downloads + Communication */}
+      <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={handleDownloadPdf}
           disabled={pdfLoading}
-          className="flex items-center gap-2 px-4 h-10 rounded-lg border border-white/10 text-slate-300 hover:text-white hover:border-white/20 text-sm transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-white/10 text-slate-300 hover:text-white hover:border-white/20 text-sm transition-colors disabled:opacity-50"
         >
           {pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-          {pdfLoading ? "Generando..." : "Descargar PDF"}
+          {pdfLoading ? "Generando..." : "Propuesta económica"}
         </button>
 
         <button
           type="button"
           onClick={handleDownloadProposalPdf}
           disabled={proposalPdfLoading}
-          className="flex items-center gap-2 px-4 h-10 rounded-lg text-sm font-semibold transition-all"
-          style={{
-            background: "linear-gradient(135deg, rgba(20,184,166,0.18), rgba(6,182,212,0.12))",
-            border: "1px solid rgba(45,212,191,0.4)",
-            color: "#5eead4",
-          }}
+          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border border-teal-500/30 text-teal-300 hover:text-teal-200 hover:border-teal-500/50 text-sm transition-colors disabled:opacity-50"
         >
           {proposalPdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-          {proposalPdfLoading ? "Generando..." : "Ver Propuesta Técnica"}
+          {proposalPdfLoading ? "Generando..." : "Propuesta técnica"}
         </button>
-
-        {onViewProposal && (
-          <button
-            type="button"
-            onClick={onViewProposal}
-            className="flex items-center gap-2 px-4 h-10 rounded-lg text-sm font-semibold transition-all"
-            style={{
-              background: "linear-gradient(135deg, rgba(20,184,166,0.18), rgba(6,182,212,0.12))",
-              border: "1px solid rgba(45,212,191,0.4)",
-              color: "#5eead4",
-            }}
-          >
-            <FileText className="w-4 h-4" />
-            Propuesta técnica
-          </button>
-        )}
 
         {onConsult && (
           <button
             type="button"
             onClick={onConsult}
-            className="flex items-center gap-2 px-4 h-10 rounded-lg border border-white/10 text-slate-300 hover:text-white hover:border-white/20 text-sm transition-colors"
+            title="Consultar"
+            className="flex items-center justify-center w-10 h-10 shrink-0 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-colors"
           >
             <MessageSquare className="w-4 h-4" />
-            Consultar
           </button>
         )}
 
         <WhatsAppButton
-          variant="compact"
+          variant="icon"
           context={context}
           cotizacionCode={cotizacionCode}
         />

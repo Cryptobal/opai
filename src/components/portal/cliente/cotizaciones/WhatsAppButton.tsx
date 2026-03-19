@@ -4,7 +4,7 @@ import { MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface WhatsAppButtonProps {
-  variant?: "default" | "compact" | "inline";
+  variant?: "default" | "compact" | "inline" | "icon";
   context?: "prospect" | "client";
   cotizacionCode?: string;
   className?: string;
@@ -33,6 +33,23 @@ export function WhatsAppButton({
         className={cn("text-xs text-emerald-400 hover:text-emerald-300 underline underline-offset-2", className)}
       >
         WhatsApp +56 9 8230 7771
+      </a>
+    );
+  }
+
+  if (variant === "icon") {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="WhatsApp"
+        className={cn(
+          "flex items-center justify-center w-10 h-10 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors",
+          className,
+        )}
+      >
+        <MessageCircle className="w-4 h-4" />
       </a>
     );
   }

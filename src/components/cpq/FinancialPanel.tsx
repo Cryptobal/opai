@@ -106,7 +106,7 @@ export interface FinancialPanelProps {
 
 /* ── Build breakdown data from props ── */
 
-function buildBreakdownData(
+export function buildBreakdownData(
   costSummary: CpqQuoteCostSummary,
   costCategoryBreakdown: FinancialPanelProps["costCategoryBreakdown"],
   positions: CpqPosition[],

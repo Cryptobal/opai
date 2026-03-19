@@ -170,7 +170,7 @@ export function SendPdfEmailModal({
           disabled={disabled}
         >
           <Mail className="h-4 w-4" />
-          Enviar PDF
+          Enviar mail
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">

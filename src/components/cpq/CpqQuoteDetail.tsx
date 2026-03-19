@@ -16,8 +16,7 @@ import { EmptyState } from "@/components/opai/EmptyState";
 import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
-import { SendCpqQuoteModal } from "@/components/cpq/SendCpqQuoteModal";
-import { SendPdfEmailModal } from "@/components/cpq/SendPdfEmailModal";
+import { SendPortalProposalModal } from "@/components/cpq/SendPortalProposalModal";
 import { formatCurrency } from "@/components/cpq/utils";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type {
@@ -43,7 +42,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Shield, Mail, Send, Check, Briefcase, Phone, FileText, Sparkles } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Send, Check, Briefcase, Phone, FileText, Sparkles } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -51,7 +50,7 @@ import { FinancialPanel, buildBreakdownData } from "@/components/cpq/FinancialPa
 import { QuoteBreakdownPanel } from "@/components/cpq/QuoteBreakdownPanel";
 import { QuoteIncludesEditor } from "@/components/cpq/QuoteIncludesEditor";
 import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
-import { FollowUpDecisionModal, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
+import type { FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
 import { CrmActivityTimeline } from "@/components/crm/CrmActivityTimeline";
 import { VisitaTecnicaSolicitudModal } from "@/components/cpq/VisitaTecnicaSolicitudModal";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
@@ -130,13 +129,10 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [downloadingProposalPdf, setDownloadingProposalPdf] = useState(false);
   const [sendingDotacion, setSendingDotacion] = useState(false);
-  const [sendingPortal, setSendingPortal] = useState(false);
-  const [portalFollowUpModalOpen, setPortalFollowUpModalOpen] = useState(false);
+  const [portalProposalOpen, setPortalProposalOpen] = useState(false);
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [whatsappSentTo, setWhatsappSentTo] = useState<string>("");
-  const [portalEmailCc, setPortalEmailCc] = useState("");
-  const [portalEmailBcc, setPortalEmailBcc] = useState("");
   // Visita técnica
   const [visitaTecnicaModalOpen, setVisitaTecnicaModalOpen] = useState(false);
   const [visitaTecnicaWaModalOpen, setVisitaTecnicaWaModalOpen] = useState(false);
@@ -394,9 +390,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             website: d.data.website || "",
             contactEmail: d.data.contactEmail || "",
           });
-          if (d.data.contactEmail && !portalEmailCc) {
-            setPortalEmailCc(d.data.contactEmail);
-          }
         }
       })
       .catch(() => {});
@@ -877,67 +870,29 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
     }
   };
 
-  const handleSendPortal = () => {
-    if (!quote || !crmContext.accountId || !crmContext.contactId || !crmContext.dealId) {
-      toast.error("Asigna cuenta, contacto y negocio antes de enviar por portal");
-      return;
-    }
-    setPortalFollowUpModalOpen(true);
-  };
-
-  const handleSendPortalConfirmed = async (decision: FollowUpDecision) => {
-    setPortalFollowUpModalOpen(false);
-    setSendingPortal(true);
-
-    // Capture sendWhatsApp intent BEFORE any async — must be in same user gesture tick
+  const handlePortalProposalComplete = ({
+    decision,
+    result,
+  }: {
+    decision: FollowUpDecision;
+    result: {
+      sentTo: string;
+      whatsappMessage?: string;
+      whatsappPhone?: string | null;
+    };
+  }) => {
     const wantsWhatsApp = decision.sendWhatsApp === true;
-
-    try {
-      const response = await fetch(`/api/cpq/quotes/${quoteId}/send-portal`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          followUp: {
-            include: decision.includeFollowUp,
-            targetStageId: decision.targetStageId,
-            skipAll: ("skipAll" in decision ? decision.skipAll : false) ?? false,
-          },
-          ccEmails: portalEmailCc.trim() ? [portalEmailCc.trim()] : [],
-          bccEmails: portalEmailBcc.trim() ? [portalEmailBcc.trim()] : [],
-          includeProposalPdf: decision.includeProposalPdf ?? false,
-        }),
-      });
-      const payload = await response.json();
-
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || "No se pudo enviar por portal");
-      }
-
-      toast.success(
-        `Invitacion enviada a ${payload.data.sentTo}. ${payload.data.pinGenerated ? "Se genero PIN de acceso." : "PIN existente."}`
-      );
-
-      // Build wa.me URL in the browser so encodeURIComponent preserves emojis correctly
-      if (wantsWhatsApp && payload.data.whatsappMessage) {
-        const phone = payload.data.whatsappPhone ?? "";
-        const encoded = encodeURIComponent(payload.data.whatsappMessage);
-        const waUrl = phone
-          ? `https://wa.me/${phone}?text=${encoded}`
-          : `https://wa.me/?text=${encoded}`;
-        setWhatsappUrl(waUrl);
-        setWhatsappSentTo(payload.data.sentTo);
-        setWhatsappModalOpen(true);
-      }
-
-      refresh();
-    } catch (error) {
-      console.error("Error sending via portal:", error);
-      toast.error(
-        error instanceof Error ? error.message : "No se pudo enviar por portal"
-      );
-    } finally {
-      setSendingPortal(false);
+    if (wantsWhatsApp && result.whatsappMessage) {
+      const phone = result.whatsappPhone ?? "";
+      const encoded = encodeURIComponent(result.whatsappMessage);
+      const waUrl = phone
+        ? `https://wa.me/${phone}?text=${encoded}`
+        : `https://wa.me/?text=${encoded}`;
+      setWhatsappUrl(waUrl);
+      setWhatsappSentTo(result.sentTo);
+      setWhatsappModalOpen(true);
     }
+    void refresh();
   };
 
   const stats = useMemo(() => {
@@ -1206,38 +1161,23 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {/* Action buttons: Enviar por Portal (desktop) */}
           <div className="hidden lg:flex items-center gap-1 border-r border-border/60 pr-2 mr-1">
             <Button
               size="sm"
-              className="h-7 px-2 text-[11px] gap-1.5 bg-teal-600 hover:bg-teal-700 text-white"
+              className="h-7 w-7 p-0 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm"
               disabled={
                 !quote ||
                 (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
                 quote.status === "sent" ||
                 !crmContext.accountId ||
                 !crmContext.contactId ||
-                !crmContext.dealId ||
-                sendingPortal
+                !crmContext.dealId
               }
-              onClick={handleSendPortal}
+              title="Enviar propuesta (invitación al portal)"
+              onClick={() => setPortalProposalOpen(true)}
             >
-              {sendingPortal ? <Loader2 className="h-3 w-3 animate-spin" /> : <Shield className="h-3 w-3" />}
-              {sendingPortal ? "Enviando..." : "Portal"}
+              <Send className="h-3.5 w-3.5" />
             </Button>
-            <SendCpqQuoteModal
-              quoteId={quoteId}
-              quoteCode={quote.code}
-              clientName={quote.clientName || undefined}
-              disabled={!quote || (positions.length === 0 && (additionalLines?.length ?? 0) === 0) || quote.status === "sent"}
-              hasAccount={!!crmContext.accountId}
-              hasContact={!!crmContext.contactId}
-              hasDeal={!!crmContext.dealId}
-              dealId={crmContext.dealId || undefined}
-              contactName={crmContext.contactId ? (() => { const c = crmContacts.find((x) => x.id === crmContext.contactId); return c ? `${c.firstName} ${c.lastName}`.trim() : undefined; })() : undefined}
-              contactEmail={crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId)?.email ?? undefined : undefined}
-              triggerClassName="h-7 px-2 text-[11px] gap-1.5 shrink-0"
-            />
           </div>
           {quote.status === "sent" ? (
             <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setStatusChangePending("draft")} disabled={changingStatus}>
@@ -2367,8 +2307,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             }}
             quoteId={quoteId}
             quoteCode={quote.code}
-            sendingPortal={sendingPortal}
-            onSendPortal={handleSendPortal}
+            sendingPortal={false}
+            onSendPortal={() => setPortalProposalOpen(true)}
             isLocked={isLocked}
             hasAccount={!!crmContext.accountId}
             hasContact={!!crmContext.contactId}
@@ -2387,82 +2327,55 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         }
         portalButton={
           <Button
-            className="w-full h-11 gap-2 text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white"
+            className="w-full h-11 gap-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
             disabled={
               !quote ||
               (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
               quote.status === "sent" ||
               !crmContext.accountId ||
               !crmContext.contactId ||
-              !crmContext.dealId ||
-              sendingPortal
+              !crmContext.dealId
             }
-            onClick={handleSendPortal}
+            onClick={() => setPortalProposalOpen(true)}
           >
-            <Shield className="h-4 w-4" />
-            {sendingPortal ? "Enviando..." : "Enviar por Portal"}
+            <Send className="h-4 w-4" />
+            Enviar propuesta
           </Button>
-        }
-        pdfEmailButton={
-          <SendPdfEmailModal
-            quoteId={quoteId}
-            quoteCode={quote.code}
-            contactEmail={(() => {
-              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-              return c?.email || undefined;
-            })()}
-            contactName={(() => {
-              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-              return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
-            })()}
-            companyName={quote.clientName || undefined}
-            disabled={!crmContext.contactId || !crmContacts.find((x) => x.id === crmContext.contactId)?.email}
-            dealId={crmContext.dealId || undefined}
-            onBeforeSend={flushPendingSaves}
-          />
-        }
-        emailButton={
-          <SendCpqQuoteModal
-            quoteId={quoteId}
-            quoteCode={quote.code}
-            clientName={quote.clientName || undefined}
-            disabled={!quote || (positions.length === 0 && (additionalLines?.length ?? 0) === 0) || quote.status === "sent"}
-            hasAccount={!!crmContext.accountId}
-            hasContact={!!crmContext.contactId}
-            hasDeal={!!crmContext.dealId}
-            dealId={crmContext.dealId || undefined}
-            contactName={(() => {
-              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-              return c ? `${c.firstName} ${c.lastName}`.trim() : undefined;
-            })()}
-            contactEmail={(() => {
-              const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-              return c?.email || undefined;
-            })()}
-          />
         }
       />
 
-      {/* Modal de decisión de seguimiento para Portal */}
-      {crmContext.dealId && (
-        <FollowUpDecisionModal
-          open={portalFollowUpModalOpen}
-          onOpenChange={setPortalFollowUpModalOpen}
-          dealId={crmContext.dealId}
-          onConfirm={handleSendPortalConfirmed}
-          loading={sendingPortal}
-          showWhatsApp
-          showProposalPdf
-          recipientEmail={(() => {
-            const c = crmContext.contactId ? crmContacts.find((x) => x.id === crmContext.contactId) : null;
-            return c?.email || "";
-          })()}
-          ccEmail={portalEmailCc}
-          onCcChange={setPortalEmailCc}
-          bccEmail={portalEmailBcc}
-          onBccChange={setPortalEmailBcc}
-        />
-      )}
+      {crmContext.dealId &&
+        crmContext.contactId &&
+        (() => {
+          const qc = crmContacts.find((x) => x.id === crmContext.contactId);
+          if (!qc?.email) return null;
+          return (
+            <SendPortalProposalModal
+              key="portal-proposal"
+              open={portalProposalOpen}
+              onOpenChange={setPortalProposalOpen}
+              quoteId={quoteId}
+              quoteCode={quote?.code ?? ""}
+              dealId={crmContext.dealId}
+              quoteContact={{
+                id: qc.id,
+                firstName: qc.firstName,
+                lastName: qc.lastName,
+                email: qc.email,
+                roleTitle: null,
+              }}
+              disabled={
+                !quote ||
+                (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
+                quote.status === "sent" ||
+                !crmContext.accountId ||
+                !crmContext.dealId
+              }
+              onBeforeSend={flushPendingSaves}
+              onComplete={handlePortalProposalComplete}
+            />
+          );
+        })()}
 
       {/* Modal de WhatsApp — se muestra tras envio exitoso cuando usuario eligio enviar + WhatsApp */}
       <Dialog open={whatsappModalOpen} onOpenChange={setWhatsappModalOpen}>

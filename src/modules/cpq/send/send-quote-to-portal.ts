@@ -14,6 +14,8 @@ import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { PortalProspectoInviteEmail } from "@/emails/PortalProspectoInviteEmail";
 import { buildProposalProps } from "@/lib/pdf/templates/proposal/build-proposal-props";
 import { renderProposalToBufferFromProps } from "@/lib/pdf/templates/proposal/render-proposal";
+import { buildQuotationProps } from "@/lib/pdf/templates/quotation/build-quotation-props";
+import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-quotation";
 import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 
@@ -24,7 +26,12 @@ export interface SendQuoteToPortalOptions {
   followUp?: { include: boolean; targetStageId: string | null; skipAll?: boolean };
   ccEmails?: string[];
   bccEmails?: string[];
+  /** Contacto que recibe la invitación al portal (PIN y correo). Por defecto el de la cotización. */
+  recipientContactId?: string;
+  /** IDs de contactos adicionales en copia (misma cuenta). */
+  ccContactIds?: string[];
   includeProposalPdf?: boolean;
+  includeQuotationPdf?: boolean;
 }
 
 export interface SendQuoteToPortalResult {
@@ -39,7 +46,18 @@ export interface SendQuoteToPortalResult {
 }
 
 export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Promise<SendQuoteToPortalResult> {
-  const { quoteId, tenantId, userId, followUp, ccEmails = [], bccEmails = [], includeProposalPdf = false } = options;
+  const {
+    quoteId,
+    tenantId,
+    userId,
+    followUp,
+    ccEmails = [],
+    bccEmails = [],
+    recipientContactId,
+    ccContactIds = [],
+    includeProposalPdf = false,
+    includeQuotationPdf = false,
+  } = options;
 
   const quote = await prisma.cpqQuote.findFirst({
     where: { id: quoteId, tenantId },
@@ -55,12 +73,30 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   if (!quote.contactId) throw new Error("La cotización debe tener un contacto asignado");
   if (!quote.accountId) throw new Error("La cotización debe tener una cuenta asignada");
 
-  const contact = await prisma.crmContact.findUnique({
-    where: { id: quote.contactId },
+  const effectiveContactId = recipientContactId ?? quote.contactId;
+
+  const contact = await prisma.crmContact.findFirst({
+    where: { id: effectiveContactId, tenantId, accountId: quote.accountId },
     select: { id: true, firstName: true, lastName: true, email: true, phone: true, portalEnabled: true, portalPin: true, portalPinVisible: true },
   });
 
-  if (!contact?.email) throw new Error("El contacto no tiene email");
+  if (!contact?.email) throw new Error("El contacto destinatario no tiene email o no pertenece a la cuenta");
+
+  let mergedCcEmails = [...ccEmails.filter(Boolean)];
+  if (ccContactIds.length > 0) {
+    const ccRows = await prisma.crmContact.findMany({
+      where: {
+        tenantId,
+        accountId: quote.accountId,
+        id: { in: ccContactIds.filter((id) => id !== contact.id) },
+      },
+      select: { email: true },
+    });
+    for (const r of ccRows) {
+      if (r.email && !mergedCcEmails.includes(r.email)) mergedCcEmails.push(r.email);
+    }
+  }
+  mergedCcEmails = [...new Set(mergedCcEmails)];
 
   const account = await prisma.crmAccount.findUnique({
     where: { id: quote.accountId },
@@ -271,10 +307,24 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     }
   }
 
+  if (includeQuotationPdf) {
+    try {
+      const { fileName: quotationFileName, ...quotationProps } = await buildQuotationProps(quoteId, tenantId);
+      const quotationBuffer = await renderQuotationToBuffer(quotationProps);
+      attachments.push({
+        filename: quotationFileName,
+        content: quotationBuffer,
+        contentType: "application/pdf",
+      });
+    } catch (err) {
+      console.warn("[CPQ] Could not generate quotation PDF for portal invite:", err);
+    }
+  }
+
   const emailResult = await resend.emails.send({
     from: EMAIL_CONFIG.from,
     to: contact.email,
-    cc: [...new Set([tenantConfig.email, ...ccEmails])],
+    cc: [...new Set([tenantConfig.email, ...mergedCcEmails])],
     bcc: bccEmails.length ? bccEmails : undefined,
     replyTo: tenantConfig.emailReplyTo || EMAIL_CONFIG.replyTo,
     subject: `Propuesta comercial para ${account.name} - ${tenantConfig.commercialName}`,

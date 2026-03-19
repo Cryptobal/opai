@@ -24,6 +24,14 @@ export async function POST(
     const ccEmails: string[] = Array.isArray(body?.ccEmails) ? body.ccEmails.filter(Boolean) : [];
     const bccEmails: string[] = Array.isArray(body?.bccEmails) ? body.bccEmails.filter(Boolean) : [];
     const includeProposalPdf = Boolean(body?.includeProposalPdf);
+    const includeQuotationPdf = Boolean(body?.includeQuotationPdf);
+    const recipientContactId =
+      typeof body?.recipientContactId === "string" && body.recipientContactId.length > 0
+        ? body.recipientContactId
+        : undefined;
+    const ccContactIds: string[] = Array.isArray(body?.ccContactIds)
+      ? body.ccContactIds.filter((x: unknown) => typeof x === "string")
+      : [];
 
     const result = await sendQuoteToPortal({
       quoteId: id,
@@ -32,7 +40,10 @@ export async function POST(
       followUp: followUpDecision,
       ccEmails,
       bccEmails,
+      recipientContactId,
+      ccContactIds,
       includeProposalPdf,
+      includeQuotationPdf,
     });
 
     return NextResponse.json({
