@@ -25,6 +25,7 @@ export async function GET() {
             },
           },
         },
+        installation: { select: { id: true, name: true, lat: true, lng: true } },
         guardia: {
           include: {
             persona: { select: { firstName: true, lastName: true, phoneMobile: true } },
@@ -88,6 +89,7 @@ export async function GET() {
             },
           },
         },
+        installation: { select: { id: true, name: true, lat: true, lng: true } },
         guardia: {
           include: {
             persona: { select: { firstName: true, lastName: true, phoneMobile: true } },

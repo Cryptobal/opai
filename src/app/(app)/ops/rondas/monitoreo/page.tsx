@@ -50,6 +50,7 @@ export default async function RondasMonitoreoPage() {
             },
           },
         },
+        installation: { select: { id: true, name: true, lat: true, lng: true } },
         guardia: { include: { persona: { select: { firstName: true, lastName: true, phoneMobile: true } } } },
         marcaciones: {
           select: {
@@ -99,6 +100,7 @@ export default async function RondasMonitoreoPage() {
             installation: { select: { id: true, name: true } },
           },
         },
+        installation: { select: { id: true, name: true } },
         guardia: { include: { persona: { select: { firstName: true, lastName: true } } } },
       },
       orderBy: { scheduledAt: "asc" },
@@ -125,6 +127,7 @@ export default async function RondasMonitoreoPage() {
             },
           },
         },
+        installation: { select: { id: true, name: true, lat: true, lng: true } },
         guardia: { include: { persona: { select: { firstName: true, lastName: true, phoneMobile: true } } } },
         marcaciones: {
           select: {
