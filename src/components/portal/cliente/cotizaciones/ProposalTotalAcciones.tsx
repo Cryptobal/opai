@@ -52,9 +52,16 @@ export function ProposalTotalAcciones({
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      toast.success("Propuesta técnica lista");
+      const a = document.createElement("a");
+      a.href = url;
+      const disposition = res.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="?([^";\n]+)"?/);
+      a.download = match?.[1] ?? `Propuesta-Tecnica-${cotizacionCode}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Propuesta técnica descargada");
     } catch (e) {
       console.error("[Portal] Propuesta técnica PDF:", e);
       toast.error(e instanceof Error ? e.message : "No se pudo generar la propuesta técnica");
