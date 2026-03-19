@@ -12,6 +12,7 @@ import {
   Briefcase,
   LayoutGrid,
   UserPlus,
+  FileEdit,
 } from "lucide-react";
 import { KpiCard } from "@/components/opai/KpiCard";
 import { SupervisorSession } from "@/lib/portal-supervisor";
@@ -27,12 +28,27 @@ interface DashboardData {
 
 interface Props {
   session: SupervisorSession;
-  onAction: (action: "nueva-visita" | "novedad" | "turno-extra" | "rendicion" | "visita-tecnica") => void;
+  onAction: (
+    action:
+      | "nueva-visita"
+      | "novedad"
+      | "turno-extra"
+      | "rendicion"
+      | "visita-tecnica"
+      | "visita-tecnica-sin-terminar",
+  ) => void;
   onMoreOpen?: () => void;
   visitasPendientes?: number;
+  visitasSinTerminar?: number;
 }
 
-export function SupervisorDashboard({ session, onAction, onMoreOpen, visitasPendientes = 0 }: Props) {
+export function SupervisorDashboard({
+  session,
+  onAction,
+  onMoreOpen,
+  visitasPendientes = 0,
+  visitasSinTerminar = 0,
+}: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -125,6 +141,26 @@ export function SupervisorDashboard({ session, onAction, onMoreOpen, visitasPend
             variant={visitasPendientes > 0 ? "amber" : "default"}
             size="sm"
             onClick={visitasPendientes > 0 ? () => onAction("visita-tecnica") : undefined}
+            titleInfoTooltip={
+              <span>
+                Visitas técnicas ya agendadas (estado &quot;por realizar&quot;) que aún no iniciaste. Al tocar la tarjeta abres la lista filtrada.
+              </span>
+            }
+          />
+          <KpiCard
+            title="Visitas sin terminar"
+            value={visitasSinTerminar}
+            description="borrador o en curso"
+            icon={<FileEdit size={16} />}
+            variant={visitasSinTerminar > 0 ? "sky" : "default"}
+            size="sm"
+            onClick={visitasSinTerminar > 0 ? () => onAction("visita-tecnica-sin-terminar") : undefined}
+            titleInfoTooltip={
+              <span>
+                Visitas técnicas que empezaste y no completaste: en <strong>borrador</strong> (aún sin check-in) o <strong>en curso</strong> (con check-in pendiente de cierre).
+                Toca la tarjeta para verlas y seguir editando.
+              </span>
+            }
           />
         </div>
       )}

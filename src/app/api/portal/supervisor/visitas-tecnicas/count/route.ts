@@ -17,15 +17,24 @@ export async function GET() {
 
     const { adminId, tenantId } = result.data;
 
-    const count = await prisma.opsVisitaTecnica.count({
-      where: {
-        tenantId,
-        userId: adminId,
-        status: "programada",
-      },
-    });
+    const [count, sinTerminar] = await Promise.all([
+      prisma.opsVisitaTecnica.count({
+        where: {
+          tenantId,
+          userId: adminId,
+          status: "programada",
+        },
+      }),
+      prisma.opsVisitaTecnica.count({
+        where: {
+          tenantId,
+          userId: adminId,
+          status: { in: ["borrador", "en_curso"] },
+        },
+      }),
+    ]);
 
-    return NextResponse.json({ success: true, data: { count } });
+    return NextResponse.json({ success: true, data: { count, sinTerminar } });
   } catch (error) {
     console.error("[visitas-tecnicas/count] Error:", error);
     return NextResponse.json(

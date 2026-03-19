@@ -25,7 +25,7 @@ interface Props {
   installations: SupervisorInstallation[];
   onNew: () => void;
   onSelect: (visita: VisitaTecnica) => void;
-  initialFilter?: "todos" | "programada" | "borrador" | "en_curso" | "completada";
+  initialFilter?: "todos" | "programada" | "borrador" | "en_curso" | "completada" | "sin_terminar";
   autoOpenFirstPending?: boolean;
 }
 
@@ -36,16 +36,22 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: React.Rea
   completada: { label: "Completada", color: "text-emerald-400", icon: <CheckCircle2 size={12} /> },
 };
 
+type VisitaFilter = "todos" | "programada" | "borrador" | "en_curso" | "completada" | "sin_terminar";
+
 export function SupervisorVisitasTecnicas({ installations, onNew, onSelect, initialFilter = "todos", autoOpenFirstPending }: Props) {
   const [items, setItems] = useState<VisitaTecnica[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"todos" | "programada" | "borrador" | "en_curso" | "completada">(initialFilter);
+  const [filter, setFilter] = useState<VisitaFilter>(initialFilter);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    setFilter(initialFilter);
+  }, [initialFilter]);
 
   const pendientes = items.filter((v) => v.status === "programada");
   const autoOpenedRef = useRef(false);
@@ -69,7 +75,12 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect, init
     }
   }
 
-  const filtered = filter === "todos" ? items : items.filter((v) => v.status === filter);
+  const filtered =
+    filter === "todos"
+      ? items
+      : filter === "sin_terminar"
+        ? items.filter((v) => v.status === "borrador" || v.status === "en_curso")
+        : items.filter((v) => v.status === filter);
 
   const pendientesCount = items.filter((v) => v.status === "programada").length;
 
@@ -88,7 +99,7 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect, init
 
       {/* Filters */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {(["todos", "programada", "borrador", "en_curso", "completada"] as const).map((f) => (
+        {(["todos", "programada", "sin_terminar", "borrador", "en_curso", "completada"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -107,7 +118,11 @@ export function SupervisorVisitasTecnicas({ installations, onNew, onSelect, init
                   </span>
                 )}
               </span>
-            ) : STATUS_CFG[f]?.label ?? f}
+            ) : f === "sin_terminar" ? (
+              "Sin terminar"
+            ) : (
+              STATUS_CFG[f]?.label ?? f
+            )}
           </button>
         ))}
       </div>

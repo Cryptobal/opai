@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ShieldX } from "lucide-react";
 import { SplashScreen } from "@/components/pwa/SplashScreen";
@@ -55,6 +55,22 @@ export function PortalSupervisorClient() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [novedadTrigger, setNovedadTrigger] = useState(0);
   const [visitasPendientesCount, setVisitasPendientesCount] = useState(0);
+  const [visitasSinTerminarCount, setVisitasSinTerminarCount] = useState(0);
+  const [visitaTecnicaListFilter, setVisitaTecnicaListFilter] = useState<
+    "todos" | "programada" | "sin_terminar" | "borrador" | "en_curso" | "completada"
+  >("todos");
+
+  const refetchVisitasTecnicasCounts = useCallback(() => {
+    fetch("/api/portal/supervisor/visitas-tecnicas/count")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) {
+          setVisitasPendientesCount(json.data?.count ?? 0);
+          setVisitasSinTerminarCount(json.data?.sinTerminar ?? 0);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/portal/supervisor/session")
@@ -71,13 +87,8 @@ export function PortalSupervisorClient() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/portal/supervisor/visitas-tecnicas/count")
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.success) setVisitasPendientesCount(json.data?.count ?? 0);
-      })
-      .catch(() => {});
-  }, []);
+    refetchVisitasTecnicasCounts();
+  }, [refetchVisitasTecnicasCounts]);
 
   const ACCENT = "#8b5cf6";
 
@@ -134,7 +145,13 @@ export function PortalSupervisorClient() {
   }
 
   function handleDashboardAction(
-    action: "nueva-visita" | "novedad" | "turno-extra" | "rendicion" | "visita-tecnica"
+    action:
+      | "nueva-visita"
+      | "novedad"
+      | "turno-extra"
+      | "rendicion"
+      | "visita-tecnica"
+      | "visita-tecnica-sin-terminar",
   ) {
     switch (action) {
       case "nueva-visita":
@@ -149,9 +166,16 @@ export function PortalSupervisorClient() {
         setActiveSection("rendiciones");
         break;
       case "visita-tecnica":
+        setVisitaTecnicaListFilter(visitasPendientesCount > 0 ? "programada" : "todos");
         setActiveSection("visita-tecnica");
         setVisitaTecnicaMode("list");
         setVisitaTecnicaFromCard(true);
+        break;
+      case "visita-tecnica-sin-terminar":
+        setVisitaTecnicaListFilter("sin_terminar");
+        setActiveSection("visita-tecnica");
+        setVisitaTecnicaMode("list");
+        setVisitaTecnicaFromCard(false);
         break;
       case "novedad":
         setNovedadTrigger((n) => n + 1);
@@ -188,7 +212,13 @@ export function PortalSupervisorClient() {
     switch (activeSection) {
       case "dashboard":
         return (
-          <SupervisorDashboard session={session!} onAction={handleDashboardAction} onMoreOpen={() => setMoreOpen(true)} visitasPendientes={visitasPendientesCount} />
+          <SupervisorDashboard
+            session={session!}
+            onAction={handleDashboardAction}
+            onMoreOpen={() => setMoreOpen(true)}
+            visitasPendientes={visitasPendientesCount}
+            visitasSinTerminar={visitasSinTerminarCount}
+          />
         );
 
       case "visitas":
@@ -267,10 +297,12 @@ export function PortalSupervisorClient() {
               onBack={() => {
                 setVisitaTecnicaMode("list");
                 setSelectedVisitaTecnicaId(undefined);
+                refetchVisitasTecnicasCounts();
               }}
               onComplete={() => {
                 setVisitaTecnicaMode("list");
                 setSelectedVisitaTecnicaId(undefined);
+                refetchVisitasTecnicasCounts();
               }}
             />
           );
@@ -295,7 +327,7 @@ export function PortalSupervisorClient() {
               const isEditable = ["programada", "borrador", "en_curso"].includes(v.status);
               setVisitaTecnicaMode(isEditable ? "form" : "detail");
             }}
-            initialFilter={visitaTecnicaFromCard && visitasPendientesCount > 0 ? "programada" : "todos"}
+            initialFilter={visitaTecnicaListFilter}
             autoOpenFirstPending={visitaTecnicaFromCard && visitasPendientesCount === 1}
           />
         );
@@ -365,6 +397,7 @@ export function PortalSupervisorClient() {
             setVisitaTecnicaFromCard(false);
           } else {
             setVisitaTecnicaFromCard(false);
+            setVisitaTecnicaListFilter("todos");
           }
           setShowCrearTE(false);
           setShowCrearRendicion(false);
@@ -387,6 +420,7 @@ export function PortalSupervisorClient() {
                   if (id !== "instalaciones") setSelectedInstallation(null);
                   setVisitaTecnicaMode("list");
                   setVisitaTecnicaFromCard(false);
+                  if (id === "visita-tecnica") setVisitaTecnicaListFilter("todos");
                   setShowCrearTE(false);
                   setShowCrearRendicion(false);
                   setMoreOpen(false);
