@@ -17,6 +17,7 @@ export function ensureFontsRegistered(): void {
     family: 'PlusJakartaSans',
     fonts: [
       { src: path.join(fontsDir, 'PlusJakartaSans-Regular.ttf'), fontWeight: 400 },
+      { src: path.join(fontsDir, 'PlusJakartaSans-Regular.ttf'), fontWeight: 400, fontStyle: 'italic' },
       { src: path.join(fontsDir, 'PlusJakartaSans-Medium.ttf'), fontWeight: 500 },
       { src: path.join(fontsDir, 'PlusJakartaSans-SemiBold.ttf'), fontWeight: 600 },
       { src: path.join(fontsDir, 'PlusJakartaSans-Bold.ttf'), fontWeight: 700 },
