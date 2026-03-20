@@ -165,6 +165,10 @@ export async function POST(
         // Keep backward-compatible quoteId field (first sent quote)
         quoteId: firstSent?.quoteId ?? quotes[0].id,
         ...(firstSent || {}),
+        // Explicitly expose WhatsApp fields for the post-send modal (same as send-portal)
+        sentTo: firstSent?.sentTo,
+        whatsappMessage: firstSent?.whatsappMessage,
+        whatsappPhone: firstSent?.whatsappPhone ?? null,
       },
       ...(!anySent ? { error: "Ninguna cotización pudo enviarse. Revisa en el CPQ." } : {}),
     }, { status: anySent ? 200 : 422 });
