@@ -497,6 +497,13 @@ export function RondasPortalClient() {
     setScreen("completada");
   };
 
+  const handleRondaCerradaDesdeLista = useCallback((data: CompletionData) => {
+    setActiveRondaData(null);
+    setActiveEjecucionId(null);
+    setCompletionData(data);
+    setScreen("completada");
+  }, []);
+
   const handleBackToRondas = () => {
     setActiveRondaData(null);
     setActiveEjecucionId(null);
@@ -612,6 +619,7 @@ export function RondasPortalClient() {
             onIniciarRonda={handleIniciarRonda}
             onIniciarRondaLibre={handleIniciarRondaLibre}
             onShowTour={handleShowTour}
+            onRondaCerradaDesdeLista={handleRondaCerradaDesdeLista}
           />
           {loadingRonda && (
             <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60">

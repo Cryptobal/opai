@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import type { RondasSession } from "./RondasPortalClient";
+import type { CompletionData } from "./RondaActiva";
 import type { MapCheckpoint } from "./RondaMap";
 import { HistorialRondaModal } from "./HistorialRondaModal";
 
@@ -52,6 +53,8 @@ interface Props {
   onIniciarRonda: (ejecucionId: string) => void;
   onIniciarRondaLibre: () => void;
   onShowTour?: () => void;
+  /** Tras cerrar desde la lista, navega a pantalla de resumen (misma que al terminar en mapa). */
+  onRondaCerradaDesdeLista?: (data: CompletionData) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -212,7 +215,13 @@ function classifyPendiente(
 // Component
 // ---------------------------------------------------------------------------
 
-export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShowTour }: Props) {
+export function MisRondas({
+  session,
+  onIniciarRonda,
+  onIniciarRondaLibre,
+  onShowTour,
+  onRondaCerradaDesdeLista,
+}: Props) {
   const [rondas, setRondas] = useState<RondaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -227,6 +236,11 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShow
   const [historial, setHistorial] = useState<HistorialItem[]>([]);
   const [historialLoading, setHistorialLoading] = useState(false);
   const [selectedRondaId, setSelectedRondaId] = useState<string | null>(null);
+
+  const [closeModalEjecucionId, setCloseModalEjecucionId] = useState<string | null>(null);
+  const [closeReason, setCloseReason] = useState("");
+  const [closeSubmitting, setCloseSubmitting] = useState(false);
+  const [closeError, setCloseError] = useState("");
 
   const toggleSection = (key: string) =>
     setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -354,6 +368,62 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShow
   // ---- Block free round when scheduled rounds are pending ("listas" / "con_retraso") ----
   const pendingScheduledCount = grouped.listas.length + grouped.con_retraso.length;
   const hasPendingScheduled = pendingScheduledCount > 0;
+  const hasEnCurso = grouped.en_curso.length > 0;
+  const blockIniciarLibre = hasPendingScheduled || hasEnCurso;
+
+  const confirmCerrarRonda = useCallback(async () => {
+    if (!closeModalEjecucionId || !isValidSession(session)) return;
+    const notes = closeReason.trim();
+    if (notes.length < 3) return;
+    setCloseSubmitting(true);
+    setCloseError("");
+    try {
+      const res = await fetch("/api/portal/rondas/completar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ejecucionId: closeModalEjecucionId,
+          guardiaId: session.guardiaId,
+          notes,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        setCloseError(
+          typeof json?.error === "string"
+            ? json.error
+            : `Error del servidor (${res.status})`,
+        );
+        return;
+      }
+      const d = json.data;
+      const completion: CompletionData = {
+        trustScore: d.trustScore ?? 0,
+        trustBreakdown: d.trustBreakdown ?? null,
+        porcentajeCompletado: d.porcentajeCompletado ?? 0,
+        durationMinutes: d.durationMinutes ?? null,
+        missed: d.missed ?? 0,
+        notes: notes || null,
+        checkpoints: d.checkpoints,
+        scheduledAt: d.scheduledAt,
+        startedAt: d.startedAt,
+      };
+      setCloseModalEjecucionId(null);
+      setCloseReason("");
+      onRondaCerradaDesdeLista?.(completion);
+      void fetchRondas();
+    } catch {
+      setCloseError("Error de conexi\u00F3n. Intente de nuevo.");
+    } finally {
+      setCloseSubmitting(false);
+    }
+  }, [
+    closeModalEjecucionId,
+    closeReason,
+    session,
+    fetchRondas,
+    onRondaCerradaDesdeLista,
+  ]);
 
   // ---- Date header ----
   const dateHeader = useMemo(() => {
@@ -431,10 +501,11 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShow
 
         {/* Ad-hoc ronda button */}
         <button
+          type="button"
           onClick={onIniciarRondaLibre}
-          disabled={hasPendingScheduled}
+          disabled={blockIniciarLibre}
           className={`mb-2 flex w-full items-center justify-center gap-2 rounded-xl border py-4 text-lg font-semibold transition-colors ${
-            hasPendingScheduled
+            blockIniciarLibre
               ? "border-gray-700/30 bg-gray-900/20 text-gray-600 cursor-not-allowed opacity-50"
               : "border-teal-700/50 bg-teal-950/30 text-teal-400 hover:bg-teal-900/40 active:bg-teal-900/60"
           }`}
@@ -445,6 +516,16 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShow
           </svg>
           Iniciar Ronda Libre
         </button>
+        {hasEnCurso && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-2 text-sm text-teal-300">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>
+              Tienes una ronda en curso. Finalízala o ciérrala antes de iniciar una ronda libre.
+            </span>
+          </div>
+        )}
         {hasPendingScheduled && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -455,7 +536,7 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShow
             </span>
           </div>
         )}
-        {!hasPendingScheduled && <div className="mb-2" />}
+        {!blockIniciarLibre && <div className="mb-2" />}
 
         {/* Error */}
         {error && (
@@ -585,6 +666,11 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShow
                           sectionKey={section.key}
                           now={now}
                           onIniciar={onIniciarRonda}
+                          onPedirCerrar={(id) => {
+                            setCloseError("");
+                            setCloseReason("");
+                            setCloseModalEjecucionId(id);
+                          }}
                         />
                       ))}
                     </div>
@@ -651,6 +737,64 @@ export function MisRondas({ session, onIniciarRonda, onIniciarRondaLibre, onShow
         </div>
 
       </main>
+
+      {/* Cerrar ronda desde lista (motivo obligatorio) */}
+      {closeModalEjecucionId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-6">
+          <div className="w-full max-w-sm rounded-2xl border border-gray-700 bg-gray-900 p-6">
+            <h2 className="mb-3 text-lg font-semibold text-white">
+              Cerrar ronda
+            </h2>
+            <p className="mb-3 text-sm text-gray-400">
+              Vas a cerrar la ronda antes de marcar todos los puntos. Explica el motivo para dejar registro.
+            </p>
+            <textarea
+              value={closeReason}
+              onChange={(e) => setCloseReason(e.target.value)}
+              placeholder="Ej: Emergencia, acceso cerrado, fin de turno..."
+              maxLength={500}
+              rows={4}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:border-yellow-500 focus:outline-none"
+              disabled={closeSubmitting}
+              autoComplete="off"
+            />
+            <p
+              className={`mb-3 mt-1 text-xs ${
+                closeReason.trim().length > 0 && closeReason.trim().length < 3
+                  ? "text-yellow-500/80"
+                  : "text-transparent"
+              }`}
+            >
+              Mínimo 3 caracteres
+            </p>
+            {closeError && (
+              <p className="mb-3 text-sm text-red-400">{closeError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (closeSubmitting) return;
+                  setCloseModalEjecucionId(null);
+                  setCloseReason("");
+                  setCloseError("");
+                }}
+                className="flex-1 rounded-xl border border-gray-700 bg-gray-800 py-3 text-base font-medium text-gray-300 transition-colors hover:bg-gray-700"
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmCerrarRonda()}
+                disabled={closeSubmitting || closeReason.trim().length < 3}
+                className="flex-1 rounded-xl bg-red-600 py-3 text-base font-semibold text-white transition-colors hover:bg-red-500 disabled:opacity-40"
+              >
+                {closeSubmitting ? "Cerrando..." : "Confirmar cierre"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Detail modal */}
       {selectedRondaId && (
@@ -762,11 +906,13 @@ function RondaCard({
   sectionKey,
   now,
   onIniciar,
+  onPedirCerrar,
 }: {
   ronda: RondaItem;
   sectionKey: SectionKey;
   now: number;
   onIniciar: (ejecucionId: string) => void;
+  onPedirCerrar: (ejecucionId: string) => void;
 }) {
   const isEnCurso = sectionKey === "en_curso";
   const isLista = sectionKey === "listas";
@@ -948,13 +1094,24 @@ function RondaCard({
 
       {/* Action buttons */}
       {isEnCurso && (
-        <button
-          onClick={() => onIniciar(ronda.ejecucionId)}
-          className="mt-1 w-full rounded-xl bg-teal-600 py-4 text-lg font-semibold text-white transition-colors hover:bg-teal-500 active:bg-teal-700"
-          style={{ minHeight: 56 }}
-        >
-          Continuar Ronda
-        </button>
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onIniciar(ronda.ejecucionId)}
+            className="rounded-xl bg-teal-600 py-3.5 text-sm font-semibold leading-tight text-white transition-colors hover:bg-teal-500 active:bg-teal-700 sm:text-base"
+            style={{ minHeight: 52 }}
+          >
+            Continuar ronda
+          </button>
+          <button
+            type="button"
+            onClick={() => onPedirCerrar(ronda.ejecucionId)}
+            className="rounded-xl border-2 border-red-600/80 bg-red-950/40 py-3.5 text-sm font-semibold leading-tight text-red-400 transition-colors hover:bg-red-950/70 active:bg-red-950 sm:text-base"
+            style={{ minHeight: 52 }}
+          >
+            Cerrar ronda
+          </button>
+        </div>
       )}
 
       {isLista && (
