@@ -1992,11 +1992,14 @@ Conoce más sobre nosotros en https://gard.cl`;
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ quoteId }),
                         }).catch(() => {});
-                        // Send via portal
+                        // Send via portal (recipientContactId para asegurar contacto correcto)
                         const res = await fetch(`/api/cpq/quotes/${quoteId}/send-portal`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ followUp: { include: true, targetStageId: null } }),
+                          body: JSON.stringify({
+                            followUp: { include: true, targetStageId: null },
+                            recipientContactId: approvalResult!.contact.id,
+                          }),
                         });
                         const data = await res.json();
                         if (!res.ok || !data.success) throw new Error(data.error || "Error al enviar");
@@ -2008,7 +2011,7 @@ Conoce más sobre nosotros en https://gard.cl`;
                             ? `https://wa.me/${phone}?text=${encodeURIComponent(data.data.whatsappMessage)}`
                             : `https://wa.me/?text=${encodeURIComponent(data.data.whatsappMessage)}`;
                           setWhatsappUrl(waUrl);
-                          setWhatsappSentTo(data.data.sentTo);
+                          setWhatsappSentTo(data.data.sentTo ?? "");
                           setWhatsappModalOpen(true);
                         } else {
                           router.push("/crm/leads");
@@ -2034,29 +2037,37 @@ Conoce más sobre nosotros en https://gard.cl`;
         </DialogContent>
       </Dialog>
 
-      {/* ── WhatsApp Modal (post-send) ── */}
+      {/* ── WhatsApp Modal (post-send) — mismo diseño que portal/CPQ ── */}
       <Dialog open={whatsappModalOpen} onOpenChange={setWhatsappModalOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-              Propuesta enviada
+              <MessageCircle className="h-5 w-5 text-green-400" />
+              ¡Enviado! Ahora por WhatsApp
             </DialogTitle>
-            <DialogDescription>
-              Email enviado a {whatsappSentTo}. El mensaje incluye credenciales de acceso al portal y la propuesta técnica.
-            </DialogDescription>
           </DialogHeader>
+          <div className="py-2 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Email enviado a <strong className="text-foreground">{whatsappSentTo || "el cliente"}</strong>. Haz clic para enviarle el mismo mensaje por WhatsApp.
+            </p>
+            <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-1">
+              <p className="text-xs font-semibold text-green-400 uppercase tracking-wide">El mensaje incluye</p>
+              <p className="text-xs text-muted-foreground">🔑 Email y PIN de acceso al portal</p>
+              <p className="text-xs text-muted-foreground">🔗 Link al portal y a la propuesta técnica</p>
+              <p className="text-xs text-muted-foreground">📋 Beneficios del portal explicados</p>
+            </div>
+          </div>
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             {whatsappUrl && (
               <Button
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                className="w-full gap-2 bg-green-600 hover:bg-green-700 text-white h-11"
                 onClick={() => { window.open(whatsappUrl, "_blank"); setWhatsappModalOpen(false); router.push("/crm/leads"); }}
               >
-                <MessageCircle className="mr-2 h-4 w-4" />
+                <MessageCircle className="h-4 w-4" />
                 Compartir por WhatsApp
               </Button>
             )}
-            <Button variant="outline" className="w-full" onClick={() => { setWhatsappModalOpen(false); router.push("/crm/leads"); }}>
+            <Button variant="ghost" className="w-full text-muted-foreground text-xs" onClick={() => { setWhatsappModalOpen(false); router.push("/crm/leads"); }}>
               Omitir
             </Button>
           </DialogFooter>
