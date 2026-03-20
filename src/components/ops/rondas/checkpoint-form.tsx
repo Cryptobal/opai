@@ -6,6 +6,14 @@ import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MapCoordinatePicker } from "@/components/ui/MapCoordinatePicker";
+import { Switch } from "@/components/ui/switch";
+
+const CHECKPOINT_GEO_MIN = 5;
+const CHECKPOINT_GEO_MAX = 50;
+
+function clampCheckpointGeoM(v: number): number {
+  return Math.min(CHECKPOINT_GEO_MAX, Math.max(CHECKPOINT_GEO_MIN, Math.round(v)));
+}
 
 export interface CheckpointFormValue {
   installationId: string;
@@ -39,7 +47,7 @@ export function CheckpointForm({
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
   const [geoRadiusM, setGeoRadiusM] = useState(30);
-  const [verificationType, setVerificationType] = useState("GEOFENCE");
+  const [requiresQr, setRequiresQr] = useState(false);
   const [isCritical, setIsCritical] = useState(false);
   const [sortOrder, setSortOrder] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -65,8 +73,8 @@ export function CheckpointForm({
             description: description || undefined,
             lat: lat ? Number(lat) : undefined,
             lng: lng ? Number(lng) : undefined,
-            geoRadiusM,
-            verificationType,
+            geoRadiusM: clampCheckpointGeoM(geoRadiusM),
+            verificationType: requiresQr ? "BOTH" : "GEOFENCE",
             isCritical,
             sortOrder,
           });
@@ -75,7 +83,7 @@ export function CheckpointForm({
           setLat("");
           setLng("");
           setGeoRadiusM(30);
-          setVerificationType("GEOFENCE");
+          setRequiresQr(false);
           setIsCritical(false);
           setSortOrder(0);
         } finally {
@@ -101,20 +109,21 @@ export function CheckpointForm({
       </Button>
       <Input
         value={String(geoRadiusM)}
-        onChange={(e) => setGeoRadiusM(Number(e.target.value))}
-        placeholder="Radio metros"
+        onChange={(e) => {
+          const n = Number(e.target.value);
+          if (Number.isNaN(n)) return;
+          setGeoRadiusM(clampCheckpointGeoM(n));
+        }}
+        placeholder={`Radio (${CHECKPOINT_GEO_MIN}–${CHECKPOINT_GEO_MAX} m)`}
         className="h-9"
         type="number"
+        min={CHECKPOINT_GEO_MIN}
+        max={CHECKPOINT_GEO_MAX}
       />
-      <select
-        value={verificationType}
-        onChange={(e) => setVerificationType(e.target.value)}
-        className="h-9 rounded border border-border bg-background px-2 text-sm"
-      >
-        <option value="GEOFENCE">📍 Geocerca</option>
-        <option value="QR">🔲 QR</option>
-        <option value="BOTH">📍🔲 Ambos</option>
-      </select>
+      <div className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 sm:col-span-2">
+        <span className="text-xs text-muted-foreground">Requiere QR en el punto</span>
+        <Switch checked={requiresQr} onCheckedChange={setRequiresQr} />
+      </div>
       <label className="flex items-center gap-2 text-sm h-9">
         <input type="checkbox" checked={isCritical} onChange={(e) => setIsCritical(e.target.checked)} className="rounded" />
         ⚠ Crítico

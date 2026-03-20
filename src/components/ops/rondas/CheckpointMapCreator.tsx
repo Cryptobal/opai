@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { MapPin, Plus, Pencil, Trash2, Download, X, LocateFixed } from "lucide-react";
+import { MapPin, Plus, Minus, Pencil, Trash2, Download, X, LocateFixed } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useGeolocation } from "@/lib/patrullaje/use-geolocation";
 import { CheckpointTasksEditor, type TaskDraft } from "./checkpoint-tasks-editor";
 import QRCode from "qrcode";
@@ -75,25 +76,37 @@ function loadMapsScript(): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
-/* Verification type helpers                                           */
+/* Geo + verification helpers                                         */
 /* ------------------------------------------------------------------ */
 
-const VERIFICATION_TYPES = [
-  { value: "GEOFENCE", label: "Geocerca", icon: "📍", color: "emerald" },
-  { value: "QR", label: "QR", icon: "🔲", color: "blue" },
-  { value: "BOTH", label: "Ambos", icon: "📍🔲", color: "purple" },
-] as const;
+const GEO_RADIUS_MIN = 5;
+const GEO_RADIUS_MAX = 50;
+const DEFAULT_GEO_RADIUS_M = 30;
 
-function verificationBadge(type: string) {
-  const t = VERIFICATION_TYPES.find((v) => v.value === type) ?? VERIFICATION_TYPES[0];
-  const colorMap: Record<string, string> = {
-    emerald: "border-emerald-500/30 text-emerald-500",
-    blue: "border-blue-500/30 text-blue-500",
-    purple: "border-purple-500/30 text-purple-500",
-  };
+function clampGeoRadiusM(m: number): number {
+  return Math.min(GEO_RADIUS_MAX, Math.max(GEO_RADIUS_MIN, Math.round(m)));
+}
+
+function checkpointRequiresQrVerification(type: string): boolean {
+  return type === "BOTH" || type === "QR";
+}
+
+function verificationTypeFromRequiresQr(requiresQr: boolean): string {
+  return requiresQr ? "BOTH" : "GEOFENCE";
+}
+
+function checkpointVerificationBadge(type: string) {
+  const needsQr = checkpointRequiresQrVerification(type);
   return (
-    <Badge variant="outline" className={colorMap[t.color]}>
-      {t.icon} {t.label}
+    <Badge
+      variant="outline"
+      className={
+        needsQr
+          ? "border-violet-500/30 text-violet-500"
+          : "border-emerald-500/30 text-emerald-500"
+      }
+    >
+      {needsQr ? "🔲 Con QR" : "📍 Solo geocerca"}
     </Badge>
   );
 }
@@ -135,8 +148,8 @@ export function CheckpointMapCreator({
   const [draftLat, setDraftLat] = useState<number | null>(null);
   const [draftLng, setDraftLng] = useState<number | null>(null);
   const [draftName, setDraftName] = useState("");
-  const [draftVerificationType, setDraftVerificationType] = useState("GEOFENCE");
-  const [draftRadius, setDraftRadius] = useState(10);
+  const [draftRequiresQr, setDraftRequiresQr] = useState(false);
+  const [draftRadius, setDraftRadius] = useState(DEFAULT_GEO_RADIUS_M);
   const [draftCritical, setDraftCritical] = useState(false);
   const [draftInstrucciones, setDraftInstrucciones] = useState("");
   const [draftTasks, setDraftTasks] = useState<TaskDraft[]>([]);
@@ -175,6 +188,7 @@ export function CheckpointMapCreator({
         streetViewControl: false,
         fullscreenControl: true,
         mapTypeControl: true,
+        zoomControl: false,
         styles: [
           { featureType: "poi", stylers: [{ visibility: "off" }] },
         ],
@@ -284,8 +298,8 @@ export function CheckpointMapCreator({
 
     setEditingCheckpointId(cp.id);
     setDraftName(cp.name);
-    setDraftVerificationType(cp.verificationType);
-    setDraftRadius(cp.geoRadiusM);
+    setDraftRequiresQr(checkpointRequiresQrVerification(cp.verificationType));
+    setDraftRadius(clampGeoRadiusM(cp.geoRadiusM));
     setDraftCritical(cp.isCritical);
     setDraftInstrucciones(cp.instrucciones ?? "");
     setDraftLat(cp.lat ?? null);
@@ -501,8 +515,8 @@ export function CheckpointMapCreator({
     setDraftLat(null);
     setDraftLng(null);
     setDraftName("");
-    setDraftVerificationType("GEOFENCE");
-    setDraftRadius(10);
+    setDraftRequiresQr(false);
+    setDraftRadius(DEFAULT_GEO_RADIUS_M);
     setDraftCritical(false);
     setDraftInstrucciones("");
     setDraftTasks([]);
@@ -566,7 +580,7 @@ export function CheckpointMapCreator({
           lat: draftLat,
           lng: draftLng,
           geoRadiusM: draftRadius,
-          verificationType: draftVerificationType,
+          verificationType: verificationTypeFromRequiresQr(draftRequiresQr),
           isCritical: draftCritical,
           instrucciones: draftInstrucciones.trim() || undefined,
         });
@@ -579,7 +593,7 @@ export function CheckpointMapCreator({
           lat: draftLat,
           lng: draftLng,
           geoRadiusM: draftRadius,
-          verificationType: draftVerificationType,
+          verificationType: verificationTypeFromRequiresQr(draftRequiresQr),
           isCritical: draftCritical,
           instrucciones: draftInstrucciones.trim() || undefined,
         });
@@ -649,6 +663,14 @@ export function CheckpointMapCreator({
     }
   };
 
+  const adjustMapZoom = useCallback((delta: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const z = map.getZoom();
+    if (z == null) return;
+    map.setZoom(Math.max(1, Math.min(22, z + delta)));
+  }, []);
+
   if (!MAPS_KEY) {
     return (
       <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
@@ -677,24 +699,14 @@ export function CheckpointMapCreator({
           autoFocus={!isMobile}
         />
 
-        <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Verificación</label>
-          <div className="flex gap-1">
-            {VERIFICATION_TYPES.map((vt) => (
-              <button
-                key={vt.value}
-                type="button"
-                onClick={() => setDraftVerificationType(vt.value)}
-                className={`flex-1 rounded border px-2 py-2 text-xs transition-colors touch-manipulation ${
-                  draftVerificationType === vt.value
-                    ? "border-primary/40 bg-primary/10 text-foreground"
-                    : "border-border text-muted-foreground hover:border-border/60"
-                }`}
-              >
-                {vt.icon} {vt.label}
-              </button>
-            ))}
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 touch-manipulation">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-foreground">Requiere escanear QR</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+              Siempre se valida por geocerca. Activa esto si en el punto deben leer el código QR.
+            </p>
           </div>
+          <Switch checked={draftRequiresQr} onCheckedChange={setDraftRequiresQr} className="shrink-0" />
         </div>
 
         <div>
@@ -703,16 +715,16 @@ export function CheckpointMapCreator({
           </label>
           <input
             type="range"
-            min={10}
-            max={500}
-            step={5}
+            min={GEO_RADIUS_MIN}
+            max={GEO_RADIUS_MAX}
+            step={1}
             value={draftRadius}
-            onChange={(e) => setDraftRadius(Number(e.target.value))}
+            onChange={(e) => setDraftRadius(clampGeoRadiusM(Number(e.target.value)))}
             className="w-full accent-primary touch-manipulation"
           />
           <div className="flex justify-between text-[10px] text-muted-foreground">
-            <span>10m</span>
-            <span>500m</span>
+            <span>{GEO_RADIUS_MIN}m</span>
+            <span>{GEO_RADIUS_MAX}m</span>
           </div>
         </div>
 
@@ -795,6 +807,29 @@ export function CheckpointMapCreator({
             ref={mapContainerRef}
             className="w-full rounded-lg border border-border min-h-[400px] h-[calc(100vh-280px)]"
           />
+          {/* Zoom +/− (evita solaparse con controles nativos; Mi ubicación queda a la izquierda) */}
+          <div className="pointer-events-none absolute inset-0 z-10">
+            <div className="pointer-events-auto absolute right-3 bottom-24 flex flex-col gap-1.5">
+              <button
+                type="button"
+                title="Acercar"
+                aria-label="Acercar mapa"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white shadow-md text-gray-800 transition-colors hover:bg-gray-50 active:bg-gray-100"
+                onClick={() => adjustMapZoom(1)}
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                title="Alejar"
+                aria-label="Alejar mapa"
+                className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white shadow-md text-gray-800 transition-colors hover:bg-gray-50 active:bg-gray-100"
+                onClick={() => adjustMapZoom(-1)}
+              >
+                <Minus className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
           {/* Locate me button */}
           <button
             type="button"
@@ -895,7 +930,7 @@ export function CheckpointMapCreator({
                 </div>
 
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  {verificationBadge(cp.verificationType)}
+                  {checkpointVerificationBadge(cp.verificationType)}
                   <span>{cp.geoRadiusM}m</span>
                   {cp.lat != null && cp.lng != null && (
                     <span className="truncate">

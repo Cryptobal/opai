@@ -10,7 +10,7 @@ export const checkpointSchema = z.object({
   qrCode: z.string().trim().min(4).max(32).optional().nullable(),
   lat: z.number().optional().nullable(),
   lng: z.number().optional().nullable(),
-  geoRadiusM: z.number().int().min(10).max(500).default(30),
+  geoRadiusM: z.number().int().min(5).max(50).default(30),
   verificationType: z.enum(["GEOFENCE", "QR", "BOTH"]).default("GEOFENCE"),
   isCritical: z.boolean().default(false),
   sortOrder: z.number().int().min(0).default(0),
