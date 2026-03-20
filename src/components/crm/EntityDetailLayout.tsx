@@ -79,6 +79,8 @@ export interface EntityDetailLayoutProps {
   rightPanel?: ReactNode;
   /** Optional pipeline bar rendered between header and tabs */
   pipelineBar?: ReactNode;
+  /** Thin row inside the sticky block, below tabs (e.g. totals + sync status) */
+  stickyMeta?: ReactNode;
   /** Called when the avatar is clicked (e.g. to upload a photo/logo) */
   onAvatarClick?: () => void;
   /** Additional class on the root container */
@@ -113,6 +115,7 @@ export function EntityDetailLayout({
   subTabs,
   rightPanel,
   pipelineBar,
+  stickyMeta,
   onAvatarClick,
   className,
 }: EntityDetailLayoutProps) {
@@ -307,6 +310,10 @@ export function EntityDetailLayout({
           compact
           centered={false}
         />
+
+        {stickyMeta ? (
+          <div className="border-t border-border/50 bg-muted/15 px-0 py-2 -mb-px">{stickyMeta}</div>
+        ) : null}
 
         {/* ── Sub-tabs (inside sticky) ── */}
         {subTabs}

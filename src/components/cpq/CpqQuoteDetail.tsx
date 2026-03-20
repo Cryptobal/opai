@@ -642,6 +642,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         throw new Error(data?.error || "Error");
       }
       if (data.data) setCostSummary(data.data);
+      setLastSavedAt(new Date());
     } catch (error) {
       console.error("Error saving financials:", error);
       setFinancialError("No se pudieron guardar los financieros.");
@@ -1101,13 +1102,16 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
     return map;
   }, [positions, positionSalePrices, monthlyHours]);
 
-  const saveLabel = savingQuote
-    ? "Guardando..."
-    : quoteDirty
-    ? "Cambios sin guardar"
-    : lastSavedAt
-    ? `Guardado ${formatTime(lastSavedAt)}`
-    : "Sin cambios";
+  const headerPersistLabel =
+    savingQuote || savingFinancials
+      ? "Guardando..."
+      : quoteDirty
+        ? "Cambios sin guardar"
+        : lastSavedAt
+          ? `Guardado ${formatTime(lastSavedAt)}`
+          : "Sin cambios";
+
+  const billingMonthlyTotal = salePriceMonthly + additionalLinesTotal;
 
   const handleMarginChange = async (newMargin: number) => {
     setMarginPct(newMargin);
@@ -1328,6 +1332,25 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               </>
             )}
           </div>
+        </div>
+      </div>
+      <div className="mt-1.5 pt-1.5 border-t border-border/40 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-[10px] sm:text-[11px] text-muted-foreground flex items-center gap-1.5 min-w-0">
+          {!isLocked && (savingQuote || savingFinancials) && (
+            <Loader2 className="h-3 w-3 animate-spin shrink-0 text-muted-foreground" aria-hidden />
+          )}
+          <span className="leading-tight">{headerPersistLabel}</span>
+        </div>
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 text-[11px] sm:text-xs tabular-nums">
+          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">
+            Total / mes
+          </span>
+          <span className="font-semibold text-foreground">{formatCurrency(billingMonthlyTotal)}</span>
+          {ufValue != null && ufValue > 0 && (
+            <span className="font-medium text-emerald-600 dark:text-emerald-400">
+              {(billingMonthlyTotal / ufValue).toFixed(2)} UF
+            </span>
+          )}
         </div>
       </div>
       </div>{/* end sticky header */}

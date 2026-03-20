@@ -61,6 +61,8 @@ import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons"
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
 import { LeadInstallationCpq, createDefaultLeadCpqConfig, type LeadCpqConfig } from "./LeadInstallationCpq";
 import { SERVICE_TYPES } from "@/lib/constants";
+import { computeLeadCpqMonthlySaleClp } from "@/lib/crm/lead-cpq-monthly-total";
+import { formatCurrency } from "@/components/cpq/utils";
 
 /* ─── Truncated text helper ─── */
 
@@ -230,6 +232,65 @@ function createEmptyDotacion(
   };
 }
 
+type InstallationCatalogDefaults = {
+  puestoId: string;
+  puestoName: string;
+  cargoId: string;
+  rolId: string;
+};
+
+function parseDotacionItemFromMeta(raw: unknown, defaults: InstallationCatalogDefaults): DotacionItem {
+  if (!raw || typeof raw !== "object") {
+    return createEmptyDotacion(defaults.cargoId, defaults.rolId, defaults.puestoId, defaults.puestoName);
+  }
+  const d = raw as Record<string, unknown>;
+  return {
+    puestoTrabajoId: typeof d.puestoTrabajoId === "string" ? d.puestoTrabajoId : defaults.puestoId,
+    puesto: typeof d.puesto === "string" ? d.puesto : defaults.puestoName,
+    customName: typeof d.customName === "string" && d.customName.trim() ? d.customName : undefined,
+    cargoId: typeof d.cargoId === "string" ? d.cargoId : defaults.cargoId,
+    rolId: typeof d.rolId === "string" ? d.rolId : defaults.rolId,
+    baseSalary: typeof d.baseSalary === "number" && d.baseSalary > 0 ? d.baseSalary : 550000,
+    shiftType: d.shiftType === "night" ? "night" : "day",
+    cantidad: typeof d.cantidad === "number" && d.cantidad > 0 ? Math.floor(d.cantidad) : 1,
+    numPuestos:
+      typeof d.numPuestos === "number" && Number.isFinite(d.numPuestos) && d.numPuestos > 0
+        ? Math.floor(d.numPuestos)
+        : 1,
+    horaInicio: typeof d.horaInicio === "string" ? normalizeTimeToHHmm(d.horaInicio, "08:00") : "08:00",
+    horaFin: typeof d.horaFin === "string" ? normalizeTimeToHHmm(d.horaFin, "20:00") : "20:00",
+    dias: Array.isArray(d.dias) ? normalizeLeadDias(d.dias as string[]) : [...WEEKDAYS],
+  };
+}
+
+function parseInstallationsDraftFromMetadata(
+  raw: unknown,
+  catalogDefaults: InstallationCatalogDefaults
+): InstallationDraft[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  try {
+    return raw.map((item) => {
+      if (!item || typeof item !== "object") throw new Error("invalid");
+      const o = item as Record<string, unknown>;
+      const _key = typeof o._key === "string" && o._key.trim() ? o._key : newInstallationKey();
+      const dotacionRaw = Array.isArray(o.dotacion) ? o.dotacion : [];
+      const dotacion = dotacionRaw.map((dr) => parseDotacionItemFromMeta(dr, catalogDefaults));
+      return {
+        _key,
+        name: typeof o.name === "string" ? o.name : "",
+        address: typeof o.address === "string" ? o.address : "",
+        city: typeof o.city === "string" ? o.city : "",
+        commune: typeof o.commune === "string" ? o.commune : "",
+        lat: typeof o.lat === "number" ? o.lat : undefined,
+        lng: typeof o.lng === "number" ? o.lng : undefined,
+        dotacion,
+      };
+    });
+  } catch {
+    return null;
+  }
+}
+
 const GENERIC_EMAIL_DOMAINS = new Set([
   "gmail.com", "googlemail.com", "hotmail.com", "outlook.com", "outlook.es",
   "yahoo.com", "yahoo.es", "live.com", "live.cl", "msn.com",
@@ -264,6 +325,46 @@ type ApproveFormState = {
   companyInfo: string;
   notes: string;
 };
+
+function buildLeadDraftPatchPayload(
+  leadRow: CrmLead,
+  approveForm: ApproveFormState,
+  selectedCostGroups: string[],
+  cpqConfigs: Record<string, LeadCpqConfig>,
+  installations: InstallationDraft[]
+): Record<string, unknown> {
+  const baseMeta =
+    leadRow.metadata && typeof leadRow.metadata === "object" && !Array.isArray(leadRow.metadata)
+      ? { ...(leadRow.metadata as Record<string, unknown>) }
+      : {};
+  return {
+    companyName: approveForm.accountName.trim() || null,
+    firstName: approveForm.contactFirstName.trim() || null,
+    lastName: approveForm.contactLastName.trim() || null,
+    email: approveForm.email.trim() || null,
+    phone: approveForm.phone.trim() || null,
+    notes: approveForm.notes.trim() || null,
+    industry: approveForm.industry.trim() || null,
+    website: approveForm.website.trim() || null,
+    status: "in_review",
+    metadata: {
+      ...baseMeta,
+      approveFormDraft: {
+        rut: approveForm.rut,
+        legalName: approveForm.legalName,
+        legalRepresentativeName: approveForm.legalRepresentativeName,
+        legalRepresentativeRut: approveForm.legalRepresentativeRut,
+        segment: approveForm.segment,
+        roleTitle: approveForm.roleTitle,
+        dealTitle: approveForm.dealTitle,
+        companyInfo: approveForm.companyInfo,
+        selectedCostGroups,
+      },
+      cpqConfigs,
+      installationsDraft: installations,
+    },
+  };
+}
 
 type DuplicateAccount = { id: string; name: string; rut?: string | null; type?: string };
 type ExistingContact = { id: string; firstName: string | null; lastName: string | null; email: string | null };
@@ -340,6 +441,8 @@ function getSourceLabel(source: string | null | undefined): string {
 export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const router = useRouter();
   const [lead, setLead] = useState<CrmLead>(initialLead);
+  const leadRef = useRef(lead);
+  leadRef.current = lead;
   const isEditable = lead.status === "pending" || lead.status === "in_review";
 
   // ─── Approve form state ───
@@ -382,54 +485,226 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
   const [detectedCompanyLogoUrl, setDetectedCompanyLogoUrl] = useState<string | null>(null);
 
-  // ─── Autosave CPQ configs (debounced 3s) ───
+  // ─── Autosave borrador completo (todas las pestañas editables, debounced ~2,5s) ───
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const initialLoadDone = useRef(false);
-  const lastSavedJson = useRef<string>("");
+  const fullAutosaveBoot = useRef(true);
+  const lastAutosavedFingerprint = useRef<string>("");
+  const lastLeadIdForAutosave = useRef(lead.id);
   const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "pending" | "saving" | "saved" | "error">("idle");
   const autoSaveStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const autoSaveCpqConfigs = useCallback(async (configs: Record<string, LeadCpqConfig>) => {
-    if (!lead.id || !isEditable) return;
-    const json = JSON.stringify(configs);
-    if (json === lastSavedJson.current) return;
-    lastSavedJson.current = json;
-    setAutoSaveStatus("saving");
-    try {
-      const currentMeta = (lead.metadata && typeof lead.metadata === "object") ? lead.metadata as Record<string, unknown> : {};
-      const res = await fetch(`/api/crm/leads/${lead.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          metadata: { ...currentMeta, cpqConfigs: configs },
-        }),
-      });
-      if (res.ok) {
-        setAutoSaveStatus("saved");
-        if (autoSaveStatusTimer.current) clearTimeout(autoSaveStatusTimer.current);
-        autoSaveStatusTimer.current = setTimeout(() => setAutoSaveStatus("idle"), 2500);
-      } else {
-        setAutoSaveStatus("error");
-      }
-    } catch {
-      setAutoSaveStatus("error");
+  useEffect(() => {
+    if (lastLeadIdForAutosave.current !== lead.id) {
+      lastLeadIdForAutosave.current = lead.id;
+      fullAutosaveBoot.current = true;
+      lastAutosavedFingerprint.current = "";
     }
-  }, [lead.id, lead.metadata, isEditable]);
+  }, [lead.id]);
+
+  const draftAutosaveRef = useRef({
+    approveForm,
+    selectedCostGroups,
+    cpqConfigs,
+    installations,
+  });
+  draftAutosaveRef.current = { approveForm, selectedCostGroups, cpqConfigs, installations };
+
+  const leadDraftFingerprint = useMemo(
+    () =>
+      JSON.stringify({
+        approveForm,
+        selectedCostGroups,
+        cpqConfigs,
+        installations,
+      }),
+    [approveForm, selectedCostGroups, cpqConfigs, installations]
+  );
 
   useEffect(() => {
-    if (!initialLoadDone.current) {
-      initialLoadDone.current = true;
-      lastSavedJson.current = JSON.stringify(cpqConfigs);
+    if (!isEditable || !lead.id) return;
+
+    if (fullAutosaveBoot.current) {
+      fullAutosaveBoot.current = false;
+      lastAutosavedFingerprint.current = leadDraftFingerprint;
       return;
     }
-    if (Object.keys(cpqConfigs).length === 0) return;
+
+    if (leadDraftFingerprint === lastAutosavedFingerprint.current) return;
+
     setAutoSaveStatus("pending");
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+
     autoSaveTimer.current = setTimeout(() => {
-      autoSaveCpqConfigs(cpqConfigs);
-    }, 3000);
-    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
-  }, [cpqConfigs, autoSaveCpqConfigs]);
+      void (async () => {
+        const snapshot = draftAutosaveRef.current;
+        const leadRow = leadRef.current;
+        const fp = JSON.stringify(snapshot);
+        if (fp === lastAutosavedFingerprint.current) {
+          setAutoSaveStatus("idle");
+          return;
+        }
+
+        setAutoSaveStatus("saving");
+        try {
+          const body = buildLeadDraftPatchPayload(
+            leadRow,
+            snapshot.approveForm,
+            snapshot.selectedCostGroups,
+            snapshot.cpqConfigs,
+            snapshot.installations
+          );
+          const res = await fetch(`/api/crm/leads/${lead.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const data = (await res.json().catch(() => ({}))) as {
+            success?: boolean;
+            data?: CrmLead;
+            error?: string;
+          };
+          if (!res.ok || !data.success || !data.data) {
+            setAutoSaveStatus("error");
+            return;
+          }
+          setLead((prev) => ({ ...prev, ...data.data }));
+          lastAutosavedFingerprint.current = fp;
+          setAutoSaveStatus("saved");
+          if (autoSaveStatusTimer.current) clearTimeout(autoSaveStatusTimer.current);
+          autoSaveStatusTimer.current = setTimeout(() => setAutoSaveStatus("idle"), 2500);
+        } catch {
+          setAutoSaveStatus("error");
+        }
+      })();
+    }, 2500);
+
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [leadDraftFingerprint, isEditable, lead.id]);
+
+  // ─── Aggregated CPQ monthly total (all installations) for sticky header ───
+  const [leadCpqMonthlyTotalClp, setLeadCpqMonthlyTotalClp] = useState<number | null>(null);
+  const [leadCpqTotalsLoading, setLeadCpqTotalsLoading] = useState(false);
+  const cpqTotalsSerializeKey = useMemo(() => JSON.stringify(cpqConfigs), [cpqConfigs]);
+  const hasCpqPositions = useMemo(
+    () => Object.values(cpqConfigs).some((c) => c && c.positions.length > 0),
+    [cpqConfigs]
+  );
+
+  useEffect(() => {
+    const keys = Object.keys(cpqConfigs);
+    if (keys.length === 0 || !hasCpqPositions) {
+      setLeadCpqMonthlyTotalClp(null);
+      setLeadCpqTotalsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLeadCpqTotalsLoading(true);
+
+    const t = setTimeout(() => {
+      void (async () => {
+        try {
+          const parts = await Promise.all(
+            keys.map(async (key) => {
+              const cfg = cpqConfigs[key];
+              if (!cfg || cfg.positions.length === 0) return 0;
+              const res = await fetch("/api/crm/leads/employer-cost-preview", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  positions: cfg.positions.map((p) => ({
+                    baseSalary: Number(p.baseSalary) || 550000,
+                  })),
+                  ufValue: ufValue ?? undefined,
+                }),
+              });
+              const json = await res.json();
+              if (!json.success || !Array.isArray(json.data?.items)) return 0;
+              const items = json.data.items.map((it: { employerCostPerGuard: number }) => ({
+                employerCostPerGuard: Number(it.employerCostPerGuard) || 0,
+              }));
+              return computeLeadCpqMonthlySaleClp(cfg, items);
+            })
+          );
+          if (!cancelled) setLeadCpqMonthlyTotalClp(parts.reduce((a, b) => a + b, 0));
+        } catch {
+          if (!cancelled) setLeadCpqMonthlyTotalClp(null);
+        } finally {
+          if (!cancelled) setLeadCpqTotalsLoading(false);
+        }
+      })();
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [cpqTotalsSerializeKey, ufValue, hasCpqPositions]);
+
+  const leadStickyMeta = useMemo(() => {
+    if (!hasCpqPositions && !leadCpqTotalsLoading) return null;
+    const uf = ufValue && ufValue > 0 ? ufValue : null;
+    return (
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3 px-0">
+        <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium uppercase tracking-wide">
+          Total mensual estimado (suma instalaciones)
+        </span>
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 text-[11px] sm:text-xs tabular-nums">
+          {leadCpqTotalsLoading ? (
+            <span className="text-muted-foreground inline-flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin shrink-0" aria-hidden />
+              Calculando…
+            </span>
+          ) : leadCpqMonthlyTotalClp != null ? (
+            <>
+              <span className="font-semibold text-foreground">{formatCurrency(leadCpqMonthlyTotalClp)}</span>
+              {uf ? (
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                  {(leadCpqMonthlyTotalClp / uf).toFixed(2)} UF
+                </span>
+              ) : (
+                <span className="text-muted-foreground">UF: —</span>
+              )}
+            </>
+          ) : (
+            <span className="text-muted-foreground">No disponible</span>
+          )}
+        </div>
+      </div>
+    );
+  }, [
+    hasCpqPositions,
+    leadCpqTotalsLoading,
+    leadCpqMonthlyTotalClp,
+    ufValue,
+  ]);
+
+  const headerAutosaveIndicator = isEditable ? (
+    autoSaveStatus !== "idle" ? (
+      <div
+        className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-2 py-1 text-[10px] text-muted-foreground tabular-nums"
+        title="Autoguardado del borrador (Cuenta, Contacto, Negocio, Instalaciones, CPQ…), ~2,5 s después del último cambio."
+      >
+        {autoSaveStatus === "pending" && <span className="text-amber-500">●</span>}
+        {autoSaveStatus === "pending" && <span className="hidden min-[400px]:inline">Cambios…</span>}
+        {autoSaveStatus === "saving" && <Loader2 className="h-3 w-3 animate-spin shrink-0" aria-hidden />}
+        {autoSaveStatus === "saving" && <span>Guardando</span>}
+        {autoSaveStatus === "saved" && <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" aria-hidden />}
+        {autoSaveStatus === "saved" && <span className="text-emerald-600 dark:text-emerald-400">Guardado</span>}
+        {autoSaveStatus === "error" && <span className="text-destructive">Error</span>}
+      </div>
+    ) : (
+      <div
+        className="hidden md:flex items-center gap-1 text-[10px] text-muted-foreground/70 px-1"
+        title="El borrador se guarda solo en todas las pestañas editables. También puedes usar «Guardar en revisión»."
+      >
+        <CheckCircle2 className="h-3 w-3 opacity-40" aria-hidden />
+        <span>Autosave activo</span>
+      </div>
+    )
+  ) : null;
 
   // ─── Approval success modal state ───
   const [approvalResult, setApprovalResult] = useState<{
@@ -614,50 +889,61 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       setCpqConfigs(savedCpqConfigs);
     }
 
-    // Build installations from lead data
-    const leadLat = meta?.lat as number | undefined;
-    const leadLng = meta?.lng as number | undefined;
-    const leadAddress = ((lead as any).address || "").trim();
-    const leadCommune = ((lead as any).commune || "").trim();
-    const leadCity = ((lead as any).city || "").trim();
-    const instAddress = leadAddress || [leadCommune, leadCity].filter(Boolean).join(", ");
-    const firstInst = createEmptyInstallation(
-      lead.companyName || "",
-      instAddress,
-      leadCity,
-      leadCommune,
-    );
-    if (leadLat != null) firstInst.lat = leadLat;
-    if (leadLng != null) firstInst.lng = leadLng;
-    const hasUsefulSchedule = (d: DotacionItem): boolean => {
-      const start = normalizeTimeToHHmm(d.horaInicio, "");
-      const end = normalizeTimeToHHmm(d.horaFin, "");
-      if (!start || !end) return false;
-      if (start === "00:00" && end === "00:00") return false;
-      return true;
+    const catalogDefaults: InstallationCatalogDefaults = {
+      puestoId: defaultPuesto.id,
+      puestoName: defaultPuesto.name,
+      cargoId: defaultCargoId,
+      rolId: defaultRolId,
     };
-    firstInst.dotacion = leadDotacion.map((d) => {
-      const useLeadSchedule = hasUsefulSchedule(d);
-      const shiftType = useLeadSchedule ? inferShiftType(d.horaInicio || "08:00", d.horaFin || "20:00") : "day";
-      return {
-        puestoTrabajoId: defaultPuesto.id,
-        puesto: defaultPuesto.name,
-        customName: typeof d.customName === "string" && d.customName.trim().length > 0 ? d.customName : defaultPuesto.name,
-        cargoId: defaultCargoId,
-        rolId: defaultRolId,
-        baseSalary: typeof d.baseSalary === "number" && d.baseSalary > 0 ? d.baseSalary : 550000,
-        shiftType,
-        cantidad: d.cantidad || 1,
-        numPuestos:
-          typeof d.numPuestos === "number" && Number.isFinite(d.numPuestos) && d.numPuestos > 0
-            ? Math.floor(d.numPuestos)
-            : 1,
-        horaInicio: useLeadSchedule ? normalizeTimeToHHmm(d.horaInicio, "08:00") : "08:00",
-        horaFin: useLeadSchedule ? normalizeTimeToHHmm(d.horaFin, "20:00") : "20:00",
-        dias: useLeadSchedule ? normalizeLeadDias(d.dias) : [...WEEKDAYS],
+    const fromInstallationsDraft = parseInstallationsDraftFromMetadata(meta?.installationsDraft, catalogDefaults);
+    if (fromInstallationsDraft && fromInstallationsDraft.length > 0) {
+      setInstallations(fromInstallationsDraft);
+    } else {
+      // Build installations from lead data (primer ingreso / sin borrador guardado)
+      const leadLat = meta?.lat as number | undefined;
+      const leadLng = meta?.lng as number | undefined;
+      const leadAddress = ((lead as any).address || "").trim();
+      const leadCommune = ((lead as any).commune || "").trim();
+      const leadCity = ((lead as any).city || "").trim();
+      const instAddress = leadAddress || [leadCommune, leadCity].filter(Boolean).join(", ");
+      const firstInst = createEmptyInstallation(
+        lead.companyName || "",
+        instAddress,
+        leadCity,
+        leadCommune,
+      );
+      if (leadLat != null) firstInst.lat = leadLat;
+      if (leadLng != null) firstInst.lng = leadLng;
+      const hasUsefulSchedule = (d: DotacionItem): boolean => {
+        const start = normalizeTimeToHHmm(d.horaInicio, "");
+        const end = normalizeTimeToHHmm(d.horaFin, "");
+        if (!start || !end) return false;
+        if (start === "00:00" && end === "00:00") return false;
+        return true;
       };
-    });
-    setInstallations([firstInst]);
+      firstInst.dotacion = leadDotacion.map((d) => {
+        const useLeadSchedule = hasUsefulSchedule(d);
+        const shiftType = useLeadSchedule ? inferShiftType(d.horaInicio || "08:00", d.horaFin || "20:00") : "day";
+        return {
+          puestoTrabajoId: defaultPuesto.id,
+          puesto: defaultPuesto.name,
+          customName: typeof d.customName === "string" && d.customName.trim().length > 0 ? d.customName : defaultPuesto.name,
+          cargoId: defaultCargoId,
+          rolId: defaultRolId,
+          baseSalary: typeof d.baseSalary === "number" && d.baseSalary > 0 ? d.baseSalary : 550000,
+          shiftType,
+          cantidad: d.cantidad || 1,
+          numPuestos:
+            typeof d.numPuestos === "number" && Number.isFinite(d.numPuestos) && d.numPuestos > 0
+              ? Math.floor(d.numPuestos)
+              : 1,
+          horaInicio: useLeadSchedule ? normalizeTimeToHHmm(d.horaInicio, "08:00") : "08:00",
+          horaFin: useLeadSchedule ? normalizeTimeToHHmm(d.horaFin, "20:00") : "20:00",
+          dias: useLeadSchedule ? normalizeLeadDias(d.dias) : [...WEEKDAYS],
+        };
+      });
+      setInstallations([firstInst]);
+    }
     setDetectedCompanyLogoUrl(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.id, isEditable]);
@@ -898,29 +1184,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const saveLeadDraft = async () => {
     setSavingLead(true);
     try {
-      const payload: Record<string, unknown> = {
-        companyName: approveForm.accountName.trim() || null,
-        firstName: approveForm.contactFirstName.trim() || null,
-        lastName: approveForm.contactLastName.trim() || null,
-        email: approveForm.email.trim() || null,
-        phone: approveForm.phone.trim() || null,
-        notes: approveForm.notes.trim() || null,
-        industry: approveForm.industry.trim() || null,
-        website: approveForm.website.trim() || null,
-        status: "in_review",
-        metadata: {
-          ...(lead.metadata && typeof lead.metadata === "object" ? lead.metadata : {}),
-          approveFormDraft: {
-            rut: approveForm.rut, legalName: approveForm.legalName,
-            legalRepresentativeName: approveForm.legalRepresentativeName,
-            legalRepresentativeRut: approveForm.legalRepresentativeRut,
-            segment: approveForm.segment, roleTitle: approveForm.roleTitle,
-            dealTitle: approveForm.dealTitle, companyInfo: approveForm.companyInfo,
-            selectedCostGroups,
-          },
-          cpqConfigs,
-        },
-      };
+      const payload = buildLeadDraftPatchPayload(lead, approveForm, selectedCostGroups, cpqConfigs, installations);
       const res = await fetch(`/api/crm/leads/${lead.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -929,6 +1193,12 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Error al guardar");
       setLead((prev) => ({ ...prev, ...data.data }));
+      lastAutosavedFingerprint.current = JSON.stringify({
+        approveForm,
+        selectedCostGroups,
+        cpqConfigs,
+        installations,
+      });
       toast.success("Lead guardado en revisión");
     } catch (error) {
       console.error(error);
@@ -1700,14 +1970,6 @@ Conoce más sobre nosotros en https://gard.cl`;
     // TAB: Installations & Dotación
     const installationsContent = (
         <div className="space-y-4 pb-52 sm:pb-40 lg:pb-32 rounded-lg border border-border bg-card p-4 sm:p-5">
-          {autoSaveStatus !== "idle" && (
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground justify-end -mt-1 mb-1">
-              {autoSaveStatus === "pending" && <span className="text-amber-500">● Cambios sin guardar</span>}
-              {autoSaveStatus === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> Guardando...</>}
-              {autoSaveStatus === "saved" && <><CheckCircle2 className="h-3 w-3 text-emerald-500" /> Guardado</>}
-              {autoSaveStatus === "error" && <span className="text-destructive">Error al guardar</span>}
-            </div>
-          )}
           {installations.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">Sin instalaciones. Agrega una para asignar dotación.</p>
           )}
@@ -1814,22 +2076,28 @@ Conoce más sobre nosotros en https://gard.cl`;
           title: lead.companyName || fullName,
           status: statusInfo,
           actions: headerActions,
-          extra: lead.phone ? (
-            <div className="flex items-center gap-1.5">
-              <a href={`tel:+${sanitizePhone(lead.phone || "")}`} title="Llamar"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors">
-                <Phone className="h-4 w-4" />
-              </a>
-              <a href={buildWhatsAppUrl()} target="_blank" rel="noopener noreferrer" title="WhatsApp"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-green-600/30 bg-green-600/15 text-green-400 hover:bg-green-600/25 transition-colors">
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
-              </a>
+          extra: (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {headerAutosaveIndicator}
+              {lead.phone ? (
+                <div className="flex items-center gap-1.5">
+                  <a href={`tel:+${sanitizePhone(lead.phone || "")}`} title="Llamar"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors">
+                    <Phone className="h-4 w-4" />
+                  </a>
+                  <a href={buildWhatsAppUrl()} target="_blank" rel="noopener noreferrer" title="WhatsApp"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-green-600/30 bg-green-600/15 text-green-400 hover:bg-green-600/25 transition-colors">
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+                  </a>
+                </div>
+              ) : null}
             </div>
-          ) : undefined,
+          ),
         }}
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        stickyMeta={leadStickyMeta}
       >
         {activeTab === "general" && generalContent}
         {activeTab === "account" && isEditable && accountContent}
