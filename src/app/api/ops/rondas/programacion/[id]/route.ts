@@ -4,7 +4,7 @@ import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api
 import { canEdit, canView, hasCapability } from "@/lib/permissions";
 import { rondaProgramacionSchema } from "@/lib/validations/rondas";
 import { buildScheduleSlots } from "@/lib/rondas/schedule-engine";
-import { resolveOnDutyGuardiaForInstallation } from "@/lib/rondas/guardia-assignment";
+import { pendingProgramadaEjecucion } from "@/lib/rondas/pending-programada-ejecucion";
 import { startOfDayChile } from "@/lib/rondas/timezone";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -92,25 +92,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         const futureSlots = slots.filter((s) => s >= now);
 
         if (futureSlots.length > 0) {
-          const rows = await Promise.all(
-            futureSlots.map(async (scheduledAt) => {
-              const assignment = await resolveOnDutyGuardiaForInstallation({
-                tenantId: ctx.tenantId,
-                installationId: updated.rondaTemplate!.installationId,
-                scheduledAt,
-              });
-              return {
-                tenantId: ctx.tenantId,
-                rondaTemplateId: updated.rondaTemplateId,
-                programacionId: updated.id,
-                guardiaId: assignment.guardiaId,
-                status: "pendiente",
-                scheduledAt,
-                checkpointsTotal: updated.rondaTemplate!.checkpoints.length,
-                checkpointsCompletados: 0,
-                porcentajeCompletado: 0,
-                trustScore: 0,
-              };
+          const rows = futureSlots.map((scheduledAt) =>
+            pendingProgramadaEjecucion({
+              tenantId: ctx.tenantId,
+              rondaTemplateId: updated.rondaTemplateId,
+              programacionId: updated.id,
+              scheduledAt,
+              checkpointsTotal: updated.rondaTemplate!.checkpoints.length,
             }),
           );
           await prisma.opsRondaEjecucion.createMany({ data: rows, skipDuplicates: true });

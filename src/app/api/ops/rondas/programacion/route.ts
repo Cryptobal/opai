@@ -4,7 +4,7 @@ import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api
 import { canEdit, canView, hasCapability } from "@/lib/permissions";
 import { rondaProgramacionSchema } from "@/lib/validations/rondas";
 import { buildScheduleSlots } from "@/lib/rondas/schedule-engine";
-import { resolveOnDutyGuardiaForInstallation } from "@/lib/rondas/guardia-assignment";
+import { pendingProgramadaEjecucion } from "@/lib/rondas/pending-programada-ejecucion";
 import { startOfDayChile } from "@/lib/rondas/timezone";
 
 export async function GET(request: NextRequest) {
@@ -90,25 +90,13 @@ export async function POST(request: NextRequest) {
           });
 
           if (slots.length > 0) {
-            const rows = await Promise.all(
-              slots.map(async (scheduledAt) => {
-                const assignment = await resolveOnDutyGuardiaForInstallation({
-                  tenantId: ctx.tenantId,
-                  installationId: tpl.installationId,
-                  scheduledAt,
-                });
-                return {
-                  tenantId: ctx.tenantId,
-                  rondaTemplateId: tpl.id,
-                  programacionId: row.id,
-                  guardiaId: assignment.guardiaId,
-                  status: "pendiente",
-                  scheduledAt,
-                  checkpointsTotal: tpl.checkpoints.length,
-                  checkpointsCompletados: 0,
-                  porcentajeCompletado: 0,
-                  trustScore: 0,
-                };
+            const rows = slots.map((scheduledAt) =>
+              pendingProgramadaEjecucion({
+                tenantId: ctx.tenantId,
+                rondaTemplateId: tpl.id,
+                programacionId: row.id,
+                scheduledAt,
+                checkpointsTotal: tpl.checkpoints.length,
               }),
             );
             await prisma.opsRondaEjecucion.createMany({ data: rows, skipDuplicates: true });

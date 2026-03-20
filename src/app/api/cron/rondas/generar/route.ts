@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildScheduleSlots } from "@/lib/rondas/schedule-engine";
-import { resolveOnDutyGuardiaForInstallation } from "@/lib/rondas/guardia-assignment";
+import { pendingProgramadaEjecucion } from "@/lib/rondas/pending-programada-ejecucion";
 import { startOfDayChile } from "@/lib/rondas/timezone";
 
 /**
@@ -78,37 +78,13 @@ export async function GET(request: NextRequest) {
       );
       if (newSlots.length === 0) continue;
 
-      // Resolve guard for each new slot
-      const rows = await Promise.all(
-        newSlots.map(async (scheduledAt) => {
-          const assignment = await resolveOnDutyGuardiaForInstallation({
-            tenantId: p.tenantId,
-            installationId: p.rondaTemplate!.installationId,
-            scheduledAt,
-          });
-          return {
-            tenantId: p.tenantId,
-            rondaTemplateId: p.rondaTemplateId,
-            programacionId: p.id,
-            guardiaId: assignment.guardiaId,
-            status: "pendiente",
-            scheduledAt,
-            checkpointsTotal: p.rondaTemplate!.checkpoints.length,
-            checkpointsCompletados: 0,
-            porcentajeCompletado: 0,
-            trustScore: 0,
-            ...(assignment.guardiaId
-              ? {
-                  alertas: {
-                    assignment: {
-                      assignedGuardiaId: assignment.guardiaId,
-                      source: assignment.source,
-                      assignedAt: new Date().toISOString(),
-                    },
-                  } as never,
-                }
-              : {}),
-          };
+      const rows = newSlots.map((scheduledAt) =>
+        pendingProgramadaEjecucion({
+          tenantId: p.tenantId,
+          rondaTemplateId: p.rondaTemplateId,
+          programacionId: p.id,
+          scheduledAt,
+          checkpointsTotal: p.rondaTemplate!.checkpoints.length,
         }),
       );
 

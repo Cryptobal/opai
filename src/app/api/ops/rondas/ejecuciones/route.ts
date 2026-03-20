@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit, canView, hasCapability } from "@/lib/permissions";
 import { buildScheduleSlots } from "@/lib/rondas/schedule-engine";
-import { resolveOnDutyGuardiaForInstallation } from "@/lib/rondas/guardia-assignment";
+import { pendingProgramadaEjecucion } from "@/lib/rondas/pending-programada-ejecucion";
 import { startOfDayChile } from "@/lib/rondas/timezone";
 import { z } from "zod";
 
@@ -74,68 +74,17 @@ export async function POST(request: NextRequest) {
       frecuenciaMinutos: programacion.frecuenciaMinutos,
     });
 
-    const rows = await Promise.all(
-      slots.map(async (slot) => {
-        const assignment = await resolveOnDutyGuardiaForInstallation({
-          tenantId: ctx.tenantId,
-          installationId: programacion.rondaTemplate!.installationId,
-          scheduledAt: slot,
-        });
-        return {
-          tenantId: ctx.tenantId,
-          rondaTemplateId: programacion.rondaTemplateId,
-          programacionId: programacion.id,
-          guardiaId: assignment.guardiaId,
-          status: "pendiente",
-          scheduledAt: slot,
-          checkpointsTotal: programacion.rondaTemplate!.checkpoints.length,
-          checkpointsCompletados: 0,
-          porcentajeCompletado: 0,
-          trustScore: 0,
-          ...(assignment.guardiaId
-            ? {
-                alertas: {
-                  assignment: {
-                    assignedGuardiaId: assignment.guardiaId,
-                    source: assignment.source,
-                    assignedAt: new Date().toISOString(),
-                  },
-                } as never,
-              }
-            : {}),
-        };
+    const rows = slots.map((slot) =>
+      pendingProgramadaEjecucion({
+        tenantId: ctx.tenantId,
+        rondaTemplateId: programacion.rondaTemplateId,
+        programacionId: programacion.id,
+        scheduledAt: slot,
+        checkpointsTotal: programacion.rondaTemplate!.checkpoints.length,
       }),
     );
 
     const created = await prisma.opsRondaEjecucion.createMany({ data: rows, skipDuplicates: true });
-
-    // Push: notify assigned guardias of new ronda assignments (portal rondas)
-    try {
-      const guardiaIds = [...new Set(
-        rows
-          .map((s) => s.guardiaId)
-          .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
-      )];
-      if (guardiaIds.length > 0) {
-        const { sendPushToPortalUser } = await import('@/lib/pwa/push-service');
-        await Promise.allSettled(
-          guardiaIds.map((guardiaId) =>
-            sendPushToPortalUser({
-              tenantId: ctx.tenantId,
-              notifKey: 'ronda_assigned',
-              userType: 'guardia',
-              userId: guardiaId,
-              portalType: 'rondas',
-              title: 'Nueva ronda asignada',
-              body: 'Tienes una nueva ronda programada para ejecutar',
-              url: '/portal/rondas',
-            })
-          )
-        );
-      }
-    } catch (err) {
-      console.error('[RONDAS] Error sending ronda_assigned push:', err);
-    }
 
     return NextResponse.json({ success: true, data: { created: created.count } });
   } catch (error) {
