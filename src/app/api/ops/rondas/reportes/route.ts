@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { formatPersonName } from "@/lib/personas";
+import { asRouteSnapshot, asWalkRoute } from "@/lib/rondas/ejecucion-map-helpers";
 
 export async function GET(request: NextRequest) {
   try {
@@ -99,6 +100,7 @@ export async function GET(request: NextRequest) {
       installationId: row.installationId ?? row.rondaTemplate?.installationId ?? null,
       installation: row.rondaTemplate?.installation?.name ?? (row as any).installation?.name ?? "Sin instalación",
       template: row.rondaTemplate?.name ?? (row.isAdHoc ? "Ronda Libre" : "Sin plantilla"),
+      isAdHoc: row.isAdHoc,
       guardiaId: row.guardiaId,
       guardia: row.guardia
         ? formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName)
@@ -113,6 +115,8 @@ export async function GET(request: NextRequest) {
       trustBreakdown: row.trustBreakdown,
       durationMinutes: row.durationMinutes,
       notes: row.notes ?? null,
+      walkRoute: asWalkRoute(row.walkRoute),
+      routeSnapshot: asRouteSnapshot(row.routeSnapshot),
       marcaciones: row.marcaciones.map((m) => ({
         id: m.id,
         checkpointName: m.checkpoint?.name ?? (m.checkpointId ? "Checkpoint eliminado" : "Punto GPS"),
@@ -145,7 +149,7 @@ export async function GET(request: NextRequest) {
           r.checkpointsTotal,
           r.checkpointsCompletados,
           Math.round(r.porcentajeCompletado),
-          r.trustScore,
+          r.isAdHoc ? "N/A" : r.trustScore,
           r.durationMinutes ?? "",
         ]
           .map((v) => `"${String(v).replaceAll('"', '""')}"`)
@@ -160,6 +164,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Aggregate totals from DB for accuracy (not limited by pagination)
+    const trustWhere = { ...where, isAdHoc: false };
+
     const [statusCounts, trustAgg, allForDaily] = await Promise.all([
       prisma.opsRondaEjecucion.groupBy({
         by: ["status"],
@@ -167,7 +173,7 @@ export async function GET(request: NextRequest) {
         _count: { id: true },
       }),
       prisma.opsRondaEjecucion.aggregate({
-        where,
+        where: trustWhere,
         _avg: { trustScore: true },
       }),
       prisma.opsRondaEjecucion.findMany({

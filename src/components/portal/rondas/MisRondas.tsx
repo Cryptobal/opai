@@ -399,6 +399,7 @@ export function MisRondas({
       const d = json.data;
       const completion: CompletionData = {
         trustScore: d.trustScore ?? 0,
+        trustApplicable: d.trustApplicable !== false,
         trustBreakdown: d.trustBreakdown ?? null,
         porcentajeCompletado: d.porcentajeCompletado ?? 0,
         durationMinutes: d.durationMinutes ?? null,

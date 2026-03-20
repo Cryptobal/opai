@@ -21,6 +21,8 @@ interface TrustBreakdownEntry {
 
 interface Props {
   trustScore: number;
+  /** Si es false (ronda libre), no se muestra el gauge de Trust */
+  trustApplicable?: boolean;
   trustBreakdown?: Record<string, TrustBreakdownEntry> | null;
   porcentajeCompletado: number;
   durationMinutes: number | null;
@@ -85,6 +87,7 @@ const BREAKDOWN_BAR_COLORS: Record<string, string> = {
 
 export function RondaCompletada({
   trustScore,
+  trustApplicable = true,
   trustBreakdown,
   porcentajeCompletado,
   durationMinutes,
@@ -137,59 +140,68 @@ export function RondaCompletada({
           </div>
         )}
 
-        {/* ---- Trust Score Gauge ---- */}
-        <div
-          className="relative flex items-center justify-center"
-          role="status"
-          aria-label={`Trust Score: ${clampedScore} de 100, ${trustLabel(clampedScore)}`}
-        >
-          <svg
-            width="140"
-            height="140"
-            viewBox="0 0 140 140"
-            className="-rotate-90"
-            aria-hidden="true"
-          >
-            {/* Background circle */}
-            <circle
-              cx="70"
-              cy="70"
-              r={radius}
-              fill="none"
-              stroke="#1f2937"
-              strokeWidth="10"
-            />
-            {/* Score arc */}
-            <circle
-              cx="70"
-              cy="70"
-              r={radius}
-              fill="none"
-              stroke={color}
-              strokeWidth="10"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={offset}
-              className="transition-all duration-1000"
-            />
-          </svg>
-          {/* Score text in center */}
-          <div className="absolute flex flex-col items-center">
-            <span className="text-3xl font-bold text-white">{clampedScore}</span>
-            <span className="text-xs text-gray-400">Trust Score</span>
-          </div>
-        </div>
+        {/* ---- Trust Score (solo rondas con plantilla) ---- */}
+        {trustApplicable ? (
+          <>
+            <div
+              className="relative flex items-center justify-center"
+              role="status"
+              aria-label={`Trust Score: ${clampedScore} de 100, ${trustLabel(clampedScore)}`}
+            >
+              <svg
+                width="140"
+                height="140"
+                viewBox="0 0 140 140"
+                className="-rotate-90"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="70"
+                  cy="70"
+                  r={radius}
+                  fill="none"
+                  stroke="#1f2937"
+                  strokeWidth="10"
+                />
+                <circle
+                  cx="70"
+                  cy="70"
+                  r={radius}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth="10"
+                  strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={offset}
+                  className="transition-all duration-1000"
+                />
+              </svg>
+              <div className="absolute flex flex-col items-center">
+                <span className="text-3xl font-bold text-white">{clampedScore}</span>
+                <span className="text-xs text-gray-400">Trust Score</span>
+              </div>
+            </div>
 
-        {/* Trust label */}
-        <p className="text-lg font-semibold" style={{ color }}>
-          {trustLabel(clampedScore)}
-        </p>
+            <p className="text-lg font-semibold" style={{ color }}>
+              {trustLabel(clampedScore)}
+            </p>
+          </>
+        ) : (
+          <div className="w-full max-w-sm rounded-2xl border border-gray-700 bg-gray-900/50 px-4 py-6 text-center">
+            <p className="text-sm font-medium text-gray-300">Ronda libre</p>
+            <p className="mt-2 text-xs text-gray-500 leading-relaxed">
+              El Trust Score solo aplica a rondas programadas con plantilla. Tu recorrido quedó registrado para
+              reportes y mapa.
+            </p>
+          </div>
+        )}
 
         {/* ---- Trust Score Breakdown ---- */}
-        {trustBreakdown && (() => {
-          const entries = Object.entries(trustBreakdown).filter(
-            ([, v]) => v && typeof v === "object" && "score" in v,
-          ) as [string, TrustBreakdownEntry][];
+        {trustApplicable && trustBreakdown && (() => {
+          const entries = Object.entries(trustBreakdown).filter(([k, v]) => {
+            if (["applicable", "reason", "closedBy", "closedAt", "adHoc"].includes(k)) return false;
+            return v && typeof v === "object" && "score" in v;
+          }) as [string, TrustBreakdownEntry][];
           if (entries.length === 0) return null;
           return (
             <div className="w-full max-w-sm rounded-2xl border border-gray-800 bg-gray-900/60 p-4 space-y-2.5">

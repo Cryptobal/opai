@@ -661,6 +661,7 @@ export function RondasPortalClient() {
       {screen === "completada" && session && completionData && (
         <RondaCompletada
           trustScore={completionData.trustScore}
+          trustApplicable={completionData.trustApplicable !== false}
           trustBreakdown={completionData.trustBreakdown}
           porcentajeCompletado={completionData.porcentajeCompletado}
           durationMinutes={completionData.durationMinutes}

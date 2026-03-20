@@ -34,7 +34,10 @@ function generateInsight(
     };
   }
 
-  const scores = rows.map((r) => r.trustScore).filter((s) => s > 0);
+  const scores = rows
+    .filter((r) => !r.isAdHoc)
+    .map((r) => r.trustScore)
+    .filter((s) => s > 0);
   if (scores.length < 3) {
     return {
       icon: Minus,
@@ -105,7 +108,10 @@ export function RondasReportesPorGuardia({ rows, guardias }: Props) {
     if (guardRows.length === 0) return null;
     const completadas = guardRows.filter((r) => r.status === "completada").length;
     const incompletas = guardRows.filter((r) => r.status === "incompleta").length;
-    const scores = guardRows.map((r) => r.trustScore).filter((s) => s > 0);
+    const scores = guardRows
+      .filter((r) => !r.isAdHoc)
+      .map((r) => r.trustScore)
+      .filter((s) => s > 0);
     return {
       total: guardRows.length,
       completadas,
@@ -117,7 +123,7 @@ export function RondasReportesPorGuardia({ rows, guardias }: Props) {
 
   const trustTrendData = useMemo(() => {
     const sorted = [...guardRows]
-      .filter((r) => r.trustScore > 0)
+      .filter((r) => !r.isAdHoc && r.trustScore > 0)
       .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
     return sorted.map((r, i) => ({
       index: i + 1,

@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       : null;
 
     const trustResult = isAdHoc
-      ? { score: 100, breakdown: { adHoc: true } }
+      ? { score: 0, breakdown: { applicable: false, reason: "ronda_libre" } as const }
       : calculateRondaTrustScore({
           ejecucion: { ...execution, completedAt: now, checkpointsTotal: total },
           marcaciones: allMarcaciones.map((m) => ({
@@ -251,6 +251,7 @@ export async function POST(request: NextRequest) {
         status: updated.status,
         trustScore: trustResult.score,
         trustBreakdown: trustResult.breakdown,
+        trustApplicable: !isAdHoc,
         porcentajeCompletado: pct,
         durationMinutes,
         missed: missedData.length,

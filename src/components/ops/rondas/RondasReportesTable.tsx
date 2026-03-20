@@ -11,8 +11,10 @@ export interface ReporteRow {
   startedAt: string | null;
   completedAt: string | null;
   installation: string;
-  installationId: string;
+  installationId: string | null;
   template: string;
+  /** Ronda libre (sin plantilla): Trust Score no aplica */
+  isAdHoc?: boolean;
   guardiaId: string | null;
   guardia: string;
   guardiaCode: string;
@@ -80,6 +82,8 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
   no_realizada: { label: "No realizada", cls: "bg-red-500/15 text-red-400" },
   pendiente: { label: "Pendiente", cls: "bg-zinc-500/15 text-zinc-400" },
   en_curso: { label: "En curso", cls: "bg-blue-500/15 text-blue-400" },
+  cerrada_auto: { label: "Cerrada (auto)", cls: "bg-orange-500/15 text-orange-400" },
+  cerrada_admin: { label: "Cerrada (admin)", cls: "bg-violet-500/15 text-violet-400" },
 };
 
 function trustColor(score: number): string {
@@ -124,9 +128,10 @@ const BREAKDOWN_COLORS: Record<string, string> = {
 };
 
 function TrustBreakdownBars({ breakdown }: { breakdown: TrustBreakdown }) {
-  const entries = Object.entries(breakdown).filter(
-    ([, v]) => v && typeof v === "object" && "score" in v,
-  ) as [string, { score: number; weight: number }][];
+  const entries = Object.entries(breakdown).filter(([k, v]) => {
+    if (k === "adHoc" || k === "applicable" || k === "reason" || k === "closedBy" || k === "closedAt") return false;
+    return v && typeof v === "object" && "score" in v;
+  }) as [string, { score: number; weight: number }][];
 
   if (entries.length === 0) return null;
 
@@ -153,6 +158,49 @@ function TrustBreakdownBars({ breakdown }: { breakdown: TrustBreakdown }) {
   );
 }
 
+function closureDetailText(row: ReporteRow): string[] {
+  const out: string[] = [];
+  const tb = row.trustBreakdown as Record<string, unknown> | null | undefined;
+  const closedBy = tb && typeof tb.closedBy === "string" ? tb.closedBy : null;
+  const reason = tb && typeof tb.reason === "string" ? tb.reason : null;
+
+  switch (row.status) {
+    case "cerrada_auto":
+      out.push("Cierre automático por el sistema (tiempo límite, señal u otra regla).");
+      break;
+    case "cerrada_admin":
+      out.push("Cierre registrado como administrativo.");
+      break;
+    case "no_realizada":
+      out.push("Ronda no realizada dentro de la ventana permitida.");
+      break;
+    case "completada":
+    case "incompleta":
+      out.push("Cierre operativo desde la app del guardia (o sincronización equivalente).");
+      break;
+    default:
+      break;
+  }
+
+  if (closedBy === "system_cron") {
+    out.push("Origen del cierre: proceso programado (cron).");
+  }
+  if (reason && reason !== "ad_hoc" && reason !== "ronda_libre") {
+    out.push(`Motivo técnico: ${reason}.`);
+  }
+
+  if (row.completedAt) {
+    out.push(
+      `Fecha y hora de cierre: ${new Date(row.completedAt).toLocaleString("es-CL", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })}`,
+    );
+  }
+
+  return [...new Set(out)];
+}
+
 function ExpandedRow({
   row,
   onViewMap,
@@ -170,7 +218,7 @@ function ExpandedRow({
 
   return (
     <tr>
-      <td colSpan={9} className="px-4 py-3 bg-muted/20 border-b border-border/50">
+      <td colSpan={10} className="px-4 py-3 bg-muted/20 border-b border-border/50">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -233,7 +281,24 @@ function ExpandedRow({
             )}
           </div>
           <div>
-            {row.trustBreakdown && <TrustBreakdownBars breakdown={row.trustBreakdown} />}
+            <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 space-y-1">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Cierre de la ronda
+              </p>
+              {closureDetailText(row).map((line) => (
+                <p key={line} className="text-[11px] text-foreground/90 leading-snug">
+                  {line}
+                </p>
+              ))}
+            </div>
+            {!row.isAdHoc && row.trustBreakdown && (
+              <TrustBreakdownBars breakdown={row.trustBreakdown} />
+            )}
+            {row.isAdHoc && (
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Trust Score no aplica a rondas libres.
+              </p>
+            )}
             {row.notes && (
               <div className="mt-3 rounded-lg border border-yellow-800/40 bg-yellow-950/20 px-3 py-2">
                 <p className="text-xs font-medium text-yellow-500/80 mb-0.5">Comentario del guardia:</p>
@@ -251,13 +316,17 @@ function ExpandedRow({
               </div>
             )}
             <div className="mt-3 flex flex-wrap gap-2">
-              {row.walkRoute && row.walkRoute.length > 0 && onViewMap && (
+              {onViewMap && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onViewMap(row); }}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewMap(row);
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-md bg-teal-500/15 px-3 py-1.5 text-xs font-medium text-teal-400 hover:bg-teal-500/25 transition-colors"
                 >
                   <MapPin className="h-3.5 w-3.5" />
-                  Ver Mapa de Ronda
+                  Ver recorrido en mapa
                 </button>
               )}
               {canSendToCheckpoints && (
@@ -395,15 +464,19 @@ export function RondasReportesTable({
                         {Math.round(row.porcentajeCompletado)}%
                       </td>
                       <td className={cn(cellCls, "text-center")}>
-                        <span
-                          className={cn(
-                            "inline-flex items-center justify-center w-8 h-8 rounded-full border text-xs font-bold",
-                            trustBg(row.trustScore),
-                            trustColor(row.trustScore),
-                          )}
-                        >
-                          {row.trustScore}
-                        </span>
+                        {row.isAdHoc ? (
+                          <span className="text-[11px] text-muted-foreground tabular-nums">N/A</span>
+                        ) : (
+                          <span
+                            className={cn(
+                              "inline-flex items-center justify-center w-8 h-8 rounded-full border text-xs font-bold",
+                              trustBg(row.trustScore),
+                              trustColor(row.trustScore),
+                            )}
+                          >
+                            {row.trustScore}
+                          </span>
+                        )}
                       </td>
                       <td className={cn(cellCls, "text-right tabular-nums text-muted-foreground")}>
                         {row.durationMinutes != null ? `${row.durationMinutes} min` : "—"}

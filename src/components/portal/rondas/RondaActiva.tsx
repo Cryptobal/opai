@@ -72,6 +72,8 @@ export interface RondaData {
 
 export interface CompletionData {
   trustScore: number;
+  /** false = ronda libre; no mostrar Trust como métrica de cumplimiento */
+  trustApplicable?: boolean;
   trustBreakdown?: Record<string, { score: number; weight: number }> | null;
   porcentajeCompletado: number;
   durationMinutes: number | null;
@@ -255,12 +257,10 @@ export function RondaActiva({
   // Free-form (GPS-only) mode: ad-hoc AND no checkpoints from installation
   const isAdHocFreeForm = isAdHoc && checkpoints.length === 0;
 
-  // -- Server-side GPS tracking (every 30s for ad-hoc rondas) --
+  // -- Server-side GPS tracking (every 30s mientras la ronda está en curso) --
   const trackingPointsRef = useRef<Array<{ lat: number; lng: number; ts: number }>>([]);
 
   useEffect(() => {
-    if (!isAdHoc) return;
-
     const sendTracking = async () => {
       if (!guardPos) return;
       try {
@@ -286,7 +286,7 @@ export function RondaActiva({
     sendTracking();
     const id = setInterval(sendTracking, 30000);
     return () => clearInterval(id);
-  }, [isAdHoc, guardPos?.lat, guardPos?.lng, rondaData.ejecucionId, session?.guardiaId]);
+  }, [guardPos?.lat, guardPos?.lng, rondaData.ejecucionId, session?.guardiaId]);
 
   // Timer interval
   useEffect(() => {
@@ -687,6 +687,7 @@ export function RondaActiva({
       navigator.vibrate?.(200);
       onComplete({
         trustScore: json.data?.trustScore ?? 0,
+        trustApplicable: json.data?.trustApplicable !== false,
         trustBreakdown: json.data?.trustBreakdown ?? null,
         porcentajeCompletado: json.data?.porcentajeCompletado ?? 0,
         durationMinutes: json.data?.durationMinutes ?? null,

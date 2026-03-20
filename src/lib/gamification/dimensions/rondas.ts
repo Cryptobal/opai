@@ -11,6 +11,7 @@ export async function calcularScoreRondas(
     where: {
       tenantId,
       guardiaId,
+      isAdHoc: false,
       scheduledAt: { gte: fechaInicio, lte: fechaFin },
     },
     select: { status: true, trustScore: true },

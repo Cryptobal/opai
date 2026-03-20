@@ -593,7 +593,7 @@ export function RondasReportesClient({
 
       {/* Audit map modal */}
       {mapRow && (
-        <RondaAuditMapModal row={mapRow} onClose={() => setMapRow(null)} />
+        <RondaAuditMapModal key={mapRow.id} row={mapRow} onClose={() => setMapRow(null)} />
       )}
     </div>
   );

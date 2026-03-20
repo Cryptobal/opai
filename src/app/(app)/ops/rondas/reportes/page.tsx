@@ -8,6 +8,7 @@ import { formatPersonName } from "@/lib/personas";
 import { PageHeader } from "@/components/opai";
 import { RondasReportesClient } from "@/components/ops/rondas";
 import { RondasSubnav } from "@/components/ops/RondasSubnav";
+import { asRouteSnapshot, asWalkRoute } from "@/lib/rondas/ejecucion-map-helpers";
 
 export default async function RondasReportesPage() {
   const session = await auth();
@@ -97,6 +98,7 @@ export default async function RondasReportesPage() {
     installationId: (row as any).installationId ?? row.rondaTemplate?.installationId ?? null,
     installation: row.rondaTemplate?.installation?.name ?? (row as any).installation?.name ?? "Sin instalación",
     template: row.rondaTemplate?.name ?? (row.isAdHoc ? "Ronda Libre" : "Sin plantilla"),
+    isAdHoc: row.isAdHoc,
     guardiaId: row.guardiaId,
     guardia: row.guardia
       ? formatPersonName(row.guardia.persona.firstName, row.guardia.persona.lastName)
@@ -110,8 +112,9 @@ export default async function RondasReportesPage() {
     trustScore: row.trustScore,
     trustBreakdown: (row as any).trustBreakdown as Record<string, unknown> | null,
     durationMinutes: (row as any).durationMinutes,
-    walkRoute: (row as any).walkRoute as Array<{ lat: number; lng: number }> | null,
-    routeSnapshot: (row as any).routeSnapshot as Array<{ id: string; name: string; lat: number; lng: number; orderIndex: number; status: string }> | null,
+    notes: row.notes ?? null,
+    walkRoute: asWalkRoute(row.walkRoute),
+    routeSnapshot: asRouteSnapshot(row.routeSnapshot),
     marcaciones: row.marcaciones.map((m) => ({
       id: m.id,
       checkpointName: m.checkpoint?.name ?? (m.checkpointId ? "Checkpoint eliminado" : "Punto GPS"),
@@ -136,9 +139,12 @@ export default async function RondasReportesPage() {
     incompletas: rows.filter((r) => r.status === "incompleta").length,
     noRealizadas: rows.filter((r) => r.status === "no_realizada").length,
     compliance: rows.length ? Math.round((completadas / rows.length) * 100) : 0,
-    trustPromedio: rows.length
-      ? Math.round(rows.reduce((acc, r) => acc + (r.trustScore ?? 0), 0) / rows.length)
-      : 0,
+    trustPromedio: (() => {
+      const prog = rows.filter((r) => !r.isAdHoc);
+      return prog.length
+        ? Math.round(prog.reduce((acc, r) => acc + (r.trustScore ?? 0), 0) / prog.length)
+        : 0;
+    })(),
   };
 
   const dailyMap = new Map<string, { total: number; completed: number }>();
