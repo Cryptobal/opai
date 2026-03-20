@@ -210,6 +210,18 @@ function createEmptyInstallation(name = "", address = "", city = "", commune = "
   return { _key: newInstallationKey(), name, address, city, commune, dotacion: [] };
 }
 
+/** Nombre inicial al crear el borrador desde el lead: «Empresa - Comuna». */
+function defaultInstallationNameFromLead(
+  companyName: string | null | undefined,
+  commune: string,
+): string {
+  const company = (companyName || "").trim();
+  const com = (commune || "").trim();
+  if (company && com) return `${company} - ${com}`;
+  if (company) return company;
+  return com;
+}
+
 function createEmptyDotacion(
   defaultCargoId = "",
   defaultRolId = "",
@@ -907,7 +919,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       const leadCity = ((lead as any).city || "").trim();
       const instAddress = leadAddress || [leadCommune, leadCity].filter(Boolean).join(", ");
       const firstInst = createEmptyInstallation(
-        lead.companyName || "",
+        defaultInstallationNameFromLead(lead.companyName, leadCommune),
         instAddress,
         leadCity,
         leadCommune,
