@@ -10,6 +10,8 @@ export interface ChipTab {
   label: string;
   icon?: ComponentType<{ className?: string }>;
   badge?: string | number;
+  /** "alert" = red badge (e.g. unseen leads), disappears when tab is active */
+  badgeVariant?: "default" | "alert";
 }
 
 export interface ChipTabsProps {
@@ -101,10 +103,14 @@ export function ChipTabs({
             {tab.badge !== undefined && tab.badge !== 0 && (
               <span
                 className={cn(
-                  "ml-0.5 rounded-[10px] px-[7px] py-px text-[11px] font-bold tabular-nums",
-                  isActive
-                    ? "bg-[rgba(15,20,25,0.25)] text-[#0F1419]"
-                    : "bg-[rgba(45,212,160,0.2)] text-[#2DD4A0]"
+                  "ml-0.5 rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1.5 text-[10px] font-bold tabular-nums",
+                  tab.badgeVariant === "alert"
+                    ? isActive
+                      ? "hidden"
+                      : "bg-red-500 text-white"
+                    : isActive
+                      ? "bg-[rgba(15,20,25,0.25)] text-[#0F1419]"
+                      : "bg-[rgba(45,212,160,0.2)] text-[#2DD4A0]"
                 )}
               >
                 {typeof tab.badge === "number" && tab.badge > 99

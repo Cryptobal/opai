@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Flame, LayoutGrid, UserPlus } from 'lucide-react';
 import { ChipTabs } from '@/components/ui/chip-tabs';
@@ -15,15 +15,50 @@ import { HubPortalRanking } from './HubPortalRanking';
 import { formatCLP } from '../_lib/hub-utils';
 import type { HubClosingSectionProps } from '../_lib/hub-types';
 
+const LEADS_NUEVOS_STORAGE_KEY = 'hub-leads-nuevos-last-seen';
+
+function getStoredLastSeen(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    return parseInt(localStorage.getItem(LEADS_NUEVOS_STORAGE_KEY) || '0', 10);
+  } catch {
+    return 0;
+  }
+}
+
 export function HubCrmSection({ perms, closingData }: HubClosingSectionProps) {
   const [activeTab, setActiveTab] = useState('hot');
+  const [leadsLastSeenCount, setLeadsLastSeenCount] = useState(0);
   const { kpis, hotDeals, staleDeals, pendingLeads, funnel, portalTopUsers } = closingData;
 
+  useEffect(() => {
+    setLeadsLastSeenCount(getStoredLastSeen());
+  }, []);
+
+  const handleTabChange = useCallback((tabId: string) => {
+    setActiveTab(tabId);
+    if (tabId === 'leads') {
+      const count = pendingLeads.length;
+      setLeadsLastSeenCount(count);
+      try {
+        localStorage.setItem(LEADS_NUEVOS_STORAGE_KEY, String(count));
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [pendingLeads.length]);
+
   const negotiationFormatted = formatCLP(Math.round(kpis.amountNegotiatingClp));
+  const leadsUnseenCount = Math.max(0, pendingLeads.length - leadsLastSeenCount);
 
   const tabs = [
     { id: 'hot', label: '🔥 Calientes', badge: hotDeals.length },
-    { id: 'leads', label: 'Leads nuevos', badge: pendingLeads.length },
+    {
+      id: 'leads',
+      label: 'Leads nuevos',
+      badge: leadsUnseenCount,
+      badgeVariant: 'alert' as const,
+    },
     { id: 'stale', label: '⚠️ Sin actividad', badge: staleDeals.length },
   ];
 
@@ -82,7 +117,7 @@ export function HubCrmSection({ perms, closingData }: HubClosingSectionProps) {
         <ChipTabs
           tabs={tabs}
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           compact
         />
 

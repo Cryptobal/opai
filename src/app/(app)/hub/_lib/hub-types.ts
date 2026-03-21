@@ -352,6 +352,7 @@ export interface SupervisionMetrics {
 export interface ClosingHubKpis {
   openLeadsCount: number;
   newLeads30: number;
+  leadsDraftCount: number;
   dealsNegotiatingCount: number;
   amountNegotiatingClp: number;
   amountNegotiatingUf: number;
