@@ -102,19 +102,39 @@ export async function getDocsSignals(
 const MS_PER_DAY = 86_400_000;
 const MS_PER_MINUTE = 60_000;
 
-function computeHeatScore(totalViews: number, lastViewedAt: Date | null, now: Date): number {
-  if (totalViews === 0 || !lastViewedAt) return 0;
-  // View component: each view = 10pts, capped at 50
-  const viewScore = Math.min(totalViews * 10, 50);
-  // Recency component: 50 if viewed today, decays over 7 days to 0
-  const daysSince = (now.getTime() - lastViewedAt.getTime()) / MS_PER_DAY;
-  const recencyScore = Math.max(0, Math.round(50 * (1 - daysSince / 7)));
-  return Math.min(viewScore + recencyScore, 100);
+/** Portal engagement metrics for heat score */
+interface PortalEngagement {
+  totalViews: number;
+  totalDownloads: number;
+  totalLogins: number;
+  lastViewedAt: Date | null;
+  lastDownloadAt: Date | null;
+  lastLoginAt: Date | null;
 }
 
-function computeViewTrend(lastViewedAt: Date | null, now: Date): 'up' | 'down' | 'flat' {
-  if (!lastViewedAt) return 'flat';
-  const daysSince = (now.getTime() - lastViewedAt.getTime()) / MS_PER_DAY;
+function getLastPortalActivity(eng: PortalEngagement): Date | null {
+  const dates = [eng.lastViewedAt, eng.lastDownloadAt, eng.lastLoginAt].filter(Boolean) as Date[];
+  return dates.length > 0 ? new Date(Math.max(...dates.map((d) => d.getTime()))) : null;
+}
+
+function computeHeatScore(eng: PortalEngagement, now: Date): number {
+  const lastActivity = getLastPortalActivity(eng);
+  if (!lastActivity && eng.totalViews === 0 && eng.totalDownloads === 0 && eng.totalLogins === 0) return 0;
+  // View component: each view = 8pts, capped at 35
+  const viewScore = Math.min(eng.totalViews * 8, 35);
+  // Download component: each download = 15pts, capped at 35 (strong signal of interest)
+  const downloadScore = Math.min(eng.totalDownloads * 15, 35);
+  // Login component: each login = 5pts, capped at 20
+  const loginScore = Math.min(eng.totalLogins * 5, 20);
+  // Recency: 30pts if activity today, decays over 7 days to 0
+  const daysSince = lastActivity ? (now.getTime() - lastActivity.getTime()) / MS_PER_DAY : 999;
+  const recencyScore = Math.max(0, Math.round(30 * (1 - daysSince / 7)));
+  return Math.min(viewScore + downloadScore + loginScore + recencyScore, 100);
+}
+
+function computeViewTrend(lastActivityAt: Date | null, now: Date): 'up' | 'down' | 'flat' {
+  if (!lastActivityAt) return 'flat';
+  const daysSince = (now.getTime() - lastActivityAt.getTime()) / MS_PER_DAY;
   if (daysSince <= 3) return 'up';
   if (daysSince > 14) return 'down';
   return 'flat';
@@ -153,6 +173,7 @@ export async function getClosingHubData(
     followUpsOverdueCount,
     ufValue,
     quotesDraftCount,
+    leadsDraftCount,
   ] = await Promise.all([
     // All open deals with relations
     prisma.crmDeal.findMany({
@@ -166,9 +187,9 @@ export async function getClosingHubData(
         stageId: true,
         activeQuotationId: true,
         createdAt: true,
-        account: { select: { name: true } },
+        account: { select: { id: true, name: true } },
         primaryContact: {
-          select: { firstName: true, lastName: true, email: true, phone: true },
+          select: { firstName: true, lastName: true, email: true, phone: true, portalLastAccessAt: true },
         },
         stage: {
           select: { name: true, color: true, order: true, isClosedWon: true, isClosedLost: true },
@@ -231,6 +252,10 @@ export async function getClosingHubData(
     prisma.cpqQuote.count({
       where: { tenantId, status: 'draft' },
     }),
+    // Leads borrador (pending + in_review, not yet approved)
+    prisma.crmLead.count({
+      where: { tenantId, status: { in: ['pending', 'in_review'] } },
+    }),
   ]);
 
   // Batch 2: depends on open deals
@@ -240,8 +265,10 @@ export async function getClosingHubData(
   const hasPortalAccessLog =
     typeof (prisma as unknown as Record<string, unknown>).portalAccessLog !== 'undefined';
 
-  const [portalQuoteViews, stageHistoryRows, negotiatingQuotes] = await Promise.all([
-    // Portal quote views from PortalAccessLog (replaces Presentation-based tracking)
+  const accountIdsFromDeals = [...new Set(openDeals.map((d) => d.account?.id).filter(Boolean))] as string[];
+
+  const [portalQuoteViews, portalQuoteDownloads, portalLogins, stageHistoryRows, negotiatingQuotes] = await Promise.all([
+    // Portal quote views
     hasPortalAccessLog && allQuoteIds.length > 0
       ? prisma.portalAccessLog.findMany({
           where: {
@@ -252,6 +279,30 @@ export async function getClosingHubData(
           },
           select: { resource: true, createdAt: true },
         }).catch(() => [] as { resource: string | null; createdAt: Date }[])
+      : [],
+    // Portal quote downloads (strong signal of interest)
+    hasPortalAccessLog && allQuoteIds.length > 0
+      ? prisma.portalAccessLog.findMany({
+          where: {
+            tenantId,
+            portalType: 'cliente',
+            action: 'download_quote',
+            resource: { in: allQuoteIds },
+          },
+          select: { resource: true, createdAt: true },
+        }).catch(() => [] as { resource: string | null; createdAt: Date }[])
+      : [],
+    // Portal logins per account (how often client enters portal)
+    hasPortalAccessLog && accountIdsFromDeals.length > 0
+      ? prisma.portalAccessLog.findMany({
+          where: {
+            tenantId,
+            portalType: 'cliente',
+            action: 'login',
+            accountId: { in: accountIdsFromDeals },
+          },
+          select: { accountId: true, createdAt: true },
+        }).catch(() => [] as { accountId: string | null; createdAt: Date }[])
       : [],
     // Latest stage change per deal for daysInCurrentStage
     openDealIds.length > 0
@@ -285,37 +336,71 @@ export async function getClosingHubData(
   const stageChangedAtByDeal = new Map(stageHistoryRows.map((r) => [r.dealId, r.changedAt]));
   const quoteById = new Map(negotiatingQuotes.map((q) => [q.id, q]));
 
-  // Group portal quote views by quoteId (resource field)
-  const viewsByQuoteId = new Map<string, { totalViews: number; lastViewedAt: Date | null }>();
+  // Group portal actions by quoteId (resource) and accountId
+  const viewsByQuoteId = new Map<string, { total: number; lastAt: Date | null }>();
   for (const v of portalQuoteViews) {
     if (!v.resource) continue;
     const existing = viewsByQuoteId.get(v.resource);
     if (existing) {
-      existing.totalViews += 1;
-      if (v.createdAt > (existing.lastViewedAt ?? new Date(0))) {
-        existing.lastViewedAt = v.createdAt;
-      }
+      existing.total += 1;
+      if (v.createdAt > (existing.lastAt ?? new Date(0))) existing.lastAt = v.createdAt;
     } else {
-      viewsByQuoteId.set(v.resource, {
-        totalViews: 1,
-        lastViewedAt: v.createdAt,
-      });
+      viewsByQuoteId.set(v.resource, { total: 1, lastAt: v.createdAt });
+    }
+  }
+  const downloadsByQuoteId = new Map<string, { total: number; lastAt: Date | null }>();
+  for (const d of portalQuoteDownloads) {
+    if (!d.resource) continue;
+    const existing = downloadsByQuoteId.get(d.resource);
+    if (existing) {
+      existing.total += 1;
+      if (d.createdAt > (existing.lastAt ?? new Date(0))) existing.lastAt = d.createdAt;
+    } else {
+      downloadsByQuoteId.set(d.resource, { total: 1, lastAt: d.createdAt });
+    }
+  }
+  const loginsByAccountId = new Map<string, { total: number; lastAt: Date | null }>();
+  for (const l of portalLogins) {
+    if (!l.accountId) continue;
+    const existing = loginsByAccountId.get(l.accountId);
+    if (existing) {
+      existing.total += 1;
+      if (l.createdAt > (existing.lastAt ?? new Date(0))) existing.lastAt = l.createdAt;
+    } else {
+      loginsByAccountId.set(l.accountId, { total: 1, lastAt: l.createdAt });
     }
   }
 
-  // Aggregate views per deal
-  function getDealViews(deal: typeof openDeals[number]) {
+  // Aggregate portal engagement per deal
+  function getDealEngagement(deal: typeof openDeals[number]): PortalEngagement {
     let totalViews = 0;
+    let totalDownloads = 0;
     let lastViewedAt: Date | null = null;
+    let lastDownloadAt: Date | null = null;
     for (const link of deal.quotes) {
-      const views = viewsByQuoteId.get(link.quoteId);
-      if (!views) continue;
-      totalViews += views.totalViews;
-      if (views.lastViewedAt && (!lastViewedAt || views.lastViewedAt > lastViewedAt)) {
-        lastViewedAt = views.lastViewedAt;
+      const v = viewsByQuoteId.get(link.quoteId);
+      if (v) {
+        totalViews += v.total;
+        if (v.lastAt && (!lastViewedAt || v.lastAt > lastViewedAt)) lastViewedAt = v.lastAt;
+      }
+      const d = downloadsByQuoteId.get(link.quoteId);
+      if (d) {
+        totalDownloads += d.total;
+        if (d.lastAt && (!lastDownloadAt || d.lastAt > lastDownloadAt)) lastDownloadAt = d.lastAt;
       }
     }
-    return { totalViews, lastViewedAt };
+    const accId = deal.account?.id ?? null;
+    const logins = accId ? loginsByAccountId.get(accId) : null;
+    const totalLogins = logins?.total ?? 0;
+    const lastLoginAt = logins?.lastAt ?? null;
+    return {
+      totalViews,
+      totalDownloads,
+      totalLogins,
+      lastViewedAt,
+      lastDownloadAt,
+      lastLoginAt,
+    };
   }
 
   // Filter to only negotiating-stage deals for KPIs (not ALL open deals)
@@ -340,13 +425,14 @@ export async function getClosingHubData(
     return summary ? summary.amountClp : Number(deal.amount);
   }
 
-  // Build hot deals: open deals with portal views or proposal sent
+  // Build hot deals: open deals with portal engagement or proposal sent
   const hotDealCandidates: ClosingHotDeal[] = [];
   for (const deal of openDeals) {
-    const hasPortalViews = deal.quotes.some((q) => viewsByQuoteId.has(q.quoteId));
-    if (!hasPortalViews && !deal.proposalSentAt) continue;
+    const eng = getDealEngagement(deal);
+    const hasPortalEngagement = eng.totalViews > 0 || eng.totalDownloads > 0 || eng.totalLogins > 0;
+    if (!hasPortalEngagement && !deal.proposalSentAt) continue;
 
-    const { totalViews, lastViewedAt } = getDealViews(deal);
+    const lastActivity = getLastPortalActivity(eng);
     const contactName = [deal.primaryContact?.lastName, deal.primaryContact?.firstName]
       .filter(Boolean).join(' ') || 'Sin contacto';
     const stageChanged = stageChangedAtByDeal.get(deal.id);
@@ -365,10 +451,10 @@ export async function getClosingHubData(
       stageOrder: deal.stage.order,
       amount: getDealAmount(deal),
       totalPuestos: deal.totalPuestos,
-      totalViews,
-      lastViewedAt,
-      viewTrend: computeViewTrend(lastViewedAt, now),
-      heatScore: computeHeatScore(totalViews, lastViewedAt, now),
+      totalViews: eng.totalViews + eng.totalDownloads,
+      lastViewedAt: lastActivity,
+      viewTrend: computeViewTrend(lastActivity, now),
+      heatScore: computeHeatScore(eng, now),
       daysInCurrentStage,
       proposalSentAt: deal.proposalSentAt,
       proposalLink: null,
@@ -379,19 +465,28 @@ export async function getClosingHubData(
   ));
   const hotDeals = hotDealCandidates.slice(0, 10);
 
-  // Build stale deals (only proposals sent within last 90 days)
+  // Build stale deals: no portal activity (login/view/download) in 7+ days
   const staleDealCandidates: ClosingStaleDeal[] = [];
   for (const deal of openDeals) {
     if (!deal.proposalSentAt) continue;
-    const { totalViews, lastViewedAt } = getDealViews(deal);
+    const eng = getDealEngagement(deal);
+    const lastPortalActivity = getLastPortalActivity(eng);
+    const contactPortalAccess = deal.primaryContact?.portalLastAccessAt ?? null;
+    const lastActivity = [lastPortalActivity, contactPortalAccess]
+      .filter(Boolean)
+      .reduce<Date | null>((best, d) => (!best || d! > best ? d! : best), null);
+
     const daysSinceProposal = Math.floor(
       (now.getTime() - deal.proposalSentAt.getTime()) / MS_PER_DAY,
     );
     if (daysSinceProposal > 90) continue;
     const contactName = [deal.primaryContact?.lastName, deal.primaryContact?.firstName]
       .filter(Boolean).join(' ') || 'Sin contacto';
+    const daysSinceLastActivity = lastActivity
+      ? Math.floor((now.getTime() - lastActivity.getTime()) / MS_PER_DAY)
+      : null;
 
-    if (daysSinceProposal > 7 && totalViews === 0) {
+    if (daysSinceProposal > 7 && !lastActivity) {
       staleDealCandidates.push({
         id: deal.id,
         companyName: deal.account?.name ?? 'Sin empresa',
@@ -400,14 +495,11 @@ export async function getClosingHubData(
         stageName: deal.stage.name,
         stageColor: deal.stage.color,
         amount: getDealAmount(deal),
-        issue: `Sin vistas hace ${daysSinceProposal} días`,
+        issue: 'Sin actividad en portal',
         issueType: 'no_views',
         daysSinceLastView: null,
       });
-    } else if (deal.followUpLogs.length === 0) {
-      const daysSinceView = lastViewedAt
-        ? Math.floor((now.getTime() - lastViewedAt.getTime()) / MS_PER_DAY)
-        : null;
+    } else if (daysSinceLastActivity !== null && daysSinceLastActivity >= 7 && deal.followUpLogs.length === 0) {
       staleDealCandidates.push({
         id: deal.id,
         companyName: deal.account?.name ?? 'Sin empresa',
@@ -416,10 +508,26 @@ export async function getClosingHubData(
         stageName: deal.stage.name,
         stageColor: deal.stage.color,
         amount: getDealAmount(deal),
-        issue: 'Sin seguimiento programado',
+        issue: `Sin actividad en portal hace ${daysSinceLastActivity}d`,
         issueType: 'no_followup',
-        daysSinceLastView: daysSinceView,
+        daysSinceLastView: daysSinceLastActivity,
       });
+    } else if (deal.followUpLogs.length === 0 && lastActivity) {
+      const daysSinceView = Math.floor((now.getTime() - lastActivity.getTime()) / MS_PER_DAY);
+      if (daysSinceView >= 7) {
+        staleDealCandidates.push({
+          id: deal.id,
+          companyName: deal.account?.name ?? 'Sin empresa',
+          dealTitle: deal.title,
+          contactName,
+          stageName: deal.stage.name,
+          stageColor: deal.stage.color,
+          amount: getDealAmount(deal),
+          issue: 'Sin seguimiento programado',
+          issueType: 'no_followup',
+          daysSinceLastView: daysSinceView,
+        });
+      }
     }
   }
   staleDealCandidates.sort((a, b) => {
@@ -510,6 +618,7 @@ export async function getClosingHubData(
     kpis: {
       openLeadsCount,
       newLeads30,
+      leadsDraftCount,
       dealsNegotiatingCount: negotiatingDeals.length,
       amountNegotiatingClp,
       amountNegotiatingUf,

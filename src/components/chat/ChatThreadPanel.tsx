@@ -86,7 +86,7 @@ export function ChatThreadPanel({
           return [...prev, data.message];
         });
         setTimeout(() => {
-          bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+          bottomRef.current?.scrollIntoView({ behavior: "auto" });
         }, 100);
       }
     };
@@ -100,7 +100,7 @@ export function ChatThreadPanel({
   // Auto-scroll to bottom when replies load
   useEffect(() => {
     if (!loading && replies.length > 0) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
     }
   }, [loading, replies.length]);
 
@@ -125,7 +125,7 @@ export function ChatThreadPanel({
               return [...prev, json.data];
             });
             setTimeout(() => {
-              bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+              bottomRef.current?.scrollIntoView({ behavior: "auto" });
             }, 100);
           }
         }

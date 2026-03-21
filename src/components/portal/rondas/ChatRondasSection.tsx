@@ -120,7 +120,7 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
         if (prev.some((m) => m.id === data.id)) return prev;
         return [...prev, data];
       });
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 50);
     });
 
     channel.bind("message-deleted", (data: { id: string }) => {
@@ -195,7 +195,7 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
           if (prev.some((m) => m.id === res.data.id)) return prev;
           return [...prev, res.data];
         });
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 50);
       }
     } catch {}
     setIsSending(false);
@@ -246,7 +246,7 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
           <div
             ref={messagesContainerRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto py-3"
+            className="flex-1 min-h-0 overflow-y-auto py-3"
           >
             {loadingMore && (
               <div className="flex justify-center py-2">

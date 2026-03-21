@@ -138,7 +138,7 @@ export function SupervisorChat({ session }: Props) {
       const res = await fetch(`/api/chat/channels/${channelId}/messages`, { headers });
       const json = await res.json();
       setMessages(json.data ?? []);
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "auto" }), 100);
     } catch {
       // noop
     } finally {
@@ -161,7 +161,7 @@ export function SupervisorChat({ session }: Props) {
     const sub = pusherRef.current.subscribe(`private-chat-${selectedChannel.id}`);
     sub.bind("new-message", (msg: ChatMessageData) => {
       setMessages((prev) => [...prev, msg]);
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "auto" }), 100);
     });
     channelSubRef.current = sub;
 
@@ -260,7 +260,7 @@ export function SupervisorChat({ session }: Props) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto py-3">
+      <div className="flex-1 min-h-0 overflow-y-auto py-3">
         {loadingMessages ? (
           <div className="flex justify-center py-10">
             <Loader2 className="animate-spin text-zinc-600" size={24} />

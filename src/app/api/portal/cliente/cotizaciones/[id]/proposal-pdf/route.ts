@@ -48,6 +48,23 @@ export async function GET(
     const { fileName, ...props } = await buildProposalProps(id, session.tenantId);
     const pdfBuffer = await renderProposalToBufferFromProps(props);
 
+    // Log download for heat score / activity tracking
+    try {
+      await prisma.portalAccessLog.create({
+        data: {
+          tenantId: session.tenantId,
+          portalType: "cliente",
+          userType: "contact",
+          userId: session.contactId,
+          accountId: session.accountId,
+          action: "download_quote",
+          resource: id,
+        },
+      });
+    } catch (e) {
+      console.warn("[Portal] download_quote log failed:", (e as Error)?.message);
+    }
+
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',

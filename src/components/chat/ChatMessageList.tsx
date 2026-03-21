@@ -93,16 +93,25 @@ export function ChatMessageList({
   const prevScrollHeightRef = useRef(0);
   const isLoadingMoreRef = useRef(false);
 
-  // Track scroll position to determine if we're near bottom
+  // Track scroll position (throttled via rAF to reduce re-renders during scroll)
+  const scrollThrottleRef = useRef<number | null>(null);
+  const latestNearBottomRef = useRef(true);
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
     const { scrollTop, scrollHeight, clientHeight } = container;
     const threshold = 100;
-    setIsNearBottom(scrollHeight - scrollTop - clientHeight < threshold);
+    latestNearBottomRef.current = scrollHeight - scrollTop - clientHeight < threshold;
 
-    // Infinite scroll: load more when scrolled near top
+    if (scrollThrottleRef.current == null) {
+      scrollThrottleRef.current = window.requestAnimationFrame(() => {
+        setIsNearBottom(latestNearBottomRef.current);
+        scrollThrottleRef.current = null;
+      });
+    }
+
+    // Infinite scroll: load more when scrolled near top (immediate, user expects it)
     if (scrollTop < 80 && hasMore && !isLoading && !isLoadingMoreRef.current) {
       isLoadingMoreRef.current = true;
       prevScrollHeightRef.current = container.scrollHeight;
@@ -133,9 +142,9 @@ export function ChatMessageList({
       return;
     }
 
-    // Auto-scroll to bottom for new messages
+    // Auto-scroll to bottom for new messages (auto = instant, avoids jank on mobile)
     if (isNearBottom) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      bottomRef.current?.scrollIntoView({ behavior: "auto" });
     }
   }, [messages.length, isNearBottom]);
 
@@ -175,7 +184,7 @@ export function ChatMessageList({
     <div
       ref={scrollContainerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-4 py-3"
+      className="flex-1 min-h-0 overflow-y-auto px-4 py-3"
     >
       {/* Loading spinner for older messages */}
       {isLoading && hasMore && messages.length > 0 && (

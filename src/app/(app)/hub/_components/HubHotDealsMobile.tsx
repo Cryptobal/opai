@@ -12,7 +12,7 @@ interface Props {
 }
 
 function HeatIndicator({ score }: { score: number }) {
-  const title = 'Interés: vistas de propuesta + recencia (últimos 7 días)';
+  const title = 'Interés: vistas + descargas en portal + logins (últimos 7 días)';
   if (score >= 70) return <span title={title} className="text-red-400 font-semibold text-xs whitespace-nowrap">🔥🔥🔥 {score}</span>;
   if (score >= 30) return <span title={title} className="text-orange-400 font-semibold text-xs whitespace-nowrap">🔥🔥 {score}</span>;
   if (score > 0) return <span title={title} className="text-muted-foreground font-semibold text-xs whitespace-nowrap">🔥 {score}</span>;
