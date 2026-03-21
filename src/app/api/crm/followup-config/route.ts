@@ -42,6 +42,7 @@ export async function GET() {
         isActive: true,
         bccEnabled: false,
         bccEmail: null,
+        ccEmail: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest) {
       isActive,
       bccEnabled,
       bccEmail,
+      ccEmail,
     } = body;
 
     if (
@@ -157,6 +159,7 @@ export async function POST(request: NextRequest) {
         ...(isActive !== undefined ? { isActive } : {}),
         ...(bccEnabled !== undefined ? { bccEnabled } : {}),
         ...(bccEmail !== undefined ? { bccEmail: bccEmail || null } : {}),
+        ...(ccEmail !== undefined ? { ccEmail: ccEmail || null } : {}),
       },
       create: {
         tenantId: ctx.tenantId,
@@ -177,6 +180,7 @@ export async function POST(request: NextRequest) {
         isActive: isActive ?? true,
         bccEnabled: bccEnabled ?? false,
         bccEmail: bccEmail || null,
+        ccEmail: ccEmail || null,
       },
     });
 

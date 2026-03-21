@@ -8,6 +8,7 @@ import { resolveDocument } from "@/lib/docs/token-resolver";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 function tiptapJsonToHtml(doc: unknown): string {
   const d = doc as { content?: unknown[] } | null;
@@ -279,12 +280,17 @@ export async function processFollowUpLog(
       ? [config.bccEmail.trim()]
       : undefined;
 
+  const tenantConfig = await getTenantCompanyConfig(followUp.tenantId);
+  const ccEmail = config?.ccEmail?.trim() || tenantConfig.email?.trim();
+  const cc = ccEmail ? [ccEmail] : undefined;
+
   const emailResult = await resend.emails.send({
     from: EMAIL_CONFIG.from,
     to: contact.email,
     subject: emailSubject,
     html: emailHtml,
     replyTo: EMAIL_CONFIG.replyTo,
+    ...(cc ? { cc } : {}),
     ...(bcc ? { bcc } : {}),
   });
 
@@ -375,30 +381,7 @@ export async function processFollowUpLog(
       ? `https://wa.me/${contactPhone}?text=${whatsappMessage}`
       : null;
 
-  try {
-    const { sendNotification } = await import("@/lib/notification-service");
-    await sendNotification({
-      tenantId: followUp.tenantId,
-      type: "followup_sent",
-      title: `${followUp.sequence === 1 ? "1er" : followUp.sequence === 2 ? "2do" : "3er"} seguimiento enviado: ${deal.account.name}`,
-      message: `Se envió el ${followUp.sequence === 1 ? "primer" : followUp.sequence === 2 ? "segundo" : "tercer"} seguimiento a ${contact.firstName} ${contact.lastName} por "${deal.title}".`,
-      data: {
-        dealId: deal.id,
-        contactId: contact.id,
-        contactPhone: contactPhone || null,
-        contactFirstName: contact.firstName,
-        proposalLink: deal.proposalLink,
-        proposalSentDate,
-        dealTitle: deal.title,
-        followUpNumber: followUp.sequence,
-        whatsappUrl,
-        emailMessageId: message.id,
-      },
-      link: `/crm/deals/${deal.id}`,
-    });
-  } catch (e) {
-    console.warn("Followup: failed to create notification", e);
-  }
+  // No se envía notificación a todos los usuarios CRM; el tenant recibe copia vía CC
 
   if (config?.autoAdvanceStage) {
     if (followUp.sequence === 3) {
