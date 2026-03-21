@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, Phone, MessageCircle, Mail, ExternalLink } from 'lucide-react';
 import { timeAgo } from '@/lib/utils';
-import { formatCLP, normalizeChileanPhone, whatsappUrl } from '../_lib/hub-utils';
+import { formatCLP, normalizeChileanPhone, whatsappUrlWithMessage, HUB_WHATSAPP_MESSAGES } from '../_lib/hub-utils';
 import type { ClosingHotDeal } from '../_lib/hub-types';
 
 interface Props {
   deals: ClosingHotDeal[];
+  sellerFirstName: string;
+  tenantName: string;
 }
 
 function HeatIndicator({ score }: { score: number }) {
@@ -25,7 +27,7 @@ function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
   return <span className="text-muted-foreground text-[10px]">—</span>;
 }
 
-function ActionIcons({ deal }: { deal: ClosingHotDeal }) {
+function ActionIcons({ deal, sellerFirstName, tenantName }: { deal: ClosingHotDeal; sellerFirstName: string; tenantName: string }) {
   const phone = deal.contactPhone ? normalizeChileanPhone(deal.contactPhone) : null;
   const handlePhone = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -33,7 +35,10 @@ function ActionIcons({ deal }: { deal: ClosingHotDeal }) {
   };
   const handleWhatsApp = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (deal.contactPhone) window.open(whatsappUrl(deal.contactPhone), '_blank', 'noopener,noreferrer');
+    if (deal.contactPhone) {
+      const msg = HUB_WHATSAPP_MESSAGES.hot(deal.contactName, deal.companyName, sellerFirstName, tenantName);
+      window.open(whatsappUrlWithMessage(deal.contactPhone, msg), '_blank', 'noopener,noreferrer');
+    }
   };
   const handleEmail = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -86,7 +91,7 @@ function ActionIcons({ deal }: { deal: ClosingHotDeal }) {
   );
 }
 
-export function HubHotDealsTable({ deals }: Props) {
+export function HubHotDealsTable({ deals, sellerFirstName, tenantName }: Props) {
   const router = useRouter();
   return (
     <div className="rounded-[10px] border border-border bg-card overflow-hidden">
@@ -145,7 +150,7 @@ export function HubHotDealsTable({ deals }: Props) {
             {/* Contacto + actions on hover */}
             <span className="flex items-center min-w-0 pr-2">
               <span className="text-[11px] truncate">{deal.contactName}</span>
-              <ActionIcons deal={deal} />
+              <ActionIcons deal={deal} sellerFirstName={sellerFirstName} tenantName={tenantName} />
             </span>
 
             {/* Etapa */}

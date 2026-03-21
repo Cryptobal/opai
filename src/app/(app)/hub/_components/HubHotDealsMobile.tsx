@@ -4,11 +4,13 @@ import { useRouter } from 'next/navigation';
 import { Phone, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { timeAgo } from '@/lib/utils';
-import { formatCLP, normalizeChileanPhone, whatsappUrl } from '../_lib/hub-utils';
+import { formatCLP, normalizeChileanPhone, whatsappUrlWithMessage, HUB_WHATSAPP_MESSAGES } from '../_lib/hub-utils';
 import type { ClosingHotDeal } from '../_lib/hub-types';
 
 interface Props {
   deals: ClosingHotDeal[];
+  sellerFirstName: string;
+  tenantName: string;
 }
 
 function HeatIndicator({ score }: { score: number }) {
@@ -25,12 +27,18 @@ function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
   return <span className="text-muted-foreground text-[10px]">—</span>;
 }
 
-export function HubHotDealsMobile({ deals }: Props) {
+export function HubHotDealsMobile({ deals, sellerFirstName, tenantName }: Props) {
   const router = useRouter();
   return (
     <div className="space-y-2">
       {deals.map((deal, idx) => {
         const rank = idx + 1;
+        const waMessage = HUB_WHATSAPP_MESSAGES.hot(
+          deal.contactName,
+          deal.companyName,
+          sellerFirstName,
+          tenantName,
+        );
         return (
           <div
             key={deal.id}
@@ -85,7 +93,7 @@ export function HubHotDealsMobile({ deals }: Props) {
                 )}
                 {deal.contactPhone && (
                   <a
-                    href={whatsappUrl(deal.contactPhone)}
+                    href={whatsappUrlWithMessage(deal.contactPhone, waMessage)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-medium transition-colors hover:bg-green-500 hover:text-white"

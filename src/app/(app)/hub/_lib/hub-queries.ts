@@ -15,6 +15,7 @@
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { getUfValue } from '@/lib/uf';
+import { getTenantCompanyConfig } from '@/lib/tenant-config';
 import {
   collectLinkedQuoteIds,
   resolveDealActiveQuotationSummary,
@@ -492,6 +493,7 @@ export async function getClosingHubData(
         companyName: deal.account?.name ?? 'Sin empresa',
         dealTitle: deal.title,
         contactName,
+        contactPhone: deal.primaryContact?.phone ?? null,
         stageName: deal.stage.name,
         stageColor: deal.stage.color,
         amount: getDealAmount(deal),
@@ -505,6 +507,7 @@ export async function getClosingHubData(
         companyName: deal.account?.name ?? 'Sin empresa',
         dealTitle: deal.title,
         contactName,
+        contactPhone: deal.primaryContact?.phone ?? null,
         stageName: deal.stage.name,
         stageColor: deal.stage.color,
         amount: getDealAmount(deal),
@@ -520,6 +523,7 @@ export async function getClosingHubData(
           companyName: deal.account?.name ?? 'Sin empresa',
           dealTitle: deal.title,
           contactName,
+          contactPhone: deal.primaryContact?.phone ?? null,
           stageName: deal.stage.name,
           stageColor: deal.stage.color,
           amount: getDealAmount(deal),
@@ -614,6 +618,8 @@ export async function getClosingHubData(
     }
   }
 
+  const tenantConfig = await getTenantCompanyConfig(tenantId);
+
   return {
     kpis: {
       openLeadsCount,
@@ -646,6 +652,7 @@ export async function getClosingHubData(
       leadToDealRate: toPercent(leadsConverted30, newLeads30),
       proposalToWonRate: toPercent(closedWon30, proposalsSent30),
     },
+    commercialName: tenantConfig.commercialName || 'OPAI',
   };
 }
 
