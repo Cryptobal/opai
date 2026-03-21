@@ -482,6 +482,8 @@ export function RondasPortalClient() {
         qrRequerido: false,
         orderMode: "flexible",
         estimatedDurationMin: null,
+        frecuenciaMinutos: null,
+        nextRoundAt: null,
         checkpoints: json.data.checkpoints ?? [],
       });
       setScreen("ronda-activa");
