@@ -66,6 +66,7 @@ export function HubClientWrapper({
         <HubCrmSection
           perms={hubPerms}
           closingData={closingData}
+          sellerFirstName={firstName}
         />
       )}
 

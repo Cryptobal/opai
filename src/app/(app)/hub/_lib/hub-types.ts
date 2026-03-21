@@ -395,6 +395,7 @@ export interface ClosingStaleDeal {
   companyName: string;
   dealTitle: string;
   contactName: string;
+  contactPhone: string | null;
   stageName: string;
   stageColor: string | null;
   amount: number;
@@ -442,4 +443,5 @@ export interface ClosingPortalTopUser {
 export interface HubClosingSectionProps {
   perms: HubPerms;
   closingData: ClosingHubData;
+  sellerFirstName: string;
 }

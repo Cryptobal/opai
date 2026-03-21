@@ -1,10 +1,12 @@
 import Link from 'next/link';
-import { AlertTriangle, ChevronRight } from 'lucide-react';
+import { AlertTriangle, ChevronRight, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { whatsappUrlWithMessage, HUB_WHATSAPP_MESSAGES } from '../_lib/hub-utils';
 import type { ClosingStaleDeal } from '../_lib/hub-types';
 
 interface Props {
   deals: ClosingStaleDeal[];
+  sellerFirstName: string;
 }
 
 function DaysBadge({ days }: { days: number | null }) {
@@ -17,7 +19,7 @@ function DaysBadge({ days }: { days: number | null }) {
   );
 }
 
-export function HubStaleDeals({ deals }: Props) {
+export function HubStaleDeals({ deals, sellerFirstName }: Props) {
   if (deals.length === 0) {
     return (
       <div className="rounded-[10px] border border-border bg-card p-3.5">
@@ -46,24 +48,42 @@ export function HubStaleDeals({ deals }: Props) {
           // Extract days from issue text for badge
           const daysMatch = deal.issue.match(/(\d+)/);
           const days = deal.daysSinceLastView ?? (daysMatch ? parseInt(daysMatch[1]) : null);
+          const waMessage = HUB_WHATSAPP_MESSAGES.stale(
+            deal.contactName,
+            deal.companyName,
+            sellerFirstName,
+          );
 
           return (
-            <Link
+            <div
               key={deal.id}
-              href={`/crm/deals/${deal.id}`}
               className="flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-accent/20"
               style={{ borderLeft: `3px solid ${deal.stageColor ?? 'hsl(var(--border))'}` }}
             >
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold truncate">{deal.companyName}</p>
-                <p className="text-[11px] text-muted-foreground truncate">
-                  {deal.contactName}
-                  <span style={{ color: deal.stageColor ?? undefined }}> · {deal.stageName}</span>
-                </p>
-              </div>
-              <DaysBadge days={days} />
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-            </Link>
+              <Link href={`/crm/deals/${deal.id}`} className="min-w-0 flex-1 flex items-center gap-2 no-underline">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold truncate">{deal.companyName}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {deal.contactName}
+                    <span style={{ color: deal.stageColor ?? undefined }}> · {deal.stageName}</span>
+                  </p>
+                </div>
+                <DaysBadge days={days} />
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
+              </Link>
+              {deal.contactPhone && (
+                <a
+                  href={whatsappUrlWithMessage(deal.contactPhone, waMessage)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-md border border-border p-1.5 text-muted-foreground hover:bg-green-500 hover:text-white hover:border-green-500 transition-colors shrink-0"
+                  title="Enviar WhatsApp"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />
+                </a>
+              )}
+            </div>
           );
         })}
       </div>

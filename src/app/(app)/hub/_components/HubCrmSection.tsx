@@ -26,7 +26,7 @@ function getStoredLastSeen(): number {
   }
 }
 
-export function HubCrmSection({ perms, closingData }: HubClosingSectionProps) {
+export function HubCrmSection({ perms, closingData, sellerFirstName }: HubClosingSectionProps) {
   const [activeTab, setActiveTab] = useState('hot');
   const [leadsLastSeenCount, setLeadsLastSeenCount] = useState(0);
   const { kpis, hotDeals, staleDeals, pendingLeads, funnel, portalTopUsers } = closingData;
@@ -135,7 +135,7 @@ export function HubCrmSection({ perms, closingData }: HubClosingSectionProps) {
                   <p className="text-xs font-bold">Propuestas calientes</p>
                   <span className="text-[10px] text-muted-foreground">({hotDeals.length})</span>
                 </div>
-                <HubHotDealsMobile deals={hotDeals} />
+                <HubHotDealsMobile deals={hotDeals} sellerFirstName={sellerFirstName} />
               </>
             )}
             <HubMiniFunnel funnel={funnel} />
@@ -143,7 +143,7 @@ export function HubCrmSection({ perms, closingData }: HubClosingSectionProps) {
         )}
 
         {activeTab === 'leads' && <HubPendingLeads leads={pendingLeads} />}
-        {activeTab === 'stale' && <HubStaleDeals deals={staleDeals} />}
+        {activeTab === 'stale' && <HubStaleDeals deals={staleDeals} sellerFirstName={sellerFirstName} />}
       </div>
 
       {/* ─── DESKTOP LAYOUT (≥ md) ─── */}
@@ -165,7 +165,7 @@ export function HubCrmSection({ perms, closingData }: HubClosingSectionProps) {
                   {hotDeals.length}
                 </span>
               </div>
-              <HubHotDealsTable deals={hotDeals} />
+              <HubHotDealsTable deals={hotDeals} sellerFirstName={sellerFirstName} />
             </>
           )}
           <HubMiniFunnel funnel={funnel} />
@@ -173,7 +173,7 @@ export function HubCrmSection({ perms, closingData }: HubClosingSectionProps) {
 
         {/* Right column: sidebar */}
         <div className="space-y-3 md:sticky md:top-4">
-          <HubStaleDeals deals={staleDeals} />
+          <HubStaleDeals deals={staleDeals} sellerFirstName={sellerFirstName} />
           <HubPendingLeads leads={pendingLeads} />
           <HubPortalRanking users={portalTopUsers} />
         </div>
