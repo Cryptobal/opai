@@ -418,6 +418,10 @@ export async function POST(
     };
 
     after(async () => {
+      const mentionedUserIds = parsedMentions
+        .map((m) => (m.type === "ALL" ? "todos" : m.userId!))
+        .filter(Boolean);
+
       // 1. Pusher real-time event
       try {
         const eventName = threadRootId ? "thread-reply" : "new-message";
@@ -431,9 +435,6 @@ export async function POST(
 
       // 2. Push notifications
       try {
-        const mentionedUserIds = parsedMentions
-          .map((m) => (m.type === "ALL" ? "todos" : m.userId!))
-          .filter(Boolean);
         const firstImageAttachment = attachments?.find(
           (a: any) =>
             a.type?.startsWith("image/") || a.contentType?.startsWith("image/")
