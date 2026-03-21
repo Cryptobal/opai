@@ -123,17 +123,9 @@ export function RondaTemplateForm({
     }
   };
 
-  const toggleCheckpoint = (cp: CheckpointOption) => {
-    setSelected((prev) => {
-      const exists = prev.find((s) => s.id === cp.id);
-      if (exists) return prev.filter((s) => s.id !== cp.id);
-      return [...prev, { id: cp.id, name: cp.name, isRequired: true }];
-    });
-  };
-
-  const calcDuration = () => {
-    const WALKING_SPEED_KMH = 5;
-    const MIN_PER_CHECKPOINT = 3;
+  const calcDuration = (overrideSelected?: typeof selected) => {
+    const WALKING_SPEED_KMH = 4.5; // realistic guard walking speed
+    const MIN_PER_CHECKPOINT = 3;  // time to inspect + mark each checkpoint
 
     // Haversine distance in km
     const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
@@ -145,8 +137,10 @@ export function RondaTemplateForm({
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     };
 
+    const src = overrideSelected ?? selected;
+
     // Build ordered list with coordinates
-    const coords = selected
+    const coords = src
       .map((s) => {
         const cp = checkpoints.find((c) => c.id === s.id);
         return cp?.lat != null && cp?.lng != null ? { lat: cp.lat, lng: cp.lng } : null;
@@ -162,8 +156,17 @@ export function RondaTemplateForm({
       }
     }
 
-    const total = Math.ceil(walkingMinutes + selected.length * MIN_PER_CHECKPOINT);
-    setEstimatedDurationMin(String(Math.max(total, selected.length)));
+    const total = Math.ceil(walkingMinutes + src.length * MIN_PER_CHECKPOINT);
+    setEstimatedDurationMin(String(Math.max(total, src.length)));
+  };
+
+  const toggleCheckpoint = (cp: CheckpointOption) => {
+    setSelected((prev) => {
+      const exists = prev.find((s) => s.id === cp.id);
+      const next = exists ? prev.filter((s) => s.id !== cp.id) : [...prev, { id: cp.id, name: cp.name, isRequired: true }];
+      if (next.length >= 2) calcDuration(next);
+      return next;
+    });
   };
 
   return (
@@ -222,14 +225,15 @@ export function RondaTemplateForm({
               type="button"
               variant="outline"
               className="h-9 text-xs shrink-0"
-              onClick={calcDuration}
-              title="Calcula distancia caminando entre checkpoints + 3 min por punto"
+              onClick={() => calcDuration()}
+              title="Recalcular: distancia caminando entre checkpoints (4,5 km/h) + 3 min por checkpoint"
             >
               Auto
             </Button>
           </div>
           <p className="text-[10px] text-muted-foreground/80 mt-0.5">
-            Tiempo aproximado en minutos. &quot;Auto&quot; calcula distancia caminando + 3 min por checkpoint.
+            Informativo. &quot;Auto&quot;: distancia entre puntos a 4,5 km/h + 3 min de inspección por checkpoint.
+            Se recalcula automáticamente al cambiar la selección.
           </p>
         </div>
       </div>
@@ -243,8 +247,11 @@ export function RondaTemplateForm({
             onClick={() => {
               if (selected.length === checkpoints.length) {
                 setSelected([]);
+                setEstimatedDurationMin("");
               } else {
-                setSelected(checkpoints.map((cp) => ({ id: cp.id, name: cp.name, isRequired: true })));
+                const next = checkpoints.map((cp) => ({ id: cp.id, name: cp.name, isRequired: true }));
+                setSelected(next);
+                calcDuration(next);
               }
             }}
           >

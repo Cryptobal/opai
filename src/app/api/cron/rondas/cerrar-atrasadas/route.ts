@@ -8,7 +8,9 @@ import { notifyCriticalAlertsBatch } from "@/lib/rondas/alert-notifications";
  * CRON: /api/cron/rondas/cerrar-atrasadas
  *
  * Closes pending rondas that were never started and whose grace window has passed.
- * Runs every 30 minutes via Vercel Cron.
+ * Grace window = frecuenciaMinutos ÷ 2 (half the time between rounds).
+ * Falls back to toleranciaMinutos if explicitly set, otherwise 20 min if no frequency.
+ * Runs every 15 minutes via Vercel Cron.
  * Protected with CRON_SECRET env var.
  */
 export async function GET(request: NextRequest) {
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
         scheduledAt: { lte: cutoffMin },
       },
       include: {
-        programacion: { select: { toleranciaMinutos: true } },
+        programacion: { select: { toleranciaMinutos: true, frecuenciaMinutos: true } },
         rondaTemplate: { select: { name: true, installationId: true } },
       },
       take: 500,
@@ -51,10 +53,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: { cerradas: 0, fecha: now.toISOString() } });
     }
 
-    // Filter: only close if scheduledAt + tolerancia has passed (no extra grace)
+    // Filter: close once scheduledAt + grace has passed.
+    // Grace = frecuenciaMinutos ÷ 2 (smart), or toleranciaMinutos if explicitly configured,
+    // fallback to 20 min when no frequency or programacion is available.
     const toClose = pendingEjecuciones.filter((ej) => {
-      const toleranciaMin = ej.programacion?.toleranciaMinutos ?? 30;
-      const graceMs = toleranciaMin * 60 * 1000;
+      const frecuencia = ej.programacion?.frecuenciaMinutos;
+      const tolerancia = ej.programacion?.toleranciaMinutos;
+      const graceMin = tolerancia != null
+        ? tolerancia
+        : frecuencia != null
+          ? Math.round(frecuencia / 2)
+          : 20;
+      const graceMs = graceMin * 60 * 1000;
       return ej.scheduledAt.getTime() + graceMs < now.getTime();
     });
 

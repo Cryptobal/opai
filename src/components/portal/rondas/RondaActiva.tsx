@@ -67,6 +67,9 @@ export interface RondaData {
   qrRequerido: boolean;
   orderMode: string;
   estimatedDurationMin: number | null;
+  frecuenciaMinutos: number | null;
+  /** ISO string of the next scheduled round for the same programacion */
+  nextRoundAt: string | null;
   checkpoints: ApiCheckpoint[];
 }
 
@@ -287,6 +290,29 @@ export function RondaActiva({
     const id = setInterval(sendTracking, 30000);
     return () => clearInterval(id);
   }, [guardPos?.lat, guardPos?.lng, rondaData.ejecucionId, session?.guardiaId]);
+
+  // -- Flush accumulated GPS trail to server every 60 s (survives auto-close) --
+  useEffect(() => {
+    const flushWalkRoute = async () => {
+      if (trailPoints.length < 2) return;
+      try {
+        await fetch("/api/portal/rondas/walk-route-flush", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ejecucionId: rondaData.ejecucionId,
+            guardiaId: session.guardiaId,
+            points: trailPoints,
+          }),
+        });
+      } catch {
+        // Silent fail — flush is best-effort
+      }
+    };
+
+    const id = setInterval(flushWalkRoute, 60000);
+    return () => clearInterval(id);
+  }, [trailPoints, rondaData.ejecucionId, session.guardiaId]);
 
   // Timer interval
   useEffect(() => {
@@ -527,6 +553,18 @@ export function RondaActiva({
     : null;
   const showFreeRoundWarning = isAdHoc && freeRoundTimeLeftMinutes !== null && freeRoundTimeLeftMinutes <= FREE_ROUND_WARNING_MINUTES && freeRoundTimeLeftMinutes > FREE_ROUND_CRITICAL_MINUTES;
   const showFreeRoundCritical = isAdHoc && freeRoundTimeLeftMinutes !== null && freeRoundTimeLeftMinutes <= FREE_ROUND_CRITICAL_MINUTES;
+
+  // Warning for scheduled rounds: show when < 5 min until next round starts (auto-close point)
+  const scheduledCloseAt = !isAdHoc && rondaData.nextRoundAt
+    ? new Date(rondaData.nextRoundAt).getTime()
+    : !isAdHoc && startTime && rondaData.frecuenciaMinutos
+      ? startTime + rondaData.frecuenciaMinutos * 60 * 1000
+      : null;
+  const scheduledMinutesLeft = scheduledCloseAt !== null
+    ? Math.floor((scheduledCloseAt - now) / 60000)
+    : null;
+  const showScheduledWarning = !isAdHoc && scheduledMinutesLeft !== null && scheduledMinutesLeft <= 5 && scheduledMinutesLeft > 0;
+  const showScheduledCritical = !isAdHoc && scheduledMinutesLeft !== null && scheduledMinutesLeft <= 0;
 
   // Sorted checkpoints: pending sorted by proximity, then completed
   const sortedCheckpoints = useMemo(() => {
@@ -805,6 +843,18 @@ export function RondaActiva({
       {showFreeRoundCritical && (
         <div className="mx-4 mt-2 animate-pulse rounded-lg border border-red-600/50 bg-red-950/40 px-4 py-2 text-center text-sm font-semibold text-red-300">
           Tu ronda se cerrará en {Math.max(0, freeRoundTimeLeftMinutes!)} min — finalízala ahora
+        </div>
+      )}
+
+      {/* Auto-close warning banner for scheduled rounds approaching next round */}
+      {showScheduledWarning && (
+        <div className="mx-4 mt-2 rounded-lg border border-yellow-600/50 bg-yellow-950/40 px-4 py-2 text-center text-sm font-medium text-yellow-300">
+          ⚠ Comienza la próxima ronda en {scheduledMinutesLeft} min — completa esta ronda pronto
+        </div>
+      )}
+      {showScheduledCritical && (
+        <div className="mx-4 mt-2 animate-pulse rounded-lg border border-red-600/50 bg-red-950/40 px-4 py-2 text-center text-sm font-semibold text-red-300">
+          La próxima ronda ya comenzó — esta ronda será cerrada automáticamente. Finalízala ahora.
         </div>
       )}
 

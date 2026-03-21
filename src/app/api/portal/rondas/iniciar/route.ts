@@ -39,6 +39,16 @@ export async function POST(request: NextRequest) {
         id: ejecucionId,
         status: { in: ["pendiente", "incompleta"] },
       },
+      select: {
+        id: true,
+        tenantId: true,
+        guardiaId: true,
+        installationId: true,
+        isAdHoc: true,
+        scheduledAt: true,
+        programacionId: true,
+        programacion: { select: { frecuenciaMinutos: true } },
+      },
     });
 
     if (!execution) {
@@ -46,6 +56,31 @@ export async function POST(request: NextRequest) {
         { success: false, error: "Ejecuci\u00F3n no encontrada o ya iniciada" },
         { status: 404 },
       );
+    }
+
+    // Block starting a new scheduled round if the same guard already has one en_curso
+    // for the same installation (prevents overlapping programmed rounds)
+    if (!execution.isAdHoc && execution.installationId) {
+      const activeRound = await prisma.opsRondaEjecucion.findFirst({
+        where: {
+          guardiaId,
+          installationId: execution.installationId,
+          isAdHoc: false,
+          status: "en_curso",
+          id: { not: ejecucionId },
+        },
+        select: { id: true, scheduledAt: true },
+      });
+
+      if (activeRound) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Tienes una ronda programada en curso. Complétala antes de iniciar la siguiente.",
+          },
+          { status: 400 },
+        );
+      }
     }
 
     const now = new Date();

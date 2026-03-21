@@ -8,11 +8,12 @@ import { notifyCriticalAlertsBatch } from "@/lib/rondas/alert-notifications";
  * CRON: /api/cron/rondas/cerrar-en-curso
  *
  * Auto-closes SCHEDULED (non ad-hoc) rondas that are still "en_curso"
- * after exceeding the configurable maximum duration.
+ * once it's time to start the next round in the same programacion.
  *
- * Timeout resolution:
- *   1. CrmInstallation.maxRondaDurationMinutes (per-installation override)
- *   2. Tenant.defaultMaxRondaDurationMinutes (tenant-level fallback, default 120)
+ * Timeout resolution (first match wins):
+ *   1. Next scheduledAt for the same programacionId (closes when next round should start)
+ *   2. startedAt + frecuenciaMinutos (if no next round: last round of the day)
+ *   3. startedAt + 60 min (fallback when no frequency info available)
  *
  * Runs every 15 minutes via Vercel Cron.
  * Protected with CRON_SECRET env var.
@@ -46,8 +47,10 @@ export async function GET(request: NextRequest) {
         installationId: true,
         guardiaId: true,
         startedAt: true,
-        installation: {
-          select: { maxRondaDurationMinutes: true },
+        scheduledAt: true,
+        programacionId: true,
+        programacion: {
+          select: { frecuenciaMinutos: true },
         },
       },
       take: 500,
@@ -60,30 +63,53 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Fetch tenant-level defaults for fallback
-    const tenantIds = [...new Set(enCurso.map((ej) => ej.tenantId))];
-    const tenants = await prisma.tenant.findMany({
-      where: { id: { in: tenantIds } },
-      select: { id: true, defaultMaxRondaDurationMinutes: true },
-    });
-    const tenantDefaults = new Map(
-      tenants.map((t) => [t.id, t.defaultMaxRondaDurationMinutes]),
-    );
+    // For rounds with a programacionId, find the next pending execution
+    const programacionIds = [...new Set(
+      enCurso.filter((ej) => ej.programacionId).map((ej) => ej.programacionId!)
+    )];
 
-    // Determine which rondas exceeded their timeout
-    const toClose: typeof enCurso = [];
+    // Fetch the next pending execution for each programacion (the upcoming round)
+    const nextRounds = programacionIds.length > 0
+      ? await prisma.opsRondaEjecucion.findMany({
+          where: {
+            programacionId: { in: programacionIds },
+            status: "pendiente",
+            scheduledAt: { gte: now },
+          },
+          select: { programacionId: true, scheduledAt: true },
+          orderBy: { scheduledAt: "asc" },
+        })
+      : [];
+
+    // Build map: programacionId → next scheduledAt
+    const nextRoundMap = new Map<string, Date>();
+    for (const nr of nextRounds) {
+      if (nr.programacionId && !nextRoundMap.has(nr.programacionId)) {
+        nextRoundMap.set(nr.programacionId, nr.scheduledAt);
+      }
+    }
+
+    // Determine which rondas should be closed
+    const toClose: (typeof enCurso[number] & { closeReason: string })[] = [];
 
     for (const ej of enCurso) {
       if (!ej.startedAt) continue;
 
-      const maxMinutes =
-        ej.installation?.maxRondaDurationMinutes ??
-        tenantDefaults.get(ej.tenantId) ??
-        120;
+      // Case 1: There is a next scheduled round for this programacion → close when it starts
+      if (ej.programacionId) {
+        const nextAt = nextRoundMap.get(ej.programacionId);
+        if (nextAt && nextAt <= now) {
+          toClose.push({ ...ej, closeReason: "next_round_started" });
+          continue;
+        }
+      }
 
-      const cutoff = new Date(now.getTime() - maxMinutes * 60 * 1000);
-      if (ej.startedAt <= cutoff) {
-        toClose.push(ej);
+      // Case 2: No next round found (last round of day or no programacion)
+      // Close after frecuenciaMinutos since startedAt, fallback to 60 min
+      const frecuencia = ej.programacion?.frecuenciaMinutos ?? 60;
+      const cutoff = new Date(ej.startedAt.getTime() + frecuencia * 60 * 1000);
+      if (cutoff <= now) {
+        toClose.push({ ...ej, closeReason: "frequency_elapsed" });
       }
     }
 
@@ -103,9 +129,9 @@ export async function GET(request: NextRequest) {
         status: "cerrada_auto",
         completedAt: now,
         trustScore: 0,
-        penalizacionMotivo: "Cierre automático por exceder tiempo máximo",
+        penalizacionMotivo: "Cierre automático: comenzó la siguiente ronda programada",
         trustBreakdown: {
-          reason: "auto_closed_exceeded_max_duration",
+          reason: "auto_closed_next_round_started",
           closedBy: "system_cron",
           closedAt: now.toISOString(),
         } as never,
@@ -124,10 +150,10 @@ export async function GET(request: NextRequest) {
     const alertData = toClose
       .filter((ej) => ej.installationId)
       .map((ej) => {
-        const maxMinutes =
-          ej.installation?.maxRondaDurationMinutes ??
-          tenantDefaults.get(ej.tenantId) ??
-          120;
+        const frecuencia = ej.programacion?.frecuenciaMinutos ?? 60;
+        const reason = ej.closeReason === "next_round_started"
+          ? "Comenzó la siguiente ronda programada"
+          : `Superó el tiempo de frecuencia (${frecuencia} min)`;
         return {
           tenantId: ej.tenantId,
           ejecucionId: ej.id,
@@ -136,12 +162,12 @@ export async function GET(request: NextRequest) {
           turnoId: turnoMap.get(ej.tenantId) ?? null,
           tipo: "ronda_en_curso_timeout",
           severidad: "warning",
-          mensaje: `Ronda programada cerrada automáticamente: excedió ${maxMinutes} minutos de duración`,
+          mensaje: `Ronda cerrada automáticamente: ${reason}`,
           data: {
             closedAt: now.toISOString(),
             closedBy: "system_cron",
-            reason: "exceeded_max_duration",
-            maxMinutes,
+            reason: ej.closeReason,
+            frecuenciaMinutos: frecuencia,
           } as never,
         };
       });
@@ -178,7 +204,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(
-      `[CRON] cerrar-en-curso: ${toClose.length} rondas programadas cerradas por exceder duración máxima`,
+      `[CRON] cerrar-en-curso: ${toClose.length} rondas programadas cerradas automáticamente`,
     );
 
     return NextResponse.json({

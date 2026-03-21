@@ -158,43 +158,149 @@ function TrustBreakdownBars({ breakdown }: { breakdown: TrustBreakdown }) {
   );
 }
 
+// ---- Overlap detection ----------------------------------------------------
+
+/** Haversine distance in meters between two lat/lng coordinates. */
+function haversineM(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Returns the pair of consecutive (or near-consecutive) marcaciones that look
+ * like they were auto-marked by geofence without the guard moving between them.
+ *
+ * Criteria:
+ *  - Both are COMPLETED
+ *  - Time between them < 90 s
+ *  - Guard position at marking < 10 m apart (or no position data for either)
+ */
+function detectOverlappingCheckpoints(marcaciones: MarcacionRow[]): Array<[MarcacionRow, MarcacionRow]> {
+  const completed = marcaciones.filter((m) => m.status === "COMPLETED" && m.timestamp);
+  const pairs: Array<[MarcacionRow, MarcacionRow]> = [];
+
+  for (let i = 0; i < completed.length - 1; i++) {
+    const a = completed[i];
+    const b = completed[i + 1];
+    const dtMs = Math.abs(new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    if (dtMs > 90_000) continue; // > 90 s → not suspicious
+
+    const hasCoords = a.lat != null && a.lng != null && b.lat != null && b.lng != null;
+    if (hasCoords) {
+      const dist = haversineM(a.lat!, a.lng!, b.lat!, b.lng!);
+      if (dist < 10) pairs.push([a, b]);
+    } else {
+      // No position data → suspicious by time alone
+      pairs.push([a, b]);
+    }
+  }
+  return pairs;
+}
+
+// ---- Human-readable close reasons -----------------------------------------
+
+/** Human-readable explanations for technical close-reason codes. */
+const CLOSE_REASON_TEXTS: Record<string, string> = {
+  // Free rounds
+  auto_closed_free_round:
+    "El sistema detectó que la ronda libre estuvo inactiva durante 30 minutos consecutivos (sin marcaciones ni movimiento GPS), por lo que la cerró automáticamente para liberar la sesión del guardia.",
+
+  // Scheduled rounds — next round triggered
+  auto_closed_next_round_started:
+    "El sistema cerró esta ronda programada automáticamente porque llegó la hora de la siguiente ronda de la misma programación. El guardia no la había finalizado manualmente.",
+
+  // Scheduled rounds — frequency elapsed without a next round
+  frequency_elapsed:
+    "El sistema cerró la ronda porque transcurrió el tiempo de frecuencia configurado entre rondas consecutivas y el guardia no la finalizó manualmente.",
+
+  // Scheduled rounds marked no_realizada
+  auto_closed_not_performed:
+    "La ronda fue marcada como No Realizada: el guardia no la inició dentro de la ventana de tolerancia permitida (aproximadamente la mitad del tiempo entre rondas). El sistema la cerró automáticamente.",
+
+  // Exceeded maximum duration
+  auto_closed_exceeded_max_duration:
+    "La ronda superó la duración máxima configurada para esta instalación y fue cerrada automáticamente por el sistema.",
+
+  // Generic scheduled-round auto close
+  auto_closed_scheduled:
+    "La ronda programada fue cerrada automáticamente por el sistema al vencer el tiempo de la ventana de ejecución.",
+
+  // Admin / manual close
+  closed_by_admin:
+    "La ronda fue cerrada manualmente por un administrador desde el panel de control.",
+
+  // Completed/incomplete by guard
+  completed_by_guard:
+    "El guardia finalizó la ronda correctamente desde la aplicación móvil.",
+  completed_incomplete:
+    "El guardia cerró la ronda desde la aplicación, pero no todos los checkpoints fueron marcados.",
+
+  // Fallback for unrecognised ad-hoc tags
+  ad_hoc: "",
+  ronda_libre: "",
+};
+
 function closureDetailText(row: ReporteRow): string[] {
   const out: string[] = [];
   const tb = row.trustBreakdown as Record<string, unknown> | null | undefined;
   const closedBy = tb && typeof tb.closedBy === "string" ? tb.closedBy : null;
   const reason = tb && typeof tb.reason === "string" ? tb.reason : null;
 
-  switch (row.status) {
-    case "cerrada_auto":
-      out.push("Cierre automático por el sistema (tiempo límite, señal u otra regla).");
-      break;
-    case "cerrada_admin":
-      out.push("Cierre registrado como administrativo.");
-      break;
-    case "no_realizada":
-      out.push("Ronda no realizada dentro de la ventana permitida.");
-      break;
-    case "completada":
-    case "incompleta":
-      out.push("Cierre operativo desde la app del guardia (o sincronización equivalente).");
-      break;
-    default:
-      break;
+  // Primary explanation from reason code (most specific)
+  if (reason && CLOSE_REASON_TEXTS[reason] !== undefined) {
+    if (CLOSE_REASON_TEXTS[reason]) out.push(CLOSE_REASON_TEXTS[reason]);
+  } else {
+    // Fallback based on status
+    switch (row.status) {
+      case "cerrada_auto":
+        out.push(
+          "El sistema cerró esta ronda automáticamente. Puede deberse a inactividad prolongada, inicio de una nueva ronda programada o superación del tiempo máximo de ejecución.",
+        );
+        break;
+      case "cerrada_admin":
+        out.push("La ronda fue cerrada manualmente por un administrador desde el panel de control.");
+        break;
+      case "no_realizada":
+        out.push(
+          "La ronda quedó sin realizarse: el guardia no la inició dentro de la ventana de tiempo permitida y el sistema la cerró automáticamente.",
+        );
+        break;
+      case "completada":
+        out.push("El guardia finalizó la ronda correctamente desde la aplicación móvil.");
+        break;
+      case "incompleta":
+        out.push(
+          "El guardia cerró la ronda desde la aplicación, pero no todos los checkpoints fueron marcados antes del cierre.",
+        );
+        break;
+      default:
+        break;
+    }
   }
 
+  // Secondary: who/how triggered the close
   if (closedBy === "system_cron") {
-    out.push("Origen del cierre: proceso programado (cron).");
-  }
-  if (reason && reason !== "ad_hoc" && reason !== "ronda_libre") {
-    out.push(`Motivo técnico: ${reason}.`);
+    out.push(
+      "Origen del cierre: proceso automático del servidor (tarea programada). No requirió intervención manual.",
+    );
+  } else if (closedBy === "guardia") {
+    out.push("El guardia confirmó el cierre de la ronda desde su dispositivo móvil.");
+  } else if (closedBy === "admin") {
+    out.push("Cerrada por intervención de un usuario administrador.");
   }
 
+  // Timestamp
   if (row.completedAt) {
     out.push(
       `Fecha y hora de cierre: ${new Date(row.completedAt).toLocaleString("es-CL", {
         dateStyle: "medium",
         timeStyle: "short",
-      })}`,
+      })}.`,
     );
   }
 
@@ -205,10 +311,12 @@ function ExpandedRow({
   row,
   onViewMap,
   onSendToCheckpoints,
+  overlappingPairs,
 }: {
   row: ReporteRow;
   onViewMap?: (row: ReporteRow) => void;
   onSendToCheckpoints?: (row: ReporteRow) => void;
+  overlappingPairs: Array<[MarcacionRow, MarcacionRow]>;
 }) {
   const puntosConCoords = row.marcaciones.filter((m) => m.lat != null && m.lng != null);
   const canSendToCheckpoints =
@@ -216,9 +324,40 @@ function ExpandedRow({
     row.installationId &&
     puntosConCoords.length > 0;
 
+  // Build a set of marcacion IDs that are part of an overlap pair
+  const overlapIds = new Set(overlappingPairs.flatMap(([a, b]) => [a.id, b.id]));
+
   return (
     <tr>
       <td colSpan={10} className="px-4 py-3 bg-muted/20 border-b border-border/50">
+        {/* Overlap warning banner */}
+        {overlappingPairs.length > 0 && (
+          <div className="mb-3 rounded-lg border border-orange-500/40 bg-orange-950/20 px-3 py-2 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-orange-400 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-orange-400 mb-1">
+                Posible geocerca solapada — {overlappingPairs.length} par{overlappingPairs.length > 1 ? "es" : ""} marcado{overlappingPairs.length > 1 ? "s" : ""} casi simultáneamente
+              </p>
+              {overlappingPairs.map(([a, b], idx) => {
+                const dtS = Math.round(
+                  Math.abs(new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) / 1000,
+                );
+                const hasCoords = a.lat != null && a.lng != null && b.lat != null && b.lng != null;
+                const distLabel = hasCoords
+                  ? `${Math.round(haversineM(a.lat!, a.lng!, b.lat!, b.lng!))} m de distancia`
+                  : "posición no disponible";
+                return (
+                  <p key={idx} className="text-[11px] text-orange-300/80 leading-snug">
+                    &ldquo;{a.checkpointName}&rdquo; → &ldquo;{b.checkpointName}&rdquo; — {dtS} s entre marcaciones · {distLabel}
+                  </p>
+                );
+              })}
+              <p className="text-[10px] text-orange-400/60 mt-1">
+                Revisa el radio de geocerca de estos checkpoints en Configuración → Checkpoints.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -231,9 +370,10 @@ function ExpandedRow({
                 {row.marcaciones.map((m, i) => {
                   const isCompleted = m.status === "COMPLETED";
                   const isMissed = m.status === "MISSED";
+                  const isOverlap = overlapIds.has(m.id);
                   return (
                     <div key={m.id} className="space-y-0.5">
-                      <div className="flex items-center gap-2 text-xs">
+                      <div className={cn("flex items-center gap-2 text-xs", isOverlap && "bg-orange-950/30 rounded px-1 -mx-1")}>
                         <span className="text-muted-foreground w-5 text-right tabular-nums">{i + 1}</span>
                         {isCompleted ? (
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
@@ -249,6 +389,12 @@ function ExpandedRow({
                             minute: "2-digit",
                           })}
                         </span>
+                        {isOverlap && (
+                          <AlertTriangle
+                            className="h-3 w-3 text-orange-400 shrink-0"
+                            title="Marcado simultáneamente con otro checkpoint — posible geocerca solapada"
+                          />
+                        )}
                         {m.fotoEvidenciaUrl ? (
                           <a href={m.fotoEvidenciaUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
                             <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-6 w-6 rounded object-cover border border-blue-500/30" />
@@ -426,6 +572,8 @@ export function RondasReportesTable({
                 const st = STATUS_CONFIG[row.status] ?? STATUS_CONFIG.pendiente;
                 const photoCount = row.marcaciones.filter((m) => m.hasPhoto).length;
                 const audioCount = row.marcaciones.filter((m) => m.hasAudio).length;
+                const overlappingPairs = detectOverlappingCheckpoints(row.marcaciones);
+                const hasOverlap = overlappingPairs.length > 0;
                 return (
                   <Fragment key={row.id}>
                     <tr
@@ -498,10 +646,18 @@ export function RondasReportesTable({
                               <span className="text-[10px]">{audioCount}</span>
                             </span>
                           )}
+                          {hasOverlap && (
+                            <span
+                              title={`${overlappingPairs.length} par(es) de checkpoints marcados casi simultáneamente sin movimiento. Puede indicar geocercas solapadas — revisar configuración.`}
+                              className="flex items-center gap-0.5 text-orange-400 cursor-help"
+                            >
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                            </span>
+                          )}
                         </span>
                       </td>
                     </tr>
-                    {isExpanded && <ExpandedRow row={row} onViewMap={onViewMap} onSendToCheckpoints={onSendToCheckpoints} />}
+                    {isExpanded && <ExpandedRow row={row} onViewMap={onViewMap} onSendToCheckpoints={onSendToCheckpoints} overlappingPairs={overlappingPairs} />}
                   </Fragment>
                 );
               })

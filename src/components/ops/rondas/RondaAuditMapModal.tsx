@@ -1,16 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { X, CheckCircle2, XCircle, AlertCircle, Loader2 } from "lucide-react";
 import type { ReporteRow } from "./RondasReportesTable";
 
 interface AuditMapMarcacion {
   id: string;
+  checkpointId?: string | null;
   checkpointName: string;
   timestamp: string;
   status: string;
   lat?: number | null;
   lng?: number | null;
+  geoValidada?: boolean | null;
+}
+
+interface CheckpointStatus {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  orderIndex: number;
+  status: "COMPLETED" | "PENDING";
+  geoValidada: boolean | null;
+  distanceM: number | null;
+  timestamp: string | null;
 }
 
 interface AuditMapPayload {
@@ -25,7 +39,8 @@ interface AuditMapPayload {
     status: string;
   }> | null;
   marcaciones: AuditMapMarcacion[];
-  routeSource: "walk_route" | "tracking" | "marcaciones" | "none";
+  checkpointStatuses: CheckpointStatus[];
+  routeSource: "marcaciones" | "walk_route" | "tracking" | "none";
   meta: {
     isAdHoc: boolean;
     trustScore: number;
@@ -38,9 +53,9 @@ interface RondaAuditMapModalProps {
 }
 
 const SOURCE_LABEL: Record<AuditMapPayload["routeSource"], string> = {
+  marcaciones: "Recorrido real (posición en cada marcación)",
   walk_route: "Ruta guardada al cerrar",
-  tracking: "Trazado GPS en servidor ( puntos periódicos )",
-  marcaciones: "Línea entre marcaciones (aprox.)",
+  tracking: "Trazado GPS periódico (30 s)",
   none: "Sin trazo — solo puntos sueltos",
 };
 
@@ -48,17 +63,7 @@ function buildPolylineCoords(data: AuditMapPayload): {
   coords: [number, number][] | null;
   source: AuditMapPayload["routeSource"];
 } {
-  const w = data.walkRoute;
-  if (w && w.length >= 2) {
-    return { coords: w.map((p) => [p.lat, p.lng]), source: "walk_route" };
-  }
-  const t = data.trackingRoute;
-  if (t.length >= 2) {
-    return {
-      coords: t.map((p) => [p.lat, p.lng]),
-      source: "tracking",
-    };
-  }
+  // Priority 1: marcaciones GPS coords in time order (real path)
   const marks = [...data.marcaciones]
     .filter((m) => m.lat != null && m.lng != null && Number(m.lat) !== 0 && Number(m.lng) !== 0)
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -68,6 +73,19 @@ function buildPolylineCoords(data: AuditMapPayload): {
       source: "marcaciones",
     };
   }
+
+  // Priority 2: walkRoute (client-side trail saved on manual completion)
+  const w = data.walkRoute;
+  if (w && w.length >= 2) {
+    return { coords: w.map((p) => [p.lat, p.lng]), source: "walk_route" };
+  }
+
+  // Priority 3: periodic tracking pings
+  const t = data.trackingRoute;
+  if (t.length >= 2) {
+    return { coords: t.map((p) => [p.lat, p.lng]), source: "tracking" };
+  }
+
   return { coords: null, source: "none" };
 }
 
@@ -128,7 +146,7 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
 
       const bounds: [number, number][] = [];
 
-      const { coords, source } = buildPolylineCoords(payload);
+      const { coords } = buildPolylineCoords(payload);
 
       if (coords && coords.length >= 2) {
         L.polyline(coords, {
@@ -137,6 +155,7 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
           opacity: 0.85,
         }).addTo(map);
 
+        // Inicio del trazo
         L.circleMarker(coords[0], {
           radius: 9,
           fillColor: "#22c55e",
@@ -144,9 +163,10 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
           weight: 2,
           fillOpacity: 1,
         })
-          .bindTooltip(`Inicio${source === "tracking" ? " (GPS servidor)" : ""}`, { permanent: false })
+          .bindTooltip(`Inicio del recorrido`, { permanent: false })
           .addTo(map);
 
+        // Fin del trazo
         L.circleMarker(coords[coords.length - 1], {
           radius: 9,
           fillColor: "#ef4444",
@@ -154,7 +174,7 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
           weight: 2,
           fillOpacity: 1,
         })
-          .bindTooltip(`Fin${source === "tracking" ? " (último GPS)" : ""}`, { permanent: false })
+          .bindTooltip(`Fin del recorrido`, { permanent: false })
           .addTo(map);
 
         bounds.push(...coords);
@@ -171,41 +191,85 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
         bounds.push(coords[0]);
       }
 
-      const snap = payload.routeSnapshot;
-      if (snap && snap.length > 0) {
-        const ordered = [...snap].sort((a, b) => a.orderIndex - b.orderIndex);
-        for (const cp of ordered) {
-          const isCompleted = cp.status === "completed" || cp.status === "COMPLETED";
-          const color = isCompleted ? "#22c55e" : "#ef4444";
-          const icon = isCompleted ? "✓" : "✗";
+      // Draw checkpoint statuses (always show all checkpoints: marked and unmarked)
+      const checkpointsToRender = payload.checkpointStatuses.length > 0
+        ? payload.checkpointStatuses
+        : (payload.routeSnapshot ?? []).map((cp) => ({
+            id: cp.id,
+            name: cp.name,
+            lat: cp.lat,
+            lng: cp.lng,
+            orderIndex: cp.orderIndex,
+            status: (cp.status === "completed" || cp.status === "COMPLETED") ? "COMPLETED" as const : "PENDING" as const,
+            geoValidada: null,
+            distanceM: null,
+            timestamp: null,
+          }));
 
-          const divIcon = L.divIcon({
-            html: `<div style="width:28px;height:28px;border-radius:50%;background:${color};border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">${icon}</div>`,
-            className: "",
-            iconSize: [28, 28],
-            iconAnchor: [14, 14],
-          });
+      for (const cp of checkpointsToRender) {
+        const isCompleted = cp.status === "COMPLETED";
+        const geoOk = cp.geoValidada;
 
-          L.marker([cp.lat, cp.lng], { icon: divIcon })
-            .bindTooltip(
-              `${cp.orderIndex}. ${cp.name} — ${isCompleted ? "Marcado" : "No marcado"}`,
-              { permanent: false },
-            )
-            .addTo(map);
+        let bgColor: string;
+        let borderStyle: string;
+        let icon: string;
+        let tooltipExtra = "";
 
-          bounds.push([cp.lat, cp.lng]);
+        if (!isCompleted) {
+          // Not marked — red solid
+          bgColor = "#ef4444";
+          borderStyle = "border:2px solid #fff;";
+          icon = "✗";
+        } else if (geoOk === true) {
+          // Marked + inside geofence — green solid
+          bgColor = "#22c55e";
+          borderStyle = "border:2px solid #fff;";
+          icon = "✓";
+        } else if (geoOk === false) {
+          // Marked but outside geofence — amber with dashed border
+          bgColor = "#f59e0b";
+          borderStyle = "border:2px dashed #fff;";
+          icon = "✓";
+          tooltipExtra = " ⚠ Fuera del radio GPS";
+        } else {
+          // Marked, geo unknown (e.g. ad-hoc or no coord) — green solid
+          bgColor = "#22c55e";
+          borderStyle = "border:2px solid #fff;";
+          icon = "✓";
         }
-      } else if (payload.marcaciones.length > 0) {
+
+        const distInfo = cp.distanceM != null ? ` · ${Math.round(cp.distanceM)}m del punto` : "";
+        const timeInfo = cp.timestamp
+          ? ` · ${new Date(cp.timestamp).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}`
+          : "";
+
+        const divIcon = L.divIcon({
+          html: `<div style="width:28px;height:28px;border-radius:50%;background:${bgColor};${borderStyle}display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">${icon}</div>`,
+          className: "",
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+        });
+
+        L.marker([cp.lat, cp.lng], { icon: divIcon })
+          .bindTooltip(
+            `${cp.orderIndex}. ${cp.name} — ${isCompleted ? "Marcado" : "No marcado"}${distInfo}${timeInfo}${tooltipExtra}`,
+            { permanent: false },
+          )
+          .addTo(map);
+
+        bounds.push([cp.lat, cp.lng]);
+      }
+
+      // If no checkpoints at all, fallback to individual marcacion circles
+      if (checkpointsToRender.length === 0 && payload.marcaciones.length > 0) {
         for (const m of payload.marcaciones) {
           if (m.lat == null || m.lng == null) continue;
           if (Number(m.lat) === 0 && Number(m.lng) === 0) continue;
           bounds.push([m.lat, m.lng]);
           const isCompleted = m.status === "COMPLETED";
-          const isMissed = m.status === "MISSED";
-          const color = isMissed ? "#ef4444" : isCompleted ? "#22c55e" : "#eab308";
           L.circleMarker([m.lat, m.lng], {
             radius: 7,
-            fillColor: color,
+            fillColor: isCompleted ? "#22c55e" : "#ef4444",
             color: "#fff",
             weight: 2,
             fillOpacity: 1,
@@ -237,6 +301,10 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
       ? "N/A (ronda libre)"
       : String(payload?.meta.trustScore ?? row.trustScore);
 
+  const totalCheckpoints = payload?.checkpointStatuses.length ?? 0;
+  const markedCheckpoints = payload?.checkpointStatuses.filter((c) => c.status === "COMPLETED").length ?? 0;
+  const geoValidatedCheckpoints = payload?.checkpointStatuses.filter((c) => c.geoValidada === true).length ?? 0;
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="relative mx-4 w-full max-w-4xl rounded-xl border border-border bg-background shadow-2xl overflow-hidden">
@@ -258,6 +326,12 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
               })}
               {" · Trust: "}
               {trustLabel}
+              {totalCheckpoints > 0 && (
+                <> &middot; {markedCheckpoints}/{totalCheckpoints} puntos</>
+              )}
+              {geoValidatedCheckpoints > 0 && (
+                <> &middot; {geoValidatedCheckpoints} con geocerca ✓</>
+              )}
             </p>
             {payload && (
               <p className="text-[11px] text-teal-400/90 mt-0.5">
@@ -294,17 +368,19 @@ export function RondaAuditMapModal({ row, onClose }: RondaAuditMapModalProps) {
             <span className="inline-block h-2 w-4 rounded bg-emerald-500" /> Trazo del guardia
           </span>
           <span className="flex items-center gap-1">
-            <CheckCircle2 className="h-3 w-3 text-emerald-400" /> Marcado / punto OK
+            <CheckCircle2 className="h-3 w-3 text-emerald-400" /> Marcado (geocerca válida)
+          </span>
+          <span className="flex items-center gap-1">
+            <AlertCircle className="h-3 w-3 text-amber-400" /> Marcado (fuera del radio)
           </span>
           <span className="flex items-center gap-1">
             <XCircle className="h-3 w-3 text-red-400" /> No marcado
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-3 w-3 rounded-full bg-emerald-500 border border-white" /> Inicio del
-            trazo
+            <span className="inline-block h-3 w-3 rounded-full bg-emerald-500 border border-white" /> Inicio
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-3 w-3 rounded-full bg-red-500 border border-white" /> Fin del trazo
+            <span className="inline-block h-3 w-3 rounded-full bg-red-500 border border-white" /> Fin
           </span>
         </div>
       </div>

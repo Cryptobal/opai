@@ -61,12 +61,13 @@ export async function POST(request: NextRequest) {
         programacionId: { not: null },
         scheduledAt: { gte: windowStart, lte: windowEnd },
       },
-      include: { programacion: { select: { toleranciaMinutos: true } } },
+      include: { programacion: { select: { toleranciaMinutos: true, frecuenciaMinutos: true } } },
     });
 
     const blockingRounds = pendingScheduled.filter((r) => {
       const elapsedMin = (now.getTime() - r.scheduledAt.getTime()) / 60000;
-      const tolerance = r.programacion?.toleranciaMinutos ?? 30;
+      const frecuencia = r.programacion?.frecuenciaMinutos ?? 60;
+      const tolerance = r.programacion?.toleranciaMinutos ?? Math.round(frecuencia / 2);
       return elapsedMin >= -15 && elapsedMin <= tolerance;
     });
 
@@ -75,6 +76,28 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: `Tienes ${blockingRounds.length} ronda${blockingRounds.length !== 1 ? "s" : ""} programada${blockingRounds.length !== 1 ? "s" : ""} pendiente${blockingRounds.length !== 1 ? "s" : ""}. Completa tus rondas programadas primero.`,
+        },
+        { status: 400 },
+      );
+    }
+
+    // ── Block free rounds when a scheduled round is already en_curso ──
+    const scheduledEnCurso = await prisma.opsRondaEjecucion.findFirst({
+      where: {
+        guardiaId,
+        tenantId,
+        installationId,
+        isAdHoc: false,
+        status: "en_curso",
+      },
+      select: { id: true },
+    });
+
+    if (scheduledEnCurso) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Tienes una ronda programada en curso. Complétala antes de iniciar una ronda libre.",
         },
         { status: 400 },
       );

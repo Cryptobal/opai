@@ -184,11 +184,11 @@ export async function marcarCheckpoint(
       : 0;
   const speed = prev ? speedKmh(prevDistance, elapsedSec) : 0;
 
-  // 5.2. Bloqueo por geo: GEOFENCE y BOTH exigen estar en rango; QR-only no
+  // 5.2. Bloqueo por geo: todos los tipos con coordenadas exigen estar en rango.
+  // QR prueba que tienes el código; la geocerca prueba que estás en el lugar.
   if (!isAdHocGps && checkpoint) {
-    const vt = checkpoint.verificationType;
     const hasCoords = checkpoint.lat != null && checkpoint.lng != null;
-    if ((vt === "GEOFENCE" || vt === "BOTH") && hasCoords && !geo.valid) {
+    if (hasCoords && !geo.valid) {
       throw new MarcarCheckpointError("Debe estar en el rango del checkpoint para marcar", 400, "fuera_de_rango");
     }
   }
@@ -197,36 +197,32 @@ export async function marcarCheckpoint(
   const fullConfig = await getFullAlertConfig(execution.tenantId);
   const speedThreshold = fullConfig.velocidad_anomala?.thresholds?.speedAnomalyKmh ?? DEFAULT_SPEED_THRESHOLD_KMH;
 
-  // 6. Anomaly detection — skip entirely for ad-hoc GPS marks (ronda libre)
-  const anomalies = isAdHocGps
-    ? []
-    : detectCheckpointAnomalies({
-        speedFromPrevKmh: speed,
-        movementScore: Number((motionData?.movementScore as number | undefined) ?? 0),
-        batteryLevel: batteryLevel,
-        prevBatteryLevel: prev?.batteryLevel ?? null,
-        speedThresholdKmh: speedThreshold,
-        movementScoreThreshold: fullConfig.sin_movimiento?.thresholds?.movementScoreMin,
-        batteryLowThreshold: fullConfig.bateria_baja?.thresholds?.batteryLowPercent,
-        batteryStaticMinMinutes: fullConfig.bateria_estatica?.thresholds?.batteryStaticMinMinutes,
-        elapsedMinutes: prev ? elapsedSec / 60 : undefined,
-      });
+  // 6. Anomaly detection — applies to all marks including ad-hoc GPS marks
+  const anomalies = detectCheckpointAnomalies({
+    speedFromPrevKmh: speed,
+    movementScore: Number((motionData?.movementScore as number | undefined) ?? 0),
+    batteryLevel: batteryLevel,
+    prevBatteryLevel: prev?.batteryLevel ?? null,
+    speedThresholdKmh: speedThreshold,
+    movementScoreThreshold: fullConfig.sin_movimiento?.thresholds?.movementScoreMin,
+    batteryLowThreshold: fullConfig.bateria_baja?.thresholds?.batteryLowPercent,
+    batteryStaticMinMinutes: fullConfig.bateria_estatica?.thresholds?.batteryStaticMinMinutes,
+    elapsedMinutes: prev ? elapsedSec / 60 : undefined,
+  });
 
   // Filter to only enabled alert types for alert creation / notifications
   const alertAnomalies = anomalies.filter(code => fullConfig[code]?.enabled !== false);
 
-  // 7. Trust score — ad-hoc marks always get 100 (no anomaly validation applies)
-  const trustScore = isAdHocGps
-    ? 100
-    : computeCheckpointTrustScore({
-        geoValidada: geo.valid,
-        hasPhoto: Boolean(fotoEvidenciaUrl),
-        hasMovement: !anomalies.includes("sin_movimiento"),
-        sameDevice: true,
-        batteryLevel: batteryLevel ?? null,
-        speedFromPrevKmh: speed,
-        speedThresholdKmh: speedThreshold,
-      });
+  // 7. Trust score — calculated normally for all marks (including rondas libres)
+  const trustScore = computeCheckpointTrustScore({
+    geoValidada: geo.valid,
+    hasPhoto: Boolean(fotoEvidenciaUrl),
+    hasMovement: !anomalies.includes("sin_movimiento"),
+    sameDevice: true,
+    batteryLevel: batteryLevel ?? null,
+    speedFromPrevKmh: speed,
+    speedThresholdKmh: speedThreshold,
+  });
 
   // 8. Integrity hash
   const hash = computeMarcacionHash({

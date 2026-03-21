@@ -7,8 +7,9 @@ import { asRouteSnapshot, asWalkRoute } from "@/lib/rondas/ejecucion-map-helpers
 const MAX_TRACKING_POINTS = 12_000;
 
 /**
- * Mapa de auditoría: walkRoute guardado, tracking en BD, snapshot y marcaciones.
- * Sirve para ver el recorrido aunque la ronda no se haya completado con walkRoute.
+ * Mapa de auditoría: prioridad de trazo → marcaciones (coord GPS de cada checkpoint marcado
+ * en orden temporal) → walkRoute → tracking periódico.
+ * Siempre devuelve todos los checkpoints de la plantilla para mostrar los no marcados.
  */
 export async function GET(
   _request: NextRequest,
@@ -36,6 +37,8 @@ export async function GET(
         startedAt: true,
         completedAt: true,
         trustScore: true,
+        rondaTemplateId: true,
+        installationId: true,
       },
     });
 
@@ -68,6 +71,51 @@ export async function GET(
       }),
     ]);
 
+    // Fetch all template checkpoints so we can show unmarked ones on the map
+    let allTemplateCheckpoints: Array<{
+      id: string;
+      name: string;
+      lat: number | null;
+      lng: number | null;
+      orderIndex: number;
+    }> = [];
+
+    if (ejecucion.rondaTemplateId) {
+      const rondaCheckpoints = await prisma.opsRondaCheckpoint.findMany({
+        where: { rondaTemplateId: ejecucion.rondaTemplateId },
+        orderBy: { orderIndex: "asc" },
+        select: {
+          orderIndex: true,
+          checkpoint: { select: { id: true, name: true, lat: true, lng: true } },
+        },
+      });
+      allTemplateCheckpoints = rondaCheckpoints
+        .filter((rc) => rc.checkpoint.lat != null && rc.checkpoint.lng != null)
+        .map((rc) => ({
+          id: rc.checkpoint.id,
+          name: rc.checkpoint.name,
+          lat: rc.checkpoint.lat,
+          lng: rc.checkpoint.lng,
+          orderIndex: rc.orderIndex,
+        }));
+    } else if (ejecucion.installationId) {
+      // Ad-hoc round: get all installation checkpoints
+      const instCheckpoints = await prisma.opsCheckpoint.findMany({
+        where: { installationId: ejecucion.installationId, isActive: true },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, name: true, lat: true, lng: true, sortOrder: true },
+      });
+      allTemplateCheckpoints = instCheckpoints
+        .filter((cp) => cp.lat != null && cp.lng != null)
+        .map((cp, i) => ({
+          id: cp.id,
+          name: cp.name,
+          lat: cp.lat,
+          lng: cp.lng,
+          orderIndex: cp.sortOrder ?? i,
+        }));
+    }
+
     const walkRoute = asWalkRoute(ejecucion.walkRoute);
     const routeSnapshot = asRouteSnapshot(ejecucion.routeSnapshot);
 
@@ -80,6 +128,7 @@ export async function GET(
 
     const marcaciones = marcacionesRows.map((m) => ({
       id: m.id,
+      checkpointId: m.checkpointId,
       checkpointName: m.checkpoint?.name ?? (m.checkpointId ? "Checkpoint" : "Punto GPS"),
       timestamp: m.timestamp.toISOString(),
       status: m.status,
@@ -94,13 +143,42 @@ export async function GET(
       verificationMethod: m.verificationMethod,
     }));
 
-    let routeSource: "walk_route" | "tracking" | "marcaciones" | "none" = "none";
-    if (walkRoute && walkRoute.length >= 2) routeSource = "walk_route";
+    // Route source priority:
+    // 1. marcaciones (GPS coords from each checkpoint mark, in time order) — most accurate
+    // 2. walkRoute (client-side accumulated trail, only present when guard completes manually)
+    // 3. tracking (periodic 30s GPS pings)
+    const marcacionesWithCoords = marcaciones.filter(
+      (m) => m.lat != null && m.lng != null && Number(m.lat) !== 0 && Number(m.lng) !== 0,
+    );
+
+    let routeSource: "marcaciones" | "walk_route" | "tracking" | "none" = "none";
+    if (marcacionesWithCoords.length >= 2) routeSource = "marcaciones";
+    else if (walkRoute && walkRoute.length >= 2) routeSource = "walk_route";
     else if (trackingRoute.length >= 2) routeSource = "tracking";
-    else {
-      const withCoords = marcaciones.filter((m) => m.lat != null && m.lng != null);
-      if (withCoords.length >= 2) routeSource = "marcaciones";
-    }
+
+    // Build the set of marked checkpoint IDs for quick lookup
+    const markedCheckpointIds = new Set(
+      marcaciones.filter((m) => m.status === "COMPLETED").map((m) => m.checkpointId).filter(Boolean),
+    );
+
+    // Merge template checkpoints with marcaciones to produce the full checkpoint list
+    // Each entry shows position (from template) + marked status + geoValidada
+    const checkpointStatuses = allTemplateCheckpoints.map((cp) => {
+      const marcacion = marcaciones.find(
+        (m) => m.checkpointId === cp.id && m.status === "COMPLETED",
+      );
+      return {
+        id: cp.id,
+        name: cp.name,
+        lat: cp.lat as number,
+        lng: cp.lng as number,
+        orderIndex: cp.orderIndex,
+        status: markedCheckpointIds.has(cp.id) ? "COMPLETED" : "PENDING",
+        geoValidada: marcacion?.geoValidada ?? null,
+        distanceM: marcacion?.distanceM ?? null,
+        timestamp: marcacion?.timestamp ?? null,
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -109,6 +187,7 @@ export async function GET(
         trackingRoute,
         routeSnapshot,
         marcaciones,
+        checkpointStatuses,
         routeSource,
         meta: {
           isAdHoc: ejecucion.isAdHoc,

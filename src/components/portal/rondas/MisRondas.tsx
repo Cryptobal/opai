@@ -241,6 +241,7 @@ export function MisRondas({
   const [closeReason, setCloseReason] = useState("");
   const [closeSubmitting, setCloseSubmitting] = useState(false);
   const [closeError, setCloseError] = useState("");
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   const toggleSection = (key: string) =>
     setCollapsedSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -473,10 +474,24 @@ export function MisRondas({
                 </svg>
               </button>
             )}
+            {/* Info button: explains round logic */}
+            <button
+              onClick={() => setShowInfoModal(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-800 text-teal-400 transition-colors active:bg-gray-700"
+              aria-label="Cómo funcionan las rondas"
+              title="Cómo funcionan las rondas"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            {/* Refresh button (icon only) */}
             <button
               onClick={fetchRondas}
               disabled={loading}
-              className="flex items-center gap-1.5 rounded-lg bg-gray-800 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-700 active:bg-gray-600 disabled:opacity-50"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-800 text-gray-300 transition-colors hover:bg-gray-700 active:bg-gray-600 disabled:opacity-50"
+              aria-label="Actualizar"
+              title="Actualizar lista de rondas"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -492,7 +507,6 @@ export function MisRondas({
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                 />
               </svg>
-              Actualizar
             </button>
           </div>
         </div>
@@ -804,6 +818,55 @@ export function MisRondas({
           session={session}
           onClose={() => setSelectedRondaId(null)}
         />
+      )}
+
+      {/* ─── Info modal: cómo funcionan las rondas ─── */}
+      {showInfoModal && (
+        <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowInfoModal(false)}>
+          <div
+            className="w-full max-w-lg rounded-t-2xl border-t border-gray-700 bg-[#0d0d14] p-6 pb-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-white">Cómo funcionan las rondas</h3>
+              <button
+                onClick={() => setShowInfoModal(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-800 text-gray-400"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4 text-sm text-gray-300">
+              <section>
+                <p className="mb-1 font-semibold text-teal-400">Rondas Programadas</p>
+                <ul className="space-y-1.5 text-gray-400">
+                  <li>• Puedes iniciar una ronda desde su hora programada hasta la <strong className="text-gray-200">mitad del tiempo</strong> entre rondas (ej: si las rondas son cada 1 hora, tienes hasta 30 min para comenzar).</li>
+                  <li>• Si no la inicias en ese tiempo, la ronda queda como <strong className="text-gray-200">No Realizada</strong>.</li>
+                  <li>• Si la ronda está en curso cuando comienza la siguiente, <strong className="text-gray-200">se cierra automáticamente</strong>. Recibirás un aviso 5 minutos antes.</li>
+                  <li>• No puedes tener dos rondas programadas en curso al mismo tiempo.</li>
+                </ul>
+              </section>
+              <section>
+                <p className="mb-1 font-semibold text-teal-400">Ronda Libre</p>
+                <ul className="space-y-1.5 text-gray-400">
+                  <li>• Puedes iniciarla <strong className="text-gray-200">en cualquier momento</strong>, siempre que no haya una ronda programada en curso o pendiente.</li>
+                  <li>• Funciona igual que una ronda programada: debes marcar los checkpoints dentro del radio de geocerca.</li>
+                  <li>• Se cierra automáticamente tras <strong className="text-gray-200">30 minutos de inactividad</strong> (sin marcar puntos).</li>
+                </ul>
+              </section>
+              <section>
+                <p className="mb-1 font-semibold text-teal-400">Marcación de Checkpoints</p>
+                <ul className="space-y-1.5 text-gray-400">
+                  <li>• Solo se registra como válida si estás <strong className="text-gray-200">dentro del radio del checkpoint</strong> (geocerca).</li>
+                  <li>• Si el checkpoint tiene QR, debes escanearlo <em>y</em> estar dentro del radio.</li>
+                  <li>• Cada punto solo puede marcarse una vez por ronda.</li>
+                </ul>
+              </section>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

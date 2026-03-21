@@ -78,10 +78,33 @@ export async function GET(request: NextRequest) {
         marcaciones: {
           select: { checkpointId: true, status: true, timestamp: true },
         },
-        programacion: { select: { toleranciaMinutos: true } },
+        programacion: { select: { toleranciaMinutos: true, frecuenciaMinutos: true } },
       },
       orderBy: { scheduledAt: "asc" },
     });
+
+    // For en_curso rounds with a programacionId, find the next pending round (for warning banner)
+    const enCursoProgramacionIds = ejecuciones
+      .filter((ej) => ej.status === "en_curso" && ej.programacionId)
+      .map((ej) => ej.programacionId!);
+
+    const nextRoundsMap = new Map<string, string>(); // programacionId → nextScheduledAt ISO
+    if (enCursoProgramacionIds.length > 0) {
+      const nextRounds = await prisma.opsRondaEjecucion.findMany({
+        where: {
+          programacionId: { in: enCursoProgramacionIds },
+          status: "pendiente",
+          scheduledAt: { gte: now },
+        },
+        select: { programacionId: true, scheduledAt: true },
+        orderBy: { scheduledAt: "asc" },
+      });
+      for (const nr of nextRounds) {
+        if (nr.programacionId && !nextRoundsMap.has(nr.programacionId)) {
+          nextRoundsMap.set(nr.programacionId, nr.scheduledAt.toISOString());
+        }
+      }
+    }
 
     // Fetch installation checkpoints for ad-hoc rondas
     let installationCheckpoints: {
@@ -150,6 +173,10 @@ export async function GET(request: NextRequest) {
         orderMode: isAdHoc ? "flexible" : (template?.orderMode ?? "flexible"),
         estimatedDurationMin: isAdHoc ? null : (template?.estimatedDurationMin ?? null),
         toleranciaMinutos: ej.programacion?.toleranciaMinutos ?? 10,
+        frecuenciaMinutos: ej.programacion?.frecuenciaMinutos ?? null,
+        nextRoundAt: (ej.programacionId && ej.status === "en_curso")
+          ? (nextRoundsMap.get(ej.programacionId) ?? null)
+          : null,
         trustScore: ej.trustScore,
         porcentajeCompletado: ej.porcentajeCompletado,
         checkpoints,
