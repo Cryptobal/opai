@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       where.status = "active";
     }
 
-    const guardias = await prisma.opsGuardia.findMany({
+    const guardiasRaw = await prisma.opsGuardia.findMany({
       where,
       include: {
         persona: true,
@@ -61,6 +61,7 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     });
+    const guardias = guardiasRaw.filter((g) => g.lifecycleStatus !== "te");
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "OPAI";
@@ -171,17 +172,17 @@ export async function GET(request: NextRequest) {
     exportRows.sort((a, b) => {
       const instA = (a.instalacion ?? "").toString().trim().toLowerCase();
       const instB = (b.instalacion ?? "").toString().trim().toLowerCase();
-      const instCmp = instA.localeCompare(instB, "es");
+      const instCmp = instA.localeCompare(instB, "es", { sensitivity: "base" });
       if (instCmp !== 0) return instCmp;
 
       const lastA = (a.apellido ?? "").toString().trim().toLowerCase();
       const lastB = (b.apellido ?? "").toString().trim().toLowerCase();
-      const lastCmp = lastA.localeCompare(lastB, "es");
+      const lastCmp = lastA.localeCompare(lastB, "es", { sensitivity: "base" });
       if (lastCmp !== 0) return lastCmp;
 
       const firstA = (a.nombre ?? "").toString().trim().toLowerCase();
       const firstB = (b.nombre ?? "").toString().trim().toLowerCase();
-      return firstA.localeCompare(firstB, "es");
+      return firstA.localeCompare(firstB, "es", { sensitivity: "base" });
     });
 
     for (const row of exportRows) {

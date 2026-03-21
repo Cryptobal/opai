@@ -822,9 +822,12 @@ export function MisRondas({
 
       {/* ─── Info modal: cómo funcionan las rondas ─── */}
       {showInfoModal && (
-        <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowInfoModal(false)}>
+        <div
+          className="fixed inset-0 z-[1200] flex items-end justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowInfoModal(false)}
+        >
           <div
-            className="w-full max-w-lg rounded-t-2xl border-t border-gray-700 bg-[#0d0d14] p-6 pb-10"
+            className="max-h-[85dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-2xl border-t border-gray-700 bg-[#0d0d14] p-6 pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
