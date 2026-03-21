@@ -431,6 +431,34 @@ export async function getChatChannelRecipients(
   );
 }
 
+/**
+ * Filter recipients for in-app notifications (Pusher) by channel notification preference.
+ * Same logic as push: MUTED = skip, MENTIONS_ONLY = only if mentioned.
+ */
+export async function filterRecipientsForInAppNotifications(
+  channelId: string,
+  recipients: ChatPushRecipient[],
+  mentionedUserIds?: string[],
+): Promise<ChatPushRecipient[]> {
+  if (recipients.length === 0) return [];
+  const prefs = await prisma.chatNotificationPreference.findMany({
+    where: { channelId },
+    select: { userType: true, userId: true, preference: true },
+  });
+  const prefMap = new Map(prefs.map((p) => [`${p.userType}:${p.userId}`, p.preference]));
+  const hasTodosMention = mentionedUserIds?.includes('todos');
+
+  return recipients.filter((r) => {
+    const pref = prefMap.get(`${r.subscriberType}:${r.subscriberId}`) || 'ALL';
+    if (pref === 'MUTED') return false;
+    if (pref === 'MENTIONS_ONLY') {
+      const isMentioned = hasTodosMention || mentionedUserIds?.includes(r.subscriberId) || false;
+      return isMentioned;
+    }
+    return true;
+  });
+}
+
 const SUBSCRIBER_TYPE_TO_USER: Record<string, UserType> = {
   ADMIN: 'admin',
   GUARD: 'guardia',

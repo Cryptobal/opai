@@ -9,7 +9,7 @@ import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getGuardSession, verifyGuardChannelAccess } from "@/lib/portal-chat-auth";
 import { triggerChatEvent, getSenderId, truncatePreview, getPusherServer } from "@/lib/chat";
-import { sendChatPushNotifications, getChatChannelRecipients } from "@/lib/pwa/push-service";
+import { sendChatPushNotifications, getChatChannelRecipients, filterRecipientsForInAppNotifications } from "@/lib/pwa/push-service";
 import type { ChatSenderType } from "@prisma/client";
 
 // ── GET — List messages ──
@@ -329,11 +329,12 @@ export async function POST(
         console.error("[Portal Guardia][PUSH] Error sending push:", err);
       }
 
-      // 3. In-app notifications via Pusher per-user channel
+      // 3. In-app notifications via Pusher (filter by MENTIONS_ONLY like push)
       try {
-        const recipients = await getChatChannelRecipients(
+        const allRecipients = await getChatChannelRecipients(
           channelId, session.tenantId, "GUARD", session.guardiaId
         );
+        const recipients = await filterRecipientsForInAppNotifications(channelId, allRecipients);
         if (recipients.length > 0) {
           const pusher = getPusherServer();
           const chName = ch?.name || "Chat";

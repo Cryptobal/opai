@@ -9,7 +9,7 @@ import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { triggerChatEvent, getSenderId, truncatePreview, getPusherServer } from "@/lib/chat";
-import { sendChatPushNotifications, getChatChannelRecipients } from "@/lib/pwa/push-service";
+import { sendChatPushNotifications, getChatChannelRecipients, filterRecipientsForInAppNotifications } from "@/lib/pwa/push-service";
 import type { ChatSenderType } from "@prisma/client";
 
 // ── GET — List messages ──
@@ -457,10 +457,13 @@ export async function POST(
         console.error("[PUSH] Error sending chat push notifications:", err);
       }
 
-      // 3. In-app notifications via Pusher per-user channel
+      // 3. In-app notifications via Pusher (filter by MENTIONS_ONLY like push)
       try {
-        const recipients = await getChatChannelRecipients(
+        const allRecipients = await getChatChannelRecipients(
           channelId, ctx.tenantId, "ADMIN", ctx.userId
+        );
+        const recipients = await filterRecipientsForInAppNotifications(
+          channelId, allRecipients, mentionedUserIds.length > 0 ? mentionedUserIds : undefined
         );
         if (recipients.length > 0) {
           const pusher = getPusherServer();
