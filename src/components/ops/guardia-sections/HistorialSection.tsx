@@ -309,6 +309,8 @@ function getEventDescriptionLines(event: HistoryEvent): string[] {
         birthDate: "Fecha nacimiento", afp: "AFP", healthSystem: "Sistema salud",
         addressFormatted: "Dirección", commune: "Comuna", city: "Ciudad", region: "Región",
         hasMobilization: "Movilización", availableExtraShifts: "Turnos extra",
+        shoeSize: "Calzado", pantsSize: "Pantalón", tshirtSize: "Polera", shirtSize: "Camisa",
+        geologoSize: "Geólogo", polarSize: "Polar", jacketSize: "Chaqueta", heightCm: "Estatura", weightKg: "Peso",
         regimenPrevisional: "Régimen previsional", tipoPension: "Tipo pensión",
         isJubilado: "Jubilado", cotizaAFP: "Cotiza AFP", cotizaAFC: "Cotiza AFC", cotizaSalud: "Cotiza salud",
       };

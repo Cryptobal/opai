@@ -1,0 +1,10 @@
+ALTER TABLE "ops"."personas"
+  ADD COLUMN IF NOT EXISTS "shoe_size" TEXT,
+  ADD COLUMN IF NOT EXISTS "pants_size" TEXT,
+  ADD COLUMN IF NOT EXISTS "tshirt_size" TEXT,
+  ADD COLUMN IF NOT EXISTS "shirt_size" TEXT,
+  ADD COLUMN IF NOT EXISTS "geologo_size" TEXT,
+  ADD COLUMN IF NOT EXISTS "polar_size" TEXT,
+  ADD COLUMN IF NOT EXISTS "jacket_size" TEXT,
+  ADD COLUMN IF NOT EXISTS "height_cm" NUMERIC(5,2),
+  ADD COLUMN IF NOT EXISTS "weight_kg" NUMERIC(5,2);

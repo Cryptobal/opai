@@ -17,12 +17,15 @@ import {
   formatRutForInput,
   HEALTH_SYSTEMS,
   ISAPRES_CHILE,
+  PANTS_SIZES,
   isChileanRutFormat,
   isValidChileanRut,
   normalizeMobileNineDigits,
   normalizeRut,
   PAISES_AMERICA,
   PERSON_SEX,
+  SHOE_SIZES,
+  TOP_GARMENT_SIZES,
 } from "@/lib/personas";
 
 type DocTypeConfig = { code: string; label: string; required: boolean };
@@ -92,6 +95,15 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
     isapreExtraPercent: "",
     hasMobilization: "si",
     availableExtraShifts: "si",
+    shoeSize: "",
+    pantsSize: "",
+    tshirtSize: "",
+    shirtSize: "",
+    geologoSize: "",
+    polarSize: "",
+    jacketSize: "",
+    heightCm: "",
+    weightKg: "",
     bankCode: "",
     accountType: "",
     accountNumber: "",
@@ -235,6 +247,15 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               : null,
           hasMobilization: form.hasMobilization === "si",
           availableExtraShifts: form.availableExtraShifts === "si",
+          shoeSize: form.shoeSize || null,
+          pantsSize: form.pantsSize || null,
+          tshirtSize: form.tshirtSize || null,
+          shirtSize: form.shirtSize || null,
+          geologoSize: form.geologoSize || null,
+          polarSize: form.polarSize || null,
+          jacketSize: form.jacketSize || null,
+          heightCm: form.heightCm ? Number(form.heightCm) : null,
+          weightKg: form.weightKg ? Number(form.weightKg) : null,
           bankCode: form.bankCode,
           accountType: form.accountType,
           accountNumber: form.accountNumber.trim(),
@@ -271,6 +292,15 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
         isapreExtraPercent: "",
         hasMobilization: "si",
         availableExtraShifts: "si",
+        shoeSize: "",
+        pantsSize: "",
+        tshirtSize: "",
+        shirtSize: "",
+        geologoSize: "",
+        polarSize: "",
+        jacketSize: "",
+        heightCm: "",
+        weightKg: "",
         bankCode: "",
         accountType: "",
         accountNumber: "",
@@ -485,6 +515,108 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
               <option value="si">Disponible para turnos extra</option>
               <option value="no">No disponible para turnos extra</option>
             </select>
+            <select
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              value={form.shoeSize}
+              onChange={(e) => setForm((prev) => ({ ...prev, shoeSize: e.target.value }))}
+            >
+              <option value="">Calzado</option>
+              {SHOE_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  Calzado {size}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              value={form.pantsSize}
+              onChange={(e) => setForm((prev) => ({ ...prev, pantsSize: e.target.value }))}
+            >
+              <option value="">Pantalón</option>
+              {PANTS_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  Pantalón {size}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              value={form.tshirtSize}
+              onChange={(e) => setForm((prev) => ({ ...prev, tshirtSize: e.target.value }))}
+            >
+              <option value="">Polera</option>
+              {TOP_GARMENT_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  Polera {size}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              value={form.shirtSize}
+              onChange={(e) => setForm((prev) => ({ ...prev, shirtSize: e.target.value }))}
+            >
+              <option value="">Camisa</option>
+              {TOP_GARMENT_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  Camisa {size}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              value={form.geologoSize}
+              onChange={(e) => setForm((prev) => ({ ...prev, geologoSize: e.target.value }))}
+            >
+              <option value="">Geólogo</option>
+              {TOP_GARMENT_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  Geólogo {size}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              value={form.polarSize}
+              onChange={(e) => setForm((prev) => ({ ...prev, polarSize: e.target.value }))}
+            >
+              <option value="">Polar</option>
+              {TOP_GARMENT_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  Polar {size}
+                </option>
+              ))}
+            </select>
+            <select
+              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+              value={form.jacketSize}
+              onChange={(e) => setForm((prev) => ({ ...prev, jacketSize: e.target.value }))}
+            >
+              <option value="">Chaqueta</option>
+              {TOP_GARMENT_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  Chaqueta {size}
+                </option>
+              ))}
+            </select>
+            <Input
+              type="number"
+              min="120"
+              max="230"
+              step="0.1"
+              placeholder="Estatura (cm)"
+              value={form.heightCm}
+              onChange={(e) => setForm((prev) => ({ ...prev, heightCm: e.target.value }))}
+            />
+            <Input
+              type="number"
+              min="35"
+              max="250"
+              step="0.1"
+              placeholder="Peso (kg)"
+              value={form.weightKg}
+              onChange={(e) => setForm((prev) => ({ ...prev, weightKg: e.target.value }))}
+            />
             {healthSystem === "isapre" ? (
               <>
                 <select

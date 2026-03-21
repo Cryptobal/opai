@@ -10,8 +10,11 @@ import {
   CHILE_BANK_CODES,
   HEALTH_SYSTEMS,
   ISAPRES_CHILE,
+  PANTS_SIZES,
   PAISES_AMERICA,
   PERSON_SEX,
+  SHOE_SIZES,
+  TOP_GARMENT_SIZES,
   isChileanRutFormat,
   isValidChileanRut,
   isValidMobileNineDigits,
@@ -56,6 +59,15 @@ const postulacionSchema = z.object({
   isapreExtraPercent: z.union([z.number(), z.string().regex(/^\d+(\.\d{1,2})?$/)]).optional().nullable(),
   hasMobilization: z.boolean(),
   availableExtraShifts: z.boolean(),
+  shoeSize: z.string().trim().refine((v) => SHOE_SIZES.includes(v), "Calzado inválido").optional().nullable(),
+  pantsSize: z.string().trim().refine((v) => PANTS_SIZES.includes(v), "Pantalón inválido").optional().nullable(),
+  tshirtSize: z.enum(TOP_GARMENT_SIZES).optional().nullable(),
+  shirtSize: z.enum(TOP_GARMENT_SIZES).optional().nullable(),
+  geologoSize: z.enum(TOP_GARMENT_SIZES).optional().nullable(),
+  polarSize: z.enum(TOP_GARMENT_SIZES).optional().nullable(),
+  jacketSize: z.enum(TOP_GARMENT_SIZES).optional().nullable(),
+  heightCm: z.number().min(120).max(230).optional().nullable(),
+  weightKg: z.number().min(35).max(250).optional().nullable(),
   bankCode: z.string().trim().refine((v) => CHILE_BANK_CODES.includes(v), "Banco inválido"),
   accountType: z.enum(BANK_ACCOUNT_TYPES),
   accountNumber: z.string().trim().min(4, "Número de cuenta requerido").max(100),
@@ -197,6 +209,21 @@ export async function POST(request: NextRequest) {
                   ? new Prisma.Decimal(Number(body.isapreExtraPercent))
                   : null,
               hasMobilization: body.hasMobilization,
+              shoeSize: normalizeNullable(body.shoeSize),
+              pantsSize: normalizeNullable(body.pantsSize),
+              tshirtSize: normalizeNullable(body.tshirtSize),
+              shirtSize: normalizeNullable(body.shirtSize),
+              geologoSize: normalizeNullable(body.geologoSize),
+              polarSize: normalizeNullable(body.polarSize),
+              jacketSize: normalizeNullable(body.jacketSize),
+              heightCm:
+                body.heightCm !== undefined && body.heightCm !== null
+                  ? new Prisma.Decimal(body.heightCm)
+                  : null,
+              weightKg:
+                body.weightKg !== undefined && body.weightKg !== null
+                  ? new Prisma.Decimal(body.weightKg)
+                  : null,
               status: "active",
             },
           });

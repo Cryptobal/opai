@@ -53,8 +53,11 @@ import {
   getLifecycleTransitions,
   HEALTH_SYSTEMS,
   ISAPRES_CHILE,
+  PANTS_SIZES,
   PAISES_AMERICA,
   REGIMEN_PREVISIONAL,
+  SHOE_SIZES,
+  TOP_GARMENT_SIZES,
   TIPO_PENSION,
 } from "@/lib/personas";
 import { hasOpsCapability } from "@/lib/ops-rbac";
@@ -123,6 +126,15 @@ type GuardiaDetail = {
     cotizaAFC?: boolean | null;
     cotizaSalud?: boolean | null;
     personalEmail?: string | null;
+    shoeSize?: string | null;
+    pantsSize?: string | null;
+    tshirtSize?: string | null;
+    shirtSize?: string | null;
+    geologoSize?: string | null;
+    polarSize?: string | null;
+    jacketSize?: string | null;
+    heightCm?: string | null;
+    weightKg?: string | null;
   };
   hiredAt?: string | null;
   terminatedAt?: string | null;
@@ -268,6 +280,8 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     firstName: "", lastName: "", rut: "", email: "", personalEmail: "", phoneMobile: "", sex: "", nacionalidad: "",
     birthDate: "", afp: "", healthSystem: "", isapreName: "", isapreHasExtraPercent: false,
     isapreExtraPercent: "", hasMobilization: false, availableExtraShifts: false, addressFormatted: "",
+    shoeSize: "", pantsSize: "", tshirtSize: "", shirtSize: "", geologoSize: "", polarSize: "", jacketSize: "",
+    heightCm: "", weightKg: "",
     commune: "", city: "", region: "", lat: "", lng: "", regimenPrevisional: "", tipoPension: "",
     isJubilado: false, cotizaAFP: false, cotizaAFC: false, cotizaSalud: true,
   });
@@ -305,6 +319,11 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       afp: guardia.persona.afp || "", healthSystem: guardia.persona.healthSystem || "",
       isapreName: guardia.persona.isapreName || "", isapreHasExtraPercent: guardia.persona.isapreHasExtraPercent || false,
       isapreExtraPercent: guardia.persona.isapreExtraPercent || "", hasMobilization: guardia.persona.hasMobilization || false,
+      shoeSize: guardia.persona.shoeSize || "", pantsSize: guardia.persona.pantsSize || "",
+      tshirtSize: guardia.persona.tshirtSize || "", shirtSize: guardia.persona.shirtSize || "",
+      geologoSize: guardia.persona.geologoSize || "", polarSize: guardia.persona.polarSize || "",
+      jacketSize: guardia.persona.jacketSize || "", heightCm: guardia.persona.heightCm || "",
+      weightKg: guardia.persona.weightKg || "",
       availableExtraShifts: guardia.availableExtraShifts || false, addressFormatted: guardia.persona.addressFormatted || "",
       commune: guardia.persona.commune || "", city: guardia.persona.city || "",
       region: guardia.persona.region || "", lat: guardia.persona.lat || "", lng: guardia.persona.lng || "",
@@ -334,6 +353,15 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           isapreHasExtraPercent: editPersonalForm.healthSystem === "isapre" ? editPersonalForm.isapreHasExtraPercent : undefined,
           isapreExtraPercent: editPersonalForm.healthSystem === "isapre" && editPersonalForm.isapreHasExtraPercent ? editPersonalForm.isapreExtraPercent || undefined : undefined,
           hasMobilization: editPersonalForm.hasMobilization, regimenPrevisional: editPersonalForm.regimenPrevisional || undefined,
+          shoeSize: editPersonalForm.shoeSize || undefined,
+          pantsSize: editPersonalForm.pantsSize || undefined,
+          tshirtSize: editPersonalForm.tshirtSize || undefined,
+          shirtSize: editPersonalForm.shirtSize || undefined,
+          geologoSize: editPersonalForm.geologoSize || undefined,
+          polarSize: editPersonalForm.polarSize || undefined,
+          jacketSize: editPersonalForm.jacketSize || undefined,
+          heightCm: editPersonalForm.heightCm ? Number(editPersonalForm.heightCm) : undefined,
+          weightKg: editPersonalForm.weightKg ? Number(editPersonalForm.weightKg) : undefined,
           tipoPension: editPersonalForm.tipoPension || undefined, isJubilado: editPersonalForm.isJubilado,
           cotizaAFP: editPersonalForm.cotizaAFP, cotizaAFC: editPersonalForm.cotizaAFC, cotizaSalud: editPersonalForm.cotizaSalud,
           availableExtraShifts: editPersonalForm.availableExtraShifts, addressFormatted: editPersonalForm.addressFormatted.trim() || undefined,
@@ -363,6 +391,15 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           isapreHasExtraPercent: editPersonalForm.isapreHasExtraPercent,
           isapreExtraPercent: editPersonalForm.isapreExtraPercent || prev.persona.isapreExtraPercent,
           hasMobilization: editPersonalForm.hasMobilization,
+          shoeSize: editPersonalForm.shoeSize || prev.persona.shoeSize,
+          pantsSize: editPersonalForm.pantsSize || prev.persona.pantsSize,
+          tshirtSize: editPersonalForm.tshirtSize || prev.persona.tshirtSize,
+          shirtSize: editPersonalForm.shirtSize || prev.persona.shirtSize,
+          geologoSize: editPersonalForm.geologoSize || prev.persona.geologoSize,
+          polarSize: editPersonalForm.polarSize || prev.persona.polarSize,
+          jacketSize: editPersonalForm.jacketSize || prev.persona.jacketSize,
+          heightCm: editPersonalForm.heightCm || prev.persona.heightCm,
+          weightKg: editPersonalForm.weightKg || prev.persona.weightKg,
           regimenPrevisional: editPersonalForm.regimenPrevisional || prev.persona.regimenPrevisional,
           tipoPension: editPersonalForm.tipoPension || prev.persona.tipoPension,
           isJubilado: editPersonalForm.isJubilado, cotizaAFP: editPersonalForm.cotizaAFP,
@@ -890,6 +927,38 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               /></div>
             <div className="space-y-1.5"><Label className="text-xs">Fecha de nacimiento</Label>
               <Input type="date" value={editPersonalForm.birthDate} onChange={(e) => setEditPersonalForm((p) => ({ ...p, birthDate: e.target.value }))} /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Calzado</Label>
+              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.shoeSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, shoeSize: e.target.value }))}>
+                <option value="">Sin especificar</option>{SHOE_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
+              </select></div>
+            <div className="space-y-1.5"><Label className="text-xs">Pantalón</Label>
+              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.pantsSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, pantsSize: e.target.value }))}>
+                <option value="">Sin especificar</option>{PANTS_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
+              </select></div>
+            <div className="space-y-1.5"><Label className="text-xs">Polera</Label>
+              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.tshirtSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, tshirtSize: e.target.value }))}>
+                <option value="">Sin especificar</option>{TOP_GARMENT_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
+              </select></div>
+            <div className="space-y-1.5"><Label className="text-xs">Camisa</Label>
+              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.shirtSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, shirtSize: e.target.value }))}>
+                <option value="">Sin especificar</option>{TOP_GARMENT_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
+              </select></div>
+            <div className="space-y-1.5"><Label className="text-xs">Geólogo</Label>
+              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.geologoSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, geologoSize: e.target.value }))}>
+                <option value="">Sin especificar</option>{TOP_GARMENT_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
+              </select></div>
+            <div className="space-y-1.5"><Label className="text-xs">Polar</Label>
+              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.polarSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, polarSize: e.target.value }))}>
+                <option value="">Sin especificar</option>{TOP_GARMENT_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
+              </select></div>
+            <div className="space-y-1.5"><Label className="text-xs">Chaqueta</Label>
+              <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.jacketSize} onChange={(e) => setEditPersonalForm((p) => ({ ...p, jacketSize: e.target.value }))}>
+                <option value="">Sin especificar</option>{TOP_GARMENT_SIZES.map((s) => (<option key={s} value={s}>{s}</option>))}
+              </select></div>
+            <div className="space-y-1.5"><Label className="text-xs">Estatura (cm)</Label>
+              <Input type="number" min="120" max="230" step="0.1" value={editPersonalForm.heightCm} onChange={(e) => setEditPersonalForm((p) => ({ ...p, heightCm: e.target.value }))} /></div>
+            <div className="space-y-1.5"><Label className="text-xs">Peso (kg)</Label>
+              <Input type="number" min="35" max="250" step="0.1" value={editPersonalForm.weightKg} onChange={(e) => setEditPersonalForm((p) => ({ ...p, weightKg: e.target.value }))} /></div>
             <div className="space-y-1.5 sm:col-span-2"><Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Datos previsionales</Label></div>
             <div className="space-y-1.5"><Label className="text-xs">Régimen previsional</Label>
               <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editPersonalForm.regimenPrevisional} onChange={(e) => setEditPersonalForm((p) => ({ ...p, regimenPrevisional: e.target.value }))}>

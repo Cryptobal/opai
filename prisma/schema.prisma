@@ -2445,6 +2445,15 @@ model OpsPersona {
   isapreHasExtraPercent Boolean?  @default(false) @map("isapre_has_extra_percent")
   isapreExtraPercent    Decimal?  @map("isapre_extra_percent") @db.Decimal(5, 2)
   hasMobilization       Boolean?  @default(false) @map("has_mobilization")
+  shoeSize              String?   @map("shoe_size")
+  pantsSize             String?   @map("pants_size")
+  tshirtSize            String?   @map("tshirt_size")
+  shirtSize             String?   @map("shirt_size")
+  geologoSize           String?   @map("geologo_size")
+  polarSize             String?   @map("polar_size")
+  jacketSize            String?   @map("jacket_size")
+  heightCm              Decimal?  @map("height_cm") @db.Decimal(5, 2)
+  weightKg              Decimal?  @map("weight_kg") @db.Decimal(5, 2)
   // ── Datos previsionales (DL 3500, Ley 19.728) ──
   regimenPrevisional    String?   @map("regimen_previsional") // general | menor_18 | aprendizaje | extranjero | pensionado_invalidez | pensionado_vejez | pensionado_anticipada | pensionado_ffaa | exento_edad
   tipoPension           String?   @map("tipo_pension") // invalidez_total | invalidez_parcial | vejez | anticipada | ffaa

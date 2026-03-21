@@ -180,6 +180,33 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
     }
   };
 
+  const handleExportExcel = async (mode: "activos" | "historico") => {
+    try {
+      const response = await fetch(`/api/personas/guardias/export-excel?mode=${mode}`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || "No se pudo generar el Excel");
+      }
+      const blob = await response.blob();
+      const fileName =
+        mode === "activos"
+          ? `guardias-activos-${new Date().toISOString().slice(0, 10)}.xlsx`
+          : `guardias-activos-e-inactivos-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Excel descargado");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo descargar el Excel");
+    }
+  };
+
   const ACCOUNT_TYPE_LABELS: Record<string, string> = {
     cuenta_corriente: "Cuenta corriente",
     cuenta_vista: "Cuenta vista",
@@ -456,6 +483,24 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             </Link>
           </Button>
         )}
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 px-2 text-xs"
+          onClick={() => void handleExportExcel("activos")}
+        >
+          Descargar base guardias activos
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 px-2 text-xs"
+          onClick={() => void handleExportExcel("historico")}
+        >
+          Descargar activos + inactivos
+        </Button>
         <Button
           type="button"
           size="sm"

@@ -119,6 +119,10 @@ export const ISAPRES_CHILE = [
 ] as const;
 export const PERSON_SEX = ["masculino", "femenino"] as const;
 
+export const SHOE_SIZES = Array.from({ length: 13 }, (_, i) => String(35 + i)) as readonly string[];
+export const PANTS_SIZES = Array.from({ length: 13 }, (_, i) => String(34 + i * 2)) as readonly string[];
+export const TOP_GARMENT_SIZES = ["XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"] as const;
+
 /** Régimen previsional (Control Roll / DL 3500) */
 export const REGIMEN_PREVISIONAL = [
   { value: "general", label: "1 - Régimen General" },

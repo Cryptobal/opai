@@ -66,6 +66,15 @@ type Persona = {
   cotizaAFP?: boolean | null;
   cotizaAFC?: boolean | null;
   cotizaSalud?: boolean | null;
+  shoeSize?: string | null;
+  pantsSize?: string | null;
+  tshirtSize?: string | null;
+  shirtSize?: string | null;
+  geologoSize?: string | null;
+  polarSize?: string | null;
+  jacketSize?: string | null;
+  heightCm?: string | null;
+  weightKg?: string | null;
 };
 
 type AsignacionHistorial = {
@@ -341,6 +350,24 @@ export default function DatosPersonalesSection({
             copyable
             placeholder="Sin datos"
           />
+        </DetailFieldGrid>
+      </div>
+
+      <div className="border-t border-border" />
+
+      {/* Uniforme y físico */}
+      <div>
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Uniforme y físico</p>
+        <DetailFieldGrid columns={3}>
+          <DetailField label="Calzado" value={persona.shoeSize} />
+          <DetailField label="Pantalón" value={persona.pantsSize} />
+          <DetailField label="Polera" value={persona.tshirtSize} />
+          <DetailField label="Camisa" value={persona.shirtSize} />
+          <DetailField label="Geólogo" value={persona.geologoSize} />
+          <DetailField label="Polar" value={persona.polarSize} />
+          <DetailField label="Chaqueta" value={persona.jacketSize} />
+          <DetailField label="Estatura" value={persona.heightCm ? `${persona.heightCm} cm` : undefined} />
+          <DetailField label="Peso" value={persona.weightKg ? `${persona.weightKg} kg` : undefined} />
         </DetailFieldGrid>
       </div>
 

@@ -152,6 +152,15 @@ export async function PATCH(
               ? toNullablePercent(body.isapreExtraPercent)
               : undefined,
           hasMobilization: body.hasMobilization !== undefined ? body.hasMobilization : undefined,
+          shoeSize: body.shoeSize !== undefined ? normalizeNullable(body.shoeSize) : undefined,
+          pantsSize: body.pantsSize !== undefined ? normalizeNullable(body.pantsSize) : undefined,
+          tshirtSize: body.tshirtSize !== undefined ? normalizeNullable(body.tshirtSize) : undefined,
+          shirtSize: body.shirtSize !== undefined ? normalizeNullable(body.shirtSize) : undefined,
+          geologoSize: body.geologoSize !== undefined ? normalizeNullable(body.geologoSize) : undefined,
+          polarSize: body.polarSize !== undefined ? normalizeNullable(body.polarSize) : undefined,
+          jacketSize: body.jacketSize !== undefined ? normalizeNullable(body.jacketSize) : undefined,
+          heightCm: body.heightCm !== undefined ? toNullableDecimal(body.heightCm) : undefined,
+          weightKg: body.weightKg !== undefined ? toNullableDecimal(body.weightKg) : undefined,
           regimenPrevisional: body.regimenPrevisional !== undefined ? normalizeNullable(body.regimenPrevisional) : undefined,
           tipoPension: body.tipoPension !== undefined ? normalizeNullable(body.tipoPension) : undefined,
           isJubilado: body.isJubilado !== undefined ? body.isJubilado : undefined,
@@ -218,7 +227,9 @@ export async function PATCH(
       const personalFields = [
         "firstName", "lastName", "rut", "email", "phoneMobile", "sex", "nacionalidad",
         "birthDate", "afp", "healthSystem", "isapreName", "isapreHasExtraPercent",
-        "isapreExtraPercent", "hasMobilization", "addressFormatted", "commune", "city",
+        "isapreExtraPercent", "hasMobilization", "shoeSize", "pantsSize", "tshirtSize",
+        "shirtSize", "geologoSize", "polarSize", "jacketSize", "heightCm", "weightKg",
+        "addressFormatted", "commune", "city",
         "region", "regimenPrevisional", "tipoPension", "isJubilado", "cotizaAFP",
         "cotizaAFC", "cotizaSalud", "availableExtraShifts",
       ];
