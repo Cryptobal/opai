@@ -22,9 +22,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Ruler, Package } from "lucide-react";
+import { Plus, Pencil, Ruler, Package, Trash2, PowerOff, UploadCloud } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
+import {
+  DEFAULT_INVENTORY_UNIFORM_CATALOG,
+  parseBulkCatalogText,
+  parseSizesInput,
+} from "@/lib/inventory-product-catalog";
 
 type Product = {
   id: string;
@@ -32,6 +37,7 @@ type Product = {
   sku: string | null;
   category: string;
   active: boolean;
+  notes?: string | null;
   sizes: { id: string; sizeCode: string; sizeLabel: string | null }[];
   variants: { id: string; size: { sizeCode: string } | null }[];
 };
@@ -40,16 +46,23 @@ export function InventarioProductosClient() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     sku: "",
     category: "uniform" as "uniform" | "asset",
     notes: "",
+    active: true,
+    sizesText: "",
   });
+  const [bulkText, setBulkText] = useState(
+    DEFAULT_INVENTORY_UNIFORM_CATALOG.map((p) => `${p.name}|${(p.sizes ?? []).join(",")}`).join("\n")
+  );
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("active");
   const [displayView, setDisplayView] = useState<ViewMode>("cards");
 
   const fetchProducts = async () => {
@@ -77,6 +90,11 @@ export function InventarioProductosClient() {
 
   const filteredProducts = useMemo(() => {
     let result = products;
+    if (activeFilter === "active") {
+      result = result.filter((p) => p.active);
+    } else if (activeFilter === "inactive") {
+      result = result.filter((p) => !p.active);
+    }
     if (catFilter !== "all") {
       result = result.filter((p) => p.category === catFilter);
     }
@@ -89,7 +107,7 @@ export function InventarioProductosClient() {
       );
     }
     return result;
-  }, [products, catFilter, search]);
+  }, [products, catFilter, search, activeFilter]);
 
   const catFilters = useMemo(() => [
     { key: "all", label: "Todos", count: products.length },
@@ -97,11 +115,34 @@ export function InventarioProductosClient() {
     { key: "asset", label: "Activos", count: products.filter((p) => p.category === "asset").length },
   ], [products]);
 
+  const statusFilters = useMemo(
+    () => [
+      { key: "active", label: "Vigentes", count: products.filter((p) => p.active).length },
+      { key: "inactive", label: "Inactivos", count: products.filter((p) => !p.active).length },
+      { key: "all", label: "Todos", count: products.length },
+    ],
+    [products]
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const url = "/api/ops/inventario/products";
-    const createBody = { name: form.name, sku: form.sku || undefined, category: form.category, notes: form.notes || undefined };
-    const updateBody = { name: form.name };
+    const parsedSizes = parseSizesInput(form.sizesText);
+    const createBody = {
+      name: form.name,
+      sku: form.sku || undefined,
+      category: form.category,
+      notes: form.notes || undefined,
+      active: form.active,
+      sizes: form.category === "uniform" ? parsedSizes : [],
+    };
+    const updateBody = {
+      name: form.name,
+      sku: form.sku || null,
+      category: form.category,
+      notes: form.notes || null,
+      active: form.active,
+    };
 
     try {
       const res = editingId
@@ -111,7 +152,7 @@ export function InventarioProductosClient() {
       if (data.id || data.name) {
         setDialogOpen(false);
         setEditingId(null);
-        setForm({ name: "", sku: "", category: "uniform", notes: "" });
+        setForm({ name: "", sku: "", category: "uniform", notes: "", active: true, sizesText: "" });
         fetchProducts();
       } else {
         alert(data.error || "Error al guardar");
@@ -122,20 +163,88 @@ export function InventarioProductosClient() {
     }
   };
 
+  const handleBulkCreate = async () => {
+    const parsed = parseBulkCatalogText(bulkText);
+    if (parsed.length === 0) {
+      alert("Ingresa al menos una linea en formato Producto|Talla1,Talla2");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/ops/inventario/products/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: parsed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "No se pudo crear el catalogo en lote");
+        return;
+      }
+      alert(
+        `Catalogo procesado. Nuevos: ${data.createdProducts ?? 0}, actualizados: ${data.updatedProducts ?? 0}, tallas nuevas: ${data.createdSizes ?? 0}.`
+      );
+      setBulkDialogOpen(false);
+      fetchProducts();
+    } catch (e) {
+      console.error(e);
+      alert("Error al crear catalogo en lote");
+    }
+  };
+
+  const handleDeleteProduct = async (p: Product) => {
+    if (!confirm(`¿Eliminar "${p.name}"?`)) return;
+    try {
+      const res = await fetch(`/api/ops/inventario/products/${p.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) {
+        fetchProducts();
+        return;
+      }
+      const shouldArchive = confirm(`${data.error || "No se pudo eliminar."}\n\n¿Deseas desactivarlo en su lugar?`);
+      if (!shouldArchive) return;
+      await toggleActive(p, false);
+    } catch (e) {
+      console.error(e);
+      alert("Error al eliminar producto");
+    }
+  };
+
+  const toggleActive = async (p: Product, nextActive: boolean) => {
+    try {
+      const res = await fetch(`/api/ops/inventario/products/${p.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: nextActive }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "No se pudo actualizar estado");
+        return;
+      }
+      fetchProducts();
+    } catch (e) {
+      console.error(e);
+      alert("Error al actualizar estado");
+    }
+  };
+
   const openEdit = (p: Product) => {
     setEditingId(p.id);
     setForm({
       name: p.name,
       sku: p.sku ?? "",
       category: p.category as "uniform" | "asset",
-      notes: "",
+      notes: p.notes ?? "",
+      active: p.active,
+      sizesText: "",
     });
     setDialogOpen(true);
   };
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ name: "", sku: "", category: "uniform", notes: "" });
+    setForm({ name: "", sku: "", category: "uniform", notes: "", active: true, sizesText: "" });
     setDialogOpen(true);
   };
 
@@ -153,74 +262,158 @@ export function InventarioProductosClient() {
         activeView={displayView}
         onViewChange={setDisplayView}
         actionSlot={
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0" onClick={openCreate}>
-                <Plus className="h-4 w-4" />
-                <span className="sr-only">Nuevo producto</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <form onSubmit={handleSubmit}>
+          <div className="flex items-center gap-2">
+            <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" title="Carga masiva">
+                  <UploadCloud className="h-4 w-4" />
+                  <span className="sr-only">Carga masiva</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>{editingId ? "Editar producto" : "Nuevo producto"}</DialogTitle>
+                  <DialogTitle>Carga masiva de productos</DialogTitle>
                   <DialogDescription>
-                    {editingId
-                      ? "Modifica los datos del producto."
-                      : "Crea un producto de tipo uniforme (con tallas) o activo (sin tallas)."}
+                    Una linea por producto en formato: <code>Producto|Talla1,Talla2,...</code>.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div>
-                    <Label htmlFor="name">Nombre</Label>
-                    <Input
-                      id="name"
-                      value={form.name}
-                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                      placeholder="Ej: Camisa, Zapato, Celular"
-                      required
-                    />
-                  </div>
-                  {!editingId && (
-                    <>
-                      <div>
-                        <Label htmlFor="sku">SKU (opcional)</Label>
-                        <Input
-                          id="sku"
-                          value={form.sku}
-                          onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-                          placeholder="Código interno"
-                        />
-                      </div>
-                      <div>
-                        <Label>Categoría</Label>
-                        <Select
-                          value={form.category}
-                          onValueChange={(v) => setForm((f) => ({ ...f, category: v as "uniform" | "asset" }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="uniform">Uniforme (con tallas)</SelectItem>
-                            <SelectItem value="asset">Activo (sin tallas)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </>
-                  )}
+                <div className="space-y-3">
+                  <Label htmlFor="bulk-catalog">Catalogo</Label>
+                  <textarea
+                    id="bulk-catalog"
+                    value={bulkText}
+                    onChange={(e) => setBulkText(e.target.value)}
+                    className="min-h-[260px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    placeholder="Ej: Calzado|35,36,37"
+                  />
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => setBulkDialogOpen(false)}>
                     Cancelar
                   </Button>
-                  <Button type="submit">Guardar</Button>
+                  <Button type="button" onClick={handleBulkCreate}>
+                    Procesar lote
+                  </Button>
                 </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0" onClick={openCreate}>
+                  <Plus className="h-4 w-4" />
+                  <span className="sr-only">Nuevo producto</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <form onSubmit={handleSubmit}>
+                  <DialogHeader>
+                    <DialogTitle>{editingId ? "Editar producto" : "Nuevo producto"}</DialogTitle>
+                    <DialogDescription>
+                      {editingId
+                        ? "Modifica nombre, categoria, SKU y estado."
+                        : "Crea un producto de tipo uniforme (con tallas) o activo (sin tallas)."}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div>
+                      <Label htmlFor="name">Nombre</Label>
+                      <Input
+                        id="name"
+                        value={form.name}
+                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                        placeholder="Ej: Camisa, Zapato, Celular"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="sku">SKU (opcional)</Label>
+                      <Input
+                        id="sku"
+                        value={form.sku}
+                        onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
+                        placeholder="Código interno"
+                      />
+                    </div>
+                    <div>
+                      <Label>Categoría</Label>
+                      <Select
+                        value={form.category}
+                        onValueChange={(v) => setForm((f) => ({ ...f, category: v as "uniform" | "asset" }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="uniform">Uniforme (con tallas)</SelectItem>
+                          <SelectItem value="asset">Activo (sin tallas)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Estado</Label>
+                      <Select
+                        value={form.active ? "active" : "inactive"}
+                        onValueChange={(v) => setForm((f) => ({ ...f, active: v === "active" }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Vigente</SelectItem>
+                          <SelectItem value="inactive">Inactivo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="notes">Notas (opcional)</Label>
+                      <Input
+                        id="notes"
+                        value={form.notes}
+                        onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                        placeholder="Observaciones del producto"
+                      />
+                    </div>
+                    {!editingId && form.category === "uniform" && (
+                      <div>
+                        <Label htmlFor="sizesText">Tallas (opcional)</Label>
+                        <Input
+                          id="sizesText"
+                          value={form.sizesText}
+                          onChange={(e) => setForm((f) => ({ ...f, sizesText: e.target.value }))}
+                          placeholder="Ej: XS,S,M,L,XL"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit">Guardar</Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         }
       />
+
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Estado:</span>
+        <Select value={activeFilter} onValueChange={setActiveFilter}>
+          <SelectTrigger className="h-8 w-[170px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {statusFilters.map((s) => (
+              <SelectItem key={s.key} value={s.key}>
+                {s.label} ({s.count})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Content */}
       {loading ? (
@@ -253,13 +446,36 @@ export function InventarioProductosClient() {
                   <p className="font-medium text-sm">{p.name}</p>
                   {p.sku && <p className="text-[11px] text-muted-foreground mt-0.5">SKU: {p.sku}</p>}
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => openEdit(p)} title="Editar">
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => openEdit(p)} title="Editar">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0"
+                    onClick={() => toggleActive(p, !p.active)}
+                    title={p.active ? "Desactivar" : "Activar"}
+                  >
+                    <PowerOff className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => handleDeleteProduct(p)}
+                    title="Eliminar"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
               <div className="flex items-center gap-2 mt-2 flex-wrap">
                 <Badge variant={p.category === "uniform" ? "default" : "secondary"} className="text-[10px]">
                   {p.category === "uniform" ? "Uniforme" : "Activo"}
+                </Badge>
+                <Badge variant={p.active ? "secondary" : "outline"} className="text-[10px]">
+                  {p.active ? "Vigente" : "Inactivo"}
                 </Badge>
                 {p.sizes.length > 0 && (
                   <span className="text-[11px] text-muted-foreground flex items-center gap-1">
@@ -292,6 +508,9 @@ export function InventarioProductosClient() {
                     <Badge variant={p.category === "uniform" ? "default" : "secondary"} className="text-[10px]">
                       {p.category === "uniform" ? "Uniforme" : "Activo"}
                     </Badge>
+                    <Badge variant={p.active ? "secondary" : "outline"} className="text-[10px]">
+                      {p.active ? "Vigente" : "Inactivo"}
+                    </Badge>
                     {p.sizes.length > 0 && (
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Ruler className="h-3 w-3" />
@@ -304,6 +523,23 @@ export function InventarioProductosClient() {
               <div className="flex gap-2">
                 <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title="Editar">
                   <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => toggleActive(p, !p.active)}
+                  title={p.active ? "Desactivar" : "Activar"}
+                >
+                  <PowerOff className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleDeleteProduct(p)}
+                  title="Eliminar"
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
                 </Button>
                 <Link href={`/ops/inventario/productos/${p.id}`}>
                   <Button variant="ghost" size="sm">

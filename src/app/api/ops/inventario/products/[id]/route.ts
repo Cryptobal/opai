@@ -116,7 +116,21 @@ export async function DELETE(
 
     const product = await prisma.inventoryProduct.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      include: { _count: { select: { variants: true } } },
+      include: {
+        variants: {
+          include: {
+            _count: {
+              select: {
+                purchaseLines: true,
+                movementLines: true,
+                stockRecords: true,
+                guardiaAssignments: true,
+                assets: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!product) {
@@ -126,9 +140,22 @@ export async function DELETE(
       );
     }
 
-    if (product._count.variants > 0) {
+    const hasLinkedUsage = product.variants.some((variant) => {
+      return (
+        variant._count.purchaseLines > 0 ||
+        variant._count.movementLines > 0 ||
+        variant._count.stockRecords > 0 ||
+        variant._count.guardiaAssignments > 0 ||
+        variant._count.assets > 0
+      );
+    });
+
+    if (hasLinkedUsage) {
       return NextResponse.json(
-        { success: false, error: "No se puede eliminar: tiene variantes o movimientos asociados" },
+        {
+          success: false,
+          error: "No se puede eliminar: tiene stock o movimientos asociados. Puedes desactivarlo.",
+        },
         { status: 400 }
       );
     }

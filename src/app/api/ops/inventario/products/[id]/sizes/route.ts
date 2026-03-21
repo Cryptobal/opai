@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureInventarioAccess } from "@/lib/inventory";
 import { z } from "zod";
+import { parseSizesInput } from "@/lib/inventory-product-catalog";
 
 const createSizeSchema = z.object({
   sizeCode: z.string().min(1),
@@ -77,8 +78,16 @@ export async function POST(
       );
     }
 
+    const normalizedSizeCode = parseSizesInput(parsed.data.sizeCode)[0];
+    if (!normalizedSizeCode) {
+      return NextResponse.json(
+        { success: false, error: "Código de talla inválido" },
+        { status: 400 }
+      );
+    }
+
     const existing = await prisma.inventoryProductSize.findFirst({
-      where: { productId: id, sizeCode: parsed.data.sizeCode },
+      where: { productId: id, sizeCode: normalizedSizeCode },
     });
     if (existing) {
       return NextResponse.json(
@@ -97,7 +106,7 @@ export async function POST(
       const s = await tx.inventoryProductSize.create({
         data: {
           productId: id,
-          sizeCode: parsed.data.sizeCode,
+          sizeCode: normalizedSizeCode,
           sizeLabel: parsed.data.sizeLabel ?? null,
           sortOrder,
         },
@@ -106,7 +115,7 @@ export async function POST(
         data: {
           productId: id,
           sizeId: s.id,
-          sku: product.sku ? `${product.sku}-${parsed.data.sizeCode}` : null,
+          sku: product.sku ? `${product.sku}-${normalizedSizeCode}` : null,
         },
       });
       return s;
