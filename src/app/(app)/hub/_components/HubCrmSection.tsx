@@ -135,7 +135,7 @@ export function HubCrmSection({ perms, closingData, sellerFirstName }: HubClosin
                   <p className="text-xs font-bold">Propuestas calientes</p>
                   <span className="text-[10px] text-muted-foreground">({hotDeals.length})</span>
                 </div>
-                <HubHotDealsMobile deals={hotDeals} sellerFirstName={sellerFirstName} />
+                <HubHotDealsMobile deals={hotDeals} sellerFirstName={sellerFirstName} tenantName={closingData.commercialName} />
               </>
             )}
             <HubMiniFunnel funnel={funnel} />
@@ -143,7 +143,7 @@ export function HubCrmSection({ perms, closingData, sellerFirstName }: HubClosin
         )}
 
         {activeTab === 'leads' && <HubPendingLeads leads={pendingLeads} />}
-        {activeTab === 'stale' && <HubStaleDeals deals={staleDeals} sellerFirstName={sellerFirstName} />}
+        {activeTab === 'stale' && <HubStaleDeals deals={staleDeals} sellerFirstName={sellerFirstName} tenantName={closingData.commercialName} />}
       </div>
 
       {/* ─── DESKTOP LAYOUT (≥ md) ─── */}
@@ -165,7 +165,7 @@ export function HubCrmSection({ perms, closingData, sellerFirstName }: HubClosin
                   {hotDeals.length}
                 </span>
               </div>
-              <HubHotDealsTable deals={hotDeals} sellerFirstName={sellerFirstName} />
+              <HubHotDealsTable deals={hotDeals} sellerFirstName={sellerFirstName} tenantName={closingData.commercialName} />
             </>
           )}
           <HubMiniFunnel funnel={funnel} />
@@ -173,7 +173,7 @@ export function HubCrmSection({ perms, closingData, sellerFirstName }: HubClosin
 
         {/* Right column: sidebar */}
         <div className="space-y-3 md:sticky md:top-4">
-          <HubStaleDeals deals={staleDeals} sellerFirstName={sellerFirstName} />
+          <HubStaleDeals deals={staleDeals} sellerFirstName={sellerFirstName} tenantName={closingData.commercialName} />
           <HubPendingLeads leads={pendingLeads} />
           <HubPortalRanking users={portalTopUsers} />
         </div>

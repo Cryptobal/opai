@@ -7,6 +7,7 @@ import type { ClosingStaleDeal } from '../_lib/hub-types';
 interface Props {
   deals: ClosingStaleDeal[];
   sellerFirstName: string;
+  tenantName: string;
 }
 
 function DaysBadge({ days }: { days: number | null }) {
@@ -19,7 +20,7 @@ function DaysBadge({ days }: { days: number | null }) {
   );
 }
 
-export function HubStaleDeals({ deals, sellerFirstName }: Props) {
+export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
   if (deals.length === 0) {
     return (
       <div className="rounded-[10px] border border-border bg-card p-3.5">
@@ -52,6 +53,7 @@ export function HubStaleDeals({ deals, sellerFirstName }: Props) {
             deal.contactName,
             deal.companyName,
             sellerFirstName,
+            tenantName,
           );
 
           return (

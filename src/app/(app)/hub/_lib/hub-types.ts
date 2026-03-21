@@ -428,6 +428,8 @@ export interface ClosingHubData {
   pendingLeads: ClosingPendingLead[];
   funnel: ClosingFunnel;
   portalTopUsers: ClosingPortalTopUser[];
+  /** Nombre comercial del tenant (ej. Gard, Gard Security) para mensajes WhatsApp. */
+  commercialName: string;
 }
 
 export interface ClosingPortalTopUser {

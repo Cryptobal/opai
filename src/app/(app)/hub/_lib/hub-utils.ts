@@ -122,14 +122,14 @@ export function whatsappUrlWithMessage(phone: string, message: string): string {
 /** Mensajes predefinidos WhatsApp para el Hub de Cierre. */
 export const HUB_WHATSAPP_MESSAGES = {
   /** Propuestas calientes: seguimiento cercano tras revisión de propuesta. */
-  hot: (nombre: string, empresa: string, vendedor: string) => {
+  hot: (nombre: string, empresa: string, vendedor: string, tenantName: string) => {
     const saludo = nombre && nombre !== 'Sin contacto' ? `Hola ${nombre},` : 'Hola,';
-    return `${saludo} soy ${vendedor} de OPAI. Vi que revisaste nuestra propuesta para ${empresa}. ¿Qué te parece? ¿Tienes dudas o quieres que ajustemos algo? Estoy disponible para ayudarte.`;
+    return `${saludo} soy ${vendedor} de ${tenantName}.\n\nVi que revisaste nuestra propuesta para ${empresa}. ¿Qué te parece? ¿Tienes dudas o quieres que ajustemos algo?\n\nEstoy disponible para ayudarte cuando lo necesites.`;
   },
   /** Sin actividad: reenganche amigable. */
-  stale: (nombre: string, empresa: string, vendedor: string) => {
+  stale: (nombre: string, empresa: string, vendedor: string, tenantName: string) => {
     const saludo = nombre && nombre !== 'Sin contacto' ? `Hola ${nombre},` : 'Hola,';
-    return `${saludo} soy ${vendedor} de OPAI. Paso a saludarte y ver si aún tienes interés en nuestra propuesta de seguridad para ${empresa}. ¿Te gustaría retomar la conversación? Quedo atento.`;
+    return `${saludo} soy ${vendedor} de ${tenantName}.\n\nPaso a saludarte y ver si aún tienes interés en nuestra propuesta de seguridad para ${empresa}.\n\n¿Te gustaría retomar la conversación? Quedo atento a tu respuesta.`;
   },
 } as const;
 

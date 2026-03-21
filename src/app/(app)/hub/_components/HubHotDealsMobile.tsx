@@ -10,6 +10,7 @@ import type { ClosingHotDeal } from '../_lib/hub-types';
 interface Props {
   deals: ClosingHotDeal[];
   sellerFirstName: string;
+  tenantName: string;
 }
 
 function HeatIndicator({ score }: { score: number }) {
@@ -26,7 +27,7 @@ function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
   return <span className="text-muted-foreground text-[10px]">—</span>;
 }
 
-export function HubHotDealsMobile({ deals, sellerFirstName }: Props) {
+export function HubHotDealsMobile({ deals, sellerFirstName, tenantName }: Props) {
   const router = useRouter();
   return (
     <div className="space-y-2">
@@ -36,6 +37,7 @@ export function HubHotDealsMobile({ deals, sellerFirstName }: Props) {
           deal.contactName,
           deal.companyName,
           sellerFirstName,
+          tenantName,
         );
         return (
           <div

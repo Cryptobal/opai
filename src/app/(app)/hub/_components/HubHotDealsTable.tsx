@@ -10,6 +10,7 @@ import type { ClosingHotDeal } from '../_lib/hub-types';
 interface Props {
   deals: ClosingHotDeal[];
   sellerFirstName: string;
+  tenantName: string;
 }
 
 function HeatIndicator({ score }: { score: number }) {
@@ -26,7 +27,7 @@ function TrendIcon({ trend }: { trend: 'up' | 'down' | 'flat' }) {
   return <span className="text-muted-foreground text-[10px]">—</span>;
 }
 
-function ActionIcons({ deal, sellerFirstName }: { deal: ClosingHotDeal; sellerFirstName: string }) {
+function ActionIcons({ deal, sellerFirstName, tenantName }: { deal: ClosingHotDeal; sellerFirstName: string; tenantName: string }) {
   const phone = deal.contactPhone ? normalizeChileanPhone(deal.contactPhone) : null;
   const handlePhone = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -35,7 +36,7 @@ function ActionIcons({ deal, sellerFirstName }: { deal: ClosingHotDeal; sellerFi
   const handleWhatsApp = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (deal.contactPhone) {
-      const msg = HUB_WHATSAPP_MESSAGES.hot(deal.contactName, deal.companyName, sellerFirstName);
+      const msg = HUB_WHATSAPP_MESSAGES.hot(deal.contactName, deal.companyName, sellerFirstName, tenantName);
       window.open(whatsappUrlWithMessage(deal.contactPhone, msg), '_blank', 'noopener,noreferrer');
     }
   };
@@ -90,7 +91,7 @@ function ActionIcons({ deal, sellerFirstName }: { deal: ClosingHotDeal; sellerFi
   );
 }
 
-export function HubHotDealsTable({ deals, sellerFirstName }: Props) {
+export function HubHotDealsTable({ deals, sellerFirstName, tenantName }: Props) {
   const router = useRouter();
   return (
     <div className="rounded-[10px] border border-border bg-card overflow-hidden">
@@ -149,7 +150,7 @@ export function HubHotDealsTable({ deals, sellerFirstName }: Props) {
             {/* Contacto + actions on hover */}
             <span className="flex items-center min-w-0 pr-2">
               <span className="text-[11px] truncate">{deal.contactName}</span>
-              <ActionIcons deal={deal} sellerFirstName={sellerFirstName} />
+              <ActionIcons deal={deal} sellerFirstName={sellerFirstName} tenantName={tenantName} />
             </span>
 
             {/* Etapa */}
