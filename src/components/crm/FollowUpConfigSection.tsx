@@ -43,6 +43,7 @@ type FollowUpConfig = {
   isActive: boolean;
   bccEnabled: boolean;
   bccEmail: string | null;
+  ccEmail: string | null;
 };
 
 const selectCn =
@@ -69,6 +70,7 @@ const DEFAULT_CONFIG: FollowUpConfig = {
   isActive: true,
   bccEnabled: false,
   bccEmail: null,
+  ccEmail: null,
 };
 
 type FollowUpConfigSectionProps = {
@@ -441,6 +443,28 @@ export function FollowUpConfigSection({ className }: FollowUpConfigSectionProps)
                 <p className="text-[10px] text-muted-foreground">
                   En el 3er seguimiento el negocio se mueve automáticamente a etapa perdida ({lostStage?.name || "etapa con isClosedLost=true"}).
                 </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <Mail className="h-3.5 w-3.5" />
+                  Copia (CC) al tenant
+                </div>
+                <div className="rounded-lg border border-primary/30 p-3">
+                  <p className="text-sm font-medium mb-2">
+                    Los seguimientos se envían al cliente y en copia solo a este correo.
+                  </p>
+                  <Input
+                    type="email"
+                    placeholder="ej: ventas@empresa.cl"
+                    value={config.ccEmail ?? ""}
+                    onChange={(e) => update("ccEmail", e.target.value || null)}
+                    className={`${inputCn} max-w-sm`}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-2">
+                    Si está vacío, se usa el email comercial del tenant.
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-3">
