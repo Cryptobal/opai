@@ -390,10 +390,12 @@ function ExpandedRow({
                           })}
                         </span>
                         {isOverlap && (
-                          <AlertTriangle
-                            className="h-3 w-3 text-orange-400 shrink-0"
+                          <span
+                            className="shrink-0"
                             title="Marcado simultáneamente con otro checkpoint — posible geocerca solapada"
-                          />
+                          >
+                            <AlertTriangle className="h-3 w-3 text-orange-400" />
+                          </span>
                         )}
                         {m.fotoEvidenciaUrl ? (
                           <a href={m.fotoEvidenciaUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
