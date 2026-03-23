@@ -13,6 +13,8 @@ import {
   Mic,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
+  FileSpreadsheet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -373,19 +375,35 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Date picker + cycle info */}
-      <div className="flex flex-wrap items-center gap-4 rounded-xl border border-[#1a1f2e] bg-[#111827] px-4 py-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">
-            Día
-          </p>
-          <input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-40"
-          />
-        </div>
+      {/* Date picker + cycle info + day nav */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#1a1f2e] bg-[#111827] px-4 py-3">
+        <button
+          onClick={() => {
+            const d = new Date(fecha);
+            d.setDate(d.getDate() - 1);
+            setFecha(d.toISOString().slice(0, 10));
+          }}
+          className="p-1.5 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] hover:bg-[#1a1f2e] transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4 text-[#94a3b8]" />
+        </button>
+        <input
+          type="date"
+          value={fecha}
+          onChange={(e) => setFecha(e.target.value)}
+          className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-40"
+        />
+        <button
+          onClick={() => {
+            const d = new Date(fecha);
+            d.setDate(d.getDate() + 1);
+            setFecha(d.toISOString().slice(0, 10));
+          }}
+          className="p-1.5 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] hover:bg-[#1a1f2e] transition-colors"
+        >
+          <ChevronRight className="h-4 w-4 text-[#94a3b8]" />
+        </button>
+
         {data?.ciclo && (
           <div className="text-xs text-[#94a3b8]">
             Ciclo:{" "}
@@ -394,6 +412,42 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
             </span>
           </div>
         )}
+
+        {resumen && (
+          <div className="flex items-center gap-4 text-xs text-[#94a3b8] ml-auto">
+            <span>
+              <span className="text-[#f1f5f9] font-semibold">{resumen.totalRondas}</span> rondas
+            </span>
+            <span>
+              <span className="text-emerald-400 font-semibold">{resumen.completadas}</span> completadas
+            </span>
+            {resumen.incompletas > 0 && (
+              <span>
+                <span className="text-amber-400 font-semibold">{resumen.incompletas}</span> incompletas
+              </span>
+            )}
+            {resumen.noRealizadas > 0 && (
+              <span>
+                <span className="text-red-400 font-semibold">{resumen.noRealizadas}</span> no realizadas
+              </span>
+            )}
+            <span>
+              <span className="text-[#06b6d4] font-semibold">{resumen.porcentajeCumplimiento}%</span> cumplimiento
+            </span>
+          </div>
+        )}
+
+        <button
+          onClick={() => {
+            const params = new URLSearchParams({ format: "xlsx", from: fecha, to: fecha });
+            window.open(`/api/ops/rondas/reportes/export?${params}`, "_blank");
+          }}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] hover:bg-[#1a1f2e] text-xs text-[#94a3b8] hover:text-[#f1f5f9] transition-colors"
+        >
+          <FileSpreadsheet className="h-3.5 w-3.5" />
+          Excel
+        </button>
+
         {loading && (
           <div className="flex items-center gap-1.5 text-[#64748b]">
             <div className="w-3.5 h-3.5 rounded-full border-2 border-[#06b6d4] border-t-transparent animate-spin" />
@@ -401,38 +455,6 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
           </div>
         )}
       </div>
-
-      {/* KPI cards */}
-      {resumen && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Total rondas", value: resumen.totalRondas, color: "#94a3b8" },
-            { label: "Completadas", value: resumen.completadas, color: "#22c55e" },
-            { label: "Incompletas", value: resumen.incompletas, color: "#f59e0b" },
-            { label: "No realizadas", value: resumen.noRealizadas, color: "#ef4444" },
-          ].map((kpi) => (
-            <div
-              key={kpi.label}
-              className="rounded-xl border bg-[#111827] p-3 relative overflow-hidden"
-              style={{
-                borderColor: `${kpi.color}20`,
-                borderLeftColor: kpi.color,
-                borderLeftWidth: 3,
-              }}
-            >
-              <p
-                className="text-[11px] uppercase tracking-wider font-semibold mb-1"
-                style={{ color: `${kpi.color}99` }}
-              >
-                {kpi.label}
-              </p>
-              <p className="text-2xl font-extrabold tracking-tight" style={{ color: kpi.color }}>
-                {kpi.value}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Grid of installations */}
       {data && (

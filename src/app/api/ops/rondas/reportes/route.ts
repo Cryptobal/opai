@@ -81,6 +81,18 @@ export async function GET(request: NextRequest) {
             },
             orderBy: { timestamp: "asc" },
           },
+          _count: {
+            select: { incidentes: true },
+          },
+          incidentes: {
+            select: {
+              id: true,
+              tipo: true,
+              status: true,
+              descripcion: true,
+              createdAt: true,
+            },
+          },
         },
         orderBy: { scheduledAt: "desc" },
         ...(isExport
@@ -132,6 +144,14 @@ export async function GET(request: NextRequest) {
         geoValidada: m.geoValidada,
         verificationMethod: m.verificationMethod,
         hashIntegridad: m.hashIntegridad,
+      })),
+      _count: { incidentes: (row as any)._count?.incidentes ?? 0 },
+      incidentes: ((row as any).incidentes ?? []).map((inc: any) => ({
+        id: inc.id,
+        tipo: inc.tipo,
+        status: inc.status,
+        descripcion: inc.descripcion,
+        createdAt: inc.createdAt?.toISOString?.() ?? inc.createdAt,
       })),
     }));
 

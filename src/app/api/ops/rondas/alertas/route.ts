@@ -24,21 +24,38 @@ export async function GET(request: NextRequest) {
     const severidad = request.nextUrl.searchParams.get("severidad");
     const tipo = request.nextUrl.searchParams.get("tipo");
     const includeArchived = request.nextUrl.searchParams.get("includeArchived") === "true";
+    const installationId = request.nextUrl.searchParams.get("installationId");
+    const from = request.nextUrl.searchParams.get("from");
+    const to = request.nextUrl.searchParams.get("to");
+    const status = request.nextUrl.searchParams.get("status");
+    const includeLogs = request.nextUrl.searchParams.get("includeLogs") === "true";
 
-    const activeTurnoId = await getActiveTurnoId(ctx.tenantId);
+    // If date range is provided (reportes mode), skip turno check
+    const isReportesMode = !!(from || to);
+
+    const activeTurnoId = isReportesMode ? null : await getActiveTurnoId(ctx.tenantId);
 
     // Solo mostrar alertas cuando hay monitoreo activo; si no hay turno, lista vacía
-    if (!includeArchived && !activeTurnoId) {
+    if (!isReportesMode && !includeArchived && !activeTurnoId) {
       return NextResponse.json({ success: true, data: [], requiresActiveTurno: true });
     }
 
     const where: Prisma.OpsAlertaRondaWhereInput = {
       tenantId: ctx.tenantId,
-      ...(onlyOpen ? { resuelta: false } : {}),
+      ...(status === "pendiente" ? { resuelta: false } : status === "resuelta" ? { resuelta: true } : onlyOpen && !isReportesMode ? { resuelta: false } : {}),
       ...(isAcknowledged === "true" ? { isAcknowledged: true } : isAcknowledged === "false" ? { isAcknowledged: false } : {}),
       ...(severidad ? { severidad } : {}),
       ...(tipo ? { tipo } : {}),
-      ...(!includeArchived
+      ...(installationId ? { installationId } : {}),
+      ...(from || to
+        ? {
+            createdAt: {
+              ...(from ? { gte: new Date(from) } : {}),
+              ...(to ? { lte: new Date(to + "T23:59:59.999Z") } : {}),
+            },
+          }
+        : {}),
+      ...(!isReportesMode && !includeArchived
         ? {
             archivedAt: null,
             ...(activeTurnoId ? { turnoId: activeTurnoId } : {}),
@@ -53,6 +70,27 @@ export async function GET(request: NextRequest) {
         ejecucion: {
           select: { id: true, status: true, rondaTemplate: { select: { id: true, name: true } } },
         },
+        guardia: {
+          select: {
+            persona: { select: { firstName: true, lastName: true } },
+          },
+        },
+        ...(includeLogs
+          ? {
+              logs: {
+                orderBy: { createdAt: "asc" as const },
+                select: {
+                  id: true,
+                  action: true,
+                  userId: true,
+                  userName: true,
+                  notes: true,
+                  metadata: true,
+                  createdAt: true,
+                },
+              },
+            }
+          : {}),
       },
       orderBy: [{ resuelta: "asc" }, { createdAt: "desc" }],
       take: 300,

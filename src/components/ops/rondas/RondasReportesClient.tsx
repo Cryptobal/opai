@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, Loader2, BarChart3, User, Map, AlertTriangle, Clock, CheckCircle2, LayoutGrid } from "lucide-react";
+import { Download, Loader2, BarChart3, Map, AlertTriangle, Clock, CheckCircle2, LayoutGrid, FileSpreadsheet } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { RondasComplianceChart } from "./RondasComplianceChart";
 import { RondasReportesTable, type ReporteRow } from "./RondasReportesTable";
-import { RondasReportesPorGuardia } from "./RondasReportesPorGuardia";
 import { RondasReportesHeatmap } from "./RondasReportesHeatmap";
 import { RondasDashboardGlobal } from "./RondasDashboardGlobal";
+import { RondasReportesAlertas } from "./RondasReportesAlertas";
 import { RondaAuditMapModal } from "./RondaAuditMapModal";
 
 interface Installation {
@@ -68,13 +68,14 @@ interface Props {
   guardias: GuardiaOption[];
   companyName?: string;
   panicAlerts?: PanicAlert[];
+  initialAlertas?: any[];
 }
 
 const TABS = [
   { id: "instalacion", label: "Por instalación", icon: BarChart3 },
-  { id: "guardia", label: "Por guardia", icon: User },
-  { id: "heatmap", label: "Mapa de calor", icon: Map },
   { id: "dashboard", label: "Dashboard Global", icon: LayoutGrid },
+  { id: "alertas", label: "Alertas e Incidentes", icon: AlertTriangle },
+  { id: "heatmap", label: "Mapa de calor", icon: Map },
 ];
 
 const STATUS_OPTIONS = [
@@ -107,6 +108,7 @@ export function RondasReportesClient({
   guardias,
   companyName,
   panicAlerts,
+  initialAlertas,
 }: Props) {
   const [rows, setRows] = useState<ReporteRow[]>(initialRows);
   const [totals, setTotals] = useState<Totals>(initialTotals);
@@ -130,7 +132,7 @@ export function RondasReportesClient({
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [sortKey, setSortKey] = useState("scheduledAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
+  const [exporting, setExporting] = useState<"csv" | "pdf" | "xlsx" | null>(null);
   const [mapRow, setMapRow] = useState<ReporteRow | null>(null);
   const [sendingToCheckpoints, setSendingToCheckpoints] = useState(false);
   const router = useRouter();
@@ -339,6 +341,36 @@ export function RondasReportesClient({
     } catch (err) {
       console.error("[PDF export]", err);
       toast.error("Error generando PDF");
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  async function handleExportExcel() {
+    setExporting("xlsx");
+    try {
+      const params = new URLSearchParams();
+      if (dateFrom) params.set("from", dateFrom);
+      if (dateTo) params.set("to", dateTo);
+      if (installationId) params.set("installationId", installationId);
+      if (guardiaFilterId) params.set("guardiaId", guardiaFilterId);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      params.set("format", "xlsx");
+
+      const res = await fetch(`/api/ops/rondas/reportes/export?${params}`);
+      if (!res.ok) throw new Error("Error exportando");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `reporte-rondas-${dateFrom}-${dateTo}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Excel descargado");
+    } catch {
+      toast.error("Error exportando Excel");
     } finally {
       setExporting(null);
     }
@@ -567,13 +599,32 @@ export function RondasReportesClient({
               )}
               Exportar PDF
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              disabled={exporting !== null}
+              className="border-[#1a1f2e] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-emerald-500/40"
+            >
+              {exporting === "xlsx" ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Exportar Excel
+            </Button>
           </div>
         </div>
       )}
 
-      {/* Tab: Por guardia */}
-      {activeTab === "guardia" && (
-        <RondasReportesPorGuardia rows={rows} guardias={guardias} />
+      {/* Tab: Alertas e Incidentes */}
+      {activeTab === "alertas" && (
+        <RondasReportesAlertas
+          installationId={installationId || undefined}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          initialAlertas={initialAlertas}
+        />
       )}
 
       {/* Tab: Mapa de calor */}

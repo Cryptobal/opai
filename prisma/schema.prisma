@@ -4014,6 +4014,10 @@ model OpsRondaIncidente {
   lat             Float?
   lng             Float?
   status          String   @default("abierto")
+  asignadoA       String?  @map("asignado_a")
+  notas           String?  @db.Text
+  resolvedAt      DateTime? @map("resolved_at") @db.Timestamptz(6)
+  resolvedBy      String?  @map("resolved_by")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

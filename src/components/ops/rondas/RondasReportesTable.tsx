@@ -30,6 +30,14 @@ export interface ReporteRow {
   walkRoute: Array<{ lat: number; lng: number }> | null;
   routeSnapshot: Array<{ id: string; name: string; lat: number; lng: number; orderIndex: number; status: string }> | null;
   marcaciones: MarcacionRow[];
+  _count?: { incidentes: number };
+  incidentes?: Array<{
+    id: string;
+    tipo: string;
+    status: string;
+    descripcion: string;
+    createdAt: string;
+  }>;
 }
 
 interface TrustBreakdown {
@@ -329,7 +337,7 @@ function ExpandedRow({
 
   return (
     <tr>
-      <td colSpan={10} className="px-4 py-3 bg-muted/20 border-b border-border/50">
+      <td colSpan={11} className="px-4 py-3 bg-muted/20 border-b border-border/50">
         {/* Overlap warning banner */}
         {overlappingPairs.length > 0 && (
           <div className="mb-3 rounded-lg border border-orange-500/40 bg-orange-950/20 px-3 py-2 flex items-start gap-2">
@@ -463,6 +471,35 @@ function ExpandedRow({
                 </span>
               </div>
             )}
+            {(row.incidentes?.length ?? 0) > 0 && (
+              <div className="mt-3 border-t border-border/50 pt-3">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Incidentes reportados
+                </p>
+                <div className="space-y-1.5">
+                  {row.incidentes!.map((inc) => (
+                    <div key={inc.id} className="flex items-center gap-3 py-1.5 px-2 rounded-md bg-muted/20">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[10px] font-medium",
+                        inc.status === "abierto" && "bg-red-500/15 text-red-400",
+                        inc.status === "resuelto" && "bg-emerald-500/15 text-emerald-400",
+                        inc.status === "en_proceso" && "bg-blue-500/15 text-blue-400",
+                        inc.status === "asignado" && "bg-purple-500/15 text-purple-400",
+                        inc.status === "descartado" && "bg-zinc-500/15 text-zinc-400",
+                      )}>
+                        {inc.status}
+                      </span>
+                      <span className="text-xs text-foreground font-medium">{inc.tipo}</span>
+                      <span className="text-xs text-muted-foreground flex-1 truncate">{inc.descripcion}</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {new Date(inc.createdAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short" })}{" "}
+                        {new Date(inc.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap gap-2">
               {onViewMap && (
                 <button
@@ -559,12 +596,13 @@ export function RondasReportesTable({
                 </th>
               ))}
               <th className={headerCls}>Evidencias</th>
+              <th className={headerCls}>Incidentes</th>
             </tr>
           </thead>
           <tbody>
             {paged.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-12 text-center text-sm text-muted-foreground">
+                <td colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
                   Sin resultados
                 </td>
               </tr>
@@ -657,6 +695,16 @@ export function RondasReportesTable({
                             </span>
                           )}
                         </span>
+                      </td>
+                      <td className={cn(cellCls, "text-center")}>
+                        {(row._count?.incidentes ?? 0) > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400">
+                            <AlertTriangle className="h-3 w-3" />
+                            {row._count!.incidentes}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
                       </td>
                     </tr>
                     {isExpanded && <ExpandedRow row={row} onViewMap={onViewMap} onSendToCheckpoints={onSendToCheckpoints} overlappingPairs={overlappingPairs} />}

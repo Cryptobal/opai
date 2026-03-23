@@ -23,6 +23,7 @@ export * from "./RondasTrustTrendChart";
 export * from "./RondasReportesTable";
 export * from "./RondasReportesPorGuardia";
 export * from "./RondasReportesHeatmap";
+export * from "./RondasReportesAlertas";
 export * from "./RondasCentroIaClient";
 export * from "./IaUmbralesConfig";
 export * from "./IaRecommendations";

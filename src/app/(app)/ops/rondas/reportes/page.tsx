@@ -23,7 +23,7 @@ export default async function RondasReportesPage() {
   const now = new Date();
   now.setHours(23, 59, 59, 999);
 
-  const [rows, installationsRaw, guardiasRaw, panicAlerts] = await Promise.all([
+  const [rows, installationsRaw, guardiasRaw, panicAlerts, allAlertas] = await Promise.all([
     prisma.opsRondaEjecucion.findMany({
       where: { tenantId, scheduledAt: { gte: from, lte: now } },
       include: {
@@ -87,6 +87,17 @@ export default async function RondasReportesPage() {
         guardia: { select: { persona: { select: { firstName: true, lastName: true } } } },
       },
       orderBy: { createdAt: "desc" },
+    }),
+    prisma.opsAlertaRonda.findMany({
+      where: { tenantId, createdAt: { gte: from, lte: now } },
+      include: {
+        logs: { orderBy: { createdAt: "asc" }, select: { id: true, action: true, userId: true, userName: true, notes: true, metadata: true, createdAt: true } },
+        guardia: { select: { persona: { select: { firstName: true, lastName: true } } } },
+        installation: { select: { id: true, name: true } },
+        ejecucion: { select: { id: true, status: true, rondaTemplate: { select: { id: true, name: true } } } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
     }),
   ]);
 
@@ -202,6 +213,7 @@ export default async function RondasReportesPage() {
         guardias={guardiaOptions}
         companyName={tenantCfg.commercialName}
         panicAlerts={panicData}
+        initialAlertas={JSON.parse(JSON.stringify(allAlertas))}
       />
     </div>
   );
