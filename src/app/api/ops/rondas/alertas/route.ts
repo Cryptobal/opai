@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const isAcknowledged = request.nextUrl.searchParams.get("isAcknowledged");
     const severidad = request.nextUrl.searchParams.get("severidad");
     const tipo = request.nextUrl.searchParams.get("tipo");
+    const tipos = request.nextUrl.searchParams.get("tipos"); // comma-separated multi-type filter
     const includeArchived = request.nextUrl.searchParams.get("includeArchived") === "true";
     const installationId = request.nextUrl.searchParams.get("installationId");
     const from = request.nextUrl.searchParams.get("from");
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
       ...(status === "pendiente" ? { resuelta: false } : status === "resuelta" ? { resuelta: true } : onlyOpen && !isReportesMode ? { resuelta: false } : {}),
       ...(isAcknowledged === "true" ? { isAcknowledged: true } : isAcknowledged === "false" ? { isAcknowledged: false } : {}),
       ...(severidad ? { severidad } : {}),
-      ...(tipo ? { tipo } : {}),
+      ...(tipos ? { tipo: { in: tipos.split(",").filter(Boolean) } } : tipo ? { tipo } : {}),
       ...(installationId ? { installationId } : {}),
       ...(from || to
         ? {

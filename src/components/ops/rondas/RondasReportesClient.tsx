@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, Loader2, BarChart3, Map, AlertTriangle, Clock, CheckCircle2, LayoutGrid, FileSpreadsheet } from "lucide-react";
+import { Download, Loader2, BarChart3, Map, AlertTriangle, LayoutGrid, FileSpreadsheet, Building2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -11,6 +11,7 @@ import { RondasReportesTable, type ReporteRow } from "./RondasReportesTable";
 import { RondasReportesHeatmap } from "./RondasReportesHeatmap";
 import { RondasDashboardGlobal } from "./RondasDashboardGlobal";
 import { RondasReportesAlertas } from "./RondasReportesAlertas";
+import { RondasReporteInstalacion } from "./RondasReporteInstalacion";
 import { RondaAuditMapModal } from "./RondaAuditMapModal";
 
 interface Installation {
@@ -73,6 +74,7 @@ interface Props {
 
 const TABS = [
   { id: "instalacion", label: "Por instalación", icon: BarChart3 },
+  { id: "reporte-instalacion", label: "Reporte Instalación", icon: Building2 },
   { id: "dashboard", label: "Dashboard Global", icon: LayoutGrid },
   { id: "alertas", label: "Alertas e Incidentes", icon: AlertTriangle },
   { id: "heatmap", label: "Mapa de calor", icon: Map },
@@ -121,10 +123,6 @@ export function RondasReportesClient({
   const [guardiaFilterId, setGuardiaFilterId] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const [panicAlertsState, setPanicAlertsState] = useState<PanicAlert[]>(
-    () => (panicAlerts ?? []).filter((a) => !a.resuelta),
-  );
-  const [resolvingPanicId, setResolvingPanicId] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState("instalacion");
   const [daysRange, setDaysRange] = useState(30);
@@ -164,27 +162,6 @@ export function RondasReportesClient({
     [router],
   );
 
-  const handleResolvePanic = useCallback(async (id: string) => {
-    setResolvingPanicId(id);
-    try {
-      const res = await fetch(`/api/ops/rondas/alertas/${id}/resolve`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const json = await res.json();
-      if (res.ok && json.success) {
-        setPanicAlertsState((prev) => prev.filter((a) => a.id !== id));
-        toast.success("Alerta de pánico marcada como resuelta");
-      } else {
-        toast.error(json.error ?? "Error");
-      }
-    } catch {
-      toast.error("Error al marcar como resuelta");
-    } finally {
-      setResolvingPanicId(null);
-    }
-  }, []);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
@@ -378,67 +355,6 @@ export function RondasReportesClient({
 
   return (
     <div className="space-y-4">
-      {panicAlertsState.length > 0 && (
-        <div className="rounded-xl border border-red-500/30 bg-red-950/20 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="h-5 w-5 text-red-400" />
-            <h3 className="text-sm font-bold text-red-400">
-              Alertas de Pánico ({panicAlertsState.length})
-            </h3>
-          </div>
-          <div className="space-y-2">
-            {panicAlertsState.map((alert) => (
-              <div
-                key={alert.id}
-                className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
-                  alert.resuelta ? "bg-[#111827] border-[#1a1f2e] opacity-70" : "bg-red-950/30 border-red-500/20"
-                }`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div>
-                    <p className="text-xs font-medium text-red-300">{alert.guardia}</p>
-                    <p className="text-[10px] text-red-400/70">{alert.installation}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 text-[10px] shrink-0">
-                  <span className="text-red-400/70">
-                    {new Date(alert.createdAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short" })}{" "}
-                    {new Date(alert.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                  {alert.resuelta ? (
-                    <span className="inline-flex items-center gap-1 text-emerald-400">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Resuelta
-                    </span>
-                  ) : alert.isAcknowledged ? (
-                    <span className="inline-flex items-center gap-1 text-emerald-400">
-                      <CheckCircle2 className="h-3 w-3" />
-                      {alert.responseTimeMin != null ? `${alert.responseTimeMin} min` : "Atendida"}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-red-400 font-medium">
-                      <Clock className="h-3 w-3" />
-                      Sin atender
-                    </span>
-                  )}
-                  {!alert.resuelta && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[10px] border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
-                      disabled={resolvingPanicId === alert.id}
-                      onClick={() => handleResolvePanic(alert.id)}
-                    >
-                      {resolvingPanicId === alert.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Marcar resuelta"}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Global filters */}
       <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-3">
         <div className="flex flex-wrap items-end gap-3">
@@ -615,6 +531,16 @@ export function RondasReportesClient({
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Tab: Reporte Instalación */}
+      {activeTab === "reporte-instalacion" && (
+        <RondasReporteInstalacion
+          initialInstallationId={installationId || undefined}
+          initialDateFrom={dateFrom}
+          initialDateTo={dateTo}
+          installations={installations}
+        />
       )}
 
       {/* Tab: Alertas e Incidentes */}

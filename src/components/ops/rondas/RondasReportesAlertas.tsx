@@ -12,6 +12,11 @@ import {
   Shield,
   Zap,
   Eye,
+  Filter,
+  Battery,
+  Footprints,
+  Gauge,
+  BatteryWarning,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPersonName } from "@/lib/personas";
@@ -52,12 +57,31 @@ interface Props {
 }
 
 const TIPO_CONFIG: Record<string, { label: string; cls: string; icon: typeof AlertTriangle }> = {
-  panico: { label: "Panico", cls: "bg-red-500/15 text-red-400", icon: Shield },
+  panico: { label: "Pánico", cls: "bg-red-500/15 text-red-400", icon: Shield },
+  ronda_no_iniciada: { label: "No iniciada", cls: "bg-red-500/15 text-red-400", icon: Clock },
+  guardia_estatico: { label: "Guardia estático", cls: "bg-red-500/15 text-red-400", icon: Footprints },
+  velocidad_anomala: { label: "Velocidad anómala", cls: "bg-amber-500/15 text-amber-400", icon: Gauge },
+  sin_movimiento: { label: "Sin movimiento", cls: "bg-zinc-500/15 text-zinc-400", icon: Eye },
+  bateria_baja: { label: "Batería baja", cls: "bg-amber-500/15 text-amber-400", icon: BatteryWarning },
+  bateria_estatica: { label: "Batería estática", cls: "bg-blue-500/15 text-blue-400", icon: Battery },
+  // Legacy types that may still exist in data:
   incidente_guardia: { label: "Incidente", cls: "bg-amber-500/15 text-amber-400", icon: AlertTriangle },
   ia_anomalia: { label: "IA", cls: "bg-blue-500/15 text-blue-400", icon: Zap },
   ronda_no_realizada: { label: "No realizada", cls: "bg-orange-500/15 text-orange-400", icon: Clock },
   checkpoint_omitido: { label: "CP omitido", cls: "bg-purple-500/15 text-purple-400", icon: Eye },
 };
+
+/** Alert types with their default visibility. sin_movimiento is OFF by default to reduce noise. */
+const ALERT_TYPE_VISIBILITY: Array<{ tipo: string; label: string; defaultVisible: boolean }> = [
+  { tipo: "panico", label: "Pánico", defaultVisible: true },
+  { tipo: "incidente_guardia", label: "Incidente guardia", defaultVisible: true },
+  { tipo: "ronda_no_iniciada", label: "Ronda no iniciada", defaultVisible: true },
+  { tipo: "guardia_estatico", label: "Guardia estático", defaultVisible: true },
+  { tipo: "velocidad_anomala", label: "Velocidad anómala", defaultVisible: true },
+  { tipo: "bateria_baja", label: "Batería baja", defaultVisible: true },
+  { tipo: "bateria_estatica", label: "Batería estática", defaultVisible: true },
+  { tipo: "sin_movimiento", label: "Sin movimiento", defaultVisible: false },
+];
 
 const SEVERIDAD_CONFIG: Record<string, { label: string; cls: string }> = {
   critical: { label: "Critica", cls: "bg-red-500/15 text-red-400" },
@@ -248,8 +272,11 @@ export function RondasReportesAlertas({
 }: Props) {
   const [alertas, setAlertas] = useState<AlertaRow[]>(initialAlertas ?? []);
   const [loading, setLoading] = useState(!initialAlertas);
-  const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [visibleTypes, setVisibleTypes] = useState<Set<string>>(
+    () => new Set(ALERT_TYPE_VISIBILITY.filter((t) => t.defaultVisible).map((t) => t.tipo)),
+  );
+  const [showTypeFilter, setShowTypeFilter] = useState(false);
 
   const fetchAlertas = useCallback(async () => {
     setLoading(true);
@@ -261,7 +288,9 @@ export function RondasReportesAlertas({
         includeLogs: "true",
       });
       if (installationId) params.set("installationId", installationId);
-      if (filterType !== "all") params.set("tipo", filterType);
+      if (visibleTypes.size < ALERT_TYPE_VISIBILITY.length) {
+        params.set("tipos", Array.from(visibleTypes).join(","));
+      }
       if (filterStatus !== "all") params.set("status", filterStatus);
 
       const res = await fetch(`/api/ops/rondas/alertas?${params}`);
@@ -274,7 +303,7 @@ export function RondasReportesAlertas({
     } finally {
       setLoading(false);
     }
-  }, [installationId, dateFrom, dateTo, filterType, filterStatus]);
+  }, [installationId, dateFrom, dateTo, visibleTypes, filterStatus]);
 
   useEffect(() => {
     void fetchAlertas();
@@ -315,20 +344,97 @@ export function RondasReportesAlertas({
     <div className="space-y-4">
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-end rounded-xl border border-[#1a1f2e] bg-[#111827] p-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">Tipo</p>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3"
+        {/* Type visibility filter */}
+        <div className="relative">
+          <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">
+            Tipos visibles
+          </p>
+          <button
+            onClick={() => setShowTypeFilter(!showTypeFilter)}
+            className="h-9 flex items-center gap-1.5 px-3 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] hover:bg-[#1a1f2e] transition-colors"
           >
-            <option value="all">Todos los tipos</option>
-            <option value="panico">Panico</option>
-            <option value="incidente_guardia">Incidentes guardia</option>
-            <option value="ia_anomalia">Alertas IA</option>
-            <option value="ronda_no_realizada">Ronda no realizada</option>
-            <option value="checkpoint_omitido">Checkpoint omitido</option>
-          </select>
+            <Filter className="h-3.5 w-3.5 text-[#64748b]" />
+            {visibleTypes.size}/{ALERT_TYPE_VISIBILITY.length} tipos
+            <ChevronDown className="h-3 w-3 text-[#64748b]" />
+          </button>
+          {showTypeFilter && (
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-20"
+                onClick={() => setShowTypeFilter(false)}
+              />
+              {/* Popover */}
+              <div className="absolute top-full left-0 mt-1 z-30 w-56 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] shadow-xl p-2">
+                <p className="text-[10px] uppercase font-semibold text-[#64748b] mb-2 px-1">
+                  Mostrar alertas de tipo:
+                </p>
+                {ALERT_TYPE_VISIBILITY.map((config) => {
+                  const tipoConf = TIPO_CONFIG[config.tipo];
+                  return (
+                    <label
+                      key={config.tipo}
+                      className="flex items-center gap-2 px-1 py-1.5 rounded hover:bg-[#1a1f2e] cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={visibleTypes.has(config.tipo)}
+                        onChange={(e) => {
+                          const next = new Set(visibleTypes);
+                          if (e.target.checked) next.add(config.tipo);
+                          else next.delete(config.tipo);
+                          setVisibleTypes(next);
+                        }}
+                        className="rounded border-[#1a1f2e]"
+                      />
+                      {tipoConf && (
+                        <span
+                          className={cn(
+                            "w-2 h-2 rounded-full shrink-0",
+                            config.tipo === "panico" || config.tipo === "ronda_no_iniciada" || config.tipo === "guardia_estatico"
+                              ? "bg-red-500"
+                              : config.tipo === "sin_movimiento" || config.tipo === "bateria_estatica"
+                                ? "bg-zinc-500"
+                                : "bg-amber-500",
+                          )}
+                        />
+                      )}
+                      <span className="text-xs text-[#f1f5f9]">{config.label}</span>
+                      {!config.defaultVisible && (
+                        <span className="text-[9px] text-[#64748b] ml-auto">oculta</span>
+                      )}
+                    </label>
+                  );
+                })}
+                <div className="border-t border-[#1a1f2e] mt-1 pt-1 flex gap-3 px-1">
+                  <button
+                    onClick={() =>
+                      setVisibleTypes(
+                        new Set(ALERT_TYPE_VISIBILITY.map((t) => t.tipo)),
+                      )
+                    }
+                    className="text-xs text-[#06b6d4] hover:underline"
+                  >
+                    Todas
+                  </button>
+                  <button
+                    onClick={() =>
+                      setVisibleTypes(
+                        new Set(
+                          ALERT_TYPE_VISIBILITY.filter((t) => t.defaultVisible).map(
+                            (t) => t.tipo,
+                          ),
+                        ),
+                      )
+                    }
+                    className="text-xs text-[#64748b] hover:underline"
+                  >
+                    Restablecer
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
         <div>
           <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">Estado</p>
