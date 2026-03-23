@@ -32,6 +32,8 @@ export interface SendQuoteToPortalOptions {
   ccContactIds?: string[];
   includeProposalPdf?: boolean;
   includeQuotationPdf?: boolean;
+  /** IDs de documentos adjuntos de la cotización a incluir en el correo. */
+  attachmentIds?: string[];
 }
 
 export interface SendQuoteToPortalResult {
@@ -57,6 +59,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     ccContactIds = [],
     includeProposalPdf = false,
     includeQuotationPdf = false,
+    attachmentIds = [],
   } = options;
 
   const quote = await prisma.cpqQuote.findFirst({
@@ -321,6 +324,28 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
       });
     } catch (err) {
       console.warn("[CPQ] Could not generate quotation PDF for portal invite:", err);
+    }
+  }
+
+  if (attachmentIds.length > 0) {
+    const quoteAtts = await prisma.cpqQuoteAttachment.findMany({
+      where: { quoteId, id: { in: attachmentIds } },
+      select: { fileName: true, mimeType: true, publicUrl: true },
+    });
+    for (const att of quoteAtts) {
+      if (!att.publicUrl) continue;
+      try {
+        const res = await fetch(att.publicUrl);
+        if (!res.ok) continue;
+        const buffer = Buffer.from(await res.arrayBuffer());
+        attachments.push({
+          filename: att.fileName,
+          content: buffer,
+          contentType: att.mimeType,
+        });
+      } catch (err) {
+        console.warn(`[CPQ] Could not fetch attachment ${att.fileName}:`, err);
+      }
     }
   }
 

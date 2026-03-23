@@ -83,9 +83,13 @@ export function SendPortalProposalModal({
   const [ccIds, setCcIds] = useState<Set<string>>(new Set());
   const [ccManual, setCcManual] = useState("");
   const [bccManual, setBccManual] = useState("");
-  const [includeQuotationPdf, setIncludeQuotationPdf] = useState(true);
+  const [includeQuotationPdf, setIncludeQuotationPdf] = useState(false);
   const [includeProposalPdf, setIncludeProposalPdf] = useState(false);
   const [sending, setSending] = useState(false);
+  const [quoteAttachments, setQuoteAttachments] = useState<
+    { id: string; fileName: string; mimeType: string; size: number }[]
+  >([]);
+  const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<Set<string>>(new Set());
 
   const allContacts = useMemo(() => {
     const map = new Map<string, ContactRow>();
@@ -124,9 +128,22 @@ export function SendPortalProposalModal({
     setCcIds(new Set());
     setCcManual("");
     setBccManual("");
-    setIncludeQuotationPdf(true);
+    setIncludeQuotationPdf(false);
     setIncludeProposalPdf(false);
+    setSelectedAttachmentIds(new Set());
   }, [open, quoteContact.id]);
+
+  useEffect(() => {
+    if (!open || !quoteId) return;
+    fetch(`/api/cpq/quotes/${quoteId}/attachments`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (Array.isArray(res)) setQuoteAttachments(res);
+        else if (res.success && Array.isArray(res.data)) setQuoteAttachments(res.data);
+        else setQuoteAttachments([]);
+      })
+      .catch(() => setQuoteAttachments([]));
+  }, [open, quoteId]);
 
   const toggleCc = useCallback((id: string) => {
     if (id === primaryId) return;
@@ -172,6 +189,7 @@ export function SendPortalProposalModal({
           bccEmails: bccExtra,
           includeQuotationPdf,
           includeProposalPdf,
+          attachmentIds: Array.from(selectedAttachmentIds),
           followUp: {
             include: decision.includeFollowUp,
             targetStageId: decision.targetStageId,
@@ -326,6 +344,31 @@ export function SendPortalProposalModal({
                     <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                     Propuesta técnica (PDF extendido)
                   </label>
+                  {quoteAttachments.length > 0 && (
+                    <>
+                      <div className="border-t border-border/40 my-1" />
+                      <p className="text-xs text-muted-foreground">Documentos adjuntos de la cotización</p>
+                      {quoteAttachments.map((att) => (
+                        <label key={att.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedAttachmentIds.has(att.id)}
+                            onChange={() =>
+                              setSelectedAttachmentIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(att.id)) next.delete(att.id);
+                                else next.add(att.id);
+                                return next;
+                              })
+                            }
+                            className="rounded border-border"
+                          />
+                          <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="truncate">{att.fileName}</span>
+                        </label>
+                      ))}
+                    </>
+                  )}
                 </div>
               </>
             )}
