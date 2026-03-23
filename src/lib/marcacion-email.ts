@@ -373,6 +373,8 @@ interface NotificacionFueraDeRango {
   tenantId: string;
   installationId: string;
   installationName: string;
+  installationLat: number | null;
+  installationLng: number | null;
   guardiaName: string;
   guardiaRut: string;
   tipo: "entrada" | "salida";
@@ -381,6 +383,7 @@ interface NotificacionFueraDeRango {
   geoRadiusM: number;
   lat: number | null;
   lng: number | null;
+  deviceDisplay?: string; // "Equipo sincronizado: X" | "Dispositivo del usuario: Y" | "Navegador web"
 }
 
 /**
@@ -425,6 +428,40 @@ export async function sendNotificacionFueraDeRango(data: NotificacionFueraDeRang
   const gpsCoords = data.lat != null && data.lng != null
     ? `${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`
     : "No disponible";
+
+  const deviceDisplay = data.deviceDisplay ?? "No especificado";
+
+  // Mapa estático: ubicación marcación (rojo) vs instalación (verde)
+  const hasMarcacionCoords = data.lat != null && data.lng != null;
+  const hasInstalacionCoords = data.installationLat != null && data.installationLng != null;
+  const hasBothCoords = hasMarcacionCoords && hasInstalacionCoords;
+  const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  let mapSection = "";
+  if (hasBothCoords) {
+    const centerLat = (data.lat! + data.installationLat!) / 2;
+    const centerLng = (data.lng! + data.installationLng!) / 2;
+    const mapsUrl = `https://www.google.com/maps/dir/${data.lat!.toFixed(6)},${data.lng!.toFixed(6)}/${data.installationLat!.toFixed(6)},${data.installationLng!.toFixed(6)}`;
+
+    if (mapsKey) {
+      const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat.toFixed(6)},${centerLng.toFixed(6)}&zoom=13&size=480x240&scale=2&markers=color:red%7C${data.lat!.toFixed(6)},${data.lng!.toFixed(6)}&markers=color:green%7C${data.installationLat!.toFixed(6)},${data.installationLng!.toFixed(6)}&key=${mapsKey}`;
+      mapSection = `
+      <div style="margin-bottom: 16px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
+        <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="display: block;">
+          <img src="${staticMapUrl}" alt="Mapa: ubicación de marcación vs instalación" width="480" height="240" style="display: block; max-width: 100%; height: auto;" />
+        </a>
+        <p style="font-size: 11px; color: #64748b; margin: 4px 12px 8px;">🔴 Punto de marcación — 🟢 Instalación · <a href="${mapsUrl}" style="color: #2563eb;">Ver en Google Maps</a></p>
+      </div>`;
+    } else {
+      mapSection = `
+      <div style="margin-bottom: 16px;">
+        <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: #2563eb; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;">
+          Ver ubicación en Google Maps
+        </a>
+        <p style="font-size: 11px; color: #64748b; margin: 8px 0 0;">🔴 Punto de marcación — 🟢 Instalación</p>
+      </div>`;
+    }
+  }
 
   const subject = `Alerta: Marcación fuera de rango — ${data.guardiaName} — ${data.installationName}`;
 
@@ -480,9 +517,13 @@ export async function sendNotificacionFueraDeRango(data: NotificacionFueraDeRang
             <td style="padding: 6px 0; color: #64748b;">Coordenadas</td>
             <td style="padding: 6px 0; color: #0f172a; font-family: monospace; font-size: 11px;">${gpsCoords}</td>
           </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Dispositivo</td>
+            <td style="padding: 6px 0; color: #0f172a;">${deviceDisplay}</td>
+          </tr>
         </table>
       </div>
-
+      ${mapSection}
       <div style="text-align: center; padding-top: 16px; border-top: 1px solid #e2e8f0;">
         <p style="color: #94a3b8; font-size: 10px; margin: 0;">
           ${EMAIL_CONFIG.companyName} — Notificación automática de marcación fuera de rango

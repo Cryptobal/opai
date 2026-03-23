@@ -3649,10 +3649,12 @@ model OpsMarcacion {
   opposedBy             String?   @map("opposed_by")               // RUT del trabajador que se opuso
   oppositionReason      String?   @map("opposition_reason")
   consolidatedAt        DateTime? @map("consolidated_at") @db.Timestamptz(6) // cuando venció el plazo y se consolidó
+  devicePairingId       String?   @map("device_pairing_id") @db.Uuid // Dispositivo usado (DevicePairing del portal)
 
   guardia                OpsGuardia              @relation(fields: [guardiaId], references: [id])
   installation           CrmInstallation         @relation(fields: [installationId], references: [id], onDelete: Restrict)
   puesto                 OpsPuestoOperativo?     @relation(fields: [puestoId], references: [id])
+  devicePairing          DevicePairing?          @relation(fields: [devicePairingId], references: [id], onDelete: SetNull)
   asistenciaEntradas     OpsAsistenciaDiaria[]   @relation("asistencia_marcacion_entrada")
   asistenciaSalidas      OpsAsistenciaDiaria[]   @relation("asistencia_marcacion_salida")
 
@@ -4197,6 +4199,7 @@ model DevicePairing {
   installation         CrmInstallation   @relation(fields: [installationId], references: [id], onDelete: Cascade)
   currentGuard         OpsGuardia?       @relation("device_pairing_current_guard", fields: [currentGuardId], references: [id], onDelete: SetNull)
   guardSelectionLogs   GuardSelectionLog[]
+  marcaciones          OpsMarcacion[]
 
   @@index([deviceToken], map: "idx_device_pairing_token")
   @@index([pairingCode], map: "idx_device_pairing_code")

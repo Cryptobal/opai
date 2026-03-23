@@ -30,6 +30,8 @@ const schema = z.object({
   fotoBase64: z.string().optional(),
   // Solo para marcaciones manuales desde back office (bypass GPS)
   manualFromBackOffice: z.boolean().optional(),
+  // Dispositivo del portal (DevicePairing) — para identificar equipo usado
+  deviceToken: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { code, rut, pin, tipo, lat, lng, gpsAccuracy, fotoBase64, manualFromBackOffice } = parsed.data;
+    const { code, rut, pin, tipo, lat, lng, gpsAccuracy, fotoBase64, manualFromBackOffice, deviceToken } = parsed.data;
 
     // GPS obligatorio — sin excepción para marcaciones desde portal (manual/import desde back office sí puede omitir)
     if (!manualFromBackOffice && (lat == null || lng == null)) {
@@ -81,6 +83,16 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Código de instalación no válido" },
         { status: 404 }
       );
+    }
+
+    // Resolver DevicePairing si viene deviceToken (portal marcación) — debe pertenecer a esta instalación
+    let devicePairingId: string | null = null;
+    if (deviceToken) {
+      const device = await prisma.devicePairing.findFirst({
+        where: { deviceToken, status: "ACTIVE", installationId: installation.id },
+        select: { id: true },
+      });
+      if (device) devicePairingId = device.id;
     }
 
     // Buscar guardia
@@ -292,6 +304,7 @@ export async function POST(req: NextRequest) {
           gpsStatus,
           distanciaMetros: geoDistanciaM,
           gpsAccuracy: gpsAccuracy ?? null,
+          devicePairingId,
         },
       });
 
@@ -412,11 +425,26 @@ export async function POST(req: NextRequest) {
 
     // Notificar supervisor si está fuera de rango (fire-and-forget)
     if (gpsStatus === "fuera_rango") {
+      const deviceDisplay = devicePairingId
+        ? await prisma.devicePairing.findUnique({
+            where: { id: devicePairingId },
+            select: { name: true, deviceModel: true },
+          }).then((d) =>
+            d?.name
+              ? `Equipo sincronizado: ${d.name}`
+              : d?.deviceModel
+                ? `Dispositivo del usuario: ${d.deviceModel}`
+                : "Dispositivo del portal"
+          )
+        : "Navegador web";
+
       import("@/lib/marcacion-email").then(({ sendNotificacionFueraDeRango }) =>
         sendNotificacionFueraDeRango({
           tenantId: installation.tenantId,
           installationId: installation.id,
           installationName: installation.name,
+          installationLat: installation.lat,
+          installationLng: installation.lng,
           guardiaName: formatPersonName(persona.firstName, persona.lastName),
           guardiaRut: normalizedRut,
           tipo,
@@ -425,6 +453,7 @@ export async function POST(req: NextRequest) {
           geoRadiusM: installation.geoRadiusM,
           lat: lat ?? null,
           lng: lng ?? null,
+          deviceDisplay,
         }).catch((err) => console.error("[marcacion] Error notificando supervisor fuera de rango:", err))
       );
     }
