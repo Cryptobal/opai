@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Paperclip, Loader2, Trash2, FileText } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 type Attachment = {
@@ -31,8 +32,8 @@ export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsS
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const fetchAttachments = async () => {
     setLoading(true);
@@ -53,30 +54,48 @@ export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsS
     fetchAttachments();
   }, [quoteId]);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || isLocked) return;
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch(`/api/cpq/quotes/${quoteId}/attachments`, {
-        method: "POST",
-        body: formData,
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        setAttachments((prev) => [...prev, json.data]);
-      } else {
-        throw new Error(json.error || "Error al subir");
+  const handleUpload = useCallback(
+    async (fileList: FileList | null) => {
+      if (!fileList?.length || uploading || isLocked) return;
+      setUploading(true);
+      try {
+        let uploaded = 0;
+        for (let i = 0; i < fileList.length; i++) {
+          const file = fileList[i];
+          const formData = new FormData();
+          formData.append("file", file);
+          const res = await fetch(`/api/cpq/quotes/${quoteId}/attachments`, {
+            method: "POST",
+            body: formData,
+          });
+          const json = await res.json();
+          if (json.success && json.data) {
+            setAttachments((prev) => [...prev, json.data]);
+            uploaded += 1;
+          } else {
+            toast.error(json.error || `Error al subir "${file.name}"`);
+          }
+        }
+        if (uploaded > 0) {
+          toast.success(uploaded === 1 ? "Archivo subido" : `${uploaded} archivos subidos`);
+        }
+      } catch {
+        toast.error("Error al subir archivo");
+      } finally {
+        setUploading(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  };
+    },
+    [quoteId, uploading, isLocked]
+  );
+
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      handleUpload(e.dataTransfer.files);
+    },
+    [handleUpload]
+  );
 
   const handleDelete = async (attachmentId: string) => {
     if (isLocked) return;
@@ -121,28 +140,50 @@ export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsS
             Los documentos subidos aquí se enviarán como adjuntos al enviar la cotización por correo.
           </p>
           {!isLocked && (
-            <div className="flex items-center gap-2">
+            <div
+              onDrop={onDrop}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+              }}
+              className={cn(
+                "rounded-lg border-2 border-dashed p-6 text-center transition-colors",
+                dragOver
+                  ? "border-primary bg-primary/5"
+                  : "border-muted-foreground/25 hover:border-muted-foreground/50"
+              )}
+            >
               <input
-                ref={inputRef}
                 type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+                multiple
                 className="hidden"
-                onChange={handleFileSelect}
+                id={`quote-attachments-${quoteId}`}
+                accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+                onChange={(e) => {
+                  handleUpload(e.target.files);
+                  e.target.value = "";
+                }}
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => inputRef.current?.click()}
-                disabled={uploading}
+              <label
+                htmlFor={`quote-attachments-${quoteId}`}
+                className={cn(
+                  "flex flex-col items-center gap-2",
+                  uploading ? "pointer-events-none opacity-80" : "cursor-pointer"
+                )}
               >
                 {uploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 ) : (
-                  <Paperclip className="h-4 w-4" />
+                  <Paperclip className="h-8 w-8 text-muted-foreground" />
                 )}
-                <span className="ml-2">{uploading ? "Subiendo…" : "Agregar documento"}</span>
-              </Button>
+                <span className="text-sm text-muted-foreground">
+                  {uploading ? "Subiendo…" : "Arrastra archivos aquí o haz clic para seleccionar"}
+                </span>
+              </label>
             </div>
           )}
           {loading ? (
