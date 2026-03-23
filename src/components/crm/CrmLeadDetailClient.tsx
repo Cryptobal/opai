@@ -1337,8 +1337,15 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         setExistingContact(exContact);
         if (exContact) setContactResolution("use_existing");
         const dups = checkData.duplicates || [];
-        // Por defecto crear nueva cuenta; el usuario puede elegir "Usar existente" si lo desea
-        if (dups.length > 0) setUseExistingAccountId(null);
+        // Si hay coincidencia exacta por nombre, preseleccionar la cuenta existente.
+        if (dups.length > 0) {
+          const requestedName = (accountNameToUse || approveForm.accountName || "").trim();
+          const normalizedRequested = normalizeCatalogLabel(requestedName);
+          const exactMatch = dups.find(
+            (dup: DuplicateAccount) => normalizeCatalogLabel(dup.name) === normalizedRequested
+          );
+          setUseExistingAccountId(exactMatch?.id ?? null);
+        }
         const conflicts: InstallationConflict[] = checkData.installationConflicts || [];
         setInstallationConflicts(conflicts);
         setInstallationUseExisting((prev) => {
