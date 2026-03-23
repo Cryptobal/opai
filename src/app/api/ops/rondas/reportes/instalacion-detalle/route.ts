@@ -279,12 +279,38 @@ interface SlotDef {
   expectedCount: number;
 }
 
+interface RondaInstalacionDetalleEjecucionRow {
+  id: string;
+  status: string;
+  guardiaName: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  completionPercent: number;
+  trustScore: number;
+  templateName: string | null;
+  durationMinutes: number | null;
+  incidentCount: number;
+  alertCount: number;
+  checkpointsCompletados: number;
+  checkpointsTotal: number;
+}
+
+interface RondaInstalacionDetalleCell {
+  slotKey: string;
+  esperadas: number;
+  completadas: number;
+  incompletas: number;
+  noRealizadas: number;
+  alertCount: number;
+  incidentCount: number;
+  hasPanico: boolean;
+  ejecuciones: RondaInstalacionDetalleEjecucionRow[];
+}
+
 interface DayRow {
   date: string;
   dayLabel: string;
-  cells: ReturnType<typeof buildSlotsFromProgramaciones> extends (infer _)[]
-    ? any[]
-    : never;
+  cells: RondaInstalacionDetalleCell[];
   totalEsperadas: number;
   totalCompletadas: number;
   totalAlerts: number;
