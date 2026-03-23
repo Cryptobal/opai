@@ -214,29 +214,39 @@ export function LeadInstallationCpq({
             priceLogic: item.priceLogic ?? "uniform",
           })));
           setCatalogLoaded(true);
-          // Hidratar costItems existentes con catálogo (specs si faltan, priceLogic y unit siempre)
+          // Hidratar costItems existentes y agregar ítems nuevos del catálogo en leads ya creados.
           const catalogById = new Map(res.data.map((c: any) => [c.id, c]));
-          if (config.costItems.length > 0) {
-            const hydrated: LeadCostItem[] = config.costItems.map((item) => {
-              const def = catalogById.get(item.catalogItemId) as { defaultTechnicalSpecs?: string | null; priceLogic?: string; unit?: string } | undefined;
-              if (!def) return item;
-              const specs = item.technicalSpecs ?? (def.defaultTechnicalSpecs != null ? toTechnicalSpecs(def.defaultTechnicalSpecs) : null);
-              const priceLogic = def.priceLogic ?? item.priceLogic ?? "uniform";
-              const unit = def.unit ?? item.unit;
-              return { ...item, technicalSpecs: specs ?? item.technicalSpecs, priceLogic, unit };
-            });
-            if (hydrated.some((h, i) => h.technicalSpecs !== config.costItems[i]?.technicalSpecs || h.priceLogic !== config.costItems[i]?.priceLogic || h.unit !== config.costItems[i]?.unit)) {
-              onChange({ ...config, costItems: hydrated });
-            }
+          const hydrated: LeadCostItem[] = config.costItems.map((item) => {
+            const def = catalogById.get(item.catalogItemId) as
+              | { defaultTechnicalSpecs?: string | null; priceLogic?: string; unit?: string; type?: string; name?: string; basePrice?: number }
+              | undefined;
+            if (!def) return item;
+            const specs =
+              item.technicalSpecs ??
+              (def.defaultTechnicalSpecs != null ? toTechnicalSpecs(def.defaultTechnicalSpecs) : null);
+            const priceLogic = def.priceLogic ?? item.priceLogic ?? "uniform";
+            const unit = def.unit ?? item.unit;
+            return {
+              ...item,
+              name: def.name ?? item.name,
+              type: def.type ?? item.type,
+              basePrice: Number(def.basePrice) || item.basePrice,
+              unit,
+              technicalSpecs: specs ?? item.technicalSpecs,
+              priceLogic,
+            };
+          });
+
+          const enabledTypes = new Set<string>();
+          for (const g of config.selectedCostGroups) {
+            const types = COST_GROUP_TYPES_MAP[g];
+            if (types) types.forEach((t) => enabledTypes.add(t));
           }
-          // Auto-populate costItems from catalog if empty
-          if (config.costItems.length === 0) {
-            const enabledTypes = new Set<string>();
-            for (const g of config.selectedCostGroups) {
-              const types = COST_GROUP_TYPES_MAP[g];
-              if (types) types.forEach((t) => enabledTypes.add(t));
-            }
-            const items: LeadCostItem[] = res.data.map((item: any) => ({
+
+          const existingIds = new Set(hydrated.map((item) => item.catalogItemId));
+          const missingCatalogItems: LeadCostItem[] = res.data
+            .filter((item: any) => !existingIds.has(item.id))
+            .map((item: any) => ({
               catalogItemId: item.id,
               name: item.name,
               type: item.type,
@@ -247,7 +257,22 @@ export function LeadInstallationCpq({
               technicalSpecs: toTechnicalSpecs(item.defaultTechnicalSpecs) ?? null,
               priceLogic: item.priceLogic ?? "uniform",
             }));
-            onChange({ ...config, costItems: items });
+
+          const merged = [...hydrated, ...missingCatalogItems];
+          const changed =
+            merged.length !== config.costItems.length ||
+            hydrated.some(
+              (h, i) =>
+                h.name !== config.costItems[i]?.name ||
+                h.type !== config.costItems[i]?.type ||
+                h.basePrice !== config.costItems[i]?.basePrice ||
+                h.technicalSpecs !== config.costItems[i]?.technicalSpecs ||
+                h.priceLogic !== config.costItems[i]?.priceLogic ||
+                h.unit !== config.costItems[i]?.unit
+            );
+
+          if (changed) {
+            onChange({ ...config, costItems: merged });
           }
         }
       })
