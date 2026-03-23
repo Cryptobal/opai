@@ -146,7 +146,58 @@ export async function GET(request: NextRequest) {
       grouped[inst].push(row);
     }
 
-    return NextResponse.json({ success: true, data: grouped });
+    // ── PPC: dotación vs asignados por instalación ──
+    const [puestosAgg, asignacionesByInst] = await Promise.all([
+      prisma.opsPuestoOperativo.groupBy({
+        by: ["installationId"],
+        where: { tenantId: ctx.tenantId, active: true },
+        _sum: { requiredGuards: true },
+      }),
+      prisma.opsAsignacionGuardia.groupBy({
+        by: ["installationId"],
+        where: { tenantId: ctx.tenantId, isActive: true },
+        _count: { id: true },
+      }),
+    ]);
+
+    // Map installationId → name
+    const installationIds = [
+      ...new Set([
+        ...puestosAgg.map((p) => p.installationId),
+        ...asignacionesByInst.map((a) => a.installationId),
+      ]),
+    ];
+    const installations = await prisma.crmInstallation.findMany({
+      where: { id: { in: installationIds } },
+      select: { id: true, name: true },
+    });
+    const idToName: Record<string, string> = {};
+    for (const inst of installations) {
+      idToName[inst.id] = inst.name;
+    }
+
+    const dotacionMap: Record<string, number> = {};
+    for (const p of puestosAgg) {
+      const name = idToName[p.installationId] ?? "Sin instalación";
+      dotacionMap[name] = (dotacionMap[name] ?? 0) + (p._sum.requiredGuards ?? 0);
+    }
+
+    const asignadosMap: Record<string, number> = {};
+    for (const a of asignacionesByInst) {
+      const name = idToName[a.installationId] ?? "Sin instalación";
+      asignadosMap[name] = (asignadosMap[name] ?? 0) + a._count.id;
+    }
+
+    type InstSummary = { dotacion: number; asignados: number; ppc: number };
+    const summary: Record<string, InstSummary> = {};
+    const allInstNames = new Set([...Object.keys(grouped), ...Object.keys(dotacionMap)]);
+    for (const name of allInstNames) {
+      const dot = dotacionMap[name] ?? 0;
+      const asig = asignadosMap[name] ?? 0;
+      summary[name] = { dotacion: dot, asignados: asig, ppc: Math.max(0, dot - asig) };
+    }
+
+    return NextResponse.json({ success: true, data: grouped, summary });
   } catch (error) {
     console.error("[PERSONAS] Error cargando grilla de guardias:", error);
     return NextResponse.json({ success: false, error: "No se pudo cargar la grilla" }, { status: 500 });

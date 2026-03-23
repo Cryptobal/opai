@@ -156,6 +156,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const [refreshing, setRefreshing] = useState(false);
   const [bulkPinLoading, setBulkPinLoading] = useState(false);
   const [gridData, setGridData] = useState<Record<string, Record<string, string>[]> | null>(null);
+  const [gridSummary, setGridSummary] = useState<Record<string, { dotacion: number; asignados: number; ppc: number }>>({});
   const [gridLoading, setGridLoading] = useState(false);
   const [gridCollapsed, setGridCollapsed] = useState<Record<string, boolean>>({});
 
@@ -221,6 +222,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
         return;
       }
       setGridData(payload.data);
+      setGridSummary(payload.summary ?? {});
       // Start with all collapsed
       const collapsed: Record<string, boolean> = {};
       for (const inst of Object.keys(payload.data)) {
@@ -1223,7 +1225,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       {Object.values(gridData).reduce((sum, rows) => sum + rows.length, 0)} registros en {Object.keys(gridData).length} instalaciones
                     </span>
                   </div>
-                  {Object.entries(gridData).map(([instName, rows]) => (
+                  {Object.entries(gridData).map(([instName, rows]) => {
+                    const s = gridSummary[instName];
+                    return (
                     <div key={instName} className="border border-border rounded-lg overflow-hidden">
                       <button
                         type="button"
@@ -1237,6 +1241,19 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         )}
                         <Building2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />
                         <span className="text-sm font-semibold">{instName}</span>
+                        {s && s.dotacion > 0 && (
+                          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground ml-2">
+                            <span>Dotación <span className="font-semibold text-foreground/80">{s.dotacion}</span></span>
+                            <span className="text-border">·</span>
+                            <span>Guardias <span className="font-semibold text-foreground/80">{s.asignados}</span></span>
+                            {s.ppc > 0 && (
+                              <>
+                                <span className="text-border">·</span>
+                                <span className="text-amber-400">PPC <span className="font-semibold">{s.ppc}</span></span>
+                              </>
+                            )}
+                          </span>
+                        )}
                         <span className="text-[11px] text-muted-foreground ml-auto">{rows.length} guardia{rows.length !== 1 ? "s" : ""}</span>
                       </button>
                       {!gridCollapsed[instName] && (
@@ -1290,7 +1307,8 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         </div>
                       )}
                     </div>
-                  ))}
+                  );
+                  })}
                 </>
               )}
             </div>
