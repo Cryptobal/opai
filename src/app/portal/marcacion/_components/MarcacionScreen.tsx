@@ -273,6 +273,7 @@ export function MarcacionScreen({
             lat: geoPosition.lat,
             lng: geoPosition.lng,
             expectedGuardiaId: guardiaInfo.guardiaId,
+            deviceToken,
           }),
         });
 
@@ -328,7 +329,7 @@ export function MarcacionScreen({
         setMode("face-verify");
       }
     },
-    [guardiaInfo, installationId, geoPosition, isOnline]
+    [guardiaInfo, installationId, geoPosition, isOnline, deviceToken]
   );
 
   // ── PIN fallback submission ─────────────────────────────────────────────
@@ -367,6 +368,7 @@ export function MarcacionScreen({
             lat: geoPosition.lat,
             lng: geoPosition.lng,
             pinFallbackReason,
+            deviceToken,
           }),
         });
 

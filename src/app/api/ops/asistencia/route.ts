@@ -315,16 +315,30 @@ export async function GET(request: NextRequest) {
             userAgent: true,
             metodoId: true,
             pinFallbackReason: true,
+            devicePairing: {
+              select: { name: true, deviceModel: true },
+            },
           },
           orderBy: { timestamp: "asc" },
         })
         : [];
 
-    const marcacionesByKey = new Map<string, typeof marcaciones>();
+    const toDeviceDisplay = (dp: { name: string | null; deviceModel: string | null } | null): string | null => {
+      if (!dp) return null;
+      if (dp.name) return `Equipo sincronizado: ${dp.name}`;
+      if (dp.deviceModel) return `Dispositivo del usuario: ${dp.deviceModel}`;
+      return "Dispositivo del portal";
+    };
+
+    const marcacionesByKey = new Map<string, Array<Omit<(typeof marcaciones)[number], "devicePairing"> & { deviceDisplay: string | null }>>();
     for (const m of marcaciones) {
       const key = `${m.guardiaId}|${m.installationId}`;
       const list = marcacionesByKey.get(key) ?? [];
-      list.push(m);
+      const { devicePairing, ...rest } = m;
+      list.push({
+        ...rest,
+        deviceDisplay: toDeviceDisplay(devicePairing) ?? (m.userAgent ? "Navegador web" : null),
+      });
       marcacionesByKey.set(key, list);
     }
 

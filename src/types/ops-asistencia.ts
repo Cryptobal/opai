@@ -58,6 +58,7 @@ export type MarcacionItem = {
   userAgent: string | null;
   metodoId?: string | null; // "face_id" | "pin_fallback" | "rut_pin" | "manual"
   pinFallbackReason?: string | null;
+  deviceDisplay?: string | null; // "Equipo sincronizado: X" | "Dispositivo del usuario: Y" | "Navegador web"
 };
 
 export type TurnoExtraItem = {

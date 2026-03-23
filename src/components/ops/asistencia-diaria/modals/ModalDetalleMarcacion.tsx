@@ -50,18 +50,27 @@ export function ModalDetalleMarcacion({
                   </p>
                   {m.lat != null && m.lng != null && (
                     <p>
-                      <span className="font-medium">Coordenadas:</span> {m.lat}, {m.lng}
+                      <span className="font-medium">Coordenadas:</span>{" "}
+                      {m.lat.toFixed(6)}, {m.lng.toFixed(6)}{" "}
+                      <a
+                        href={`https://www.google.com/maps?q=${m.lat},${m.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:underline"
+                      >
+                        Ver en mapa
+                      </a>
+                    </p>
+                  )}
+                  {(m.deviceDisplay ?? m.userAgent) && (
+                    <p>
+                      <span className="font-medium">Dispositivo:</span>{" "}
+                      {m.deviceDisplay ?? <span className="break-all">{m.userAgent!.slice(0, 80)}…</span>}
                     </p>
                   )}
                   {m.ipAddress && (
                     <p>
                       <span className="font-medium">IP:</span> {m.ipAddress}
-                    </p>
-                  )}
-                  {m.userAgent && (
-                    <p>
-                      <span className="font-medium">Dispositivo:</span>{" "}
-                      <span className="break-all">{m.userAgent.slice(0, 80)}…</span>
                     </p>
                   )}
                 </div>
