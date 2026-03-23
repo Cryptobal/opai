@@ -10,48 +10,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import {
+  normalizeMarcacionConfig,
+  parseMarcacionConfigValue,
+} from "@/lib/ops-marcacion-config";
 
 function settingKey(tenantId: string) {
   return `marcacion_config:${tenantId}`;
 }
-
-export interface MarcacionConfig {
-  // Tolerancia de atraso (minutos) — entradas dentro de este rango no se consideran atraso
-  toleranciaAtrasoMinutos: number;
-  // Intervalo de rotación del código QR/URL (horas, 0 = no rotar)
-  rotacionCodigoHoras: number;
-  // Plazo de oposición para marcas manuales (horas)
-  plazoOposicionHoras: number;
-  // Emails habilitados
-  emailComprobanteDigitalEnabled: boolean;
-  emailAvisoMarcaManualEnabled: boolean;
-  // Delay para email de marca manual (minutos, 0 = inmediato)
-  emailDelayManualMinutos: number;
-  // Cláusula legal para email de marca manual
-  clausulaLegal: string;
-  // ── Rondas: parámetros globales de operación ──
-  rondasPollingSegundos: number;
-  rondasVentanaInicioAntesMin: number;
-  rondasVentanaInicioDespuesMin: number;
-  rondasRequiereFotoEvidencia: boolean;
-  rondasPermiteReemplazo: boolean;
-}
-
-const DEFAULTS: MarcacionConfig = {
-  toleranciaAtrasoMinutos: 15,
-  rotacionCodigoHoras: 0, // No rotar por defecto
-  plazoOposicionHoras: 48,
-  emailComprobanteDigitalEnabled: true,
-  emailAvisoMarcaManualEnabled: true,
-  emailDelayManualMinutos: 0, // 0 = inmediato
-  clausulaLegal:
-    'Si transcurridas las 48 horas de recibir esta notificación usted no se hubiera opuesto al nuevo ajuste, ésta será considerada válida para los efectos de cálculo de su jornada.',
-  rondasPollingSegundos: 30,
-  rondasVentanaInicioAntesMin: 60,
-  rondasVentanaInicioDespuesMin: 120,
-  rondasRequiereFotoEvidencia: false,
-  rondasPermiteReemplazo: true,
-};
 
 export async function GET() {
   try {
@@ -62,15 +28,7 @@ export async function GET() {
       where: { key: settingKey(ctx.tenantId) },
     });
 
-    let config: MarcacionConfig = { ...DEFAULTS };
-    if (setting?.value) {
-      try {
-        const parsed = JSON.parse(setting.value);
-        config = { ...DEFAULTS, ...parsed };
-      } catch {
-        // corrupted JSON — return defaults
-      }
-    }
+    const config = parseMarcacionConfigValue(setting?.value);
 
     return NextResponse.json({ success: true, data: config });
   } catch (error) {
@@ -101,16 +59,8 @@ export async function POST(request: NextRequest) {
       where: { key: settingKey(ctx.tenantId) },
     });
 
-    let currentConfig: MarcacionConfig = { ...DEFAULTS };
-    if (existing?.value) {
-      try {
-        currentConfig = { ...DEFAULTS, ...JSON.parse(existing.value) };
-      } catch {
-        // corrupted — start fresh
-      }
-    }
-
-    const merged = { ...currentConfig, ...body };
+    const currentConfig = parseMarcacionConfigValue(existing?.value);
+    const merged = normalizeMarcacionConfig({ ...currentConfig, ...body });
     const value = JSON.stringify(merged);
 
     if (existing) {

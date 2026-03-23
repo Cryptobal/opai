@@ -19,6 +19,7 @@ import { formatPersonName } from "@/lib/personas";
 import { computeMarcacionHash, haversineDistance } from "@/lib/marcacion";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { sendMarcacionComprobante } from "@/lib/marcacion-email";
+import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 import { verifyFace } from "@/lib/services/rekognition";
 import { z } from "zod";
 
@@ -77,6 +78,13 @@ export async function POST(req: NextRequest) {
         { status: 404 }
       );
     }
+
+    const marcacionConfigSetting = await prisma.setting.findFirst({
+      where: { key: `marcacion_config:${installation.tenantId}` },
+      select: { value: true },
+    });
+    const marcacionConfig = parseMarcacionConfigValue(marcacionConfigSetting?.value);
+    const effectiveGeoRadiusM = resolveMarcacionGeoRadiusM(marcacionConfig, installation.geoRadiusM);
 
     // Resolver DevicePairing si viene deviceToken (portal marcación)
     let devicePairingId: string | null = null;
@@ -255,7 +263,7 @@ export async function POST(req: NextRequest) {
 
     if (lat != null && lng != null && installation.lat != null && installation.lng != null) {
       geoDistanciaM = Math.round(haversineDistance(lat, lng, installation.lat, installation.lng));
-      geoValidada = geoDistanciaM <= installation.geoRadiusM;
+      geoValidada = geoDistanciaM <= effectiveGeoRadiusM;
     }
 
     // Server timestamp
@@ -432,22 +440,10 @@ export async function POST(req: NextRequest) {
       return marcacion;
     });
 
-    // Verificar si el email de comprobante digital está habilitado
-    let comprobanteEmailEnabled = true;
-    const marcacionConfigSetting = await prisma.setting.findFirst({
-      where: { key: `marcacion_config:${installation.tenantId}` },
-    });
-    if (marcacionConfigSetting?.value) {
-      try {
-        const cfg = JSON.parse(marcacionConfigSetting.value);
-        comprobanteEmailEnabled = cfg.emailComprobanteDigitalEnabled !== false;
-      } catch { /* use default */ }
-    }
-
     // Send comprobante email (fire-and-forget)
     // Res. N°38: preferir email personal del guardia; fallback al email corporativo
     const guardiaEmail = guardia.personalEmail ?? guardia.persona.personalEmail ?? guardia.persona.email ?? undefined;
-    if (comprobanteEmailEnabled && guardia.persona.firstName) {
+    if (marcacionConfig.emailComprobanteDigitalEnabled && guardia.persona.firstName) {
       if (!guardiaEmail) {
         console.warn(`[marcacion] Guardia ${formatPersonName(guardia.persona.firstName, guardia.persona.lastName)} sin email — comprobante no enviado`);
       } else {
@@ -495,7 +491,7 @@ export async function POST(req: NextRequest) {
           tipo,
           timestamp: effectiveTimestamp,
           geoDistanciaM,
-          geoRadiusM: installation.geoRadiusM,
+          geoRadiusM: effectiveGeoRadiusM,
           lat: lat ?? null,
           lng: lng ?? null,
           deviceDisplay,

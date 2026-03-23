@@ -5,6 +5,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import type { MarcacionConfig } from "@/lib/ops-marcacion-config";
 import {
   Mail,
   Save,
@@ -15,21 +16,6 @@ import {
   Send,
   Loader2,
 } from "lucide-react";
-
-interface MarcacionConfig {
-  toleranciaAtrasoMinutos: number;
-  rotacionCodigoHoras: number;
-  plazoOposicionHoras: number;
-  emailComprobanteDigitalEnabled: boolean;
-  emailAvisoMarcaManualEnabled: boolean;
-  emailDelayManualMinutos: number;
-  clausulaLegal: string;
-  rondasPollingSegundos: number;
-  rondasVentanaInicioAntesMin: number;
-  rondasVentanaInicioDespuesMin: number;
-  rondasRequiereFotoEvidencia: boolean;
-  rondasPermiteReemplazo: boolean;
-}
 
 const EMAIL_CATALOG = [
   {
@@ -48,6 +34,24 @@ const EMAIL_CATALOG = [
       "Hash SHA-256 de integridad",
     ],
     template: "Inline HTML (src/lib/marcacion-email.ts → sendMarcacionComprobante)",
+  },
+  {
+    id: "alerta_marcacion_fuera_rango",
+    nombre: "Alerta de Marcación Fuera de Rango",
+    descripcion:
+      "Se envía cuando un guardia registra entrada o salida fuera del radio GPS permitido para marcación.",
+    trigger:
+      "Al registrar marcación con gpsStatus=fuera_rango (portal PIN o Face ID)",
+    destinatario: "Supervisores asignados y usuarios adicionales configurados en Marcación",
+    configKey: "emailAlertaFueraRangoEnabled" as const,
+    contenido: [
+      "Guardia, RUT e instalación",
+      "Tipo de marca y hora exacta",
+      "Distancia detectada y radio permitido",
+      "Coordenadas y dispositivo usado",
+      "Mapa con el punto de marcación",
+    ],
+    template: "Inline HTML (src/lib/marcacion-email.ts → sendNotificacionFueraDeRango)",
   },
   {
     id: "aviso_marca_manual",

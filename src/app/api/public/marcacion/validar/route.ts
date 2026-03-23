@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeRut, isValidChileanRut } from "@/lib/personas";
+import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -57,6 +58,13 @@ export async function POST(req: NextRequest) {
         { status: 404 }
       );
     }
+
+    const marcacionConfigSetting = await prisma.setting.findFirst({
+      where: { key: `marcacion_config:${installation.tenantId}` },
+      select: { value: true },
+    });
+    const marcacionConfig = parseMarcacionConfigValue(marcacionConfigSetting?.value);
+    const effectiveGeoRadiusM = resolveMarcacionGeoRadiusM(marcacionConfig, installation.geoRadiusM);
 
     // Buscar guardia por RUT en el mismo tenant
     const persona = await prisma.opsPersona.findFirst({
@@ -150,7 +158,7 @@ export async function POST(req: NextRequest) {
         installationName: installation.name,
         lat: installation.lat,
         lng: installation.lng,
-        geoRadiusM: installation.geoRadiusM,
+        geoRadiusM: effectiveGeoRadiusM,
         siguienteAccion,
         ultimaMarcacion: ultimaMarcacion
           ? {

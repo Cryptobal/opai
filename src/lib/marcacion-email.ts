@@ -8,6 +8,7 @@
 
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
 import { prisma } from "@/lib/prisma";
+import { parseMarcacionConfigValue } from "@/lib/ops-marcacion-config";
 
 interface ComprobanteMarcacion {
   guardiaName: string;
@@ -391,23 +392,56 @@ interface NotificacionFueraDeRango {
  * cuando un guardia marca fuera del rango geográfico configurado.
  */
 export async function sendNotificacionFueraDeRango(data: NotificacionFueraDeRango): Promise<void> {
-  // Buscar supervisores asignados a esta instalación
-  const assignments = await prisma.opsAsignacionSupervisor.findMany({
-    where: {
-      installationId: data.installationId,
-      isActive: true,
-    },
-    select: {
-      supervisor: { select: { name: true, email: true } },
-    },
+  const marcacionConfigSetting = await prisma.setting.findFirst({
+    where: { key: `marcacion_config:${data.tenantId}` },
+    select: { value: true },
   });
+  const marcacionConfig = parseMarcacionConfigValue(marcacionConfigSetting?.value);
+
+  if (!marcacionConfig.emailAlertaFueraRangoEnabled) {
+    return;
+  }
+
+  const [assignments, extraUsers] = await Promise.all([
+    marcacionConfig.emailAlertaFueraRangoIncludeSupervisors
+      ? prisma.opsAsignacionSupervisor.findMany({
+          where: {
+            installationId: data.installationId,
+            isActive: true,
+          },
+          select: {
+            supervisor: { select: { email: true } },
+          },
+        })
+      : Promise.resolve([]),
+    marcacionConfig.emailAlertaFueraRangoUserIds.length > 0
+      ? prisma.admin.findMany({
+          where: {
+            tenantId: data.tenantId,
+            status: "active",
+            id: { in: marcacionConfig.emailAlertaFueraRangoUserIds },
+          },
+          select: { email: true },
+        })
+      : Promise.resolve([]),
+  ]);
 
   const supervisorEmails = assignments
     .map((a) => a.supervisor.email)
-    .filter(Boolean);
+    .filter((email): email is string => Boolean(email));
+  const extraEmails = extraUsers
+    .map((u) => u.email)
+    .filter((email): email is string => Boolean(email));
+  const recipientEmails = Array.from(
+    new Set(
+      [...supervisorEmails, ...extraEmails]
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
 
-  if (supervisorEmails.length === 0) {
-    console.warn(`[marcacion] Instalación ${data.installationName} sin supervisores asignados — no se notifica fuera de rango`);
+  if (recipientEmails.length === 0) {
+    console.warn(`[marcacion] Sin destinatarios configurados para fuera de rango en ${data.installationName}`);
     return;
   }
 
@@ -538,9 +572,9 @@ export async function sendNotificacionFueraDeRango(data: NotificacionFueraDeRang
     </div>
   `;
 
-  // Enviar a todos los supervisores en paralelo
+  // Enviar a todos los destinatarios configurados en paralelo
   await Promise.allSettled(
-    supervisorEmails.map((email) =>
+    recipientEmails.map((email) =>
       resend.emails.send({
         from: EMAIL_CONFIG.from,
         to: email,

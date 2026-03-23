@@ -7,23 +7,9 @@ import { OpsMarcacionTab } from "@/components/ops/OpsMarcacionTab";
 import { OpsDocsGuardiasTab } from "@/components/ops/OpsDocsGuardiasTab";
 import { OpsDocsInstalacionTab } from "@/components/ops/OpsDocsInstalacionTab";
 import { OpsEmailsTab } from "@/components/ops/OpsEmailsTab";
+import type { MarcacionConfig } from "@/lib/ops-marcacion-config";
 import { Card, CardContent } from "@/components/ui/card";
 import { Radio, FileText, Building2, Mail } from "lucide-react";
-
-interface MarcacionConfig {
-  toleranciaAtrasoMinutos: number;
-  rotacionCodigoHoras: number;
-  plazoOposicionHoras: number;
-  emailComprobanteDigitalEnabled: boolean;
-  emailAvisoMarcaManualEnabled: boolean;
-  emailDelayManualMinutos: number;
-  clausulaLegal: string;
-  rondasPollingSegundos: number;
-  rondasVentanaInicioAntesMin: number;
-  rondasVentanaInicioDespuesMin: number;
-  rondasRequiereFotoEvidencia: boolean;
-  rondasPermiteReemplazo: boolean;
-}
 
 export type PostulacionDocItem = { code: string; label: string; required: boolean };
 export type InstalacionDocItem = { code: string; label: string; required: boolean };

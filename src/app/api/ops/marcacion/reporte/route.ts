@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
+import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,6 +23,12 @@ export async function GET(req: NextRequest) {
     }
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
+
+    const marcacionConfigSetting = await prisma.setting.findFirst({
+      where: { key: `marcacion_config:${ctx.tenantId}` },
+      select: { value: true },
+    });
+    const marcacionConfig = parseMarcacionConfigValue(marcacionConfigSetting?.value);
 
     const { searchParams } = new URL(req.url);
     const installationId = searchParams.get("installationId");
@@ -115,7 +122,7 @@ export async function GET(req: NextRequest) {
           installation: {
             id: m.installation.id,
             nombre: m.installation.name,
-            geoRadiusM: m.installation.geoRadiusM,
+            geoRadiusM: resolveMarcacionGeoRadiusM(marcacionConfig, m.installation.geoRadiusM),
           },
           puesto: m.puesto
             ? { id: m.puesto.id, nombre: m.puesto.name, horario: `${m.puesto.shiftStart}-${m.puesto.shiftEnd}` }
