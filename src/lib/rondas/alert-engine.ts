@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { isWithinGeoRadius, speedKmh } from "@/lib/rondas/geo-utils";
+import { isWithinGeoRadius, speedKmh, isSpeedReliable } from "@/lib/rondas/geo-utils";
 import { getAlertConfig, type AlertConfig } from "@/lib/rondas/ia-config";
 import { formatChileTime } from "./timezone";
 import { getPusherServer } from "@/lib/chat";
@@ -67,7 +67,7 @@ export async function evaluatePostMarkAlerts(input: {
     if (config.speedAnomalyEnabled && prev.lat != null && prev.lng != null) {
       const dist = isWithinGeoRadius(input.marcacion.lat, input.marcacion.lng, prev.lat, prev.lng, 100000).distanceM ?? 0;
       const speed = speedKmh(dist, elapsedSec);
-      if (speed > config.speedAnomalyKmh) {
+      if (isSpeedReliable(dist, null) && speed > config.speedAnomalyKmh) {
         alerts.push({
           tipo: "velocidad_anomala",
           severidad: "warning",

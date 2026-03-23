@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { rondaSyncSchema } from "@/lib/validations/rondas";
 import { computeMarcacionHash } from "@/lib/marcacion";
-import { isWithinGeoRadius, validateGeofenceWithAccuracy, speedKmh } from "@/lib/rondas/geo-utils";
+import { isWithinGeoRadius, validateGeofenceWithAccuracy, speedKmh, isSpeedReliable } from "@/lib/rondas/geo-utils";
 import { detectCheckpointAnomalies } from "@/lib/rondas/anomaly-detection";
 import { calculateRondaTrustScore } from "@/lib/rondas/trust-score-v2";
 import { toAlertSeverityFromAnomalies } from "@/lib/rondas/trust-score";
@@ -91,7 +91,8 @@ export async function POST(request: NextRequest) {
               ? Math.max(1, (new Date(m.marcadoAt).getTime() - new Date(prevM.marcadoAt).getTime()) / 1000)
               : 0;
             const prevDist = prevM ? (isWithinGeoRadius(m.lat, m.lng, prevM.lat, prevM.lng, 100000).distanceM ?? 0) : 0;
-            const speed = prevM ? speedKmh(prevDist, elapsedSec) : 0;
+            const rawSpeed = prevM ? speedKmh(prevDist, elapsedSec) : 0;
+            const speed = isSpeedReliable(prevDist, m.gpsAccuracy) ? rawSpeed : 0;
 
             const anomalies = detectCheckpointAnomalies({
               speedFromPrevKmh: speed,

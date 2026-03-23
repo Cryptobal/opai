@@ -6,7 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import { computeMarcacionHash } from "@/lib/marcacion";
 import { detectCheckpointAnomalies, type RondaAnomalyCode } from "@/lib/rondas/anomaly-detection";
-import { isWithinGeoRadius, validateGeofenceWithAccuracy, speedKmh, type GeofenceResult } from "@/lib/rondas/geo-utils";
+import { isWithinGeoRadius, validateGeofenceWithAccuracy, speedKmh, isSpeedReliable, type GeofenceResult } from "@/lib/rondas/geo-utils";
 import { computeCheckpointTrustScore, toAlertSeverityFromAnomalies } from "@/lib/rondas/trust-score";
 import { evaluatePostMarkAlerts } from "@/lib/rondas/alert-engine";
 import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
@@ -182,7 +182,8 @@ export async function marcarCheckpoint(
     prev?.lat != null && prev?.lng != null
       ? Math.round(isWithinGeoRadius(lat, lng, prev.lat, prev.lng, 100000).distanceM ?? 0)
       : 0;
-  const speed = prev ? speedKmh(prevDistance, elapsedSec) : 0;
+  const rawSpeed = prev ? speedKmh(prevDistance, elapsedSec) : 0;
+  const speed = isSpeedReliable(prevDistance, gpsAccuracy) ? rawSpeed : 0;
 
   // 5.2. Bloqueo por geo: todos los tipos con coordenadas exigen estar en rango.
   // QR prueba que tienes el código; la geocerca prueba que estás en el lugar.

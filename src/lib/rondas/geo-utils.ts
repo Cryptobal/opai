@@ -78,3 +78,23 @@ export function speedKmh(distanceM: number, elapsedSec: number): number {
   if (elapsedSec <= 0) return 0;
   return (distanceM / 1000) / (elapsedSec / 3600);
 }
+
+/**
+ * Determine whether a speed calculation between two GPS points is reliable
+ * enough to trigger anomaly alerts.
+ *
+ * Returns false (unreliable) when:
+ * - GPS accuracy is poor (>30 m) — the position error alone can explain the distance
+ * - The distance between points is < 150 m — GPS noise dominates at short distances
+ */
+const MAX_RELIABLE_ACCURACY_M = 30;
+const MIN_RELIABLE_DISTANCE_M = 150;
+
+export function isSpeedReliable(
+  distanceM: number,
+  gpsAccuracy: number | null | undefined,
+): boolean {
+  if (gpsAccuracy != null && gpsAccuracy > MAX_RELIABLE_ACCURACY_M) return false;
+  if (distanceM < MIN_RELIABLE_DISTANCE_M) return false;
+  return true;
+}
