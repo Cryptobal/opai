@@ -441,16 +441,22 @@ export async function sendNotificacionFueraDeRango(data: NotificacionFueraDeRang
   if (hasBothCoords) {
     const centerLat = (data.lat! + data.installationLat!) / 2;
     const centerLng = (data.lng! + data.installationLng!) / 2;
-    const mapsUrl = `https://www.google.com/maps/dir/${data.lat!.toFixed(6)},${data.lng!.toFixed(6)}/${data.installationLat!.toFixed(6)},${data.installationLng!.toFixed(6)}`;
+
+    // Zoom dinámico según distancia entre puntos
+    const distKm = (data.geoDistanciaM ?? 0) / 1000;
+    const zoom = distKm > 50 ? 9 : distKm > 20 ? 10 : distKm > 10 ? 11 : distKm > 5 ? 12 : 13;
+
+    // URL muestra ambos marcadores (no modo direcciones para evitar confusión)
+    const mapsUrl = `https://www.google.com/maps?q=${data.lat!.toFixed(6)},${data.lng!.toFixed(6)}&z=${zoom}`;
 
     if (mapsKey) {
-      const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat.toFixed(6)},${centerLng.toFixed(6)}&zoom=13&size=480x240&scale=2&markers=color:red%7C${data.lat!.toFixed(6)},${data.lng!.toFixed(6)}&markers=color:green%7C${data.installationLat!.toFixed(6)},${data.installationLng!.toFixed(6)}&key=${mapsKey}`;
+      const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat.toFixed(6)},${centerLng.toFixed(6)}&zoom=${zoom}&size=480x240&scale=2&markers=color:red%7Clabel:M%7C${data.lat!.toFixed(6)},${data.lng!.toFixed(6)}&markers=color:green%7Clabel:I%7C${data.installationLat!.toFixed(6)},${data.installationLng!.toFixed(6)}&key=${mapsKey}`;
       mapSection = `
       <div style="margin-bottom: 16px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
         <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" style="display: block;">
           <img src="${staticMapUrl}" alt="Mapa: ubicación de marcación vs instalación" width="480" height="240" style="display: block; max-width: 100%; height: auto;" />
         </a>
-        <p style="font-size: 11px; color: #64748b; margin: 4px 12px 8px;">🔴 Punto de marcación — 🟢 Instalación · <a href="${mapsUrl}" style="color: #2563eb;">Ver en Google Maps</a></p>
+        <p style="font-size: 11px; color: #64748b; margin: 4px 12px 8px;">🔴 <strong>M</strong> Punto de marcación — 🟢 <strong>I</strong> Instalación · <a href="${mapsUrl}" style="color: #2563eb;">Ver en Google Maps</a></p>
       </div>`;
     } else {
       mapSection = `
