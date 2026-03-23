@@ -43,6 +43,8 @@ interface LeadCostItem {
   priceOverride: number | null;
   enabled: boolean;
   priceLogic?: string;
+  /** Especificaciones técnicas editadas en el lead (mismo shape que LeadInstallationCpq) */
+  technicalSpecs?: string | null;
 }
 
 interface LeadAdditionalLine {
@@ -452,7 +454,10 @@ export async function POST(
         : (typeToSlug[c.type] ?? "other");
 
       const cat = findOrCreateResCat(itemSlug);
-      cat.items.push({ name: c.name, amount: monthlyAmount, unit, technicalSpecs: null });
+      const specs = (c.technicalSpecs != null && String(c.technicalSpecs).trim() !== "")
+        ? String(c.technicalSpecs).trim()
+        : null;
+      cat.items.push({ name: c.name, amount: monthlyAmount, unit, technicalSpecs: specs });
       cat.subtotal += monthlyAmount;
     }
 

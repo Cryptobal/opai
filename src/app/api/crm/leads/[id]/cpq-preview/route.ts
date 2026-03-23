@@ -47,6 +47,7 @@ interface LeadCostItem {
   priceOverride: number | null;
   enabled: boolean;
   priceLogic?: string;
+  technicalSpecs?: string | null;
 }
 
 function normalizeUnitPrice(value: number, unit?: string | null, contractMonths?: number): number {
@@ -206,6 +207,10 @@ export async function POST(
         name: c.name,
         amount: unitPrice,
         calcMode: "per_month",
+        technicalSpecs:
+          c.technicalSpecs != null && String(c.technicalSpecs).trim() !== ""
+            ? String(c.technicalSpecs).trim()
+            : null,
       });
     }
 

@@ -498,7 +498,7 @@ export async function buildProposalProps(
         return {
           name: m.mealType, amount: monthly, quantity: m.mealsPerDay,
           unit: `${m.mealsPerDay} comidas/día × ${m.daysOfService} días`,
-          technicalSpecs: (m as Record<string, unknown>).technicalSpecs as string ?? catalogItem?.defaultTechnicalSpecs ?? null,
+          technicalSpecs: m.technicalSpecs ?? catalogItem?.defaultTechnicalSpecs ?? null,
         };
       });
       categories.push({ category: 'Alimentación', categoryType: 'direct', items, subtotal: items.reduce((s, i) => s + i.amount, 0) });
@@ -533,7 +533,25 @@ export async function buildProposalProps(
     }
 
     /* — Infraestructura (tabla separada: cpqQuoteInfrastructure) — */
-    const activeInfra = (quote.infrastructure ?? []).filter((inf) => inf.isEnabled);
+    /* Si el mismo ítem existe como costItem de catálogo (infra/combustible), no duplicar:
+     * la fila legacy solo muestra arriendo/combustible calculado y oculta las especificaciones
+     * técnicas editadas en el costItem. */
+    const infraCostItemNames = new Set(
+      (quote.costItems ?? [])
+        .filter(
+          (ci) =>
+            ci.isEnabled &&
+            ci.catalogItem &&
+            ["infrastructure", "fuel"].includes(ci.catalogItem.type)
+        )
+        .map((ci) => (ci.customName ?? ci.catalogItem?.name ?? "").trim().toLowerCase())
+        .filter((n) => n.length > 0)
+    );
+    const activeInfra = (quote.infrastructure ?? []).filter(
+      (inf) =>
+        inf.isEnabled &&
+        !infraCostItemNames.has((inf.itemType || "").trim().toLowerCase())
+    );
     if (activeInfra.length > 0) {
       const items: ResourceBreakdownItem[] = activeInfra.map((inf) => {
         const base = safeNum(inf.rentMonthly);
@@ -620,7 +638,7 @@ export async function buildProposalProps(
       const catName = dbCat?.name ?? fallbackNames[slug] ?? 'Otros Costos';
       const catType = (dbCat?.type as 'direct' | 'indirect') ?? 'indirect';
       const itemName = (ci as Record<string, unknown>).customName as string ?? ci.catalogItem?.name ?? 'Sin nombre';
-      const specs = (ci as Record<string, unknown>).technicalSpecs as string ?? ci.catalogItem?.defaultTechnicalSpecs ?? null;
+      const specs = ci.technicalSpecs ?? ci.catalogItem?.defaultTechnicalSpecs ?? null;
 
       const cat = findOrCreateCat(catName, catType);
       cat.items.push({ name: itemName, amount, technicalSpecs: specs, calcMode: ci.isAmortizable ? 'amortizable' : ci.calcMode ?? undefined });
