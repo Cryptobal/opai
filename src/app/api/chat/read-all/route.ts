@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { syncBadgeAcrossDevices } from "@/lib/pwa/push-service";
 
 export async function POST() {
   try {
@@ -62,6 +63,9 @@ export async function POST() {
       ON CONFLICT (channel_id, reader_type, reader_id)
       DO UPDATE SET last_read_at = EXCLUDED.last_read_at
     `;
+
+    // Sync badge to other devices in the background (fire-and-forget)
+    syncBadgeAcrossDevices(ctx.tenantId, 'admin', ctx.userId).catch(() => {});
 
     return NextResponse.json({
       success: true,

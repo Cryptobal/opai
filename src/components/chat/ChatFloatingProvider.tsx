@@ -269,7 +269,11 @@ export function ChatSidePanelProvider({
     return () => clearInterval(interval);
   }, [currentUserId, fetchChannels]);
 
-  const totalUnread = channels.reduce((sum, ch) => sum + ch.unreadCount, 0);
+  // Only count unreads from channels set to ALL (exclude MUTED and MENTIONS_ONLY)
+  const totalUnread = channels.reduce(
+    (sum, ch) => sum + (ch.notificationPreference === 'ALL' ? ch.unreadCount : 0),
+    0,
+  );
 
   // Sync PWA app badge with real unread count
   useEffect(() => {

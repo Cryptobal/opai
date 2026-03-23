@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getClientSession, verifyClientChannelAccess } from "@/lib/portal-chat-auth";
+import { syncBadgeAcrossDevices } from "@/lib/pwa/push-service";
 
 export async function POST(
   request: NextRequest,
@@ -74,6 +75,9 @@ export async function POST(
         lastReadMessageId,
       },
     });
+
+    // Sync badge to other devices in the background (fire-and-forget)
+    syncBadgeAcrossDevices(session.tenantId, 'contact', session.contactId).catch(() => {});
 
     return NextResponse.json({
       success: true,

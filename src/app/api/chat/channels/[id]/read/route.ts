@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { syncBadgeAcrossDevices } from "@/lib/pwa/push-service";
 
 export async function POST(
   request: NextRequest,
@@ -72,6 +73,9 @@ export async function POST(
         lastReadMessageId,
       },
     });
+
+    // Sync badge to other devices in the background (fire-and-forget)
+    syncBadgeAcrossDevices(ctx.tenantId, 'admin', ctx.userId).catch(() => {});
 
     return NextResponse.json({
       success: true,

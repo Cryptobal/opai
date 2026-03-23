@@ -60,6 +60,28 @@ function toChatSenderType(userType: UserType) {
 
 // ── Badge Count Calculation (Prompt 1) ──
 
+/**
+ * Returns the set of channelIds that should NOT count toward the badge
+ * because the user has set them to MUTED or MENTIONS_ONLY.
+ */
+async function getMutedOrMentionsOnlyChannelIds(
+  senderType: string,
+  userId: string,
+  channelIds: string[],
+): Promise<Set<string>> {
+  if (channelIds.length === 0) return new Set();
+  const prefs = await prisma.chatNotificationPreference.findMany({
+    where: {
+      channelId: { in: channelIds },
+      userType: senderType,
+      userId,
+      preference: { in: ['MUTED', 'MENTIONS_ONLY'] },
+    },
+    select: { channelId: true },
+  });
+  return new Set(prefs.map((p) => p.channelId));
+}
+
 async function calculateBadgeCount(
   tenantId: string,
   userType: UserType,
@@ -75,10 +97,14 @@ async function calculateBadgeCount(
     });
     const channelIds = cursors.map((c) => c.channelId);
 
-    // Batch chat unreads
+    // Exclude channels with MUTED or MENTIONS_ONLY preference from badge count
+    const excludedIds = await getMutedOrMentionsOnlyChannelIds(senderType, userId, channelIds);
+    const badgeChannelIds = channelIds.filter((id) => !excludedIds.has(id));
+
+    // Batch chat unreads (only channels set to ALL)
     let chatUnreads = 0;
-    if (channelIds.length > 0) {
-      const unreads = await batchUnreadCounts(channelIds, senderType, userId, true);
+    if (badgeChannelIds.length > 0) {
+      const unreads = await batchUnreadCounts(badgeChannelIds, senderType, userId, true);
       for (const count of unreads.values()) chatUnreads += count;
     }
 
@@ -133,17 +159,44 @@ async function batchCalculateBadgeCounts(
       channelsByUser.set(key, list);
     }
 
-    // 2. For each user, batch their unread counts using batchUnreadCounts
+    // 2. Batch-fetch MUTED/MENTIONS_ONLY preferences for all recipients' channels
+    const allChannelIds = [...new Set(allCursors.map((c) => c.channelId))];
+    const mutedPrefs = allChannelIds.length > 0
+      ? await prisma.chatNotificationPreference.findMany({
+          where: {
+            channelId: { in: allChannelIds },
+            preference: { in: ['MUTED', 'MENTIONS_ONLY'] },
+          },
+          select: { channelId: true, userType: true, userId: true },
+        })
+      : [];
+    // Key: "userType:userId", Value: Set of excluded channelIds
+    const excludedByUser = new Map<string, Set<string>>();
+    for (const p of mutedPrefs) {
+      const key = `${p.userType}:${p.userId}`;
+      const set = excludedByUser.get(key) || new Set();
+      set.add(p.channelId);
+      excludedByUser.set(key, set);
+    }
+
+    // 3. For each user, batch their unread counts using batchUnreadCounts
     // (single SQL per user, much better than N×3 queries)
     await Promise.all(
       recipients.map(async (r) => {
         const key = `${r.subscriberType}:${r.subscriberId}`;
         const channelIds = channelsByUser.get(key) || [];
+
+        // Exclude channels with MUTED or MENTIONS_ONLY preference from badge count
+        const excluded = excludedByUser.get(key);
+        const badgeChannelIds = excluded
+          ? channelIds.filter((id) => !excluded.has(id))
+          : channelIds;
+
         let chatUnreads = 0;
 
-        if (channelIds.length > 0) {
+        if (badgeChannelIds.length > 0) {
           const unreads = await batchUnreadCounts(
-            channelIds,
+            badgeChannelIds,
             r.subscriberType,
             r.subscriberId,
             true,
@@ -655,5 +708,58 @@ export async function sendChatPushNotifications({
     );
   } catch (err) {
     console.error('[push] sendChatPushNotifications error:', err);
+  }
+}
+
+// ── Cross-Device Badge Sync ──
+
+/**
+ * After a user reads messages on one device, send a silent push
+ * to all their OTHER subscriptions so the badge updates everywhere.
+ * Uses the 'badge-sync' tag so the notification is invisible.
+ */
+export async function syncBadgeAcrossDevices(
+  tenantId: string,
+  userType: UserType,
+  userId: string,
+  /** The endpoint of the current device — excluded from the sync push */
+  excludeEndpoint?: string,
+): Promise<void> {
+  try {
+    ensureVapidInitialized();
+
+    const subscriberType = toChatSenderType(userType);
+    const subscriptions = await prisma.chatPushSubscription.findMany({
+      where: {
+        tenantId,
+        subscriberType,
+        subscriberId: userId,
+        isActive: true,
+        ...(excludeEndpoint ? { endpoint: { not: excludeEndpoint } } : {}),
+      },
+    });
+
+    if (subscriptions.length === 0) return;
+
+    const badgeCount = await calculateBadgeCount(tenantId, userType, userId);
+
+    // Send a data-only (silent) push — the service worker will update the badge
+    // without showing a visible notification
+    const payload = JSON.stringify({
+      title: '',
+      body: '',
+      silent: true,
+      tag: 'badge-sync',
+      data: {
+        type: 'badge_sync',
+        badgeCount,
+      },
+    });
+
+    await Promise.allSettled(
+      subscriptions.map((sub) => sendToSubscription(sub, payload)),
+    );
+  } catch (err) {
+    console.error('[push] syncBadgeAcrossDevices error:', err);
   }
 }

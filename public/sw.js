@@ -109,6 +109,20 @@ self.addEventListener('push', (event) => {
     data = { title: 'OPAI', body: event.data.text() || 'Nueva notificacion' };
   }
 
+  // Badge-only sync: update badge without showing a notification
+  if (data.data?.type === 'badge_sync') {
+    const bc = data.data.badgeCount;
+    event.waitUntil(
+      (bc > 0 && navigator.setAppBadge
+        ? navigator.setAppBadge(bc)
+        : navigator.clearAppBadge
+          ? navigator.clearAppBadge()
+          : Promise.resolve()
+      ).catch(() => {})
+    );
+    return;
+  }
+
   const {
     title = 'OPAI',
     body = '',
