@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Paperclip, Loader2, Trash2, FileText } from "lucide-react";
+import { ChevronDown, Paperclip, Loader2, Trash2, FileText, Search, Download } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { FilePreviewModal } from "@/components/ui/FilePreviewModal";
 
 type Attachment = {
   id: string;
@@ -34,6 +35,7 @@ export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsS
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<Attachment | null>(null);
 
   const fetchAttachments = async () => {
     setLoading(true);
@@ -118,6 +120,7 @@ export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsS
   };
 
   return (
+    <>
     <Card className="shadow-sm overflow-hidden mt-3" inert={isLocked ? true : undefined}>
       <button
         type="button"
@@ -198,41 +201,57 @@ export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsS
               {attachments.map((a) => (
                 <li
                   key={a.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm"
+                  className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 truncate">
-                      <span className="font-medium truncate block">{a.fileName}</span>
-                      <span className="text-[10px] text-muted-foreground">{formatSize(a.size)}</span>
-                    </div>
+                  <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate" title={a.fileName}>
+                      {a.fileName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{formatSize(a.size)}</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
                     {a.publicUrl && (
-                      <a
-                        href={a.publicUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline shrink-0"
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Ver archivo"
+                          onClick={() => setPreviewFile(a)}
+                        >
+                          <Search className="h-4 w-4" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" asChild>
+                          <a
+                            href={`${a.publicUrl}?download=true`}
+                            download={a.fileName}
+                            title="Descargar"
+                          >
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      </>
+                    )}
+                    {!isLocked && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        title="Eliminar"
+                        onClick={() => handleDelete(a.id)}
+                        disabled={deletingId === a.id}
                       >
-                        Ver
-                      </a>
+                        {deletingId === a.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
                     )}
                   </div>
-                  {!isLocked && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDelete(a.id)}
-                      disabled={deletingId === a.id}
-                    >
-                      {deletingId === a.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  )}
                 </li>
               ))}
             </ul>
@@ -240,5 +259,15 @@ export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsS
         </div>
       )}
     </Card>
+    <FilePreviewModal
+      open={!!previewFile}
+      onOpenChange={(open) => {
+        if (!open) setPreviewFile(null);
+      }}
+      url={previewFile?.publicUrl ?? ""}
+      fileName={previewFile?.fileName ?? ""}
+      mimeType={previewFile?.mimeType ?? ""}
+    />
+    </>
   );
 }
