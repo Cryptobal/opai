@@ -50,6 +50,7 @@ type MarcacionItem = {
   userAgent: string | null;
   metodoId?: string | null; // "face_id" | "pin_fallback" | "rut_pin" | "manual"
   pinFallbackReason?: string | null;
+  deviceDisplay?: string | null;
 };
 
 type AsistenciaItem = {
@@ -870,6 +871,20 @@ export function OpsPautaDiariaClient({
                                 );
                               })()}
                               {(() => {
+                                const hayFueraRango = item.marcaciones!.some((m) => m.gpsStatus === "fuera_rango");
+                                if (hayFueraRango) {
+                                  return (
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium hover:bg-red-500/30 transition-colors cursor-pointer"
+                                      title="Una o más marcaciones fueron registradas fuera del rango permitido. Click para ver detalle."
+                                      onClick={() => setMarcacionDetalleOpen(item.marcaciones ?? [])}
+                                    >
+                                      <MapPin className="h-3 w-3" />
+                                      Fuera de rango
+                                    </button>
+                                  );
+                                }
                                 const entradaMarca = item.marcaciones?.find((m) => m.tipo === "entrada");
                                 const metodo = entradaMarca?.metodoId;
                                 if (metodo === "face_id") {
@@ -1068,10 +1083,18 @@ export function OpsPautaDiariaClient({
           {marcacionDetalleOpen && marcacionDetalleOpen.length > 0 && (
             <div className="space-y-4">
               {marcacionDetalleOpen.map((m) => (
-                <div key={m.id} className="rounded border border-border/60 p-3 text-sm space-y-2">
-                  <div className="font-medium">
-                    {m.tipo === "entrada" ? "Entrada" : "Salida"}:{" "}
-                    {new Date(m.timestamp).toLocaleString("es-CL")}
+                <div key={m.id} className={`rounded border p-3 text-sm space-y-2 ${m.gpsStatus === "fuera_rango" ? "border-red-500/60 bg-red-500/5" : "border-border/60"}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">
+                      {m.tipo === "entrada" ? "Entrada" : "Salida"}:{" "}
+                      {new Date(m.timestamp).toLocaleString("es-CL")}
+                    </span>
+                    {m.gpsStatus === "fuera_rango" && (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium">
+                        <MapPin className="h-3 w-3" />
+                        Fuera de rango
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
                     <p>
@@ -1079,11 +1102,30 @@ export function OpsPautaDiariaClient({
                     </p>
                     <p>
                       <span className="font-medium">Geo:</span>{" "}
-                      {m.gpsStatus === "dentro_rango" ? `Dentro de rango (${m.geoDistanciaM}m)` : m.gpsStatus === "fuera_rango" ? <span className="text-yellow-400">Fuera de rango ({m.geoDistanciaM}m)</span> : "Sin GPS"}
+                      {m.gpsStatus === "dentro_rango" ? (
+                        <span className="text-emerald-400">Dentro de rango ({m.geoDistanciaM}m)</span>
+                      ) : m.gpsStatus === "fuera_rango" ? (
+                        <span className="text-red-400 font-medium">Fuera de rango ({m.geoDistanciaM}m)</span>
+                      ) : (
+                        "Sin GPS"
+                      )}
                     </p>
                     {m.lat != null && m.lng != null && (
                       <p>
-                        <span className="font-medium">Coordenadas:</span> {m.lat}, {m.lng}
+                        <span className="font-medium">Coordenadas:</span>{" "}
+                        <a
+                          href={`https://www.google.com/maps?q=${m.lat},${m.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          {m.lat}, {m.lng}
+                        </a>
+                      </p>
+                    )}
+                    {m.deviceDisplay && (
+                      <p>
+                        <span className="font-medium">Dispositivo:</span> {m.deviceDisplay}
                       </p>
                     )}
                     {m.ipAddress && (
@@ -1091,10 +1133,10 @@ export function OpsPautaDiariaClient({
                         <span className="font-medium">IP:</span> {m.ipAddress}
                       </p>
                     )}
-                    {m.userAgent && (
+                    {m.metodoId && (
                       <p>
-                        <span className="font-medium">Dispositivo:</span>{" "}
-                        <span className="break-all">{m.userAgent.slice(0, 80)}…</span>
+                        <span className="font-medium">Método:</span>{" "}
+                        {m.metodoId === "face_id" ? "Face ID" : m.metodoId === "pin_fallback" ? "PIN fallback" : m.metodoId === "rut_pin" ? "RUT + PIN" : m.metodoId === "manual" ? "Manual" : m.metodoId}
                       </p>
                     )}
                   </div>
