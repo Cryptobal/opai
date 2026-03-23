@@ -233,10 +233,17 @@ export function CpqQuoteCosts({
         setSummary(payload.summary || null);
         setSkipDefaultCosts(Boolean(payload.skipDefaultCosts));
         const globalDefaults = settingsData?.success ? settingsData.data : {};
-        setParameters({
+        const mergedParams = {
           ...DEFAULT_PARAMS,
           ...globalDefaults,
           ...(payload.parameters || {}),
+        };
+        // Misma semántica que compute-quote-costs.ts: null desde Prisma no debe anular el default.
+        setParameters({
+          ...mergedParams,
+          uniformChangesPerYear:
+            mergedParams.uniformChangesPerYear ?? DEFAULT_PARAMS.uniformChangesPerYear,
+          avgStayMonths: mergedParams.avgStayMonths ?? DEFAULT_PARAMS.avgStayMonths,
         });
         const catalogById = new Map<string, { priceLogic?: string }>(
           (catalogData?.data || []).map((c: { id: string; priceLogic?: string }) => [c.id, c])
@@ -790,7 +797,7 @@ export function CpqQuoteCosts({
       }
     }
 
-    const changes = parameters.uniformChangesPerYear || 0;
+    const changes = parameters.uniformChangesPerYear ?? DEFAULT_PARAMS.uniformChangesPerYear;
     const guards = summary?.totalGuards ?? 0;
     return guards > 0 ? (((rotatingCost * changes) / 12) + proratedCost) * guards : 0;
   }, [uniforms, parameters.uniformChangesPerYear, parameters.contractMonths, summary?.totalGuards]);
@@ -806,9 +813,9 @@ export function CpqQuoteCosts({
       const unitPrice = normalizeUnitPrice(override ?? base, item.catalogItem?.unit);
       return sum + unitPrice;
     }, 0);
-    const avgStay = parameters.avgStayMonths || 0;
+    const avgStay = parameters.avgStayMonths ?? DEFAULT_PARAMS.avgStayMonths;
     const entriesPerYear = avgStay > 0 ? 12 / avgStay : 0;
-    const uniformChanges = parameters.uniformChangesPerYear || 0;
+    const uniformChanges = parameters.uniformChangesPerYear ?? DEFAULT_PARAMS.uniformChangesPerYear;
     const examFrequency = Math.max(entriesPerYear, uniformChanges);
     const guards = summary?.totalGuards ?? 0;
     return guards > 0 ? ((total * examFrequency) / 12) * guards : 0;
