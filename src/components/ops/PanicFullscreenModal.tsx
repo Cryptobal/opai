@@ -21,17 +21,25 @@ export interface PanicAlertData {
 
 interface PanicFullscreenModalProps {
   alerts: PanicAlertData[];
-  onAcknowledge: (alertaId: string) => Promise<void>;
+  onResolve: (alertaId: string, resolutionNotes: string) => Promise<void>;
 }
 
-export function PanicFullscreenModal({ alerts, onAcknowledge }: PanicFullscreenModalProps) {
+export function PanicFullscreenModal({ alerts, onResolve }: PanicFullscreenModalProps) {
   const router = useRouter();
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
+  const [notesMap, setNotesMap] = useState<Record<string, string>>({});
+  const [errorsMap, setErrorsMap] = useState<Record<string, string>>({});
 
-  const handleAcknowledge = async (alertaId: string) => {
+  const handleResolve = async (alertaId: string) => {
+    const notes = (notesMap[alertaId] ?? "").trim();
+    if (notes.length < 10) {
+      setErrorsMap((prev) => ({ ...prev, [alertaId]: "Debes escribir qué pasó (mínimo 10 caracteres)" }));
+      return;
+    }
+    setErrorsMap((prev) => { const n = { ...prev }; delete n[alertaId]; return n; });
     setLoadingIds((prev) => new Set([...prev, alertaId]));
     try {
-      await onAcknowledge(alertaId);
+      await onResolve(alertaId, notes);
     } finally {
       setLoadingIds((prev) => {
         const next = new Set(prev);
@@ -109,11 +117,36 @@ export function PanicFullscreenModal({ alerts, onAcknowledge }: PanicFullscreenM
               </a>
             )}
 
+            {/* Resolution notes — required before closing */}
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold uppercase tracking-wide text-red-300">
+                ¿Qué pasó con esta alerta? (obligatorio)
+              </label>
+              <textarea
+                value={notesMap[alert.alertaId] ?? ""}
+                onChange={(e) => {
+                  setNotesMap((prev) => ({ ...prev, [alert.alertaId]: e.target.value }));
+                  if (e.target.value.trim().length >= 10) {
+                    setErrorsMap((prev) => { const n = { ...prev }; delete n[alert.alertaId]; return n; });
+                  }
+                }}
+                placeholder="Describe qué ocurrió y cómo se atendió (mín. 10 caracteres)..."
+                rows={3}
+                className="w-full rounded-lg border border-red-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+              />
+              {errorsMap[alert.alertaId] && (
+                <p className="text-xs font-medium text-red-400">{errorsMap[alert.alertaId]}</p>
+              )}
+              <p className="text-[11px] text-zinc-500">
+                {(notesMap[alert.alertaId] ?? "").trim().length}/10 caracteres mínimo
+              </p>
+            </div>
+
             {/* Actions */}
             <div className="flex flex-col gap-2">
               <div className="flex gap-3">
                 <button
-                  onClick={() => handleAcknowledge(alert.alertaId)}
+                  onClick={() => handleResolve(alert.alertaId)}
                   disabled={loadingIds.has(alert.alertaId)}
                   className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 py-3 text-sm font-bold text-white shadow-lg hover:bg-red-500 disabled:opacity-60"
                 >

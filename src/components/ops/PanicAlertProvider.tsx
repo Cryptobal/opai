@@ -189,16 +189,17 @@ export function PanicAlertProvider({ tenantId, children }: PanicAlertProviderPro
     };
   }, [stopAlarm]);
 
-  // Acknowledge handler — calls API, resolves locally, broadcasts to other tabs
-  const handleAcknowledge = useCallback(
-    async (alertaId: string) => {
-      try {
-        const res = await fetch(`/api/ops/rondas/alertas/${alertaId}/acknowledge`, {
-          method: "PUT",
-        });
-        if (!res.ok) throw new Error("Failed to acknowledge");
-      } catch {
-        // Still resolve locally even if API fails — user can retry from alerts panel
+  // Resolve handler — calls /resolve API with required notes, then resolves locally
+  const handleResolve = useCallback(
+    async (alertaId: string, resolutionNotes: string) => {
+      const res = await fetch(`/api/ops/rondas/alertas/${alertaId}/resolve`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resolutionNotes }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Error al resolver" }));
+        throw new Error(body.error || "Error al resolver");
       }
 
       resolveLocal(alertaId);
@@ -207,7 +208,6 @@ export function PanicAlertProvider({ tenantId, children }: PanicAlertProviderPro
       try {
         broadcastRef.current?.postMessage({ type: "panic-resolved", alertaId });
       } catch { /* ignore */ }
-      // localStorage fallback for Safari
       try {
         localStorage.setItem("opai-panic-resolved", alertaId);
       } catch { /* ignore */ }
@@ -221,7 +221,7 @@ export function PanicAlertProvider({ tenantId, children }: PanicAlertProviderPro
       {activePanics.length > 0 && (
         <PanicFullscreenModal
           alerts={activePanics}
-          onAcknowledge={handleAcknowledge}
+          onResolve={handleResolve}
         />
       )}
     </>

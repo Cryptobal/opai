@@ -16,11 +16,23 @@ export async function PUT(_request: NextRequest, { params }: { params: Promise<{
 
     const now = new Date();
 
-    // Fetch alert for response time calculation
+    // Fetch alert for response time calculation and type check
     const alerta = await prisma.opsAlertaRonda.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { createdAt: true },
+      select: { createdAt: true, tipo: true },
     });
+
+    if (!alerta) {
+      return NextResponse.json({ success: false, error: "Alerta no encontrada" }, { status: 404 });
+    }
+
+    // Panic alerts cannot be acknowledged — they MUST be resolved with notes via /resolve
+    if (alerta.tipo === "panico") {
+      return NextResponse.json(
+        { success: false, error: "Las alertas de pánico no se pueden cerrar sin escribir qué pasó. Usa resolver con notas." },
+        { status: 400 },
+      );
+    }
 
     const result = await prisma.opsAlertaRonda.updateMany({
       where: { id, tenantId: ctx.tenantId },
