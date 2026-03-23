@@ -55,6 +55,12 @@ export async function GET(request: NextRequest) {
           },
           orderBy: { timestamp: "asc" as const },
         },
+        _count: {
+          select: {
+            incidentes: true,
+            alertasRows: true,
+          },
+        },
       },
       orderBy: { scheduledAt: "asc" },
     });
@@ -128,6 +134,8 @@ export async function GET(request: NextRequest) {
         return {
           id: row.id,
           scheduledAt: row.scheduledAt.toISOString(),
+          startedAt: row.startedAt?.toISOString() ?? null,
+          completedAt: row.completedAt?.toISOString() ?? null,
           template: row.rondaTemplate?.name ?? (row.isAdHoc ? "Ronda Libre" : "Sin plantilla"),
           isAdHoc: Boolean(row.isAdHoc) && !row.programacionId && !row.rondaTemplateId,
           guardia: guardiaNombre,
@@ -140,6 +148,12 @@ export async function GET(request: NextRequest) {
           durationMinutes: row.durationMinutes ?? null,
           evidencia: { photos, audio },
           trustScore: row.trustScore,
+          incidentCount: row._count.incidentes,
+          alertCount: row._count.alertasRows,
+          walkRoute: row.walkRoute,
+          routeSnapshot: row.routeSnapshot,
+          notes: row.notes ?? null,
+          trustBreakdown: row.trustBreakdown,
         };
       });
 

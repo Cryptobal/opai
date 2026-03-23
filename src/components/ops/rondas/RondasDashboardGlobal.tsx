@@ -15,12 +15,18 @@ import {
   ChevronRight,
   ChevronLeft,
   FileSpreadsheet,
+  MapPin,
+  FileWarning,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RondaAuditMapModal } from "./RondaAuditMapModal";
+import type { ReporteRow } from "./RondasReportesTable";
 
 interface RondaCell {
   id: string;
   scheduledAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
   template: string;
   isAdHoc: boolean;
   guardia: string;
@@ -29,6 +35,12 @@ interface RondaCell {
   durationMinutes: number | null;
   evidencia: { photos: number; audio: number };
   trustScore: number;
+  incidentCount: number;
+  alertCount: number;
+  walkRoute: Array<{ lat: number; lng: number }> | null;
+  routeSnapshot: Array<{ id: string; name: string; lat: number; lng: number; orderIndex: number; status: string }> | null;
+  notes: string | null;
+  trustBreakdown: Record<string, unknown> | null;
 }
 
 interface InstalacionRow {
@@ -103,9 +115,12 @@ function RondaCellBlock({
   const iconColor = STATUS_ICON_COLOR[ronda.status] ?? "text-zinc-400";
   const bg = STATUS_BG[ronda.status] ?? STATUS_BG.pendiente;
 
+  const hasIssues = ronda.incidentCount > 0 || ronda.alertCount > 0;
+
   return (
     <button
       onClick={onClick}
+      title={`${ronda.template} — ${ronda.completion.completados}/${ronda.completion.total} checkpoints${hasIssues ? " — Con alertas/incidentes" : ""}`}
       className={cn(
         "relative flex flex-col items-center rounded-lg border px-3 py-2 min-w-[72px] transition-all cursor-pointer",
         bg,
@@ -116,6 +131,9 @@ function RondaCellBlock({
         <span className="absolute -top-1.5 -right-1.5 text-[8px] font-bold uppercase bg-purple-500/90 text-white px-1 py-px rounded leading-tight">
           Libre
         </span>
+      )}
+      {!ronda.isAdHoc && hasIssues && (
+        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-[#111827]" />
       )}
       <span className="text-[11px] font-semibold text-[#f1f5f9] tabular-nums">
         {formatHour(ronda.scheduledAt)}
@@ -130,10 +148,28 @@ function RondaCellBlock({
   );
 }
 
-function RondaDetail({ ronda }: { ronda: RondaCell }) {
+function RondaDetail({
+  ronda,
+  installationName,
+  onViewMap,
+}: {
+  ronda: RondaCell;
+  installationName: string;
+  onViewMap: (ronda: RondaCell) => void;
+}) {
+  const trustColor =
+    ronda.trustScore >= 85
+      ? "text-emerald-400"
+      : ronda.trustScore >= 70
+        ? "text-blue-400"
+        : ronda.trustScore >= 50
+          ? "text-amber-400"
+          : "text-red-400";
+
   return (
-    <div className="rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] p-3 mt-2 text-xs space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+    <div className="rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] p-3 mt-2 text-xs space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+      {/* Row 1: key info */}
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
         <div>
           <p className="text-[10px] uppercase text-[#64748b] font-semibold">Tipo</p>
           {ronda.isAdHoc ? (
@@ -151,6 +187,14 @@ function RondaDetail({ ronda }: { ronda: RondaCell }) {
           <p className="text-[#f1f5f9]">{ronda.guardia || "—"}</p>
         </div>
         <div>
+          <p className="text-[10px] uppercase text-[#64748b] font-semibold">Horario</p>
+          <p className="text-[#f1f5f9]">
+            {ronda.startedAt
+              ? `${formatHour(ronda.startedAt)}${ronda.completedAt ? ` → ${formatHour(ronda.completedAt)}` : " (en curso)"}`
+              : "Sin inicio"}
+          </p>
+        </div>
+        <div>
           <p className="text-[10px] uppercase text-[#64748b] font-semibold">Duración</p>
           <p className="text-[#f1f5f9]">
             {ronda.durationMinutes != null ? `${ronda.durationMinutes} min` : "—"}
@@ -158,23 +202,16 @@ function RondaDetail({ ronda }: { ronda: RondaCell }) {
         </div>
         <div>
           <p className="text-[10px] uppercase text-[#64748b] font-semibold">Trust Score</p>
-          <p
-            className={cn(
-              "font-bold",
-              ronda.trustScore >= 85
-                ? "text-emerald-400"
-                : ronda.trustScore >= 70
-                  ? "text-blue-400"
-                  : ronda.trustScore >= 50
-                    ? "text-amber-400"
-                    : "text-red-400",
-            )}
-          >
-            {ronda.trustScore}
-          </p>
+          {ronda.isAdHoc ? (
+            <span className="text-[11px] text-[#64748b]">N/A</span>
+          ) : (
+            <p className={cn("font-bold", trustColor)}>{ronda.trustScore}</p>
+          )}
         </div>
       </div>
-      <div className="flex items-center gap-3 text-[#94a3b8]">
+
+      {/* Row 2: completion + evidence + badges */}
+      <div className="flex flex-wrap items-center gap-3 text-[#94a3b8]">
         <span>
           Cumplimiento: {ronda.completion.completados}/{ronda.completion.total} (
           {ronda.completion.porcentaje}%)
@@ -191,14 +228,78 @@ function RondaDetail({ ronda }: { ronda: RondaCell }) {
             {ronda.evidencia.audio}
           </span>
         )}
+        {ronda.alertCount > 0 && (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-red-500/20 text-red-400 border border-red-500/30">
+            <AlertTriangle className="h-3 w-3" />
+            {ronda.alertCount} alerta{ronda.alertCount !== 1 ? "s" : ""}
+          </span>
+        )}
+        {ronda.incidentCount > 0 && (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            <FileWarning className="h-3 w-3" />
+            {ronda.incidentCount} incidente{ronda.incidentCount !== 1 ? "s" : ""}
+          </span>
+        )}
       </div>
+
+      {/* Row 3: notes */}
+      {ronda.notes && (
+        <div className="rounded-lg border border-yellow-800/40 bg-yellow-950/20 px-3 py-2">
+          <p className="text-[11px] font-medium text-yellow-500/80 mb-0.5">Comentario del guardia:</p>
+          <p className="text-[11px] text-zinc-300 italic">&ldquo;{ronda.notes}&rdquo;</p>
+        </div>
+      )}
+
+      {/* Row 4: actions */}
+      {ronda.status !== "no_realizada" && ronda.status !== "pendiente" && (
+        <div className="flex items-center gap-2 pt-1">
+          <button
+            onClick={() => onViewMap(ronda)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-teal-500/15 px-3 py-1.5 text-xs font-medium text-teal-400 hover:bg-teal-500/25 transition-colors"
+          >
+            <MapPin className="h-3.5 w-3.5" />
+            Ver recorrido en mapa
+          </button>
+        </div>
+      )}
     </div>
   );
+}
+
+
+/** Build a minimal ReporteRow-compatible object for the audit map modal */
+function rondaCellToMapRow(ronda: RondaCell, inst: InstalacionRow): ReporteRow {
+  return {
+    id: ronda.id,
+    scheduledAt: ronda.scheduledAt,
+    startedAt: ronda.startedAt,
+    completedAt: ronda.completedAt,
+    installation: inst.installationName,
+    installationId: inst.installationId,
+    template: ronda.template,
+    isAdHoc: ronda.isAdHoc,
+    guardiaId: null,
+    guardia: ronda.guardia,
+    guardiaCode: "",
+    rut: "",
+    status: ronda.status,
+    checkpointsTotal: ronda.completion.total,
+    checkpointsCompletados: ronda.completion.completados,
+    porcentajeCompletado: ronda.completion.porcentaje,
+    trustScore: ronda.trustScore,
+    trustBreakdown: ronda.trustBreakdown as any,
+    durationMinutes: ronda.durationMinutes,
+    notes: ronda.notes,
+    walkRoute: ronda.walkRoute,
+    routeSnapshot: ronda.routeSnapshot,
+    marcaciones: [],
+  };
 }
 
 function InstalacionGridRow({ inst }: { inst: InstalacionRow }) {
   const [expanded, setExpanded] = useState(false);
   const [selectedRonda, setSelectedRonda] = useState<string | null>(null);
+  const [mapRonda, setMapRonda] = useState<RondaCell | null>(null);
 
   const pct = inst.resumen.porcentajeCumplimiento;
   const barColor =
@@ -206,113 +307,163 @@ function InstalacionGridRow({ inst }: { inst: InstalacionRow }) {
 
   const selected = inst.rondas.find((r) => r.id === selectedRonda);
 
+  // Count total alerts/incidents across all rondas in this installation
+  const totalAlerts = inst.rondas.reduce((sum, r) => sum + r.alertCount, 0);
+  const totalIncidents = inst.rondas.reduce((sum, r) => sum + r.incidentCount, 0);
+
   return (
-    <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] overflow-hidden">
-      {/* Header row */}
-      <div className="flex items-center gap-3 px-4 py-3">
-        {/* Chevron toggle — separate clickable area */}
-        <button
-          onClick={() => {
-            setExpanded(!expanded);
-            if (expanded) setSelectedRonda(null);
-          }}
-          className="shrink-0 p-1 -m-1 rounded hover:bg-[#1a1f2e] transition-colors"
-        >
-          {expanded ? (
-            <ChevronDown className="h-4 w-4 text-[#64748b]" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-[#64748b]" />
-          )}
-        </button>
+    <>
+      <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] overflow-hidden">
+        {/* Header row */}
+        <div className="flex items-center gap-3 px-4 py-3">
+          {/* Chevron toggle — separate clickable area */}
+          <button
+            onClick={() => {
+              setExpanded(!expanded);
+              if (expanded) setSelectedRonda(null);
+            }}
+            className="shrink-0 p-1 -m-1 rounded hover:bg-[#1a1f2e] transition-colors"
+          >
+            {expanded ? (
+              <ChevronDown className="h-4 w-4 text-[#64748b]" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-[#64748b]" />
+            )}
+          </button>
 
-        {/* Installation name — also toggles expand */}
-        <button
-          onClick={() => {
-            setExpanded(!expanded);
-            if (expanded) setSelectedRonda(null);
-          }}
-          className="w-40 shrink-0 text-left hover:bg-[#1a1f2e]/50 rounded px-1 -mx-1 py-0.5 transition-colors"
-        >
-          <p className="text-sm font-semibold text-[#f1f5f9] truncate">{inst.installationName}</p>
-          <p className="text-[10px] text-[#64748b]">
-            {inst.resumen.total} rondas
-          </p>
-        </button>
+          {/* Installation name — also toggles expand */}
+          <button
+            onClick={() => {
+              setExpanded(!expanded);
+              if (expanded) setSelectedRonda(null);
+            }}
+            className="w-40 shrink-0 text-left hover:bg-[#1a1f2e]/50 rounded px-1 -mx-1 py-0.5 transition-colors"
+          >
+            <p className="text-sm font-semibold text-[#f1f5f9] truncate">{inst.installationName}</p>
+            <p className="text-[10px] text-[#64748b]">
+              {inst.resumen.total} rondas
+              {(totalAlerts > 0 || totalIncidents > 0) && (
+                <span className="text-red-400 ml-1">
+                  {totalAlerts > 0 && `${totalAlerts} alerta${totalAlerts !== 1 ? "s" : ""}`}
+                  {totalAlerts > 0 && totalIncidents > 0 && " · "}
+                  {totalIncidents > 0 && `${totalIncidents} incidente${totalIncidents !== 1 ? "s" : ""}`}
+                </span>
+              )}
+            </p>
+          </button>
 
-        {/* Timeline cells */}
-        <div className="flex-1 flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-thin">
-          {inst.rondas.map((ronda) => (
-            <RondaCellBlock
-              key={ronda.id}
-              ronda={ronda}
-              isSelected={selectedRonda === ronda.id}
-              onClick={() => {
-                if (selectedRonda === ronda.id) {
-                  setSelectedRonda(null);
-                } else {
-                  setSelectedRonda(ronda.id);
-                  setExpanded(true);
-                }
-              }}
-            />
-          ))}
+          {/* Timeline cells */}
+          <div className="flex-1 flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-thin">
+            {inst.rondas.map((ronda) => (
+              <RondaCellBlock
+                key={ronda.id}
+                ronda={ronda}
+                isSelected={selectedRonda === ronda.id}
+                onClick={() => {
+                  if (selectedRonda === ronda.id) {
+                    setSelectedRonda(null);
+                  } else {
+                    setSelectedRonda(ronda.id);
+                    setExpanded(true);
+                  }
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Summary */}
+          <div className="w-24 shrink-0 text-right">
+            <p className="text-sm font-bold text-[#f1f5f9] tabular-nums">
+              {inst.resumen.completadas}/{inst.resumen.total}
+            </p>
+            <div className="flex items-center gap-1.5 justify-end mt-1">
+              <div className="w-16 h-1.5 bg-[#1a1f2e] rounded-full overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full transition-all", barColor)}
+                  style={{ width: `${Math.max(pct, 2)}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-[#94a3b8] tabular-nums w-8 text-right">{pct}%</span>
+            </div>
+          </div>
         </div>
 
-        {/* Summary */}
-        <div className="w-24 shrink-0 text-right">
-          <p className="text-sm font-bold text-[#f1f5f9] tabular-nums">
-            {inst.resumen.completadas}/{inst.resumen.total}
-          </p>
-          <div className="flex items-center gap-1.5 justify-end mt-1">
-            <div className="w-16 h-1.5 bg-[#1a1f2e] rounded-full overflow-hidden">
-              <div
-                className={cn("h-full rounded-full transition-all", barColor)}
-                style={{ width: `${Math.max(pct, 2)}%` }}
-              />
+        {/* Expanded detail with animation */}
+        <div
+          className={cn(
+            "grid transition-all duration-200 ease-out",
+            expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+          )}
+        >
+          <div className="overflow-hidden">
+            <div className="px-4 pb-3 space-y-2 border-t border-[#1a1f2e]">
+              {selected ? (
+                <RondaDetail
+                  ronda={selected}
+                  installationName={inst.installationName}
+                  onViewMap={(r) => setMapRonda(r)}
+                />
+              ) : (
+                <div className="pt-2 space-y-1">
+                  {inst.rondas.map((ronda) => {
+                    const st = STATUS_ICON_COLOR[ronda.status] ?? "text-zinc-400";
+                    const Icon = STATUS_ICON[ronda.status] ?? Clock;
+                    const hasIssues = ronda.incidentCount > 0 || ronda.alertCount > 0;
+                    return (
+                      <button
+                        key={ronda.id}
+                        onClick={() => setSelectedRonda(ronda.id)}
+                        className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs hover:bg-[#1a1f2e]/60 transition-colors text-left"
+                      >
+                        <Icon className={cn("h-3.5 w-3.5 shrink-0", st)} />
+                        <span className="text-[#f1f5f9] font-medium tabular-nums w-12">
+                          {formatHour(ronda.scheduledAt)}
+                        </span>
+                        {ronda.isAdHoc ? (
+                          <span className="text-[9px] font-bold uppercase bg-purple-500/80 text-white px-1 py-px rounded shrink-0">Libre</span>
+                        ) : (
+                          <span className="text-[9px] font-bold uppercase bg-cyan-500/80 text-white px-1 py-px rounded shrink-0">Prog.</span>
+                        )}
+                        <span className="text-[#94a3b8] truncate flex-1">{ronda.template}</span>
+                        <span className="text-[#94a3b8] truncate max-w-[140px]">{ronda.guardia || "—"}</span>
+                        <span className="text-[#94a3b8] tabular-nums">
+                          {ronda.completion.completados}/{ronda.completion.total}
+                        </span>
+                        {hasIssues && (
+                          <span className="flex items-center gap-1">
+                            {ronda.alertCount > 0 && (
+                              <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[10px] bg-red-500/20 text-red-400">
+                                <AlertTriangle className="h-2.5 w-2.5" />
+                                {ronda.alertCount}
+                              </span>
+                            )}
+                            {ronda.incidentCount > 0 && (
+                              <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[10px] bg-amber-500/20 text-amber-400">
+                                <FileWarning className="h-2.5 w-2.5" />
+                                {ronda.incidentCount}
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <span className="text-[10px] text-[#94a3b8] tabular-nums w-8 text-right">{pct}%</span>
           </div>
         </div>
       </div>
 
-      {/* Expanded detail */}
-      {expanded && (
-        <div className="px-4 pb-3 space-y-2 border-t border-[#1a1f2e]">
-          {selected ? (
-            <RondaDetail ronda={selected} />
-          ) : (
-            <div className="pt-2 space-y-1">
-              {inst.rondas.map((ronda) => {
-                const st = STATUS_ICON_COLOR[ronda.status] ?? "text-zinc-400";
-                const Icon = STATUS_ICON[ronda.status] ?? Clock;
-                return (
-                  <button
-                    key={ronda.id}
-                    onClick={() => setSelectedRonda(ronda.id)}
-                    className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-xs hover:bg-[#1a1f2e]/60 transition-colors text-left"
-                  >
-                    <Icon className={cn("h-3.5 w-3.5 shrink-0", st)} />
-                    <span className="text-[#f1f5f9] font-medium tabular-nums w-12">
-                      {formatHour(ronda.scheduledAt)}
-                    </span>
-                    {ronda.isAdHoc ? (
-                      <span className="text-[9px] font-bold uppercase bg-purple-500/80 text-white px-1 py-px rounded shrink-0">Libre</span>
-                    ) : (
-                      <span className="text-[9px] font-bold uppercase bg-cyan-500/80 text-white px-1 py-px rounded shrink-0">Prog.</span>
-                    )}
-                    <span className="text-[#94a3b8] truncate flex-1">{ronda.template}</span>
-                    <span className="text-[#94a3b8] truncate max-w-[140px]">{ronda.guardia || "—"}</span>
-                    <span className="text-[#94a3b8] tabular-nums">
-                      {ronda.completion.completados}/{ronda.completion.total}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+      {/* Audit map modal */}
+      {mapRonda && (
+        <RondaAuditMapModal
+          key={mapRonda.id}
+          row={rondaCellToMapRow(mapRonda, inst)}
+          onClose={() => setMapRonda(null)}
+        />
       )}
-    </div>
+    </>
   );
 }
 
