@@ -835,56 +835,48 @@ export function OpsPautaDiariaClient({
                                 );
                                 const primeraEntrada = entradas[0];
                                 const ultimaSalida = salidas[salidas.length - 1];
+                                const hayFueraRango = item.marcaciones!.some((m) => m.gpsStatus === "fuera_rango");
                                 return (
                                   <>
                                     {primeraEntrada && (
                                       <span
-                                        className={`inline-flex items-center gap-0.5 text-xs ${primeraEntrada.gpsStatus === "fuera_rango" ? "text-yellow-500" : "text-emerald-500"}`}
-                                        title={`Entrada ${primeraEntrada.timestamp} · Hash: ${primeraEntrada.hashIntegridad.slice(0, 16)}… · GPS: ${primeraEntrada.gpsStatus === "dentro_rango" ? `✓ ${primeraEntrada.geoDistanciaM}m` : primeraEntrada.gpsStatus === "fuera_rango" ? `⚠ Fuera de rango (${primeraEntrada.geoDistanciaM}m)` : "sin GPS"}`}
+                                        className={`inline-flex items-center gap-0.5 text-xs ${primeraEntrada.gpsStatus === "fuera_rango" ? "text-red-400" : "text-emerald-500"}`}
+                                        title={`Entrada ${primeraEntrada.timestamp} · GPS: ${primeraEntrada.gpsStatus === "dentro_rango" ? `✓ ${primeraEntrada.geoDistanciaM}m` : primeraEntrada.gpsStatus === "fuera_rango" ? `⚠ Fuera de rango (${primeraEntrada.geoDistanciaM}m)` : "sin GPS"}`}
                                       >
                                         <Clock className="h-3.5 w-3.5" />
                                         {new Date(primeraEntrada.timestamp).toLocaleTimeString("es-CL", {
                                           hour: "2-digit",
                                           minute: "2-digit",
                                         })}
-                                        {primeraEntrada.gpsStatus === "fuera_rango" && (
-                                          <span className="ml-0.5 text-[9px] bg-yellow-500/20 text-yellow-400 px-1 rounded">GPS</span>
-                                        )}
                                       </span>
                                     )}
                                     {ultimaSalida && (
                                       <span
-                                        className={`inline-flex items-center gap-0.5 text-xs ${ultimaSalida.gpsStatus === "fuera_rango" ? "text-yellow-500" : "text-amber-500"}`}
-                                        title={`Salida ${ultimaSalida.timestamp} · Hash: ${ultimaSalida.hashIntegridad.slice(0, 16)}… · GPS: ${ultimaSalida.gpsStatus === "dentro_rango" ? `✓ ${ultimaSalida.geoDistanciaM}m` : ultimaSalida.gpsStatus === "fuera_rango" ? `⚠ Fuera de rango (${ultimaSalida.geoDistanciaM}m)` : "sin GPS"}`}
+                                        className={`inline-flex items-center gap-0.5 text-xs ${ultimaSalida.gpsStatus === "fuera_rango" ? "text-red-400" : "text-amber-500"}`}
+                                        title={`Salida ${ultimaSalida.timestamp} · GPS: ${ultimaSalida.gpsStatus === "dentro_rango" ? `✓ ${ultimaSalida.geoDistanciaM}m` : ultimaSalida.gpsStatus === "fuera_rango" ? `⚠ Fuera de rango (${ultimaSalida.geoDistanciaM}m)` : "sin GPS"}`}
                                       >
                                         <MapPin className="h-3.5 w-3.5" />
                                         {new Date(ultimaSalida.timestamp).toLocaleTimeString("es-CL", {
                                           hour: "2-digit",
                                           minute: "2-digit",
                                         })}
-                                        {ultimaSalida.gpsStatus === "fuera_rango" && (
-                                          <span className="ml-0.5 text-[9px] bg-yellow-500/20 text-yellow-400 px-1 rounded">GPS</span>
-                                        )}
                                       </span>
+                                    )}
+                                    {hayFueraRango && (
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-semibold hover:bg-red-500/30 transition-colors cursor-pointer animate-pulse"
+                                        title="Una o más marcaciones fueron registradas fuera del rango GPS permitido. Click para ver detalle."
+                                        onClick={() => setMarcacionDetalleOpen(item.marcaciones ?? [])}
+                                      >
+                                        <MapPin className="h-3 w-3" />
+                                        ⚠ Fuera de rango
+                                      </button>
                                     )}
                                   </>
                                 );
                               })()}
                               {(() => {
-                                const hayFueraRango = item.marcaciones!.some((m) => m.gpsStatus === "fuera_rango");
-                                if (hayFueraRango) {
-                                  return (
-                                    <button
-                                      type="button"
-                                      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-medium hover:bg-red-500/30 transition-colors cursor-pointer"
-                                      title="Una o más marcaciones fueron registradas fuera del rango permitido. Click para ver detalle."
-                                      onClick={() => setMarcacionDetalleOpen(item.marcaciones ?? [])}
-                                    >
-                                      <MapPin className="h-3 w-3" />
-                                      Fuera de rango
-                                    </button>
-                                  );
-                                }
                                 const entradaMarca = item.marcaciones?.find((m) => m.tipo === "entrada");
                                 const metodo = entradaMarca?.metodoId;
                                 if (metodo === "face_id") {
