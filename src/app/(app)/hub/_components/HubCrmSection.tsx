@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import { Flame, LayoutGrid, UserPlus } from 'lucide-react';
+import { useState } from 'react';
+import { Flame } from 'lucide-react';
+import { useEffect, useCallback } from 'react';
 import { ChipTabs } from '@/components/ui/chip-tabs';
 import { HubCollapsibleSection } from './HubCollapsibleSection';
 import { HubClosingKpis } from './HubClosingKpis';
@@ -26,7 +26,7 @@ function getStoredLastSeen(): number {
   }
 }
 
-export function HubCrmSection({ perms, closingData, sellerFirstName }: HubClosingSectionProps) {
+export function HubCrmSection({ closingData, sellerFirstName }: HubClosingSectionProps) {
   const [activeTab, setActiveTab] = useState('hot');
   const [leadsLastSeenCount, setLeadsLastSeenCount] = useState(0);
   const { kpis, hotDeals, staleDeals, pendingLeads, funnel, portalTopUsers } = closingData;
@@ -71,44 +71,10 @@ export function HubCrmSection({ perms, closingData, sellerFirstName }: HubClosin
           <span className="text-[11px] font-bold tabular-nums text-teal-400">
             {negotiationFormatted} negociando
           </span>
-          <Link
-            href="/crm/deals"
-            className="hidden md:inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <LayoutGrid className="h-3 w-3" /> Kanban
-          </Link>
-          {perms.canOpenLeads && (
-            <Link
-              href="/crm/leads/new"
-              className="hidden md:inline-flex items-center gap-1 rounded-md bg-teal-600 hover:bg-teal-500 px-2 py-0.5 text-[11px] font-medium text-white transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <UserPlus className="h-3 w-3" /> + Lead
-            </Link>
-          )}
         </div>
       }
       defaultOpen
     >
-      {/* Mobile header actions */}
-      <div className="flex items-center gap-2 md:hidden mb-2">
-        <Link
-          href="/crm/deals"
-          className="text-[11px] font-medium text-primary hover:underline inline-flex items-center gap-1"
-        >
-          <LayoutGrid className="h-3 w-3" /> Kanban
-        </Link>
-        {perms.canOpenLeads && (
-          <Link
-            href="/crm/leads/new"
-            className="text-[11px] font-medium text-primary hover:underline inline-flex items-center gap-1"
-          >
-            <UserPlus className="h-3 w-3" /> + Lead
-          </Link>
-        )}
-      </div>
-
       {/* KPIs — always visible */}
       <HubClosingKpis kpis={kpis} />
 

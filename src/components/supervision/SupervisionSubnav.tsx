@@ -17,7 +17,7 @@ export function SupervisionSubnav() {
   return (
     <div className="flex items-center justify-between gap-2">
       <SubNav items={ITEMS} className="mb-0" />
-      <Button asChild size="sm" className="shrink-0 gap-1.5">
+      <Button asChild size="sm" className="hidden lg:inline-flex shrink-0 gap-1.5">
         <Link href="/ops/supervision/nueva-visita">
           <Plus className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Nueva visita</span>

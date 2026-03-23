@@ -2,8 +2,8 @@
 
 import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { MessageCircle, Search, TrendingUp, Building2, Contact, Users, Ticket, Receipt, Shield, FileText, Activity, Plus } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { MessageCircle, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CommandPalette, CommandPaletteProvider, useCommandPalette } from './CommandPalette';
 import { ThemeLogo } from './ThemeLogo';
@@ -15,24 +15,6 @@ import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { BottomNav } from './BottomNav';
 import { useChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { ChatSidePanel } from '@/components/chat/ChatSidePanel';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-
-const MOBILE_CREATE_ITEMS: { label: string; type: QuickCreateType; icon: typeof TrendingUp; navigateHref?: string }[] = [
-  { label: "Nuevo Lead", type: "lead", icon: TrendingUp },
-  { label: "Nueva Cuenta", type: "account", icon: Building2 },
-  { label: "Nuevo Contacto", type: "contact", icon: Contact },
-  { label: "Nuevo Negocio", type: "deal", icon: Users },
-  { label: "Nuevo Ticket", type: "ticket", icon: Ticket },
-  { label: "Nueva Rendición", type: null, icon: Receipt, navigateHref: "/finanzas/rendiciones/nueva" },
-  { label: "Nueva Persona", type: null, icon: Shield, navigateHref: "/personas/guardias" },
-  { label: "Nuevo Documento", type: null, icon: FileText, navigateHref: "/opai/documentos/nuevo" },
-  { label: "Nueva Visita", type: null, icon: Activity, navigateHref: "/ops/supervision/nueva-visita" },
-];
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -70,7 +52,6 @@ function AppShellInner({
   userRole,
   className,
 }: AppShellProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const chatCtx = useChatSidePanelContext();
   const { open: openCommandPalette } = useCommandPalette();
@@ -85,8 +66,6 @@ function AppShellInner({
   useEffect(() => {
     try { localStorage.setItem('opai-sidebar-open', String(isSidebarOpen)); } catch {}
   }, [isSidebarOpen]);
-  const [mobileCreateType, setMobileCreateType] = useState<QuickCreateType>(null);
-
   return (
     <>
       <div className="relative min-h-screen overflow-x-hidden">
@@ -106,40 +85,8 @@ function AppShellInner({
               <span className="text-sm font-semibold tracking-tight">OPAI</span>
             </Link>
 
-            {/* Right: Create, Search, Chat, Notifications */}
+            {/* Right: Search, Chat, Notifications */}
             <div className="flex items-center gap-0.5">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-                    aria-label="Crear nuevo"
-                  >
-                    <Plus className="h-5 w-5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  {MOBILE_CREATE_ITEMS.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <DropdownMenuItem
-                        key={item.label}
-                        onClick={() => {
-                          if (item.navigateHref) {
-                            router.push(item.navigateHref);
-                          } else if (item.type) {
-                            setMobileCreateType(item.type);
-                          }
-                        }}
-                        className="cursor-pointer"
-                      >
-                        <Icon className="h-4 w-4 mr-2" />
-                        {item.label}
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
               <button
                 type="button"
                 className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
@@ -230,11 +177,6 @@ function AppShellInner({
 
         {/* ── Asistente IA ── */}
         <AiHelpChatWidget />
-
-        {/* ── Mobile Quick Create Modal ── */}
-        {mobileCreateType && (
-          <QuickCreateModal type={mobileCreateType} onClose={() => setMobileCreateType(null)} />
-        )}
       </div>
 
       {/* ── Chat Side Panel (outside overflow-x-hidden to avoid fixed clipping) ── */}
