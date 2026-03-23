@@ -1,15 +1,16 @@
 "use client";
 
-import { LayoutList, LayoutGrid, Columns3 } from "lucide-react";
+import { LayoutList, LayoutGrid, Columns3, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export type ViewMode = "list" | "cards" | "kanban";
+export type ViewMode = "list" | "cards" | "kanban" | "spreadsheet";
 
 const VIEW_CONFIG: Record<ViewMode, { icon: typeof LayoutList; title: string }> = {
   list: { icon: LayoutList, title: "Vista lista" },
   cards: { icon: LayoutGrid, title: "Vista tarjetas" },
   kanban: { icon: Columns3, title: "Vista kanban" },
+  spreadsheet: { icon: Table2, title: "Vista grilla" },
 };
 
 interface ViewToggleProps {

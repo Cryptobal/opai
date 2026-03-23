@@ -101,6 +101,8 @@ export async function GET(request: NextRequest) {
       { header: "Dirección", key: "direccion", width: 36 },
       { header: "Comuna", key: "comuna", width: 16 },
       { header: "Ciudad", key: "ciudad", width: 16 },
+      { header: "OS-10", key: "os10", width: 10 },
+      { header: "Vencimiento OS-10", key: "os10Expira", width: 18 },
     ];
 
     ws.getRow(1).eachCell((cell) => {
@@ -145,6 +147,8 @@ export async function GET(request: NextRequest) {
         direccion: guardia.persona.addressFormatted ?? "",
         comuna: guardia.persona.commune ?? "",
         ciudad: guardia.persona.city ?? "",
+        os10: guardia.os10 ? "Sí" : "No",
+        os10Expira: formatDate(guardia.os10ExpiresAt),
       };
 
       if (guardia.asignaciones.length > 0) {

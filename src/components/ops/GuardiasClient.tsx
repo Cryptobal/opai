@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { Avatar, EmptyState } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, Loader2, RefreshCw } from "lucide-react";
+import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import {
@@ -155,6 +155,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   const [contractDate, setContractDate] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [bulkPinLoading, setBulkPinLoading] = useState(false);
+  const [gridData, setGridData] = useState<Record<string, Record<string, string>[]> | null>(null);
+  const [gridLoading, setGridLoading] = useState(false);
+  const [gridCollapsed, setGridCollapsed] = useState<Record<string, boolean>>({});
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -206,6 +209,78 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
       toast.error("No se pudo descargar el Excel");
     }
   };
+
+  const handleLoadGrid = async () => {
+    setGridLoading(true);
+    try {
+      const mode = lifecycleFilter === "inactivo" ? "historico" : "activos";
+      const res = await fetch(`/api/personas/guardias/grid-data?mode=${mode}`);
+      const payload = await res.json();
+      if (!res.ok || !payload.success) {
+        toast.error(payload.error || "No se pudo cargar la grilla");
+        return;
+      }
+      setGridData(payload.data);
+      // Start with all collapsed
+      const collapsed: Record<string, boolean> = {};
+      for (const inst of Object.keys(payload.data)) {
+        collapsed[inst] = true;
+      }
+      setGridCollapsed(collapsed);
+    } catch {
+      toast.error("Error de conexión al cargar grilla");
+    } finally {
+      setGridLoading(false);
+    }
+  };
+
+  const handleViewChange = (newView: ViewMode) => {
+    setViewMode(newView);
+    if (newView === "spreadsheet" && !gridData) {
+      void handleLoadGrid();
+    }
+  };
+
+  const toggleInstallation = (inst: string) => {
+    setGridCollapsed((prev) => ({ ...prev, [inst]: !prev[inst] }));
+  };
+
+  const GRID_COLUMNS = [
+    { key: "puesto", label: "Puesto", width: "140px" },
+    { key: "jornada", label: "Jornada", width: "100px" },
+    { key: "codigo", label: "Código", width: "90px" },
+    { key: "estadoLaboral", label: "Estado", width: "100px" },
+    { key: "nombre", label: "Nombre", width: "130px" },
+    { key: "apellido", label: "Apellido", width: "150px" },
+    { key: "rut", label: "RUT", width: "110px" },
+    { key: "nacionalidad", label: "Nacionalidad", width: "110px" },
+    { key: "sexo", label: "Sexo", width: "60px" },
+    { key: "fechaNac", label: "F. Nac.", width: "95px" },
+    { key: "edad", label: "Edad", width: "50px" },
+    { key: "os10", label: "OS-10", width: "60px" },
+    { key: "os10Expira", label: "Venc. OS-10", width: "110px" },
+    { key: "afp", label: "AFP", width: "90px" },
+    { key: "salud", label: "Salud", width: "130px" },
+    { key: "movilizacion", label: "Mov.", width: "55px" },
+    { key: "turnosExtra", label: "T. Extra", width: "65px" },
+    { key: "contrato", label: "Contrato", width: "70px" },
+    { key: "fechaIngreso", label: "F. Ingreso", width: "95px" },
+    { key: "fechaTermino", label: "F. Término", width: "95px" },
+    { key: "calzado", label: "Calzado", width: "65px" },
+    { key: "pantalon", label: "Pantalón", width: "70px" },
+    { key: "polera", label: "Polera", width: "60px" },
+    { key: "camisa", label: "Camisa", width: "65px" },
+    { key: "geologo", label: "Geólogo", width: "65px" },
+    { key: "polar", label: "Polar", width: "60px" },
+    { key: "chaqueta", label: "Chaqueta", width: "70px" },
+    { key: "estatura", label: "Est. (cm)", width: "70px" },
+    { key: "peso", label: "Peso (kg)", width: "70px" },
+    { key: "celular", label: "Celular", width: "120px" },
+    { key: "email", label: "Email", width: "200px" },
+    { key: "direccion", label: "Dirección", width: "250px" },
+    { key: "comuna", label: "Comuna", width: "120px" },
+    { key: "ciudad", label: "Ciudad", width: "120px" },
+  ];
 
   const ACCOUNT_TYPE_LABELS: Record<string, string> = {
     cuenta_corriente: "Cuenta corriente",
@@ -806,9 +881,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             ]}
             activeFilter={lifecycleFilter}
             onFilterChange={setLifecycleFilter}
-            viewModes={["list", "cards"]}
+            viewModes={["list", "cards", "spreadsheet"]}
             activeView={viewMode}
-            onViewChange={setViewMode}
+            onViewChange={handleViewChange}
             actionSlot={
               <span className="text-[11px] text-muted-foreground whitespace-nowrap">
                 {filtered.length} persona{filtered.length === 1 ? "" : "s"}
@@ -927,7 +1002,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                 );
               })}
             </div>
-          ) : (
+          ) : viewMode === "list" ? (
             /* ── Vista lista: grid con columnas fijas ── */
             <div className="space-y-1.5 min-w-0">
               {/* Desktop column headers */}
@@ -1099,7 +1174,127 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                 );
               })}
             </div>
-          )}
+          ) : viewMode === "spreadsheet" ? (
+            /* ── Vista grilla: tabla tipo Excel agrupada por instalación ── */
+            <div className="space-y-2 min-w-0">
+              {gridLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">Cargando grilla…</span>
+                </div>
+              ) : !gridData ? (
+                <EmptyState
+                  icon={<ShieldUser className="h-8 w-8" />}
+                  title="Sin datos"
+                  description="No se pudieron cargar los datos de la grilla."
+                  compact
+                />
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-[11px]"
+                      onClick={() => {
+                        const allExpanded = Object.values(gridCollapsed).every((v) => !v);
+                        const next: Record<string, boolean> = {};
+                        for (const inst of Object.keys(gridData)) {
+                          next[inst] = allExpanded;
+                        }
+                        setGridCollapsed(next);
+                      }}
+                    >
+                      {Object.values(gridCollapsed).every((v) => !v) ? "Colapsar todo" : "Expandir todo"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-[11px]"
+                      onClick={() => void handleLoadGrid()}
+                      disabled={gridLoading}
+                    >
+                      <RefreshCw className={`h-3 w-3 mr-1 ${gridLoading ? "animate-spin" : ""}`} />
+                      Recargar
+                    </Button>
+                    <span className="text-[11px] text-muted-foreground">
+                      {Object.values(gridData).reduce((sum, rows) => sum + rows.length, 0)} registros en {Object.keys(gridData).length} instalaciones
+                    </span>
+                  </div>
+                  {Object.entries(gridData).map(([instName, rows]) => (
+                    <div key={instName} className="border border-border rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        className="w-full flex items-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted/80 transition-colors text-left"
+                        onClick={() => toggleInstallation(instName)}
+                      >
+                        {gridCollapsed[instName] ? (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                        <Building2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />
+                        <span className="text-sm font-semibold">{instName}</span>
+                        <span className="text-[11px] text-muted-foreground ml-auto">{rows.length} guardia{rows.length !== 1 ? "s" : ""}</span>
+                      </button>
+                      {!gridCollapsed[instName] && (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-[11px] border-collapse">
+                            <thead>
+                              <tr className="bg-[#0F2847] text-white sticky top-0 z-10">
+                                {GRID_COLUMNS.map((col) => (
+                                  <th
+                                    key={col.key}
+                                    className="px-2 py-1.5 text-left font-semibold whitespace-nowrap border-r border-[#1a3a5c] last:border-r-0"
+                                    style={{ minWidth: col.width }}
+                                  >
+                                    {col.label}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((row, idx) => (
+                                <tr
+                                  key={row.id + "-" + idx}
+                                  className="border-t border-border hover:bg-muted/30 transition-colors cursor-pointer"
+                                  onClick={() => row.id && router.push(`/personas/guardias/${row.id}`)}
+                                >
+                                  {GRID_COLUMNS.map((col) => (
+                                    <td
+                                      key={col.key}
+                                      className="px-2 py-1 whitespace-nowrap border-r border-border/50 last:border-r-0 font-mono"
+                                      title={row[col.key] || ""}
+                                    >
+                                      {col.key === "os10" ? (
+                                        <span className={row[col.key] === "Sí" ? "text-emerald-400" : "text-muted-foreground"}>
+                                          {row[col.key] || "—"}
+                                        </span>
+                                      ) : col.key === "os10Expira" && row[col.key] ? (
+                                        <span className="tabular-nums">{row[col.key]}</span>
+                                      ) : col.key === "estadoLaboral" ? (
+                                        <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${LIFECYCLE_COLORS[row[col.key]] || "bg-muted text-muted-foreground"}`}>
+                                          {LIFECYCLE_LABELS[row[col.key]] || row[col.key]}
+                                        </span>
+                                      ) : (
+                                        <span className="truncate max-w-full block">{row[col.key] || "—"}</span>
+                                      )}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </div>
