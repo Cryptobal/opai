@@ -164,8 +164,12 @@ export function InventarioLineasClient() {
       const json = await res.json();
       const list = json?.data ?? json;
       if (Array.isArray(list)) {
-        const activeOnly = list.filter((i: any) => i.isActive === true);
-        setInstallations(activeOnly.map((i: { id: string; name: string }) => ({ id: i.id, name: i.name })));
+        // API devuelve `status` (p. ej. "active"); `isActive` del modelo no siempre viene en el payload.
+        const assignable = list.filter(
+          (i: { status?: string; isActive?: boolean }) =>
+            i.status === "active" || i.isActive === true
+        );
+        setInstallations(assignable.map((i: { id: string; name: string }) => ({ id: i.id, name: i.name })));
       }
     } catch {
       // silent

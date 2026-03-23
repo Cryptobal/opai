@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
         lat: true,
         lng: true,
         status: true,
+        isActive: true,
         createdAt: true,
         updatedAt: true,
         geoRadiusM: true,
