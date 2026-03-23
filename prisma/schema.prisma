@@ -56,6 +56,7 @@ model Tenant {
   dtInspectorSessions         DtInspectorSession[]
   systemIncidents             SystemIncident[]
   configJornadas              ConfigJornada[]
+  opsAlertaLogs               OpsAlertaLog[]
 
   @@index([slug])
   @@index([active])
@@ -3973,7 +3974,29 @@ model OpsAlertaRonda {
   @@index([guardiaId], map: "idx_ops_alerta_ronda_guardia")
   @@index([turnoId], map: "idx_ops_alerta_ronda_turno")
   @@index([archivedAt], map: "idx_ops_alerta_ronda_archived")
+  logs OpsAlertaLog[]
+
   @@map("alertas_ronda")
+  @@schema("ops")
+}
+
+model OpsAlertaLog {
+  id        String   @id @default(cuid())
+  alertaId  String   @map("alerta_id") @db.Uuid
+  tenantId  String   @map("tenant_id")
+  action    String   // "created" | "acknowledged" | "resolved" | "reopened"
+  userId    String?  @map("user_id")
+  userName  String?  @map("user_name")
+  notes     String?  @db.Text
+  metadata  Json?    @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  alerta OpsAlertaRonda @relation(fields: [alertaId], references: [id], onDelete: Cascade)
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([alertaId])
+  @@index([tenantId, createdAt])
+  @@map("ops_alerta_log")
   @@schema("ops")
 }
 

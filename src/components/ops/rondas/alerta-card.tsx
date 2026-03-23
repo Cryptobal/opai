@@ -173,14 +173,29 @@ export function AlertaCard({ alerta, onResolve, selected, onToggleSelect }: Prop
       {resolveOpen && onResolve && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={() => setResolveOpen(false)}>
           <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-4 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <p className="text-xs font-semibold text-[#94a3b8] mb-2">Comentario (opcional)</p>
+            {alerta.tipo === "panico" ? (
+              <p className="text-xs font-semibold text-red-400 mb-2">Comentario obligatorio para alertas de pánico</p>
+            ) : (
+              <p className="text-xs font-semibold text-[#94a3b8] mb-2">Comentario (opcional)</p>
+            )}
             <textarea
               value={resolveNotes}
               onChange={(e) => setResolveNotes(e.target.value)}
-              placeholder="Ej: Revisado, falsa alarma..."
-              className="w-full min-h-[80px] rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 py-2 placeholder:text-[#64748b] resize-y mb-3"
+              placeholder={alerta.tipo === "panico"
+                ? "Describa las acciones tomadas y el resultado (mínimo 10 caracteres)..."
+                : "Ej: Revisado, falsa alarma..."}
+              className="w-full min-h-[80px] rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 py-2 placeholder:text-[#64748b] resize-y mb-1"
               maxLength={1000}
             />
+            {alerta.tipo === "panico" && (
+              <p className={cn(
+                "text-[10px] mb-2",
+                resolveNotes.trim().length >= 10 ? "text-emerald-400" : "text-[#64748b]"
+              )}>
+                {resolveNotes.trim().length}/10 caracteres mínimo
+              </p>
+            )}
+            {alerta.tipo !== "panico" && <div className="mb-2" />}
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
@@ -191,12 +206,13 @@ export function AlertaCard({ alerta, onResolve, selected, onToggleSelect }: Prop
               </button>
               <button
                 type="button"
+                disabled={alerta.tipo === "panico" && resolveNotes.trim().length < 10}
                 onClick={() => {
                   onResolve(alerta.id, resolveNotes.trim() || undefined);
                   setResolveOpen(false);
                   setResolveNotes("");
                 }}
-                className="text-[11px] px-3 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                className="text-[11px] px-3 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Marcar resuelta
               </button>

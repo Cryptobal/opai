@@ -13,25 +13,59 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
 
-    let resolutionNotes: string | null = null;
-    try {
-      const body = await request.json().catch(() => ({}));
-      if (typeof body?.resolutionNotes === "string" && body.resolutionNotes.trim()) {
-        resolutionNotes = body.resolutionNotes.trim().slice(0, 1000);
-      }
-    } catch {
-      // ignore
+    const body = await request.json().catch(() => ({}));
+    const resolutionNotes = typeof body?.resolutionNotes === "string"
+      ? body.resolutionNotes.trim().slice(0, 1000)
+      : null;
+
+    // Fetch alert to check type and calculate response time
+    const alerta = await prisma.opsAlertaRonda.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      select: { tipo: true, createdAt: true },
+    });
+
+    if (!alerta) {
+      return NextResponse.json({ success: false, error: "Alerta no encontrada" }, { status: 404 });
     }
 
-    const result = await prisma.opsAlertaRonda.updateMany({
-      where: { id, tenantId: ctx.tenantId },
-      data: {
-        resuelta: true,
-        resueltaPor: ctx.userId,
-        resueltaAt: new Date(),
-        resolutionNotes: resolutionNotes ?? undefined,
-      },
-    });
+    // For panic alerts, resolutionNotes is REQUIRED (min 10 chars)
+    if (alerta.tipo === "panico" && (!resolutionNotes || resolutionNotes.length < 10)) {
+      return NextResponse.json(
+        { success: false, error: "Las alertas de pánico requieren un comentario de resolución de al menos 10 caracteres" },
+        { status: 400 },
+      );
+    }
+
+    const now = new Date();
+
+    // Resolve + create audit log in a transaction
+    const [result] = await prisma.$transaction([
+      prisma.opsAlertaRonda.updateMany({
+        where: { id, tenantId: ctx.tenantId },
+        data: {
+          resuelta: true,
+          resueltaPor: ctx.userId,
+          resueltaAt: now,
+          resolutionNotes: resolutionNotes ?? undefined,
+        },
+      }),
+      prisma.opsAlertaLog.create({
+        data: {
+          alertaId: id,
+          tenantId: ctx.tenantId,
+          action: "resolved",
+          userId: ctx.userId,
+          userName: ctx.userEmail,
+          notes: resolutionNotes,
+          metadata: {
+            tiempoRespuesta: alerta.createdAt
+              ? Math.round((now.getTime() - new Date(alerta.createdAt).getTime()) / 1000)
+              : null,
+          },
+        },
+      }),
+    ]);
+
     if (!result.count) {
       return NextResponse.json({ success: false, error: "Alerta no encontrada" }, { status: 404 });
     }

@@ -14,13 +14,37 @@ export async function PUT(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
 
+    const now = new Date();
+
+    // Fetch alert for response time calculation
+    const alerta = await prisma.opsAlertaRonda.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      select: { createdAt: true },
+    });
+
     const result = await prisma.opsAlertaRonda.updateMany({
       where: { id, tenantId: ctx.tenantId },
-      data: { isAcknowledged: true, acknowledgedBy: ctx.userId, acknowledgedAt: new Date() },
+      data: { isAcknowledged: true, acknowledgedBy: ctx.userId, acknowledgedAt: now },
     });
     if (!result.count) {
       return NextResponse.json({ success: false, error: "Alerta no encontrada" }, { status: 404 });
     }
+
+    // Create audit log
+    await prisma.opsAlertaLog.create({
+      data: {
+        alertaId: id,
+        tenantId: ctx.tenantId,
+        action: "acknowledged",
+        userId: ctx.userId,
+        userName: ctx.userEmail,
+        metadata: {
+          tiempoRespuesta: alerta?.createdAt
+            ? Math.round((now.getTime() - new Date(alerta.createdAt).getTime()) / 1000)
+            : null,
+        },
+      },
+    });
 
     const updated = await prisma.opsAlertaRonda.findFirst({ where: { id, tenantId: ctx.tenantId } });
 

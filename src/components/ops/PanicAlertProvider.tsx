@@ -35,13 +35,22 @@ export function PanicAlertProvider({ tenantId, children }: PanicAlertProviderPro
   const broadcastRef = useRef<BroadcastChannel | null>(null);
   const isAudioLeaderRef = useRef(false);
 
-  // Stop alarm sound
+  // Stop alarm sound and dismiss SW notifications
   const stopAlarm = useCallback(() => {
     if (alarmIntervalRef.current) {
       clearInterval(alarmIntervalRef.current);
       alarmIntervalRef.current = null;
     }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
     isAudioLeaderRef.current = false;
+
+    // Tell Service Worker to close panic notifications
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: "DISMISS_PANIC" });
+    }
   }, []);
 
   // Start alarm sound
@@ -155,6 +164,12 @@ export function PanicAlertProvider({ tenantId, children }: PanicAlertProviderPro
       }
     });
 
+    // Listen for acknowledge — stop alarm on ALL devices immediately
+    channel.bind("panico-atendido", (data: { alertaId?: string }) => {
+      if (data.alertaId) resolveLocal(data.alertaId);
+    });
+
+    // Listen for resolve — final cleanup for any remaining state
     channel.bind("panic-resolved", (data: { alertId?: string; alertaId?: string }) => {
       const id = data.alertId || data.alertaId;
       if (id) resolveLocal(id);
@@ -171,10 +186,6 @@ export function PanicAlertProvider({ tenantId, children }: PanicAlertProviderPro
   useEffect(() => {
     return () => {
       stopAlarm();
-      if (audioCtxRef.current) {
-        audioCtxRef.current.close().catch(() => {});
-        audioCtxRef.current = null;
-      }
     };
   }, [stopAlarm]);
 

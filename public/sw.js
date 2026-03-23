@@ -283,4 +283,22 @@ self.addEventListener('message', (event) => {
       });
     }
   }
+
+  // Dismiss all panic push notifications (cross-device alarm stop)
+  if (event.data?.type === 'DISMISS_PANIC') {
+    self.registration.getNotifications().then((notifications) => {
+      notifications.forEach((notification) => {
+        const title = notification.title || '';
+        if (
+          notification.tag?.includes('panic') ||
+          title.includes('P\u00c1NICO') ||
+          title.includes('PANICO') ||
+          title.includes('\uD83C\uDE9A') ||
+          title.includes('\uD83C\uDD98')
+        ) {
+          notification.close();
+        }
+      });
+    });
+  }
 });
