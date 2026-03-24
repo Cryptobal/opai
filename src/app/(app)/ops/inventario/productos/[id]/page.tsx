@@ -60,6 +60,11 @@ export default async function InventarioProductoPage({
         productName={product.name}
         category={product.category}
         sizes={product.sizes}
+        variants={product.variants.map((v) => ({
+          id: v.id,
+          sizeId: v.sizeId,
+          minStock: v.minStock,
+        }))}
       />
     </div>
   );

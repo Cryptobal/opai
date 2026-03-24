@@ -113,7 +113,7 @@ export async function GET() {
     const totalStockItems = allStock.reduce((sum, s) => sum + s.quantity, 0);
     const outOfStock = allStock.filter((s) => s.quantity === 0);
     const belowMinimum = allStock.filter(
-      (s) => s.minStock > 0 && s.quantity > 0 && s.quantity <= s.minStock
+      (s) => s.variant.minStock > 0 && s.quantity > 0 && s.quantity <= s.variant.minStock
     );
 
     const stockAlerts = [
@@ -122,14 +122,14 @@ export async function GET() {
         label: `${s.variant.product.name}${s.variant.size ? ` ${s.variant.size.sizeCode}` : ""}`,
         warehouse: s.warehouse.name,
         quantity: 0,
-        minStock: s.minStock,
+        minStock: s.variant.minStock,
       })),
       ...belowMinimum.map((s) => ({
         type: "low" as const,
         label: `${s.variant.product.name}${s.variant.size ? ` ${s.variant.size.sizeCode}` : ""}`,
         warehouse: s.warehouse.name,
         quantity: s.quantity,
-        minStock: s.minStock,
+        minStock: s.variant.minStock,
       })),
     ];
 

@@ -5720,6 +5720,7 @@ model InventoryProductVariant {
   productId String   @map("product_id") @db.Uuid
   sizeId    String?  @map("size_id") @db.Uuid // null si producto sin tallas (ej. celular)
   sku       String?
+  minStock  Int      @default(0) @map("min_stock")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   product InventoryProduct      @relation(fields: [productId], references: [id], onDelete: Cascade)

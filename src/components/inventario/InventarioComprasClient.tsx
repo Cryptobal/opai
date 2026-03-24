@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Upload, X, FileSpreadsheet, AlertTriangle, Check, Download, Trash2 } from "lucide-react";
+import { Plus, Upload, X, FileSpreadsheet, AlertTriangle, Check, Download, Trash2, Pencil } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type Purchase = {
@@ -31,8 +31,10 @@ type Purchase = {
     id: string;
     quantity: number;
     unitCost: number;
-    variant: { product: { name: string }; size: { sizeCode: string } | null };
-    warehouse: { name: string };
+    variantId: string;
+    warehouseId: string;
+    variant: { product: { id: string; name: string }; size: { sizeCode: string } | null };
+    warehouse: { id: string; name: string };
   }[];
 };
 
@@ -143,6 +145,16 @@ export function InventarioComprasClient() {
   });
 
   const [error, setError] = useState<string | null>(null);
+
+  // Edit state
+  const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
+  const [editForm, setEditForm] = useState({
+    date: "",
+    notes: "",
+    lines: [] as CompraFormLine[],
+  });
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   // Excel import state
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -270,6 +282,109 @@ export function InventarioComprasClient() {
       variantId: v.id,
       sizeCode: v.size?.sizeCode ?? "Única",
     }));
+  };
+
+  // ── Edit / Delete handlers ──
+
+  const startEdit = (p: Purchase) => {
+    setEditingPurchase(p);
+    setEditForm({
+      date: new Date(p.date).toISOString().slice(0, 10),
+      notes: p.notes ?? "",
+      lines: p.lines.map((l) => ({
+        productId: l.variant.product.id,
+        variantId: l.variantId,
+        quantity: l.quantity,
+        unitCost: Number(l.unitCost),
+        warehouseId: l.warehouseId,
+      })),
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPurchase) return;
+    const validLines = editForm.lines.filter(
+      (l) => l.variantId && l.quantity > 0 && l.warehouseId
+    );
+    if (validLines.length === 0) {
+      alert("Agrega al menos una línea válida");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/ops/inventario/purchases/${editingPurchase.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: editForm.date,
+          notes: editForm.notes || undefined,
+          lines: validLines.map((l) => ({
+            variantId: l.variantId,
+            quantity: l.quantity,
+            unitCost: Number(l.unitCost),
+            warehouseId: l.warehouseId,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (data.id) {
+        setEditDialogOpen(false);
+        setEditingPurchase(null);
+        fetchData();
+      } else {
+        alert(data.error || "Error al actualizar compra");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error al actualizar compra");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("¿Eliminar esta compra? Se revertirá el stock asociado.")) return;
+    setDeleting(id);
+    try {
+      const res = await fetch(`/api/ops/inventario/purchases/${id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchData();
+      } else {
+        alert(data.error || "Error al eliminar compra");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error al eliminar compra");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const addEditLine = () => {
+    setEditForm((f) => ({
+      ...f,
+      lines: [...f.lines, { productId: "", variantId: "", quantity: 1, unitCost: 0, warehouseId: "" }],
+    }));
+  };
+
+  const removeEditLine = (index: number) => {
+    setEditForm((f) => ({
+      ...f,
+      lines: f.lines.length > 1 ? f.lines.filter((_, i) => i !== index) : f.lines,
+    }));
+  };
+
+  const updateEditLine = (index: number, patch: Partial<CompraFormLine>) => {
+    setEditForm((f) => {
+      const next = [...f.lines];
+      next[index] = { ...next[index], ...patch };
+      if (patch.productId !== undefined) {
+        next[index].variantId = "";
+      }
+      return { ...f, lines: next };
+    });
   };
 
   const variantLabel = (v: Variant) =>
@@ -812,13 +927,34 @@ export function InventarioComprasClient() {
           <div className="space-y-2">
             {purchases.map((p) => (
               <div key={p.id} className="rounded-lg border p-3">
-                <div className="flex justify-between">
-                  <span className="font-medium">
-                    {new Date(p.date).toLocaleDateString("es-CL")}
-                  </span>
-                  {p.notes && (
-                    <span className="text-xs text-muted-foreground">{p.notes}</span>
-                  )}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="font-medium">
+                      {new Date(p.date).toLocaleDateString("es-CL")}
+                    </span>
+                    {p.notes && (
+                      <span className="ml-2 text-xs text-muted-foreground">{p.notes}</span>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(p)}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      title="Editar"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(p.id)}
+                      disabled={deleting === p.id}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
                 <ul className="mt-2 text-sm text-muted-foreground">
                   {p.lines.map((l) => (
@@ -834,6 +970,156 @@ export function InventarioComprasClient() {
           </div>
         )}
       </CardContent>
+
+      {/* Edit purchase dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={(open) => {
+        setEditDialogOpen(open);
+        if (!open) setEditingPurchase(null);
+      }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <form onSubmit={handleEditSubmit}>
+            <DialogHeader>
+              <DialogTitle>Editar compra</DialogTitle>
+              <DialogDescription>
+                Modifica las líneas de la compra. El stock se ajustará automáticamente.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Fecha</Label>
+                  <Input
+                    type="date"
+                    value={editForm.date}
+                    onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>Notas</Label>
+                  <Input
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                    placeholder="Opcional"
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <Label>Líneas</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addEditLine}>
+                    + Línea
+                  </Button>
+                </div>
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                  {editForm.lines.map((line, i) => {
+                    const sizes = line.productId ? getSizesForCompraProduct(line.productId) : [];
+                    return (
+                      <div key={i} className="rounded-lg border border-border p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground">Línea {i + 1}</span>
+                          {editForm.lines.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeEditLine(i)}
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div>
+                          <Label className="text-xs">Producto</Label>
+                          <select
+                            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                            value={line.productId}
+                            onChange={(e) => updateEditLine(i, { productId: e.target.value })}
+                          >
+                            <option value="">Seleccionar producto</option>
+                            {products.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {line.productId && (
+                          <div className="grid grid-cols-12 gap-2">
+                            <div className="col-span-3">
+                              <Label className="text-xs">Talla</Label>
+                              <select
+                                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                value={line.variantId}
+                                onChange={(e) => updateEditLine(i, { variantId: e.target.value })}
+                              >
+                                <option value="">Talla</option>
+                                {sizes.map((s) => (
+                                  <option key={s.variantId} value={s.variantId}>
+                                    {s.sizeCode}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="col-span-2">
+                              <Label className="text-xs">Cant.</Label>
+                              <Input
+                                type="number"
+                                min={1}
+                                value={line.quantity}
+                                onChange={(e) =>
+                                  updateEditLine(i, { quantity: parseInt(e.target.value) || 0 })
+                                }
+                                disabled={!line.variantId}
+                              />
+                            </div>
+                            <div className="col-span-3">
+                              <Label className="text-xs">Costo unit.</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.01}
+                                value={line.unitCost || ""}
+                                onChange={(e) =>
+                                  updateEditLine(i, { unitCost: parseFloat(e.target.value) || 0 })
+                                }
+                                disabled={!line.variantId}
+                              />
+                            </div>
+                            <div className="col-span-4">
+                              <Label className="text-xs">Bodega</Label>
+                              <select
+                                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                value={line.warehouseId}
+                                onChange={(e) =>
+                                  updateEditLine(i, { warehouseId: e.target.value })
+                                }
+                                disabled={!line.variantId}
+                              >
+                                <option value="">Seleccionar</option>
+                                {warehouses.map((w) => (
+                                  <option key={w.id} value={w.id}>
+                                    {w.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">Guardar cambios</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

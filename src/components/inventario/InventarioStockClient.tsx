@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertTriangle, Check, Pencil } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 type StockRecord = {
   id: string;
@@ -17,6 +17,7 @@ type StockRecord = {
   avgCost: number | null;
   warehouse: { name: string; type: string };
   variant: {
+    minStock: number;
     product: { name: string };
     size: { sizeCode: string } | null;
   };
@@ -40,9 +41,6 @@ export function InventarioStockClient() {
   const [stock, setStock] = useState<StockRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
-  const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<"all" | "alerts">("all");
 
   const fetchData = () => {
@@ -65,36 +63,13 @@ export function InventarioStockClient() {
     fetchData();
   }, []);
 
-  const handleSaveMinStock = async (id: string) => {
-    const val = parseInt(editValue);
-    if (isNaN(val) || val < 0) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/ops/inventario/stock", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, minStock: val }),
-      });
-      if (res.ok) {
-        setStock((prev) =>
-          prev.map((s) => (s.id === id ? { ...s, minStock: val } : s))
-        );
-        setEditingId(null);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const variantLabel = (s: StockRecord) =>
     s.variant.size
       ? `${s.variant.product.name} ${s.variant.size.sizeCode}`
       : s.variant.product.name;
 
   const filtered = filter === "alerts"
-    ? stock.filter((s) => getStatus(s.quantity, s.minStock) !== "ok")
+    ? stock.filter((s) => getStatus(s.quantity, s.variant.minStock) !== "ok")
     : stock;
 
   const byWarehouse = filtered.reduce<Record<string, StockRecord[]>>((acc, s) => {
@@ -105,8 +80,8 @@ export function InventarioStockClient() {
   }, {});
 
   // Summary counts
-  const criticalCount = stock.filter((s) => getStatus(s.quantity, s.minStock) === "critical").length;
-  const lowCount = stock.filter((s) => getStatus(s.quantity, s.minStock) === "low").length;
+  const criticalCount = stock.filter((s) => getStatus(s.quantity, s.variant.minStock) === "critical").length;
+  const lowCount = stock.filter((s) => getStatus(s.quantity, s.variant.minStock) === "low").length;
 
   return (
     <Card>
@@ -115,7 +90,7 @@ export function InventarioStockClient() {
           <div>
             <CardTitle>Stock por bodega</CardTitle>
             <CardDescription>
-              Niveles actuales de inventario. Haz clic en "Mín" para definir stock mínimo.
+              Niveles actuales de inventario. El stock mínimo se configura en cada producto.
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -188,9 +163,8 @@ export function InventarioStockClient() {
                     <span className="col-span-2 text-center">Estado</span>
                   </div>
                   {items.map((s) => {
-                    const status = getStatus(s.quantity, s.minStock);
+                    const status = getStatus(s.quantity, s.variant.minStock);
                     const styles = STATUS_STYLES[status];
-                    const isEditing = editingId === s.id;
 
                     return (
                       <div
@@ -201,42 +175,8 @@ export function InventarioStockClient() {
                         <span className={`col-span-2 text-right font-medium tabular-nums ${status === "critical" ? "text-red-600 dark:text-red-400" : status === "low" ? "text-amber-600 dark:text-amber-400" : ""}`}>
                           {s.quantity}
                         </span>
-                        <span className="col-span-2 text-right">
-                          {isEditing ? (
-                            <span className="flex items-center justify-end gap-1">
-                              <input
-                                type="number"
-                                min={0}
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") handleSaveMinStock(s.id);
-                                  if (e.key === "Escape") setEditingId(null);
-                                }}
-                                autoFocus
-                                className="w-14 h-6 rounded border border-input bg-background px-1 text-right text-xs"
-                              />
-                              <button
-                                onClick={() => handleSaveMinStock(s.id)}
-                                disabled={saving}
-                                className="text-emerald-600 hover:text-emerald-500"
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                              </button>
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setEditingId(s.id);
-                                setEditValue(String(s.minStock));
-                              }}
-                              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-                              title="Editar stock mínimo"
-                            >
-                              <span className="tabular-nums">{s.minStock || "-"}</span>
-                              <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                            </button>
-                          )}
+                        <span className="col-span-2 text-right tabular-nums text-muted-foreground">
+                          {s.variant.minStock || "-"}
                         </span>
                         <span className="col-span-2 text-right tabular-nums">
                           {s.avgCost != null

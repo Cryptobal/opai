@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
       });
 
       const lowStockItems = updatedStocks.filter(
-        (s) => s.minStock > 0 && s.quantity <= s.minStock
+        (s) => s.variant.minStock > 0 && s.quantity <= s.variant.minStock
       );
       const outOfStockItems = updatedStocks.filter((s) => s.quantity === 0);
 
@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
         }).catch((err) => console.error("[stock_alert bell]", err));
       } else if (lowStockItems.length > 0) {
         const lowNames = lowStockItems
-          .map((s) => `${s.variant.product.name}${s.variant.size ? ` ${s.variant.size.sizeCode}` : ""} (${s.quantity}/${s.minStock})`)
+          .map((s) => `${s.variant.product.name}${s.variant.size ? ` ${s.variant.size.sizeCode}` : ""} (${s.quantity}/${s.variant.minStock})`)
           .join(", ");
         sendNotification({
           tenantId: ctx.tenantId,
