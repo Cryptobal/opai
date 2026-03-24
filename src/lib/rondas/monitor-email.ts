@@ -303,7 +303,7 @@ export async function sendMonitorTurnoEmail(
 
     const defaultEmail = cfg.emailOps || "operaciones@gard.cl";
     const to = [...new Set([defaultEmail, ...(recipients ?? [])])];
-    const dateStr = data.startedAt.toLocaleDateString("es-CL", { day: "2-digit", month: "short" });
+    const dateStr = data.startedAt.toLocaleDateString("es-CL", { day: "2-digit", month: "short", timeZone: "America/Santiago" });
     const subject = `📋 Reporte Turno ${dateStr} - ${esc(data.operatorName)}`;
 
     // Generate PDF if data provided

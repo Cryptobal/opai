@@ -164,6 +164,8 @@ export function buildCoberturaSnapshot(
   turnoFilter: "nocturno" | "diurno",
   /** Map of guardiaId → planned shift start (e.g. "19:00") from pauta mensual */
   shiftMap?: Map<string, string>,
+  /** Map of guardiaId → checkInAt from asistencia diaria (enriches pending guards) */
+  asistenciaMap?: Map<string, { checkInAt: Date }>,
 ): CoberturaSnapshot {
   const turnoLabel =
     turnoFilter === "nocturno"
@@ -178,11 +180,31 @@ export function buildCoberturaSnapshot(
         : g.turno === "diurno",
     );
 
-    const presentes = turnoGuardias.filter(
+    // Enrich guard status from asistencia diaria:
+    // If a guard is still "pendiente" in the operator grid but has a checkIn
+    // in asistencia diaria, auto-promote to "presente" with the arrival time.
+    const enrichedGuardias = turnoGuardias.map((g) => {
+      if (
+        g.guardiaId &&
+        (g.status === "pendiente" || g.status === "en_camino") &&
+        asistenciaMap?.has(g.guardiaId)
+      ) {
+        const att = asistenciaMap.get(g.guardiaId)!;
+        const llegada = att.checkInAt.toLocaleTimeString("es-CL", {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "America/Santiago",
+        });
+        return { ...g, status: "presente", horaLlegada: g.horaLlegada ?? llegada };
+      }
+      return g;
+    });
+
+    const presentes = enrichedGuardias.filter(
       (g) => g.status === "presente" || g.status === "reemplazo",
     ).length;
-    const extras = turnoGuardias.filter((g) => g.isExtra).length;
-    const noViene = turnoGuardias
+    const extras = enrichedGuardias.filter((g) => g.isExtra).length;
+    const noViene = enrichedGuardias
       .filter((g) => g.status === "no_viene")
       .map((g) => ({ nombre: g.guardiaNombre, notes: g.notes }));
 
@@ -190,17 +212,17 @@ export function buildCoberturaSnapshot(
     const requeridos =
       turnoFilter === "nocturno"
         ? inst.guardiasRequeridos
-        : turnoGuardias.length || 1;
+        : enrichedGuardias.length || 1;
     const coberturaStatus = calculateTurnoCoberturaStatus(
       requeridos,
-      turnoGuardias,
+      enrichedGuardias,
     );
 
     return {
       name: inst.installationName,
       guardiasRequeridos: requeridos,
       coberturaStatus,
-      guardias: turnoGuardias.map((g) => ({
+      guardias: enrichedGuardias.map((g) => ({
         nombre: g.guardiaNombre,
         status: g.status,
         turno: g.turno,
@@ -308,18 +330,22 @@ export function buildCoberturaEmailHtml(
   meta: CoberturaEmailMetadata,
 ): string {
   const now = new Date();
+  const tz = "America/Santiago";
   const timeStr = now.toLocaleTimeString("es-CL", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: tz,
   });
   const dateStr = now.toLocaleDateString("es-CL", {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: tz,
   });
   const turnoStart = meta.turnoStartedAt.toLocaleTimeString("es-CL", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: tz,
   });
   const baseUrl = meta.baseUrl.replace(/\/+$/, "");
   const monitorUrl = `${baseUrl}/ops/rondas/monitoreo`;

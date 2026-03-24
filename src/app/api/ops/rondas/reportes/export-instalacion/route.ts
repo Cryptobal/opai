@@ -130,6 +130,7 @@ export async function GET(request: NextRequest) {
           weekday: "short",
           day: "numeric",
           month: "short",
+          timeZone: "America/Santiago",
         }),
         cells,
         totalC: cells.reduce((s, c) => s + c.completadas, 0),
@@ -250,12 +251,12 @@ export async function GET(request: NextRequest) {
         : "Sin asignar";
 
       ws3.addRow({
-        fecha: ej.scheduledAt.toLocaleDateString("es-CL"),
+        fecha: ej.scheduledAt.toLocaleDateString("es-CL", { timeZone: "America/Santiago" }),
         horaInicio: ej.startedAt
-          ? ej.startedAt.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })
+          ? ej.startedAt.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", timeZone: "America/Santiago" })
           : "—",
         horaFin: ej.completedAt
-          ? ej.completedAt.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })
+          ? ej.completedAt.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", timeZone: "America/Santiago" })
           : "—",
         plantilla: ej.rondaTemplate?.name ?? "Ronda Libre",
         guardia: guardiaNombre,

@@ -221,7 +221,7 @@ export async function buildTurnoReportData(opts: {
     const horasSet = new Set<string>();
     for (const [, rounds] of instData.roundsByDay) {
       for (const r of rounds) {
-        horasSet.add(r.scheduledAt.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }));
+        horasSet.add(r.scheduledAt.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", timeZone: "America/Santiago" }));
       }
     }
     const horas = [...horasSet].sort();
@@ -254,7 +254,7 @@ export async function buildTurnoReportData(opts: {
       for (const day of dayLabels) {
         const dayRounds = instData.roundsByDay.get(day.date) ?? [];
         const match = dayRounds.find(r =>
-          r.scheduledAt.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }) === hora
+          r.scheduledAt.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", timeZone: "America/Santiago" }) === hora
         );
         if (!match) {
           row.push("na");
@@ -294,8 +294,8 @@ export async function buildTurnoReportData(opts: {
         tipo: a.tipo,
         descripcion: a.mensaje,
         guardia: "—",
-        hora: new Date(a.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }),
-        dia: new Date(a.createdAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short" }),
+        hora: new Date(a.createdAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", timeZone: "America/Santiago" }),
+        dia: new Date(a.createdAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short", timeZone: "America/Santiago" }),
       }));
 
     installations.push({

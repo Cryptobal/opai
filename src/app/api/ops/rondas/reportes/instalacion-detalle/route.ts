@@ -226,6 +226,7 @@ export async function GET(request: NextRequest) {
           weekday: "short",
           day: "numeric",
           month: "short",
+          timeZone: "America/Santiago",
         }),
         cells,
         totalEsperadas: cells.reduce((s, c) => s + c.esperadas, 0),

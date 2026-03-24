@@ -29,6 +29,7 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({})) as {
       turnoFilter?: "nocturno" | "diurno";
+      confirmResend?: boolean;
     };
     const turnoFilter = body.turnoFilter ?? "nocturno";
 
@@ -71,6 +72,21 @@ export async function POST(request: Request) {
           error: "No hay turno activo con grilla de cobertura",
         },
         { status: 400 },
+      );
+    }
+
+    // Check if this cobertura type was already sent for this turno
+    const meta = (activeTurno.emailSentTo ?? {}) as Record<string, unknown>;
+    const cobKey = turnoFilter === "nocturno" ? "coberturaNocturnaSentAt" : "coberturaDiurnaSentAt";
+    if (meta[cobKey] && !body.confirmResend) {
+      const label = turnoFilter === "nocturno" ? "nocturna" : "diurna";
+      return NextResponse.json(
+        {
+          success: false,
+          alreadySent: true,
+          error: `La cobertura ${label} ya fue enviada para este turno`,
+        },
+        { status: 409 },
       );
     }
 
@@ -123,8 +139,36 @@ export async function POST(request: Request) {
       console.error("[COBERTURA_EMAIL] Failed to fetch pauta shift data:", err);
     }
 
+    // Query asistencia diaria to enrich guard status from attendance records
+    const asistenciaMap = new Map<string, { checkInAt: Date }>();
+    try {
+      const asistencia = await prisma.opsAsistenciaDiaria.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          date: cn.date,
+          attendanceStatus: { in: ["asistio", "reemplazo"] },
+          checkInAt: { not: null },
+          deletedAt: null,
+        },
+        select: {
+          plannedGuardiaId: true,
+          actualGuardiaId: true,
+          replacementGuardiaId: true,
+          checkInAt: true,
+        },
+      });
+      for (const a of asistencia) {
+        const gId = a.actualGuardiaId ?? a.replacementGuardiaId ?? a.plannedGuardiaId;
+        if (gId && a.checkInAt) {
+          asistenciaMap.set(gId, { checkInAt: a.checkInAt });
+        }
+      }
+    } catch (err) {
+      console.error("[COBERTURA_EMAIL] Failed to fetch asistencia data:", err);
+    }
+
     // Build snapshot filtered by turno
-    const snapshot = buildCoberturaSnapshot(cn.instalaciones, turnoFilter, shiftMap);
+    const snapshot = buildCoberturaSnapshot(cn.instalaciones, turnoFilter, shiftMap, asistenciaMap);
 
     if (snapshot.instalaciones.length === 0) {
       return NextResponse.json(
@@ -152,6 +196,7 @@ export async function POST(request: Request) {
     const timeStr = now.toLocaleTimeString("es-CL", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Santiago",
     });
     const turnoLabel = turnoFilter === "nocturno" ? "Nocturna" : "Diurna";
 

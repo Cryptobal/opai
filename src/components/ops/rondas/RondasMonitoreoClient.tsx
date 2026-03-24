@@ -449,18 +449,27 @@ export function RondasMonitoreoClient({
     }
   }, []);
 
-  const handleSendCoberturaEmail = useCallback(async (turnoFilter: "nocturno" | "diurno") => {
+  const handleSendCoberturaEmail = useCallback(async (turnoFilter: "nocturno" | "diurno", confirmResend = false) => {
     setSendingCoberturaEmail(turnoFilter);
     const label = turnoFilter === "nocturno" ? "nocturna" : "diurna";
     try {
       const res = await fetch("/api/ops/rondas/monitoreo/cobertura-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ turnoFilter }),
+        body: JSON.stringify({ turnoFilter, confirmResend }),
       });
       const json = await res.json();
       if (json.success) {
         toast.success(`Cobertura ${label} enviada a operaciones y al chat`);
+      } else if (json.alreadySent) {
+        toast(`La cobertura ${label} ya fue enviada`, {
+          description: "¿Deseas reenviarla con datos actualizados?",
+          action: {
+            label: "Reenviar",
+            onClick: () => handleSendCoberturaEmail(turnoFilter, true),
+          },
+          duration: 8000,
+        });
       } else {
         toast.error(json.error ?? "Error al enviar cobertura");
       }
