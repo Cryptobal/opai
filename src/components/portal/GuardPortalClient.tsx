@@ -711,6 +711,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
             }}
             onCancel={handleReset}
             captureLabel={nextTipo === "salida" ? "Marcar Salida" : "Marcar Entrada"}
+            captureColor={nextTipo === "salida" ? "rgba(56,189,248,0.5)" : "rgba(16,185,129,0.4)"}
           />
         </div>
       )}
@@ -784,6 +785,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
 function MarcacionesSection({ session }: { session: GuardSession }) {
   const [marcaciones, setMarcaciones] = useState<GuardMarcacion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fotoMarcacionUrl, setFotoMarcacionUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -854,36 +856,45 @@ function MarcacionesSection({ session }: { session: GuardSession }) {
                 {items.map((m) => (
                   <div
                     key={m.id}
-                    className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm"
+                    className="flex items-start gap-3 rounded-xl border bg-card p-3 shadow-sm"
                   >
-                    <div
-                      className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
-                        m.type === "entrada"
-                          ? "bg-emerald-500/10"
-                          : "bg-red-500/10"
-                      }`}
-                    >
-                      {m.type === "entrada" ? (
-                        <UserCheck className="h-4 w-4 text-emerald-500" />
-                      ) : (
-                        <LogOut className="h-4 w-4 text-red-500" />
-                      )}
-                    </div>
+                    {/* Foto o ícono */}
+                    {m.fotoEvidenciaUrl && !m.fotoEvidenciaUrl.startsWith("evidence:") ? (
+                      <button
+                        onClick={() => setFotoMarcacionUrl(m.fotoEvidenciaUrl)}
+                        className="h-11 w-11 rounded-lg overflow-hidden shrink-0 border border-border hover:border-primary transition-colors"
+                      >
+                        <img src={m.fotoEvidenciaUrl} alt="Foto" className="h-full w-full object-cover" loading="lazy" />
+                      </button>
+                    ) : (
+                      <div
+                        className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
+                          m.type === "entrada"
+                            ? "bg-emerald-500/10"
+                            : "bg-sky-500/10"
+                        }`}
+                      >
+                        {m.type === "entrada" ? (
+                          <UserCheck className="h-4 w-4 text-emerald-500" />
+                        ) : (
+                          <LogOut className="h-4 w-4 text-sky-500" />
+                        )}
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold">
+                        <p className={`text-sm font-semibold ${m.type === "salida" ? "text-sky-400" : "text-emerald-400"}`}>
                           {m.type === "entrada" ? "Entrada" : "Salida"}
                         </p>
-                        <Badge
-                          variant={m.geoValidated ? "default" : "secondary"}
-                          className="text-[10px] px-1.5 py-0"
-                        >
-                          {m.geoValidated
-                            ? "GPS OK"
-                            : m.geoDistanceM != null
-                              ? `${Math.round(m.geoDistanceM)}m`
-                              : "Sin GPS"}
-                        </Badge>
+                        {m.metodoId && (
+                          <span className={`text-[10px] px-1.5 py-0 rounded ${
+                            m.metodoId === "face_id" ? "bg-emerald-500/20 text-emerald-400" :
+                            m.metodoId === "foto_evidencia" ? "bg-sky-500/20 text-sky-400" :
+                            "bg-amber-500/20 text-amber-400"
+                          }`}>
+                            {m.metodoId === "face_id" ? "Face ID" : m.metodoId === "foto_evidencia" ? "Foto" : "PIN"}
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {new Date(m.timestamp).toLocaleTimeString("es-CL", {
@@ -892,12 +903,56 @@ function MarcacionesSection({ session }: { session: GuardSession }) {
                         })}{" "}
                         — {m.installationName}
                       </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge
+                          variant={m.geoValidated ? "default" : "secondary"}
+                          className="text-[10px] px-1.5 py-0"
+                        >
+                          {m.geoValidated
+                            ? "GPS OK"
+                            : m.gpsStatus === "fuera_rango"
+                              ? `Fuera (${Math.round(m.geoDistanceM ?? 0)}m)`
+                              : "Sin GPS"}
+                        </Badge>
+                        {m.lat != null && m.lng != null && (
+                          <a
+                            href={`https://www.google.com/maps?q=${m.lat},${m.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-0.5 text-[10px] text-primary hover:underline"
+                          >
+                            <MapPin className="h-3 w-3" />
+                            Ver mapa
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Lightbox foto marcación */}
+      {fotoMarcacionUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setFotoMarcacionUrl(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/70 hover:text-white z-50 p-2"
+            onClick={() => setFotoMarcacionUrl(null)}
+          >
+            <X className="h-7 w-7" />
+          </button>
+          <img
+            src={fotoMarcacionUrl}
+            alt="Foto de marcación"
+            className="max-w-full max-h-[85vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>

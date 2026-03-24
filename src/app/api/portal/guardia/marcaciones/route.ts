@@ -31,6 +31,11 @@ export async function GET(request: NextRequest) {
       installationName: m.installation?.name ?? "Sin instalación",
       geoValidated: m.geoValidada,
       geoDistanceM: m.geoDistanciaM ?? null,
+      gpsStatus: m.gpsStatus ?? null,
+      lat: m.lat ?? null,
+      lng: m.lng ?? null,
+      metodoId: m.metodoId ?? null,
+      fotoEvidenciaUrl: m.fotoEvidenciaUrl ?? null,
     }));
 
     return NextResponse.json({ success: true, data });

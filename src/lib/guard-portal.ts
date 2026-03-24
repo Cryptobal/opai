@@ -47,6 +47,11 @@ export interface GuardMarcacion {
   installationName: string;
   geoValidated: boolean;
   geoDistanceM: number | null;
+  gpsStatus: string | null;
+  lat: number | null;
+  lng: number | null;
+  metodoId: string | null;
+  fotoEvidenciaUrl: string | null;
 }
 
 export interface GuardExtraShift {

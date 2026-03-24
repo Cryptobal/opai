@@ -135,7 +135,7 @@ export function FaceCameraCapture({ onCapture, onCancel, captureLabel = "Captura
           <div
             className="w-48 h-60 rounded-full"
             style={{
-              border: "2px solid rgba(16,185,129,0.5)",
+              border: `2px solid ${captureColor}`,
               boxShadow: "0 0 0 9999px rgba(0,0,0,0.3)",
             }}
           />
@@ -144,13 +144,13 @@ export function FaceCameraCapture({ onCapture, onCancel, captureLabel = "Captura
         {/* Countdown overlay */}
         {countdown !== null && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-            <span className="text-6xl font-bold text-emerald-400">{countdown}</span>
+            <span className="text-6xl font-bold" style={{ color: captureColor }}>{countdown}</span>
           </div>
         )}
 
         {!cameraReady && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-emerald-400" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20" style={{ borderTopColor: captureColor }} />
           </div>
         )}
       </div>
