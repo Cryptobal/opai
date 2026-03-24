@@ -696,7 +696,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
       {step === "camera" && (
         <div className="p-4 space-y-3">
           <div className="flex items-center gap-2 mb-2">
-            <Camera className="h-5 w-5 text-emerald-500" />
+            <Camera className={`h-5 w-5 ${nextTipo === "salida" ? "text-sky-500" : "text-emerald-500"}`} />
             <p className="text-sm font-semibold">
               Toma una foto para registrar tu {nextTipo === "salida" ? "salida" : "entrada"}
             </p>
@@ -717,18 +717,18 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
 
       {/* ── Submitting ── */}
       {step === "submitting" && (
-        <div className="p-4 flex items-center gap-3 bg-emerald-500/5">
-          <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
+        <div className={`p-4 flex items-center gap-3 ${nextTipo === "salida" ? "bg-sky-500/5" : "bg-emerald-500/5"}`}>
+          <Loader2 className={`h-5 w-5 animate-spin ${nextTipo === "salida" ? "text-sky-500" : "text-emerald-500"}`} />
           <p className="text-sm font-semibold">Registrando marcación...</p>
         </div>
       )}
 
       {/* ── Success ── */}
       {step === "success" && result && (
-        <div className="p-4 space-y-2 bg-emerald-500/5">
+        <div className={`p-4 space-y-2 ${result.tipo === "salida" ? "bg-sky-500/5" : "bg-emerald-500/5"}`}>
           <div className="flex items-center gap-2">
-            <CircleCheck className="h-5 w-5 text-emerald-500" />
-            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+            <CircleCheck className={`h-5 w-5 ${result.tipo === "salida" ? "text-sky-500" : "text-emerald-500"}`} />
+            <p className={`text-sm font-bold ${result.tipo === "salida" ? "text-sky-700 dark:text-sky-400" : "text-emerald-700 dark:text-emerald-400"}`}>
               {result.tipo === "entrada" ? "Entrada registrada" : "Salida registrada"}
             </p>
           </div>

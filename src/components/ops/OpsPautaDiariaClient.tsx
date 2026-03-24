@@ -1112,7 +1112,7 @@ export function OpsPautaDiariaClient({
 
       {/* Modal detalle marcación */}
       <Dialog open={!!marcacionDetalleOpen} onOpenChange={(open) => !open && setMarcacionDetalleOpen(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalle de marcación digital</DialogTitle>
           </DialogHeader>
@@ -1172,7 +1172,7 @@ export function OpsPautaDiariaClient({
                     {m.metodoId && (
                       <p>
                         <span className="font-medium">Método:</span>{" "}
-                        {m.metodoId === "face_id" ? "Face ID" : m.metodoId === "pin_fallback" ? "PIN fallback" : m.metodoId === "rut_pin" ? "RUT + PIN" : m.metodoId === "manual" ? "Manual" : m.metodoId}
+                        {m.metodoId === "face_id" ? "Face ID" : m.metodoId === "foto_evidencia" ? "Foto evidencia" : m.metodoId === "pin_fallback" ? "PIN fallback" : m.metodoId === "rut_pin" ? "RUT + PIN" : m.metodoId === "manual" ? "Manual" : m.metodoId}
                       </p>
                     )}
                   </div>
