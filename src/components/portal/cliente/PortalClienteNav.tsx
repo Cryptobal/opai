@@ -14,7 +14,7 @@ export type PortalSection =
   | 'tickets' | 'documentacion' | 'cotizaciones'
   | 'reportes' | 'comparativa' | 'alertas' | 'encuestas'
   | 'desempeno' | 'personal' | 'propuesta' | 'nosotros' | 'empresa'
-  | 'control-acceso' | 'presentacion'
+  | 'control-acceso' | 'presentacion' | 'marcaciones'
 
 type NavGroup = 'operaciones' | 'comunicacion' | 'documentacion' | 'administracion'
 
@@ -36,6 +36,7 @@ const ALL_NAV_ITEMS: Array<{
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, configKey: 'dashboard' },
   { id: 'instalaciones', label: 'Instalaciones', icon: Building2, configKey: 'guardias' },
   { id: 'rondas', label: 'Rondas', icon: MapPin, configKey: 'rondas' },
+  { id: 'marcaciones', label: 'Marcaciones', icon: UserCheck, configKey: 'guardias' },
   { id: 'posta', label: 'Bitácora', icon: BookOpen, configKey: 'posta' },
   { id: 'chat', label: 'Chat', icon: MessageSquare, configKey: 'chat_instalacion', group: 'comunicacion' },
   { id: 'tickets', label: 'Tickets', icon: Ticket, configKey: 'tickets', group: 'comunicacion' },

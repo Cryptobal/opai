@@ -30,6 +30,7 @@ import { PortalEncuestas } from "@/components/portal/cliente/PortalEncuestas";
 import { PortalEmpresa } from "@/components/portal/cliente/PortalEmpresa";
 import { PortalPersonal } from "@/components/portal/cliente/PortalPersonal";
 
+import { PortalMarcaciones } from "@/components/portal/cliente/PortalMarcaciones";
 import { PortalNosotros } from "@/components/portal/cliente/PortalNosotros";
 import { PortalAccessControl } from "@/components/portal/cliente/PortalAccessControl";
 import { PortalDesempeno } from "@/components/portal/cliente/PortalDesempeno";
@@ -169,6 +170,13 @@ export function PortalClienteClient() {
             session={session}
             selectedInstallation={selectedInstallation}
             isProspect={session?.isProspect}
+          />
+        );
+      case "marcaciones":
+        return (
+          <PortalMarcaciones
+            session={session}
+            selectedInstallation={selectedInstallation}
           />
         );
       case "posta":
