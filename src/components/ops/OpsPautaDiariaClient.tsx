@@ -844,26 +844,34 @@ export function OpsPautaDiariaClient({
                                   <>
                                     {primeraEntrada && (
                                       <span
-                                        className={`inline-flex items-center gap-0.5 text-xs ${primeraEntrada.gpsStatus === "fuera_rango" ? "text-red-400" : "text-emerald-500"}`}
+                                        className={`inline-flex items-center gap-0.5 text-xs font-medium ${primeraEntrada.gpsStatus === "fuera_rango" ? "text-red-400" : "text-emerald-500"}`}
                                         title={`Entrada ${primeraEntrada.timestamp} · GPS: ${primeraEntrada.gpsStatus === "dentro_rango" ? `✓ ${primeraEntrada.geoDistanciaM}m` : primeraEntrada.gpsStatus === "fuera_rango" ? `⚠ Fuera de rango (${primeraEntrada.geoDistanciaM}m)` : "sin GPS"}`}
                                       >
                                         <Clock className="h-3.5 w-3.5" />
+                                        <span className="text-[10px] opacity-70">E</span>
                                         {new Date(primeraEntrada.timestamp).toLocaleTimeString("es-CL", {
                                           hour: "2-digit",
                                           minute: "2-digit",
                                         })}
+                                        {primeraEntrada.gpsStatus && primeraEntrada.gpsStatus !== "sin_gps" && (
+                                          <span className={`text-[9px] px-1 py-px rounded ${primeraEntrada.gpsStatus === "dentro_rango" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>GPS</span>
+                                        )}
                                       </span>
                                     )}
                                     {ultimaSalida && (
                                       <span
-                                        className={`inline-flex items-center gap-0.5 text-xs ${ultimaSalida.gpsStatus === "fuera_rango" ? "text-red-400" : "text-amber-500"}`}
+                                        className={`inline-flex items-center gap-0.5 text-xs font-medium ${ultimaSalida.gpsStatus === "fuera_rango" ? "text-red-400" : "text-sky-400"}`}
                                         title={`Salida ${ultimaSalida.timestamp} · GPS: ${ultimaSalida.gpsStatus === "dentro_rango" ? `✓ ${ultimaSalida.geoDistanciaM}m` : ultimaSalida.gpsStatus === "fuera_rango" ? `⚠ Fuera de rango (${ultimaSalida.geoDistanciaM}m)` : "sin GPS"}`}
                                       >
                                         <MapPin className="h-3.5 w-3.5" />
+                                        <span className="text-[10px] opacity-70">S</span>
                                         {new Date(ultimaSalida.timestamp).toLocaleTimeString("es-CL", {
                                           hour: "2-digit",
                                           minute: "2-digit",
                                         })}
+                                        {ultimaSalida.gpsStatus && ultimaSalida.gpsStatus !== "sin_gps" && (
+                                          <span className={`text-[9px] px-1 py-px rounded ${ultimaSalida.gpsStatus === "dentro_rango" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>GPS</span>
+                                        )}
                                       </span>
                                     )}
                                     {hayFueraRango && (
@@ -886,29 +894,39 @@ export function OpsPautaDiariaClient({
                                 if (metodo === "face_id") {
                                   return (
                                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium" title="Marcación verificada con Face ID">
-                                      ✅ Face ID
+                                      Face ID
                                     </span>
                                   );
                                 }
-                                if (metodo === "pin_fallback" || metodo === "rut_pin") {
+                                if (metodo === "foto_evidencia") {
                                   return (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium" title="Marcación con PIN — requiere validación del supervisor">
-                                      ⚠️ PIN fallback
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-medium" title="Marcación con foto de evidencia desde portal guardia">
+                                      Foto
+                                    </span>
+                                  );
+                                }
+                                if (metodo === "pin_fallback") {
+                                  return (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium" title="Marcación con PIN fallback — requiere validación del supervisor">
+                                      PIN fallback
+                                    </span>
+                                  );
+                                }
+                                if (metodo === "rut_pin") {
+                                  return (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium" title="Marcación con RUT + PIN">
+                                      PIN
                                     </span>
                                   );
                                 }
                                 if (metodo === "manual") {
                                   return (
                                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-500/20 text-zinc-400 font-medium" title="Marcación ingresada manualmente por admin">
-                                      📝 Manual
+                                      Manual
                                     </span>
                                   );
                                 }
-                                return (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">
-                                    Marcación asistencia
-                                  </span>
-                                );
+                                return null;
                               })()}
                               {(() => {
                                 const fotoMarca = (item.marcaciones ?? []).find(
