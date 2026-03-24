@@ -740,14 +740,17 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
                 timeStyle: "short",
               })}
             </p>
-            <p className="flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
-              {result.gpsStatus === "dentro_rango"
-                ? "Dentro del rango"
-                : result.gpsStatus === "fuera_rango"
-                  ? "Fuera del rango"
-                  : "Sin GPS"}
-            </p>
+            {result.gpsStatus === "fuera_rango" ? (
+              <p className="flex items-center gap-1.5 text-sm font-bold text-red-600 dark:text-red-400">
+                <MapPin className="h-4 w-4" />
+                Marcación fuera de rango
+              </p>
+            ) : (
+              <p className="flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                {result.gpsStatus === "dentro_rango" ? "Dentro del rango" : "Sin GPS"}
+              </p>
+            )}
           </div>
           <Button variant="outline" size="sm" onClick={handleReset} className="mt-1">
             Listo
