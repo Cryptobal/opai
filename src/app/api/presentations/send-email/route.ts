@@ -13,6 +13,7 @@ import { resend, EMAIL_CONFIG } from '@/lib/resend';
 import { PresentationEmail } from '@/emails/PresentationEmail';
 import { nanoid } from 'nanoid';
 import { render } from '@react-email/render';
+import { syncLeadOnProposalSent } from '@/lib/crm/sync-lead-on-proposal-sent';
 
 export async function POST(req: NextRequest) {
   try {
@@ -319,6 +320,33 @@ export async function POST(req: NextRequest) {
       } catch (cpqError) {
         console.error('Error updating CPQ quote status:', cpqError);
         // Don't fail the whole operation if CPQ update fails
+      }
+
+      try {
+        const syncTenantId = webhookSession.tenantId || tenantId;
+        const q = await prisma.cpqQuote.findFirst({
+          where: { id: cpqQuoteId, tenantId: syncTenantId },
+          select: {
+            dealId: true,
+            accountId: true,
+            contactId: true,
+            createdFromLeadId: true,
+            installationId: true,
+          },
+        });
+        if (q) {
+          await syncLeadOnProposalSent({
+            tenantId: syncTenantId,
+            actingUserId: null,
+            dealId: q.dealId,
+            accountId: q.accountId,
+            contactId: q.contactId,
+            createdFromLeadId: q.createdFromLeadId,
+            installationId: q.installationId,
+          });
+        }
+      } catch (syncErr) {
+        console.error('syncLeadOnProposalSent (presentation send-email):', syncErr);
       }
     }
 

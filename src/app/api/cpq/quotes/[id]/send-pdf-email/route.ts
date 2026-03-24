@@ -16,6 +16,7 @@ import { renderProposalToBufferFromProps } from "@/lib/pdf/templates/proposal/re
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { render } from "@react-email/render";
 import { CpqPdfEmail } from "@/emails/CpqPdfEmail";
+import { syncLeadOnProposalSent } from "@/lib/crm/sync-lead-on-proposal-sent";
 
 export async function POST(
   request: NextRequest,
@@ -43,8 +44,11 @@ export async function POST(
         id: true,
         code: true,
         dealId: true,
+        accountId: true,
         contactId: true,
         clientName: true,
+        createdFromLeadId: true,
+        installationId: true,
         positions: { select: { numGuards: true, numPuestos: true } },
         installation: { select: { name: true } },
       },
@@ -284,6 +288,16 @@ export async function POST(
         console.error("Error scheduling follow-ups from send-pdf-email:", followUpError);
       }
     }
+
+    await syncLeadOnProposalSent({
+      tenantId: ctx.tenantId,
+      actingUserId: ctx.userId,
+      dealId: quote.dealId,
+      accountId: quote.accountId,
+      contactId: quote.contactId,
+      createdFromLeadId: quote.createdFromLeadId,
+      installationId: quote.installationId,
+    });
 
     // Log in CRM history
     await prisma.crmHistoryLog.create({

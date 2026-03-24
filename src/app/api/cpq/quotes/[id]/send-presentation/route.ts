@@ -18,6 +18,7 @@ import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { PresentationEmail } from "@/emails/PresentationEmail";
 import { render } from "@react-email/render";
 import { nanoid } from "nanoid";
+import { syncLeadOnProposalSent } from "@/lib/crm/sync-lead-on-proposal-sent";
 
 export async function POST(
   request: NextRequest,
@@ -460,6 +461,16 @@ export async function POST(
         },
       });
     }
+
+    await syncLeadOnProposalSent({
+      tenantId: ctx.tenantId,
+      actingUserId: ctx.userId,
+      dealId: quote.dealId,
+      accountId: quote.accountId,
+      contactId: quote.contactId,
+      createdFromLeadId: quote.createdFromLeadId,
+      installationId: quote.installationId,
+    });
 
     return NextResponse.json({
       success: true,

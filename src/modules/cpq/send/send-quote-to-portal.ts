@@ -18,6 +18,7 @@ import { buildQuotationProps } from "@/lib/pdf/templates/quotation/build-quotati
 import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-quotation";
 import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
+import { syncLeadOnProposalSent } from "@/lib/crm/sync-lead-on-proposal-sent";
 
 export interface SendQuoteToPortalOptions {
   quoteId: string;
@@ -403,6 +404,16 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
       console.error("Error scheduling follow-ups from send-portal:", followUpError);
     }
   }
+
+  await syncLeadOnProposalSent({
+    tenantId,
+    actingUserId: userId,
+    dealId: quote.dealId,
+    accountId: quote.accountId,
+    contactId: quote.contactId,
+    createdFromLeadId: quote.createdFromLeadId,
+    installationId: quote.installationId,
+  });
 
   // Log
   await prisma.crmHistoryLog.create({

@@ -15,6 +15,7 @@ import { CpqQuoteEmail } from "@/emails/CpqQuoteEmail";
 import { buildQuotationProps } from "@/lib/pdf/templates/quotation/build-quotation-props";
 import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-quotation";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { syncLeadOnProposalSent } from "@/lib/crm/sync-lead-on-proposal-sent";
 
 export async function POST(
   _request: NextRequest,
@@ -209,6 +210,16 @@ export async function POST(
         console.error("Error scheduling follow-ups from send-email:", followUpError);
       }
     }
+
+    await syncLeadOnProposalSent({
+      tenantId: ctx.tenantId,
+      actingUserId: ctx.userId,
+      dealId: quote.dealId,
+      accountId: quote.accountId,
+      contactId: quote.contactId,
+      createdFromLeadId: quote.createdFromLeadId,
+      installationId: quote.installationId,
+    });
 
     // Log in CRM history
     await prisma.crmHistoryLog.create({
