@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getPusherServer } from "@/lib/chat";
+import { getChileDayOfWeek, parseChileHour } from "@/lib/rondas/timezone";
 
 const schema = z.object({
   guardiaId: z.string().uuid(),
@@ -48,43 +49,89 @@ export async function POST(request: NextRequest) {
       orderBy: { sortOrder: "asc" },
     });
 
-    // ── Block free rounds when scheduled rounds are pending ("listas" / "con_retraso") ──
+    // ── Block free rounds during active programación windows ──
     const now = new Date();
-    const windowStart = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-    const windowEnd = new Date(now.getTime() + 15 * 60 * 1000);
+    const todayDow = getChileDayOfWeek(now);
 
-    const pendingScheduled = await prisma.opsRondaEjecucion.findMany({
-      where: {
-        tenantId,
-        installationId,
-        status: "pendiente",
-        programacionId: { not: null },
-        scheduledAt: { gte: windowStart, lte: windowEnd },
-      },
-      include: { programacion: { select: { toleranciaMinutos: true, frecuenciaMinutos: true } } },
+    // Get all active programaciones for this installation's templates
+    const activeTemplateIds = await prisma.opsRondaTemplate.findMany({
+      where: { tenantId, installationId, isActive: true },
+      select: { id: true },
     });
+    const templateIds = activeTemplateIds.map((t) => t.id);
 
-    const blockingRounds = pendingScheduled.filter((r) => {
-      const elapsedMin = (now.getTime() - r.scheduledAt.getTime()) / 60000;
-      const frecuencia = r.programacion?.frecuenciaMinutos ?? 60;
-      const tolerance = r.programacion?.toleranciaMinutos ?? Math.round(frecuencia / 2);
-      return elapsedMin >= -15 && elapsedMin <= tolerance;
-    });
-
-    if (blockingRounds.length > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Tienes ${blockingRounds.length} ronda${blockingRounds.length !== 1 ? "s" : ""} programada${blockingRounds.length !== 1 ? "s" : ""} pendiente${blockingRounds.length !== 1 ? "s" : ""}. Completa tus rondas programadas primero.`,
+    if (templateIds.length > 0) {
+      const programaciones = await prisma.opsRondaProgramacion.findMany({
+        where: {
+          rondaTemplateId: { in: templateIds },
+          isActive: true,
         },
-        { status: 400 },
-      );
+        select: {
+          id: true,
+          diasSemana: true,
+          horaInicio: true,
+          horaFin: true,
+          toleranciaMinutos: true,
+        },
+      });
+
+      // Check if "now" falls inside any programación window (horaInicio → horaFin)
+      for (const prog of programaciones) {
+        const dias = (prog.diasSemana as number[]) ?? [];
+        if (!dias.includes(todayDow)) continue;
+
+        const windowStart = parseChileHour(prog.horaInicio, now);
+        let windowEnd = parseChileHour(prog.horaFin, now);
+        // Handle overnight windows (e.g., 22:00 → 06:00)
+        if (windowEnd <= windowStart) {
+          windowEnd = new Date(windowEnd.getTime() + 24 * 60 * 60 * 1000);
+        }
+        // Add tolerance to window end so last round can be completed
+        const tolerance = prog.toleranciaMinutos ?? 10;
+        const windowEndWithTolerance = new Date(windowEnd.getTime() + tolerance * 60 * 1000);
+
+        if (now >= windowStart && now <= windowEndWithTolerance) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "No puedes iniciar una ronda libre durante el horario de rondas programadas. Espera a que termine la ventana de programación.",
+            },
+            { status: 400 },
+          );
+        }
+      }
+
+      // Also check yesterday's overnight windows that extend into today
+      const yesterdayDow = (todayDow + 6) % 7;
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      for (const prog of programaciones) {
+        const dias = (prog.diasSemana as number[]) ?? [];
+        if (!dias.includes(yesterdayDow)) continue;
+
+        const windowStart = parseChileHour(prog.horaInicio, yesterday);
+        let windowEnd = parseChileHour(prog.horaFin, yesterday);
+        if (windowEnd <= windowStart) {
+          windowEnd = new Date(windowEnd.getTime() + 24 * 60 * 60 * 1000);
+        }
+        const tolerance = prog.toleranciaMinutos ?? 10;
+        const windowEndWithTolerance = new Date(windowEnd.getTime() + tolerance * 60 * 1000);
+
+        // Only relevant if the overnight window extends past midnight into today
+        if (windowEnd > windowStart && now >= windowStart && now <= windowEndWithTolerance) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "No puedes iniciar una ronda libre durante el horario de rondas programadas. Espera a que termine la ventana de programación.",
+            },
+            { status: 400 },
+          );
+        }
+      }
     }
 
-    // ── Block free rounds when a scheduled round is already en_curso ──
+    // ── Block free rounds when a scheduled round is already en_curso (any guard) ──
     const scheduledEnCurso = await prisma.opsRondaEjecucion.findFirst({
       where: {
-        guardiaId,
         tenantId,
         installationId,
         isAdHoc: false,
@@ -97,7 +144,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Tienes una ronda programada en curso. Complétala antes de iniciar una ronda libre.",
+          error: "Hay una ronda programada en curso en esta instalación. Espera a que se complete antes de iniciar una ronda libre.",
         },
         { status: 400 },
       );

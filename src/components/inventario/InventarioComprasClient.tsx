@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Upload, X, FileSpreadsheet, AlertTriangle, Check, Download } from "lucide-react";
+import { Plus, Upload, X, FileSpreadsheet, AlertTriangle, Check, Download, Trash2 } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type Purchase = {
@@ -36,6 +36,13 @@ type Purchase = {
   }[];
 };
 
+type Product = {
+  id: string;
+  name: string;
+  category: string;
+  variants: { id: string; size: { id: string; sizeCode: string } | null }[];
+};
+
 type Variant = {
   id: string;
   product: { name: string };
@@ -43,6 +50,14 @@ type Variant = {
 };
 
 type Warehouse = { id: string; name: string };
+
+type CompraFormLine = {
+  productId: string;
+  variantId: string;
+  quantity: number;
+  unitCost: number;
+  warehouseId: string;
+};
 
 type ImportLine = {
   producto: string;
@@ -116,6 +131,7 @@ function matchWarehouse(
 
 export function InventarioComprasClient() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [variants, setVariants] = useState<Variant[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,7 +139,7 @@ export function InventarioComprasClient() {
   const [form, setForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     notes: "",
-    lines: [{ variantId: "", quantity: 1, unitCost: 0, warehouseId: "" }],
+    lines: [{ productId: "", variantId: "", quantity: 1, unitCost: 0, warehouseId: "" }] as CompraFormLine[],
   });
 
   const [error, setError] = useState<string | null>(null);
@@ -154,9 +170,10 @@ export function InventarioComprasClient() {
       else setError(pData?.error || "Error al cargar. Verifica la base de datos.");
       if (Array.isArray(wData)) setWarehouses(wData);
 
-      const products = Array.isArray(vRes) ? vRes : [];
+      const prods = Array.isArray(vRes) ? vRes : [];
+      setProducts(prods);
       const allVariants: Variant[] = [];
-      for (const p of products) {
+      for (const p of prods) {
         for (const v of p.variants || []) {
           allVariants.push({
             id: v.id,
@@ -209,7 +226,7 @@ export function InventarioComprasClient() {
         setForm({
           date: new Date().toISOString().slice(0, 10),
           notes: "",
-          lines: [{ variantId: "", quantity: 1, unitCost: 0, warehouseId: "" }],
+          lines: [{ productId: "", variantId: "", quantity: 1, unitCost: 0, warehouseId: "" }],
         });
         fetchData();
       } else {
@@ -224,7 +241,34 @@ export function InventarioComprasClient() {
   const addLine = () => {
     setForm((f) => ({
       ...f,
-      lines: [...f.lines, { variantId: "", quantity: 1, unitCost: 0, warehouseId: "" }],
+      lines: [...f.lines, { productId: "", variantId: "", quantity: 1, unitCost: 0, warehouseId: "" }],
+    }));
+  };
+
+  const removeCompraLine = (index: number) => {
+    setForm((f) => ({
+      ...f,
+      lines: f.lines.length > 1 ? f.lines.filter((_, i) => i !== index) : f.lines,
+    }));
+  };
+
+  const updateCompraLine = (index: number, patch: Partial<CompraFormLine>) => {
+    setForm((f) => {
+      const next = [...f.lines];
+      next[index] = { ...next[index], ...patch };
+      if (patch.productId !== undefined) {
+        next[index].variantId = "";
+      }
+      return { ...f, lines: next };
+    });
+  };
+
+  const getSizesForCompraProduct = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return [];
+    return product.variants.map((v) => ({
+      variantId: v.id,
+      sizeCode: v.size?.sizeCode ?? "Única",
     }));
   };
 
@@ -638,82 +682,107 @@ export function InventarioComprasClient() {
                         + Línea
                       </Button>
                     </div>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {form.lines.map((line, i) => (
-                        <div key={i} className="grid grid-cols-12 gap-2 items-end">
-                          <div className="col-span-5">
-                            <Label className="text-xs">Producto/Talla</Label>
-                            <SearchableSelect
-                              value={line.variantId}
-                              options={variants.map((v) => ({
-                                id: v.id,
-                                label: variantLabel(v),
-                              }))}
-                              placeholder="Seleccionar"
-                              emptyText="Sin productos"
-                              onChange={(id) =>
-                                setForm((f) => {
-                                  const next = [...f.lines];
-                                  next[i] = { ...next[i], variantId: id };
-                                  return { ...f, lines: next };
-                                })
-                              }
-                            />
+                    <div className="space-y-3 max-h-60 overflow-y-auto">
+                      {form.lines.map((line, i) => {
+                        const sizes = line.productId ? getSizesForCompraProduct(line.productId) : [];
+                        return (
+                          <div key={i} className="rounded-lg border border-border p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium text-muted-foreground">Línea {i + 1}</span>
+                              {form.lines.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeCompraLine(i)}
+                                  className="text-muted-foreground hover:text-destructive transition-colors"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Product selector */}
+                            <div>
+                              <Label className="text-xs">Producto</Label>
+                              <select
+                                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                value={line.productId}
+                                onChange={(e) => updateCompraLine(i, { productId: e.target.value })}
+                              >
+                                <option value="">Seleccionar producto</option>
+                                {products.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Size + Quantity + Cost + Warehouse */}
+                            {line.productId && (
+                              <div className="grid grid-cols-12 gap-2">
+                                <div className="col-span-3">
+                                  <Label className="text-xs">Talla</Label>
+                                  <select
+                                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                    value={line.variantId}
+                                    onChange={(e) => updateCompraLine(i, { variantId: e.target.value })}
+                                  >
+                                    <option value="">Talla</option>
+                                    {sizes.map((s) => (
+                                      <option key={s.variantId} value={s.variantId}>
+                                        {s.sizeCode}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="col-span-2">
+                                  <Label className="text-xs">Cant.</Label>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={line.quantity}
+                                    onChange={(e) =>
+                                      updateCompraLine(i, { quantity: parseInt(e.target.value) || 0 })
+                                    }
+                                    disabled={!line.variantId}
+                                  />
+                                </div>
+                                <div className="col-span-3">
+                                  <Label className="text-xs">Costo unit.</Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    value={line.unitCost || ""}
+                                    onChange={(e) =>
+                                      updateCompraLine(i, { unitCost: parseFloat(e.target.value) || 0 })
+                                    }
+                                    disabled={!line.variantId}
+                                  />
+                                </div>
+                                <div className="col-span-4">
+                                  <Label className="text-xs">Bodega</Label>
+                                  <select
+                                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                    value={line.warehouseId}
+                                    onChange={(e) =>
+                                      updateCompraLine(i, { warehouseId: e.target.value })
+                                    }
+                                    disabled={!line.variantId}
+                                  >
+                                    <option value="">Seleccionar</option>
+                                    {warehouses.map((w) => (
+                                      <option key={w.id} value={w.id}>
+                                        {w.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="col-span-2">
-                            <Label className="text-xs">Cant.</Label>
-                            <Input
-                              type="number"
-                              min={1}
-                              value={line.quantity}
-                              onChange={(e) =>
-                                setForm((f) => {
-                                  const next = [...f.lines];
-                                  next[i] = { ...next[i], quantity: parseInt(e.target.value) || 0 };
-                                  return { ...f, lines: next };
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <Label className="text-xs">Costo unit.</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              step={0.01}
-                              value={line.unitCost || ""}
-                              onChange={(e) =>
-                                setForm((f) => {
-                                  const next = [...f.lines];
-                                  next[i] = { ...next[i], unitCost: parseFloat(e.target.value) || 0 };
-                                  return { ...f, lines: next };
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="col-span-3">
-                            <Label className="text-xs">Bodega</Label>
-                            <select
-                              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                              value={line.warehouseId}
-                              onChange={(e) =>
-                                setForm((f) => {
-                                  const next = [...f.lines];
-                                  next[i] = { ...next[i], warehouseId: e.target.value };
-                                  return { ...f, lines: next };
-                                })
-                              }
-                            >
-                              <option value="">Seleccionar</option>
-                              {warehouses.map((w) => (
-                                <option key={w.id} value={w.id}>
-                                  {w.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

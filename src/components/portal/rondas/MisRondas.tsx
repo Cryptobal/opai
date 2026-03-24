@@ -315,7 +315,7 @@ export function MisRondas({
     let cancelled = false;
     setHistorialLoading(true);
     fetch(
-      `/api/portal/rondas/historial?guardiaId=${session.guardiaId}&tenantId=${session.tenantId}&limit=30`,
+      `/api/portal/rondas/historial?guardiaId=${session.guardiaId}&tenantId=${session.tenantId}&limit=10`,
     )
       .then(async (res) => {
         if (cancelled) return;
@@ -366,11 +366,12 @@ export function MisRondas({
     return map;
   }, [rondas, now]);
 
-  // ---- Block free round when scheduled rounds are pending ("listas" / "con_retraso") ----
-  const pendingScheduledCount = grouped.listas.length + grouped.con_retraso.length;
-  const hasPendingScheduled = pendingScheduledCount > 0;
+  // ---- Block free round when ANY scheduled rounds exist today (pending, delayed, or in progress) ----
+  const hasScheduledToday = grouped.listas.length + grouped.con_retraso.length + grouped.proximas.length > 0;
   const hasEnCurso = grouped.en_curso.length > 0;
-  const blockIniciarLibre = hasPendingScheduled || hasEnCurso;
+  // Block on client side if there are any scheduled rounds or active rounds.
+  // The server (iniciar-libre) also validates against programación windows.
+  const blockIniciarLibre = hasScheduledToday || hasEnCurso;
 
   const confirmCerrarRonda = useCallback(async () => {
     if (!closeModalEjecucionId || !isValidSession(session)) return;

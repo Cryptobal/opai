@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         code: true,
+        currentInstallationId: true,
+        currentInstallation: { select: { id: true, name: true } },
         persona: {
           select: {
             firstName: true,
@@ -58,6 +60,8 @@ export async function GET(request: NextRequest) {
         select: {
           id: true,
           code: true,
+          currentInstallationId: true,
+          currentInstallation: { select: { id: true, name: true } },
           persona: {
             select: {
               firstName: true,
@@ -79,6 +83,8 @@ export async function GET(request: NextRequest) {
       nombreCompleto: `${g.persona?.firstName ?? ""} ${g.persona?.lastName ?? ""}`.trim() || "Sin nombre",
       code: g.code ?? undefined,
       rut: g.persona?.rut ?? undefined,
+      currentInstallationId: g.currentInstallationId ?? undefined,
+      currentInstallationName: g.currentInstallation?.name ?? undefined,
     }));
 
     return NextResponse.json({ success: true, data });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,18 +20,36 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
 import { GuardiaSearchInput } from "@/components/ops/GuardiaSearchInput";
 import { formatPersonName } from "@/lib/personas";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
-type Variant = {
+/* ── Types ── */
+
+type Product = {
   id: string;
-  product: { name: string };
-  size: { sizeCode: string } | null;
+  name: string;
+  category: string;
+  variants: { id: string; size: { id: string; sizeCode: string } | null }[];
 };
 
 type Warehouse = { id: string; name: string };
+
+type StockRecord = {
+  warehouseId: string;
+  variantId: string;
+  quantity: number;
+  variant: {
+    product: { id: string; name: string; category: string };
+    size: { id: string; sizeCode: string } | null;
+  };
+};
+
+type FormLine = {
+  productId: string;
+  variantId: string;
+  quantity: number;
+};
 
 type Movement = {
   id: string;
@@ -42,33 +60,38 @@ type Movement = {
   lines: { variant: { product: { name: string }; size: { sizeCode: string } | null }; quantity: number }[];
 };
 
+/* ── Component ── */
+
 export function InventarioEntregasClient() {
   const [movements, setMovements] = useState<Movement[]>([]);
-  const [variants, setVariants] = useState<Variant[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [installations, setInstallations] = useState<
-    { id: string; name: string; accountName?: string }[]
-  >([]);
+  const [stockRecords, setStockRecords] = useState<StockRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({
+
+  const initialForm = {
     date: new Date().toISOString().slice(0, 10),
     fromWarehouseId: "",
     guardiaId: "",
     guardiaNombre: "",
     installationId: "",
+    installationName: "",
     notes: "",
-    lines: [{ variantId: "", quantity: 1 }],
-  });
+    lines: [{ productId: "", variantId: "", quantity: 1 }] as FormLine[],
+  };
+
+  const [form, setForm] = useState(initialForm);
+
+  /* ── Data fetching ── */
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [mRes, pRes, wRes, iRes] = await Promise.all([
+      const [mRes, pRes, wRes] = await Promise.all([
         fetch("/api/ops/inventario/movements?type=delivery"),
         fetch("/api/ops/inventario/products").then((r) => r.json()),
         fetch("/api/ops/inventario/warehouses"),
-        fetch("/api/crm/installations").then((r) => r.json()),
       ]);
       const mData = await mRes.json();
       const wData = await wRes.json();
@@ -76,27 +99,8 @@ export function InventarioEntregasClient() {
       if (Array.isArray(mData)) setMovements(mData);
       if (Array.isArray(wData)) setWarehouses(wData);
 
-      const products = Array.isArray(pRes) ? pRes : [];
-      const allVariants: Variant[] = [];
-      for (const p of products) {
-        if (p.category !== "uniform") continue;
-        for (const v of p.variants || []) {
-          allVariants.push({ id: v.id, product: p, size: v.size });
-        }
-      }
-      setVariants(allVariants);
-
-      const rawInst = iRes?.data ?? (Array.isArray(iRes) ? iRes : []);
-      const instList = rawInst
-        .filter((i: { isActive?: boolean }) => i.isActive !== false)
-        .map(
-          (i: { id: string; name: string; account?: { name: string } }) => ({
-            id: i.id,
-            name: i.name,
-            accountName: i.account?.name ?? "",
-          })
-        );
-      setInstallations(instList);
+      const prods = Array.isArray(pRes) ? pRes : [];
+      setProducts(prods.filter((p: Product) => p.category === "uniform"));
     } catch (e) {
       console.error(e);
     } finally {
@@ -108,12 +112,145 @@ export function InventarioEntregasClient() {
     fetchData();
   }, []);
 
+  // Fetch stock when warehouse changes
+  const fetchStock = useCallback(async (warehouseId: string) => {
+    if (!warehouseId) {
+      setStockRecords([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/ops/inventario/stock?warehouseId=${warehouseId}`);
+      const data = await res.json();
+      if (Array.isArray(data)) setStockRecords(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStock(form.fromWarehouseId);
+  }, [form.fromWarehouseId, fetchStock]);
+
+  /* ── Stock helpers ── */
+
+  // Map variantId → stock quantity for the selected warehouse
+  const stockByVariant = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of stockRecords) {
+      map.set(s.variantId, s.quantity);
+    }
+    return map;
+  }, [stockRecords]);
+
+  // Get available sizes for a product, with stock info
+  const getSizesForProduct = useCallback(
+    (productId: string) => {
+      const product = products.find((p) => p.id === productId);
+      if (!product) return [];
+      return product.variants.map((v) => ({
+        variantId: v.id,
+        sizeCode: v.size?.sizeCode ?? "Única",
+        stock: stockByVariant.get(v.id) ?? 0,
+      }));
+    },
+    [products, stockByVariant]
+  );
+
+  // Calculate already-allocated quantities in form lines (to avoid over-allocating)
+  const allocatedByVariant = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const line of form.lines) {
+      if (!line.variantId) continue;
+      map.set(line.variantId, (map.get(line.variantId) ?? 0) + line.quantity);
+    }
+    return map;
+  }, [form.lines]);
+
+  const getAvailableStock = useCallback(
+    (variantId: string, currentLineIndex: number) => {
+      const total = stockByVariant.get(variantId) ?? 0;
+      // Subtract quantities allocated in OTHER lines
+      let otherAllocated = 0;
+      for (let i = 0; i < form.lines.length; i++) {
+        if (i === currentLineIndex) continue;
+        if (form.lines[i].variantId === variantId) {
+          otherAllocated += form.lines[i].quantity;
+        }
+      }
+      return total - otherAllocated;
+    },
+    [stockByVariant, form.lines]
+  );
+
+  /* ── Guard selection auto-sets installation ── */
+
+  const handleGuardiaChange = useCallback(
+    (patch: {
+      guardiaNombre: string;
+      guardiaId?: string | null;
+      currentInstallationId?: string | null;
+      currentInstallationName?: string | null;
+    }) => {
+      setForm((f) => ({
+        ...f,
+        guardiaNombre: patch.guardiaNombre,
+        guardiaId: patch.guardiaId ?? "",
+        installationId: patch.currentInstallationId ?? "",
+        installationName: patch.currentInstallationName ?? "",
+      }));
+    },
+    []
+  );
+
+  /* ── Line management ── */
+
+  const addLine = () => {
+    setForm((f) => ({
+      ...f,
+      lines: [...f.lines, { productId: "", variantId: "", quantity: 1 }],
+    }));
+  };
+
+  const removeLine = (index: number) => {
+    setForm((f) => ({
+      ...f,
+      lines: f.lines.length > 1 ? f.lines.filter((_, i) => i !== index) : f.lines,
+    }));
+  };
+
+  const updateLine = (index: number, patch: Partial<FormLine>) => {
+    setForm((f) => {
+      const next = [...f.lines];
+      next[index] = { ...next[index], ...patch };
+      // If product changed, reset variant
+      if (patch.productId !== undefined) {
+        next[index].variantId = "";
+        next[index].quantity = 1;
+      }
+      return { ...f, lines: next };
+    });
+  };
+
+  /* ── Submit ── */
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const validLines = form.lines.filter((l) => l.variantId && l.quantity > 0);
     if (validLines.length === 0 || !form.fromWarehouseId || !form.guardiaId || !form.installationId) {
       alert("Completa bodega, guardia, instalación y al menos una línea");
       return;
+    }
+
+    // Validate stock availability
+    for (const line of validLines) {
+      const available = stockByVariant.get(line.variantId) ?? 0;
+      if (line.quantity > available) {
+        const product = products.find((p) => p.variants.some((v) => v.id === line.variantId));
+        const variant = product?.variants.find((v) => v.id === line.variantId);
+        const name = `${product?.name ?? "Producto"} ${variant?.size?.sizeCode ?? ""}`.trim();
+        alert(`Stock insuficiente para ${name}. Disponible: ${available}, solicitado: ${line.quantity}`);
+        return;
+      }
     }
 
     try {
@@ -132,15 +269,7 @@ export function InventarioEntregasClient() {
       const data = await res.json();
       if (data.id) {
         setDialogOpen(false);
-        setForm({
-          date: new Date().toISOString().slice(0, 10),
-          fromWarehouseId: "",
-          guardiaId: "",
-          guardiaNombre: "",
-          installationId: "",
-          notes: "",
-          lines: [{ variantId: "", quantity: 1 }],
-        });
+        setForm({ ...initialForm, lines: [{ productId: "", variantId: "", quantity: 1 }] });
         fetchData();
       } else {
         alert(data.error || "Error al registrar entrega");
@@ -151,25 +280,7 @@ export function InventarioEntregasClient() {
     }
   };
 
-  const variantLabel = (v: Variant) =>
-    v.size ? `${v.product.name} ${v.size.sizeCode}` : v.product.name;
-
-  const installationOptions: SearchableOption[] = useMemo(() => {
-    const instOpts = installations.map((i) => ({
-      id: i.id,
-      label: i.name,
-      description: i.accountName || undefined,
-      searchText: `${i.name} ${i.accountName ?? ""}`.trim(),
-    }));
-    return instOpts;
-  }, [installations]);
-
-  const addLine = () => {
-    setForm((f) => ({
-      ...f,
-      lines: [...f.lines, { variantId: "", quantity: 1 }],
-    }));
-  };
+  /* ── Render ── */
 
   return (
     <Card>
@@ -196,6 +307,7 @@ export function InventarioEntregasClient() {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
+                {/* Date + Warehouse */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Fecha</Label>
@@ -211,7 +323,14 @@ export function InventarioEntregasClient() {
                     <select
                       className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
                       value={form.fromWarehouseId}
-                      onChange={(e) => setForm((f) => ({ ...f, fromWarehouseId: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          fromWarehouseId: e.target.value,
+                          // Reset lines when warehouse changes (stock changes)
+                          lines: [{ productId: "", variantId: "", quantity: 1 }],
+                        }))
+                      }
                       required
                     >
                       <option value="">Seleccionar</option>
@@ -223,32 +342,35 @@ export function InventarioEntregasClient() {
                     </select>
                   </div>
                 </div>
+
+                {/* Guard */}
                 <div>
                   <Label>Guardia *</Label>
                   <GuardiaSearchInput
                     value={form.guardiaNombre}
-                    onChange={({ guardiaNombre, guardiaId }) =>
-                      setForm((f) => ({
-                        ...f,
-                        guardiaNombre,
-                        guardiaId: guardiaId ?? "",
-                      }))
-                    }
+                    onChange={handleGuardiaChange}
                     placeholder="Buscar por nombre, RUT o código..."
                   />
                 </div>
+
+                {/* Installation (auto-populated, read-only) */}
                 <div>
-                  <Label>Instalación *</Label>
-                  <SearchableSelect
-                    value={form.installationId}
-                    options={installationOptions}
-                    placeholder="Buscar por instalación o cliente..."
-                    emptyText="Sin instalaciones"
-                    onChange={(id) =>
-                      setForm((f) => ({ ...f, installationId: id }))
-                    }
+                  <Label>Instalación</Label>
+                  <Input
+                    value={form.installationName}
+                    readOnly
+                    disabled
+                    placeholder={form.guardiaId ? "Sin instalación asignada" : "Selecciona un guardia primero"}
+                    className="bg-muted"
                   />
+                  {form.guardiaId && !form.installationId && (
+                    <p className="text-xs text-amber-500 mt-1">
+                      Este guardia no tiene instalación asignada actualmente.
+                    </p>
+                  )}
                 </div>
+
+                {/* Notes */}
                 <div>
                   <Label>Notas</Label>
                   <Input
@@ -257,6 +379,8 @@ export function InventarioEntregasClient() {
                     placeholder="Opcional"
                   />
                 </div>
+
+                {/* Product lines */}
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <Label>Líneas</Label>
@@ -264,47 +388,112 @@ export function InventarioEntregasClient() {
                       + Línea
                     </Button>
                   </div>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {form.lines.map((line, i) => (
-                      <div key={i} className="grid grid-cols-12 gap-2 items-end">
-                        <div className="col-span-8">
-                          <Label className="text-xs">Producto / Talla</Label>
-                          <select
-                            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                            value={line.variantId}
-                            onChange={(e) =>
-                              setForm((f) => {
-                                const next = [...f.lines];
-                                next[i] = { ...next[i], variantId: e.target.value };
-                                return { ...f, lines: next };
-                              })
-                            }
-                          >
-                            <option value="">Seleccionar</option>
-                            {variants.map((v) => (
-                              <option key={v.id} value={v.id}>
-                                {variantLabel(v)}
-                              </option>
-                            ))}
-                          </select>
+                  {!form.fromWarehouseId && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Selecciona una bodega para ver el stock disponible.
+                    </p>
+                  )}
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    {form.lines.map((line, i) => {
+                      const sizes = line.productId ? getSizesForProduct(line.productId) : [];
+                      const selectedSize = sizes.find((s) => s.variantId === line.variantId);
+                      const maxQty = line.variantId ? getAvailableStock(line.variantId, i) : 1;
+
+                      return (
+                        <div key={i} className="rounded-lg border border-border p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-muted-foreground">Línea {i + 1}</span>
+                            {form.lines.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeLine(i)}
+                                className="text-muted-foreground hover:text-destructive transition-colors"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Product selector */}
+                          <div>
+                            <Label className="text-xs">Producto</Label>
+                            <select
+                              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                              value={line.productId}
+                              onChange={(e) => updateLine(i, { productId: e.target.value })}
+                            >
+                              <option value="">Seleccionar producto</option>
+                              {products.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Size selector with stock */}
+                          {line.productId && (
+                            <div className="grid grid-cols-12 gap-2">
+                              <div className="col-span-8">
+                                <Label className="text-xs">Talla / Stock</Label>
+                                <select
+                                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                                  value={line.variantId}
+                                  onChange={(e) => updateLine(i, { variantId: e.target.value })}
+                                >
+                                  <option value="">Seleccionar talla</option>
+                                  {sizes.map((s) => (
+                                    <option
+                                      key={s.variantId}
+                                      value={s.variantId}
+                                      disabled={s.stock <= 0}
+                                    >
+                                      {s.sizeCode} — {s.stock > 0 ? `${s.stock} disponible${s.stock !== 1 ? "s" : ""}` : "Sin stock"}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="col-span-4">
+                                <Label className="text-xs">Cant.</Label>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={maxQty}
+                                  value={line.quantity}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    updateLine(i, { quantity: Math.min(val, maxQty) });
+                                  }}
+                                  disabled={!line.variantId}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Stock badge */}
+                          {line.variantId && selectedSize && (
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  selectedSize.stock > 5
+                                    ? "bg-emerald-500/10 text-emerald-500"
+                                    : selectedSize.stock > 0
+                                    ? "bg-amber-500/10 text-amber-500"
+                                    : "bg-red-500/10 text-red-500"
+                                }`}
+                              >
+                                Stock: {selectedSize.stock}
+                              </span>
+                              {line.quantity > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  → Quedará: {selectedSize.stock - line.quantity}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div className="col-span-4">
-                          <Label className="text-xs">Cant.</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={line.quantity}
-                            onChange={(e) =>
-                              setForm((f) => {
-                                const next = [...f.lines];
-                                next[i] = { ...next[i], quantity: parseInt(e.target.value) || 0 };
-                                return { ...f, lines: next };
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -312,7 +501,17 @@ export function InventarioEntregasClient() {
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">Registrar entrega</Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    !form.fromWarehouseId ||
+                    !form.guardiaId ||
+                    !form.installationId ||
+                    !form.lines.some((l) => l.variantId && l.quantity > 0)
+                  }
+                >
+                  Registrar entrega
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>

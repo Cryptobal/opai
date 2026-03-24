@@ -71,7 +71,9 @@ export async function POST(request: NextRequest) {
     let templateCps: any[] = [];
 
     if (isAdHoc) {
-      total = execution.marcaciones.length;
+      // Use the stored total (all active checkpoints at the installation when round started),
+      // NOT marcaciones.length — which would always yield 100% since only completed marks exist.
+      total = execution.checkpointsTotal || execution.marcaciones.length;
     } else {
       templateCps = execution.rondaTemplate!.checkpoints;
       total = templateCps.length;
@@ -113,8 +115,10 @@ export async function POST(request: NextRequest) {
     const completedCount = execution.marcaciones.filter(
       (m) => m.status === "COMPLETED" || !m.status,
     ).length;
-    const missedPercent = total > 0 ? (missedData.length / total) * 100 : 0;
-    const status = isAdHoc ? "completada" : (missedPercent > 20 ? "incompleta" : "completada");
+    // For ad-hoc rounds, missed = total checkpoints minus completed marks
+    const missedCount = isAdHoc ? (total - completedCount) : missedData.length;
+    const missedPercent = total > 0 ? (missedCount / total) * 100 : 0;
+    const status = missedPercent > 20 ? "incompleta" : "completada";
     const pct = total > 0 ? (completedCount / total) * 100 : 0;
 
     const durationMinutes = execution.startedAt
@@ -254,7 +258,7 @@ export async function POST(request: NextRequest) {
         trustApplicable: !isAdHoc,
         porcentajeCompletado: pct,
         durationMinutes,
-        missed: missedData.length,
+        missed: missedCount,
         checkpoints: checkpointDetails,
         scheduledAt: execution.scheduledAt.toISOString(),
         startedAt: execution.startedAt?.toISOString(),

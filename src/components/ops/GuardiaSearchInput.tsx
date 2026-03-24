@@ -8,11 +8,18 @@ export type GuardiaSearchResult = {
   nombreCompleto: string;
   code?: string;
   rut?: string;
+  currentInstallationId?: string;
+  currentInstallationName?: string;
 };
 
 interface GuardiaSearchInputProps {
   value: string;
-  onChange: (patch: { guardiaNombre: string; guardiaId?: string | null }) => void;
+  onChange: (patch: {
+    guardiaNombre: string;
+    guardiaId?: string | null;
+    currentInstallationId?: string | null;
+    currentInstallationName?: string | null;
+  }) => void;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
@@ -82,7 +89,7 @@ export function GuardiaSearchInput({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const v = e.target.value;
       setQuery(v);
-      onChange({ guardiaNombre: v, guardiaId: null });
+      onChange({ guardiaNombre: v, guardiaId: null, currentInstallationId: null, currentInstallationName: null });
 
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
@@ -95,7 +102,12 @@ export function GuardiaSearchInput({
   const handleSelect = useCallback(
     (g: GuardiaSearchResult) => {
       setQuery(g.nombreCompleto);
-      onChange({ guardiaNombre: g.nombreCompleto, guardiaId: g.id });
+      onChange({
+        guardiaNombre: g.nombreCompleto,
+        guardiaId: g.id,
+        currentInstallationId: g.currentInstallationId ?? null,
+        currentInstallationName: g.currentInstallationName ?? null,
+      });
       setOpen(false);
       setResults([]);
       inputRef.current?.blur();
@@ -163,6 +175,9 @@ export function GuardiaSearchInput({
             <span className="font-medium">{g.nombreCompleto}</span>
             {g.code && (
               <span className="ml-2 text-xs text-muted-foreground">Cód. {g.code}</span>
+            )}
+            {g.currentInstallationName && (
+              <span className="ml-2 text-xs text-muted-foreground">· {g.currentInstallationName}</span>
             )}
           </li>
         ))}
