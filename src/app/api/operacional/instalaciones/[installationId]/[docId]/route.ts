@@ -7,7 +7,7 @@ import { calcDocStatus } from "@/lib/docs-operacionales";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { installationId: string; docId: string } }
+  { params }: { params: Promise<{ installationId: string; docId: string }> }
 ) {
   try {
     const ctx = await requireAuth();
@@ -15,7 +15,7 @@ export async function PUT(
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
-    const { docId } = params;
+    const { docId } = await params;
     const doc = await prisma.docOperacional.findFirst({
       where: { id: docId, tenantId: ctx.tenantId, capa: "instalacion" },
       include: { tipo: true },
@@ -63,7 +63,7 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { installationId: string; docId: string } }
+  { params }: { params: Promise<{ installationId: string; docId: string }> }
 ) {
   try {
     const ctx = await requireAuth();
@@ -71,7 +71,7 @@ export async function DELETE(
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
-    const { docId } = params;
+    const { docId } = await params;
     const doc = await prisma.docOperacional.findFirst({
       where: { id: docId, tenantId: ctx.tenantId, capa: "instalacion" },
     });

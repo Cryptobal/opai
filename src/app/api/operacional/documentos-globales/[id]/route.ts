@@ -8,7 +8,7 @@ import { parseDateOnly } from "@/lib/ops";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await requireAuth();
@@ -19,7 +19,7 @@ export async function PUT(
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const doc = await prisma.docOperacional.findFirst({
       where: { id, tenantId: ctx.tenantId, capa: "global" },
       include: { tipo: true },
@@ -68,7 +68,7 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const ctx = await requireAuth();
@@ -79,7 +79,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const doc = await prisma.docOperacional.findFirst({
       where: { id, tenantId: ctx.tenantId, capa: "global" },
     });
