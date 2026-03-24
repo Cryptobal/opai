@@ -11,7 +11,7 @@ const ALLOWED_MIME = ["application/pdf"];
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { installationId: string } }
+  { params }: { params: Promise<{ installationId: string }> }
 ) {
   try {
     const ctx = await requireAuth();
@@ -19,7 +19,7 @@ export async function GET(
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
-    const { installationId } = params;
+    const { installationId } = await params;
 
     // Verify installation belongs to tenant
     const inst = await prisma.crmInstallation.findFirst({
@@ -178,7 +178,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { installationId: string } }
+  { params }: { params: Promise<{ installationId: string }> }
 ) {
   try {
     const ctx = await requireAuth();
@@ -186,7 +186,7 @@ export async function POST(
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
-    const { installationId } = params;
+    const { installationId } = await params;
 
     const inst = await prisma.crmInstallation.findFirst({
       where: { id: installationId, tenantId: ctx.tenantId },
