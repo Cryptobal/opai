@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Upload, X, FileSpreadsheet, AlertTriangle, Check } from "lucide-react";
+import { Plus, Upload, X, FileSpreadsheet, AlertTriangle, Check, Download } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type Purchase = {
@@ -387,8 +387,8 @@ export function InventarioComprasClient() {
               </DialogHeader>
 
               <div className="grid gap-4 py-4">
-                {/* File upload */}
-                <div className="flex items-center gap-4">
+                {/* File upload + template download */}
+                <div className="flex items-center gap-3 flex-wrap">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -404,8 +404,27 @@ export function InventarioComprasClient() {
                     <FileSpreadsheet className="h-4 w-4 mr-2" />
                     Seleccionar archivo
                   </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      const res = await fetch("/api/ops/inventario/purchases/template");
+                      if (!res.ok) { alert("Error al descargar plantilla"); return; }
+                      const blob = await res.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = "plantilla-compra-inventario.xlsx";
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    <Download className="h-4 w-4 mr-1.5" />
+                    Descargar Plantilla
+                  </Button>
                   <span className="text-xs text-muted-foreground">
-                    Columnas esperadas: Producto, Talla, Cantidad, Costo Unitario, Bodega
+                    Columnas: Producto, Talla, Cantidad, Costo Unitario, Bodega
                   </span>
                 </div>
 

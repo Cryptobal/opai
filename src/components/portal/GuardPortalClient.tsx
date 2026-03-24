@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -2479,9 +2479,14 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
   const [items, setItems] = useState<EquipamientoItem[]>([]);
   const [pendingConfirmations, setPendingConfirmations] = useState<PendingConfirmation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pinInput, setPinInput] = useState<Record<string, string>>({});
   const [confirming, setConfirming] = useState<string | null>(null);
   const [confirmResult, setConfirmResult] = useState<Record<string, { ok: boolean; msg: string }>>({});
+  // Face ID / PIN toggle per movement
+  const [confirmMethod, setConfirmMethod] = useState<Record<string, "face_id" | "pin">>({});
+  const [pinInput, setPinInput] = useState<Record<string, string>>({});
+  const [cameraActive, setCameraActive] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const fetchData = () => {
     fetch(`/api/portal/guardia/equipamiento?guardiaId=${session.guardiaId}`)
@@ -2498,10 +2503,122 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
     fetchData();
   }, [session.guardiaId]);
 
-  const handleConfirm = async (movementId: string) => {
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
+
+  const startCamera = async (movementId: string) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: 640, height: 480 },
+      });
+      streamRef.current = stream;
+      setCameraActive(movementId);
+      // Wait for video ref to be available
+      requestAnimationFrame(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+      });
+    } catch {
+      setConfirmResult((prev) => ({
+        ...prev,
+        [movementId]: { ok: false, msg: "No se pudo acceder a la cámara" },
+      }));
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(null);
+  };
+
+  const captureAndVerify = async (movementId: string) => {
+    if (!videoRef.current) return;
+
+    // Capture frame from video
+    const canvas = document.createElement("canvas");
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(videoRef.current, 0, 0);
+    const imageBase64 = canvas.toDataURL("image/jpeg", 0.8);
+
+    stopCamera();
+    setConfirming(movementId);
+
+    try {
+      // Step 1: Verify face via existing face-verify endpoint
+      const verifyRes = await fetch("/api/public/marcacion/face-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image: imageBase64,
+          installationId: session.currentInstallationId,
+          tipo: "entrada", // dummy, we only need identity verification
+          lat: 0,
+          lng: 0,
+          expectedGuardiaId: session.guardiaId,
+          skipMarcacion: true, // won't create a marcacion record
+        }),
+      });
+
+      // Even if the marcacion part fails, we check if identity was verified
+      const verifyData = await verifyRes.json();
+
+      // The face-verify may return the matched guardiaId and confidence
+      const faceConfidence = verifyData.faceConfidence || verifyData.data?.faceConfidence;
+
+      if (!faceConfidence || faceConfidence < 95) {
+        setConfirmResult((prev) => ({
+          ...prev,
+          [movementId]: { ok: false, msg: "No se pudo verificar tu identidad. Intenta de nuevo o usa PIN." },
+        }));
+        setConfirming(null);
+        return;
+      }
+
+      // Step 2: Confirm delivery with face_id method
+      const confirmRes = await fetch("/api/portal/guardia/equipamiento/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          movementId,
+          guardiaId: session.guardiaId,
+          method: "face_id",
+          faceConfidence,
+        }),
+      });
+      const confirmData = await confirmRes.json();
+
+      if (confirmData.success) {
+        setConfirmResult((prev) => ({ ...prev, [movementId]: { ok: true, msg: "Entrega confirmada con Face ID" } }));
+        toast.success("Entrega confirmada con Face ID");
+        fetchData();
+      } else {
+        setConfirmResult((prev) => ({ ...prev, [movementId]: { ok: false, msg: confirmData.error || "Error" } }));
+      }
+    } catch {
+      setConfirmResult((prev) => ({ ...prev, [movementId]: { ok: false, msg: "Error de conexión" } }));
+    } finally {
+      setConfirming(null);
+    }
+  };
+
+  const handlePinConfirm = async (movementId: string) => {
     const pin = pinInput[movementId];
-    if (!pin || pin.length !== 6) {
-      setConfirmResult((prev) => ({ ...prev, [movementId]: { ok: false, msg: "Ingresa el PIN de 6 dígitos" } }));
+    if (!pin || pin.length < 4) {
+      setConfirmResult((prev) => ({ ...prev, [movementId]: { ok: false, msg: "Ingresa tu PIN de marcación" } }));
       return;
     }
 
@@ -2510,11 +2627,16 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
       const res = await fetch("/api/portal/guardia/equipamiento/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ movementId, guardiaId: session.guardiaId, pin }),
+        body: JSON.stringify({
+          movementId,
+          guardiaId: session.guardiaId,
+          method: "pin",
+          pin,
+        }),
       });
       const data = await res.json();
       if (data.success) {
-        setConfirmResult((prev) => ({ ...prev, [movementId]: { ok: true, msg: "Entrega confirmada" } }));
+        setConfirmResult((prev) => ({ ...prev, [movementId]: { ok: true, msg: "Entrega confirmada con PIN" } }));
         toast.success("Entrega confirmada exitosamente");
         fetchData();
       } else {
@@ -2553,6 +2675,8 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
     groupedByMovement.set(item.movementId, existing);
   }
 
+  const hasFaceId = session.faceIdRegistered;
+
   return (
     <div className="p-4 space-y-3">
       <div className="mb-2">
@@ -2567,7 +2691,9 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
             {pendingConfirmations.length} {pendingConfirmations.length === 1 ? "entrega pendiente" : "entregas pendientes"} de confirmación
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Revisa tu correo para obtener el PIN de confirmación.
+            {hasFaceId
+              ? "Usa Face ID o tu PIN de marcación para confirmar la recepción."
+              : "Usa tu PIN de marcación para confirmar la recepción."}
           </p>
         </div>
       )}
@@ -2578,6 +2704,7 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
           const isPending = first.confirmationStatus === "pending";
           const isConfirmed = first.confirmationStatus === "confirmed";
           const result = confirmResult[movementId];
+          const method = confirmMethod[movementId] || (hasFaceId ? "face_id" : "pin");
 
           return (
             <div key={movementId} className="rounded-lg border bg-card overflow-hidden">
@@ -2617,33 +2744,110 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
                 ))}
               </div>
 
-              {/* PIN confirmation */}
+              {/* Confirmation area */}
               {isPending && !result?.ok && (
-                <div className="p-3 border-t bg-muted/20">
-                  <p className="text-xs text-muted-foreground mb-2">Ingresa el PIN de 6 dígitos enviado a tu correo:</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      placeholder="000000"
-                      value={pinInput[movementId] || ""}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, "").slice(0, 6);
-                        setPinInput((prev) => ({ ...prev, [movementId]: val }));
-                      }}
-                      className="flex-1 h-10 rounded-md border border-input bg-background px-3 text-center text-lg tracking-[0.3em] font-mono text-foreground"
-                    />
-                    <button
-                      onClick={() => handleConfirm(movementId)}
-                      disabled={confirming === movementId}
-                      className="h-10 px-4 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
-                    >
-                      {confirming === movementId ? "..." : "Confirmar"}
-                    </button>
-                  </div>
+                <div className="p-3 border-t bg-muted/20 space-y-3">
+                  {/* Method toggle */}
+                  {hasFaceId && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { stopCamera(); setConfirmMethod((p) => ({ ...p, [movementId]: "face_id" })); }}
+                        className={`flex-1 text-xs py-1.5 rounded-md border transition-colors ${
+                          method === "face_id"
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-muted-foreground border-input hover:bg-muted"
+                        }`}
+                      >
+                        <Camera className="h-3.5 w-3.5 inline mr-1" />
+                        Face ID
+                      </button>
+                      <button
+                        onClick={() => { stopCamera(); setConfirmMethod((p) => ({ ...p, [movementId]: "pin" })); }}
+                        className={`flex-1 text-xs py-1.5 rounded-md border transition-colors ${
+                          method === "pin"
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-muted-foreground border-input hover:bg-muted"
+                        }`}
+                      >
+                        <Fingerprint className="h-3.5 w-3.5 inline mr-1" />
+                        PIN
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Face ID camera */}
+                  {method === "face_id" && (
+                    <div>
+                      {cameraActive === movementId ? (
+                        <div className="space-y-2">
+                          <div className="rounded-lg overflow-hidden bg-black aspect-[4/3] relative">
+                            <video
+                              ref={videoRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              className="w-full h-full object-cover mirror"
+                              style={{ transform: "scaleX(-1)" }}
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => captureAndVerify(movementId)}
+                              disabled={confirming === movementId}
+                              className="flex-1 h-10 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                              {confirming === movementId ? "Verificando..." : "Capturar y confirmar"}
+                            </button>
+                            <button
+                              onClick={stopCamera}
+                              className="h-10 px-3 rounded-md border border-input text-sm"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => startCamera(movementId)}
+                          className="w-full h-12 rounded-md border-2 border-dashed border-input text-sm text-muted-foreground hover:bg-muted/50 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Camera className="h-5 w-5" />
+                          Abrir cámara para confirmar con Face ID
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* PIN input */}
+                  {method === "pin" && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2">Ingresa tu PIN de marcación:</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          maxLength={6}
+                          placeholder="PIN"
+                          value={pinInput[movementId] || ""}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                            setPinInput((prev) => ({ ...prev, [movementId]: val }));
+                          }}
+                          className="flex-1 h-10 rounded-md border border-input bg-background px-3 text-center text-lg tracking-[0.2em] font-mono text-foreground"
+                        />
+                        <button
+                          onClick={() => handlePinConfirm(movementId)}
+                          disabled={confirming === movementId}
+                          className="h-10 px-4 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          {confirming === movementId ? "..." : "Confirmar"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {result && !result.ok && (
-                    <p className="text-xs text-red-500 mt-1">{result.msg}</p>
+                    <p className="text-xs text-red-500">{result.msg}</p>
                   )}
                 </div>
               )}
