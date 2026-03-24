@@ -17,6 +17,7 @@ import { computeMarcacionHash, haversineDistance } from "@/lib/marcacion";
 import { sendMarcacionComprobante } from "@/lib/marcacion-email";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
+import { uploadMarcacionPhoto } from "@/lib/marcacion-photo";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -237,14 +238,11 @@ export async function POST(req: NextRequest) {
       tenantId: installation.tenantId,
     });
 
-    // Foto de evidencia: guardar base64 como data URL (en producción se sube a R2/S3)
-    // La foto NO es biométrica — es evidencia visual para supervisión.
+    // Foto de evidencia: subir a R2 para supervisión visual.
+    // La foto NO es biométrica — es evidencia visual.
     let fotoEvidenciaUrl: string | null = null;
     if (fotoBase64) {
-      // Por ahora almacenamos la referencia. En un PR futuro se sube a R2.
-      // La foto base64 completa no se guarda en la BD (muy pesada).
-      // Se marca que fue capturada.
-      fotoEvidenciaUrl = `evidence:${serverTimestamp.toISOString()}`;
+      fotoEvidenciaUrl = await uploadMarcacionPhoto(fotoBase64, guardia.id, tipo);
     }
 
     // Buscar asignación activa del guardia en esta instalación para obtener puesto/slot
