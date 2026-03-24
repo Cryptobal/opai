@@ -22,7 +22,7 @@ interface NotificationEmailProps {
   category?: string;
 }
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "[REDACTED]";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
 
 export default function NotificationEmail({
   title,
