@@ -7,10 +7,20 @@ import {
   resolveDocument,
   buildEmpresaEntityData,
   buildQuoteEnrichedData,
+  buildContractEntityData,
 } from "@/lib/docs/token-resolver";
 import type { EntityData } from "@/lib/docs/token-resolver";
 import { tiptapToPreviewHtml } from "@/lib/docs/tiptap-to-html";
 import { TOKEN_MODULES } from "@/lib/docs/token-registry";
+import { getUfValue } from "@/lib/uf";
+import { clpToUf } from "@/lib/uf-utils";
+
+/** Tokens that are determined at contract signing, not by the client. */
+const CONTRACT_SIGNING_TOKENS = new Set([
+  "contract.effectiveDate",
+  "contract.expirationDate",
+  "contract.title",
+]);
 
 /**
  * GET /api/portal/cliente/cotizaciones/[id]/contrato-borrador
@@ -47,6 +57,11 @@ export async function GET(
       tenantId: true,
       dealId: true,
       code: true,
+      name: true,
+      currency: true,
+      parameters: {
+        select: { contractMonths: true },
+      },
     },
   });
 
@@ -137,13 +152,29 @@ export async function GET(
     value: s.value,
   }));
 
-  // Quote enriched data
+  // Quote enriched data + UF conversion
   const quoteData = await buildQuoteEnrichedData(quoteId);
+  if (quoteData.salePriceMonthly && (!quoteData.salePriceUF || quoteData.salePriceUF === "")) {
+    try {
+      const ufValue = await getUfValue();
+      if (ufValue > 0) {
+        const uf = clpToUf(Number(quoteData.salePriceMonthly), ufValue);
+        quoteData.salePriceUF = uf.toFixed(2);
+      }
+    } catch { /* UF not available, leave empty */ }
+  }
 
   // First installation for the account
   const installation = await prisma.crmInstallation.findFirst({
     where: { accountId: quote.accountId!, status: "active" },
     select: { name: true, address: true, commune: true, city: true },
+  });
+
+  // Contract entity data (derive duration from quote parameters)
+  const contractMonths = quote.parameters?.contractMonths ?? quoteData.contractMonths ?? null;
+  const contractData = buildContractEntityData({
+    title: quote.name ?? undefined,
+    durationMonths: contractMonths ? Number(contractMonths) : undefined,
   });
 
   /* ── 4. Assemble entities ── */
@@ -154,6 +185,7 @@ export async function GET(
     deal: deal ? { ...deal, amount: deal.amount ? Number(deal.amount) : null } : undefined,
     quote: quoteData,
     installation: installation ?? undefined,
+    contract: contractData,
   };
 
   /* ── 5. Determine which tokens are missing ── */
@@ -161,7 +193,9 @@ export async function GET(
     ? (template.tokensUsed as string[])
     : [];
 
-  const missingFields: { key: string; label: string }[] = [];
+  // Categorized missing fields
+  const missingPortal: { key: string; label: string }[] = [];
+  const missingContractual: { key: string; label: string }[] = [];
 
   for (const tokenKey of tokensUsed) {
     const [mod, field] = tokenKey.split(".");
@@ -169,23 +203,26 @@ export async function GET(
     if (mod === "system" || mod === "signature") continue;
 
     const entity = entities[mod as keyof EntityData];
-    if (!entity) {
-      // Entire module missing
-      const tokenDef = TOKEN_MODULES
-        .find((m) => m.key === mod)
-        ?.tokens.find((t) => t.key === tokenKey);
-      missingFields.push({
-        key: tokenKey,
-        label: tokenDef?.label ?? tokenKey,
-      });
-      continue;
-    }
 
     // Special computed fields
     if (mod === "contact" && field === "fullName") {
-      const hasName = entity.firstName || entity.lastName;
-      if (!hasName) {
-        missingFields.push({ key: tokenKey, label: "Nombre Completo Contacto" });
+      if (!entity || !(entity.firstName || entity.lastName)) {
+        missingPortal.push({ key: tokenKey, label: "Nombre Completo Contacto" });
+      }
+      continue;
+    }
+
+    if (!entity) {
+      const tokenDef = TOKEN_MODULES
+        .find((m) => m.key === mod)
+        ?.tokens.find((t) => t.key === tokenKey);
+      const entry = { key: tokenKey, label: tokenDef?.label ?? tokenKey };
+      if (CONTRACT_SIGNING_TOKENS.has(tokenKey)) {
+        missingContractual.push(entry);
+      } else if (mod === "account" || mod === "contact" || mod === "installation") {
+        missingPortal.push(entry);
+      } else {
+        missingContractual.push(entry);
       }
       continue;
     }
@@ -195,26 +232,37 @@ export async function GET(
       const tokenDef = TOKEN_MODULES
         .find((m) => m.key === mod)
         ?.tokens.find((t) => t.key === tokenKey);
-      missingFields.push({
-        key: tokenKey,
-        label: tokenDef?.label ?? field,
-      });
+      const entry = { key: tokenKey, label: tokenDef?.label ?? field };
+      if (CONTRACT_SIGNING_TOKENS.has(tokenKey)) {
+        missingContractual.push(entry);
+      } else if (mod === "account" || mod === "contact" || mod === "installation") {
+        missingPortal.push(entry);
+      } else {
+        missingContractual.push(entry);
+      }
     }
   }
 
+  const allMissing = [...missingPortal, ...missingContractual];
+
   /* ── 6. Build placeholder-enriched entities for visual rendering ── */
-  // For tokens that resolve to empty, inject a visible placeholder
   const entitiesForRender: EntityData = JSON.parse(JSON.stringify(entities));
 
-  for (const missing of missingFields) {
+  for (const missing of allMissing) {
     const [mod, field] = missing.key.split(".");
     if (!mod || !field) continue;
+
+    // Contractual tokens get a softer placeholder
+    const isContractual = CONTRACT_SIGNING_TOKENS.has(missing.key);
+    const placeholder = isContractual
+      ? `[A definir]`
+      : `[${missing.label}]`;
+
     const entity = entitiesForRender[mod as keyof EntityData];
     if (entity) {
-      (entity as Record<string, unknown>)[field] = `[${missing.label}]`;
+      (entity as Record<string, unknown>)[field] = placeholder;
     } else {
-      // Create a stub entity with the placeholder
-      (entitiesForRender as Record<string, unknown>)[mod] = { [field]: `[${missing.label}]` };
+      (entitiesForRender as Record<string, unknown>)[mod] = { [field]: placeholder };
     }
   }
 
@@ -225,15 +273,19 @@ export async function GET(
   /* ── 8. Convert to HTML ── */
   let html = tiptapToPreviewHtml(resolvedContent);
 
-  // Highlight placeholders: wrap [Campo] markers with styled spans
+  // Highlight missing-portal placeholders in yellow
+  for (const f of missingPortal) {
+    const escaped = f.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    html = html.replace(
+      new RegExp(`\\[${escaped}\\]`, "g"),
+      `<span style="background:#fbbf24;color:#78350f;padding:2px 6px;border-radius:4px;font-size:0.85em;font-weight:600">[${f.label}]</span>`
+    );
+  }
+
+  // Highlight contractual placeholders in subtle gray
   html = html.replace(
-    /\[([^\]]+)\]/g,
-    (match, label) => {
-      // Only highlight if it matches a known missing field label
-      const isMissing = missingFields.some((f) => f.label === label);
-      if (!isMissing) return match;
-      return `<span style="background:#fbbf24;color:#78350f;padding:2px 6px;border-radius:4px;font-size:0.85em;font-weight:600">[${label}]</span>`;
-    }
+    /\[A definir\]/g,
+    `<span style="background:#e2e8f0;color:#475569;padding:2px 6px;border-radius:4px;font-size:0.85em;font-style:italic">[A definir al firmar]</span>`
   );
 
   /* ── 9. Return response ── */
@@ -242,10 +294,9 @@ export async function GET(
     data: {
       templateName: template.name,
       html,
-      missingFields,
-      canCompleteInPortal: missingFields.some((f) =>
-        f.key.startsWith("account.") || f.key.startsWith("contact.")
-      ),
+      missingFields: missingPortal,
+      contractualFields: missingContractual,
+      canCompleteInPortal: missingPortal.length > 0,
     },
   });
 }

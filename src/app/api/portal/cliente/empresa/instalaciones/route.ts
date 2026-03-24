@@ -11,10 +11,11 @@ export async function PUT(req: Request) {
   if (!session) return NextResponse.json({ error: "No session" }, { status: 401 });
 
   const body = await req.json();
-  const { id, name, address } = body as {
+  const { id, name, address, commune } = body as {
     id: string;
     name?: string;
     address?: string;
+    commune?: string;
   };
 
   if (!id) {
@@ -34,11 +35,13 @@ export async function PUT(req: Request) {
     data: {
       ...(name !== undefined && { name }),
       ...(address !== undefined && { address }),
+      ...(commune !== undefined && { commune }),
     },
     select: {
       id: true,
       name: true,
       address: true,
+      commune: true,
     },
   });
 

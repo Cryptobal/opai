@@ -310,7 +310,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
       const res = await fetch('/api/portal/cliente/empresa/instalaciones', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: inst.id, name: inst.name, address: inst.address }),
+        body: JSON.stringify({ id: inst.id, name: inst.name, address: inst.address, commune: inst.commune }),
       })
       const json = await res.json()
       if (json.success) {
@@ -530,7 +530,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
               key={inst.id}
               className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-3 space-y-2"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <InputField
                   label="Nombre"
                   value={inst.name}
@@ -540,6 +540,11 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
                   label="Dirección"
                   value={inst.address ?? ''}
                   onChange={(v) => updateInstallation(inst.id, 'address', v)}
+                />
+                <InputField
+                  label="Comuna"
+                  value={inst.commune ?? ''}
+                  onChange={(v) => updateInstallation(inst.id, 'commune', v)}
                 />
               </div>
               <div className="flex justify-end">

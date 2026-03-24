@@ -183,16 +183,18 @@ export function ProposalTotalAcciones({
         />
       </div>
 
-      {/* Contract draft */}
+      {/* Contract draft — subtle link, not a primary action */}
       {onViewContractDraft && (
-        <button
-          type="button"
-          onClick={onViewContractDraft}
-          className="w-full flex items-center justify-center gap-2 h-10 rounded-lg border border-indigo-500/30 text-indigo-300 hover:text-indigo-200 hover:border-indigo-500/50 text-sm font-medium transition-colors"
-        >
-          <FileText className="w-4 h-4" />
-          Ver Borrador de Contrato
-        </button>
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={onViewContractDraft}
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors underline underline-offset-2"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Ver borrador de contrato
+          </button>
+        </div>
       )}
 
       {/* Footer */}
