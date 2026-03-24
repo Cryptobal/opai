@@ -767,7 +767,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
             <Button variant="outline" size="sm" onClick={handleReset}>
               Cancelar
             </Button>
-            <Button size="sm" onClick={handleConfirmMarcacion} variant="destructive">
+            <Button size="sm" onClick={() => setStep("camera")} variant="destructive">
               Reintentar
             </Button>
           </div>
