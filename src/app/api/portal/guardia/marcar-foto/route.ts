@@ -11,10 +11,10 @@
  * - Comprobante electronico al trabajador
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeMarcacionHash, haversineDistance } from "@/lib/marcacion";
-import { sendMarcacionComprobante } from "@/lib/marcacion-email";
+import { sendMarcacionComprobante, sendNotificacionFueraDeRango } from "@/lib/marcacion-email";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { formatPersonName } from "@/lib/personas";
@@ -357,26 +357,30 @@ export async function POST(req: NextRequest) {
       }).catch((err) => console.error("[portal-guardia/marcar-foto] Error enviando comprobante:", err));
     }
 
-    // Notify supervisor if out of range (fire-and-forget)
+    // Alerta fuera de rango: after() evita que el envío se pierda al cerrar el runtime serverless al responder.
     if (gpsStatus === "fuera_rango") {
-      import("@/lib/marcacion-email").then(({ sendNotificacionFueraDeRango }) =>
-        sendNotificacionFueraDeRango({
-          tenantId,
-          installationId: installation.id,
-          installationName: installation.name,
-          installationLat: installation.lat,
-          installationLng: installation.lng,
-          guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),
-          guardiaRut: guardia.persona.rut ?? "",
-          tipo,
-          timestamp: serverTimestamp,
-          geoDistanciaM,
-          geoRadiusM: effectiveGeoRadiusM,
-          lat: lat ?? null,
-          lng: lng ?? null,
-          deviceDisplay: "Portal Guardia (celular personal)",
-        }).catch((err) => console.error("[portal-guardia/marcar-foto] Error notificando fuera de rango:", err))
-      );
+      after(async () => {
+        try {
+          await sendNotificacionFueraDeRango({
+            tenantId,
+            installationId: installation.id,
+            installationName: installation.name,
+            installationLat: installation.lat,
+            installationLng: installation.lng,
+            guardiaName: formatPersonName(guardia.persona.firstName, guardia.persona.lastName),
+            guardiaRut: guardia.persona.rut ?? "",
+            tipo,
+            timestamp: serverTimestamp,
+            geoDistanciaM,
+            geoRadiusM: effectiveGeoRadiusM,
+            lat: lat ?? null,
+            lng: lng ?? null,
+            deviceDisplay: "Portal Guardia (celular personal)",
+          });
+        } catch (err) {
+          console.error("[portal-guardia/marcar-foto] Error notificando fuera de rango:", err);
+        }
+      });
     }
 
     return NextResponse.json({

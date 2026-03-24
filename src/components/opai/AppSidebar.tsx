@@ -160,7 +160,8 @@ export function AppSidebar({
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-30 border-r border-border/60 bg-gradient-to-b from-card to-card/80 flex flex-col transition-[width] duration-200 ease-out",
+        /* z-[48]: por encima de cabeceras sticky del contenido (p. ej. z-30); por debajo de modales (z-50). */
+        "fixed left-0 top-0 z-[48] border-r border-border/60 bg-gradient-to-b from-card to-card/80 flex flex-col transition-[width] duration-200 ease-out",
         showCloseButton ? "h-full max-h-full" : "h-screen",
         collapsed ? "w-[72px]" : "w-64",
         className
