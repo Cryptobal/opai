@@ -20,6 +20,7 @@ export interface GuardSession {
   currentInstallationId: string | null;
   currentInstallationName: string | null;
   authenticatedAt: string;
+  faceIdRegistered: boolean;
 }
 
 export interface GuardScheduleDay {

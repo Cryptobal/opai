@@ -134,6 +134,7 @@ export async function POST(request: NextRequest) {
       currentInstallationId: guardia.currentInstallationId,
       currentInstallationName: guardia.currentInstallation?.name ?? null,
       authenticatedAt: new Date().toISOString(),
+      faceIdRegistered: guardia.faceIdRegistered ?? false,
     };
 
     const response = NextResponse.json({ success: true, data: session });
