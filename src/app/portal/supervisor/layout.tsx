@@ -37,7 +37,7 @@ export default async function PortalSupervisorLayout({
   }
   return (
     <div className="min-h-dvh text-white" style={{ paddingTop: 'var(--safe-area-top)' }}>
-      <ServiceWorkerRegistrar />
+      <ServiceWorkerRegistrar scope="/portal/supervisor" />
       <BadgeClear />
       {children}
     </div>

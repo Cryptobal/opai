@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 export default function PortalRondasLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh text-[#f5f5f5] antialiased" style={{ paddingTop: 'var(--safe-area-top)' }}>
-      <ServiceWorkerRegistrar />
+      <ServiceWorkerRegistrar scope="/portal/rondas" />
       <BadgeClear />
       {children}
     </div>

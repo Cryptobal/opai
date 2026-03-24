@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 export default function PortalGuardiaLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh" style={{ paddingTop: 'var(--safe-area-top)' }}>
-      <ServiceWorkerRegistrar />
+      <ServiceWorkerRegistrar scope="/portal/guardia" />
       <BadgeClear />
       {children}
     </div>

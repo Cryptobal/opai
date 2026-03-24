@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 export default function PortalAccesoLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh text-foreground antialiased" style={{ paddingTop: 'var(--safe-area-top)' }}>
-      <ServiceWorkerRegistrar />
+      <ServiceWorkerRegistrar scope="/portal/acceso" />
       <BadgeClear />
       {children}
     </div>

@@ -1,9 +1,13 @@
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
 
+  // Detect portal scope from URL — keeps PWA isolated per portal
+  const portalMatch = window.location.pathname.match(/^(\/portal\/[^/]+)/);
+  const scope = portalMatch ? portalMatch[1] : '/';
+
   try {
     const registration = await navigator.serviceWorker.register('/sw.js', {
-      scope: '/',
+      scope,
     });
 
     // If there's already a waiting worker from a previous visit, notify immediately

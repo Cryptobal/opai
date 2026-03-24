@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { PwaRegistrar } from "@/components/portal/cliente/PwaRegistrar";
+import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
 import { BadgeClear } from "@/components/pwa/BadgeClear";
 
 export const viewport: Viewport = {
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 export default function PortalClienteLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh text-white" style={{ paddingTop: 'var(--safe-area-top)' }}>
-      <PwaRegistrar />
+      <ServiceWorkerRegistrar scope="/portal/cliente" />
       <BadgeClear />
       {children}
     </div>
