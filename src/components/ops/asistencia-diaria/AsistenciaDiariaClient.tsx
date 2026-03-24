@@ -153,9 +153,8 @@ export function AsistenciaDiariaClient({
 
   const handleExportHE = useCallback(() => {
     const params = new URLSearchParams({ from: hook.selectedDate, to: hook.selectedDate });
-    if (hook.installationId !== "all") params.set("installationId", hook.installationId);
     window.open(`/api/ops/asistencia/export-horas-extra?${params.toString()}`, "_blank");
-  }, [hook.selectedDate, hook.installationId]);
+  }, [hook.selectedDate]);
 
   // ── Render ────────────────────────────────────────────────────────────
 
@@ -171,15 +170,8 @@ export function AsistenciaDiariaClient({
         onShiftFilterChange={hook.setShiftFilter}
         kpiFilter={hook.kpiFilter}
         onKpiFilterChange={hook.handleKpiClick}
-        selectedInstallation={hook.installationId}
-        onInstallationChange={hook.setInstallationId}
-        installations={hook.installations}
-        selectedClient={hook.clientId}
-        onClientChange={(id) => {
-          hook.setClientId(id);
-          hook.setInstallationId("all");
-        }}
-        clients={hook.clients}
+        searchQuery={hook.searchQuery}
+        onSearchChange={hook.setSearchQuery}
         isDesktop={isDesktop}
         onExportHE={handleExportHE}
         loading={hook.loading}

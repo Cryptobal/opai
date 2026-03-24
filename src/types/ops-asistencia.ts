@@ -119,6 +119,7 @@ export type AsistenciaMetrics = {
   cubiertos: number;
   ppc: number;
   te: number;
+  fueraDeRango: number;
   coberturaPct: number;
 };
 

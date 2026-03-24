@@ -47,6 +47,36 @@ export interface UseAsistenciaDiariaOptions {
   guardias: GuardiaOption[];
 }
 
+function normalizeSearch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Returns true if the item has at least one "entrada" marcacion (electronic check-in) */
+function hasCheckIn(item: AsistenciaItem): boolean {
+  return item.marcaciones?.some((m) => m.tipo === "entrada") ?? false;
+}
+
+/** Returns true if ANY marcacion has gpsStatus === "fuera_rango" */
+function hasFueraDeRango(item: AsistenciaItem): boolean {
+  return item.marcaciones?.some((m) => m.gpsStatus === "fuera_rango") ?? false;
+}
+
+/** Item is considered "cubierto" if status is asistio/reemplazo OR has an electronic check-in */
+function isCubierto(item: AsistenciaItem): boolean {
+  return (
+    item.attendanceStatus === "asistio" ||
+    item.attendanceStatus === "reemplazo" ||
+    hasCheckIn(item)
+  );
+}
+
+export type KpiFilterType = "todos" | "cubiertos" | "ppc" | "te" | "fuera_rango";
+
 export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaDiariaOptions) {
   const searchParams = useSearchParams();
   const urlDate = searchParams.get("date");
@@ -55,14 +85,13 @@ export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaD
   // ── Core state ────────────────────────────────────────────────────────
 
   const [clients] = useState<ClientOption[]>(initialClients);
-  const [clientId, setClientId] = useState<string>("all");
-  const [installationId, setInstallationId] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     if (urlDate && DATE_INPUT_REGEX.test(urlDate)) return urlDate;
     return toDateInput(new Date());
   });
   const [shiftFilter, setShiftFilter] = useState<"todos" | "dia" | "noche">("todos");
-  const [kpiFilter, setKpiFilter] = useState<"todos" | "cubiertos" | "ppc" | "te">("todos");
+  const [kpiFilter, setKpiFilter] = useState<KpiFilterType>("todos");
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [items, setItems] = useState<AsistenciaItem[]>([]);
@@ -73,20 +102,29 @@ export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaD
     if (urlDate && DATE_INPUT_REGEX.test(urlDate)) setSelectedDate(urlDate);
   }, [urlDate]);
 
-  // ── Derived: installations from selected client ───────────────────────
+  // ── Build search index for client/installation names ────────────────
 
-  const installations = useMemo(() => {
-    if (clientId === "all") return clients.flatMap((c) => c.installations);
-    return clients.find((c) => c.id === clientId)?.installations ?? [];
-  }, [clients, clientId]);
+  const installationClientMap = useMemo(() => {
+    const map = new Map<string, string>(); // installationId -> clientName
+    for (const c of clients) {
+      for (const inst of c.installations) {
+        map.set(inst.id, c.name);
+      }
+    }
+    return map;
+  }, [clients]);
 
-  // ── Fetch data ────────────────────────────────────────────────────────
+  const allInstallations = useMemo(
+    () => clients.flatMap((c) => c.installations),
+    [clients]
+  );
+
+  // ── Fetch data (always fetch all, filter client-side) ───────────────
 
   const fetchAsistencia = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ date: selectedDate });
-      if (installationId !== "all") params.set("installationId", installationId);
       const res = await fetch(`/api/ops/asistencia?${params.toString()}`, { cache: "no-store" });
       const payload = await res.json();
       if (!res.ok || !payload.success) {
@@ -103,7 +141,7 @@ export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaD
     } finally {
       setLoading(false);
     }
-  }, [installationId, selectedDate]);
+  }, [selectedDate]);
 
   useEffect(() => {
     void fetchAsistencia();
@@ -123,8 +161,11 @@ export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaD
 
   // ── Filtering ─────────────────────────────────────────────────────────
 
+  /** Items filtered by search query (client/installation name) + shift + guardia URL */
   const shiftFilteredItems = useMemo(() => {
     let base = items;
+
+    // Filter by guardia from URL
     if (urlGuardiaId) {
       base = base.filter(
         (item) =>
@@ -133,22 +174,34 @@ export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaD
           item.replacementGuardiaId === urlGuardiaId
       );
     }
+
+    // Filter by search query (matches installation name or client name)
+    const q = normalizeSearch(searchQuery);
+    if (q) {
+      base = base.filter((item) => {
+        const instName = normalizeSearch(item.installation.name);
+        const clientName = normalizeSearch(installationClientMap.get(item.installation.id) ?? "");
+        return instName.includes(q) || clientName.includes(q);
+      });
+    }
+
+    // Filter by shift
     return shiftFilter === "todos"
       ? base
       : base.filter((item) => {
           const isDay = isDayShift(item.puesto.shiftStart);
           return shiftFilter === "dia" ? isDay : !isDay;
         });
-  }, [items, shiftFilter, urlGuardiaId]);
+  }, [items, shiftFilter, urlGuardiaId, searchQuery, installationClientMap]);
 
   const filteredItems = useMemo(() => {
     if (kpiFilter === "todos") return shiftFilteredItems;
     return shiftFilteredItems.filter((item) => {
-      if (kpiFilter === "cubiertos")
-        return item.attendanceStatus === "asistio" || item.attendanceStatus === "reemplazo";
+      if (kpiFilter === "cubiertos") return isCubierto(item);
       if (kpiFilter === "ppc") return !item.plannedGuardiaId;
       if (kpiFilter === "te")
         return item.turnosExtra?.some((t) => t.status !== "rejected");
+      if (kpiFilter === "fuera_rango") return hasFueraDeRango(item);
       return true;
     });
   }, [shiftFilteredItems, kpiFilter]);
@@ -171,21 +224,23 @@ export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaD
     let total = 0,
       cubiertos = 0,
       ppc = 0,
-      te = 0;
+      te = 0,
+      fueraDeRango = 0;
     for (const item of shiftFilteredItems) {
       total++;
-      if (item.attendanceStatus === "asistio" || item.attendanceStatus === "reemplazo") cubiertos++;
+      if (isCubierto(item)) cubiertos++;
       if (!item.plannedGuardiaId) ppc++;
       if (item.turnosExtra?.some((t) => t.status !== "rejected")) te++;
+      if (hasFueraDeRango(item)) fueraDeRango++;
     }
     const coberturaPct = total > 0 ? Math.round((cubiertos / total) * 100) : 0;
-    return { total, cubiertos, ppc, te, coberturaPct };
+    return { total, cubiertos, ppc, te, fueraDeRango, coberturaPct };
   }, [shiftFilteredItems]);
 
   // ── KPI click handler ─────────────────────────────────────────────────
 
   const handleKpiClick = useCallback(
-    (kpi: "todos" | "cubiertos" | "ppc" | "te") => {
+    (kpi: KpiFilterType) => {
       const finalKpi = kpiFilter === kpi && kpi !== "todos" ? "todos" : kpi;
       setLoading(true);
       setTimeout(() => {
@@ -268,14 +323,12 @@ export function useAsistenciaDiaria({ initialClients, guardias }: UseAsistenciaD
     setShiftFilter,
     kpiFilter,
     handleKpiClick,
-    clientId,
-    setClientId,
-    installationId,
-    setInstallationId,
+    searchQuery,
+    setSearchQuery,
 
     // Derived
     clients,
-    installations,
+    allInstallations,
     groupedByInstallation,
     metrics,
     filteredItems,

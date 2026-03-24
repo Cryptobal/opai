@@ -2,10 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { AsistenciaMetrics, ClientOption } from "@/types/ops-asistencia";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import type { AsistenciaMetrics } from "@/types/ops-asistencia";
+import type { KpiFilterType } from "@/hooks/useAsistenciaDiaria";
 
 /* ── Coverage ring SVG (mobile only) ──────────────────────────────────── */
 
@@ -84,16 +83,11 @@ interface AsistenciaHeaderProps {
   // Filters
   shiftFilter: "todos" | "dia" | "noche";
   onShiftFilterChange: (f: "todos" | "dia" | "noche") => void;
-  kpiFilter: "todos" | "cubiertos" | "ppc" | "te";
-  onKpiFilterChange: (f: "todos" | "cubiertos" | "ppc" | "te") => void;
-  // Installation
-  selectedInstallation: string;
-  onInstallationChange: (id: string) => void;
-  installations: { id: string; name: string }[];
-  // Desktop-only client filter
-  selectedClient: string;
-  onClientChange: (id: string) => void;
-  clients: ClientOption[];
+  kpiFilter: KpiFilterType;
+  onKpiFilterChange: (f: KpiFilterType) => void;
+  // Search
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
   // Layout
   isDesktop: boolean;
   // Export
@@ -114,24 +108,33 @@ export function AsistenciaHeader({
   onShiftFilterChange,
   kpiFilter,
   onKpiFilterChange,
-  selectedInstallation,
-  onInstallationChange,
-  installations,
-  selectedClient,
-  onClientChange,
-  clients,
+  searchQuery,
+  onSearchChange,
   isDesktop,
   onExportHE,
   loading,
   hasItems,
 }: AsistenciaHeaderProps) {
+  const kpiCards: { id: KpiFilterType | "cobertura"; label: string; value: number | string; color: string }[] = [
+    { id: "todos", label: "Total", value: metrics.total, color: "text-foreground" },
+    { id: "cubiertos", label: "Cubiertos", value: metrics.cubiertos, color: "text-emerald-400" },
+    { id: "ppc", label: "PPC", value: metrics.ppc, color: "text-amber-400" },
+    { id: "te", label: "TE", value: metrics.te, color: "text-rose-400" },
+    { id: "fuera_rango", label: "Fuera de Rango", value: metrics.fueraDeRango, color: "text-orange-400" },
+    {
+      id: "cobertura",
+      label: "Cobertura",
+      value: `${metrics.coberturaPct}%`,
+      color: metrics.coberturaPct >= 80 ? "text-emerald-400" : metrics.coberturaPct >= 50 ? "text-amber-400" : "text-red-400",
+    },
+  ];
+
   return (
     <div className="sticky top-0 z-30 bg-background pb-2 space-y-2">
-      {/* Row 1: Date navigation + coverage ring (mobile) */}
       <Card>
         <CardContent className="pt-3 pb-2.5 space-y-2.5">
+          {/* Row 1: Date navigation */}
           <div className="flex items-center gap-2">
-            {/* Date nav */}
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               <button
                 type="button"
@@ -163,7 +166,7 @@ export function AsistenciaHeader({
               <CoverageRing pct={metrics.coberturaPct} />
             )}
 
-            {/* Export + today shortcut — desktop */}
+            {/* Export — desktop */}
             {isDesktop && (
               <div className="flex items-center gap-2 ml-2">
                 <Button
@@ -179,41 +182,18 @@ export function AsistenciaHeader({
             )}
           </div>
 
-          {/* Row 2: Stat pills (mobile) or KPI grid (desktop) */}
+          {/* Row 2: Stat pills (mobile) */}
           {hasItems && !isDesktop && (
             <div className="flex flex-wrap gap-1.5">
-              <StatPill
-                label="Total"
-                value={metrics.total}
-                color="text-foreground"
-                active={kpiFilter === "todos"}
-                onClick={() => onKpiFilterChange("todos")}
-              />
-              <StatPill
-                label="OK"
-                value={metrics.cubiertos}
-                color="text-emerald-400"
-                active={kpiFilter === "cubiertos"}
-                onClick={() => onKpiFilterChange("cubiertos")}
-              />
-              <StatPill
-                label="PPC"
-                value={metrics.ppc}
-                color="text-amber-400"
-                active={kpiFilter === "ppc"}
-                onClick={() => onKpiFilterChange("ppc")}
-              />
-              <StatPill
-                label="TE"
-                value={metrics.te}
-                color="text-rose-400"
-                active={kpiFilter === "te"}
-                onClick={() => onKpiFilterChange("te")}
-              />
+              <StatPill label="Total" value={metrics.total} color="text-foreground" active={kpiFilter === "todos"} onClick={() => onKpiFilterChange("todos")} />
+              <StatPill label="OK" value={metrics.cubiertos} color="text-emerald-400" active={kpiFilter === "cubiertos"} onClick={() => onKpiFilterChange("cubiertos")} />
+              <StatPill label="PPC" value={metrics.ppc} color="text-amber-400" active={kpiFilter === "ppc"} onClick={() => onKpiFilterChange("ppc")} />
+              <StatPill label="TE" value={metrics.te} color="text-rose-400" active={kpiFilter === "te"} onClick={() => onKpiFilterChange("te")} />
+              <StatPill label="F.Rango" value={metrics.fueraDeRango} color="text-orange-400" active={kpiFilter === "fuera_rango"} onClick={() => onKpiFilterChange("fuera_rango")} />
             </div>
           )}
 
-          {/* Row 3: Shift filter chips */}
+          {/* Row 3: Shift filter + search */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground shrink-0">Turno:</span>
             <div className="flex rounded-md border border-input overflow-hidden">
@@ -233,22 +213,6 @@ export function AsistenciaHeader({
               ))}
             </div>
 
-            {/* Installation chip — mobile */}
-            {!isDesktop && (
-              <select
-                value={selectedInstallation}
-                onChange={(e) => onInstallationChange(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground min-w-0 flex-1 focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="all">Todas</option>
-                {installations.map((inst) => (
-                  <option key={inst.id} value={inst.id}>
-                    {inst.name}
-                  </option>
-                ))}
-              </select>
-            )}
-
             {/* Mobile export button */}
             {!isDesktop && (
               <Button
@@ -263,49 +227,33 @@ export function AsistenciaHeader({
             )}
           </div>
 
-          {/* Desktop filters: client + installation SearchableSelect */}
-          {isDesktop && (
-            <div className="grid gap-3 grid-cols-2 animate-in slide-in-from-top-2 duration-200">
-              <div className="space-y-1">
-                <Label className="text-xs">Cliente</Label>
-                <SearchableSelect
-                  value={selectedClient === "all" ? "" : selectedClient}
-                  options={clients.map((c) => ({ id: c.id, label: c.name }))}
-                  placeholder="Todos los clientes"
-                  emptyText="Sin clientes"
-                  onChange={(val) => onClientChange(val || "all")}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Instalación</Label>
-                <SearchableSelect
-                  value={selectedInstallation === "all" ? "" : selectedInstallation}
-                  options={installations.map((inst) => ({ id: inst.id, label: inst.name }))}
-                  placeholder="Todas"
-                  emptyText="Sin instalaciones"
-                  onChange={(val) => onInstallationChange(val || "all")}
-                />
-              </div>
-            </div>
-          )}
+          {/* Row 4: Unified search input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Buscar por cliente o instalación..."
+              className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-8 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary/50"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => onSearchChange("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground/50 hover:text-foreground hover:bg-accent transition-all"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
       {/* Desktop KPI cards */}
       {isDesktop && hasItems && (
-        <div className="grid grid-cols-5 gap-2">
-          {[
-            { id: "todos" as const, label: "Total", value: metrics.total, color: "text-foreground" },
-            { id: "cubiertos" as const, label: "Cubiertos", value: metrics.cubiertos, color: "text-emerald-400" },
-            { id: "ppc" as const, label: "PPC", value: metrics.ppc, color: "text-amber-400" },
-            { id: "te" as const, label: "TE", value: metrics.te, color: "text-rose-400" },
-            {
-              id: "cobertura" as const,
-              label: "Cobertura",
-              value: `${metrics.coberturaPct}%`,
-              color: metrics.coberturaPct >= 80 ? "text-emerald-400" : "text-amber-400",
-            },
-          ].map((s) => (
+        <div className="grid grid-cols-6 gap-2">
+          {kpiCards.map((s) => (
             <Card
               key={s.id}
               className={`transition-colors ${
@@ -316,7 +264,7 @@ export function AsistenciaHeader({
                     : "cursor-pointer hover:bg-muted/50"
               }`}
               onClick={() => {
-                if (s.id !== "cobertura") onKpiFilterChange(s.id);
+                if (s.id !== "cobertura") onKpiFilterChange(s.id as KpiFilterType);
               }}
             >
               <CardContent className="pt-2.5 pb-2.5 text-center">
