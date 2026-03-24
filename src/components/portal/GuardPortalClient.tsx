@@ -30,6 +30,11 @@ import {
   ChevronDown,
   MessageCircle,
   TrendingUp,
+  MapPin,
+  UserCheck,
+  CircleCheck,
+  CircleX,
+  Navigation,
 } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
@@ -51,6 +56,7 @@ import {
   type GuardSession,
   type GuardScheduleDay,
   type GuardTicket,
+  type GuardMarcacion,
   type PortalSection,
   PORTAL_BOTTOM_NAV,
   PORTAL_NAV_ITEMS,
@@ -194,6 +200,12 @@ export function GuardPortalClient() {
               <p className="text-zinc-400 text-sm">No tienes una instalación asignada actualmente.</p>
               <p className="text-zinc-500 text-xs mt-1">El chat se habilitará cuando estés asignado a una instalación.</p>
             </div>
+          )}
+          {activeSection === "marcaciones" && (
+            <MarcacionesSection session={session} />
+          )}
+          {activeSection === "asistencia" && (
+            <MarcacionesSection session={session} />
           )}
           {activeSection === "desempeno" && (
             <GuardDesempenoSection session={session} />
@@ -454,6 +466,9 @@ function InicioSection({
       {/* Protocolo, Exámenes, Resultados */}
       <PortalProtocolCards session={session} onNavigate={onNavigate} />
 
+      {/* Marcar Asistencia — acción rápida prominente */}
+      <MarcarAsistenciaQuickAction session={session} />
+
       {/* Acciones rápidas */}
       <div>
         <h3 className="text-sm font-semibold mb-3">Acciones rápidas</h3>
@@ -485,6 +500,19 @@ function InicioSection({
           </button>
 
           <button
+            onClick={() => onNavigate("marcaciones")}
+            className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
+          >
+            <div className="h-9 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+              <Fingerprint className="h-5 w-5 text-emerald-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Marcaciones</p>
+              <p className="text-[11px] text-muted-foreground">Historial</p>
+            </div>
+          </button>
+
+          <button
             onClick={() => onNavigate("perfil")}
             className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
           >
@@ -496,21 +524,402 @@ function InicioSection({
               <p className="text-[11px] text-muted-foreground">Mis datos</p>
             </div>
           </button>
-
-          <button
-            onClick={() => onNavigate("inicio")}
-            className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
-          >
-            <div className="h-9 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-              <Fingerprint className="h-5 w-5 text-emerald-500" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">Marcaciones</p>
-              <p className="text-[11px] text-muted-foreground">Historial</p>
-            </div>
-          </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MARCAR ASISTENCIA — Quick Action (GPS + auto-detect tipo)
+// ═══════════════════════════════════════════════════════════════
+
+type MarcaStep = "idle" | "requesting_gps" | "ready" | "submitting" | "success" | "error";
+
+function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
+  const [step, setStep] = useState<MarcaStep>("idle");
+  const [coords, setCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [nextTipo, setNextTipo] = useState<"entrada" | "salida" | null>(null);
+  const [result, setResult] = useState<{ timestamp: string; tipo: string; gpsStatus: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Check which tipo (entrada/salida) is next
+  const checkNextTipo = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/portal/guardia/marcar?guardiaId=${session.guardiaId}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setNextTipo(data.nextTipo ?? "entrada");
+      } else {
+        setNextTipo("entrada");
+      }
+    } catch {
+      setNextTipo("entrada");
+    }
+  }, [session.guardiaId]);
+
+  function handleStartMarcacion() {
+    setStep("requesting_gps");
+    setGpsError(null);
+    setError(null);
+    setResult(null);
+    checkNextTipo();
+
+    if (!navigator.geolocation) {
+      setGpsError("Tu navegador no soporta geolocalización.");
+      setCoords(null);
+      setStep("ready");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        });
+        setStep("ready");
+      },
+      (err) => {
+        // Resolución N°38: GPS falla no debe bloquear la marcación
+        const msgs: Record<number, string> = {
+          1: "Permiso de ubicación denegado. Puedes marcar sin GPS.",
+          2: "No se pudo obtener la ubicación. Puedes marcar sin GPS.",
+          3: "Tiempo agotado al obtener ubicación. Puedes marcar sin GPS.",
+        };
+        setGpsError(msgs[err.code] ?? "Error de GPS. Puedes marcar sin GPS.");
+        setCoords(null);
+        setStep("ready");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }
+
+  async function handleConfirmMarcacion() {
+    if (!nextTipo) return;
+    setStep("submitting");
+    setError(null);
+
+    try {
+      const res = await fetch("/api/portal/guardia/marcar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          guardiaId: session.guardiaId,
+          tenantId: session.tenantId,
+          tipo: nextTipo,
+          lat: coords?.lat ?? null,
+          lng: coords?.lng ?? null,
+          gpsAccuracy: coords?.accuracy ?? null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Error al registrar marcación.");
+        setStep("error");
+        return;
+      }
+
+      setResult({
+        timestamp: data.timestamp,
+        tipo: data.tipo,
+        gpsStatus: data.gpsStatus ?? "sin_gps",
+      });
+      setStep("success");
+      toast.success(
+        nextTipo === "entrada" ? "Entrada registrada" : "Salida registrada"
+      );
+    } catch {
+      setError("Error de conexión. Intenta nuevamente.");
+      setStep("error");
+    }
+  }
+
+  function handleReset() {
+    setStep("idle");
+    setCoords(null);
+    setGpsError(null);
+    setNextTipo(null);
+    setResult(null);
+    setError(null);
+  }
+
+  if (!session.currentInstallationId) {
+    return null; // No installation assigned — can't mark attendance
+  }
+
+  return (
+    <div className="rounded-xl border shadow-sm overflow-hidden">
+      {/* ── Idle: show the big button ── */}
+      {step === "idle" && (
+        <button
+          onClick={handleStartMarcacion}
+          className="w-full flex items-center gap-4 bg-emerald-500/10 hover:bg-emerald-500/15 active:bg-emerald-500/20 p-4 transition-colors text-left"
+        >
+          <div className="h-12 w-12 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0">
+            <Fingerprint className="h-6 w-6 text-white" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+              Marcar Asistencia
+            </p>
+            <p className="text-xs text-emerald-600/70 dark:text-emerald-500/70">
+              Registra tu entrada o salida desde tu celular
+            </p>
+          </div>
+          <Navigation className="h-5 w-5 text-emerald-500 shrink-0" />
+        </button>
+      )}
+
+      {/* ── Requesting GPS ── */}
+      {step === "requesting_gps" && (
+        <div className="p-4 flex items-center gap-3 bg-blue-500/5">
+          <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+          <div>
+            <p className="text-sm font-semibold">Obteniendo ubicación...</p>
+            <p className="text-xs text-muted-foreground">Activa el GPS de tu celular</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Ready: confirm marcación ── */}
+      {step === "ready" && (
+        <div className="p-4 space-y-3">
+          {/* GPS status */}
+          {coords ? (
+            <div className="flex items-center gap-2 text-xs">
+              <MapPin className="h-3.5 w-3.5 text-emerald-500" />
+              <span className="text-emerald-600 dark:text-emerald-400">
+                GPS activo — precisión {Math.round(coords.accuracy)}m
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 text-xs rounded-lg bg-amber-500/10 p-2.5">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+              <span className="text-amber-700 dark:text-amber-400">
+                {gpsError ?? "Sin GPS disponible."} La marcación se registrará sin ubicación.
+              </span>
+            </div>
+          )}
+
+          {/* Installation */}
+          <div className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{session.currentInstallationName}</span>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmMarcacion}
+              disabled={!nextTipo}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <Fingerprint className="h-4 w-4 mr-1.5" />
+              {nextTipo === "salida" ? "Marcar Salida" : "Marcar Entrada"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Submitting ── */}
+      {step === "submitting" && (
+        <div className="p-4 flex items-center gap-3 bg-emerald-500/5">
+          <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
+          <p className="text-sm font-semibold">Registrando marcación...</p>
+        </div>
+      )}
+
+      {/* ── Success ── */}
+      {step === "success" && result && (
+        <div className="p-4 space-y-2 bg-emerald-500/5">
+          <div className="flex items-center gap-2">
+            <CircleCheck className="h-5 w-5 text-emerald-500" />
+            <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+              {result.tipo === "entrada" ? "Entrada registrada" : "Salida registrada"}
+            </p>
+          </div>
+          <div className="text-xs text-muted-foreground space-y-0.5">
+            <p>
+              {new Date(result.timestamp).toLocaleString("es-CL", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
+            </p>
+            <p className="flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {result.gpsStatus === "dentro_rango"
+                ? "Dentro del rango"
+                : result.gpsStatus === "fuera_rango"
+                  ? "Fuera del rango"
+                  : "Sin GPS"}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleReset} className="mt-1">
+            Listo
+          </Button>
+        </div>
+      )}
+
+      {/* ── Error ── */}
+      {step === "error" && (
+        <div className="p-4 space-y-2 bg-red-500/5">
+          <div className="flex items-center gap-2">
+            <CircleX className="h-5 w-5 text-red-500" />
+            <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+              {error}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleReset}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={handleConfirmMarcacion} variant="destructive">
+              Reintentar
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MARCACIONES SECTION (Historial)
+// ═══════════════════════════════════════════════════════════════
+
+function MarcacionesSection({ session }: { session: GuardSession }) {
+  const [marcaciones, setMarcaciones] = useState<GuardMarcacion[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch(
+          `/api/portal/guardia/marcaciones?guardiaId=${session.guardiaId}&limit=50`
+        );
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setMarcaciones(data.data ?? []);
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [session.guardiaId]);
+
+  // Group by date
+  const grouped = useMemo(() => {
+    const map = new Map<string, GuardMarcacion[]>();
+    for (const m of marcaciones) {
+      const dateKey = new Date(m.timestamp).toLocaleDateString("es-CL", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      if (!map.has(dateKey)) map.set(dateKey, []);
+      map.get(dateKey)!.push(m);
+    }
+    return Array.from(map.entries());
+  }, [marcaciones]);
+
+  return (
+    <div className="py-5 space-y-4">
+      <div className="flex items-center gap-2 px-4">
+        <Fingerprint className="h-5 w-5 text-primary" />
+        <h2 className="text-lg font-semibold">Mis Marcaciones</h2>
+      </div>
+
+      {/* Marcar asistencia inline */}
+      <div className="px-4">
+        <MarcarAsistenciaQuickAction session={session} />
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-32">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : marcaciones.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-32 text-center">
+          <Fingerprint className="h-10 w-10 text-zinc-600 mb-2" />
+          <p className="text-sm text-muted-foreground">No hay marcaciones registradas.</p>
+        </div>
+      ) : (
+        <div className="space-y-4 px-4">
+          {grouped.map(([dateLabel, items]) => (
+            <div key={dateLabel}>
+              <p className="text-xs font-semibold text-muted-foreground mb-2 capitalize">
+                {dateLabel}
+              </p>
+              <div className="space-y-2">
+                {items.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm"
+                  >
+                    <div
+                      className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
+                        m.type === "entrada"
+                          ? "bg-emerald-500/10"
+                          : "bg-red-500/10"
+                      }`}
+                    >
+                      {m.type === "entrada" ? (
+                        <UserCheck className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <LogOut className="h-4 w-4 text-red-500" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold">
+                          {m.type === "entrada" ? "Entrada" : "Salida"}
+                        </p>
+                        <Badge
+                          variant={m.geoValidated ? "default" : "secondary"}
+                          className="text-[10px] px-1.5 py-0"
+                        >
+                          {m.geoValidated
+                            ? "GPS OK"
+                            : m.geoDistanceM != null
+                              ? `${Math.round(m.geoDistanceM)}m`
+                              : "Sin GPS"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(m.timestamp).toLocaleTimeString("es-CL", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}{" "}
+                        — {m.installationName}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
