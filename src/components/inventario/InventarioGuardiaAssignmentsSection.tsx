@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { InventoryReceptionBadge, receptionStatusFromMovement } from "@/components/inventario/InventoryReceptionBadge";
 
 type Assignment = {
   id: string;
@@ -17,6 +18,7 @@ type Assignment = {
   };
   movement: {
     date: string;
+    confirmationStatus?: string;
     installation: { name: string } | null;
   };
 };
@@ -80,8 +82,8 @@ export function InventarioGuardiaAssignmentsSection({ guardiaId }: { guardiaId: 
       )}
       <div className="rounded-lg border divide-y">
         {assignments.map((a) => (
-          <div key={a.id} className="flex items-center justify-between p-3">
-            <div>
+          <div key={a.id} className="flex flex-wrap items-start justify-between gap-2 p-3">
+            <div className="min-w-0 flex-1">
               <p className="font-medium">
                 {a.variant.product.name}
                 {a.variant.size && ` ${a.variant.size.sizeCode}`}
@@ -93,6 +95,9 @@ export function InventarioGuardiaAssignmentsSection({ guardiaId }: { guardiaId: 
                 {a.totalCost > 0 && ` · ${formatCurrency(a.totalCost)}`}
               </p>
             </div>
+            <InventoryReceptionBadge
+              status={receptionStatusFromMovement(a.movement.confirmationStatus)}
+            />
           </div>
         ))}
       </div>

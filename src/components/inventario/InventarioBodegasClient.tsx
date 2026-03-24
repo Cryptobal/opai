@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 
 type Warehouse = {
   id: string;
@@ -177,13 +178,14 @@ export function InventarioBodegasClient() {
         ) : (
           <div className="space-y-2">
             {warehouses.map((w) => (
-              <div
+              <Link
                 key={w.id}
-                className="flex items-center justify-between rounded-lg border p-3"
+                href={`/ops/inventario/stock?warehouseId=${w.id}`}
+                className="flex items-center justify-between gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors text-left"
               >
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-medium">{w.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
                     <Badge variant="secondary">{typeLabels[w.type] ?? w.type}</Badge>
                     {w.supervisor && (
                       <span className="text-xs text-muted-foreground">
@@ -197,7 +199,8 @@ export function InventarioBodegasClient() {
                     )}
                   </div>
                 </div>
-              </div>
+                <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+              </Link>
             ))}
           </div>
         )}

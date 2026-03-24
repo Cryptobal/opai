@@ -5,10 +5,12 @@ import Link from "next/link";
 import { Package, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPersonName } from "@/lib/personas";
+import { InventoryReceptionBadge, receptionStatusFromMovement } from "@/components/inventario/InventoryReceptionBadge";
 
 type Movement = {
   id: string;
   date: string;
+  confirmationStatus?: string;
   guardia: { persona: { firstName: string; lastName: string } };
   lines: {
     variant: { product: { name: string }; size: { sizeCode: string } | null };
@@ -99,10 +101,13 @@ export function InventarioInstallationSection({ installationId }: { installation
           <div className="rounded-lg border divide-y">
             {movements.map((m) => (
               <div key={m.id} className="p-3">
-                <p className="font-medium text-sm">
-                  {new Date(m.date).toLocaleDateString("es-CL")} ·{" "}
-                  {formatPersonName(m.guardia.persona.firstName, m.guardia.persona.lastName)}
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-medium text-sm min-w-0">
+                    {new Date(m.date).toLocaleDateString("es-CL")} ·{" "}
+                    {formatPersonName(m.guardia.persona.firstName, m.guardia.persona.lastName)}
+                  </p>
+                  <InventoryReceptionBadge status={receptionStatusFromMovement(m.confirmationStatus)} />
+                </div>
                 <ul className="text-xs text-muted-foreground mt-1">
                   {m.lines.map((l, i) => (
                     <li key={i}>

@@ -26,6 +26,10 @@ const DOC_LABEL: Record<string, string> = {
   certificado_ensenanza_media: "Cert. enseñanza media",
   certificado_afp: "Certificado AFP",
   certificado_fonasa_isapre: "Cert. Fonasa / Isapre",
+  credencial_os10: "Credencial OS10 (Tarjeta)",
+  examen_psicologico: "Examen Psicológico",
+  registro_capacitacion: "Registro de Capacitación",
+  contrato_firmado: "Contrato Firmado (PDF)",
 };
 
 type GuardiaDocument = {

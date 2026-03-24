@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck } from "lucide-react";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
@@ -46,6 +46,7 @@ import { AccessControlListsManager } from "@/components/access-control/AccessCon
 import { UnifiedDevicesSection } from "@/components/devices/UnifiedDevicesSection";
 import { InstallationPhoneLines } from "@/components/inventario/InstallationPhoneLines";
 import { InstalacionDocumentosGuardiasTab } from "./InstalacionDocumentosGuardiasTab";
+import { InstalacionDocsOperacionalesTab } from "@/components/ops/InstalacionDocsOperacionalesTab";
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -2038,6 +2039,7 @@ export function CrmInstallationDetailClient({
     { id: "staffing", label: "Puestos", icon: Users },
     { id: "dotacion", label: "Dotación", icon: ClipboardList },
     { id: "protocolo", label: "Protocolo", icon: BookOpen },
+    { id: "docs-operacionales", label: "Docs. Operacionales", icon: ShieldCheck },
     { id: "rondas", label: "Rondas", icon: Route },
     { id: "marcaciones", label: "Marcaciones", icon: Clock },
     { id: "documentos-guardias", label: "Documentos de Guardias", icon: FileCheck },
@@ -2519,6 +2521,9 @@ export function CrmInstallationDetailClient({
             activeSubTab={protocolSubTab}
             onSubTabChange={setProtocolSubTab}
           />
+        )}
+        {activeTab === "docs-operacionales" && (
+          <InstalacionDocsOperacionalesTab installationId={installation.id} />
         )}
         {activeTab === "rondas" && (
           <InstalacionRondasTab installationId={installation.id} />

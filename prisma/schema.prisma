@@ -57,6 +57,8 @@ model Tenant {
   systemIncidents             SystemIncident[]
   configJornadas              ConfigJornada[]
   opsAlertaLogs               OpsAlertaLog[]
+  tiposDocOperacional         TipoDocOperacional[]
+  docsOperacionales           DocOperacional[]
 
   @@index([slug])
   @@index([active])
@@ -1615,6 +1617,7 @@ model CrmInstallation {
   gamificacionReconocimientos GamificacionReconocimiento[]  @relation("gamificacion_reconocimiento_installation")
   gamificacionFondosPremio    GamificacionFondoPremio[]     @relation("gamificacion_fondo_installation")
   gamificacionDesafios        GamificacionDesafio[]         @relation("gamificacion_desafio_installation")
+  docsOperacionales           DocOperacional[]
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -7242,5 +7245,81 @@ model ConfigJornada {
 
   @@index([tenantId, vigenciaDesde], map: "idx_config_jornada_tenant_vigencia")
   @@map("config_jornada")
+  @@schema("ops")
+}
+
+// ============================================
+// DOCUMENTOS OPERACIONALES (Normativa OS10 / DT)
+// ============================================
+
+/// Catálogo configurable de tipos de documentos operacionales
+model TipoDocOperacional {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String   @map("tenant_id")
+  codigo           String   // "os10_empresa", "seguro_vida", "contrato_mandante", etc.
+  nombre           String   // Nombre legible
+  descripcion      String?
+  capa             String   // "global" | "instalacion" | "guardia"
+  obligatorio      Boolean  @default(true)
+  tieneVencimiento Boolean  @default(true) @map("tiene_vencimiento")
+  diasAlerta       Int      @default(30) @map("dias_alerta")
+  normativa        String?  // Referencia legal: "D.S. 93 Art.13"
+  order            Int      @default(0)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id])
+  documentos DocOperacional[]
+
+  @@unique([tenantId, codigo], map: "uq_tipo_doc_operacional_tenant_codigo")
+  @@index([tenantId, capa], map: "idx_tipo_doc_operacional_tenant_capa")
+  @@map("tipos_doc_operacional")
+  @@schema("ops")
+}
+
+/// Documento operacional concreto (capas global e instalación)
+model DocOperacional {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String    @map("tenant_id")
+  tipoId           String    @map("tipo_id") @db.Uuid
+  capa             String    // "global" | "instalacion"
+
+  // Entidad dueña (null si global)
+  installationId   String?   @map("installation_id") @db.Uuid
+
+  // Archivo en R2
+  fileName         String    @map("file_name")
+  fileUrl          String    @map("file_url")
+  storageKey       String    @map("storage_key")
+  fileSize         Int?      @map("file_size")
+  mimeType         String    @default("application/pdf") @map("mime_type")
+
+  // Vigencia
+  issuedAt         DateTime? @map("issued_at") @db.Date
+  expiresAt        DateTime? @map("expires_at") @db.Date
+  status           String    @default("vigente") // vigente | por_vencer | vencido | no_aplica
+
+  // Validación
+  validatedBy      String?   @map("validated_by")
+  validatedAt      DateTime? @map("validated_at") @db.Timestamptz(6)
+  notes            String?
+
+  // Visibilidad
+  portalClienteVisible Boolean @default(true) @map("portal_cliente_visible")
+
+  createdBy        String?   @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  tipo         TipoDocOperacional @relation(fields: [tipoId], references: [id])
+  installation CrmInstallation? @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, capa], map: "idx_doc_operacional_tenant_capa")
+  @@index([tenantId, installationId], map: "idx_doc_operacional_tenant_installation")
+  @@index([tenantId, status], map: "idx_doc_operacional_tenant_status")
+  @@index([expiresAt], map: "idx_doc_operacional_expires")
+  @@map("docs_operacionales")
   @@schema("ops")
 }

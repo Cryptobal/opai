@@ -22,7 +22,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GuardiaSearchInput } from "@/components/ops/GuardiaSearchInput";
 import { formatPersonName } from "@/lib/personas";
-import { Plus, Trash2 } from "lucide-react";
+import {
+  InventoryReceptionBadge,
+  receptionStatusFromMovement,
+} from "@/components/inventario/InventoryReceptionBadge";
+import { Plus, Trash2, Undo2 } from "lucide-react";
 
 /* ── Types ── */
 
@@ -58,6 +62,10 @@ type Movement = {
   fromWarehouse: { name: string };
   installation: { name: string } | null;
   lines: { variant: { product: { name: string }; size: { sizeCode: string } | null }; quantity: number }[];
+  /** Firma / confirmación de recepción (portal guardia — FES) */
+  confirmationStatus?: string;
+  confirmedAt?: string | null;
+  confirmedMethod?: string | null;
 };
 
 /* ── Component ── */
@@ -68,6 +76,7 @@ export function InventarioEntregasClient() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [stockRecords, setStockRecords] = useState<StockRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [undoingId, setUndoingId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const initialForm = {
@@ -111,6 +120,13 @@ export function InventarioEntregasClient() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Si solo hay una bodega, usarla por defecto (el stock por talla depende de la bodega de origen).
+  useEffect(() => {
+    if (warehouses.length !== 1) return;
+    const id = warehouses[0].id;
+    setForm((f) => (f.fromWarehouseId ? f : { ...f, fromWarehouseId: id }));
+  }, [warehouses]);
 
   // Fetch stock when warehouse changes
   const fetchStock = useCallback(async (warehouseId: string) => {
@@ -526,18 +542,77 @@ export function InventarioEntregasClient() {
           </p>
         ) : (
           <div className="space-y-2">
-            {movements.map((m) => (
+            {movements.map((m) => {
+              const confirmed = m.confirmationStatus === "confirmed" && m.confirmedAt;
+              const methodLabel =
+                m.confirmedMethod === "face_id"
+                  ? "Face ID"
+                  : m.confirmedMethod === "pin"
+                    ? "PIN de marcación"
+                    : m.confirmedMethod ?? null;
+              return (
               <div key={m.id} className="rounded-lg border p-3">
-                <div className="flex justify-between">
-                  <span className="font-medium">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <span className="font-medium min-w-0">
                     {new Date(m.date).toLocaleDateString("es-CL")} ·{" "}
                     {formatPersonName(m.guardia.persona.firstName, m.guardia.persona.lastName)}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {m.fromWarehouse.name}
-                    {m.installation && ` · ${m.installation.name}`}
-                  </span>
+                  <div className="flex flex-col items-stretch sm:items-end gap-2 w-full sm:w-auto">
+                    <span className="text-xs text-muted-foreground sm:text-right">
+                      {m.fromWarehouse.name}
+                      {m.installation && ` · ${m.installation.name}`}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2 justify-end">
+                      <InventoryReceptionBadge
+                        status={receptionStatusFromMovement(m.confirmationStatus)}
+                      />
+                      {m.confirmationStatus !== "confirmed" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 text-destructive border-destructive/40 hover:bg-destructive/10"
+                          disabled={undoingId === m.id}
+                          onClick={async () => {
+                            if (
+                              !confirm(
+                                "¿Deshacer esta entrega? El stock volverá a la bodega de origen y se quitará la asignación al guardia. Solo es posible si el guardia aún no ha recepcionado en el portal."
+                              )
+                            ) {
+                              return;
+                            }
+                            setUndoingId(m.id);
+                            try {
+                              const res = await fetch(`/api/ops/inventario/movements/${m.id}`, {
+                                method: "DELETE",
+                              });
+                              const data = await res.json();
+                              if (data.success) await fetchData();
+                              else alert(data.error || "No se pudo deshacer");
+                            } catch {
+                              alert("Error de conexión");
+                            } finally {
+                              setUndoingId(null);
+                            }
+                          }}
+                        >
+                          <Undo2 className="h-3 w-3 mr-1 shrink-0" />
+                          {undoingId === m.id ? "…" : "Deshacer entrega"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
+                {confirmed && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Recepcionado{" "}
+                    {new Date(m.confirmedAt!).toLocaleString("es-CL", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
+                    {methodLabel ? ` · ${methodLabel}` : ""}
+                  </p>
+                )}
                 <ul className="mt-2 text-sm text-muted-foreground">
                   {m.lines.map((l) => (
                     <li key={l.variant.product.name + (l.variant.size?.sizeCode ?? "")}>
@@ -547,7 +622,8 @@ export function InventarioEntregasClient() {
                   ))}
                 </ul>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </CardContent>

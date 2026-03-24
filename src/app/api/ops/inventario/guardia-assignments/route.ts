@@ -35,6 +35,8 @@ export async function GET(request: NextRequest) {
         movement: {
           select: {
             date: true,
+            confirmationStatus: true,
+            confirmedAt: true,
             installation: { select: { id: true, name: true } },
             lines: { select: { variantId: true, unitCost: true } },
           },

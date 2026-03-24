@@ -53,6 +53,10 @@ import { FaceCameraCapture } from "@/app/portal/marcacion/_components/FaceCamera
 import { NotificationSettings } from "@/components/pwa/NotificationSettings";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  InventoryReceptionBadge,
+  receptionStatusFromMovement,
+} from "@/components/inventario/InventoryReceptionBadge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -408,20 +412,22 @@ function InicioSection({
   const [ticketCount, setTicketCount] = useState<number | null>(null);
   const [attendancePct, setAttendancePct] = useState<number | null>(null);
   const [extraShiftCount, setExtraShiftCount] = useState<number | null>(null);
+  const [pendingEquipConfirmCount, setPendingEquipConfirmCount] = useState(0);
   const [nextShift, setNextShift] = useState<{ date: string; turno: string | null; installationName: string | null } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        // Fetch tickets, extra shifts, schedule in parallel
+        // Fetch tickets, extra shifts, schedule, equipamiento pendientes in parallel
         const now = new Date();
         const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-        const [ticketRes, extraRes, schedRes] = await Promise.all([
+        const [ticketRes, extraRes, schedRes, equipRes] = await Promise.all([
           fetch(`/api/portal/guardia/tickets?guardiaId=${session.guardiaId}`),
           fetch(`/api/portal/guardia/extra-shifts?guardiaId=${session.guardiaId}`),
           fetch(`/api/portal/guardia/schedule?guardiaId=${session.guardiaId}&month=${monthStr}`),
+          fetch(`/api/portal/guardia/equipamiento?guardiaId=${session.guardiaId}`),
         ]);
 
         if (ticketRes.ok && !cancelled) {
@@ -456,6 +462,11 @@ function InicioSection({
             });
           }
         }
+        if (equipRes.ok && !cancelled) {
+          const equipData = await equipRes.json();
+          const pending = equipData?.pendingConfirmations;
+          setPendingEquipConfirmCount(Array.isArray(pending) ? pending.length : 0);
+        }
       } catch { /* ignore */ }
     }
     load();
@@ -473,6 +484,23 @@ function InicioSection({
           Bienvenido a tu portal de autoservicio
         </p>
       </div>
+
+      {pendingEquipConfirmCount > 0 && (
+        <button
+          type="button"
+          onClick={() => onNavigate("equipamiento")}
+          className="w-full rounded-xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-left active:bg-amber-500/15 transition-colors"
+        >
+          <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+            {pendingEquipConfirmCount === 1
+              ? "1 entrega de equipamiento por confirmar"
+              : `${pendingEquipConfirmCount} entregas de equipamiento por confirmar`}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Confirma con tu PIN de marcación en Mi equipamiento
+          </p>
+        </button>
+      )}
 
       {/* Próximo turno */}
       {nextShift ? (
@@ -618,14 +646,26 @@ function InicioSection({
 
           <button
             onClick={() => onNavigate("equipamiento")}
-            className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
+            className="relative flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
           >
+            {pendingEquipConfirmCount > 0 && (
+              <span
+                className="absolute top-2 right-2 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-amber-950"
+                aria-label={`${pendingEquipConfirmCount} confirmaciones pendientes`}
+              >
+                {pendingEquipConfirmCount > 9 ? "9+" : pendingEquipConfirmCount}
+              </span>
+            )}
             <div className="h-9 w-10 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0">
               <Package className="h-5 w-5 text-teal-500" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold">Equipamiento</p>
-              <p className="text-[11px] text-muted-foreground">Uniforme y entregas</p>
+              <p className="text-[11px] text-muted-foreground">
+                {pendingEquipConfirmCount > 0
+                  ? `${pendingEquipConfirmCount} por confirmar`
+                  : "Uniforme y entregas"}
+              </p>
             </div>
           </button>
 
@@ -2862,26 +2902,18 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
           const method = confirmMethod[movementId] || (hasFaceId ? "face_id" : "pin");
 
           return (
-            <div key={movementId} className="rounded-lg border bg-card overflow-hidden">
+            <div key={movementId} className="rounded-lg border bg-card overflow-x-hidden shadow-sm">
               {/* Movement header */}
-              <div className="p-3 border-b bg-muted/30 flex items-center justify-between">
-                <div>
+              <div className="p-3 border-b bg-muted/30 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
                   <p className="text-xs text-muted-foreground">
                     Entrega del {new Date(first.deliveredAt).toLocaleDateString("es-CL")}
                     {first.installationName && ` · ${first.installationName}`}
                   </p>
                 </div>
-                {isConfirmed && (
-                  <span className="text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Check className="h-3 w-3" />
-                    Confirmada
-                  </span>
-                )}
-                {isPending && (
-                  <span className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
-                    Pendiente
-                  </span>
-                )}
+                <InventoryReceptionBadge
+                  status={receptionStatusFromMovement(first.confirmationStatus)}
+                />
               </div>
 
               {/* Items */}
@@ -2904,28 +2936,30 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
                 <div className="p-3 border-t bg-muted/20 space-y-3">
                   {/* Method toggle */}
                   {hasFaceId && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <button
+                        type="button"
                         onClick={() => { stopCamera(); setConfirmMethod((p) => ({ ...p, [movementId]: "face_id" })); }}
-                        className={`flex-1 text-xs py-1.5 rounded-md border transition-colors ${
+                        className={`flex-1 min-h-11 text-xs py-2.5 px-2 rounded-md border transition-colors ${
                           method === "face_id"
                             ? "bg-primary text-primary-foreground border-primary"
                             : "bg-background text-muted-foreground border-input hover:bg-muted"
                         }`}
                       >
-                        <Camera className="h-3.5 w-3.5 inline mr-1" />
+                        <Camera className="h-3.5 w-3.5 inline mr-1 align-middle" />
                         Face ID
                       </button>
                       <button
+                        type="button"
                         onClick={() => { stopCamera(); setConfirmMethod((p) => ({ ...p, [movementId]: "pin" })); }}
-                        className={`flex-1 text-xs py-1.5 rounded-md border transition-colors ${
+                        className={`flex-1 min-h-11 text-xs py-2.5 px-2 rounded-md border transition-colors ${
                           method === "pin"
                             ? "bg-primary text-primary-foreground border-primary"
                             : "bg-background text-muted-foreground border-input hover:bg-muted"
                         }`}
                       >
-                        <Fingerprint className="h-3.5 w-3.5 inline mr-1" />
-                        PIN
+                        <Fingerprint className="h-3.5 w-3.5 inline mr-1 align-middle" />
+                        PIN de marcación
                       </button>
                     </div>
                   )}
@@ -2935,7 +2969,7 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
                     <div>
                       {cameraActive === movementId ? (
                         <div className="space-y-2">
-                          <div className="rounded-lg overflow-hidden bg-black aspect-[4/3] relative">
+                          <div className="rounded-lg overflow-hidden bg-black aspect-[4/3] max-h-[55vh] relative">
                             <video
                               ref={videoRef}
                               autoPlay
@@ -2945,29 +2979,32 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
                               style={{ transform: "scaleX(-1)" }}
                             />
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex flex-col-reverse sm:flex-row gap-2">
                             <button
-                              onClick={() => captureAndVerify(movementId)}
-                              disabled={confirming === movementId}
-                              className="flex-1 h-10 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
-                            >
-                              {confirming === movementId ? "Verificando..." : "Capturar y confirmar"}
-                            </button>
-                            <button
+                              type="button"
                               onClick={stopCamera}
-                              className="h-10 px-3 rounded-md border border-input text-sm"
+                              className="h-11 w-full sm:w-auto sm:px-4 rounded-md border border-input text-sm shrink-0"
                             >
                               Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => captureAndVerify(movementId)}
+                              disabled={confirming === movementId}
+                              className="flex-1 min-h-11 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                              {confirming === movementId ? "Verificando..." : "Capturar y confirmar"}
                             </button>
                           </div>
                         </div>
                       ) : (
                         <button
+                          type="button"
                           onClick={() => startCamera(movementId)}
-                          className="w-full h-12 rounded-md border-2 border-dashed border-input text-sm text-muted-foreground hover:bg-muted/50 transition-colors flex items-center justify-center gap-2"
+                          className="w-full min-h-12 rounded-md border-2 border-dashed border-input text-sm text-muted-foreground hover:bg-muted/50 transition-colors flex items-center justify-center gap-2 px-2 py-3"
                         >
-                          <Camera className="h-5 w-5" />
-                          Abrir cámara para confirmar con Face ID
+                          <Camera className="h-5 w-5 shrink-0" />
+                          <span className="text-left leading-snug">Abrir cámara para confirmar con Face ID</span>
                         </button>
                       )}
                     </div>
@@ -2977,10 +3014,11 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
                   {method === "pin" && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-2">Ingresa tu PIN de marcación:</p>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
                         <input
                           type="password"
                           inputMode="numeric"
+                          autoComplete="one-time-code"
                           maxLength={6}
                           placeholder="PIN"
                           value={pinInput[movementId] || ""}
@@ -2988,14 +3026,15 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
                             const val = e.target.value.replace(/\D/g, "").slice(0, 6);
                             setPinInput((prev) => ({ ...prev, [movementId]: val }));
                           }}
-                          className="flex-1 h-10 rounded-md border border-input bg-background px-3 text-center text-lg tracking-[0.2em] font-mono text-foreground"
+                          className="w-full min-h-11 rounded-md border border-input bg-background px-3 text-center text-lg tracking-[0.2em] font-mono text-foreground"
                         />
                         <button
+                          type="button"
                           onClick={() => handlePinConfirm(movementId)}
                           disabled={confirming === movementId}
-                          className="h-10 px-4 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                          className="w-full sm:w-auto shrink-0 min-h-11 px-6 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
                         >
-                          {confirming === movementId ? "..." : "Confirmar"}
+                          {confirming === movementId ? "…" : "Confirmar recepción"}
                         </button>
                       </div>
                     </div>
@@ -3007,11 +3046,11 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
                 </div>
               )}
 
-              {/* Confirmed badge */}
+              {/* Confirmed footer */}
               {(isConfirmed || result?.ok) && first.confirmedAt && (
                 <div className="p-2 border-t bg-emerald-500/5 text-center">
                   <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                    Confirmada el {new Date(first.confirmedAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    Recepcionada el {new Date(first.confirmedAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
               )}

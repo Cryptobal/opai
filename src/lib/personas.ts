@@ -42,6 +42,10 @@ export const DOCUMENT_TYPES = [
   "certificado_ensenanza_media",
   "certificado_afp",
   "certificado_fonasa_isapre",
+  "credencial_os10",
+  "examen_psicologico",
+  "registro_capacitacion",
+  "contrato_firmado",
 ] as const;
 
 export type GuardiaDocumentType = (typeof DOCUMENT_TYPES)[number];
@@ -57,6 +61,10 @@ export const DEFAULT_POSTULACION_DOCUMENTS: Array<{ code: string; label: string;
   { code: "certificado_ensenanza_media", label: "Certificado enseñanza media", required: false },
   { code: "certificado_afp", label: "Certificado AFP", required: false },
   { code: "certificado_fonasa_isapre", label: "Certificado Fonasa / Isapre", required: false },
+  { code: "credencial_os10", label: "Credencial OS10 (Tarjeta)", required: false },
+  { code: "examen_psicologico", label: "Examen Psicológico", required: false },
+  { code: "registro_capacitacion", label: "Registro de Capacitación", required: false },
+  { code: "contrato_firmado", label: "Contrato Firmado (PDF)", required: false },
 ];
 
 export const DOCUMENT_STATUS = [

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
@@ -22,7 +23,9 @@ export default async function InventarioStockPage() {
         description="Stock actual por bodega y variante."
       />
       <InventarioSubnav />
-      <InventarioStockClient />
+      <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando stock…</p>}>
+        <InventarioStockClient />
+      </Suspense>
     </div>
   );
 }

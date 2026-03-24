@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, FileCheck2, BookOpen, FolderOpen, Folder, Loader2, Download, ExternalLink } from "lucide-react";
+import { FileText, FileCheck2, BookOpen, FolderOpen, Folder, Loader2, Download, ExternalLink, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PortalContractsSection } from "@/components/portales/PortalContractsSection";
 import { PortalProtocolos } from "./PortalProtocolos";
+import { PortalDocsOperacionales } from "./PortalDocsOperacionales";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { OpaiBadge } from "./OpaiBadge";
 import { PreviewBadge } from "./PreviewBadge";
@@ -15,12 +16,13 @@ interface Props {
   isProspect?: boolean;
 }
 
-type Tab = "contratos" | "documentos" | "protocolos" | "instalacion";
+type Tab = "contratos" | "documentos" | "protocolos" | "instalacion" | "operacionales";
 
 const TABS: Array<{ id: Tab; label: string; icon: typeof FileText }> = [
   { id: "contratos", label: "Contratos", icon: FileCheck2 },
   { id: "documentos", label: "Documentos", icon: FolderOpen },
   { id: "protocolos", label: "Protocolos", icon: BookOpen },
+  { id: "operacionales", label: "Operacionales", icon: ShieldCheck },
   { id: "instalacion", label: "Por instalación", icon: Folder },
 ];
 
@@ -79,6 +81,12 @@ export function PortalDocumentos({ session, selectedInstallation, isProspect }: 
       {activeTab === "protocolos" && (
         <PortalProtocolos
           session={session}
+          selectedInstallation={selectedInstallation ?? session.installations[0]?.id ?? ""}
+          isProspect={isProspect}
+        />
+      )}
+      {activeTab === "operacionales" && (
+        <PortalDocsOperacionales
           selectedInstallation={selectedInstallation ?? session.installations[0]?.id ?? ""}
           isProspect={isProspect}
         />

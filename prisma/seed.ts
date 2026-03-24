@@ -17,6 +17,7 @@ import { seedGamification } from './seeds/gamification-seed';
 import { seedConfigJornada } from './seeds/config-jornada-seed';
 import { seedOnboardingEmailTemplates } from './seeds/onboarding-email-templates';
 import { seedInventoryData } from './seeds/inventory-initial-data';
+import { seedTiposDocOperacional } from './seeds/docs-operacionales-tipos-seed';
 
 const prisma = new PrismaClient();
 
@@ -129,6 +130,9 @@ async function main() {
 
   // 12. Seed Inventario base (bodega + catalogo de uniformes)
   await seedInventoryData(prisma, tenant.id);
+
+  // 13. Seed Tipos de documentos operacionales (OS10 / DT)
+  await seedTiposDocOperacional(prisma, tenant.id);
 
   console.log('🎉 Seeding completed!');
 }
