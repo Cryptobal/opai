@@ -130,8 +130,11 @@ export const CpqPdfEmail = ({
 
               <Section style={ctaSection}>
                 <Button style={ctaButton} href={portalUrl}>
-                  Ingresar a mi portal →
+                  Acceder al portal →
                 </Button>
+                <Text style={ctaHint}>
+                  Toda la información de tu propuesta está disponible únicamente en tu portal privado.
+                </Text>
               </Section>
             </>
           )}
@@ -167,10 +170,10 @@ export const CpqPdfEmail = ({
                   <Text style={benefitIcon}>📄</Text>
                 </Column>
                 <Column>
-                  <Text style={benefitName}>Propuesta técnica completa</Text>
+                  <Text style={benefitName}>Documentación y detalle del servicio</Text>
                   <Text style={benefitDesc}>
-                    Accede al documento oficial con todos los detalles del servicio:
-                    condiciones comerciales, metodología y respaldo legal.
+                    Desde el portal revisa condiciones, metodología, respaldo legal y documentos
+                    asociados a tu propuesta, en un solo lugar seguro.
                   </Text>
                 </Column>
               </Row>
@@ -453,6 +456,13 @@ const credentialNote = {
 const ctaSection = {
   padding: "36px 40px 28px",
   textAlign: "center" as const,
+};
+
+const ctaHint = {
+  color: "#64748b",
+  fontSize: "13px",
+  margin: "16px 0 0",
+  lineHeight: "1.5",
 };
 
 const ctaButton = {

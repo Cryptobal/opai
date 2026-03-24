@@ -31,7 +31,6 @@ interface PortalProspectoInviteEmailProps {
   portalUrl: string;
   ejecutivoName: string;
   quoteCode?: string;
-  proposalLink?: string | null;
   /** URL de WhatsApp con mensaje prellenado (wa.me/...?text=...) */
   whatsappUrl?: string | null;
 }
@@ -44,7 +43,6 @@ export const PortalProspectoInviteEmail = ({
   portalUrl = 'https://opai.gard.cl/portal/cliente',
   ejecutivoName = 'Ejecutivo Comercial',
   quoteCode,
-  proposalLink,
   whatsappUrl,
 }: PortalProspectoInviteEmailProps) => {
   const previewText = `${companyName} — Tu propuesta de seguridad está lista. Accede con tu PIN personal.`;
@@ -98,19 +96,14 @@ export const PortalProspectoInviteEmail = ({
             </Text>
           </Section>
 
-          {/* CTA */}
+          {/* CTA — solo acceso al portal (sin enlaces alternativos a presentación/PDF) */}
           <Section style={ctaSection}>
             <Button style={ctaButton} href={portalUrl}>
-              Ingresar a mi portal →
+              Acceder al portal →
             </Button>
-            {proposalLink && (
-              <Text style={ctaSecondary}>
-                o{' '}
-                <Link href={proposalLink} style={ctaSecondaryLink}>
-                  ver la propuesta técnica directamente
-                </Link>
-              </Text>
-            )}
+            <Text style={ctaHint}>
+              Toda la información de tu propuesta está disponible únicamente en tu portal privado.
+            </Text>
           </Section>
 
           <Hr style={divider} />
@@ -143,10 +136,10 @@ export const PortalProspectoInviteEmail = ({
                   <Text style={benefitIcon}>📄</Text>
                 </Column>
                 <Column>
-                  <Text style={benefitName}>Propuesta técnica completa</Text>
+                  <Text style={benefitName}>Documentación y detalle del servicio</Text>
                   <Text style={benefitDesc}>
-                    Accede al documento oficial con todos los detalles del servicio:
-                    condiciones comerciales, metodología y respaldo legal.
+                    Desde el portal revisa condiciones, metodología, respaldo legal y documentos
+                    asociados a tu propuesta, en un solo lugar seguro.
                   </Text>
                 </Column>
               </Row>
@@ -413,10 +406,11 @@ const ctaButton = {
   padding: '16px 40px',
 };
 
-const ctaSecondary = {
+const ctaHint = {
   color: '#64748b',
   fontSize: '13px',
   margin: '16px 0 0',
+  lineHeight: '1.5',
 };
 
 const ctaSecondaryLink = {

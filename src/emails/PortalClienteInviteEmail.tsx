@@ -94,7 +94,7 @@ export const PortalClienteInviteEmail = ({
           {/* CTA */}
           <Section style={ctaSection}>
             <Button style={ctaButton} href={portalUrl}>
-              Ingresar a mi portal →
+              Acceder al portal →
             </Button>
           </Section>
 

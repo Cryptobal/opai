@@ -285,8 +285,6 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   const basePortalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/cliente`;
   const portalUrl = contact.email ? `${basePortalUrl}?email=${encodeURIComponent(contact.email)}` : basePortalUrl;
   const contactName = `${contact.firstName} ${contact.lastName}`.trim();
-  const siteUrl2 = process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
-  const proposalLinkForEmail = presentationUniqueId ? `${siteUrl2}/p/${presentationUniqueId}?mode=commercial` : null;
 
   const whatsappMsg = `Hola ${contactName}, soy ${ejecutivoName} de la empresa ${account.name} por la cotización ${quote.code}. Tengo una consulta.`;
   const whatsappBase = (tenantConfig.whatsappLink || "https://wa.me/5698277711").replace(/\?.*$/, "");
@@ -294,7 +292,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
 
   const emailHtml = await render(
     PortalProspectoInviteEmail({
-      contactName, companyName: account.name, email: contact.email, pin, portalUrl, ejecutivoName, quoteCode: quote.code, proposalLink: proposalLinkForEmail, whatsappUrl,
+      contactName, companyName: account.name, email: contact.email, pin, portalUrl, ejecutivoName, quoteCode: quote.code, whatsappUrl,
     })
   );
 
@@ -448,7 +446,7 @@ function buildWhatsAppMessage(params: WhatsAppMsgParams): string {
   return [
     `*Cotización para ${companyName}*`, "",
     `Hola ${firstName}, soy *${ejecutivoName}* de *${brandName}*.`, "",
-    `Te envié por correo una propuesta de seguridad personalizada. En tu portal privado podrás revisar el detalle, ver la propuesta técnica y chatear directamente conmigo.`, "",
+    `Te envié por correo una propuesta de seguridad personalizada. En tu portal privado podrás revisar todo el detalle y chatear directamente conmigo.`, "",
     `*Ingresa al portal desde este link* (tu correo ya está prellenado):`, portalUrl, "",
     `*Credenciales de acceso:*`, `Correo: ${email}`, `PIN: ${pin}`, "",
     `Solo ingresa el PIN y listo.`, "",
