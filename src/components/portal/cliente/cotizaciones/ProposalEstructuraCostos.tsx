@@ -162,18 +162,14 @@ export function ProposalEstructuraCostos({
 
           {/* Margin */}
           <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
-            <span className="text-xs font-semibold text-emerald-400">
-              Margen comercial ({breakdown.marginPct}% sobre precio venta)
-            </span>
+            <span className="text-xs font-semibold text-emerald-400">Margen comercial</span>
             <span className="text-xs font-mono font-semibold text-emerald-400">{fmt(breakdown.marginAmount)}</span>
           </div>
 
           {/* Financial */}
           {breakdown.financial > 0 && (
             <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-orange-500/5 border border-orange-500/20">
-              <span className="text-xs font-semibold text-orange-400">
-                Costo financiero ({breakdown.financialRatePct}%)
-              </span>
+              <span className="text-xs font-semibold text-orange-400">Costo financiero</span>
               <span className="text-xs font-mono font-semibold text-orange-400">{fmt(breakdown.financial)}</span>
             </div>
           )}

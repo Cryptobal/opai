@@ -970,12 +970,12 @@ export async function renderProposalToBufferFromProps(
           e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(bd.subtotalBase)),
         ),
         e(View, { style: [s.bdRow, { backgroundColor: '#d1fae5' }] },
-          e(Text, { style: [s.tblCellBold, { flex: 3, color: '#065f46' }] }, `Margen comercial (${bd.marginPct}%)`),
+          e(Text, { style: [s.tblCellBold, { flex: 3, color: '#065f46' }] }, 'Margen comercial'),
           e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#065f46' }] }, fmtMoney(bd.marginAmount)),
         ),
         bd.financial > 0
           ? e(View, { style: [s.bdRow, { backgroundColor: '#fff7ed' }] },
-              e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, `Costo financiero (${bd.financialRatePct}%)`),
+              e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, 'Costo financiero'),
               e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(bd.financial)),
             )
           : null,

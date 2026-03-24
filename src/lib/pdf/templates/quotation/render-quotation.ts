@@ -1112,9 +1112,9 @@ export async function renderQuotationToBuffer(
             : null,
 
           e(View, { style: [s.tblRow, { backgroundColor: C.slate100 }] }, e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Subtotal costos base'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.subtotalBase))),
-          e(View, { style: [s.tblRow, { backgroundColor: '#d1fae5' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#065f46' }] }, `Margen comercial (${breakdown.marginPct}% sobre precio venta)`), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#065f46' }] }, fmtMoney(breakdown.marginAmount))),
+          e(View, { style: [s.tblRow, { backgroundColor: '#d1fae5' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#065f46' }] }, 'Margen comercial'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#065f46' }] }, fmtMoney(breakdown.marginAmount))),
           breakdown.financial > 0
-            ? e(View, { style: [s.tblRow, { backgroundColor: '#fff7ed' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, `Costo financiero (${breakdown.financialRatePct}%)`), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(breakdown.financial)))
+            ? e(View, { style: [s.tblRow, { backgroundColor: '#fff7ed' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, 'Costo financiero'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(breakdown.financial)))
             : null,
           e(
             View,

@@ -589,14 +589,14 @@ function BreakdownPage({
 
         {/* ── Margen ── */}
         <View style={ls.bdMarginBox}>
-          <Text style={ls.bdMarginLabel}>Margen comercial ({breakdown.marginPct}% sobre precio venta)</Text>
+          <Text style={ls.bdMarginLabel}>Margen comercial</Text>
           <Text style={ls.bdMarginLabel}>{fmt(breakdown.marginAmount)}</Text>
         </View>
 
         {/* ── Financiero ── */}
         {breakdown.financial > 0 && (
           <View style={ls.bdFinBox}>
-            <Text style={ls.bdFinLabel}>Costo financiero ({breakdown.financialRatePct}%)</Text>
+            <Text style={ls.bdFinLabel}>Costo financiero</Text>
             <Text style={ls.bdFinLabel}>{fmt(breakdown.financial)}</Text>
           </View>
         )}
