@@ -18,6 +18,7 @@ interface ProposalTotalAccionesProps {
   onReject?: () => void;
   onConsult?: () => void;
   onViewProposal?: () => void;
+  onViewContractDraft?: () => void;
   className?: string;
 }
 
@@ -32,6 +33,7 @@ export function ProposalTotalAcciones({
   onReject,
   onConsult,
   onViewProposal: _onViewProposal,
+  onViewContractDraft,
   className,
 }: ProposalTotalAccionesProps) {
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -180,6 +182,18 @@ export function ProposalTotalAcciones({
           cotizacionCode={cotizacionCode}
         />
       </div>
+
+      {/* Contract draft */}
+      {onViewContractDraft && (
+        <button
+          type="button"
+          onClick={onViewContractDraft}
+          className="w-full flex items-center justify-center gap-2 h-10 rounded-lg border border-indigo-500/30 text-indigo-300 hover:text-indigo-200 hover:border-indigo-500/50 text-sm font-medium transition-colors"
+        >
+          <FileText className="w-4 h-4" />
+          Ver Borrador de Contrato
+        </button>
+      )}
 
       {/* Footer */}
       <div className="text-center pt-3 border-t border-white/[0.04]">

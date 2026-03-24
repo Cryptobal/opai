@@ -37,6 +37,7 @@ interface CotizacionCardProps {
   onReject?: () => void;
   onConsult?: () => void;
   onViewProposal?: () => void;
+  onViewContractDraft?: () => void;
   className?: string;
 }
 
@@ -52,6 +53,7 @@ export function CotizacionCard({
   onReject,
   onConsult,
   onViewProposal,
+  onViewContractDraft,
   className,
 }: CotizacionCardProps) {
   const displayStatus = getDisplayStatus(cotizacion);
@@ -345,6 +347,7 @@ export function CotizacionCard({
                   onReject={onReject}
                   onConsult={onConsult}
                   onViewProposal={onViewProposal}
+                  onViewContractDraft={onViewContractDraft}
                 />
               </>
             );

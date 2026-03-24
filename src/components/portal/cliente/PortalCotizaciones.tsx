@@ -12,6 +12,7 @@ import {
 import { CotizacionCard } from "./cotizaciones/CotizacionCard";
 import { CotizacionApproveDialog } from "./cotizaciones/CotizacionApproveDialog";
 import { CotizacionRejectDialog } from "./cotizaciones/CotizacionRejectDialog";
+import { ContratoBorradorView } from "./cotizaciones/ContratoBorradorView";
 import { WhatsAppButton } from "./cotizaciones/WhatsAppButton";
 
 /* ── Filter tabs ── */
@@ -62,6 +63,9 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
 
   // Contract form (client only, after approval)
   const [showContractForm, setShowContractForm] = useState<string | null>(null);
+
+  // Contract draft view
+  const [contractDraftQuoteId, setContractDraftQuoteId] = useState<string | null>(null);
 
   // Deal collapse (prospect only)
   const [collapsedDeals, setCollapsedDeals] = useState<Set<string>>(new Set());
@@ -178,6 +182,22 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
     : null;
 
   /* ── Render ── */
+
+  // Contract draft view replaces the list
+  if (contractDraftQuoteId) {
+    return (
+      <div className="pb-24">
+        <ContratoBorradorView
+          quoteId={contractDraftQuoteId}
+          onBack={() => setContractDraftQuoteId(null)}
+          onNavigateToEmpresa={() => {
+            setContractDraftQuoteId(null);
+            onNavigate?.("empresa");
+          }}
+        />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -310,6 +330,7 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
                   return link ? () => window.open(link, "_blank") : undefined;
                 })()
               }
+              onViewContractDraft={() => setContractDraftQuoteId(activeQuote.id)}
             />
 
             {/* Older versions */}
@@ -346,6 +367,7 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
                             return link ? () => window.open(link, "_blank") : undefined;
                           })()
                         }
+                        onViewContractDraft={() => setContractDraftQuoteId(q.id)}
                       />
                     ))}
                   </div>
@@ -370,6 +392,7 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
             onApprove={() => setApproveQuoteId(quote.id)}
             onReject={() => setRejectQuoteId(quote.id)}
             onConsult={() => onNavigate?.("chat")}
+            onViewContractDraft={() => setContractDraftQuoteId(quote.id)}
           />
 
           {/* Contract form: shown inline after client approval */}
