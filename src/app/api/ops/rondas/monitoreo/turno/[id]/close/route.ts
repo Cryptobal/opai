@@ -6,6 +6,9 @@ import { monitoreoTurnoCloseSchema } from "@/lib/validations/rondas";
 import { sendMonitorTurnoEmail } from "@/lib/rondas/monitor-email";
 import { buildTurnoReportData } from "@/lib/rondas/monitor-turno-report-data";
 
+// PDF generation with Chromium needs more memory and time
+export const maxDuration = 120;
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         },
         select: {
           tipo: true, severidad: true, mensaje: true, installationId: true,
-          resuelta: true, resolutionNotes: true, resueltaAt: true,
+          resuelta: true, resolutionNotes: true, resueltaAt: true, createdAt: true,
           installation: { select: { name: true } },
         },
       }),
@@ -176,50 +179,64 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
 
     // Build enriched report data (7-day history, guard ranking, semáforo, deltas, reliability, PDF)
-    const reportData = await buildTurnoReportData({
-      tenantId: ctx.tenantId,
-      turnoStartedAt: turno.startedAt,
-      turnoEndedAt: now,
-      roundsData: roundsData as any,
-      alertsData: alertsData.map(a => ({ ...a, createdAt: new Date() })) as any,
-      operatorName: turno.operatorName ?? ctx.userId,
-      operatorComments: parsed.data.operatorComments,
-    });
-
-    sendMonitorTurnoEmail(
-      {
-        turnoId: id,
+    let reportData: Awaited<ReturnType<typeof buildTurnoReportData>> | null = null;
+    try {
+      reportData = await buildTurnoReportData({
         tenantId: ctx.tenantId,
+        turnoStartedAt: turno.startedAt,
+        turnoEndedAt: now,
+        roundsData: roundsData as any,
+        alertsData: alertsData as any,
         operatorName: turno.operatorName ?? ctx.userId,
-        startedAt: turno.startedAt,
-        endedAt: now,
-        totalRounds: totalRounds,
-        completadas,
-        incompletas,
-        noRealizadas,
-        trustAvg,
-        totalAlerts: alertsData.length,
-        criticalAlerts,
-        resolvedAlerts: resolvedAlerts.length,
-        unresolvedAlerts: unresolvedAlerts.length,
         operatorComments: parsed.data.operatorComments,
-        aiSummary,
-        baseUrl,
-        // v2 enrichments
-        panicos: reportData.panicos,
-        panicoStats30d: reportData.panicoStats30d,
-        deltaCompletadas: reportData.deltaCompletadas,
-        deltaNoRealizadas: reportData.deltaNoRealizadas,
-        deltaTrustAvg: reportData.deltaTrustAvg,
-        deltaCriticalAlerts: reportData.deltaCriticalAlerts,
-        semaforo: reportData.semaforo,
-        reliability: reportData.reliability,
-        installationSummaries: reportData.installationSummaries,
-        incidentesDelGuardia: incidentesParaEmail,
-        pdfData: reportData.pdfData,
-      },
-      parsed.data.emailRecipients ?? undefined,
-    ).catch((err) => console.error("[RONDAS] Email send failed:", err));
+      });
+      console.log("[RONDAS] Report data built successfully, pdfData present:", !!reportData.pdfData);
+    } catch (err) {
+      console.error("[RONDAS] buildTurnoReportData failed:", err instanceof Error ? err.message : err);
+    }
+
+    // MUST await: Vercel serverless kills fire-and-forget on return
+    try {
+      const emailResult = await sendMonitorTurnoEmail(
+        {
+          turnoId: id,
+          tenantId: ctx.tenantId,
+          operatorName: turno.operatorName ?? ctx.userId,
+          startedAt: turno.startedAt,
+          endedAt: now,
+          totalRounds: totalRounds,
+          completadas,
+          incompletas,
+          noRealizadas,
+          trustAvg,
+          totalAlerts: alertsData.length,
+          criticalAlerts,
+          resolvedAlerts: resolvedAlerts.length,
+          unresolvedAlerts: unresolvedAlerts.length,
+          operatorComments: parsed.data.operatorComments,
+          aiSummary,
+          baseUrl,
+          // v2 enrichments (graceful if reportData failed)
+          panicos: reportData?.panicos,
+          panicoStats30d: reportData?.panicoStats30d,
+          deltaCompletadas: reportData?.deltaCompletadas,
+          deltaNoRealizadas: reportData?.deltaNoRealizadas,
+          deltaTrustAvg: reportData?.deltaTrustAvg,
+          deltaCriticalAlerts: reportData?.deltaCriticalAlerts,
+          semaforo: reportData?.semaforo,
+          reliability: reportData?.reliability,
+          installationSummaries: reportData?.installationSummaries,
+          incidentesDelGuardia: incidentesParaEmail,
+          pdfData: reportData?.pdfData,
+        },
+        parsed.data.emailRecipients ?? undefined,
+      );
+      if (!emailResult.ok) {
+        console.error("[RONDAS] Email send failed:", emailResult.error);
+      }
+    } catch (err) {
+      console.error("[RONDAS] Email send error:", err);
+    }
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {

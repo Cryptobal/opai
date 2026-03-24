@@ -310,6 +310,7 @@ export async function sendMonitorTurnoEmail(
     const attachments: { filename: string; content: Buffer }[] = [];
     if (data.pdfData) {
       try {
+        console.log("[MONITOR_EMAIL] Starting PDF generation...");
         const { renderMonitorTurnoPdfBuffer } = await import("./monitor-turno-pdf");
         const pdfBuffer = await renderMonitorTurnoPdfBuffer(data.pdfData);
         const dateFile = data.startedAt.toISOString().slice(0, 10);
@@ -317,9 +318,13 @@ export async function sendMonitorTurnoEmail(
           filename: `Reporte-Turno-${dateFile}.pdf`,
           content: Buffer.from(pdfBuffer),
         });
+        console.log(`[MONITOR_EMAIL] PDF generated: ${(pdfBuffer.byteLength / 1024).toFixed(0)} KB`);
       } catch (pdfErr) {
-        console.error("[MONITOR_EMAIL] PDF generation failed, sending without attachment:", pdfErr);
+        console.error("[MONITOR_EMAIL] PDF generation failed, sending without attachment:", pdfErr instanceof Error ? pdfErr.message : pdfErr);
+        console.error("[MONITOR_EMAIL] PDF error stack:", pdfErr instanceof Error ? pdfErr.stack : "no stack");
       }
+    } else {
+      console.warn("[MONITOR_EMAIL] No pdfData provided, skipping PDF generation");
     }
 
     const response = await resend.emails.send({
