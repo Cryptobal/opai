@@ -35,6 +35,7 @@ import {
   CircleCheck,
   CircleX,
   Navigation,
+  Camera,
 } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
@@ -47,6 +48,7 @@ import { GuardDesempenoSection } from "@/components/portal/GuardDesempenoSection
 import { AccessControlGuardHome } from "@/components/access-control/AccessControlGuardHome";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
+import { FaceCameraCapture } from "@/app/portal/marcacion/_components/FaceCameraCapture";
 import { NotificationSettings } from "@/components/pwa/NotificationSettings";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -534,7 +536,7 @@ function InicioSection({
 //  MARCAR ASISTENCIA — Quick Action (GPS + auto-detect tipo)
 // ═══════════════════════════════════════════════════════════════
 
-type MarcaStep = "idle" | "requesting_gps" | "ready" | "submitting" | "success" | "error";
+type MarcaStep = "idle" | "requesting_gps" | "camera" | "submitting" | "success" | "error";
 
 function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
   const [step, setStep] = useState<MarcaStep>("idle");
@@ -543,6 +545,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
   const [nextTipo, setNextTipo] = useState<"entrada" | "salida" | null>(null);
   const [result, setResult] = useState<{ timestamp: string; tipo: string; gpsStatus: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   // Check which tipo (entrada/salida) is next
   const checkNextTipo = useCallback(async () => {
@@ -571,7 +574,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
     if (!navigator.geolocation) {
       setGpsError("Tu navegador no soporta geolocalización.");
       setCoords(null);
-      setStep("ready");
+      setStep("camera");
       return;
     }
 
@@ -582,7 +585,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
         });
-        setStep("ready");
+        setStep("camera");
       },
       (err) => {
         // Resolución N°38: GPS falla no debe bloquear la marcación
@@ -593,19 +596,19 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
         };
         setGpsError(msgs[err.code] ?? "Error de GPS. Puedes marcar sin GPS.");
         setCoords(null);
-        setStep("ready");
+        setStep("camera");
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }
 
-  async function handleConfirmMarcacion() {
+  async function handleConfirmMarcacion(imageBase64: string) {
     if (!nextTipo) return;
     setStep("submitting");
     setError(null);
 
     try {
-      const res = await fetch("/api/portal/guardia/marcar", {
+      const res = await fetch("/api/portal/guardia/marcar-foto", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -615,6 +618,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
           lat: coords?.lat ?? null,
           lng: coords?.lng ?? null,
           gpsAccuracy: coords?.accuracy ?? null,
+          image: imageBase64,
         }),
       });
 
@@ -647,6 +651,7 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
     setNextTipo(null);
     setResult(null);
     setError(null);
+    setCapturedImage(null);
   }
 
   if (!session.currentInstallationId) {
@@ -687,51 +692,26 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
         </div>
       )}
 
-      {/* ── Ready: confirm marcación ── */}
-      {step === "ready" && (
+      {/* ── Camera: capture photo for marcación ── */}
+      {step === "camera" && (
         <div className="p-4 space-y-3">
-          {/* GPS status */}
-          {coords ? (
-            <div className="flex items-center gap-2 text-xs">
-              <MapPin className="h-3.5 w-3.5 text-emerald-500" />
-              <span className="text-emerald-600 dark:text-emerald-400">
-                GPS activo — precisión {Math.round(coords.accuracy)}m
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-start gap-2 text-xs rounded-lg bg-amber-500/10 p-2.5">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
-              <span className="text-amber-700 dark:text-amber-400">
-                {gpsError ?? "Sin GPS disponible."} La marcación se registrará sin ubicación.
-              </span>
-            </div>
+          <div className="flex items-center gap-2 mb-2">
+            <Camera className="h-5 w-5 text-emerald-500" />
+            <p className="text-sm font-semibold">
+              Toma una foto para registrar tu {nextTipo === "salida" ? "salida" : "entrada"}
+            </p>
+          </div>
+          {gpsError && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">{gpsError}</p>
           )}
-
-          {/* Installation */}
-          <div className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{session.currentInstallationName}</span>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReset}
-              className="flex-1"
-            >
-              Cancelar
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleConfirmMarcacion}
-              disabled={!nextTipo}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              <Fingerprint className="h-4 w-4 mr-1.5" />
-              {nextTipo === "salida" ? "Marcar Salida" : "Marcar Entrada"}
-            </Button>
-          </div>
+          <FaceCameraCapture
+            onCapture={(imageBase64) => {
+              setCapturedImage(imageBase64);
+              handleConfirmMarcacion(imageBase64);
+            }}
+            onCancel={handleReset}
+            captureLabel={nextTipo === "salida" ? "Marcar Salida" : "Marcar Entrada"}
+          />
         </div>
       )}
 
