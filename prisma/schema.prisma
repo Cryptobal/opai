@@ -5819,6 +5819,14 @@ model InventoryMovement {
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  // ── Delivery confirmation (FES — Firma Electrónica Simple) ──
+  confirmationStatus String   @default("pending") @map("confirmation_status") // "pending" | "confirmed" | "expired"
+  confirmationPin    String?  @map("confirmation_pin") // bcrypt hash of 6-digit PIN
+  confirmationPinExp DateTime? @map("confirmation_pin_exp") @db.Timestamptz(6) // PIN expiration (24h)
+  confirmedAt        DateTime? @map("confirmed_at") @db.Timestamptz(6)
+  confirmedIp        String?  @map("confirmed_ip")
+  confirmedDevice    String?  @map("confirmed_device") @db.Text
+
   tenant             Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   fromWarehouse      InventoryWarehouse?          @relation("inv_movement_from", fields: [fromWarehouseId], references: [id], onDelete: SetNull)
   toWarehouse        InventoryWarehouse?          @relation("inv_movement_to", fields: [toWarehouseId], references: [id], onDelete: SetNull)

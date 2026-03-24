@@ -34,6 +34,7 @@ import { PortalMarcaciones } from "@/components/portal/cliente/PortalMarcaciones
 import { PortalNosotros } from "@/components/portal/cliente/PortalNosotros";
 import { PortalAccessControl } from "@/components/portal/cliente/PortalAccessControl";
 import { PortalDesempeno } from "@/components/portal/cliente/PortalDesempeno";
+import { PortalEquipamiento } from "@/components/portal/cliente/PortalEquipamiento";
 import { CompanyPresentationView } from "@/components/portal/cliente/CompanyPresentationView";
 import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
 import { PortalNotificacionesSheet } from "@/components/portal/cliente/PortalNotificacionesSheet";
@@ -237,6 +238,13 @@ export function PortalClienteClient() {
         return <PortalEmpresa session={session} />;
       case "desempeno":
         return <PortalDesempeno session={session} selectedInstallation={selectedInstallation} isProspect={session?.isProspect} />;
+      case "equipamiento":
+        return (
+          <PortalEquipamiento
+            session={session}
+            selectedInstallation={selectedInstallation}
+          />
+        );
       case "control-acceso":
         return (
           <PortalAccessControl

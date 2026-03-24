@@ -307,6 +307,19 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
   },
 
   // ── CRM - Portal Cliente ──
+  // ── Inventario ──
+  {
+    key: "inventory_delivery",
+    label: "Entrega de inventario",
+    description: "Cuando se registra una entrega de uniformes o equipamiento a un guardia",
+    module: "ops",
+    submodule: "inventario",
+    category: "Operaciones - Inventario",
+    defaultBell: true,
+    defaultEmail: false,
+  },
+
+  // ── CRM - Portal Cliente ──
   {
     key: "portal_cliente_access_granted",
     label: "Acceso portal cliente",

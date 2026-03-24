@@ -272,6 +272,14 @@ export const PORTAL_NOTIFICATION_TYPES: PortalNotifTypeDef[] = [
     defaultPush: true,
     defaultEmail: true,
   },
+  {
+    key: 'inventory_delivery',
+    label: 'Entrega de equipamiento',
+    description: 'Cuando se te entrega uniformes o equipamiento',
+    portals: ['guardia'],
+    defaultPush: true,
+    defaultEmail: false,
+  },
 
   // =========================================================
   // PORTAL RONDAS

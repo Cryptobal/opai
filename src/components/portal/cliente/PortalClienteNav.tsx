@@ -3,7 +3,7 @@
 import {
   LayoutDashboard, Building2, MapPin, BookOpen, MessageSquare, Ticket,
   FileText, Receipt, BarChart3, GitCompare, Bell, MoreHorizontal, ClipboardList,
-  UserCheck, FileCheck2, Building, Briefcase, ShieldCheck, TrendingUp
+  UserCheck, FileCheck2, Building, Briefcase, ShieldCheck, TrendingUp, Package
 } from 'lucide-react'
 import { PortalConfig } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
@@ -14,7 +14,7 @@ export type PortalSection =
   | 'tickets' | 'documentacion' | 'cotizaciones'
   | 'reportes' | 'comparativa' | 'alertas' | 'encuestas'
   | 'desempeno' | 'personal' | 'propuesta' | 'nosotros' | 'empresa'
-  | 'control-acceso' | 'presentacion' | 'marcaciones'
+  | 'control-acceso' | 'presentacion' | 'marcaciones' | 'equipamiento'
 
 type NavGroup = 'operaciones' | 'comunicacion' | 'documentacion' | 'administracion'
 
@@ -38,6 +38,7 @@ const ALL_NAV_ITEMS: Array<{
   { id: 'rondas', label: 'Rondas', icon: MapPin, configKey: 'rondas' },
   { id: 'marcaciones', label: 'Marcaciones', icon: UserCheck, configKey: 'guardias' },
   { id: 'posta', label: 'Bitácora', icon: BookOpen, configKey: 'posta' },
+  { id: 'equipamiento', label: 'Equipamiento', icon: Package, configKey: 'guardias' },
   { id: 'chat', label: 'Chat', icon: MessageSquare, configKey: 'chat_instalacion', group: 'comunicacion' },
   { id: 'tickets', label: 'Tickets', icon: Ticket, configKey: 'tickets', group: 'comunicacion' },
   { id: 'alertas', label: 'Alertas', icon: Bell, configKey: 'alertas', group: 'comunicacion' },

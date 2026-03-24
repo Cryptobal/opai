@@ -36,6 +36,7 @@ import {
   CircleX,
   Navigation,
   Camera,
+  Package,
 } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
@@ -226,6 +227,9 @@ export function GuardPortalClient() {
               <p className="text-zinc-400 text-sm">No tienes una instalación asignada actualmente.</p>
               <p className="text-zinc-500 text-xs mt-1">El control de acceso se habilitará cuando estés asignado a una instalación.</p>
             </div>
+          )}
+          {activeSection === "equipamiento" && (
+            <EquipamientoSection session={session} />
           )}
         </main>
       )}
@@ -2447,6 +2451,215 @@ function ResultadosSection({ session, onBack }: { session: GuardSession; onBack:
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Equipamiento Section ──
+
+type EquipamientoItem = {
+  id: string;
+  movementId: string;
+  product: string;
+  category: string;
+  size: string | null;
+  quantity: number;
+  deliveredAt: string;
+  installationName: string | null;
+  confirmationStatus: string;
+  confirmedAt: string | null;
+};
+
+type PendingConfirmation = {
+  movementId: string;
+  confirmationStatus: string;
+};
+
+function EquipamientoSection({ session }: { session: GuardSession }) {
+  const [items, setItems] = useState<EquipamientoItem[]>([]);
+  const [pendingConfirmations, setPendingConfirmations] = useState<PendingConfirmation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pinInput, setPinInput] = useState<Record<string, string>>({});
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [confirmResult, setConfirmResult] = useState<Record<string, { ok: boolean; msg: string }>>({});
+
+  const fetchData = () => {
+    fetch(`/api/portal/guardia/equipamiento?guardiaId=${session.guardiaId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.assignments) setItems(data.assignments);
+        if (data?.pendingConfirmations) setPendingConfirmations(data.pendingConfirmations);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [session.guardiaId]);
+
+  const handleConfirm = async (movementId: string) => {
+    const pin = pinInput[movementId];
+    if (!pin || pin.length !== 6) {
+      setConfirmResult((prev) => ({ ...prev, [movementId]: { ok: false, msg: "Ingresa el PIN de 6 dígitos" } }));
+      return;
+    }
+
+    setConfirming(movementId);
+    try {
+      const res = await fetch("/api/portal/guardia/equipamiento/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ movementId, guardiaId: session.guardiaId, pin }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setConfirmResult((prev) => ({ ...prev, [movementId]: { ok: true, msg: "Entrega confirmada" } }));
+        toast.success("Entrega confirmada exitosamente");
+        fetchData();
+      } else {
+        setConfirmResult((prev) => ({ ...prev, [movementId]: { ok: false, msg: data.error || "Error" } }));
+      }
+    } catch {
+      setConfirmResult((prev) => ({ ...prev, [movementId]: { ok: false, msg: "Error de conexión" } }));
+    } finally {
+      setConfirming(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center p-6">
+        <Package className="h-12 w-12 text-zinc-600 mb-3" />
+        <p className="text-zinc-400 text-sm">No tienes equipamiento asignado actualmente.</p>
+        <p className="text-zinc-500 text-xs mt-1">Las entregas aparecerán aquí cuando se registren.</p>
+      </div>
+    );
+  }
+
+  // Group items by movementId
+  const groupedByMovement = new Map<string, EquipamientoItem[]>();
+  for (const item of items) {
+    const existing = groupedByMovement.get(item.movementId) || [];
+    existing.push(item);
+    groupedByMovement.set(item.movementId, existing);
+  }
+
+  return (
+    <div className="p-4 space-y-3">
+      <div className="mb-2">
+        <h2 className="text-lg font-semibold">Mi Equipamiento</h2>
+        <p className="text-xs text-muted-foreground">{items.length} {items.length === 1 ? "ítem" : "ítems"} asignados</p>
+      </div>
+
+      {/* Pending confirmations banner */}
+      {pendingConfirmations.length > 0 && (
+        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3">
+          <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+            {pendingConfirmations.length} {pendingConfirmations.length === 1 ? "entrega pendiente" : "entregas pendientes"} de confirmación
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Revisa tu correo para obtener el PIN de confirmación.
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {Array.from(groupedByMovement.entries()).map(([movementId, movItems]) => {
+          const first = movItems[0];
+          const isPending = first.confirmationStatus === "pending";
+          const isConfirmed = first.confirmationStatus === "confirmed";
+          const result = confirmResult[movementId];
+
+          return (
+            <div key={movementId} className="rounded-lg border bg-card overflow-hidden">
+              {/* Movement header */}
+              <div className="p-3 border-b bg-muted/30 flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Entrega del {new Date(first.deliveredAt).toLocaleDateString("es-CL")}
+                    {first.installationName && ` · ${first.installationName}`}
+                  </p>
+                </div>
+                {isConfirmed && (
+                  <span className="text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Check className="h-3 w-3" />
+                    Confirmada
+                  </span>
+                )}
+                {isPending && (
+                  <span className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                    Pendiente
+                  </span>
+                )}
+              </div>
+
+              {/* Items */}
+              <div className="divide-y">
+                {movItems.map((item) => (
+                  <div key={item.id} className="p-3 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">
+                        {item.product}
+                        {item.size && <span className="ml-1.5 text-muted-foreground">({item.size})</span>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Cantidad: {item.quantity}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* PIN confirmation */}
+              {isPending && !result?.ok && (
+                <div className="p-3 border-t bg-muted/20">
+                  <p className="text-xs text-muted-foreground mb-2">Ingresa el PIN de 6 dígitos enviado a tu correo:</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="000000"
+                      value={pinInput[movementId] || ""}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                        setPinInput((prev) => ({ ...prev, [movementId]: val }));
+                      }}
+                      className="flex-1 h-10 rounded-md border border-input bg-background px-3 text-center text-lg tracking-[0.3em] font-mono text-foreground"
+                    />
+                    <button
+                      onClick={() => handleConfirm(movementId)}
+                      disabled={confirming === movementId}
+                      className="h-10 px-4 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      {confirming === movementId ? "..." : "Confirmar"}
+                    </button>
+                  </div>
+                  {result && !result.ok && (
+                    <p className="text-xs text-red-500 mt-1">{result.msg}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Confirmed badge */}
+              {(isConfirmed || result?.ok) && first.confirmedAt && (
+                <div className="p-2 border-t bg-emerald-500/5 text-center">
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    Confirmada el {new Date(first.confirmedAt).toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

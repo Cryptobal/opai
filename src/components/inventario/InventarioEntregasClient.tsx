@@ -111,8 +111,8 @@ export function InventarioEntregasClient() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const validLines = form.lines.filter((l) => l.variantId && l.quantity > 0);
-    if (validLines.length === 0 || !form.fromWarehouseId || !form.guardiaId) {
-      alert("Completa bodega, guardia y al menos una línea");
+    if (validLines.length === 0 || !form.fromWarehouseId || !form.guardiaId || !form.installationId) {
+      alert("Completa bodega, guardia, instalación y al menos una línea");
       return;
     }
 
@@ -124,7 +124,7 @@ export function InventarioEntregasClient() {
           date: form.date,
           fromWarehouseId: form.fromWarehouseId,
           guardiaId: form.guardiaId,
-          installationId: form.installationId || undefined,
+          installationId: form.installationId,
           notes: form.notes || undefined,
           lines: validLines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
         }),
@@ -155,16 +155,13 @@ export function InventarioEntregasClient() {
     v.size ? `${v.product.name} ${v.size.sizeCode}` : v.product.name;
 
   const installationOptions: SearchableOption[] = useMemo(() => {
-    const base: SearchableOption[] = [
-      { id: "", label: "Ninguna", searchText: "ninguna" },
-    ];
     const instOpts = installations.map((i) => ({
       id: i.id,
       label: i.name,
       description: i.accountName || undefined,
       searchText: `${i.name} ${i.accountName ?? ""}`.trim(),
     }));
-    return [...base, ...instOpts];
+    return instOpts;
   }, [installations]);
 
   const addLine = () => {
@@ -241,27 +238,16 @@ export function InventarioEntregasClient() {
                   />
                 </div>
                 <div>
-                  <Label>Instalación (opcional)</Label>
+                  <Label>Instalación *</Label>
                   <SearchableSelect
                     value={form.installationId}
                     options={installationOptions}
                     placeholder="Buscar por instalación o cliente..."
-                    emptyText="Ninguna"
+                    emptyText="Sin instalaciones"
                     onChange={(id) =>
                       setForm((f) => ({ ...f, installationId: id }))
                     }
                   />
-                  {form.installationId && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setForm((f) => ({ ...f, installationId: "" }))
-                      }
-                      className="mt-1 text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      Limpiar
-                    </button>
-                  )}
                 </div>
                 <div>
                   <Label>Notas</Label>
