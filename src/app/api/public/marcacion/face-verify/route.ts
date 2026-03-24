@@ -21,6 +21,7 @@ import { computeAttendanceMetrics } from "@/lib/ops-attendance";
 import { sendMarcacionComprobante } from "@/lib/marcacion-email";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
 import { verifyFace } from "@/lib/services/rekognition";
+import { uploadMarcacionPhoto } from "@/lib/marcacion-photo";
 import { z } from "zod";
 
 const schema = z.object({
@@ -332,6 +333,9 @@ export async function POST(req: NextRequest) {
     const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
     const tenantCfg = await getTenantCompanyConfig(installation.tenantId);
 
+    // Upload evidence photo to R2 (if fails, marcacion still proceeds)
+    const fotoEvidenciaUrl = await uploadMarcacionPhoto(image, guardia.id, tipo);
+
     // Create marcacion and update attendance in a transaction
     const result = await prisma.$transaction(async (tx) => {
       const marcacion = await tx.opsMarcacion.create({
@@ -363,6 +367,7 @@ export async function POST(req: NextRequest) {
           gpsStatus,
           distanciaMetros: geoDistanciaM,
           devicePairingId,
+          fotoEvidenciaUrl,
         },
       });
 
