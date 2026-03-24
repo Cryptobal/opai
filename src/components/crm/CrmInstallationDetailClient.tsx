@@ -1869,10 +1869,73 @@ export function CrmInstallationDetailClient({
     if (!mapModalCoords) return;
     setMapModalSaving(true);
     try {
+      // Reverse geocode to keep address/city/commune in sync with the new pin position
+      let addressData: { address?: string; city?: string; commune?: string } = {};
+      if (typeof google !== "undefined" && google.maps) {
+        try {
+          const geocoder = new google.maps.Geocoder();
+          const result = await geocoder.geocode({
+            location: { lat: mapModalCoords.lat, lng: mapModalCoords.lng },
+          });
+          if (result.results && result.results.length > 0) {
+            const place = result.results[0];
+            const comps = place.address_components ?? [];
+            const getByType = (types: string[]) =>
+              comps.find((c) => types.some((t) => c.types.includes(t)))?.long_name ?? "";
+
+            const formatted = place.formatted_address ?? "";
+            const locality = getByType(["locality"]);
+            const admin1 = getByType(["administrative_area_level_1"]);
+            const admin2 = getByType(["administrative_area_level_2"]);
+            const admin3 = getByType(["administrative_area_level_3"]);
+            const sublocality1 = getByType(["sublocality_level_1"]);
+            const sublocality = getByType(["sublocality"]);
+
+            // Same fallback as AddressAutocomplete: parse commune from formatted_address
+            const parseComunaFromFormatted = (f: string): string => {
+              const parts = f.split(", ").map((p) => p.trim());
+              if (parts.length >= 2 && parts[parts.length - 1] === "Chile") {
+                const c = parts[1];
+                if (c && c.length < 50 && !/^\d+$/.test(c)) return c;
+              }
+              return "";
+            };
+            const fromFormatted = parseComunaFromFormatted(formatted);
+
+            const commune =
+              admin3 ||
+              sublocality1 ||
+              sublocality ||
+              (locality && locality !== "Santiago" ? locality : "") ||
+              admin2 ||
+              fromFormatted ||
+              locality ||
+              "";
+
+            let city: string;
+            if (admin1 && /Metropolitana|Santiago/i.test(admin1)) {
+              city = "Santiago";
+            } else if (locality) {
+              city = locality;
+            } else {
+              city = admin1 || admin2 || "";
+            }
+
+            addressData = { address: formatted, city, commune };
+          }
+        } catch {
+          // Geocode failed — coordinates will still be saved without address update
+        }
+      }
+
       const res = await fetch(`/api/crm/installations/${installation.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lat: mapModalCoords.lat, lng: mapModalCoords.lng }),
+        body: JSON.stringify({
+          lat: mapModalCoords.lat,
+          lng: mapModalCoords.lng,
+          ...addressData,
+        }),
       });
       const payload = await res.json();
       if (!res.ok || !payload.success) throw new Error(payload?.error || "No se pudo guardar");
