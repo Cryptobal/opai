@@ -315,6 +315,7 @@ export async function GET(request: NextRequest) {
             userAgent: true,
             metodoId: true,
             pinFallbackReason: true,
+            fotoEvidenciaUrl: true,
             devicePairing: {
               select: { name: true, deviceModel: true },
             },

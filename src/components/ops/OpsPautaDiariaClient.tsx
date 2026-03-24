@@ -50,6 +50,7 @@ type MarcacionItem = {
   userAgent: string | null;
   metodoId?: string | null; // "face_id" | "pin_fallback" | "rut_pin" | "manual"
   pinFallbackReason?: string | null;
+  fotoEvidenciaUrl?: string | null;
   deviceDisplay?: string | null;
 };
 
@@ -181,6 +182,9 @@ export function OpsPautaDiariaClient({
   const [replacementAnchor, setReplacementAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
   const [marcacionDetalleOpen, setMarcacionDetalleOpen] = useState<MarcacionItem[] | null>(null);
+  const [fotoLightbox, setFotoLightbox] = useState<{
+    url: string; guardiaName: string; tipo: string; timestamp: string;
+  } | null>(null);
   // Modal para marcar Asistió: obliga a ingresar horas antes de guardar (no hay entrada inline)
   const [asistioModalItem, setAsistioModalItem] = useState<AsistenciaItem | null>(null);
   const [asistioModalHours, setAsistioModalHours] = useState<{ checkIn: string; checkOut: string }>({ checkIn: "", checkOut: "" });
@@ -906,6 +910,28 @@ export function OpsPautaDiariaClient({
                                   </span>
                                 );
                               })()}
+                              {(() => {
+                                const fotoMarca = (item.marcaciones ?? []).find(
+                                  (m) => m.fotoEvidenciaUrl && !m.fotoEvidenciaUrl.startsWith("evidence:")
+                                );
+                                if (!fotoMarca?.fotoEvidenciaUrl) return null;
+                                const guardia = item.actualGuardia ?? item.plannedGuardia;
+                                const guardiaName = guardia ? `${guardia.persona.firstName} ${guardia.persona.lastName}` : "Guardia";
+                                return (
+                                  <button
+                                    onClick={() => setFotoLightbox({
+                                      url: fotoMarca.fotoEvidenciaUrl!,
+                                      guardiaName,
+                                      tipo: fotoMarca.tipo,
+                                      timestamp: fotoMarca.timestamp,
+                                    })}
+                                    className="mt-1 inline-block rounded-md overflow-hidden border border-border hover:border-primary transition-colors"
+                                    title="Ver foto de evidencia"
+                                  >
+                                    <img src={fotoMarca.fotoEvidenciaUrl} alt="Foto" className="w-10 h-10 object-cover" loading="lazy" />
+                                  </button>
+                                );
+                              })()}
                               <button
                                 type="button"
                                 className="text-xs text-primary hover:underline"
@@ -1132,8 +1158,49 @@ export function OpsPautaDiariaClient({
                       </p>
                     )}
                   </div>
+                  {m.fotoEvidenciaUrl && !m.fotoEvidenciaUrl.startsWith("evidence:") && (
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground mb-1">Foto de evidencia:</p>
+                      <button
+                        onClick={() => {
+                          setMarcacionDetalleOpen(null);
+                          setFotoLightbox({
+                            url: m.fotoEvidenciaUrl!,
+                            guardiaName: "Guardia",
+                            tipo: m.tipo,
+                            timestamp: m.timestamp,
+                          });
+                        }}
+                        className="rounded-md overflow-hidden border border-border hover:border-primary transition-colors"
+                      >
+                        <img src={m.fotoEvidenciaUrl} alt="Foto" className="w-24 h-24 object-cover" loading="lazy" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Lightbox foto evidencia */}
+      <Dialog open={!!fotoLightbox} onOpenChange={(open) => { if (!open) setFotoLightbox(null); }}>
+        <DialogContent className="max-w-2xl p-2">
+          {fotoLightbox && (
+            <div>
+              <img
+                src={fotoLightbox.url}
+                alt={`Foto ${fotoLightbox.tipo} - ${fotoLightbox.guardiaName}`}
+                className="w-full max-h-[75vh] object-contain rounded-lg"
+              />
+              <div className="mt-2 text-sm text-muted-foreground">
+                <p className="font-medium">{fotoLightbox.guardiaName}</p>
+                <p>
+                  {fotoLightbox.tipo === "entrada" ? "Entrada" : "Salida"} —{" "}
+                  {new Date(fotoLightbox.timestamp).toLocaleString("es-CL")}
+                </p>
+              </div>
             </div>
           )}
         </DialogContent>
