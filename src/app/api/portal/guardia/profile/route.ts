@@ -59,6 +59,8 @@ export async function GET(request: NextRequest) {
       birthDate: guardia.persona.birthDate instanceof Date
         ? guardia.persona.birthDate.toISOString().split("T")[0]
         : guardia.persona.birthDate,
+      faceIdPhotoUrl: guardia.faceIdPhotoUrl ?? null,
+      faceIdRegistered: guardia.faceIdRegistered,
     };
 
     return NextResponse.json({ success: true, data: profile, profile });

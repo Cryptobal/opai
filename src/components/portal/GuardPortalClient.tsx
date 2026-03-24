@@ -60,13 +60,17 @@ import {
   type GuardScheduleDay,
   type GuardTicket,
   type GuardMarcacion,
+  type GuardExtraShift,
+  type GuardDocument,
   type PortalSection,
   PORTAL_BOTTOM_NAV,
   PORTAL_NAV_ITEMS,
   SHIFT_CODE_LABELS,
+  EXTRA_SHIFT_STATUS_LABELS,
   formatRut,
   isValidRut,
   getGreeting,
+  formatClp,
 } from "@/lib/guard-portal";
 import {
   TICKET_TYPE_SEEDS,
@@ -163,7 +167,7 @@ export function GuardPortalClient() {
 
       {/* Chat: rendered outside main for proper height constraint */}
       {activeSection === "chat" && session.currentInstallationId ? (
-        <div className="flex-1 min-h-0 overflow-hidden pb-16">
+        <div className="flex-1 min-h-0 overflow-hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", marginBottom: "4rem" }}>
           <ChatGuardPortal session={session} />
         </div>
       ) : (
@@ -230,6 +234,12 @@ export function GuardPortalClient() {
           )}
           {activeSection === "equipamiento" && (
             <EquipamientoSection session={session} />
+          )}
+          {activeSection === "turnos-extra" && (
+            <TurnosExtraSection session={session} />
+          )}
+          {activeSection === "documentos" && (
+            <DocumentosSection session={session} />
           )}
         </main>
       )}
@@ -396,18 +406,55 @@ function InicioSection({
 }) {
   const greeting = getGreeting();
   const [ticketCount, setTicketCount] = useState<number | null>(null);
+  const [attendancePct, setAttendancePct] = useState<number | null>(null);
+  const [extraShiftCount, setExtraShiftCount] = useState<number | null>(null);
+  const [nextShift, setNextShift] = useState<{ date: string; turno: string | null; installationName: string | null } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch(
-          `/api/portal/guardia/tickets?guardiaId=${session.guardiaId}`
-        );
-        if (res.ok && !cancelled) {
-          const data = await res.json();
+        // Fetch tickets, extra shifts, schedule in parallel
+        const now = new Date();
+        const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+        const [ticketRes, extraRes, schedRes] = await Promise.all([
+          fetch(`/api/portal/guardia/tickets?guardiaId=${session.guardiaId}`),
+          fetch(`/api/portal/guardia/extra-shifts?guardiaId=${session.guardiaId}`),
+          fetch(`/api/portal/guardia/schedule?guardiaId=${session.guardiaId}&month=${monthStr}`),
+        ]);
+
+        if (ticketRes.ok && !cancelled) {
+          const data = await ticketRes.json();
           const tickets = data.data ?? data.tickets ?? [];
-          setTicketCount(tickets.length);
+          setTicketCount(tickets.filter((t: { status: string }) => t.status !== "closed" && t.status !== "cancelled").length);
+        }
+        if (extraRes.ok && !cancelled) {
+          const data = await extraRes.json();
+          const shifts = data.data ?? [];
+          setExtraShiftCount(shifts.length);
+        }
+        if (schedRes.ok && !cancelled) {
+          const data = await schedRes.json();
+          const days: GuardScheduleDay[] = data.data ?? [];
+          // Calculate attendance %: work days (T) vs total so far
+          const todayStr = now.toISOString().split("T")[0];
+          const pastWorkDays = days.filter((d) => d.date <= todayStr && d.shiftCode === "T");
+          // Simple: % of work days scheduled this month (past + future)
+          const totalWorkDays = days.filter((d) => d.shiftCode === "T").length;
+          if (totalWorkDays > 0) {
+            // For now, show % of work days (attendance requires marcacion cross-reference)
+            setAttendancePct(Math.round((pastWorkDays.length / totalWorkDays) * 100));
+          }
+          // Find next shift (today or future with shiftCode = T)
+          const upcoming = days.find((d) => d.date >= todayStr && d.shiftCode === "T");
+          if (upcoming) {
+            setNextShift({
+              date: upcoming.date,
+              turno: upcoming.turno,
+              installationName: upcoming.installationName,
+            });
+          }
         }
       } catch { /* ignore */ }
     }
@@ -428,45 +475,83 @@ function InicioSection({
       </div>
 
       {/* Próximo turno */}
-      <div className="rounded-xl border bg-card p-4 shadow-sm">
-        <div className="flex items-center gap-2 mb-3">
-          <Clock className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold">Próximo turno</h3>
-        </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-2xl font-bold tabular-nums">07:00</p>
-            <p className="text-xs text-muted-foreground">Mañana</p>
+      {nextShift ? (
+        <button
+          onClick={() => onNavigate("pauta")}
+          className="w-full rounded-xl border bg-card p-4 shadow-sm text-left active:bg-accent transition-colors"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Próximo turno</h3>
           </div>
-          <div className="text-right">
-            <p className="text-sm font-semibold">
-              {session.currentInstallationName ?? "Sin asignar"}
-            </p>
-            <p className="text-xs text-muted-foreground">07:00 - 19:00</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-2xl font-bold tabular-nums">
+                {nextShift.turno ? nextShift.turno.split("-")[0] : "—"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {(() => {
+                  const d = new Date(nextShift.date + "T12:00:00");
+                  const today = new Date();
+                  const todayStr = today.toISOString().split("T")[0];
+                  const tomorrow = new Date(today);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  const tomorrowStr = tomorrow.toISOString().split("T")[0];
+                  if (nextShift.date === todayStr) return "Hoy";
+                  if (nextShift.date === tomorrowStr) return "Mañana";
+                  return d.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "short" });
+                })()}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-semibold">
+                {nextShift.installationName ?? session.currentInstallationName ?? "Sin asignar"}
+              </p>
+              {nextShift.turno && (
+                <p className="text-xs text-muted-foreground">{nextShift.turno}</p>
+              )}
+            </div>
           </div>
+        </button>
+      ) : (
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Próximo turno</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">Sin turnos programados este mes.</p>
         </div>
-      </div>
+      )}
 
-      {/* Quick stats */}
+      {/* Quick stats — clickable */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
-          <p className="text-2xl font-bold text-emerald-500">92%</p>
+        <button
+          onClick={() => onNavigate("marcaciones")}
+          className="rounded-xl border bg-card p-3 shadow-sm text-center active:bg-accent transition-colors"
+        >
+          <p className="text-2xl font-bold text-emerald-500">{attendancePct != null ? `${attendancePct}%` : "—"}</p>
           <p className="text-[11px] text-muted-foreground leading-tight mt-1">
             Asistencia mes
           </p>
-        </div>
-        <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
-          <p className="text-2xl font-bold text-blue-500">3</p>
+        </button>
+        <button
+          onClick={() => onNavigate("turnos-extra")}
+          className="rounded-xl border bg-card p-3 shadow-sm text-center active:bg-accent transition-colors"
+        >
+          <p className="text-2xl font-bold text-blue-500">{extraShiftCount ?? "—"}</p>
           <p className="text-[11px] text-muted-foreground leading-tight mt-1">
             Turnos extra
           </p>
-        </div>
-        <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
+        </button>
+        <button
+          onClick={() => onNavigate("solicitudes")}
+          className="rounded-xl border bg-card p-3 shadow-sm text-center active:bg-accent transition-colors"
+        >
           <p className="text-2xl font-bold text-amber-500">{ticketCount ?? "—"}</p>
           <p className="text-[11px] text-muted-foreground leading-tight mt-1">
             Solicitudes
           </p>
-        </div>
+        </button>
       </div>
 
       {/* Protocolo, Exámenes, Resultados */}
@@ -528,6 +613,45 @@ function InicioSection({
             <div className="min-w-0">
               <p className="text-sm font-semibold">Perfil</p>
               <p className="text-[11px] text-muted-foreground">Mis datos</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onNavigate("equipamiento")}
+            className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
+          >
+            <div className="h-9 w-10 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0">
+              <Package className="h-5 w-5 text-teal-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Equipamiento</p>
+              <p className="text-[11px] text-muted-foreground">Uniforme y entregas</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onNavigate("documentos")}
+            className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
+          >
+            <div className="h-9 w-10 rounded-lg bg-sky-500/10 flex items-center justify-center shrink-0">
+              <FileText className="h-5 w-5 text-sky-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Documentos</p>
+              <p className="text-[11px] text-muted-foreground">Contratos y anexos</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onNavigate("turnos-extra")}
+            className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm active:bg-accent transition-colors text-left"
+          >
+            <div className="h-9 w-10 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0">
+              <Clock className="h-5 w-5 text-indigo-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Turnos Extra</p>
+              <p className="text-[11px] text-muted-foreground">Detalle y pagos</p>
             </div>
           </button>
         </div>
@@ -1335,7 +1459,7 @@ function PautaSection({ session }: { session: GuardSession }) {
         );
         if (res.ok && !cancelled) {
           const data = await res.json();
-          setSchedule(data.schedule ?? []);
+          setSchedule(data.data ?? data.schedule ?? []);
         }
       } catch {
         if (!cancelled) toast.error("Error al cargar pauta");
@@ -1512,8 +1636,13 @@ interface GuardProfile {
   phone: string | null;
   code: string | null;
   status: string;
+  lifecycleStatus: string | null;
   installationName: string | null;
   hireDate: string | null;
+  birthDate: string | null;
+  addressFormatted: string | null;
+  faceIdPhotoUrl: string | null;
+  faceIdRegistered: boolean;
 }
 
 function PerfilSection({
@@ -1559,6 +1688,14 @@ function PerfilSection({
     );
   }
 
+  const STATUS_LABELS: Record<string, string> = {
+    active: "Activo",
+    inactive: "Inactivo",
+    suspended: "Suspendido",
+    terminated: "Desvinculado",
+    on_leave: "Con licencia",
+  };
+
   const fields: { label: string; value: string | null }[] = profile
     ? [
         { label: "Nombre", value: `${profile.firstName} ${profile.lastName}` },
@@ -1566,7 +1703,7 @@ function PerfilSection({
         { label: "Email", value: profile.email },
         { label: "Teléfono", value: profile.phone },
         { label: "Código", value: profile.code },
-        { label: "Estado", value: profile.status },
+        { label: "Estado", value: STATUS_LABELS[profile.status] ?? profile.status },
         { label: "Instalación", value: profile.installationName },
         {
           label: "Fecha contratación",
@@ -1578,6 +1715,18 @@ function PerfilSection({
               })
             : null,
         },
+        {
+          label: "Fecha nacimiento",
+          value: profile.birthDate
+            ? new Date(profile.birthDate + "T12:00:00").toLocaleDateString("es-CL", {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              })
+            : null,
+        },
+        { label: "Dirección", value: profile.addressFormatted },
+        { label: "Face ID", value: profile.faceIdRegistered ? "Registrado" : "No registrado" },
       ]
     : [];
 
@@ -1585,9 +1734,15 @@ function PerfilSection({
     <div className="px-4 py-5 space-y-5">
       {/* Avatar / Header */}
       <div className="flex flex-col items-center gap-3">
-        <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
-          <User className="h-9 w-10 text-primary" />
-        </div>
+        {profile?.faceIdPhotoUrl ? (
+          <div className="h-24 w-24 rounded-full overflow-hidden border-2 border-primary/30">
+            <img src={profile.faceIdPhotoUrl} alt="Foto" className="h-full w-full object-cover" />
+          </div>
+        ) : (
+          <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+            <User className="h-9 w-10 text-primary" />
+          </div>
+        )}
         {profile && (
           <>
             <h2 className="text-lg font-semibold text-center">
@@ -2864,6 +3019,208 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TURNOS EXTRA SECTION
+// ═══════════════════════════════════════════════════════════════
+
+function TurnosExtraSection({ session }: { session: GuardSession }) {
+  const [shifts, setShifts] = useState<GuardExtraShift[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch(`/api/portal/guardia/extra-shifts?guardiaId=${session.guardiaId}`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setShifts(data.data ?? []);
+        }
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setLoading(false); }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [session.guardiaId]);
+
+  const statusColor: Record<string, string> = {
+    pending: "bg-amber-500/20 text-amber-400",
+    approved: "bg-emerald-500/20 text-emerald-400",
+    rejected: "bg-red-500/20 text-red-400",
+    paid: "bg-blue-500/20 text-blue-400",
+  };
+
+  // Group by status for summary
+  const summary = useMemo(() => {
+    const s = { pending: 0, approved: 0, rejected: 0, paid: 0, totalHours: 0, totalAmount: 0 };
+    for (const sh of shifts) {
+      if (sh.status in s) s[sh.status as keyof typeof s]++;
+      s.totalHours += sh.hours;
+      if (sh.status === "paid") s.totalAmount += sh.amountClp;
+    }
+    return s;
+  }, [shifts]);
+
+  return (
+    <div className="py-5 space-y-4 px-4">
+      <div className="flex items-center gap-2">
+        <Clock className="h-5 w-5 text-primary" />
+        <h2 className="text-lg font-semibold">Turnos Extra</h2>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-32">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : shifts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-32 text-center">
+          <Clock className="h-10 w-10 text-zinc-600 mb-2" />
+          <p className="text-sm text-muted-foreground">No tienes turnos extra registrados.</p>
+        </div>
+      ) : (
+        <>
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
+              <p className="text-xl font-bold text-amber-500">{summary.pending}</p>
+              <p className="text-[11px] text-muted-foreground">Pendientes</p>
+            </div>
+            <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
+              <p className="text-xl font-bold text-emerald-500">{summary.approved}</p>
+              <p className="text-[11px] text-muted-foreground">Aprobados</p>
+            </div>
+            <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
+              <p className="text-xl font-bold text-blue-500">{summary.paid}</p>
+              <p className="text-[11px] text-muted-foreground">Pagados</p>
+            </div>
+            <div className="rounded-xl border bg-card p-3 shadow-sm text-center">
+              <p className="text-xl font-bold text-foreground">{summary.totalHours}h</p>
+              <p className="text-[11px] text-muted-foreground">Horas totales</p>
+            </div>
+          </div>
+
+          {summary.totalAmount > 0 && (
+            <div className="rounded-xl border bg-card p-4 shadow-sm text-center">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Total pagado</p>
+              <p className="text-2xl font-bold text-emerald-500">{formatClp(summary.totalAmount)}</p>
+            </div>
+          )}
+
+          {/* List */}
+          <div className="space-y-2">
+            {shifts.map((sh) => (
+              <div key={sh.id} className="rounded-xl border bg-card p-3 shadow-sm flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold">
+                      {new Date(sh.date + "T12:00:00").toLocaleDateString("es-CL", { weekday: "short", day: "numeric", month: "short" })}
+                    </p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${statusColor[sh.status] ?? "bg-muted text-muted-foreground"}`}>
+                      {sh.statusLabel}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {sh.installationName} · {sh.hours}h
+                    {sh.amountClp > 0 && ` · ${formatClp(sh.amountClp)}`}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DOCUMENTOS / CONTRATOS SECTION
+// ═══════════════════════════════════════════════════════════════
+
+function DocumentosSection({ session }: { session: GuardSession }) {
+  const [docs, setDocs] = useState<GuardDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch(`/api/portal/guardia/documents?guardiaId=${session.guardiaId}`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setDocs(data.data ?? []);
+        }
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setLoading(false); }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [session.guardiaId]);
+
+  const TYPE_LABELS: Record<string, { label: string; color: string }> = {
+    contrato: { label: "Contrato", color: "bg-blue-500/20 text-blue-400" },
+    anexo: { label: "Anexo", color: "bg-purple-500/20 text-purple-400" },
+    liquidacion: { label: "Liquidación", color: "bg-emerald-500/20 text-emerald-400" },
+    certificado: { label: "Certificado", color: "bg-amber-500/20 text-amber-400" },
+    finiquito: { label: "Finiquito", color: "bg-red-500/20 text-red-400" },
+  };
+
+  return (
+    <div className="py-5 space-y-4 px-4">
+      <div className="flex items-center gap-2">
+        <FileText className="h-5 w-5 text-primary" />
+        <h2 className="text-lg font-semibold">Documentos y Contratos</h2>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-32">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : docs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-32 text-center">
+          <FileText className="h-10 w-10 text-zinc-600 mb-2" />
+          <p className="text-sm text-muted-foreground">No hay documentos disponibles.</p>
+          <p className="text-xs text-zinc-500 mt-1">Tus contratos y anexos aparecerán aquí.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {docs.map((doc) => {
+            const typeConfig = TYPE_LABELS[doc.type.toLowerCase()] ?? { label: doc.type, color: "bg-muted text-muted-foreground" };
+            return (
+              <div key={doc.id} className="rounded-xl border bg-card p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${typeConfig.color}`}>
+                        {typeConfig.label}
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold">{doc.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(doc.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })}
+                    </p>
+                  </div>
+                  {doc.url && (
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <Download className="h-4 w-4" />
+                      Ver
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

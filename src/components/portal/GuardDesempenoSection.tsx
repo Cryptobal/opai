@@ -103,7 +103,33 @@ function ScorecardView({ session }: { session: GuardSession }) {
 
         if (scRes.ok && !cancelled) {
           const d = await scRes.json();
-          if (d.success) setScorecard(d.data);
+          if (d.success && d.data) {
+            const raw = d.data;
+            // Map API flat response to GuardiaScorecard shape
+            const dimensiones: import("@/components/gamification").DimensionScore[] = [
+              { dimension: "rondas", label: "Rondas", score: raw.scoreRondas ?? 0, peso: 30, color: "text-teal-500" },
+              { dimension: "asistencia", label: "Asistencia", score: raw.scoreAsistencia ?? 0, peso: 25, color: "text-cyan-500" },
+              { dimension: "sistema_digital", label: "Sistema Digital", score: raw.scoreSistemaDigital ?? 0, peso: 15, color: "text-purple-500" },
+              { dimension: "supervision", label: "Supervisión", score: raw.scoreSupervision ?? 0, peso: 15, color: "text-yellow-500" },
+              { dimension: "capacitacion", label: "Capacitación", score: raw.scoreCapacitacion ?? 0, peso: 15, color: "text-orange-500" },
+            ];
+            const mapped: GuardiaScorecard = {
+              guardiaId: session.guardiaId,
+              nombre: `${session.firstName} ${session.lastName}`,
+              trustScore: raw.trustScore ?? 0,
+              nivel: typeof raw.nivelActual === "object" ? (raw.nivelActual?.name ?? "centinela") : (raw.nivelActual ?? raw.nivel ?? "centinela"),
+              puntosMes: raw.puntosNetosMes ?? raw.puntosGanadosMes ?? raw.puntosMes ?? 0,
+              rachaActual: raw.rachaActual ?? 0,
+              rankingInstalacion: raw.rankingInstalacion ?? 0,
+              totalGuardiasInstalacion: raw.totalGuardiasInstalacion ?? 0,
+              percentil: raw.percentil ?? (raw.rankingInstalacion && raw.totalGuardiasInstalacion
+                ? Math.round(((raw.totalGuardiasInstalacion - raw.rankingInstalacion) / raw.totalGuardiasInstalacion) * 100)
+                : 0),
+              tendenciaMesAnterior: raw.tendenciaMesAnterior ?? 0,
+              dimensiones,
+            };
+            setScorecard(mapped);
+          }
         }
         if (hiRes.ok && !cancelled) {
           const d = await hiRes.json();

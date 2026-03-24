@@ -207,6 +207,48 @@ export async function POST(request: NextRequest) {
         url: "/portal/guardia?section=equipamiento",
         tag: `inv-delivery-${movement.id}`,
       }).catch((err) => console.error("[inventory_delivery push]", err));
+
+      // ── Low stock alerts (check after delivery) ──
+      const updatedStocks = await prisma.inventoryStock.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          warehouseId: parsed.data.fromWarehouseId,
+          variantId: { in: parsed.data.lines.map((l) => l.variantId) },
+        },
+        include: {
+          variant: { include: { product: { select: { name: true } }, size: { select: { sizeCode: true } } } },
+          warehouse: { select: { name: true } },
+        },
+      });
+
+      const lowStockItems = updatedStocks.filter(
+        (s) => s.minStock > 0 && s.quantity <= s.minStock
+      );
+      const outOfStockItems = updatedStocks.filter((s) => s.quantity === 0);
+
+      if (outOfStockItems.length > 0) {
+        const outNames = outOfStockItems
+          .map((s) => `${s.variant.product.name}${s.variant.size ? ` ${s.variant.size.sizeCode}` : ""}`)
+          .join(", ");
+        sendNotification({
+          tenantId: ctx.tenantId,
+          type: "inventory_delivery",
+          title: "Stock agotado",
+          message: `${outNames} en ${outOfStockItems[0].warehouse.name} llegó a 0 unidades.`,
+          link: "/ops/inventario/stock",
+        }).catch((err) => console.error("[stock_alert bell]", err));
+      } else if (lowStockItems.length > 0) {
+        const lowNames = lowStockItems
+          .map((s) => `${s.variant.product.name}${s.variant.size ? ` ${s.variant.size.sizeCode}` : ""} (${s.quantity}/${s.minStock})`)
+          .join(", ");
+        sendNotification({
+          tenantId: ctx.tenantId,
+          type: "inventory_delivery",
+          title: "Stock bajo mínimo",
+          message: `${lowNames} en ${lowStockItems[0].warehouse.name}`,
+          link: "/ops/inventario/stock",
+        }).catch((err) => console.error("[stock_alert bell]", err));
+      }
     }
 
     return NextResponse.json(movement);

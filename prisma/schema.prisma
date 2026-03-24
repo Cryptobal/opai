@@ -5869,6 +5869,7 @@ model InventoryStock {
   warehouseId String   @map("warehouse_id") @db.Uuid
   variantId   String   @map("variant_id") @db.Uuid
   quantity    Int      @default(0)
+  minStock    Int      @default(0) @map("min_stock") // stock mínimo antes de alerta
   avgCost     Decimal? @map("avg_cost") @db.Decimal(12, 2)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

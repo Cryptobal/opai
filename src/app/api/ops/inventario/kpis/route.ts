@@ -10,7 +10,7 @@ export async function GET() {
     const forbidden = await ensureInventarioAccess(ctx);
     if (forbidden) return forbidden;
 
-    const [assignments, assetsAssigned] = await Promise.all([
+    const [assignments, assetsAssigned, allStock] = await Promise.all([
       prisma.inventoryGuardiaAssignment.findMany({
         where: { tenantId: ctx.tenantId, returnedAt: null },
         include: {
@@ -32,6 +32,18 @@ export async function GET() {
             where: { returnedAt: null },
             select: { installationId: true },
           },
+        },
+      }),
+      prisma.inventoryStock.findMany({
+        where: { tenantId: ctx.tenantId },
+        include: {
+          variant: {
+            include: {
+              product: { select: { name: true } },
+              size: { select: { sizeCode: true } },
+            },
+          },
+          warehouse: { select: { name: true } },
         },
       }),
     ]);
@@ -93,6 +105,34 @@ export async function GET() {
       0
     );
 
+    // Stock health metrics
+    const totalStockValue = allStock.reduce(
+      (sum, s) => sum + s.quantity * Number(s.avgCost ?? 0),
+      0
+    );
+    const totalStockItems = allStock.reduce((sum, s) => sum + s.quantity, 0);
+    const outOfStock = allStock.filter((s) => s.quantity === 0);
+    const belowMinimum = allStock.filter(
+      (s) => s.minStock > 0 && s.quantity > 0 && s.quantity <= s.minStock
+    );
+
+    const stockAlerts = [
+      ...outOfStock.map((s) => ({
+        type: "critical" as const,
+        label: `${s.variant.product.name}${s.variant.size ? ` ${s.variant.size.sizeCode}` : ""}`,
+        warehouse: s.warehouse.name,
+        quantity: 0,
+        minStock: s.minStock,
+      })),
+      ...belowMinimum.map((s) => ({
+        type: "low" as const,
+        label: `${s.variant.product.name}${s.variant.size ? ` ${s.variant.size.sizeCode}` : ""}`,
+        warehouse: s.warehouse.name,
+        quantity: s.quantity,
+        minStock: s.minStock,
+      })),
+    ];
+
     return NextResponse.json({
       byGuardia: byGuardia.sort((a, b) => b.totalCost - a.totalCost),
       byInstallation: byInstallation.sort((a, b) => b.totalCost - a.totalCost),
@@ -100,6 +140,13 @@ export async function GET() {
         totalUniformesAsignados: totalUniformes,
         totalActivosAsignados: totalActivos,
         totalGeneral: totalUniformes + totalActivos,
+      },
+      stock: {
+        totalValue: totalStockValue,
+        totalItems: totalStockItems,
+        outOfStockCount: outOfStock.length,
+        belowMinimumCount: belowMinimum.length,
+        alerts: stockAlerts,
       },
     });
   } catch (e) {
