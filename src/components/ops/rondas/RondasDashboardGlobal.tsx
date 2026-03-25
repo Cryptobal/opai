@@ -17,6 +17,8 @@ import {
   FileSpreadsheet,
   MapPin,
   FileWarning,
+  LayoutGrid,
+  Table2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RondaAuditMapModal } from "./RondaAuditMapModal";
@@ -467,6 +469,68 @@ function InstalacionGridRow({ inst }: { inst: InstalacionRow }) {
   );
 }
 
+/** Returns a Tailwind bg class based on compliance percentage (heat map) */
+function complianceBg(pct: number): string {
+  if (pct === 0) return "bg-red-500/70 text-white";
+  if (pct < 40) return "bg-red-500/50 text-red-100";
+  if (pct < 60) return "bg-amber-500/50 text-amber-100";
+  if (pct < 75) return "bg-yellow-500/40 text-yellow-100";
+  if (pct < 90) return "bg-lime-500/40 text-lime-100";
+  if (pct < 100) return "bg-emerald-500/40 text-emerald-100";
+  return "bg-emerald-500/70 text-white";
+}
+
+function ResumenTablaView({ instalaciones, resumen }: { instalaciones: InstalacionRow[]; resumen: ResumenGlobal }) {
+  // Sort by compliance ascending (worst first)
+  const sorted = [...instalaciones].sort(
+    (a, b) => a.resumen.porcentajeCumplimiento - b.resumen.porcentajeCumplimiento,
+  );
+
+  return (
+    <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-[#1a1f2e] text-[11px] uppercase tracking-wider text-[#64748b]">
+            <th className="text-left px-4 py-3 font-semibold">Instalación</th>
+            <th className="text-center px-4 py-3 font-semibold w-24">Rondas</th>
+            <th className="text-center px-4 py-3 font-semibold w-24">Realizadas</th>
+            <th className="text-center px-4 py-3 font-semibold w-36">% Cumplimiento</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((inst) => {
+            const pct = inst.resumen.porcentajeCumplimiento;
+            return (
+              <tr key={inst.installationId} className="border-b border-[#1a1f2e]/60 hover:bg-[#1a1f2e]/30 transition-colors">
+                <td className="px-4 py-2.5 text-[#f1f5f9] font-medium">{inst.installationName}</td>
+                <td className="px-4 py-2.5 text-center text-[#94a3b8] tabular-nums">{inst.resumen.total}</td>
+                <td className="px-4 py-2.5 text-center text-[#94a3b8] tabular-nums">{inst.resumen.completadas}</td>
+                <td className="px-4 py-2.5 text-center">
+                  <span className={cn("inline-block rounded-md px-3 py-1 text-xs font-bold tabular-nums min-w-[56px]", complianceBg(pct))}>
+                    {pct}%
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-[#1a1f2e] bg-[#0a0e1a]/60">
+            <td className="px-4 py-3 text-[#f1f5f9] font-bold">Total general</td>
+            <td className="px-4 py-3 text-center text-[#f1f5f9] font-bold tabular-nums">{resumen.totalRondas}</td>
+            <td className="px-4 py-3 text-center text-[#f1f5f9] font-bold tabular-nums">{resumen.completadas}</td>
+            <td className="px-4 py-3 text-center">
+              <span className={cn("inline-block rounded-md px-3 py-1 text-xs font-bold tabular-nums min-w-[56px]", complianceBg(resumen.porcentajeCumplimiento))}>
+                {resumen.porcentajeCumplimiento}%
+              </span>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
 interface Props {
   initialDate?: string;
 }
@@ -484,6 +548,7 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
   const [fecha, setFecha] = useState(initialDate ?? "");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData | null>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   // Set today's date on the client to avoid UTC issues from SSR
   useEffect(() => {
@@ -588,6 +653,34 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
           </div>
         )}
 
+        {/* View mode toggle */}
+        <div className="inline-flex rounded-lg border border-[#1a1f2e] overflow-hidden">
+          <button
+            onClick={() => setViewMode("grid")}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors",
+              viewMode === "grid"
+                ? "bg-[#1a1f2e] text-[#f1f5f9]"
+                : "bg-[#0a0e1a] text-[#64748b] hover:text-[#94a3b8]",
+            )}
+            title="Vista grilla"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => setViewMode("table")}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors border-l border-[#1a1f2e]",
+              viewMode === "table"
+                ? "bg-[#1a1f2e] text-[#f1f5f9]"
+                : "bg-[#0a0e1a] text-[#64748b] hover:text-[#94a3b8]",
+            )}
+            title="Vista tabla resumen"
+          >
+            <Table2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
         <button
           onClick={() => {
             const params = new URLSearchParams({ format: "xlsx", from: fecha, to: fecha });
@@ -607,16 +700,18 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
         )}
       </div>
 
-      {/* Grid of installations */}
+      {/* Grid or Table view */}
       {data && (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-[#64748b]">
-            Grilla de rondas por instalación
+            {viewMode === "grid" ? "Grilla de rondas por instalación" : "Resumen por instalación"}
           </p>
           {data.instalaciones.length === 0 ? (
             <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-8 text-center text-sm text-[#64748b]">
               Sin rondas programadas para este día
             </div>
+          ) : viewMode === "table" && resumen ? (
+            <ResumenTablaView instalaciones={data.instalaciones} resumen={resumen} />
           ) : (
             data.instalaciones.map((inst) => (
               <InstalacionGridRow key={inst.installationId} inst={inst} />
