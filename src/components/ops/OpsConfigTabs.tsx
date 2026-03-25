@@ -8,12 +8,13 @@ import { OpsDocsGuardiasTab } from "@/components/ops/OpsDocsGuardiasTab";
 import { OpsDocsInstalacionTab } from "@/components/ops/OpsDocsInstalacionTab";
 import { OpsEmailsTab } from "@/components/ops/OpsEmailsTab";
 import type { MarcacionConfig } from "@/lib/ops-marcacion-config";
+import type { GuardiaDocumentoConfigItem as GuardiaDocConfigItem } from "@/lib/guardia-documentos-config";
 import { Card, CardContent } from "@/components/ui/card";
 import { Radio, FileText, Building2, Mail } from "lucide-react";
 
 export type PostulacionDocItem = { code: string; label: string; required: boolean };
 export type InstalacionDocItem = { code: string; label: string; required: boolean };
-export type { GuardiaDocumentoConfigItem as GuardiaDocConfigItem } from "@/lib/guardia-documentos-config";
+export type { GuardiaDocConfigItem };
 
 export function OpsConfigTabs() {
   const [config, setConfig] = useState<MarcacionConfig | null>(null);
