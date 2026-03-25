@@ -12,6 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { formatCurrency } from "@/components/cpq/utils";
+import {
+  CPQ_BREAKDOWN_SHELL,
+  CPQ_BREAKDOWN_ROW,
+  cpqBreakdownAmount,
+} from "@/components/cpq/cpqBreakdownLayout";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { isDefaultUniform } from "@/lib/cpq-constants";
 import type {
@@ -885,19 +890,23 @@ export function CpqQuoteCosts({
         type="button"
         onClick={() => toggle(key)}
         className={cn(
-          "flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-accent/30",
+          "grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-center px-3 py-1.5 text-left transition-colors hover:bg-accent/30",
           dimmed && "opacity-40"
         )}
       >
-        <span className="text-[13px]">{meta.icon}</span>
-        <span className="text-[12px] font-medium">{meta.label}</span>
-        {count > 0 && (
-          <span className="text-[10px] text-muted-foreground">({count})</span>
-        )}
-        <span className={cn("ml-auto text-[12px] font-semibold tabular-nums", total > 0 ? "text-foreground" : "text-muted-foreground")}>
-          {formatCurrency(total)}
-        </span>
-        <ChevronRight className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", expanded && "rotate-90")} />
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
+          <span className="text-[13px] shrink-0">{meta.icon}</span>
+          <span className="text-[12px] font-medium break-words">{meta.label}</span>
+          {count > 0 && (
+            <span className="text-[10px] text-muted-foreground shrink-0">({count})</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 justify-end shrink-0">
+          <span className={cpqBreakdownAmount(total > 0 ? "text-[12px] font-semibold text-foreground" : "text-[12px] font-semibold text-muted-foreground")}>
+            {formatCurrency(total)}
+          </span>
+          <ChevronRight className={cn("h-3 w-3 text-muted-foreground transition-transform shrink-0", expanded && "rotate-90")} />
+        </div>
       </button>
     );
   };
@@ -1173,11 +1182,13 @@ export function CpqQuoteCosts({
         />
       )}
 
-    <div className="rounded-xl border bg-card overflow-hidden">
+    <div className={cn("rounded-xl border bg-card overflow-hidden", CPQ_BREAKDOWN_SHELL)}>
       {/* ── DIRECTOS ── */}
-      <div className="px-3 py-1.5 flex justify-between items-center bg-emerald-500/5">
-        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-500">Directos</span>
-        <span className="text-[12px] font-bold tabular-nums text-emerald-500">{formatCurrency(directosTotal)}</span>
+      <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 bg-emerald-500/5 text-xs")}>
+        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-500 break-words min-w-0">
+          Directos
+        </span>
+        <span className={cpqBreakdownAmount("text-[12px] font-bold text-emerald-500")}>{formatCurrency(directosTotal)}</span>
       </div>
 
       {/* Uniformes */}
@@ -1310,11 +1321,15 @@ export function CpqQuoteCosts({
 
       {/* Feriados (static, non-expandible) */}
       <div className="border-t border-border/30" />
-      <div className="flex items-center gap-2 px-3 py-1.5">
-        <span className="text-[13px]">{"\u{1F4C5}"}</span>
-        <span className="text-[12px] font-medium">Ajuste feriados</span>
-        <span className="text-[9px] font-semibold uppercase text-amber-400 bg-amber-500/10 rounded px-1.5 py-0.5">Auto</span>
-        <span className={cn("ml-auto text-[12px] font-semibold tabular-nums", holidayAdjustment > 0 ? "text-foreground" : "text-muted-foreground")}>
+      <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 text-xs")}>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
+          <span className="text-[13px] shrink-0">{"\u{1F4C5}"}</span>
+          <span className="text-[12px] font-medium break-words">Ajuste feriados</span>
+          <span className="text-[9px] font-semibold uppercase text-amber-400 bg-amber-500/10 rounded px-1.5 py-0.5 shrink-0">
+            Auto
+          </span>
+        </div>
+        <span className={cpqBreakdownAmount(holidayAdjustment > 0 ? "text-[12px] font-semibold text-foreground" : "text-[12px] font-semibold text-muted-foreground")}>
           {formatCurrency(holidayAdjustment)}
         </span>
       </div>
@@ -1323,9 +1338,11 @@ export function CpqQuoteCosts({
       <div className="h-[3px] bg-border" />
 
       {/* ── INDIRECTOS ── */}
-      <div className="px-3 py-1.5 flex justify-between items-center bg-amber-400/5">
-        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-400">Indirectos</span>
-        <span className="text-[12px] font-bold tabular-nums text-amber-400">{formatCurrency(indirectosTotal)}</span>
+      <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 bg-amber-400/5 text-xs")}>
+        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-400 break-words min-w-0">
+          Indirectos
+        </span>
+        <span className={cpqBreakdownAmount("text-[12px] font-bold text-amber-400")}>{formatCurrency(indirectosTotal)}</span>
       </div>
 
       {/* Equipos operativos */}
@@ -1452,9 +1469,11 @@ export function CpqQuoteCosts({
       )}
 
       {/* ── TOTAL FOOTER ── */}
-      <div className="border-t-2 border-primary bg-primary/5 px-3 py-2 flex justify-between items-center">
-        <span className="text-[10px] font-bold text-primary uppercase tracking-[0.08em]">Total costos adicionales</span>
-        <span className="text-sm font-extrabold text-primary tabular-nums">{formatCurrency(grandTotal)}</span>
+      <div className={cn(CPQ_BREAKDOWN_ROW, "border-t-2 border-primary bg-primary/5 px-3 py-2 text-xs")}>
+        <span className="text-[10px] font-bold text-primary uppercase tracking-[0.08em] break-words min-w-0">
+          Total costos adicionales
+        </span>
+        <span className={cpqBreakdownAmount("text-sm font-extrabold text-primary")}>{formatCurrency(grandTotal)}</span>
       </div>
     </div>
     </div>

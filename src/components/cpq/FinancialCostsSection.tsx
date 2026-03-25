@@ -44,7 +44,7 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
     <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
       {/* Costo financiero */}
       <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-[11px] font-semibold">Financiero</span>
           <button
             type="button"
@@ -100,7 +100,7 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
             </div>
           ) : (
             <div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <Label className="text-[10px] text-muted-foreground">Base venta (manual)</Label>
                 {!isLocked && (
                   <button
@@ -140,7 +140,7 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
 
       {/* Poliza */}
       <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-[11px] font-semibold">Poliza</span>
           <button
             type="button"

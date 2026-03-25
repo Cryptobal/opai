@@ -210,6 +210,27 @@ function createEmptyInstallation(name = "", address = "", city = "", commune = "
   return { _key: newInstallationKey(), name, address, city, commune, dotacion: [] };
 }
 
+function cloneInstallationDraft(inst: InstallationDraft): InstallationDraft {
+  const baseName = inst.name.trim();
+  return {
+    _key: newInstallationKey(),
+    name: baseName ? `${baseName} (copia)` : "",
+    address: inst.address,
+    city: inst.city,
+    commune: inst.commune,
+    lat: inst.lat,
+    lng: inst.lng,
+    dotacion: inst.dotacion.map((d) => ({
+      ...d,
+      dias: [...d.dias],
+    })),
+  };
+}
+
+function cloneLeadCpqConfig(cfg: LeadCpqConfig): LeadCpqConfig {
+  return JSON.parse(JSON.stringify(cfg)) as LeadCpqConfig;
+}
+
 /** Nombre inicial al crear el borrador desde el lead: «Empresa - Comuna». */
 function defaultInstallationNameFromLead(
   companyName: string | null | undefined,
@@ -481,6 +502,16 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const [proposalTemplates, setProposalTemplates] = useState<{ id: string; name: string; slug?: string }[]>([]);
   const [ufValue, setUfValue] = useState<number | null>(null);
   const [expandedInstallations, setExpandedInstallations] = useState<Record<string, boolean>>({});
+  /** Instalación activa para «Copiar instalación» (elige tocando la cabecera de la tarjeta). */
+  const [selectedInstallationKey, setSelectedInstallationKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedInstallationKey((cur) => {
+      if (installations.length === 0) return null;
+      if (cur && installations.some((i) => i._key === cur)) return cur;
+      return installations[0]!._key;
+    });
+  }, [installations]);
 
   // Backward compat aliases from cpqConfigs
   const firstInstKey = installations[0]?._key;
@@ -1064,7 +1095,30 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     setInstallations((prev) => prev.map((inst) => inst._key === key ? { ...inst, [field]: value } : inst));
   };
   const removeInstallation = (key: string) => { setInstallations((prev) => prev.filter((inst) => inst._key !== key)); };
-  const addInstallation = () => { setInstallations((prev) => [...prev, createEmptyInstallation()]); };
+  const addInstallation = () => {
+    const empty = createEmptyInstallation();
+    setInstallations((prev) => [...prev, empty]);
+    setSelectedInstallationKey(empty._key);
+  };
+  const duplicateInstallation = () => {
+    const sourceKey = selectedInstallationKey;
+    if (!sourceKey) {
+      toast.error("Selecciona una instalación tocando su cabecera.");
+      return;
+    }
+    setInstallations((prev) => {
+      const src = prev.find((i) => i._key === sourceKey);
+      if (!src) return prev;
+      const clone = cloneInstallationDraft(src);
+      setCpqConfigs((pc) => {
+        const base = pc[src._key] ?? createDefaultLeadCpqConfig();
+        return { ...pc, [clone._key]: cloneLeadCpqConfig(base) };
+      });
+      setExpandedInstallations((ex) => ({ ...ex, [clone._key]: true }));
+      setSelectedInstallationKey(clone._key);
+      return [...prev, clone];
+    });
+  };
   const handleAddressChange = (key: string, result: AddressResult) => {
     setInstallations((prev) => prev.map((inst) => inst._key === key ? { ...inst, address: result.address, city: result.city, commune: result.commune, lat: result.lat, lng: result.lng } : inst));
   };
@@ -1988,43 +2042,76 @@ Conoce más sobre nosotros en https://gard.cl`;
 
     // TAB: Installations & Dotación
     const installationsContent = (
-        <div className="space-y-4 pb-52 sm:pb-40 lg:pb-32 rounded-lg border border-border bg-card p-4 sm:p-5">
+        <div className="space-y-5 pb-52 sm:pb-40 lg:pb-32">
           {installations.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-4">Sin instalaciones. Agrega una para asignar dotación.</p>
+            <div className="rounded-xl border border-dashed border-border/70 bg-card/40 px-4 py-8 text-center">
+              <p className="text-xs text-muted-foreground">Sin instalaciones. Usa &quot;Nueva instalación&quot; o &quot;Copiar instalación&quot; para comenzar.</p>
+            </div>
           )}
           {installations.map((inst, instIdx) => {
             const instConfig = cpqConfigs[inst._key];
             const isExpanded = expandedInstallations[inst._key] !== false; // default expanded
+            const isSelected = selectedInstallationKey === inst._key;
             const instGuards = instConfig?.positions?.reduce((s, p) => s + (p.cantidad || 1) * (p.numPuestos || 1), 0) ?? 0;
             return (
-            <div key={inst._key} className={cn("rounded-xl border-2 bg-card/50", instIdx === 0 ? "border-border/60" : "border-border/40 mt-6")}>
-              {/* Collapsible header */}
-              <button
-                type="button"
-                onClick={() => setExpandedInstallations((prev) => ({ ...prev, [inst._key]: !isExpanded }))}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors rounded-t-xl"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <MapPin className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">#{instIdx + 1}</span>
-                  <span className="text-sm font-semibold">
+            <div
+              key={inst._key}
+              className={cn(
+                "rounded-xl border-2 bg-card shadow-sm overflow-hidden transition-[box-shadow,border-color]",
+                isSelected
+                  ? "border-primary/70 ring-2 ring-primary/30"
+                  : "border-border ring-1 ring-border/40",
+              )}
+            >
+              {/* Cabecera: izquierda = seleccionar y abrir; derecha = eliminar + plegar */}
+              <div className="flex w-full items-stretch">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedInstallationKey(inst._key);
+                    setExpandedInstallations((prev) => ({ ...prev, [inst._key]: true }));
+                  }}
+                  className="min-w-0 flex-1 flex items-center gap-2 px-4 py-3 text-left hover:bg-muted/10 transition-colors rounded-tl-xl"
+                >
+                  <MapPin className={cn("h-4 w-4 shrink-0", isSelected ? "text-primary" : "text-muted-foreground")} />
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground shrink-0">#{instIdx + 1}</span>
+                  <span className="text-sm font-semibold min-w-0 truncate">
                     {inst.name || <span className="text-muted-foreground italic">Sin nombre</span>}
                   </span>
+                  {isSelected && (
+                    <span className="text-[10px] font-medium text-primary shrink-0 hidden sm:inline">Seleccionada</span>
+                  )}
                   {!isExpanded && instGuards > 0 && (
-                    <span className="text-[10px] text-muted-foreground ml-2">
+                    <span className="text-[10px] text-muted-foreground ml-1 truncate">
                       {instConfig?.positions?.length ?? 0} puesto(s) · {instGuards} guardias
                     </span>
                   )}
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+                </button>
+                <div className="flex items-center gap-0.5 pr-2 shrink-0 border-l border-border/30">
                   {installations.length > 1 && (
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); removeInstallation(inst._key); }}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      title="Quitar instalación"
+                      onClick={() => removeInstallation(inst._key)}
+                    >
                       <X className="h-3.5 w-3.5" />
                     </Button>
                   )}
-                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-tr-xl"
+                    title={isExpanded ? "Plegar" : "Expandir"}
+                    onClick={() => setExpandedInstallations((prev) => ({ ...prev, [inst._key]: !isExpanded }))}
+                  >
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
+                  </Button>
                 </div>
-              </button>
+              </div>
               {/* Collapsible content */}
               {isExpanded && (
               <div className="px-4 pb-4 pt-1 space-y-3 border-t border-border/30">
@@ -2080,7 +2167,9 @@ Conoce más sobre nosotros en https://gard.cl`;
             </div>
             );
           })}
-          <p className="text-[10px] text-muted-foreground">Cada instalación tiene su propia configuración de puestos, costos y margen.</p>
+          <p className="text-[10px] text-muted-foreground">
+            Toca la cabecera de una instalación para seleccionarla; «Copiar instalación» duplica la seleccionada. Cada una tiene su propia configuración de puestos, costos y margen.
+          </p>
         </div>
     );
 
@@ -2123,12 +2212,29 @@ Conoce más sobre nosotros en https://gard.cl`;
         {activeTab === "contacts" && isEditable && contactsContent}
         {activeTab === "deals" && isEditable && dealsContent}
         {activeTab === "installations" && isEditable && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-sm font-medium">Instalaciones y Dotación</h3>
-              <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addInstallation}>
-                <Plus className="h-3 w-3" /> Nueva instalación
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addInstallation}>
+                  <Plus className="h-3 w-3" /> Nueva instalación
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={duplicateInstallation}
+                  disabled={installations.length === 0 || !selectedInstallationKey}
+                  title={
+                    installations.length === 0
+                      ? "Agrega una instalación primero"
+                      : "Duplica la instalación seleccionada (cabecera resaltada)"
+                  }
+                >
+                  <Copy className="h-3 w-3" /> Copiar instalación
+                </Button>
+              </div>
             </div>
             {installationsContent}
           </div>

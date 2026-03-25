@@ -60,7 +60,7 @@ export default function MarginSection({
   return (
     <Card className="p-3">
       {/* Header: title + mode chips */}
-      <div className="flex items-center justify-between gap-2 mb-2.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2.5">
         <h3 className="text-[13px] font-bold tracking-tight">Margen</h3>
         <div className="flex gap-1">
           {MARGIN_MODES.map((m) => (

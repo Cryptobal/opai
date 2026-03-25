@@ -15,6 +15,11 @@ import { useState } from "react";
 import { ChevronDown, Users, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { QuoteBreakdownData, PositionBreakdownItem } from "@/types/cpq-breakdown";
+import {
+  CPQ_BREAKDOWN_SHELL,
+  CPQ_BREAKDOWN_ROW,
+  cpqBreakdownAmount,
+} from "@/components/cpq/cpqBreakdownLayout";
 
 /* ── Format helpers ── */
 
@@ -159,11 +164,12 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
     grandTotal > 0 ? `${((n / grandTotal) * 100).toFixed(0)}%` : "0%";
 
   const rowCls = cn(
-    "flex items-center justify-between text-xs py-1",
+    CPQ_BREAKDOWN_ROW,
+    "text-xs py-1",
     isDark ? "text-zinc-300" : "text-foreground/80",
   );
-  const labelCls = cn("text-xs", isDark ? "text-zinc-400" : "text-muted-foreground");
-  const amountCls = cn("font-mono text-xs font-medium", isDark ? "text-zinc-200" : "text-foreground");
+  const labelCls = cn("text-xs min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground");
+  const amountCls = cpqBreakdownAmount(isDark ? "text-zinc-200" : "text-foreground font-medium");
 
   /* ── Sections ── */
   const sections: {
@@ -215,7 +221,7 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
   })();
 
   return (
-    <div className="space-y-2">
+    <div className={cn(CPQ_BREAKDOWN_SHELL, "space-y-2")}>
       {/* ── Cost sections ── */}
       {sections.map((section) => {
         const sectionTotal = section.items.reduce((s, i) => s + i.amount, 0);
@@ -235,32 +241,32 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
               type="button"
               onClick={isLabor ? () => setLaborExpanded((v) => !v) : undefined}
               className={cn(
-                "w-full flex items-center justify-between px-3 py-2",
+                "w-full grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-center px-3 py-2 text-left",
                 isLabor ? "cursor-pointer" : "cursor-default",
               )}
             >
-              <div className="flex items-center gap-2">
-                <span className={cn("w-2 h-2 rounded-full", section.color)} />
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={cn("w-2 h-2 rounded-full shrink-0", section.color)} />
                 <span
                   className={cn(
-                    "text-[11px] font-semibold uppercase tracking-wide",
+                    "text-[11px] font-semibold uppercase tracking-wide break-words",
                     isDark ? "text-zinc-300" : "text-foreground",
                   )}
                 >
                   {section.title}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className={cn("text-[10px]", isDark ? "text-zinc-500" : "text-muted-foreground")}>
+              <div className="flex items-center gap-2 justify-end shrink-0">
+                <span className={cn("text-[10px] tabular-nums", isDark ? "text-zinc-500" : "text-muted-foreground")}>
                   {pct(sectionTotal)}
                 </span>
-                <span className={cn("font-mono text-xs font-semibold", isDark ? "text-zinc-200" : "text-foreground")}>
+                <span className={cpqBreakdownAmount(isDark ? "text-zinc-200" : "text-foreground font-semibold text-xs")}>
                   {fmt(sectionTotal)}
                 </span>
                 {isLabor && (
                   <ChevronDown
                     className={cn(
-                      "h-3.5 w-3.5 transition-transform",
+                      "h-3.5 w-3.5 transition-transform shrink-0",
                       isDark ? "text-zinc-500" : "text-muted-foreground",
                       laborExpanded ? "rotate-180" : "",
                     )}
@@ -315,14 +321,15 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
       {/* ── Subtotal base ── */}
       <div
         className={cn(
-          "flex items-center justify-between px-3 py-1.5 rounded-lg",
+          CPQ_BREAKDOWN_ROW,
+          "px-3 py-1.5 rounded-lg text-xs",
           isDark ? "bg-white/[0.04] border border-white/[0.06]" : "bg-muted border border-border",
         )}
       >
-        <span className={cn("text-xs font-semibold", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+        <span className={cn("font-semibold min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
           Subtotal costos base
         </span>
-        <span className={cn("font-mono text-xs font-semibold", isDark ? "text-zinc-300" : "text-foreground")}>
+        <span className={cpqBreakdownAmount(isDark ? "text-zinc-300" : "text-foreground font-semibold")}>
           {fmt(data.subtotalBase)}
         </span>
       </div>
@@ -334,17 +341,19 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
           isDark ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-500/30 bg-emerald-500/5",
         )}
       >
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-500">
+        <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs")}>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-500 break-words min-w-0">
             Margen comercial
           </span>
-          <span className="text-[10px] text-emerald-500/70">{data.marginPct}% sobre precio venta</span>
+          <span className={cpqBreakdownAmount("text-[10px] text-emerald-500/70 font-normal")}>
+            {data.marginPct}% sobre precio venta
+          </span>
         </div>
-        <div className="flex items-center justify-between">
-          <span className={cn("text-xs", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+        <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs")}>
+          <span className={cn("min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
             Margen mensual
           </span>
-          <span className="font-mono text-xs font-semibold text-emerald-500">
+          <span className={cpqBreakdownAmount("text-xs font-semibold text-emerald-500")}>
             {fmt(data.marginAmount)}
           </span>
         </div>
@@ -362,21 +371,21 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
             Costo Financiero
           </span>
           {data.financial > 0 && (
-            <div className="flex items-center justify-between">
-              <span className={cn("text-xs", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+            <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs")}>
+              <span className={cn("min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
                 Financiero ({data.financialRatePct}%)
               </span>
-              <span className={cn("font-mono text-xs font-medium", isDark ? "text-zinc-300" : "text-foreground")}>
+              <span className={cpqBreakdownAmount(isDark ? "text-zinc-300" : "text-foreground font-medium")}>
                 {fmt(data.financial)}
               </span>
             </div>
           )}
           {data.policy > 0 && (
-            <div className="flex items-center justify-between">
-              <span className={cn("text-xs", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+            <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs")}>
+              <span className={cn("min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
                 Póliza ({data.policyRatePct}%)
               </span>
-              <span className={cn("font-mono text-xs font-medium", isDark ? "text-zinc-300" : "text-foreground")}>
+              <span className={cpqBreakdownAmount(isDark ? "text-zinc-300" : "text-foreground font-medium")}>
                 {fmt(data.policy)}
               </span>
             </div>
@@ -393,23 +402,24 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
             : "border-emerald-500/30 bg-gradient-to-r from-emerald-500/5 to-teal-500/5",
         )}
       >
-        <div className="flex items-center justify-between">
-          <span className={cn("text-sm font-bold", isDark ? "text-white" : "text-foreground")}>
+        <div className={cn(CPQ_BREAKDOWN_ROW, "text-sm")}>
+          <span className={cn("font-bold min-w-0 break-words", isDark ? "text-white" : "text-foreground")}>
             Precio venta mensual
           </span>
-          <span className="font-mono text-sm font-bold text-emerald-500">
+          <span className={cpqBreakdownAmount("text-sm font-bold text-emerald-500")}>
             {fmt(data.grandTotal)}
           </span>
         </div>
         {data.additionalLines > 0 && (
           <div
             className={cn(
-              "flex items-center justify-between text-xs mt-1 pt-1 border-t",
+              CPQ_BREAKDOWN_ROW,
+              "text-xs mt-1 pt-1 border-t",
               isDark ? "border-white/[0.06] text-zinc-400" : "border-border text-muted-foreground",
             )}
           >
-            <span>Incluye líneas adicionales</span>
-            <span className="font-mono">{fmt(data.additionalLines)}</span>
+            <span className="min-w-0 break-words">Incluye líneas adicionales</span>
+            <span className={cpqBreakdownAmount()}>{fmt(data.additionalLines)}</span>
           </div>
         )}
         <div className={cn("text-[10px] mt-1.5", isDark ? "text-zinc-500" : "text-muted-foreground")}>
@@ -432,7 +442,7 @@ interface PorPuestoViewProps {
 
 function PorPuestoView({ data, fmt, isDark }: PorPuestoViewProps) {
   return (
-    <div className="space-y-2">
+    <div className={cn(CPQ_BREAKDOWN_SHELL, "space-y-2")}>
       {data.positions.map((pos) => (
         <PositionCard key={pos.id} pos={pos} fmt={fmt} isDark={isDark} monthlyHours={data.monthlyHoursStandard} />
       ))}
@@ -446,11 +456,11 @@ function PorPuestoView({ data, fmt, isDark }: PorPuestoViewProps) {
             : "border-emerald-500/30 bg-gradient-to-r from-emerald-500/5 to-teal-500/5",
         )}
       >
-        <div className="flex items-center justify-between">
-          <span className={cn("text-sm font-bold", isDark ? "text-white" : "text-foreground")}>
+        <div className={cn(CPQ_BREAKDOWN_ROW, "text-sm")}>
+          <span className={cn("font-bold min-w-0 break-words", isDark ? "text-white" : "text-foreground")}>
             Total mensual
           </span>
-          <span className="font-mono text-sm font-bold text-emerald-500">
+          <span className={cpqBreakdownAmount("text-sm font-bold text-emerald-500")}>
             {fmt(data.grandTotal)}
           </span>
         </div>
@@ -477,12 +487,9 @@ function PositionCard({
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  const rowCls = cn(
-    "flex items-center justify-between text-xs py-0.5",
-  );
-  const labelCls = cn("text-xs", isDark ? "text-zinc-400" : "text-muted-foreground");
-  const amountCls = cn("font-mono text-xs", isDark ? "text-zinc-300" : "text-foreground");
-  const boldCls = cn("font-mono text-xs font-semibold", isDark ? "text-zinc-100" : "text-foreground");
+  const rowCls = cn(CPQ_BREAKDOWN_ROW, "text-xs py-0.5");
+  const labelCls = cn("text-xs min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground");
+  const amountCls = cpqBreakdownAmount(isDark ? "text-zinc-300" : "text-foreground");
 
   const imposiciones = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
   const provisiones = pos.vacationProvision + pos.severanceProvision;
@@ -499,12 +506,12 @@ function PositionCard({
         type="button"
         onClick={() => setExpanded((v) => !v)}
         className={cn(
-          "w-full text-left px-3 py-3 flex items-start gap-3 transition-colors",
+          "w-full text-left px-3 py-3 grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start transition-colors",
           isDark ? "hover:bg-white/[0.03]" : "hover:bg-muted/30",
         )}
       >
-        <div className="flex-1 min-w-0">
-          <div className={cn("text-sm font-semibold truncate", isDark ? "text-white" : "text-foreground")}>
+        <div className="min-w-0">
+          <div className={cn("text-sm font-semibold break-words", isDark ? "text-white" : "text-foreground")}>
             {pos.name}
           </div>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -530,7 +537,7 @@ function PositionCard({
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="font-mono text-sm font-bold text-emerald-500">
+          <span className={cpqBreakdownAmount("text-sm font-bold text-emerald-500")}>
             {fmt(pos.salePrice)}
           </span>
           <ChevronDown
@@ -601,14 +608,15 @@ function PositionCard({
             {/* Labor subtotal */}
             <div
               className={cn(
-                "flex items-center justify-between border-t mt-1 pt-1.5",
+                CPQ_BREAKDOWN_ROW,
+                "text-xs border-t mt-1 pt-1.5",
                 isDark ? "border-blue-500/20" : "border-blue-500/30",
               )}
             >
-              <span className={cn("text-xs font-semibold", isDark ? "text-blue-400" : "text-blue-600")}>
+              <span className={cn("font-semibold min-w-0 break-words", isDark ? "text-blue-400" : "text-blue-600")}>
                 Total costo empleador
               </span>
-              <span className={cn("font-mono text-xs font-semibold", isDark ? "text-blue-300" : "text-blue-700")}>
+              <span className={cpqBreakdownAmount(isDark ? "text-blue-300" : "text-blue-700 font-semibold")}>
                 {fmt(pos.totalLaborCost)}
               </span>
             </div>
@@ -629,17 +637,22 @@ function PositionCard({
                 <span className={labelCls}>Costo de empleador</span>
                 <span className={amountCls}>{fmt(pos.totalLaborCost)}</span>
               </div>
-              <div className={rowCls}>
-                <span className={cn("text-[10px]", isDark ? "text-emerald-500/60" : "text-emerald-600/70")}>
+              <div className="py-0.5">
+                <span
+                  className={cn(
+                    "text-[10px] block min-w-0 break-words",
+                    isDark ? "text-emerald-500/60" : "text-emerald-600/70",
+                  )}
+                >
                   + Costos adicionales prorrateados + margen + financiero
                 </span>
               </div>
             </div>
-            <div className={cn("flex items-center justify-between border-t pt-1.5", isDark ? "border-emerald-500/20" : "border-emerald-500/30")}>
-              <span className={cn("text-xs font-bold", isDark ? "text-emerald-400" : "text-emerald-600")}>
+            <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs border-t pt-1.5", isDark ? "border-emerald-500/20" : "border-emerald-500/30")}>
+              <span className={cn("font-bold min-w-0 break-words", isDark ? "text-emerald-400" : "text-emerald-600")}>
                 Precio venta puesto
               </span>
-              <span className="font-mono text-xs font-bold text-emerald-500">
+              <span className={cpqBreakdownAmount("text-xs font-bold text-emerald-500")}>
                 {fmt(pos.salePrice)}
               </span>
             </div>
@@ -648,17 +661,18 @@ function PositionCard({
           {/* Hourly rate */}
           <div
             className={cn(
-              "flex items-center justify-between mt-2 px-1 py-1.5 rounded-lg",
+              CPQ_BREAKDOWN_ROW,
+              "mt-2 px-1 py-1.5 rounded-lg text-xs",
               isDark ? "bg-white/[0.03]" : "bg-muted/30",
             )}
           >
-            <div className="flex items-center gap-1.5">
-              <Clock className={cn("h-3.5 w-3.5", isDark ? "text-zinc-400" : "text-muted-foreground")} />
-              <span className={cn("text-[11px]", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Clock className={cn("h-3.5 w-3.5 shrink-0", isDark ? "text-zinc-400" : "text-muted-foreground")} />
+              <span className={cn("text-[11px] break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
                 Valor hora de venta ({monthlyHours}h/mes)
               </span>
             </div>
-            <span className={cn("font-mono text-xs font-bold", isDark ? "text-emerald-400" : "text-emerald-600")}>
+            <span className={cpqBreakdownAmount(isDark ? "text-emerald-400" : "text-emerald-600 font-bold")}>
               {fmtCLP(Math.round(pos.hourlyRateSale))}/hr
             </span>
           </div>

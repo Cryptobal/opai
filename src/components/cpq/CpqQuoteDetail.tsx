@@ -19,6 +19,11 @@ import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { SendPortalProposalModal } from "@/components/cpq/SendPortalProposalModal";
 import { formatCurrency } from "@/components/cpq/utils";
+import {
+  CPQ_BREAKDOWN_SHELL,
+  CPQ_BREAKDOWN_ROW,
+  cpqBreakdownAmount,
+} from "@/components/cpq/cpqBreakdownLayout";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { getErrorMessageFromResponse } from "@/lib/parse-fetch-error";
 import {
@@ -1625,9 +1630,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               </div>
             )}
             {positions.length > 0 && (
-              <div className="flex justify-between items-center px-3 py-2 border border-dashed border-border/60 rounded-lg mt-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground">Total mano de obra</span>
+              <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "px-3 py-2 border border-dashed border-border/60 rounded-lg mt-2 text-xs")}>
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <span className="text-xs font-semibold text-muted-foreground break-words">Total mano de obra</span>
                   {!isLocked && (
                     <Button
                       size="sm"
@@ -1641,7 +1646,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                     </Button>
                   )}
                 </div>
-                <span className="text-sm font-bold tabular-nums">
+                <span className={cpqBreakdownAmount("text-sm font-bold")}>
                   {formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}
                 </span>
               </div>
@@ -1694,8 +1699,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
 
               return (
                 <div key={idx} className="rounded-lg border border-border/50 bg-muted/5 p-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
+                  <div className={cn(CPQ_BREAKDOWN_SHELL, "grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start")}>
+                    <div className="min-w-0">
                       <Input
                         placeholder="Nombre del servicio/producto"
                         value={line.nombre}
@@ -1867,9 +1872,9 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               </div>
             )}
             {additionalLines.length > 0 && (
-              <div className="flex items-center justify-between pt-1 border-t border-purple-500/20">
-                <span className="text-[11px] font-medium text-purple-300">Total líneas adicionales</span>
-                <span className="text-sm font-bold font-mono text-purple-300">
+              <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "pt-1 border-t border-purple-500/20 text-xs")}>
+                <span className="text-[11px] font-medium text-purple-300 break-words min-w-0">Total líneas adicionales</span>
+                <span className={cpqBreakdownAmount("text-sm font-bold text-purple-300")}>
                   {formatCurrency(additionalLinesTotal)}
                 </span>
               </div>
@@ -1898,7 +1903,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
             {/* Costo financiero */}
             <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="text-[11px] font-semibold">Financiero</span>
                 <button
                   type="button"
@@ -1962,7 +1967,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
 
             {/* Poliza */}
             <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="text-[11px] font-semibold">Poliza</span>
                 <button
                   type="button"

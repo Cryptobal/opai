@@ -8,6 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { formatCurrency } from "@/components/cpq/utils";
+import {
+  CPQ_BREAKDOWN_SHELL,
+  CPQ_BREAKDOWN_ROW,
+  cpqBreakdownAmount,
+} from "@/components/cpq/cpqBreakdownLayout";
 import { ChevronDown, Users, Plus, Copy, Trash2, Moon, Sun, Loader2, Sparkles, RefreshCw, FileText } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
@@ -807,8 +812,8 @@ export function LeadInstallationCpq({
             />
             {config.positions.map((pos, idx) => (
               <div key={idx} className="rounded-md border border-border/60 bg-[#0a0a0a] p-2.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-semibold">{
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start">
+                  <span className="text-[12px] font-semibold min-w-0 break-words">{
                     (() => {
                       const pName = cpqPuestos.find(p => p.id === (pos.puestoTrabajoId || catalogDefaults?.puestoId))?.name;
                       const cName = cpqCargos.find(c => c.id === (pos.cargoId || catalogDefaults?.cargoId))?.name;
@@ -817,7 +822,7 @@ export function LeadInstallationCpq({
                       return label || pos.puesto || `Posición ${idx + 1}`;
                     })()
                   }</span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 justify-end shrink-0 self-center">
                     <Badge variant="outline" className="h-5 text-[10px] gap-0.5">
                       {pos.shiftType === "night" ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
                       {pos.shiftType === "night" ? "Noche" : "Día"}
@@ -1060,9 +1065,9 @@ export function LeadInstallationCpq({
               onPriceChange={updateCostItemPrice}
               onTechnicalSpecsChange={updateCostItemSpecs}
             />
-            <div className="flex justify-between items-center pt-1 border-t border-amber-500/20">
-              <span className="text-[11px] font-medium text-amber-300">Total costos adicionales</span>
-              <span className="text-sm font-bold font-mono text-amber-300">{formatCurrency(costTotals.total)}</span>
+            <div className={cn(CPQ_BREAKDOWN_ROW, "pt-1 border-t border-amber-500/20 text-xs")}>
+              <span className="text-[11px] font-medium text-amber-300 break-words min-w-0">Total costos adicionales</span>
+              <span className={cpqBreakdownAmount("text-sm font-bold text-amber-300")}>{formatCurrency(costTotals.total)}</span>
             </div>
           </div>
         )}
@@ -1448,10 +1453,12 @@ function CostCategoryBlock({
   );
 
   return (
-    <div className="rounded-md border border-border/40 overflow-hidden">
-      <div className="px-2.5 py-1.5 bg-muted/20 flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase text-muted-foreground">{title}</span>
-        <span className="text-[11px] font-mono font-semibold text-muted-foreground">
+    <div className={cn("rounded-md border border-border/40 overflow-hidden", CPQ_BREAKDOWN_SHELL)}>
+      <div className={cn(CPQ_BREAKDOWN_ROW, "px-2.5 py-1.5 bg-muted/20 text-xs")}>
+        <span className="text-[11px] font-semibold uppercase text-muted-foreground break-words min-w-0">
+          {title}
+        </span>
+        <span className={cpqBreakdownAmount("text-[11px] font-semibold text-muted-foreground")}>
           {formatCurrency(total)}
         </span>
       </div>
@@ -1469,19 +1476,19 @@ function CostCategoryBlock({
             <button
               type="button"
               onClick={() => setExpandedGroup(isExpanded ? null : groupName)}
-              className="flex items-center justify-between w-full px-2.5 py-1.5 hover:bg-muted/10 transition-colors"
+              className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-center px-2.5 py-1.5 hover:bg-muted/10 transition-colors text-left"
             >
-              <div className="flex items-center gap-2">
-                <span className="text-base">{GROUP_ICON[groupName] ?? ""}</span>
-                <span className={cn("text-xs", enabledCount > 0 ? "text-foreground font-medium" : "text-muted-foreground")}>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base shrink-0">{GROUP_ICON[groupName] ?? ""}</span>
+                <span className={cn("text-xs break-words", enabledCount > 0 ? "text-foreground font-medium" : "text-muted-foreground")}>
                   {groupName}{enabledCount > 0 ? ` (${enabledCount})` : ""}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-muted-foreground">
+              <div className="flex items-center gap-2 justify-end shrink-0">
+                <span className={cpqBreakdownAmount("text-xs text-muted-foreground")}>
                   {groupTotal > 0 ? formatCurrency(groupTotal) : "$0"}
                 </span>
-                <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
+                <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
               </div>
             </button>
             {isExpanded && (

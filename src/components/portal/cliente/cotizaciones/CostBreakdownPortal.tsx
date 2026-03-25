@@ -1,6 +1,11 @@
 "use client";
 
 import { cn, formatCurrency } from "@/lib/utils";
+import {
+  CPQ_BREAKDOWN_SHELL,
+  CPQ_BREAKDOWN_ROW,
+  cpqBreakdownAmount,
+} from "@/components/cpq/cpqBreakdownLayout";
 import type { CostByCategoryPortal } from "./types";
 
 interface CostBreakdownPortalProps {
@@ -62,11 +67,14 @@ export function CostBreakdownPortal({
                 return (
                   <div
                     key={cat.slug}
-                    className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 space-y-2"
+                    className={cn(
+                      "rounded-lg border border-white/[0.06] bg-white/[0.03] p-3 space-y-2",
+                      CPQ_BREAKDOWN_SHELL,
+                    )}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-zinc-200">{displayName}</span>
-                      <span className="text-xs font-bold text-teal-400">{fmt(cat.subtotal)}</span>
+                    <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs")}>
+                      <span className="font-semibold text-zinc-200 break-words min-w-0">{displayName}</span>
+                      <span className={cpqBreakdownAmount("font-bold text-teal-400")}>{fmt(cat.subtotal)}</span>
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {cat.items.map((item, i) => (

@@ -11,6 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency, formatWeekdaysShort, getShiftType, WEEKDAY_ORDER } from "@/components/cpq/utils";
+import {
+  CPQ_BREAKDOWN_SHELL,
+  CPQ_BREAKDOWN_ROW,
+  cpqBreakdownAmount,
+} from "@/components/cpq/cpqBreakdownLayout";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { useCpqCatalogs } from "@/lib/cpq/use-cpq-catalogs";
 import type { CpqPosition } from "@/types/cpq";
@@ -234,9 +239,9 @@ export function CpqPositionCard({
   if (readOnly) {
     return (
       <Card className="overflow-hidden border border-muted/40">
-        <div className="flex items-center gap-3 px-3 py-2.5">
-          <div className="flex-1 min-w-0">
-            <div className="text-[13px] font-bold text-foreground truncate">{titleLabel}</div>
+        <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-center px-3 py-2.5", CPQ_BREAKDOWN_SHELL)}>
+          <div className="min-w-0">
+            <div className="text-[13px] font-bold text-foreground break-words">{titleLabel}</div>
             <div className="flex items-center gap-1 flex-wrap mt-1">
               <Badge variant="outline" className={cn(badgeBase, "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400")}>
                 {totalGuards} {totalGuards === 1 ? "guardia" : "guardias"}
@@ -262,7 +267,9 @@ export function CpqPositionCard({
               {position.cargo?.name ? ` · ${position.cargo.name}` : ""}
             </div>
           </div>
-          <span className="text-[14px] font-bold tabular-nums text-foreground shrink-0">{formatCurrency(Number(position.monthlyPositionCost))}</span>
+          <span className={cpqBreakdownAmount("text-[14px] font-bold text-foreground")}>
+            {formatCurrency(Number(position.monthlyPositionCost))}
+          </span>
         </div>
       </Card>
     );
@@ -270,9 +277,9 @@ export function CpqPositionCard({
 
   return (
     <div className="rounded-md border border-border/60 bg-[#0a0a0a] p-2.5 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="text-[12px] font-semibold truncate">{titleLabel}</div>
+        <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start", CPQ_BREAKDOWN_SHELL)}>
+          <div className="min-w-0">
+            <div className="text-[12px] font-semibold break-words">{titleLabel}</div>
             <div className="flex items-center gap-1 flex-wrap mt-1">
               <Badge variant="outline" className="h-5 text-[10px] gap-0.5">
                 {shiftType === "night" ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
@@ -285,7 +292,7 @@ export function CpqPositionCard({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-0.5 shrink-0">
+          <div className="flex items-center gap-0.5 shrink-0 self-start">
             <Button type="button" variant="outline" size="sm" className="h-6 px-1.5 text-[10px]" onClick={handleClone} title="Duplicar">
               <Copy className="h-3 w-3" />
             </Button>
@@ -428,12 +435,12 @@ export function CpqPositionCard({
             {draft.startTime}-{draft.endTime} · {draft.numGuards} guardia(s)
             {(draft.numPuestos || 1) > 1 ? ` × ${draft.numPuestos} puestos = ${totalGuards} guardias totales` : ""}
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-emerald-400 font-semibold">
+          <div className={cn(CPQ_BREAKDOWN_ROW, "text-[10px]")}>
+            <div className="text-emerald-400 font-semibold min-w-0 break-words">
               Costo empresa: {formatCurrency(Number(position.monthlyPositionCost))}/mes
               <span className="text-muted-foreground font-normal ml-1">({formatCurrency(Number(position.employerCost))}/guardia)</span>
             </div>
-            <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={handleRecalculate} disabled={recalcLoading}>
+            <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[10px] shrink-0 self-center" onClick={handleRecalculate} disabled={recalcLoading}>
               <RefreshCw className={cn("h-3 w-3 mr-1", recalcLoading && "animate-spin")} />
               Recalcular
             </Button>

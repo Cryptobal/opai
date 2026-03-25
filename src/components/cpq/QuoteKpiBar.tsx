@@ -5,6 +5,11 @@ import { ChevronDown } from "lucide-react";
 import { cn, formatNumber, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { formatCurrency } from "@/components/cpq/utils";
+import {
+  CPQ_BREAKDOWN_SHELL,
+  CPQ_BREAKDOWN_ROW,
+  cpqBreakdownAmount,
+} from "@/components/cpq/cpqBreakdownLayout";
 
 interface QuoteKpiBarProps {
   positionsCount: number;
@@ -147,9 +152,9 @@ export function QuoteKpiBar({
       {/* Additional lines breakdown */}
       {isExpanded && additionalLinesTotal > 0 && (
         <div className="px-3 pb-2">
-          <div className="flex items-center justify-between py-1 border-t border-purple-500/20">
-            <span className="text-[10px] text-purple-400">Serv. adicionales</span>
-            <span className="text-[11px] font-mono font-medium text-purple-400">
+          <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "py-1 border-t border-purple-500/20 text-xs")}>
+            <span className="text-[10px] text-purple-400 break-words min-w-0">Serv. adicionales</span>
+            <span className={cpqBreakdownAmount("text-[11px] font-medium text-purple-400")}>
               {formatCurrency(additionalLinesTotal)}
             </span>
           </div>

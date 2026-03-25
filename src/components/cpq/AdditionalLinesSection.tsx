@@ -5,6 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/components/cpq/utils";
+import {
+  CPQ_BREAKDOWN_SHELL,
+  CPQ_BREAKDOWN_ROW,
+  cpqBreakdownAmount,
+} from "@/components/cpq/cpqBreakdownLayout";
 import { cn, parseLocalizedNumber, formatNumber } from "@/lib/utils";
 import { Plus, Trash2, BookmarkPlus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -252,9 +257,9 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
       )}
 
       {lines.length > 0 && (
-        <div className="flex items-center justify-between pt-1 border-t border-purple-500/20">
-          <span className="text-[11px] font-medium text-purple-300">Total líneas adicionales</span>
-          <span className="text-sm font-bold font-mono text-purple-300">{formatCurrency(total)}</span>
+        <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "pt-1 border-t border-purple-500/20 text-xs")}>
+          <span className="text-[11px] font-medium text-purple-300 break-words min-w-0">Total líneas adicionales</span>
+          <span className={cpqBreakdownAmount("text-sm font-bold text-purple-300")}>{formatCurrency(total)}</span>
         </div>
       )}
     </div>

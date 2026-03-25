@@ -22,6 +22,11 @@ import type {
 } from "@/types/cpq";
 import { QuoteBreakdownPanel } from "@/components/cpq/QuoteBreakdownPanel";
 import type { QuoteBreakdownData, PositionBreakdownItem } from "@/types/cpq-breakdown";
+import {
+  CPQ_BREAKDOWN_SHELL,
+  CPQ_BREAKDOWN_ROW,
+  cpqBreakdownAmount,
+} from "@/components/cpq/cpqBreakdownLayout";
 
 /* ── Props ── */
 
@@ -352,7 +357,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
             </div>
 
             {/* Breakdown with progress bars */}
-            <div className="rounded-lg border border-border bg-card p-2.5">
+            <div className={cn("rounded-lg border border-border bg-card p-2.5", CPQ_BREAKDOWN_SHELL)}>
               <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-2.5">Desglose</div>
               {[
                 { label: "Mano de obra", amount: laborCost, color: "bg-emerald-500" },
@@ -362,9 +367,11 @@ export function FinancialPanel(props: FinancialPanelProps) {
                 { label: "Margen", amount: marginAmount, color: "bg-foreground/60" },
               ].map((item) => (
                 <div key={item.label} className="mb-2 last:mb-0">
-                  <div className="flex justify-between mb-0.5">
-                    <span className="text-[11px] text-muted-foreground">{item.label}</span>
-                    <span className="text-[11px] font-semibold tabular-nums transition-all duration-300">{formatCurrency(item.amount)}</span>
+                  <div className={cn(CPQ_BREAKDOWN_ROW, "text-[11px] mb-0.5")}>
+                    <span className="text-muted-foreground min-w-0 break-words">{item.label}</span>
+                    <span className={cpqBreakdownAmount("font-semibold transition-all duration-300")}>
+                      {formatCurrency(item.amount)}
+                    </span>
                   </div>
                   <div className="h-1 bg-border rounded-full overflow-hidden">
                     <div
