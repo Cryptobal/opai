@@ -60,14 +60,12 @@ export async function GET() {
       (first[0] || "").toUpperCase() + (last[0] || "").toUpperCase();
 
     // Sort documents: highlighted (OS-10, antecedentes) first
-    const highlightTypes = ["Certificado OS-10", "Cert. antecedentes"];
+    const highlightCodes = ["certificado_os10", "credencial_os10", "certificado_antecedentes"];
     const docs = g.documents.map((d) => ({
       tipo: d.type,
       status: d.status,
       fileUrl: d.fileUrl ?? undefined,
-      destacado: highlightTypes.some((h) =>
-        d.type.toLowerCase().includes(h.toLowerCase())
-      ),
+      destacado: highlightCodes.includes(d.type),
     }));
 
     docs.sort((a, b) => {

@@ -46,18 +46,6 @@ interface MarcacionConfig {
 type PostulacionDocItem = { code: string; label: string; required: boolean };
 type InstalacionDocItem = { code: string; label: string; required: boolean };
 
-const GUARDIA_DOC_LABELS: Record<string, string> = {
-  certificado_antecedentes: "Certificado de antecedentes",
-  certificado_os10: "Certificado OS-10",
-  cedula_identidad: "Cédula de identidad",
-  curriculum: "Currículum",
-  contrato: "Contrato",
-  anexo_contrato: "Anexo de contrato",
-  certificado_ensenanza_media: "Certificado enseñanza media",
-  certificado_afp: "Certificado AFP",
-  certificado_fonasa_isapre: "Certificado Fonasa / Isapre",
-};
-
 /* ── Catálogo de emails del módulo Operaciones ── */
 
 const EMAIL_CATALOG = [

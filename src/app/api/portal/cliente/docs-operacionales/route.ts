@@ -9,6 +9,8 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { calcDocStatus, GUARDIA_TIPO_MAP } from "@/lib/docs-operacionales";
+import { getPostulacionDocumentTypes } from "@/lib/postulacion-documentos";
+import { buildDocLabelMap, getDocLabel } from "@/lib/personas";
 
 export async function GET() {
   try {
@@ -37,6 +39,10 @@ export async function GET() {
     }
 
     const installationIds = installations.map((i) => i.id);
+
+    // Build label map from config for consistent naming
+    const postulacionDocs = await getPostulacionDocumentTypes(tenantId);
+    const docLabelMap = buildDocLabelMap(postulacionDocs);
 
     // Get tipos for reference
     const tipos = await prisma.tipoDocOperacional.findMany({
@@ -85,8 +91,10 @@ export async function GET() {
         const documentos = tiposGuardia.filter((t) => t.obligatorio).map((tipo) => {
           const mappedTypes = GUARDIA_TIPO_MAP[tipo.codigo] ?? [tipo.codigo];
           const found = g.documents.find((d) => mappedTypes.includes(d.type));
+          // Usar label del config si existe para el primer personaType mapeado
+          const configLabel = getDocLabel(mappedTypes[0] ?? tipo.codigo, docLabelMap);
           return {
-            tipo: tipo.nombre,
+            tipo: configLabel !== (mappedTypes[0] ?? tipo.codigo) ? configLabel : tipo.nombre,
             status: found ? calcDocStatus(found.expiresAt, tipo.tieneVencimiento, tipo.diasAlerta) : "sin_documento",
             expiresAt: found?.expiresAt?.toISOString().slice(0, 10) ?? null,
           };

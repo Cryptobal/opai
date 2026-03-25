@@ -5,17 +5,7 @@ import { FileText, Download, ExternalLink, Loader2, UserCircle, Check, Clock, X 
 import { EmptyState } from "@/components/opai/EmptyState";
 import { FilePreviewModal } from "@/components/ui/FilePreviewModal";
 
-const DOC_LABEL: Record<string, string> = {
-  certificado_antecedentes: "Cert. antecedentes",
-  certificado_os10: "Certificado OS-10",
-  cedula_identidad: "Cédula de identidad",
-  curriculum: "Currículum",
-  contrato: "Contrato",
-  anexo_contrato: "Anexo de contrato",
-  certificado_ensenanza_media: "Cert. enseñanza media",
-  certificado_afp: "Certificado AFP",
-  certificado_fonasa_isapre: "Cert. Fonasa / Isapre",
-};
+import { getDocLabel } from "@/lib/personas";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pendiente",
@@ -82,7 +72,10 @@ interface InstalacionDocumentosGuardiasTabProps {
 export function InstalacionDocumentosGuardiasTab({ installationId }: InstalacionDocumentosGuardiasTabProps) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<GuardiaGroup[]>([]);
+  const [docLabels, setDocLabels] = useState<Record<string, string>>({});
   const [previewDoc, setPreviewDoc] = useState<DocItem | null>(null);
+
+  const label = (code: string) => getDocLabel(code, docLabels);
 
   useEffect(() => {
     setLoading(true);
@@ -90,6 +83,7 @@ export function InstalacionDocumentosGuardiasTab({ installationId }: Instalacion
       .then((r) => r.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data)) setData(res.data);
+        if (res.docLabels) setDocLabels(res.docLabels);
       })
       .catch(() => setData([]))
       .finally(() => setLoading(false));
@@ -143,7 +137,7 @@ export function InstalacionDocumentosGuardiasTab({ installationId }: Instalacion
               >
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm">
-                    {DOC_LABEL[doc.type] ?? doc.type}
+                    {label(doc.type)}
                   </p>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-0.5 text-xs text-muted-foreground">
                     {doc.issuedAt && (
@@ -191,7 +185,7 @@ export function InstalacionDocumentosGuardiasTab({ installationId }: Instalacion
           open={!!previewDoc}
           onOpenChange={(open) => !open && setPreviewDoc(null)}
           url={previewDoc.fileUrl}
-          fileName={DOC_LABEL[previewDoc.type] ?? previewDoc.type}
+          fileName={label(previewDoc.type)}
         />
       )}
     </div>

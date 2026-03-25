@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
 import { getOperationalGuardDocSlots } from "@/lib/operational-guard-doc-slots";
+import { getPostulacionDocumentTypes } from "@/lib/postulacion-documentos";
+import { buildDocLabelMap } from "@/lib/personas";
 import { GuardiaDetailClient } from "@/components/ops";
 export default async function GuardiaDetailPage({
   params,
@@ -23,7 +25,7 @@ export default async function GuardiaDetailPage({
   const hasInventarioAccess = canView(perms, "ops", "inventario");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
-  const [guardia, asignaciones, adminUsers, guardiaDocConfig, operationalGuardDocSlots] = await Promise.all([
+  const [guardia, asignaciones, adminUsers, guardiaDocConfig, operationalGuardDocSlots, postulacionDocs] = await Promise.all([
     prisma.opsGuardia.findFirst({
       where: { id, tenantId },
       include: {
@@ -57,9 +59,12 @@ export default async function GuardiaDetailPage({
     }),
     getGuardiaDocumentosConfig(tenantId),
     getOperationalGuardDocSlots(tenantId),
+    getPostulacionDocumentTypes(tenantId),
   ]);
 
   if (!guardia) notFound();
+
+  const docLabels = buildDocLabelMap(postulacionDocs);
 
   // Find matching Admin for this persona (by email) for rendiciones link - use adminUsers to avoid extra DB query
   const personaAdminId =
@@ -91,6 +96,7 @@ export default async function GuardiaDetailPage({
         currentUserId={session.user.id}
         guardiaDocConfig={JSON.parse(JSON.stringify(guardiaDocConfig))}
         operationalGuardDocSlots={JSON.parse(JSON.stringify(operationalGuardDocSlots))}
+        docLabels={docLabels}
         hasInventarioAccess={hasInventarioAccess}
       />
     </div>

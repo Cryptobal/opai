@@ -2,11 +2,30 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CalendarDays, Check, Circle, Clock, Download, Eye, EyeOff, FilePlus2, Folder, FolderInput, FolderPlus, ChevronDown, ChevronRight, Pencil, Search, Trash2, Upload, X } from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  Circle,
+  Clock,
+  Download,
+  Eye,
+  EyeOff,
+  FilePlus2,
+  Folder,
+  FolderInput,
+  FolderPlus,
+  ChevronDown,
+  ChevronRight,
+  Pencil,
+  Search,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { DOCUMENT_TYPES } from "@/lib/personas";
+import { DOCUMENT_TYPES, getDocLabel } from "@/lib/personas";
 import { calcDocStatus, DOC_STATUS_LABELS } from "@/lib/docs-operacionales";
 import type { OperationalGuardDocSlot } from "@/lib/operational-guard-doc-slots-shared";
 import { pickPersonaTypeForSlot } from "@/lib/operational-guard-doc-slots-shared";
@@ -19,23 +38,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const DOC_LABEL: Record<string, string> = {
-  certificado_antecedentes: "Cert. antecedentes",
-  certificado_os10: "Certificado OS-10",
-  cedula_identidad: "Cédula de identidad",
-  curriculum: "Currículum",
-  contrato: "Contrato",
-  anexo_contrato: "Anexo de contrato",
-  certificado_ensenanza_media: "Cert. enseñanza media",
-  certificado_afp: "Certificado AFP",
-  certificado_fonasa_isapre: "Cert. Fonasa / Isapre",
-  credencial_os10: "Credencial OS10 (Tarjeta)",
-  examen_psicologico: "Examen Psicológico",
-  registro_capacitacion: "Registro de Capacitación",
-  contrato_firmado: "Contrato Firmado (PDF)",
-  historial_penal: "Historial Penal",
-};
 
 type GuardiaDocument = {
   id: string;
@@ -59,6 +61,8 @@ interface DocumentosSectionProps {
   guardiaDocConfig: GuardiaDocConfigItem[];
   /** Checklist alineado con documentos operacionales por guardia (instalación OS10) */
   operationalSlots?: OperationalGuardDocSlot[];
+  /** Labels configurados (code → label) desde la configuración de Operaciones */
+  docLabels?: Record<string, string>;
   onDocumentsChange: (documents: GuardiaDocument[]) => void;
 }
 
@@ -70,24 +74,6 @@ function pickDocForSlot(docs: GuardiaDocument[], personaTypes: string[]): Guardi
   return [...pool].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null;
 }
 
-function getDocStatusIcon(doc: GuardiaDocument, hasExpiration: boolean, guardiaDocConfig: GuardiaDocConfigItem[]) {
-  if (!doc.fileUrl) {
-    return <X className="h-3.5 w-3.5 text-red-400" />;
-  }
-  if (hasExpiration && doc.expiresAt) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const cfg = guardiaDocConfig.find((c) => c.code === doc.type);
-    const daysBefore = cfg?.alertDaysBefore ?? 30;
-    const limit = new Date(today);
-    limit.setDate(limit.getDate() + daysBefore);
-    const exp = new Date(doc.expiresAt);
-    if (exp <= today) return <X className="h-3.5 w-3.5 text-red-400" />;
-    if (exp <= limit) return <Clock className="h-3.5 w-3.5 text-amber-400" />;
-  }
-  return <Check className="h-3.5 w-3.5 text-emerald-400" />;
-}
-
 function formatExpiration(expiresAt: string | null | undefined): string {
   if (!expiresAt) return "";
   const d = new Date(expiresAt);
@@ -97,7 +83,6 @@ function formatExpiration(expiresAt: string | null | undefined): string {
   return `${day}-${month}-${year}`;
 }
 
-/** Valor para input type="date" (UTC fecha-only). */
 function toDateInput(expiresAt: string | null | undefined): string {
   if (!expiresAt) return "";
   const d = new Date(expiresAt);
@@ -113,18 +98,10 @@ export default function DocumentosSection({
   canManageDocs,
   guardiaDocConfig,
   operationalSlots = [],
+  docLabels = {},
   onDocumentsChange,
 }: DocumentosSectionProps) {
   const [uploading, setUploading] = useState(false);
-  const [creatingDoc, setCreatingDoc] = useState(false);
-  const [docForm, setDocForm] = useState({
-    type: "certificado_antecedentes",
-    status: "pendiente",
-    issuedAt: "",
-    expiresAt: "",
-    fileUrl: "",
-    folderId: "" as string | null,
-  });
   const [folders, setFolders] = useState<Array<{ id: string; name: string; portalVisible: boolean; parentId?: string | null }>>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [creatingFolder, setCreatingFolder] = useState(false);
@@ -132,29 +109,89 @@ export default function DocumentosSection({
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const expiresAtRef = useRef<HTMLInputElement | null>(null);
   const [savingDocId, setSavingDocId] = useState<string | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<GuardiaDocument | null>(null);
   const slotFileInputRef = useRef<HTMLInputElement | null>(null);
-  const [pendingSlot, setPendingSlot] = useState<OperationalGuardDocSlot | null>(null);
+  const [pendingSlotCode, setPendingSlotCode] = useState<string | null>(null);
   const [uploadingSlotCodigo, setUploadingSlotCodigo] = useState<string | null>(null);
   const [expiryDraftByDocId, setExpiryDraftByDocId] = useState<Record<string, string>>({});
+  const [dragOverCode, setDragOverCode] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const claimedDocIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const slot of operationalSlots) {
-      const d = pickDocForSlot(documents, slot.personaTypes);
-      if (d) ids.add(d.id);
-    }
-    return ids;
-  }, [documents, operationalSlots]);
+  // Nuevo: formulario para subir tipo arbitrario (fuera del checklist)
+  const [extraUploadType, setExtraUploadType] = useState<string>(DOCUMENT_TYPES[0]);
+  const [extraUploadFolderId, setExtraUploadFolderId] = useState<string | null>(null);
+  const [extraExpiresAt, setExtraExpiresAt] = useState("");
+  const [extraFileUrl, setExtraFileUrl] = useState("");
+  const [creatingDoc, setCreatingDoc] = useState(false);
+  const extraFileInputRef = useRef<HTMLInputElement | null>(null);
+  const extraExpiresAtRef = useRef<HTMLInputElement | null>(null);
+
+  /** Resolver label: usa docLabels configurados, luego fallback a getDocLabel. */
+  const label = useCallback(
+    (code: string) => getDocLabel(code, docLabels),
+    [docLabels],
+  );
 
   const hasExpirationByType = useMemo(() => {
     const map = new Map<string, boolean>();
     for (const c of guardiaDocConfig) map.set(c.code, c.hasExpiration);
     return map;
   }, [guardiaDocConfig]);
+
+  // ── Unified slot list: operational slots + remaining config doc types ──
+  // Construye un checklist unificado con TODOS los tipos de doc
+  const unifiedSlots = useMemo(() => {
+    type UnifiedSlot = {
+      code: string; // código principal (para matching con docs)
+      label: string;
+      normativa: string | null;
+      obligatorio: boolean;
+      tieneVencimiento: boolean;
+      diasAlerta: number;
+      personaTypes: string[]; // tipos de OpsDocumentoPersona que cuentan para este slot
+      isOperational: boolean;
+    };
+
+    const slots: UnifiedSlot[] = [];
+    const seenCodes = new Set<string>();
+
+    // 1. Primero slots operacionales (OS10)
+    for (const slot of operationalSlots) {
+      slots.push({
+        code: slot.codigo,
+        label: label(slot.personaTypes[0] ?? slot.codigo),
+        normativa: slot.normativa,
+        obligatorio: slot.obligatorio,
+        tieneVencimiento: slot.tieneVencimiento,
+        diasAlerta: slot.diasAlerta,
+        personaTypes: slot.personaTypes,
+        isOperational: true,
+      });
+      for (const pt of slot.personaTypes) seenCodes.add(pt);
+      seenCodes.add(slot.codigo);
+    }
+
+    // 2. Luego los doc types del config que no están cubiertos por slots operacionales
+    for (const dt of DOCUMENT_TYPES) {
+      if (seenCodes.has(dt)) continue;
+      const cfg = guardiaDocConfig.find((c) => c.code === dt);
+      slots.push({
+        code: dt,
+        label: label(dt),
+        normativa: null,
+        obligatorio: false,
+        tieneVencimiento: cfg?.hasExpiration ?? false,
+        diasAlerta: cfg?.alertDaysBefore ?? 30,
+        personaTypes: [dt],
+        isOperational: false,
+      });
+      seenCodes.add(dt);
+    }
+
+    return slots;
+  }, [operationalSlots, guardiaDocConfig, label]);
 
   const expiringDocs = useMemo(() => {
     const today = new Date();
@@ -170,52 +207,16 @@ export default function DocumentosSection({
     });
   }, [documents, guardiaDocConfig, hasExpirationByType]);
 
-  const handleUpload = async (file?: File | null) => {
-    if (!file) return;
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const response = await fetch("/api/personas/guardias/upload", { method: "POST", body: formData });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload.error || "No se pudo subir el archivo");
-      setDocForm((prev) => ({ ...prev, fileUrl: payload.data.url }));
-      toast.success("Archivo subido");
-    } catch (error) { console.error(error); toast.error("No se pudo subir archivo"); }
-    finally { setUploading(false); }
-  };
+  // ── Handlers ──
 
-  const handleCreateDocument = async () => {
-    if (!docForm.fileUrl) { toast.error("Primero sube un archivo"); return; }
-    setCreatingDoc(true);
-    try {
-      const response = await fetch(`/api/personas/guardias/${guardiaId}/documents`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: docForm.type, status: docForm.status, fileUrl: docForm.fileUrl,
-          issuedAt: docForm.issuedAt || null,
-          expiresAt: hasExpirationByType.get(docForm.type) ? (docForm.expiresAt || null) : null,
-          folderId: docForm.folderId || null,
-          portalVisible: false,
-        }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload.error || "No se pudo crear documento");
-      onDocumentsChange([payload.data, ...documents]);
-      setDocForm({ type: "certificado_antecedentes", status: "pendiente", issuedAt: "", expiresAt: "", fileUrl: "", folderId: null });
-      toast.success("Documento agregado");
-    } catch (error) { console.error(error); toast.error("No se pudo crear documento"); }
-    finally { setCreatingDoc(false); }
-  };
-
-  const handleSlotUpload = async (slot: OperationalGuardDocSlot, file?: File | null) => {
+  const handleSlotUpload = async (slotCode: string, personaTypes: string[], file?: File | null) => {
     if (!file) return;
-    const type = pickPersonaTypeForSlot(slot.personaTypes);
+    const type = pickPersonaTypeForSlot(personaTypes);
     if (!type) {
       toast.error("Tipo de documento no configurado");
       return;
     }
-    setUploadingSlotCodigo(slot.codigo);
+    setUploadingSlotCodigo(slotCode);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -226,25 +227,69 @@ export default function DocumentosSection({
       const resDoc = await fetch(`/api/personas/guardias/${guardiaId}/documents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type,
-          status: "pendiente",
-          fileUrl,
-          issuedAt: null,
-          expiresAt: null,
-          folderId: null,
-          portalVisible: false,
-        }),
+        body: JSON.stringify({ type, status: "pendiente", fileUrl, issuedAt: null, expiresAt: null, folderId: null, portalVisible: false }),
       });
       const docPayload = await resDoc.json();
       if (!resDoc.ok || !docPayload.success) throw new Error(docPayload.error || "No se pudo registrar el documento");
       onDocumentsChange([docPayload.data, ...documents]);
-      toast.success(`${slot.nombre} cargado`);
+      toast.success(`${label(type)} cargado`);
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : "No se pudo cargar el documento");
     } finally {
       setUploadingSlotCodigo(null);
+    }
+  };
+
+  const handleExtraUpload = async (file?: File | null) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/personas/guardias/upload", { method: "POST", body: formData });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "No se pudo subir el archivo");
+      setExtraFileUrl(payload.data.url);
+      toast.success("Archivo subido");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo subir archivo");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCreateExtraDocument = async () => {
+    if (!extraFileUrl) { toast.error("Primero sube un archivo"); return; }
+    setCreatingDoc(true);
+    try {
+      const response = await fetch(`/api/personas/guardias/${guardiaId}/documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: extraUploadType,
+          status: "pendiente",
+          fileUrl: extraFileUrl,
+          issuedAt: null,
+          expiresAt: hasExpirationByType.get(extraUploadType) ? (extraExpiresAt || null) : null,
+          folderId: extraUploadFolderId || null,
+          portalVisible: false,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "No se pudo crear documento");
+      onDocumentsChange([payload.data, ...documents]);
+      setExtraUploadType(DOCUMENT_TYPES[0]);
+      setExtraExpiresAt("");
+      setExtraFileUrl("");
+      setExtraUploadFolderId(null);
+      toast.success("Documento agregado");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo crear documento");
+    } finally {
+      setCreatingDoc(false);
     }
   };
 
@@ -265,7 +310,8 @@ export default function DocumentosSection({
     if (!newFolderName.trim()) return;
     try {
       const res = await fetch("/api/crm/folders", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newFolderName.trim(), entityType: "guardia", entityId: guardiaId }),
       });
       const data = await res.json();
@@ -274,14 +320,19 @@ export default function DocumentosSection({
       setNewFolderName("");
       setCreatingFolder(false);
       toast.success("Carpeta creada");
-    } catch { toast.error("Error al crear carpeta"); setCreatingFolder(false); }
+    } catch {
+      toast.error("Error al crear carpeta");
+      setCreatingFolder(false);
+    }
   };
 
   const handleRenameFolder = async (folderId: string) => {
     if (!renameValue.trim()) return;
     try {
       const res = await fetch(`/api/crm/folders/${folderId}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: renameValue.trim() }),
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: renameValue.trim() }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -323,7 +374,9 @@ export default function DocumentosSection({
   const handleToggleFolderPortalVisible = async (folder: { id: string; name: string; portalVisible: boolean }) => {
     try {
       const res = await fetch(`/api/crm/folders/${folder.id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ portalVisible: !folder.portalVisible }),
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ portalVisible: !folder.portalVisible }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -338,7 +391,8 @@ export default function DocumentosSection({
       const response = await fetch(
         `/api/personas/guardias/${guardiaId}/documents?documentId=${encodeURIComponent(doc.id)}`,
         {
-          method: "PATCH", headers: { "Content-Type": "application/json" },
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             status: doc.status,
             issuedAt: doc.issuedAt || null,
@@ -363,8 +417,7 @@ export default function DocumentosSection({
   const handleSaveExpiry = async (doc: GuardiaDocument) => {
     if (!hasExpirationByType.get(doc.type)) return;
     const draft = expiryDraftByDocId[doc.id];
-    const raw =
-      draft !== undefined && draft !== "" ? draft : toDateInput(doc.expiresAt);
+    const raw = draft !== undefined && draft !== "" ? draft : toDateInput(doc.expiresAt);
     if (!raw) {
       toast.error("Indica la fecha de vencimiento");
       return;
@@ -379,7 +432,25 @@ export default function DocumentosSection({
     }
   };
 
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const handleDeleteDocument = async (docId: string) => {
+    setDeletingDocId(docId);
+    try {
+      const response = await fetch(
+        `/api/personas/guardias/${guardiaId}/documents?documentId=${encodeURIComponent(docId)}`,
+        { method: "DELETE" }
+      );
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "No se pudo eliminar documento");
+      onDocumentsChange(documents.filter((it) => it.id !== docId));
+      toast.success("Documento eliminado");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo eliminar documento");
+    } finally {
+      setDeletingDocId(null);
+      setConfirmDeleteId(null);
+    }
+  };
 
   const fetchFolders = useCallback(async () => {
     try {
@@ -393,20 +464,19 @@ export default function DocumentosSection({
 
   useEffect(() => { fetchFolders(); }, [fetchFolders]);
 
-  const handleDeleteDocument = async (docId: string) => {
-    setDeletingDocId(docId);
-    try {
-      const response = await fetch(
-        `/api/personas/guardias/${guardiaId}/documents?documentId=${encodeURIComponent(docId)}`,
-        { method: "DELETE" }
-      );
-      const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload.error || "No se pudo eliminar documento");
-      onDocumentsChange(documents.filter((it) => it.id !== docId));
-      toast.success("Documento eliminado");
-    } catch (error) { console.error(error); toast.error("No se pudo eliminar documento"); }
-    finally { setDeletingDocId(null); setConfirmDeleteId(null); }
-  };
+  // ── Status helpers ──
+
+  function getStatusInfo(doc: GuardiaDocument | null, tieneVencimiento: boolean, diasAlerta: number) {
+    if (!doc?.fileUrl) {
+      return { icon: <Circle className="h-4 w-4 text-zinc-600" />, label: "Sin documento", color: "text-zinc-500" };
+    }
+    const st = calcDocStatus(doc.expiresAt ? new Date(doc.expiresAt) : null, tieneVencimiento, diasAlerta);
+    if (st === "vencido") return { icon: <X className="h-4 w-4 text-red-400" />, label: DOC_STATUS_LABELS[st], color: "text-red-400" };
+    if (st === "por_vencer") return { icon: <Clock className="h-4 w-4 text-amber-400" />, label: DOC_STATUS_LABELS[st], color: "text-amber-400" };
+    return { icon: <Check className="h-4 w-4 text-emerald-400" />, label: DOC_STATUS_LABELS[st] ?? "Vigente", color: "text-emerald-400" };
+  }
+
+  // ── Render ──
 
   return (
     <div className="space-y-4">
@@ -416,211 +486,254 @@ export default function DocumentosSection({
         </div>
       )}
 
-      {operationalSlots.length > 0 && (
-        <div className="rounded-lg border border-[#1a2332] bg-[#0d1117]/40 p-3 space-y-2">
-          <p className="text-xs font-medium text-[#e8edf4]">Documentos normativos (OS10 / instalación)</p>
+      {/* Hidden file input for slot uploads */}
+      <input
+        ref={slotFileInputRef}
+        type="file"
+        accept=".pdf,image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          const code = pendingSlotCode;
+          e.target.value = "";
+          setPendingSlotCode(null);
+          if (code && file) {
+            const slot = unifiedSlots.find((s) => s.code === code);
+            if (slot) void handleSlotUpload(code, slot.personaTypes, file);
+          }
+        }}
+      />
+
+      {/* ── Unified document checklist ── */}
+      <div className="rounded-lg border border-[#1a2332] bg-[#0d1117]/40 divide-y divide-[#1a2332]">
+        <div className="px-3 py-2">
+          <p className="text-xs font-medium text-[#e8edf4]">Documentos del guardia</p>
           <p className="text-[11px] text-[#7a8a9e]">
-            Mismo checklist que en la ficha de instalación. Arrastra un archivo o usa el botón por cada ítem.
+            Checklist unificado. Arrastra un archivo sobre cualquier fila para cargarlo.
           </p>
-          <input
-            ref={slotFileInputRef}
-            type="file"
-            accept=".pdf,image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              const slot = pendingSlot;
-              e.target.value = "";
-              setPendingSlot(null);
-              if (slot && file) void handleSlotUpload(slot, file);
-            }}
-          />
-          <div className="space-y-1.5">
-            {operationalSlots.map((slot) => {
-              const doc = pickDocForSlot(documents, slot.personaTypes);
-              const st = doc?.fileUrl
-                ? calcDocStatus(
-                    doc.expiresAt ? new Date(doc.expiresAt) : null,
-                    slot.tieneVencimiento,
-                    slot.diasAlerta
-                  )
-                : ("sin_documento" as const);
-              const statusLabel =
-                st === "sin_documento" ? "Sin documento" : DOC_STATUS_LABELS[st] ?? st;
-              const busy = uploadingSlotCodigo === slot.codigo;
-              return (
-                <div
-                  key={slot.codigo}
-                  className={cn(
-                    "flex flex-wrap items-center gap-2 rounded-md border border-[#1a2332] px-2.5 py-2",
-                    st === "sin_documento" && "border-dashed border-zinc-600/60 bg-zinc-950/20"
-                  )}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!canManageDocs || busy) return;
-                    const f = e.dataTransfer.files[0];
-                    if (f) void handleSlotUpload(slot, f);
-                  }}
-                >
-                  <div className="shrink-0">
-                    {!doc?.fileUrl ? (
-                      <Circle className="h-4 w-4 text-zinc-600" />
-                    ) : st === "vencido" ? (
-                      <X className="h-4 w-4 text-red-400" />
-                    ) : st === "por_vencer" ? (
-                      <Clock className="h-4 w-4 text-amber-400" />
-                    ) : (
-                      <Check className="h-4 w-4 text-emerald-400" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm text-[#e8edf4] leading-tight">{slot.nombre}</p>
-                    {slot.normativa && (
-                      <p className="text-[11px] text-[#5c6b7e] mt-0.5">{slot.normativa}</p>
-                    )}
-                  </div>
-                  <span
-                    className={cn(
-                      "text-[11px] shrink-0",
-                      st === "sin_documento" && "text-zinc-500",
-                      st === "vigente" && "text-emerald-400/90",
-                      st === "no_aplica" && "text-emerald-400/90",
-                      st === "por_vencer" && "text-amber-400",
-                      st === "vencido" && "text-red-400"
-                    )}
+        </div>
+
+        {unifiedSlots.map((slot) => {
+          const doc = pickDocForSlot(documents, slot.personaTypes);
+          const status = getStatusInfo(doc, slot.tieneVencimiento, slot.diasAlerta);
+          const busy = uploadingSlotCodigo === slot.code;
+          const isDragOver = dragOverCode === slot.code;
+          const hasExpiration = slot.tieneVencimiento || (doc ? (hasExpirationByType.get(doc.type) ?? false) : false);
+
+          return (
+            <div
+              key={slot.code}
+              className={cn(
+                "flex flex-wrap items-center gap-2 px-3 py-2.5 transition-all duration-150",
+                !doc?.fileUrl && "bg-zinc-950/20",
+                isDragOver && "bg-primary/10 ring-1 ring-inset ring-primary/40 shadow-[inset_0_0_12px_rgba(59,130,246,0.1)]",
+              )}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (dragOverCode !== slot.code) setDragOverCode(slot.code);
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOverCode(slot.code);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Solo limpiar si salimos del contenedor (no de un hijo)
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setDragOverCode(null);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragOverCode(null);
+                if (!canManageDocs || busy) return;
+                const f = e.dataTransfer.files[0];
+                if (f) void handleSlotUpload(slot.code, slot.personaTypes, f);
+              }}
+            >
+              {/* Status icon */}
+              <div className="shrink-0">{status.icon}</div>
+
+              {/* Name + normativa */}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-[#e8edf4] leading-tight">{slot.label}</p>
+                {slot.normativa && (
+                  <p className="text-[11px] text-[#5c6b7e] mt-0.5">{slot.normativa}</p>
+                )}
+              </div>
+
+              {/* Status label */}
+              <span className={cn("text-[11px] shrink-0", status.color)}>
+                {status.label}
+              </span>
+
+              {/* Expiry date controls */}
+              {doc?.fileUrl && hasExpiration && canManageDocs && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <Input
+                    type="date"
+                    className="h-7 w-[128px] text-[11px] bg-background"
+                    title="Fecha de vencimiento"
+                    value={
+                      doc.id && expiryDraftByDocId[doc.id] !== undefined
+                        ? expiryDraftByDocId[doc.id]
+                        : toDateInput(doc.expiresAt)
+                    }
+                    onChange={(e) =>
+                      setExpiryDraftByDocId((p) => ({ ...p, [doc.id]: e.target.value }))
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-7 text-[10px] px-2"
+                    disabled={busy || savingDocId === doc.id}
+                    onClick={() => void handleSaveExpiry(doc)}
                   >
-                    {statusLabel}
-                  </span>
+                    {savingDocId === doc.id ? "…" : "Guardar venc."}
+                  </Button>
+                </div>
+              )}
+
+              {doc?.fileUrl && hasExpiration && !canManageDocs && doc.expiresAt && (
+                <span className="text-[11px] text-[#7a8a9e] shrink-0 hidden sm:inline">
+                  Vence: {formatExpiration(doc.expiresAt)}
+                </span>
+              )}
+
+              {/* Action buttons */}
+              {doc?.fileUrl && (
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {canManageDocs && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-7 w-7", doc.portalVisible && "text-emerald-400")}
+                      title={doc.portalVisible ? "Visible en portal" : "Oculto del portal"}
+                      onClick={() => handleTogglePortalVisible(doc)}
+                    >
+                      {doc.portalVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-[#7a8a9e]" />}
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Ver" onClick={() => setPreviewDoc(doc)}>
+                    <Search className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                    <a href={`${doc.fileUrl}?download=true`} download={slot.label} title="Descargar">
+                      <Download className="h-3.5 w-3.5" />
+                    </a>
+                  </Button>
+                </div>
+              )}
+
+              {/* Upload / Replace / Delete buttons */}
+              {canManageDocs && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    disabled={busy}
+                    onClick={() => {
+                      setPendingSlotCode(slot.code);
+                      queueMicrotask(() => slotFileInputRef.current?.click());
+                    }}
+                  >
+                    {busy ? "…" : doc?.fileUrl ? "Reemplazar" : "Subir"}
+                  </Button>
                   {doc?.fileUrl && (
-                    <div className="flex items-center gap-0.5 shrink-0">
+                    <>
+                      <ConfirmDialog
+                        open={confirmDeleteId === doc.id}
+                        onOpenChange={(open) => setConfirmDeleteId(open ? doc.id : null)}
+                        title="Eliminar documento"
+                        description={`¿Eliminar "${slot.label}"?`}
+                        onConfirm={() => handleDeleteDocument(doc.id)}
+                      />
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7"
-                        title="Ver"
-                        onClick={() => setPreviewDoc(doc)}
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        title="Eliminar"
+                        onClick={() => setConfirmDeleteId(doc.id)}
+                        disabled={deletingDocId === doc.id}
                       >
-                        <Search className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                        <a
-                          href={`${doc.fileUrl}?download=true`}
-                          download={DOC_LABEL[doc.type] || doc.type}
-                          title="Descargar"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                        </a>
-                      </Button>
-                    </div>
+                    </>
                   )}
-                  {canManageDocs && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-[11px] shrink-0"
-                      disabled={busy}
-                      onClick={() => {
-                        setPendingSlot(slot);
-                        queueMicrotask(() => slotFileInputRef.current?.click());
-                      }}
-                    >
-                      {busy ? "…" : doc?.fileUrl ? "Reemplazar" : "Subir"}
-                    </Button>
-                  )}
-                  {doc?.fileUrl &&
-                    canManageDocs &&
-                    doc &&
-                    (hasExpirationByType.get(doc.type) ?? false) && (
-                      <div className="flex flex-wrap items-center gap-1 shrink-0">
-                        <Input
-                          type="date"
-                          className="h-7 w-[128px] text-[11px] bg-background"
-                          title="Fecha de vencimiento"
-                          value={
-                            expiryDraftByDocId[doc.id] !== undefined
-                              ? expiryDraftByDocId[doc.id]
-                              : toDateInput(doc.expiresAt)
-                          }
-                          onChange={(e) =>
-                            setExpiryDraftByDocId((p) => ({ ...p, [doc.id]: e.target.value }))
-                          }
-                        />
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          className="h-7 text-[10px] px-2"
-                          disabled={busy || savingDocId === doc.id}
-                          onClick={() => void handleSaveExpiry(doc)}
-                        >
-                          {savingDocId === doc.id ? "…" : "Guardar venc."}
-                        </Button>
-                      </div>
-                    )}
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Upload new document (otros tipos) */}
-      <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 space-y-2">
-        <p className="text-xs font-medium text-[#e8edf4]">Subir otro documento</p>
-        <p className="text-[11px] text-[#7a8a9e]">Tipos fuera del checklist normativo o duplicados adicionales.</p>
-        <div className="flex flex-wrap items-end gap-2">
-          <select
-            className="h-8 rounded-md border border-border bg-background px-2 text-xs flex-1 min-w-[140px]"
-            value={docForm.type}
-            onChange={(e) => {
-              const nextType = e.target.value;
-              setDocForm((prev) => ({ ...prev, type: nextType, expiresAt: hasExpirationByType.get(nextType) ? prev.expiresAt : "" }));
-            }}
-          >
-            {DOCUMENT_TYPES.map((type) => (
-              <option key={type} value={type}>{DOC_LABEL[type] || type}</option>
-            ))}
-          </select>
-          <select
-            className="h-8 rounded-md border border-border bg-background px-2 text-xs w-[120px]"
-            value={docForm.folderId ?? ""}
-            onChange={(e) => setDocForm((prev) => ({ ...prev, folderId: e.target.value || null }))}
-          >
-            <option value="">Sin carpeta</option>
-            {folders.map((f) => (
-              <option key={f.id} value={f.id}>{f.name}</option>
-            ))}
-          </select>
-          {hasExpirationByType.get(docForm.type) && (
-            <div className="flex items-center gap-1">
-              <Input ref={expiresAtRef} type="date" value={docForm.expiresAt}
-                onChange={(e) => setDocForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
-                className="h-8 text-xs w-[130px]" />
-              <Button type="button" size="icon" variant="outline" className="h-8 w-8 shrink-0"
-                onClick={() => expiresAtRef.current?.showPicker?.()}>
-                <CalendarDays className="h-3.5 w-3.5" />
-              </Button>
+              )}
             </div>
-          )}
-          <input ref={fileInputRef} type="file" accept=".pdf,image/*" className="hidden"
-            onChange={(e) => void handleUpload(e.target.files?.[0])} disabled={uploading || !canManageDocs} />
-          <Button type="button" variant="outline" size="sm" className="h-8 text-xs"
-            disabled={uploading || !canManageDocs} onClick={() => fileInputRef.current?.click()}>
-            <FilePlus2 className="h-3.5 w-3.5 mr-1" />{uploading ? "Subiendo..." : "Archivo"}
-          </Button>
-          <Button type="button" size="sm" className="h-8 text-xs"
-            onClick={handleCreateDocument} disabled={creatingDoc || !docForm.fileUrl || uploading || !canManageDocs}>
-            <Upload className="h-3.5 w-3.5 mr-1" />{creatingDoc ? "..." : "Cargar"}
-          </Button>
-        </div>
-        {docForm.fileUrl && <span className="text-[11px] text-green-400">Archivo listo</span>}
+          );
+        })}
       </div>
+
+      {/* ── Extra document upload (for additional/duplicate docs) ── */}
+      <details className="group">
+        <summary className="text-xs text-[#7a8a9e] cursor-pointer hover:text-[#e8edf4] transition-colors">
+          Subir documento adicional (duplicados o tipos extra)
+        </summary>
+        <div className="mt-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 space-y-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <select
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs flex-1 min-w-[140px]"
+              value={extraUploadType}
+              onChange={(e) => {
+                const t = e.target.value;
+                setExtraUploadType(t);
+                if (!hasExpirationByType.get(t)) setExtraExpiresAt("");
+              }}
+            >
+              {DOCUMENT_TYPES.map((type) => (
+                <option key={type} value={type}>{label(type)}</option>
+              ))}
+            </select>
+            <select
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs w-[120px]"
+              value={extraUploadFolderId ?? ""}
+              onChange={(e) => setExtraUploadFolderId(e.target.value || null)}
+            >
+              <option value="">Sin carpeta</option>
+              {folders.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+            {hasExpirationByType.get(extraUploadType) && (
+              <div className="flex items-center gap-1">
+                <Input
+                  ref={extraExpiresAtRef}
+                  type="date"
+                  value={extraExpiresAt}
+                  onChange={(e) => setExtraExpiresAt(e.target.value)}
+                  className="h-8 text-xs w-[130px]"
+                />
+                <Button type="button" size="icon" variant="outline" className="h-8 w-8 shrink-0"
+                  onClick={() => extraExpiresAtRef.current?.showPicker?.()}>
+                  <CalendarDays className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+            <input ref={extraFileInputRef} type="file" accept=".pdf,image/*" className="hidden"
+              onChange={(e) => void handleExtraUpload(e.target.files?.[0])} disabled={uploading || !canManageDocs} />
+            <Button type="button" variant="outline" size="sm" className="h-8 text-xs"
+              disabled={uploading || !canManageDocs} onClick={() => extraFileInputRef.current?.click()}>
+              <FilePlus2 className="h-3.5 w-3.5 mr-1" />{uploading ? "Subiendo..." : "Archivo"}
+            </Button>
+            <Button type="button" size="sm" className="h-8 text-xs"
+              onClick={handleCreateExtraDocument} disabled={creatingDoc || !extraFileUrl || uploading || !canManageDocs}>
+              <Upload className="h-3.5 w-3.5 mr-1" />{creatingDoc ? "..." : "Cargar"}
+            </Button>
+          </div>
+          {extraFileUrl && <span className="text-[11px] text-green-400">Archivo listo</span>}
+        </div>
+      </details>
 
       {/* Folder management */}
       {canManageDocs && (
@@ -636,7 +749,10 @@ export default function DocumentosSection({
                 placeholder="Nombre"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleCreateFolder(); if (e.key === "Escape") setCreatingFolder(false); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateFolder();
+                  if (e.key === "Escape") setCreatingFolder(false);
+                }}
               />
               <Button size="sm" className="h-7 text-xs" onClick={() => handleCreateFolder()}>Crear</Button>
               <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setCreatingFolder(false)}>Cancelar</Button>
@@ -645,207 +761,196 @@ export default function DocumentosSection({
         </div>
       )}
 
-      {/* Compact document list */}
-      {documents.length === 0 ? (
-        <p className="text-xs text-[#7a8a9e] py-1">Sin documentos cargados.</p>
-      ) : (
-        <div className="rounded-lg border border-[#1a2332] divide-y divide-[#1a2332]">
-          {(() => {
-            const rootDocs = documents.filter((d) => !d.folderId && !claimedDocIds.has(d.id));
-            const docsByFolder = documents.reduce((acc, d) => {
-              const key = d.folderId ?? "__root__";
-              if (!acc[key]) acc[key] = [];
-              acc[key].push(d);
-              return acc;
-            }, {} as Record<string, GuardiaDocument[]>);
-            const rootFolders = folders.filter((f) => !f.parentId);
-            const renderDocRow = (doc: GuardiaDocument) => {
-              const hasExpiration = hasExpirationByType.get(doc.type) ?? false;
-              const expStr = hasExpiration ? formatExpiration(doc.expiresAt) : null;
+      {/* Documents in folders (extras not in the unified checklist) */}
+      {(() => {
+        // Docs claimed by unified checklist
+        const claimedIds = new Set<string>();
+        for (const slot of unifiedSlots) {
+          const d = pickDocForSlot(documents, slot.personaTypes);
+          if (d) claimedIds.add(d.id);
+        }
+        const extraDocs = documents.filter((d) => !claimedIds.has(d.id));
+        if (extraDocs.length === 0 && folders.length === 0) return null;
+
+        const docsByFolder = extraDocs.reduce((acc, d) => {
+          const key = d.folderId ?? "__root__";
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(d);
+          return acc;
+        }, {} as Record<string, GuardiaDocument[]>);
+
+        const rootDocs = docsByFolder["__root__"] ?? [];
+        const rootFolders = folders.filter((f) => !f.parentId);
+
+        if (rootDocs.length === 0 && rootFolders.length === 0) return null;
+
+        const renderDocRow = (doc: GuardiaDocument) => {
+          const hasExpiration = hasExpirationByType.get(doc.type) ?? false;
+          const expStr = hasExpiration ? formatExpiration(doc.expiresAt) : null;
+          const docLabel = label(doc.type);
+          return (
+            <div key={doc.id} className="flex flex-wrap items-center gap-2 px-3 py-2 min-w-0 hover:bg-[#111822]/50 transition-colors">
+              {doc.fileUrl ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <X className="h-3.5 w-3.5 text-red-400" />}
+              <span className="text-sm text-[#e8edf4] truncate flex-1 min-w-0">{docLabel}</span>
+              {hasExpiration && canManageDocs && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <Input
+                    type="date"
+                    className="h-7 w-[128px] text-[11px] bg-background"
+                    title="Fecha de vencimiento"
+                    value={expiryDraftByDocId[doc.id] !== undefined ? expiryDraftByDocId[doc.id] : toDateInput(doc.expiresAt)}
+                    onChange={(e) => setExpiryDraftByDocId((p) => ({ ...p, [doc.id]: e.target.value }))}
+                  />
+                  <Button type="button" variant="secondary" size="sm" className="h-7 text-[10px] px-2"
+                    disabled={savingDocId === doc.id} onClick={() => void handleSaveExpiry(doc)}>
+                    {savingDocId === doc.id ? "…" : "Guardar venc."}
+                  </Button>
+                </div>
+              )}
+              {hasExpiration && !canManageDocs && expStr && (
+                <span className="text-[11px] text-[#7a8a9e] shrink-0 hidden sm:inline">Vence: {expStr}</span>
+              )}
+              <div className="flex items-center gap-1 shrink-0">
+                {canManageDocs && (
+                  <Button
+                    variant="ghost" size="icon"
+                    className={cn("h-7 w-7", doc.portalVisible && "text-emerald-400")}
+                    title={doc.portalVisible ? "Visible en portal" : "Oculto del portal"}
+                    onClick={() => handleTogglePortalVisible(doc)}
+                  >
+                    {doc.portalVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-[#7a8a9e]" />}
+                  </Button>
+                )}
+                {doc.fileUrl ? (
+                  <>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Ver documento" onClick={() => setPreviewDoc(doc)}>
+                      <Search className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                      <a href={`${doc.fileUrl}?download=true`} download={docLabel} title="Descargar">
+                        <Download className="h-3.5 w-3.5" />
+                      </a>
+                    </Button>
+                  </>
+                ) : (
+                  <span className="text-[11px] text-[#4a5568] shrink-0">Sin archivo</span>
+                )}
+                {canManageDocs && (
+                  <>
+                    {folders.length > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Mover a carpeta">
+                            <FolderInput className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {doc.folderId && (
+                            <DropdownMenuItem onClick={() => handleMoveToFolder(doc.id, null)}>Sin carpeta</DropdownMenuItem>
+                          )}
+                          {folders.filter((f) => f.id !== doc.folderId).map((f) => (
+                            <DropdownMenuItem key={f.id} onClick={() => handleMoveToFolder(doc.id, f.id)}>
+                              <Folder className="h-3.5 w-3.5 mr-1.5" />{f.name}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    <ConfirmDialog
+                      open={confirmDeleteId === doc.id}
+                      onOpenChange={(open) => setConfirmDeleteId(open ? doc.id : null)}
+                      title="Eliminar documento"
+                      description={`¿Eliminar "${docLabel}"?`}
+                      onConfirm={() => handleDeleteDocument(doc.id)}
+                    />
+                    <Button
+                      variant="ghost" size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      title="Eliminar"
+                      onClick={() => setConfirmDeleteId(doc.id)}
+                      disabled={deletingDocId === doc.id}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        return (
+          <div className="rounded-lg border border-[#1a2332] divide-y divide-[#1a2332]">
+            <p className="px-3 py-2 text-xs font-medium text-[#7a8a9e]">Otros documentos</p>
+            {rootDocs.map((doc) => renderDocRow(doc))}
+            {rootFolders.map((folder) => {
+              const folderDocs = docsByFolder[folder.id] ?? [];
+              const isExpanded = expandedFolders.has(folder.id);
               return (
-                <div key={doc.id} className="flex flex-wrap items-center gap-2 px-3 py-2 min-w-0 hover:bg-[#111822]/50 transition-colors">
-                  {getDocStatusIcon(doc, hasExpiration, guardiaDocConfig)}
-                  <span className="text-sm text-[#e8edf4] truncate flex-1 min-w-0">
-                    {DOC_LABEL[doc.type] || doc.type}
-                  </span>
-                  {hasExpiration && canManageDocs && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Input
-                        type="date"
-                        className="h-7 w-[128px] text-[11px] bg-background"
-                        title="Fecha de vencimiento"
-                        value={
-                          expiryDraftByDocId[doc.id] !== undefined
-                            ? expiryDraftByDocId[doc.id]
-                            : toDateInput(doc.expiresAt)
-                        }
-                        onChange={(e) =>
-                          setExpiryDraftByDocId((p) => ({ ...p, [doc.id]: e.target.value }))
-                        }
-                      />
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="h-7 text-[10px] px-2"
-                        disabled={savingDocId === doc.id}
-                        onClick={() => void handleSaveExpiry(doc)}
-                      >
-                        {savingDocId === doc.id ? "…" : "Guardar venc."}
-                      </Button>
-                    </div>
-                  )}
-                  {hasExpiration && !canManageDocs && expStr && (
-                    <span className="text-[11px] text-[#7a8a9e] shrink-0 hidden sm:inline">
-                      Vence: {expStr}
-                    </span>
-                  )}
-                  <div className="flex items-center gap-1 shrink-0">
-                    {canManageDocs && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn("h-7 w-7", doc.portalVisible && "text-emerald-400")}
-                        title={doc.portalVisible ? "Visible en portal" : "Oculto del portal"}
-                        onClick={() => handleTogglePortalVisible(doc)}
-                      >
-                        {doc.portalVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-[#7a8a9e]" />}
-                      </Button>
+                <div key={folder.id}>
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 hover:bg-[#111822]/50 cursor-pointer",
+                      renamingFolderId === folder.id && "py-1"
                     )}
-                    {doc.fileUrl ? (
-                      <>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Ver documento" onClick={() => setPreviewDoc(doc)}>
-                          <Search className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                          <a href={`${doc.fileUrl}?download=true`} download={DOC_LABEL[doc.type] || doc.type} title="Descargar">
-                            <Download className="h-3.5 w-3.5" />
-                          </a>
-                        </Button>
-                      </>
+                    onClick={() => setExpandedFolders((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(folder.id)) next.delete(folder.id);
+                      else next.add(folder.id);
+                      return next;
+                    })}
+                  >
+                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-[#7a8a9e]" /> : <ChevronRight className="h-3.5 w-3.5 text-[#7a8a9e]" />}
+                    {renamingFolderId === folder.id ? (
+                      <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
+                        <Input className="h-6 text-xs flex-1" value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleRenameFolder(folder.id); if (e.key === "Escape") setRenamingFolderId(null); }} autoFocus />
+                        <Button size="sm" className="h-6 text-xs" onClick={() => handleRenameFolder(folder.id)}>OK</Button>
+                      </div>
                     ) : (
-                      <span className="text-[11px] text-[#4a5568] shrink-0">Sin archivo</span>
-                    )}
-                    {canManageDocs && (
                       <>
-                        {folders.length > 0 && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Mover a carpeta">
-                                <FolderInput className="h-3.5 w-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {doc.folderId && (
-                                <DropdownMenuItem onClick={() => handleMoveToFolder(doc.id, null)}>
-                                  Sin carpeta
-                                </DropdownMenuItem>
-                              )}
-                              {folders.filter((f) => f.id !== doc.folderId).map((f) => (
-                                <DropdownMenuItem key={f.id} onClick={() => handleMoveToFolder(doc.id, f.id)}>
-                                  <Folder className="h-3.5 w-3.5 mr-1.5" />
-                                  {f.name}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                        <Folder className="h-3.5 w-3.5 text-[#7a8a9e]" />
+                        <span className="text-sm flex-1 truncate">{folder.name}</span>
+                        {canManageDocs && (
+                          <>
+                            <Button variant="ghost" size="icon" className={cn("h-6 w-6", folder.portalVisible && "text-emerald-400")}
+                              title={folder.portalVisible ? "Visible en portal" : "Oculta del portal"}
+                              onClick={(e) => { e.stopPropagation(); handleToggleFolderPortalVisible(folder); }}>
+                              {folder.portalVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3 text-[#7a8a9e]" />}
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => { setRenamingFolderId(folder.id); setRenameValue(folder.name); }}>Renombrar</DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive" onClick={() => { if (confirm(`¿Eliminar carpeta "${folder.name}"?`)) handleDeleteFolder(folder.id); }}>Eliminar</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </>
                         )}
-                        <ConfirmDialog
-                          open={confirmDeleteId === doc.id}
-                          onOpenChange={(open) => setConfirmDeleteId(open ? doc.id : null)}
-                          title="Eliminar documento"
-                          description={`¿Eliminar "${DOC_LABEL[doc.type] || doc.type}"?`}
-                          onConfirm={() => handleDeleteDocument(doc.id)}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          title="Eliminar"
-                          onClick={() => setConfirmDeleteId(doc.id)}
-                          disabled={deletingDocId === doc.id}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
                       </>
                     )}
                   </div>
+                  {isExpanded && folderDocs.map((doc) => renderDocRow(doc))}
                 </div>
               );
-            };
-            return (
-              <>
-                {rootDocs.map((doc) => renderDocRow(doc))}
-                {rootFolders.map((folder) => {
-                  const folderDocs = docsByFolder[folder.id] ?? [];
-                  const isExpanded = expandedFolders.has(folder.id);
-                  return (
-                    <div key={folder.id}>
-                      <div
-                        className={cn(
-                          "flex items-center gap-2 px-3 py-2 hover:bg-[#111822]/50 cursor-pointer",
-                          renamingFolderId === folder.id && "py-1"
-                        )}
-                        onClick={() => setExpandedFolders((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(folder.id)) next.delete(folder.id);
-                          else next.add(folder.id);
-                          return next;
-                        })}
-                      >
-                        {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-[#7a8a9e]" /> : <ChevronRight className="h-3.5 w-3.5 text-[#7a8a9e]" />}
-                        {renamingFolderId === folder.id ? (
-                          <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
-                            <Input className="h-6 text-xs flex-1" value={renameValue} onChange={(e) => setRenameValue(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === "Enter") handleRenameFolder(folder.id); if (e.key === "Escape") setRenamingFolderId(null); }} autoFocus />
-                            <Button size="sm" className="h-6 text-xs" onClick={() => handleRenameFolder(folder.id)}>OK</Button>
-                          </div>
-                        ) : (
-                          <>
-                            <Folder className="h-3.5 w-3.5 text-[#7a8a9e]" />
-                            <span className="text-sm flex-1 truncate">{folder.name}</span>
-                            {canManageDocs && (
-                              <>
-                                <Button variant="ghost" size="icon" className={cn("h-6 w-6", folder.portalVisible && "text-emerald-400")}
-                                  title={folder.portalVisible ? "Visible en portal" : "Oculta del portal"}
-                                  onClick={(e) => { e.stopPropagation(); handleToggleFolderPortalVisible(folder); }}>
-                                  {folder.portalVisible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3 text-[#7a8a9e]" />}
-                                </Button>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
-                                      <Pencil className="h-3 w-3" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => { setRenamingFolderId(folder.id); setRenameValue(folder.name); }}>Renombrar</DropdownMenuItem>
-                                    <DropdownMenuItem className="text-destructive" onClick={() => { if (confirm(`¿Eliminar carpeta "${folder.name}"?`)) handleDeleteFolder(folder.id); }}>Eliminar</DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </>
-                            )}
-                          </>
-                        )}
-                      </div>
-                      {isExpanded && folderDocs.map((doc) => renderDocRow(doc))}
-                    </div>
-                  );
-                })}
-              </>
-            );
-          })()}
-        </div>
-      )}
+            })}
+          </div>
+        );
+      })()}
 
       <p className="text-[11px] text-[#4a5568]">{documents.length} documento(s)</p>
 
-      {/* ── Fullscreen preview modal ── */}
+      {/* Fullscreen preview modal */}
       {previewDoc?.fileUrl && (
         <FilePreviewModal
           open={!!previewDoc}
           onOpenChange={(open) => !open && setPreviewDoc(null)}
           url={previewDoc.fileUrl}
-          fileName={DOC_LABEL[previewDoc.type] || previewDoc.type}
+          fileName={label(previewDoc.type)}
           mimeType={previewDoc.fileUrl.endsWith(".pdf") ? "application/pdf" : previewDoc.fileUrl.match(/\.(jpe?g|png|gif|webp)$/i) ? `image/${(previewDoc.fileUrl.match(/\.(jpe?g|png|gif|webp)$/i)?.[1] || "jpeg").replace("jpg", "jpeg")}` : ""}
         />
       )}

@@ -21,11 +21,11 @@ const TIPOS_DEFAULT = [
   { codigo: "nomina_guardias", nombre: "Nómina de Guardias Actualizada", capa: "instalacion", obligatorio: true, tieneVencimiento: false, diasAlerta: 0, normativa: "OS10 Fiscalización", order: 13 },
 
   // Capa GUARDIA (referencia — mapean a OpsDocumentoPersona.type)
-  { codigo: "contrato_guardia", nombre: "Contrato de Trabajo", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 15, normativa: "CT Art.31", order: 20 },
-  { codigo: "credencial_os10", nombre: "Credencial OS10", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 90, normativa: "D.S. 93 Art.18 — Vigencia 3 años", order: 21 },
-  { codigo: "certificado_antecedentes", nombre: "Certificado de Antecedentes", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 15, normativa: "D.S. 867 Art.5 N°4 — Vigencia 30 días", order: 22 },
+  { codigo: "contrato_guardia", nombre: "Contrato", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 15, normativa: "CT Art.31", order: 20 },
+  { codigo: "credencial_os10", nombre: "Credencial OS10 (Tarjeta)", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 90, normativa: "D.S. 93 Art.18 — Vigencia 3 años", order: 21 },
+  { codigo: "certificado_antecedentes", nombre: "Certificado de antecedentes", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 15, normativa: "D.S. 867 Art.5 N°4 — Vigencia 30 días", order: 22 },
   { codigo: "examen_psicologico", nombre: "Examen Psicológico", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "D.S. 867 Art.5 N°3", order: 23 },
-  { codigo: "registro_capacitacion", nombre: "Registros de Capacitación", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "Manual OS10", order: 24 },
+  { codigo: "registro_capacitacion", nombre: "Registro de Capacitación", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "Manual OS10", order: 24 },
   { codigo: "historial_penal", nombre: "Historial Penal", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "D.S. 867", order: 25 },
 ];
 

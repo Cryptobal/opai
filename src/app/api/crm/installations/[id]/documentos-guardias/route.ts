@@ -11,6 +11,8 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView } from "@/lib/api-auth-crm";
 import { getPermissionsFromAuth } from "@/lib/permissions-server";
 import { canViewInstallations } from "@/lib/permissions";
+import { getPostulacionDocumentTypes } from "@/lib/postulacion-documentos";
+import { buildDocLabelMap } from "@/lib/personas";
 
 export async function GET(
   _request: NextRequest,
@@ -31,6 +33,9 @@ export async function GET(
     }
 
     const { id: installationId } = await params;
+
+    const postulacionDocs = await getPostulacionDocumentTypes(ctx.tenantId);
+    const docLabels = buildDocLabelMap(postulacionDocs);
 
     const asignaciones = await prisma.opsAsignacionGuardia.findMany({
       where: {
@@ -84,7 +89,7 @@ export async function GET(
       };
     });
 
-    return NextResponse.json({ success: true, data: byGuardia });
+    return NextResponse.json({ success: true, data: byGuardia, docLabels });
   } catch (error) {
     console.error("[CRM] Error fetching documentos guardias:", error);
     return NextResponse.json(

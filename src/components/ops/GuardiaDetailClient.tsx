@@ -219,6 +219,7 @@ interface GuardiaDetailClientProps {
   currentUserId?: string;
   guardiaDocConfig?: GuardiaDocumentoConfigItem[];
   operationalGuardDocSlots?: OperationalGuardDocSlot[];
+  docLabels?: Record<string, string>;
   hasInventarioAccess?: boolean;
 }
 
@@ -267,6 +268,7 @@ export function GuardiaDetailClient({
   currentUserId,
   guardiaDocConfig = [],
   operationalGuardDocSlots = [],
+  docLabels = {},
   hasInventarioAccess = false,
 }: GuardiaDetailClientProps) {
   const router = useRouter();
@@ -666,6 +668,7 @@ export function GuardiaDetailClient({
                 canManageDocs={canManageDocs}
                 guardiaDocConfig={guardiaDocConfig}
                 operationalSlots={operationalGuardDocSlots}
+                docLabels={docLabels}
                 onDocumentsChange={(documents) => setGuardia((prev) => ({ ...prev, documents }))}
               />
             </CollapsibleSection>

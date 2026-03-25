@@ -28,7 +28,7 @@ export const FALLBACK_GUARD_TIPOS: Array<{
 }> = [
   {
     codigo: "contrato_guardia",
-    nombre: "Contrato de Trabajo",
+    nombre: "Contrato",
     normativa: "CT Art.31",
     obligatorio: true,
     tieneVencimiento: true,
@@ -37,7 +37,7 @@ export const FALLBACK_GUARD_TIPOS: Array<{
   },
   {
     codigo: "credencial_os10",
-    nombre: "Credencial OS10",
+    nombre: "Credencial OS10 (Tarjeta)",
     normativa: "D.S. 93 Art.18 — Vigencia 3 años",
     obligatorio: true,
     tieneVencimiento: true,
@@ -46,7 +46,7 @@ export const FALLBACK_GUARD_TIPOS: Array<{
   },
   {
     codigo: "certificado_antecedentes",
-    nombre: "Certificado de Antecedentes",
+    nombre: "Certificado de antecedentes",
     normativa: "D.S. 867 Art.5 N°4 — Vigencia 30 días",
     obligatorio: true,
     tieneVencimiento: true,
@@ -64,7 +64,7 @@ export const FALLBACK_GUARD_TIPOS: Array<{
   },
   {
     codigo: "registro_capacitacion",
-    nombre: "Registros de Capacitación",
+    nombre: "Registro de Capacitación",
     normativa: "Manual OS10",
     obligatorio: true,
     tieneVencimiento: true,

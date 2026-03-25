@@ -69,6 +69,32 @@ export const DEFAULT_POSTULACION_DOCUMENTS: Array<{ code: string; label: string;
   { code: "contrato_firmado", label: "Contrato Firmado (PDF)", required: false },
 ];
 
+/**
+ * Construye un mapa code → label a partir de la lista de documentos de postulación.
+ * Si se pasa configDocs (la lista guardada por el usuario en Configuración),
+ * se usa como fuente primaria; DEFAULT_POSTULACION_DOCUMENTS como fallback.
+ */
+export function buildDocLabelMap(
+  configDocs?: Array<{ code: string; label: string }> | null
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const d of DEFAULT_POSTULACION_DOCUMENTS) map[d.code] = d.label;
+  if (configDocs) {
+    for (const d of configDocs) map[d.code] = d.label;
+  }
+  return map;
+}
+
+/** Obtiene el label visible de un tipo de documento, usando labels configurados. */
+export function getDocLabel(
+  code: string,
+  labelMap?: Record<string, string> | null
+): string {
+  if (labelMap?.[code]) return labelMap[code];
+  const found = DEFAULT_POSTULACION_DOCUMENTS.find((d) => d.code === code);
+  return found?.label ?? code;
+}
+
 export const DOCUMENT_STATUS = [
   "pendiente",
   "vigente",
