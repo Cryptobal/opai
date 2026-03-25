@@ -585,7 +585,7 @@ function GuardiaDocsCard({ data }: { data: GuardiaBlock }) {
           ))}
           <div className="pt-1.5">
             <Link
-              href={`/opai/operaciones/guardias/${guardia.id}`}
+              href={`/personas/guardias/${guardia.id}`}
               className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
             >
               Ver ficha <ArrowRight className="h-3 w-3" />
