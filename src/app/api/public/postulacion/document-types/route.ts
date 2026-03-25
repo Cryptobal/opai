@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isValidPostulacionToken } from "@/lib/postulacion-token";
 import { getDefaultTenantId } from "@/lib/tenant";
-import { getPostulacionDocumentTypes } from "@/lib/postulacion-documentos";
+import { getPostulacionDocumentTypesVisibleOnGuardForm } from "@/lib/postulacion-documentos";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Token inválido" }, { status: 403 });
     }
     const tenantId = await getDefaultTenantId();
-    const documents = await getPostulacionDocumentTypes(tenantId);
+    const documents = await getPostulacionDocumentTypesVisibleOnGuardForm(tenantId);
     return NextResponse.json({ success: true, data: documents });
   } catch (error) {
     console.error("[POSTULACION] Error fetching document types:", error);

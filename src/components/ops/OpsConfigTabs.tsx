@@ -13,7 +13,7 @@ import { Radio, FileText, Building2, Mail } from "lucide-react";
 
 export type PostulacionDocItem = { code: string; label: string; required: boolean };
 export type InstalacionDocItem = { code: string; label: string; required: boolean };
-export type GuardiaDocConfigItem = { code: string; hasExpiration: boolean; alertDaysBefore: number };
+export type { GuardiaDocumentoConfigItem as GuardiaDocConfigItem } from "@/lib/guardia-documentos-config";
 
 export function OpsConfigTabs() {
   const [config, setConfig] = useState<MarcacionConfig | null>(null);
@@ -22,6 +22,7 @@ export function OpsConfigTabs() {
 
   const [postulacionDocs, setPostulacionDocs] = useState<PostulacionDocItem[]>([]);
   const [postulacionDocsLoading, setPostulacionDocsLoading] = useState(true);
+  const [documentCountsByType, setDocumentCountsByType] = useState<Record<string, number>>({});
   const [instalacionDocs, setInstalacionDocs] = useState<InstalacionDocItem[]>([]);
   const [instalacionDocsLoading, setInstalacionDocsLoading] = useState(true);
   const [guardiaDocConfig, setGuardiaDocConfig] = useState<GuardiaDocConfigItem[]>([]);
@@ -43,7 +44,10 @@ export function OpsConfigTabs() {
     try {
       const res = await fetch("/api/ops/postulacion-documentos");
       const data = await res.json();
-      if (data.success) setPostulacionDocs(data.data);
+      if (data.success) {
+        setPostulacionDocs(data.data);
+        setDocumentCountsByType(data.documentCountsByType ?? {});
+      }
     } catch {
       toast.error("No se pudo cargar documentos de postulación");
     } finally {
@@ -99,7 +103,12 @@ export function OpsConfigTabs() {
     if (missing.length > 0) {
       setGuardiaDocConfig((prev) => [
         ...prev,
-        ...missing.map((m) => ({ code: m.code, hasExpiration: false, alertDaysBefore: 30 })),
+        ...missing.map((m) => ({
+          code: m.code,
+          hasExpiration: false,
+          alertDaysBefore: 30,
+          visibleInGuardForm: true,
+        })),
       ]);
     }
   }, [postulacionDocs, guardiaDocConfig]);
@@ -160,6 +169,8 @@ export function OpsConfigTabs() {
           postulacionDocs={postulacionDocs}
           setPostulacionDocs={setPostulacionDocs}
           postulacionDocsLoading={postulacionDocsLoading}
+          documentCountsByType={documentCountsByType}
+          setDocumentCountsByType={setDocumentCountsByType}
           guardiaDocConfig={guardiaDocConfig}
           setGuardiaDocConfig={setGuardiaDocConfig}
           guardiaDocConfigLoading={guardiaDocConfigLoading}

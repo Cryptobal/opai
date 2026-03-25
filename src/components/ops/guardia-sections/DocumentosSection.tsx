@@ -2,11 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CalendarDays, Check, Clock, Download, Eye, EyeOff, FilePlus2, Folder, FolderInput, FolderPlus, ChevronDown, ChevronRight, Pencil, Search, Trash2, Upload, X } from "lucide-react";
+import { CalendarDays, Check, Circle, Clock, Download, Eye, EyeOff, FilePlus2, Folder, FolderInput, FolderPlus, ChevronDown, ChevronRight, Pencil, Search, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DOCUMENT_TYPES } from "@/lib/personas";
+import { calcDocStatus, DOC_STATUS_LABELS } from "@/lib/docs-operacionales";
+import type { OperationalGuardDocSlot } from "@/lib/operational-guard-doc-slots-shared";
+import { pickPersonaTypeForSlot } from "@/lib/operational-guard-doc-slots-shared";
+import type { GuardiaDocumentoConfigItem } from "@/lib/guardia-documentos-config";
 import { cn } from "@/lib/utils";
 import { FilePreviewModal } from "@/components/ui/FilePreviewModal";
 import {
@@ -30,6 +34,7 @@ const DOC_LABEL: Record<string, string> = {
   examen_psicologico: "Examen Psicológico",
   registro_capacitacion: "Registro de Capacitación",
   contrato_firmado: "Contrato Firmado (PDF)",
+  historial_penal: "Historial Penal",
 };
 
 type GuardiaDocument = {
@@ -45,14 +50,24 @@ type GuardiaDocument = {
   folder?: { id: string; name: string; portalVisible: boolean } | null;
 };
 
-type GuardiaDocConfigItem = { code: string; hasExpiration: boolean; alertDaysBefore: number };
+type GuardiaDocConfigItem = GuardiaDocumentoConfigItem;
 
 interface DocumentosSectionProps {
   guardiaId: string;
   documents: GuardiaDocument[];
   canManageDocs: boolean;
   guardiaDocConfig: GuardiaDocConfigItem[];
+  /** Checklist alineado con documentos operacionales por guardia (instalación OS10) */
+  operationalSlots?: OperationalGuardDocSlot[];
   onDocumentsChange: (documents: GuardiaDocument[]) => void;
+}
+
+function pickDocForSlot(docs: GuardiaDocument[], personaTypes: string[]): GuardiaDocument | null {
+  const candidates = docs.filter((d) => personaTypes.includes(d.type));
+  if (candidates.length === 0) return null;
+  const rootFirst = candidates.filter((d) => !d.folderId);
+  const pool = rootFirst.length > 0 ? rootFirst : candidates;
+  return [...pool].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null;
 }
 
 function getDocStatusIcon(doc: GuardiaDocument, hasExpiration: boolean, guardiaDocConfig: GuardiaDocConfigItem[]) {
@@ -82,11 +97,22 @@ function formatExpiration(expiresAt: string | null | undefined): string {
   return `${day}-${month}-${year}`;
 }
 
+/** Valor para input type="date" (UTC fecha-only). */
+function toDateInput(expiresAt: string | null | undefined): string {
+  if (!expiresAt) return "";
+  const d = new Date(expiresAt);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export default function DocumentosSection({
   guardiaId,
   documents,
   canManageDocs,
   guardiaDocConfig,
+  operationalSlots = [],
   onDocumentsChange,
 }: DocumentosSectionProps) {
   const [uploading, setUploading] = useState(false);
@@ -110,6 +136,19 @@ export default function DocumentosSection({
   const [savingDocId, setSavingDocId] = useState<string | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<GuardiaDocument | null>(null);
+  const slotFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingSlot, setPendingSlot] = useState<OperationalGuardDocSlot | null>(null);
+  const [uploadingSlotCodigo, setUploadingSlotCodigo] = useState<string | null>(null);
+  const [expiryDraftByDocId, setExpiryDraftByDocId] = useState<Record<string, string>>({});
+
+  const claimedDocIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const slot of operationalSlots) {
+      const d = pickDocForSlot(documents, slot.personaTypes);
+      if (d) ids.add(d.id);
+    }
+    return ids;
+  }, [documents, operationalSlots]);
 
   const hasExpirationByType = useMemo(() => {
     const map = new Map<string, boolean>();
@@ -167,6 +206,46 @@ export default function DocumentosSection({
       toast.success("Documento agregado");
     } catch (error) { console.error(error); toast.error("No se pudo crear documento"); }
     finally { setCreatingDoc(false); }
+  };
+
+  const handleSlotUpload = async (slot: OperationalGuardDocSlot, file?: File | null) => {
+    if (!file) return;
+    const type = pickPersonaTypeForSlot(slot.personaTypes);
+    if (!type) {
+      toast.error("Tipo de documento no configurado");
+      return;
+    }
+    setUploadingSlotCodigo(slot.codigo);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/personas/guardias/upload", { method: "POST", body: formData });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error || "No se pudo subir el archivo");
+      const fileUrl = payload.data.url as string;
+      const resDoc = await fetch(`/api/personas/guardias/${guardiaId}/documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type,
+          status: "pendiente",
+          fileUrl,
+          issuedAt: null,
+          expiresAt: null,
+          folderId: null,
+          portalVisible: false,
+        }),
+      });
+      const docPayload = await resDoc.json();
+      if (!resDoc.ok || !docPayload.success) throw new Error(docPayload.error || "No se pudo registrar el documento");
+      onDocumentsChange([docPayload.data, ...documents]);
+      toast.success(`${slot.nombre} cargado`);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "No se pudo cargar el documento");
+    } finally {
+      setUploadingSlotCodigo(null);
+    }
   };
 
   const handleTogglePortalVisible = async (doc: GuardiaDocument) => {
@@ -253,7 +332,7 @@ export default function DocumentosSection({
     } catch { toast.error("Error al actualizar visibilidad"); }
   };
 
-  const handleSaveDocument = async (doc: GuardiaDocument, expiresAt?: string) => {
+  const handleSaveDocument = async (doc: GuardiaDocument, expiresAt?: string): Promise<boolean> => {
     setSavingDocId(doc.id);
     try {
       const response = await fetch(
@@ -271,8 +350,33 @@ export default function DocumentosSection({
       if (!response.ok || !payload.success) throw new Error(payload.error || "No se pudo actualizar documento");
       onDocumentsChange(documents.map((it) => (it.id === doc.id ? payload.data : it)));
       toast.success("Documento actualizado");
-    } catch (error) { console.error(error); toast.error("No se pudo actualizar documento"); }
-    finally { setSavingDocId(null); }
+      return true;
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo actualizar documento");
+      return false;
+    } finally {
+      setSavingDocId(null);
+    }
+  };
+
+  const handleSaveExpiry = async (doc: GuardiaDocument) => {
+    if (!hasExpirationByType.get(doc.type)) return;
+    const draft = expiryDraftByDocId[doc.id];
+    const raw =
+      draft !== undefined && draft !== "" ? draft : toDateInput(doc.expiresAt);
+    if (!raw) {
+      toast.error("Indica la fecha de vencimiento");
+      return;
+    }
+    const ok = await handleSaveDocument(doc, raw);
+    if (ok) {
+      setExpiryDraftByDocId((prev) => {
+        const next = { ...prev };
+        delete next[doc.id];
+        return next;
+      });
+    }
   };
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -312,9 +416,164 @@ export default function DocumentosSection({
         </div>
       )}
 
-      {/* Upload new document */}
+      {operationalSlots.length > 0 && (
+        <div className="rounded-lg border border-[#1a2332] bg-[#0d1117]/40 p-3 space-y-2">
+          <p className="text-xs font-medium text-[#e8edf4]">Documentos normativos (OS10 / instalación)</p>
+          <p className="text-[11px] text-[#7a8a9e]">
+            Mismo checklist que en la ficha de instalación. Arrastra un archivo o usa el botón por cada ítem.
+          </p>
+          <input
+            ref={slotFileInputRef}
+            type="file"
+            accept=".pdf,image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              const slot = pendingSlot;
+              e.target.value = "";
+              setPendingSlot(null);
+              if (slot && file) void handleSlotUpload(slot, file);
+            }}
+          />
+          <div className="space-y-1.5">
+            {operationalSlots.map((slot) => {
+              const doc = pickDocForSlot(documents, slot.personaTypes);
+              const st = doc?.fileUrl
+                ? calcDocStatus(
+                    doc.expiresAt ? new Date(doc.expiresAt) : null,
+                    slot.tieneVencimiento,
+                    slot.diasAlerta
+                  )
+                : ("sin_documento" as const);
+              const statusLabel =
+                st === "sin_documento" ? "Sin documento" : DOC_STATUS_LABELS[st] ?? st;
+              const busy = uploadingSlotCodigo === slot.codigo;
+              return (
+                <div
+                  key={slot.codigo}
+                  className={cn(
+                    "flex flex-wrap items-center gap-2 rounded-md border border-[#1a2332] px-2.5 py-2",
+                    st === "sin_documento" && "border-dashed border-zinc-600/60 bg-zinc-950/20"
+                  )}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!canManageDocs || busy) return;
+                    const f = e.dataTransfer.files[0];
+                    if (f) void handleSlotUpload(slot, f);
+                  }}
+                >
+                  <div className="shrink-0">
+                    {!doc?.fileUrl ? (
+                      <Circle className="h-4 w-4 text-zinc-600" />
+                    ) : st === "vencido" ? (
+                      <X className="h-4 w-4 text-red-400" />
+                    ) : st === "por_vencer" ? (
+                      <Clock className="h-4 w-4 text-amber-400" />
+                    ) : (
+                      <Check className="h-4 w-4 text-emerald-400" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-[#e8edf4] leading-tight">{slot.nombre}</p>
+                    {slot.normativa && (
+                      <p className="text-[11px] text-[#5c6b7e] mt-0.5">{slot.normativa}</p>
+                    )}
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[11px] shrink-0",
+                      st === "sin_documento" && "text-zinc-500",
+                      st === "vigente" && "text-emerald-400/90",
+                      st === "no_aplica" && "text-emerald-400/90",
+                      st === "por_vencer" && "text-amber-400",
+                      st === "vencido" && "text-red-400"
+                    )}
+                  >
+                    {statusLabel}
+                  </span>
+                  {doc?.fileUrl && (
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Ver"
+                        onClick={() => setPreviewDoc(doc)}
+                      >
+                        <Search className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                        <a
+                          href={`${doc.fileUrl}?download=true`}
+                          download={DOC_LABEL[doc.type] || doc.type}
+                          title="Descargar"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </a>
+                      </Button>
+                    </div>
+                  )}
+                  {canManageDocs && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px] shrink-0"
+                      disabled={busy}
+                      onClick={() => {
+                        setPendingSlot(slot);
+                        queueMicrotask(() => slotFileInputRef.current?.click());
+                      }}
+                    >
+                      {busy ? "…" : doc?.fileUrl ? "Reemplazar" : "Subir"}
+                    </Button>
+                  )}
+                  {doc?.fileUrl &&
+                    canManageDocs &&
+                    doc &&
+                    (hasExpirationByType.get(doc.type) ?? false) && (
+                      <div className="flex flex-wrap items-center gap-1 shrink-0">
+                        <Input
+                          type="date"
+                          className="h-7 w-[128px] text-[11px] bg-background"
+                          title="Fecha de vencimiento"
+                          value={
+                            expiryDraftByDocId[doc.id] !== undefined
+                              ? expiryDraftByDocId[doc.id]
+                              : toDateInput(doc.expiresAt)
+                          }
+                          onChange={(e) =>
+                            setExpiryDraftByDocId((p) => ({ ...p, [doc.id]: e.target.value }))
+                          }
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 text-[10px] px-2"
+                          disabled={busy || savingDocId === doc.id}
+                          onClick={() => void handleSaveExpiry(doc)}
+                        >
+                          {savingDocId === doc.id ? "…" : "Guardar venc."}
+                        </Button>
+                      </div>
+                    )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Upload new document (otros tipos) */}
       <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 space-y-2">
-        <p className="text-xs font-medium text-[#e8edf4]">Subir nuevo documento</p>
+        <p className="text-xs font-medium text-[#e8edf4]">Subir otro documento</p>
+        <p className="text-[11px] text-[#7a8a9e]">Tipos fuera del checklist normativo o duplicados adicionales.</p>
         <div className="flex flex-wrap items-end gap-2">
           <select
             className="h-8 rounded-md border border-border bg-background px-2 text-xs flex-1 min-w-[140px]"
@@ -392,7 +651,7 @@ export default function DocumentosSection({
       ) : (
         <div className="rounded-lg border border-[#1a2332] divide-y divide-[#1a2332]">
           {(() => {
-            const rootDocs = documents.filter((d) => !d.folderId);
+            const rootDocs = documents.filter((d) => !d.folderId && !claimedDocIds.has(d.id));
             const docsByFolder = documents.reduce((acc, d) => {
               const key = d.folderId ?? "__root__";
               if (!acc[key]) acc[key] = [];
@@ -404,12 +663,39 @@ export default function DocumentosSection({
               const hasExpiration = hasExpirationByType.get(doc.type) ?? false;
               const expStr = hasExpiration ? formatExpiration(doc.expiresAt) : null;
               return (
-                <div key={doc.id} className="flex items-center gap-2 px-3 py-2 min-w-0 hover:bg-[#111822]/50 transition-colors">
+                <div key={doc.id} className="flex flex-wrap items-center gap-2 px-3 py-2 min-w-0 hover:bg-[#111822]/50 transition-colors">
                   {getDocStatusIcon(doc, hasExpiration, guardiaDocConfig)}
                   <span className="text-sm text-[#e8edf4] truncate flex-1 min-w-0">
                     {DOC_LABEL[doc.type] || doc.type}
                   </span>
-                  {expStr && (
+                  {hasExpiration && canManageDocs && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Input
+                        type="date"
+                        className="h-7 w-[128px] text-[11px] bg-background"
+                        title="Fecha de vencimiento"
+                        value={
+                          expiryDraftByDocId[doc.id] !== undefined
+                            ? expiryDraftByDocId[doc.id]
+                            : toDateInput(doc.expiresAt)
+                        }
+                        onChange={(e) =>
+                          setExpiryDraftByDocId((p) => ({ ...p, [doc.id]: e.target.value }))
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="h-7 text-[10px] px-2"
+                        disabled={savingDocId === doc.id}
+                        onClick={() => void handleSaveExpiry(doc)}
+                      >
+                        {savingDocId === doc.id ? "…" : "Guardar venc."}
+                      </Button>
+                    </div>
+                  )}
+                  {hasExpiration && !canManageDocs && expStr && (
                     <span className="text-[11px] text-[#7a8a9e] shrink-0 hidden sm:inline">
                       Vence: {expStr}
                     </span>

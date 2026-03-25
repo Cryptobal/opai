@@ -82,6 +82,8 @@ import TurnosExtraSection from "@/components/ops/guardia-sections/TurnosExtraSec
 import HistorialSection from "@/components/ops/guardia-sections/HistorialSection";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import Link from "next/link";
+import type { GuardiaDocumentoConfigItem } from "@/lib/guardia-documentos-config";
+import type { OperationalGuardDocSlot } from "@/lib/operational-guard-doc-slots-shared";
 
 type GuardiaDetail = {
   id: string;
@@ -209,15 +211,14 @@ type AsignacionHistorial = {
   };
 };
 
-type GuardiaDocConfigItem = { code: string; hasExpiration: boolean; alertDaysBefore: number };
-
 interface GuardiaDetailClientProps {
   initialGuardia: GuardiaDetail;
   asignaciones?: AsignacionHistorial[];
   userRole: string;
   personaAdminId?: string | null;
   currentUserId?: string;
-  guardiaDocConfig?: GuardiaDocConfigItem[];
+  guardiaDocConfig?: GuardiaDocumentoConfigItem[];
+  operationalGuardDocSlots?: OperationalGuardDocSlot[];
   hasInventarioAccess?: boolean;
 }
 
@@ -258,7 +259,16 @@ function toDateInput(val: string | Date | undefined | null): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
-export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole, personaAdminId, currentUserId, guardiaDocConfig = [], hasInventarioAccess = false }: GuardiaDetailClientProps) {
+export function GuardiaDetailClient({
+  initialGuardia,
+  asignaciones = [],
+  userRole,
+  personaAdminId,
+  currentUserId,
+  guardiaDocConfig = [],
+  operationalGuardDocSlots = [],
+  hasInventarioAccess = false,
+}: GuardiaDetailClientProps) {
   const router = useRouter();
   const [guardia, setGuardia] = useState(initialGuardia);
   const [activeTab, setActiveTab] = useState<TabKey>("perfil");
@@ -650,8 +660,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         return (
           <div className="space-y-3">
             <CollapsibleSection title="Ficha de documentos" defaultOpen>
-              <DocumentosSection guardiaId={guardia.id} documents={guardia.documents}
-                canManageDocs={canManageDocs} guardiaDocConfig={guardiaDocConfig}
+              <DocumentosSection
+                guardiaId={guardia.id}
+                documents={guardia.documents}
+                canManageDocs={canManageDocs}
+                guardiaDocConfig={guardiaDocConfig}
+                operationalSlots={operationalGuardDocSlots}
                 onDocumentsChange={(documents) => setGuardia((prev) => ({ ...prev, documents }))}
               />
             </CollapsibleSection>

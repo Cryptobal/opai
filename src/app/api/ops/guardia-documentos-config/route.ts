@@ -53,6 +53,10 @@ export async function POST(request: NextRequest) {
         code: String(i.code),
         hasExpiration: Boolean(i.hasExpiration),
         alertDaysBefore: Math.max(1, Math.min(365, Number(i.alertDaysBefore) || 30)),
+        visibleInGuardForm:
+          typeof (i as GuardiaDocumentoConfigItem).visibleInGuardForm === "boolean"
+            ? (i as GuardiaDocumentoConfigItem).visibleInGuardForm
+            : true,
       }));
 
     const saved = await setGuardiaDocumentosConfig(valid, ctx.tenantId);

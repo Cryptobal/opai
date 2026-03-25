@@ -26,6 +26,7 @@ const TIPOS_DEFAULT = [
   { codigo: "certificado_antecedentes", nombre: "Certificado de Antecedentes", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 15, normativa: "D.S. 867 Art.5 N°4 — Vigencia 30 días", order: 22 },
   { codigo: "examen_psicologico", nombre: "Examen Psicológico", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "D.S. 867 Art.5 N°3", order: 23 },
   { codigo: "registro_capacitacion", nombre: "Registros de Capacitación", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "Manual OS10", order: 24 },
+  { codigo: "historial_penal", nombre: "Historial Penal", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "D.S. 867", order: 25 },
 ];
 
 export async function seedTiposDocOperacional(

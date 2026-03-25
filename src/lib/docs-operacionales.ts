@@ -28,6 +28,7 @@ export const GUARDIA_TIPO_MAP: Record<string, string[]> = {
   certificado_antecedentes: ["certificado_antecedentes"],
   examen_psicologico: ["examen_psicologico"],
   registro_capacitacion: ["registro_capacitacion"],
+  historial_penal: ["historial_penal"],
 };
 
 /** Labels legibles para status */

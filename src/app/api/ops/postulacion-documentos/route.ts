@@ -7,9 +7,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import { prisma } from "@/lib/prisma";
 import {
+  getEffectivePostulacionDocuments,
   getPostulacionDocumentTypes,
+  getStoredPostulacionDocumentTypesRaw,
   setPostulacionDocumentTypes,
+  validatePostulacionDocumentRemoval,
   type PostulacionDocumentItem,
 } from "@/lib/postulacion-documentos";
 import { z } from "zod";
@@ -32,7 +36,16 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
     }
     const documents = await getPostulacionDocumentTypes(ctx.tenantId);
-    return NextResponse.json({ success: true, data: documents });
+    const counts = await prisma.opsDocumentoPersona.groupBy({
+      by: ["type"],
+      where: { tenantId: ctx.tenantId },
+      _count: { _all: true },
+    });
+    const documentCountsByType: Record<string, number> = {};
+    for (const row of counts) {
+      documentCountsByType[row.type] = row._count._all;
+    }
+    return NextResponse.json({ success: true, data: documents, documentCountsByType });
   } catch (error) {
     console.error("[OPS] Error fetching postulacion documents:", error);
     return NextResponse.json(
@@ -62,8 +75,23 @@ export async function POST(request: NextRequest) {
       label: d.label.trim(),
       required: d.required,
     }));
+    const previousRaw = await getStoredPostulacionDocumentTypesRaw(ctx.tenantId);
+    const previousEffective = getEffectivePostulacionDocuments(previousRaw);
+    const removalCheck = await validatePostulacionDocumentRemoval(ctx.tenantId, previousEffective, items);
+    if (!removalCheck.ok) {
+      return NextResponse.json({ success: false, error: removalCheck.error }, { status: 400 });
+    }
     const saved = await setPostulacionDocumentTypes(items, ctx.tenantId);
-    return NextResponse.json({ success: true, data: saved });
+    const counts = await prisma.opsDocumentoPersona.groupBy({
+      by: ["type"],
+      where: { tenantId: ctx.tenantId },
+      _count: { _all: true },
+    });
+    const documentCountsByType: Record<string, number> = {};
+    for (const row of counts) {
+      documentCountsByType[row.type] = row._count._all;
+    }
+    return NextResponse.json({ success: true, data: saved, documentCountsByType });
   } catch (error) {
     console.error("[OPS] Error saving postulacion documents:", error);
     return NextResponse.json(

@@ -4,6 +4,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
+import { getOperationalGuardDocSlots } from "@/lib/operational-guard-doc-slots";
 import { GuardiaDetailClient } from "@/components/ops";
 export default async function GuardiaDetailPage({
   params,
@@ -22,7 +23,7 @@ export default async function GuardiaDetailPage({
   const hasInventarioAccess = canView(perms, "ops", "inventario");
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
-  const [guardia, asignaciones, adminUsers, guardiaDocConfig] = await Promise.all([
+  const [guardia, asignaciones, adminUsers, guardiaDocConfig, operationalGuardDocSlots] = await Promise.all([
     prisma.opsGuardia.findFirst({
       where: { id, tenantId },
       include: {
@@ -55,6 +56,7 @@ export default async function GuardiaDetailPage({
       select: { id: true, name: true, email: true },
     }),
     getGuardiaDocumentosConfig(tenantId),
+    getOperationalGuardDocSlots(tenantId),
   ]);
 
   if (!guardia) notFound();
@@ -88,6 +90,7 @@ export default async function GuardiaDetailPage({
         personaAdminId={personaAdminId}
         currentUserId={session.user.id}
         guardiaDocConfig={JSON.parse(JSON.stringify(guardiaDocConfig))}
+        operationalGuardDocSlots={JSON.parse(JSON.stringify(operationalGuardDocSlots))}
         hasInventarioAccess={hasInventarioAccess}
       />
     </div>

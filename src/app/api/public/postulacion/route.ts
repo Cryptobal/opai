@@ -24,7 +24,7 @@ import {
   normalizeRut,
 } from "@/lib/personas";
 import { isValidPostulacionToken } from "@/lib/postulacion-token";
-import { getPostulacionDocumentTypes } from "@/lib/postulacion-documentos";
+import { getPostulacionDocumentTypesVisibleOnGuardForm } from "@/lib/postulacion-documentos";
 
 const postulacionSchema = z.object({
   token: z.string().trim().min(8, "Token inválido"),
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     }
 
     const tenantId = await getDefaultTenantId();
-    const docConfig = await getPostulacionDocumentTypes(tenantId);
+    const docConfig = await getPostulacionDocumentTypesVisibleOnGuardForm(tenantId);
     const allowedTypes = new Set(docConfig.map((d) => d.code));
     const requiredTypes = new Set(docConfig.filter((d) => d.required).map((d) => d.code));
     const submittedTypes = new Set(body.documents.map((d) => d.type));

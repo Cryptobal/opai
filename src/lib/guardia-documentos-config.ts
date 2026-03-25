@@ -11,6 +11,8 @@ export type GuardiaDocumentoConfigItem = {
   code: string;
   hasExpiration: boolean;
   alertDaysBefore: number;
+  /** Si false, el documento no aparece en el formulario público de postulación (sí en ficha admin). Default true. */
+  visibleInGuardForm?: boolean;
 };
 
 const SETTING_KEY = "ops_guardia_documentos_config";
@@ -36,6 +38,7 @@ function parseConfig(value: string | null): GuardiaDocumentoConfigItem[] {
             code: c.code,
             hasExpiration: Boolean(c.hasExpiration),
             alertDaysBefore: Math.max(1, Math.min(365, Number(c.alertDaysBefore) || DEFAULT_ALERT_DAYS)),
+            visibleInGuardForm: c.visibleInGuardForm !== false,
           });
         }
       }
@@ -51,21 +54,39 @@ function getDefaults(): GuardiaDocumentoConfigItem[] {
     code,
     hasExpiration: false,
     alertDaysBefore: DEFAULT_ALERT_DAYS,
+    visibleInGuardForm: true,
   }));
 }
 
 function mergeWithDefaults(partial: GuardiaDocumentoConfigItem[]): GuardiaDocumentoConfigItem[] {
   const byCode = new Map(partial.map((p) => [p.code, p]));
-  return DOCUMENT_TYPES.map((code) => {
+  const base = DOCUMENT_TYPES.map((code) => {
     const existing = byCode.get(code);
-    return (
-      existing ?? {
-        code,
-        hasExpiration: false,
-        alertDaysBefore: DEFAULT_ALERT_DAYS,
-      }
-    );
+    return {
+      code,
+      hasExpiration: existing?.hasExpiration ?? false,
+      alertDaysBefore: Math.max(
+        1,
+        Math.min(365, Number(existing?.alertDaysBefore) || DEFAULT_ALERT_DAYS)
+      ),
+      visibleInGuardForm: existing?.visibleInGuardForm !== false,
+    };
   });
+  const docCodes = new Set(DOCUMENT_TYPES as readonly string[]);
+  const extras = partial.filter((p) => !docCodes.has(p.code));
+  const seenExtra = new Set<string>();
+  const mergedExtras: GuardiaDocumentoConfigItem[] = [];
+  for (const p of extras) {
+    if (seenExtra.has(p.code)) continue;
+    seenExtra.add(p.code);
+    mergedExtras.push({
+      code: p.code,
+      hasExpiration: Boolean(p.hasExpiration),
+      alertDaysBefore: Math.max(1, Math.min(365, Number(p.alertDaysBefore) || DEFAULT_ALERT_DAYS)),
+      visibleInGuardForm: p.visibleInGuardForm !== false,
+    });
+  }
+  return [...base, ...mergedExtras];
 }
 
 export async function getGuardiaDocumentosConfig(

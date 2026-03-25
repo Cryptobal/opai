@@ -12,6 +12,9 @@ interface OpsDocsGuardiasTabProps {
   postulacionDocs: PostulacionDocItem[];
   setPostulacionDocs: React.Dispatch<React.SetStateAction<PostulacionDocItem[]>>;
   postulacionDocsLoading: boolean;
+  /** Conteo de archivos por tipo en fichas de guardias (para bloquear quitar tipos con datos). */
+  documentCountsByType: Record<string, number>;
+  setDocumentCountsByType: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   guardiaDocConfig: GuardiaDocConfigItem[];
   setGuardiaDocConfig: React.Dispatch<React.SetStateAction<GuardiaDocConfigItem[]>>;
   guardiaDocConfigLoading: boolean;
@@ -21,6 +24,8 @@ export function OpsDocsGuardiasTab({
   postulacionDocs,
   setPostulacionDocs,
   postulacionDocsLoading,
+  documentCountsByType,
+  setDocumentCountsByType,
   guardiaDocConfig,
   setGuardiaDocConfig,
   guardiaDocConfigLoading,
@@ -102,10 +107,12 @@ export function OpsDocsGuardiasTab({
         body: JSON.stringify({ documents: postulacionDocs }),
       });
       const data = await res.json();
-      if (data.success) {
-        setPostulacionDocs(data.data);
-        toast.success("Documentos de postulación guardados");
-      } else throw new Error(data.error);
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Error al guardar");
+      }
+      setPostulacionDocs(data.data);
+      if (data.documentCountsByType) setDocumentCountsByType(data.documentCountsByType);
+      toast.success("Documentos de postulación guardados");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al guardar");
     } finally {
@@ -121,7 +128,7 @@ export function OpsDocsGuardiasTab({
           Documentos de guardias
         </h3>
         <p className="text-xs text-muted-foreground">
-          Lista de documentos para postulación y ficha de guardia. Obligatorio: si es requerido para enviar la postulación. Vencimiento: si aplica fecha de vencimiento y alertas en la ficha.
+          Lista de documentos para postulación y ficha de guardia. Obligatorio: requerido para enviar la postulación (entre los visibles). Vencimiento: alertas en la ficha. Visible en formulario: si se desactiva, el guardia no lo ve en la postulación pública, pero sí puede cargarlo un administrador en la ficha.
         </p>
 
         {(postulacionDocsLoading || guardiaDocConfigLoading) ? (
@@ -131,13 +138,22 @@ export function OpsDocsGuardiasTab({
             <div className="space-y-2">
               {postulacionDocs.map((doc, postIndex) => {
                 const guardiaIndex = guardiaDocConfig.findIndex((g) => g.code === doc.code);
-                const guardia = guardiaIndex >= 0 ? guardiaDocConfig[guardiaIndex] : { hasExpiration: false, alertDaysBefore: 30 };
+                const guardia =
+                  guardiaIndex >= 0
+                    ? guardiaDocConfig[guardiaIndex]
+                    : { hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: true };
+                const assocCount = documentCountsByType[doc.code] ?? 0;
                 return (
                   <div
                     key={doc.code}
                     className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border p-3"
                   >
-                    <span className="text-sm font-medium min-w-[140px]">{doc.label}</span>
+                    <Input
+                      className="text-sm font-medium min-w-[140px] max-w-[260px] h-8"
+                      value={doc.label}
+                      onChange={(e) => updatePostulacionDoc(postIndex, { label: e.target.value })}
+                      aria-label={`Nombre visible: ${doc.code}`}
+                    />
                     <span className="text-[11px] text-muted-foreground font-mono shrink-0">{doc.code}</span>
                     <label className="flex items-center gap-1.5 cursor-pointer">
                       <input
@@ -147,6 +163,25 @@ export function OpsDocsGuardiasTab({
                         className="rounded border-border"
                       />
                       <span className="text-xs">Obligatorio</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={guardia.visibleInGuardForm !== false}
+                        onChange={(e) => {
+                          const v = e.target.checked;
+                          if (guardiaIndex >= 0) {
+                            updateGuardiaDocConfigItem(guardiaIndex, { visibleInGuardForm: v });
+                          } else {
+                            setGuardiaDocConfig((prev) => [
+                              ...prev,
+                              { code: doc.code, hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: v },
+                            ]);
+                          }
+                        }}
+                        className="rounded border-border"
+                      />
+                      <span className="text-xs">Visible formulario</span>
                     </label>
                     <label className="flex items-center gap-1.5 cursor-pointer">
                       <input
@@ -161,7 +196,12 @@ export function OpsDocsGuardiasTab({
                           } else {
                             setGuardiaDocConfig((prev) => [
                               ...prev,
-                              { code: doc.code, hasExpiration: e.target.checked, alertDaysBefore: 30 },
+                              {
+                                code: doc.code,
+                                hasExpiration: e.target.checked,
+                                alertDaysBefore: 30,
+                                visibleInGuardForm: true,
+                              },
                             ]);
                           }
                         }}
@@ -191,9 +231,14 @@ export function OpsDocsGuardiasTab({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive ml-auto shrink-0"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive ml-auto shrink-0 disabled:opacity-50"
                       onClick={() => removePostulacionDoc(postIndex)}
-                      title="Quitar documento"
+                      disabled={assocCount > 0}
+                      title={
+                        assocCount > 0
+                          ? `Hay ${assocCount} archivo(s) en fichas con este tipo; elimínalos antes de quitar el documento`
+                          : "Quitar documento"
+                      }
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

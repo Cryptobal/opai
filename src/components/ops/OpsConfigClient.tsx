@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { GuardiaDocumentoConfigItem as GuardiaDocConfigItem } from "@/lib/guardia-documentos-config";
 import {
   Mail,
   Clock,
@@ -44,7 +45,6 @@ interface MarcacionConfig {
 
 type PostulacionDocItem = { code: string; label: string; required: boolean };
 type InstalacionDocItem = { code: string; label: string; required: boolean };
-type GuardiaDocConfigItem = { code: string; hasExpiration: boolean; alertDaysBefore: number };
 
 const GUARDIA_DOC_LABELS: Record<string, string> = {
   certificado_antecedentes: "Certificado de antecedentes",
@@ -193,7 +193,12 @@ export function OpsConfigClient() {
     if (missing.length > 0) {
       setGuardiaDocConfig((prev) => [
         ...prev,
-        ...missing.map((m) => ({ code: m.code, hasExpiration: false, alertDaysBefore: 30 })),
+        ...missing.map((m) => ({
+          code: m.code,
+          hasExpiration: false,
+          alertDaysBefore: 30,
+          visibleInGuardForm: true,
+        })),
       ]);
     }
   }, [postulacionDocs, guardiaDocConfig]);
@@ -514,7 +519,7 @@ export function OpsConfigClient() {
             Documentos de guardias
           </h3>
           <p className="text-xs text-muted-foreground">
-            Lista de documentos para postulación y ficha de guardia. Obligatorio: si es requerido para enviar la postulación. Vencimiento: si aplica fecha de vencimiento y alertas en la ficha.
+            Lista de documentos para postulación y ficha de guardia. Obligatorio: requerido para enviar la postulación (entre los visibles). Vencimiento: alertas en la ficha. Visible en formulario: si se desactiva, el guardia no lo ve en la postulación pública, pero sí puede cargarlo un administrador en la ficha.
           </p>
 
           {(postulacionDocsLoading || guardiaDocConfigLoading) ? (
@@ -524,7 +529,10 @@ export function OpsConfigClient() {
               <div className="space-y-2">
                 {postulacionDocs.map((doc, postIndex) => {
                   const guardiaIndex = guardiaDocConfig.findIndex((g) => g.code === doc.code);
-                  const guardia = guardiaIndex >= 0 ? guardiaDocConfig[guardiaIndex] : { hasExpiration: false, alertDaysBefore: 30 };
+                  const guardia =
+                    guardiaIndex >= 0
+                      ? guardiaDocConfig[guardiaIndex]
+                      : { hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: true };
                   return (
                     <div
                       key={doc.code}
@@ -544,6 +552,30 @@ export function OpsConfigClient() {
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input
                           type="checkbox"
+                          checked={guardia.visibleInGuardForm !== false}
+                          onChange={(e) => {
+                            const v = e.target.checked;
+                            if (guardiaIndex >= 0) {
+                              updateGuardiaDocConfigItem(guardiaIndex, { visibleInGuardForm: v });
+                            } else {
+                              setGuardiaDocConfig((prev) => [
+                                ...prev,
+                                {
+                                  code: doc.code,
+                                  hasExpiration: false,
+                                  alertDaysBefore: 30,
+                                  visibleInGuardForm: v,
+                                },
+                              ]);
+                            }
+                          }}
+                          className="rounded border-border"
+                        />
+                        <span className="text-xs">Visible formulario</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
                           checked={guardia.hasExpiration}
                           onChange={(e) => {
                             if (guardiaIndex >= 0) {
@@ -554,7 +586,12 @@ export function OpsConfigClient() {
                             } else {
                               setGuardiaDocConfig((prev) => [
                                 ...prev,
-                                { code: doc.code, hasExpiration: e.target.checked, alertDaysBefore: 30 },
+                                {
+                                  code: doc.code,
+                                  hasExpiration: e.target.checked,
+                                  alertDaysBefore: 30,
+                                  visibleInGuardForm: true,
+                                },
                               ]);
                             }
                           }}

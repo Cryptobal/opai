@@ -45,6 +45,7 @@ export const DOCUMENT_TYPES = [
   "credencial_os10",
   "examen_psicologico",
   "registro_capacitacion",
+  "historial_penal",
   "contrato_firmado",
 ] as const;
 
@@ -64,6 +65,7 @@ export const DEFAULT_POSTULACION_DOCUMENTS: Array<{ code: string; label: string;
   { code: "credencial_os10", label: "Credencial OS10 (Tarjeta)", required: false },
   { code: "examen_psicologico", label: "Examen Psicológico", required: false },
   { code: "registro_capacitacion", label: "Registro de Capacitación", required: false },
+  { code: "historial_penal", label: "Historial Penal", required: false },
   { code: "contrato_firmado", label: "Contrato Firmado (PDF)", required: false },
 ];
 
