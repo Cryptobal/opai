@@ -39,6 +39,12 @@ export interface PositionBreakdownItem {
   /** = monthlyPositionCost from DB */
   totalLaborCost: number;
 
+  /**
+   * Sueldo líquido mensual estimado por guardia (motor nómina / columna netSalary).
+   * Omitido o null si no hay dato.
+   */
+  netSalaryPerGuard?: number | null;
+
   /** Sale price for this position (with margin + financial allocated proportionally) */
   salePrice: number;
   /** Price per guard per hour: salePrice / (totalGuardsInPosition × monthlyHoursStandard) */

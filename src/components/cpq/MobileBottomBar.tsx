@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { Send } from "lucide-react";
-import { formatCLP, formatUFSuffix, cn } from "@/lib/utils";
-import { clpToUf } from "@/lib/uf-utils";
+import { cn } from "@/lib/utils";
+import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import {
   Sheet,
   SheetContent,
@@ -17,6 +17,7 @@ interface MobileBottomBarProps {
   additionalLinesTotal: number;
   marginPct: number;
   ufValue: number | null;
+  displayCurrency?: string;
   sendButton?: React.ReactNode;
   portalButton?: React.ReactNode;
   pdfEmailButton?: React.ReactNode;
@@ -30,6 +31,7 @@ export function MobileBottomBar({
   additionalLinesTotal,
   marginPct,
   ufValue,
+  displayCurrency = "CLP",
   sendButton,
   portalButton,
   pdfEmailButton,
@@ -40,7 +42,6 @@ export function MobileBottomBar({
   const [sendSheetOpen, setSendSheetOpen] = useState(false);
 
   const total = salePriceMonthly + additionalLinesTotal;
-  const ufTotal = ufValue ? clpToUf(total, ufValue) : null;
 
   const sendOptionSlots = [portalButton, pdfEmailButton, emailButton].filter(Boolean);
   const sendOptionsCount = sendOptionSlots.length;
@@ -64,14 +65,16 @@ export function MobileBottomBar({
       >
         {/* Left: precio (solo lectura; el desglose está en la ficha al hacer scroll) */}
         <div className="flex flex-col min-w-0 text-left">
-          <span className="text-base font-extrabold font-mono text-white truncate">
-            {formatCLP(total)}
-          </span>
-          {ufTotal != null && ufValue ? (
-            <span className="text-[10px] text-blue-400 truncate">
-              {formatUFSuffix(ufTotal)} <span className="text-muted-foreground">(UF ${formatCLP(ufValue).replace("$", "")})</span>
-            </span>
-          ) : null}
+          <CpqDualCurrencyAmount
+            clp={total}
+            currency={displayCurrency}
+            ufValue={ufValue}
+            size="md"
+            isDark
+            primaryClassName="!text-white font-extrabold"
+            secondaryClassName="!text-blue-400/90"
+            align="left"
+          />
           <span className="text-[10px] text-emerald-400">
             Margen {Number(marginPct || 0).toFixed(0)}%{totalGuards ? ` · ${totalGuards} guardias` : ""}
           </span>

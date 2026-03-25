@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { formatCurrency } from "@/components/cpq/utils";
+import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import {
   CPQ_BREAKDOWN_SHELL,
   CPQ_BREAKDOWN_ROW,
@@ -44,6 +45,8 @@ interface CpqQuoteCostsProps {
   readOnly?: boolean;
   onAdditionalLinesChange?: (lines: CpqQuoteAdditionalLine[]) => void;
   onSaved?: () => void;
+  displayCurrency?: string;
+  ufValue?: number | null;
 }
 
 /* ── Constants ── */
@@ -159,6 +162,8 @@ export function CpqQuoteCosts({
   readOnly = false,
   onAdditionalLinesChange,
   onSaved,
+  displayCurrency = "CLP",
+  ufValue = null,
 }: CpqQuoteCostsProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -902,9 +907,17 @@ export function CpqQuoteCosts({
           )}
         </div>
         <div className="flex items-center gap-2 justify-end shrink-0">
-          <span className={cpqBreakdownAmount(total > 0 ? "text-[12px] font-semibold text-foreground" : "text-[12px] font-semibold text-muted-foreground")}>
-            {formatCurrency(total)}
-          </span>
+          <div className={cpqBreakdownAmount()}>
+            <CpqDualCurrencyAmount
+              clp={total}
+              currency={displayCurrency}
+              ufValue={ufValue}
+              size="xs"
+              primaryClassName={
+                total > 0 ? "text-foreground font-semibold" : "text-muted-foreground font-semibold"
+              }
+            />
+          </div>
           <ChevronRight className={cn("h-3 w-3 text-muted-foreground transition-transform shrink-0", expanded && "rotate-90")} />
         </div>
       </button>
@@ -1095,7 +1108,15 @@ export function CpqQuoteCosts({
             {fuelParams.kmPerDay} km/d &times; 30 = <strong>{kmMes.toLocaleString("es-CL")} km/m</strong>
           </span>
           <span className="text-muted-foreground">&divide; {fuelParams.kmPerLiter} = <strong>{litrosMes.toLocaleString("es-CL", { maximumFractionDigits: 1 })} l/m</strong></span>
-          <span className="ml-auto font-semibold text-foreground">{formatCurrency(costoMensual)}</span>
+          <div className="ml-auto">
+            <CpqDualCurrencyAmount
+              clp={costoMensual}
+              currency={displayCurrency}
+              ufValue={ufValue}
+              size="xs"
+              primaryClassName="text-foreground font-semibold"
+            />
+          </div>
         </div>
         <div className="mt-1.5 space-y-1">
           <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -1188,7 +1209,15 @@ export function CpqQuoteCosts({
         <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-500 break-words min-w-0">
           Directos
         </span>
-        <span className={cpqBreakdownAmount("text-[12px] font-bold text-emerald-500")}>{formatCurrency(directosTotal)}</span>
+        <div className={cpqBreakdownAmount()}>
+          <CpqDualCurrencyAmount
+            clp={directosTotal}
+            currency={displayCurrency}
+            ufValue={ufValue}
+            size="xs"
+            primaryClassName="text-emerald-500 font-bold"
+          />
+        </div>
       </div>
 
       {/* Uniformes */}
@@ -1329,9 +1358,17 @@ export function CpqQuoteCosts({
             Auto
           </span>
         </div>
-        <span className={cpqBreakdownAmount(holidayAdjustment > 0 ? "text-[12px] font-semibold text-foreground" : "text-[12px] font-semibold text-muted-foreground")}>
-          {formatCurrency(holidayAdjustment)}
-        </span>
+        <div className={cpqBreakdownAmount()}>
+          <CpqDualCurrencyAmount
+            clp={holidayAdjustment}
+            currency={displayCurrency}
+            ufValue={ufValue}
+            size="xs"
+            primaryClassName={
+              holidayAdjustment > 0 ? "text-foreground font-semibold" : "text-muted-foreground font-semibold"
+            }
+          />
+        </div>
       </div>
 
       {/* ── SEPARATOR ── */}
@@ -1342,7 +1379,15 @@ export function CpqQuoteCosts({
         <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-400 break-words min-w-0">
           Indirectos
         </span>
-        <span className={cpqBreakdownAmount("text-[12px] font-bold text-amber-400")}>{formatCurrency(indirectosTotal)}</span>
+        <div className={cpqBreakdownAmount()}>
+          <CpqDualCurrencyAmount
+            clp={indirectosTotal}
+            currency={displayCurrency}
+            ufValue={ufValue}
+            size="xs"
+            primaryClassName="text-amber-400 font-bold"
+          />
+        </div>
       </div>
 
       {/* Equipos operativos */}
@@ -1473,7 +1518,15 @@ export function CpqQuoteCosts({
         <span className="text-[10px] font-bold text-primary uppercase tracking-[0.08em] break-words min-w-0">
           Total costos adicionales
         </span>
-        <span className={cpqBreakdownAmount("text-sm font-extrabold text-primary")}>{formatCurrency(grandTotal)}</span>
+        <div className={cpqBreakdownAmount()}>
+          <CpqDualCurrencyAmount
+            clp={grandTotal}
+            currency={displayCurrency}
+            ufValue={ufValue}
+            size="sm"
+            primaryClassName="text-primary font-extrabold"
+          />
+        </div>
       </div>
     </div>
     </div>
@@ -1488,7 +1541,17 @@ export function CpqQuoteCosts({
       <div className="rounded-xl border bg-card overflow-hidden">
         <div className="px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-[13px] font-semibold">Costos financieros</h3>
-          <span className="text-xs text-muted-foreground">Total: {formatCurrency(financialTotal)}</span>
+          <span className="text-xs text-muted-foreground inline-flex items-baseline gap-1.5">
+            Total:
+            <CpqDualCurrencyAmount
+              clp={financialTotal}
+              currency={displayCurrency}
+              ufValue={ufValue}
+              size="xs"
+              inline
+              primaryClassName="text-foreground font-medium"
+            />
+          </span>
         </div>
         <div className="px-4 pb-3 grid gap-2 grid-cols-2 lg:grid-cols-3">
           {financialCostItems.filter((item) => item.isEnabled).map((item) => {

@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
-import { clpToUf } from "@/lib/uf-utils";
-import { formatCurrency } from "@/components/cpq/utils";
+import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import { Loader2, Sparkles, ChevronDown, Maximize2, X, FileText } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QuoteIncludesEditor } from "@/components/cpq/QuoteIncludesEditor";
@@ -161,6 +160,10 @@ export function buildBreakdownData(
     const vacationProvision = getNum("vacation_provision");
     const severanceProvision = getNum("severance_provision");
 
+    const netRaw = pos.netSalary != null ? Number(pos.netSalary) : NaN;
+    const netSalaryPerGuard =
+      Number.isFinite(netRaw) && netRaw > 0 ? Math.round(netRaw) : null;
+
     return {
       id: pos.id,
       name: pos.customName || pos.puestoTrabajo?.name || "Puesto",
@@ -176,6 +179,7 @@ export function buildBreakdownData(
       vacationProvision,
       severanceProvision,
       totalLaborCost: costClp,
+      netSalaryPerGuard,
       salePrice,
       hourlyRateSale:
         totalGuardsInPos > 0 && monthlyHoursStandard > 0
@@ -286,7 +290,6 @@ export function FinancialPanel(props: FinancialPanelProps) {
   const totalGuards = props.totalGuards;
 
   const totalFact = salePriceMonthly + additionalLinesTotal;
-  const ufTotal = ufValue && ufValue > 0 ? salePriceMonthly / ufValue : null;
 
   const laborCost = costSummary?.monthlyPositions ?? 0;
   const directCosts = (costSummary?.monthlyUniforms ?? 0) + (costSummary?.monthlyExams ?? 0) + (costSummary?.monthlyMeals ?? 0) + (costSummary?.monthlyHolidayAdjustment ?? 0);
@@ -334,12 +337,15 @@ export function FinancialPanel(props: FinancialPanelProps) {
               <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-400 mb-1.5">
                 Precio de venta mensual
               </div>
-              <div className="text-xl font-extrabold text-white tabular-nums transition-all duration-300">
-                {formatCurrency(salePriceMonthly)}
-              </div>
-              {ufTotal !== null && (
-                <div className="text-[11px] text-emerald-400 mt-0.5">{ufTotal.toFixed(2)} UF</div>
-              )}
+              <CpqDualCurrencyAmount
+                clp={salePriceMonthly}
+                currency={crmContext.currency || "CLP"}
+                ufValue={ufValue}
+                size="lg"
+                isDark
+                primaryClassName="!text-white font-extrabold"
+                secondaryClassName="!text-emerald-400/80"
+              />
               <div className="flex gap-4 mt-2 pt-2 border-t border-emerald-500/20">
                 <div>
                   <div className="text-[10px] text-muted-foreground">Puestos</div>
@@ -369,9 +375,16 @@ export function FinancialPanel(props: FinancialPanelProps) {
                 <div key={item.label} className="mb-2 last:mb-0">
                   <div className={cn(CPQ_BREAKDOWN_ROW, "text-[11px] mb-0.5")}>
                     <span className="text-muted-foreground min-w-0 break-words">{item.label}</span>
-                    <span className={cpqBreakdownAmount("font-semibold transition-all duration-300")}>
-                      {formatCurrency(item.amount)}
-                    </span>
+                    <div className={cpqBreakdownAmount()}>
+                      <CpqDualCurrencyAmount
+                        clp={item.amount}
+                        currency={crmContext.currency || "CLP"}
+                        ufValue={ufValue}
+                        size="xs"
+                        isDark
+                        primaryClassName="font-semibold text-foreground"
+                      />
+                    </div>
                   </div>
                   <div className="h-1 bg-border rounded-full overflow-hidden">
                     <div
@@ -387,13 +400,28 @@ export function FinancialPanel(props: FinancialPanelProps) {
             {additionalLinesTotal > 0 && (
               <div className="rounded-lg border border-border bg-card p-2.5">
                 <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1">Líneas adicionales</div>
-                <div className="text-lg font-bold text-amber-400 tabular-nums transition-all duration-300">{formatCurrency(additionalLinesTotal)}</div>
+                <CpqDualCurrencyAmount
+                  clp={additionalLinesTotal}
+                  currency={crmContext.currency || "CLP"}
+                  ufValue={ufValue}
+                  size="md"
+                  isDark
+                  primaryClassName="text-amber-400 font-bold"
+                />
                 <div className="text-[11px] text-muted-foreground">
                   {additionalLines.length} {additionalLines.length === 1 ? "servicio/producto" : "servicios/productos"}
                 </div>
                 <div className="mt-2 pt-2 border-t border-border">
                   <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-0.5">Total facturación</div>
-                  <div className="text-xl font-extrabold text-white tabular-nums transition-all duration-300">{formatCurrency(totalFact)}</div>
+                  <CpqDualCurrencyAmount
+                    clp={totalFact}
+                    currency={crmContext.currency || "CLP"}
+                    ufValue={ufValue}
+                    size="lg"
+                    isDark
+                    primaryClassName="!text-white font-extrabold"
+                    secondaryClassName="!text-emerald-400/80"
+                  />
                 </div>
               </div>
             )}

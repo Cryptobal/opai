@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { formatCurrency } from "@/components/cpq/utils";
+import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import {
   CPQ_BREAKDOWN_SHELL,
   CPQ_BREAKDOWN_ROW,
@@ -791,6 +792,12 @@ export function LeadInstallationCpq({
             vacationProvision: 0,
             severanceProvision: 0,
             totalLaborCost: costClp,
+            netSalaryPerGuard:
+              payrollPreview[idx]?.netSalary != null &&
+              Number.isFinite(Number(payrollPreview[idx].netSalary)) &&
+              Number(payrollPreview[idx].netSalary) > 0
+                ? Math.round(Number(payrollPreview[idx].netSalary))
+                : null,
             salePrice,
             hourlyRateSale: guards > 0 && monthlyHoursStandard > 0 ? salePrice / (guards * monthlyHoursStandard) : 0,
           };
@@ -1047,17 +1054,69 @@ export function LeadInstallationCpq({
                     );
                   }
                   const costoTotal = row.employerCostPerGuard * guards;
+                  const netG = row.netSalary;
                   return (
-                    <div className="text-[10px] space-y-0.5">
+                    <div className="text-[10px] space-y-1.5">
                       <div className="text-muted-foreground">
                         {pos.horaInicio}-{pos.horaFin} · {pos.cantidad || 1} guardia(s){(pos.numPuestos || 1) > 1 ? ` × ${pos.numPuestos} puestos = ${guards} guardias totales` : ""}
                       </div>
-                      <div className="text-emerald-400 font-semibold">
-                        Costo empresa: {formatCurrency(Math.round(costoTotal))}/mes
-                        <span className="text-muted-foreground font-normal ml-1">
-                          ({formatCurrency(Math.round(row.employerCostPerGuard))}/guardia)
-                        </span>
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-500">Costo empresa</span>
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                            <span className="text-muted-foreground">Total / mes</span>
+                            <CpqDualCurrencyAmount
+                              clp={Math.round(costoTotal)}
+                              currency={currency}
+                              ufValue={ufValue}
+                              size="xs"
+                              primaryClassName="text-emerald-400 font-semibold"
+                            />
+                          </div>
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                            <span className="text-muted-foreground">/ guardia</span>
+                            <CpqDualCurrencyAmount
+                              clp={Math.round(row.employerCostPerGuard)}
+                              currency={currency}
+                              ufValue={ufValue}
+                              size="xs"
+                              primaryClassName="text-emerald-400/90 font-medium"
+                            />
+                          </div>
+                        </div>
                       </div>
+                      {netG > 0 && (
+                        <div
+                          className={cn(
+                            "rounded-md border px-2 py-1.5",
+                            "border-sky-500/25 bg-sky-500/[0.07]",
+                          )}
+                        >
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-sky-400">Sueldo líquido estimado</span>
+                          <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2">
+                            <span className="text-muted-foreground">/ guardia · mes</span>
+                            <CpqDualCurrencyAmount
+                              clp={Math.round(netG)}
+                              currency={currency}
+                              ufValue={ufValue}
+                              size="sm"
+                              primaryClassName="text-sky-200 font-semibold"
+                            />
+                          </div>
+                          {guards > 1 && (
+                            <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-2 border-t border-sky-500/20 pt-1">
+                              <span className="text-muted-foreground">Total puesto</span>
+                              <CpqDualCurrencyAmount
+                                clp={Math.round(netG * guards)}
+                                currency={currency}
+                                ufValue={ufValue}
+                                size="xs"
+                                primaryClassName="text-sky-200 font-medium"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -1076,8 +1135,15 @@ export function LeadInstallationCpq({
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Costos adicionales</h2>
             {!secCostos && costTotals.total > 0 && (
-              <span className="text-[11px] text-muted-foreground">
-                <span className="font-mono font-semibold text-amber-400">{formatCurrency(costTotals.total)}</span>
+              <span className="text-[11px] text-muted-foreground inline-flex items-baseline gap-1.5">
+                <CpqDualCurrencyAmount
+                  clp={costTotals.total}
+                  currency={currency}
+                  ufValue={ufValue}
+                  size="xs"
+                  inline
+                  primaryClassName="text-amber-400 font-semibold"
+                />
               </span>
             )}
           </div>
@@ -1095,6 +1161,8 @@ export function LeadInstallationCpq({
               onToggleItem={toggleCostItem}
               onPriceChange={updateCostItemPrice}
               onTechnicalSpecsChange={updateCostItemSpecs}
+              displayCurrency={currency}
+              ufValue={ufValue}
               groupMonthlyOverrides={{
                 "Uniformes": costTotals.monthlyUniforms,
                 "Exámenes": costTotals.monthlyExams,
@@ -1115,10 +1183,20 @@ export function LeadInstallationCpq({
               onToggleItem={toggleCostItem}
               onPriceChange={updateCostItemPrice}
               onTechnicalSpecsChange={updateCostItemSpecs}
+              displayCurrency={currency}
+              ufValue={ufValue}
             />
             <div className={cn(CPQ_BREAKDOWN_ROW, "pt-1 border-t border-amber-500/20 text-xs")}>
               <span className="text-[11px] font-medium text-amber-300 break-words min-w-0">Total costos adicionales</span>
-              <span className={cpqBreakdownAmount("text-sm font-bold text-amber-300")}>{formatCurrency(costTotals.total)}</span>
+              <div className={cpqBreakdownAmount()}>
+                <CpqDualCurrencyAmount
+                  clp={costTotals.total}
+                  currency={currency}
+                  ufValue={ufValue}
+                  size="sm"
+                  primaryClassName="text-amber-300 font-bold"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -1480,6 +1558,8 @@ function CostCategoryBlock({
   onTechnicalSpecsChange,
   groupMonthlyOverrides,
   uniformCalcParams,
+  displayCurrency = "CLP",
+  ufValue = null,
 }: {
   title: string;
   total: number;
@@ -1491,6 +1571,8 @@ function CostCategoryBlock({
   onTechnicalSpecsChange?: (id: string, specs: string | null) => void;
   groupMonthlyOverrides?: Record<string, number>;
   uniformCalcParams?: { uniformChangesPerYear: number; totalGuards: number; contractMonths: number };
+  displayCurrency?: string;
+  ufValue?: number | null;
 }) {
   const costGroupNames = Object.keys(groups);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(costGroupNames[0] ?? null);
@@ -1509,9 +1591,15 @@ function CostCategoryBlock({
         <span className="text-[11px] font-semibold uppercase text-muted-foreground break-words min-w-0">
           {title}
         </span>
-        <span className={cpqBreakdownAmount("text-[11px] font-semibold text-muted-foreground")}>
-          {formatCurrency(total)}
-        </span>
+        <div className={cpqBreakdownAmount()}>
+          <CpqDualCurrencyAmount
+            clp={total}
+            currency={displayCurrency}
+            ufValue={ufValue}
+            size="xs"
+            primaryClassName="text-muted-foreground font-semibold"
+          />
+        </div>
       </div>
       {costGroupNames.map((groupName) => {
         const items = groups[groupName];
@@ -1536,9 +1624,15 @@ function CostCategoryBlock({
                 </span>
               </div>
               <div className="flex items-center gap-2 justify-end shrink-0">
-                <span className={cpqBreakdownAmount("text-xs text-muted-foreground")}>
-                  {groupTotal > 0 ? formatCurrency(groupTotal) : "$0"}
-                </span>
+                <div className={cpqBreakdownAmount()}>
+                  <CpqDualCurrencyAmount
+                    clp={groupTotal}
+                    currency={displayCurrency}
+                    ufValue={ufValue}
+                    size="xs"
+                    primaryClassName="text-muted-foreground"
+                  />
+                </div>
                 <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
               </div>
             </button>
@@ -1576,8 +1670,19 @@ function CostCategoryBlock({
                           title={calcTooltip}
                           className={cn("text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1 flex-wrap", calcTooltip && "cursor-help")}
                         >
-                          <span className={cn(calcTooltip && "border-b border-dotted border-muted-foreground/50")}>
-                            Base: {formatCurrency(item.basePrice)} / {item.unit === "año" ? "año" : item.unit === "semestre" ? "sem" : item.unit === "contrato" ? "contrato" : item.unit === "examen" ? "examen" : item.unit || "mes"}
+                          <span className={cn("inline-flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5", calcTooltip && "border-b border-dotted border-muted-foreground/50")}>
+                            <span>Base:</span>
+                            <CpqDualCurrencyAmount
+                              clp={item.basePrice}
+                              currency={displayCurrency}
+                              ufValue={ufValue}
+                              size="xs"
+                              inline
+                              primaryClassName="text-muted-foreground"
+                            />
+                            <span>
+                              / {item.unit === "año" ? "año" : item.unit === "semestre" ? "sem" : item.unit === "contrato" ? "contrato" : item.unit === "examen" ? "examen" : item.unit || "mes"}
+                            </span>
                           </span>
                           {item.type === "uniform" && (
                             <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${logic === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400"}`}>

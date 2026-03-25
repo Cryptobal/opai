@@ -20,24 +20,7 @@ import {
   CPQ_BREAKDOWN_ROW,
   cpqBreakdownAmount,
 } from "@/components/cpq/cpqBreakdownLayout";
-
-/* ── Format helpers ── */
-
-function fmtCLP(n: number) {
-  return new Intl.NumberFormat("es-CL", {
-    style: "currency",
-    currency: "CLP",
-    maximumFractionDigits: 0,
-  }).format(Math.round(n));
-}
-
-function fmtUF(n: number) {
-  return `${n.toFixed(2)} UF`;
-}
-
-function clpToUf(clp: number, uf: number) {
-  return uf > 0 ? clp / uf : 0;
-}
+import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 
 /* ── Props ── */
 
@@ -59,13 +42,6 @@ export function QuoteBreakdownPanel({
 
   const isDark = variant === "dark";
 
-  const fmt = (clp: number) => {
-    if (data.currency === "UF" && data.ufValue && data.ufValue > 0) {
-      return fmtUF(clpToUf(clp, data.ufValue));
-    }
-    return fmtCLP(clp);
-  };
-
   return (
     <div className="space-y-3">
       {/* ── Hero price ── */}
@@ -80,14 +56,16 @@ export function QuoteBreakdownPanel({
         <div className="text-[10px] uppercase tracking-wider font-semibold text-emerald-500 mb-1">
           Precio Venta Mensual
         </div>
-        <div className={cn("font-bold text-2xl", isDark ? "text-white" : "text-foreground")}>
-          {fmt(data.grandTotal)}
-        </div>
-        {data.currency !== "UF" && data.ufValue && data.ufValue > 0 && (
-          <div className="text-sm text-emerald-400/70 mt-0.5">
-            {fmtUF(clpToUf(data.grandTotal, data.ufValue))}
-          </div>
-        )}
+        <CpqDualCurrencyAmount
+          clp={data.grandTotal}
+          currency={data.currency}
+          ufValue={data.ufValue}
+          size="lg"
+          isDark={isDark}
+          primaryClassName={isDark ? "!text-white" : "text-foreground"}
+          secondaryClassName={isDark ? "!text-emerald-400/75" : "text-emerald-600/80"}
+          align="center"
+        />
         <div className={cn("flex items-center justify-center gap-3 mt-2 text-xs", isDark ? "text-zinc-400" : "text-muted-foreground")}>
           <span>Margen {data.marginPct}%</span>
           {data.financialRatePct > 0 && <span>Financiero {data.financialRatePct}%</span>}
@@ -137,9 +115,9 @@ export function QuoteBreakdownPanel({
 
       {/* ── Content ── */}
       {mode === "total" ? (
-        <TotalView data={data} fmt={fmt} isDark={isDark} />
+        <TotalView data={data} isDark={isDark} />
       ) : (
-        <PorPuestoView data={data} fmt={fmt} isDark={isDark} />
+        <PorPuestoView data={data} isDark={isDark} />
       )}
     </div>
   );
@@ -151,11 +129,43 @@ export function QuoteBreakdownPanel({
 
 interface TotalViewProps {
   data: QuoteBreakdownData;
-  fmt: (n: number) => string;
   isDark: boolean;
 }
 
-function TotalView({ data, fmt, isDark }: TotalViewProps) {
+function AmountCell({
+  clp,
+  data,
+  isDark,
+  size = "xs",
+  primaryClassName,
+  secondaryClassName,
+  wrapperClassName,
+}: {
+  clp: number;
+  data: QuoteBreakdownData;
+  isDark: boolean;
+  size?: "xs" | "sm" | "md";
+  primaryClassName?: string;
+  secondaryClassName?: string;
+  wrapperClassName?: string;
+}) {
+  return (
+    <div className={cn(cpqBreakdownAmount(), wrapperClassName)}>
+      <CpqDualCurrencyAmount
+        clp={clp}
+        currency={data.currency}
+        ufValue={data.ufValue}
+        size={size}
+        isDark={isDark}
+        primaryClassName={primaryClassName}
+        secondaryClassName={secondaryClassName}
+        align="right"
+      />
+    </div>
+  );
+}
+
+function TotalView({ data, isDark }: TotalViewProps) {
   const [laborExpanded, setLaborExpanded] = useState(false);
 
   const grandTotal = data.grandTotal;
@@ -169,7 +179,6 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
     isDark ? "text-zinc-300" : "text-foreground/80",
   );
   const labelCls = cn("text-xs min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground");
-  const amountCls = cpqBreakdownAmount(isDark ? "text-zinc-200" : "text-foreground font-medium");
 
   /* ── Sections ── */
   const sections: {
@@ -260,9 +269,12 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
                 <span className={cn("text-[10px] tabular-nums", isDark ? "text-zinc-500" : "text-muted-foreground")}>
                   {pct(sectionTotal)}
                 </span>
-                <span className={cpqBreakdownAmount(isDark ? "text-zinc-200" : "text-foreground font-semibold text-xs")}>
-                  {fmt(sectionTotal)}
-                </span>
+                <AmountCell
+                  clp={sectionTotal}
+                  data={data}
+                  isDark={isDark}
+                  primaryClassName={isDark ? "text-zinc-200" : "text-foreground font-semibold"}
+                />
                 {isLabor && (
                   <ChevronDown
                     className={cn(
@@ -285,15 +297,30 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
               >
                 <div className={rowCls}>
                   <span className={labelCls}>Sueldos imponibles</span>
-                  <span className={amountCls}>{fmt(laborBreakdown.totalImponible)}</span>
+                  <AmountCell
+                    clp={laborBreakdown.totalImponible}
+                    data={data}
+                    isDark={isDark}
+                    primaryClassName={isDark ? "text-zinc-200" : "text-foreground font-medium"}
+                  />
                 </div>
                 <div className={rowCls}>
                   <span className={labelCls}>Imposiciones empleador</span>
-                  <span className={amountCls}>{fmt(laborBreakdown.imposiciones)}</span>
+                  <AmountCell
+                    clp={laborBreakdown.imposiciones}
+                    data={data}
+                    isDark={isDark}
+                    primaryClassName={isDark ? "text-zinc-200" : "text-foreground font-medium"}
+                  />
                 </div>
                 <div className={rowCls}>
                   <span className={labelCls}>Provisiones (vacac. + finiquito)</span>
-                  <span className={amountCls}>{fmt(laborBreakdown.provisiones)}</span>
+                  <AmountCell
+                    clp={laborBreakdown.provisiones}
+                    data={data}
+                    isDark={isDark}
+                    primaryClassName={isDark ? "text-zinc-200" : "text-foreground font-medium"}
+                  />
                 </div>
               </div>
             )}
@@ -309,7 +336,12 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
                 {section.items.map((item) => (
                   <div key={item.label} className={rowCls}>
                     <span className={labelCls}>{item.label}</span>
-                    <span className={amountCls}>{fmt(item.amount)}</span>
+                    <AmountCell
+                      clp={item.amount}
+                      data={data}
+                      isDark={isDark}
+                      primaryClassName={isDark ? "text-zinc-200" : "text-foreground font-medium"}
+                    />
                   </div>
                 ))}
               </div>
@@ -329,9 +361,12 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
         <span className={cn("font-semibold min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
           Subtotal costos base
         </span>
-        <span className={cpqBreakdownAmount(isDark ? "text-zinc-300" : "text-foreground font-semibold")}>
-          {fmt(data.subtotalBase)}
-        </span>
+        <AmountCell
+          clp={data.subtotalBase}
+          data={data}
+          isDark={isDark}
+          primaryClassName={isDark ? "text-zinc-300" : "text-foreground font-semibold"}
+        />
       </div>
 
       {/* ── Margin ── */}
@@ -353,9 +388,12 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
           <span className={cn("min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
             Margen mensual
           </span>
-          <span className={cpqBreakdownAmount("text-xs font-semibold text-emerald-500")}>
-            {fmt(data.marginAmount)}
-          </span>
+          <AmountCell
+            clp={data.marginAmount}
+            data={data}
+            isDark={isDark}
+            primaryClassName="text-emerald-500 font-semibold"
+          />
         </div>
       </div>
 
@@ -375,9 +413,12 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
               <span className={cn("min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
                 Financiero ({data.financialRatePct}%)
               </span>
-              <span className={cpqBreakdownAmount(isDark ? "text-zinc-300" : "text-foreground font-medium")}>
-                {fmt(data.financial)}
-              </span>
+              <AmountCell
+                clp={data.financial}
+                data={data}
+                isDark={isDark}
+                primaryClassName={isDark ? "text-zinc-300" : "text-foreground font-medium"}
+              />
             </div>
           )}
           {data.policy > 0 && (
@@ -385,9 +426,12 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
               <span className={cn("min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
                 Póliza ({data.policyRatePct}%)
               </span>
-              <span className={cpqBreakdownAmount(isDark ? "text-zinc-300" : "text-foreground font-medium")}>
-                {fmt(data.policy)}
-              </span>
+              <AmountCell
+                clp={data.policy}
+                data={data}
+                isDark={isDark}
+                primaryClassName={isDark ? "text-zinc-300" : "text-foreground font-medium"}
+              />
             </div>
           )}
         </div>
@@ -406,9 +450,13 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
           <span className={cn("font-bold min-w-0 break-words", isDark ? "text-white" : "text-foreground")}>
             Precio venta mensual
           </span>
-          <span className={cpqBreakdownAmount("text-sm font-bold text-emerald-500")}>
-            {fmt(data.grandTotal)}
-          </span>
+          <AmountCell
+            clp={data.grandTotal}
+            data={data}
+            isDark={isDark}
+            size="sm"
+            primaryClassName="text-emerald-500 font-bold"
+          />
         </div>
         {data.additionalLines > 0 && (
           <div
@@ -419,7 +467,12 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
             )}
           >
             <span className="min-w-0 break-words">Incluye líneas adicionales</span>
-            <span className={cpqBreakdownAmount()}>{fmt(data.additionalLines)}</span>
+            <AmountCell
+              clp={data.additionalLines}
+              data={data}
+              isDark={isDark}
+              primaryClassName={isDark ? "text-zinc-300" : "text-foreground"}
+            />
           </div>
         )}
         <div className={cn("text-[10px] mt-1.5", isDark ? "text-zinc-500" : "text-muted-foreground")}>
@@ -436,15 +489,20 @@ function TotalView({ data, fmt, isDark }: TotalViewProps) {
 
 interface PorPuestoViewProps {
   data: QuoteBreakdownData;
-  fmt: (n: number) => string;
   isDark: boolean;
 }
 
-function PorPuestoView({ data, fmt, isDark }: PorPuestoViewProps) {
+function PorPuestoView({ data, isDark }: PorPuestoViewProps) {
   return (
     <div className={cn(CPQ_BREAKDOWN_SHELL, "space-y-2")}>
       {data.positions.map((pos) => (
-        <PositionCard key={pos.id} pos={pos} fmt={fmt} isDark={isDark} monthlyHours={data.monthlyHoursStandard} />
+        <PositionCard
+          key={pos.id}
+          pos={pos}
+          data={data}
+          isDark={isDark}
+          monthlyHours={data.monthlyHoursStandard}
+        />
       ))}
 
       {/* ── Grand total summary ── */}
@@ -460,9 +518,13 @@ function PorPuestoView({ data, fmt, isDark }: PorPuestoViewProps) {
           <span className={cn("font-bold min-w-0 break-words", isDark ? "text-white" : "text-foreground")}>
             Total mensual
           </span>
-          <span className={cpqBreakdownAmount("text-sm font-bold text-emerald-500")}>
-            {fmt(data.grandTotal)}
-          </span>
+          <AmountCell
+            clp={data.grandTotal}
+            data={data}
+            isDark={isDark}
+            size="sm"
+            primaryClassName="text-emerald-500 font-bold"
+          />
         </div>
         <div className={cn("text-[10px] mt-1", isDark ? "text-zinc-500" : "text-muted-foreground")}>
           Valores netos · IVA se factura según ley vigente
@@ -476,12 +538,12 @@ function PorPuestoView({ data, fmt, isDark }: PorPuestoViewProps) {
 
 function PositionCard({
   pos,
-  fmt,
+  data,
   isDark,
   monthlyHours,
 }: {
   pos: PositionBreakdownItem;
-  fmt: (n: number) => string;
+  data: QuoteBreakdownData;
   isDark: boolean;
   monthlyHours: number;
 }) {
@@ -489,7 +551,6 @@ function PositionCard({
 
   const rowCls = cn(CPQ_BREAKDOWN_ROW, "text-xs py-0.5");
   const labelCls = cn("text-xs min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground");
-  const amountCls = cpqBreakdownAmount(isDark ? "text-zinc-300" : "text-foreground");
 
   const imposiciones = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
   const provisiones = pos.vacationProvision + pos.severanceProvision;
@@ -506,48 +567,109 @@ function PositionCard({
         type="button"
         onClick={() => setExpanded((v) => !v)}
         className={cn(
-          "w-full text-left px-3 py-3 grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start transition-colors",
+          "w-full text-left px-3 py-3 flex flex-col gap-2 transition-colors",
           isDark ? "hover:bg-white/[0.03]" : "hover:bg-muted/30",
         )}
       >
-        <div className="min-w-0">
-          <div className={cn("text-sm font-semibold break-words", isDark ? "text-white" : "text-foreground")}>
-            {pos.name}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start w-full">
+          <div className="min-w-0">
+            <div className={cn("text-sm font-semibold break-words", isDark ? "text-white" : "text-foreground")}>
+              {pos.name}
+            </div>
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              <span
+                className={cn(
+                  "flex items-center gap-1 text-[11px]",
+                  isDark ? "text-zinc-400" : "text-muted-foreground",
+                )}
+              >
+                <Users className="h-3 w-3" />
+                {pos.totalGuardsInPosition} guardia{pos.totalGuardsInPosition !== 1 ? "s" : ""}
+                {pos.numPuestos > 1 && ` (${pos.numGuards}×${pos.numPuestos} puestos)`}
+              </span>
+              <span
+                className={cn(
+                  "flex items-center gap-1 text-[11px]",
+                  isDark ? "text-zinc-400" : "text-muted-foreground",
+                )}
+              >
+                <Clock className="h-3 w-3" />
+                <CpqDualCurrencyAmount
+                  clp={pos.hourlyRateSale}
+                  currency={data.currency}
+                  ufValue={data.ufValue}
+                  size="xs"
+                  isDark={isDark}
+                  suffix="/hr"
+                  inline
+                  primaryClassName={isDark ? "text-zinc-400" : "text-muted-foreground"}
+                  secondaryClassName="text-[9px] opacity-70"
+                />
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-3 mt-1 flex-wrap">
-            <span
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <AmountCell
+              clp={pos.salePrice}
+              data={data}
+              isDark={isDark}
+              size="md"
+              primaryClassName="text-emerald-500 font-bold"
+            />
+            <ChevronDown
               className={cn(
-                "flex items-center gap-1 text-[11px]",
-                isDark ? "text-zinc-400" : "text-muted-foreground",
+                "h-3.5 w-3.5 transition-transform",
+                isDark ? "text-zinc-500" : "text-muted-foreground",
+                expanded ? "rotate-180" : "",
               )}
-            >
-              <Users className="h-3 w-3" />
-              {pos.totalGuardsInPosition} guardia{pos.totalGuardsInPosition !== 1 ? "s" : ""}
-              {pos.numPuestos > 1 && ` (${pos.numGuards}×${pos.numPuestos} puestos)`}
-            </span>
-            <span
-              className={cn(
-                "flex items-center gap-1 text-[11px]",
-                isDark ? "text-zinc-400" : "text-muted-foreground",
-              )}
-            >
-              <Clock className="h-3 w-3" />
-              {fmtCLP(Math.round(pos.hourlyRateSale))}/hr
-            </span>
+            />
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className={cpqBreakdownAmount("text-sm font-bold text-emerald-500")}>
-            {fmt(pos.salePrice)}
-          </span>
-          <ChevronDown
+
+        {pos.netSalaryPerGuard != null && pos.netSalaryPerGuard > 0 ? (
+          <div
             className={cn(
-              "h-3.5 w-3.5 transition-transform",
-              isDark ? "text-zinc-500" : "text-muted-foreground",
-              expanded ? "rotate-180" : "",
+              "rounded-lg border px-2.5 py-2 w-full",
+              isDark ? "border-sky-500/25 bg-sky-500/[0.07]" : "border-sky-500/30 bg-sky-500/5",
             )}
-          />
-        </div>
+          >
+            <p className={cn("text-[11px] font-semibold uppercase tracking-wide", isDark ? "text-sky-300" : "text-sky-700")}>
+              Sueldo líquido estimado
+            </p>
+            <div className="mt-1 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+              <span className={cn("text-[11px]", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+                Por guardia / mes
+              </span>
+              <CpqDualCurrencyAmount
+                clp={pos.netSalaryPerGuard}
+                currency={data.currency}
+                ufValue={data.ufValue}
+                size="md"
+                isDark={isDark}
+                primaryClassName={isDark ? "text-sky-100" : "text-sky-900 dark:text-sky-100"}
+              />
+            </div>
+            {pos.totalGuardsInPosition > 1 && (
+              <div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-4 gap-y-1 pt-1.5 border-t border-sky-500/20">
+                <span className={cn("text-[11px]", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+                  Total puesto ({pos.totalGuardsInPosition} guardias)
+                </span>
+                <CpqDualCurrencyAmount
+                  clp={pos.netSalaryPerGuard * pos.totalGuardsInPosition}
+                  currency={data.currency}
+                  ufValue={data.ufValue}
+                  size="sm"
+                  isDark={isDark}
+                  primaryClassName={isDark ? "text-sky-200" : "text-sky-800 dark:text-sky-200"}
+                />
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className={cn("text-[11px] leading-snug", isDark ? "text-amber-400/90" : "text-amber-700")}>
+            Sueldo líquido: no hay estimación en este puesto. Si la cotización está bloqueada, el valor quedó al enviarla; si falta, al desbloquear usa Recalcular en el puesto.
+          </p>
+        )}
       </button>
 
       {/* Expanded breakdown */}
@@ -567,22 +689,42 @@ function PositionCard({
             {pos.totalImponible > 0 && (
               <div className={rowCls}>
                 <span className={labelCls}>Sueldo imponible (base + gratif.)</span>
-                <span className={amountCls}>{fmt(pos.totalImponible)}</span>
+                <AmountCell
+                  clp={pos.totalImponible}
+                  data={data}
+                  isDark={isDark}
+                  primaryClassName={isDark ? "text-zinc-300" : "text-foreground"}
+                />
               </div>
             )}
             {imposiciones > 0 && (
               <>
                 <div className={rowCls}>
                   <span className={cn(labelCls, "pl-2 italic")}>SIS empleador</span>
-                  <span className={cn(amountCls, "opacity-70")}>{fmt(pos.sisEmployer)}</span>
+                  <AmountCell
+                    clp={pos.sisEmployer}
+                    data={data}
+                    isDark={isDark}
+                    primaryClassName={isDark ? "text-zinc-300/70" : "text-foreground/70"}
+                  />
                 </div>
                 <div className={rowCls}>
                   <span className={cn(labelCls, "pl-2 italic")}>AFC empleador</span>
-                  <span className={cn(amountCls, "opacity-70")}>{fmt(pos.afcEmployer)}</span>
+                  <AmountCell
+                    clp={pos.afcEmployer}
+                    data={data}
+                    isDark={isDark}
+                    primaryClassName={isDark ? "text-zinc-300/70" : "text-foreground/70"}
+                  />
                 </div>
                 <div className={rowCls}>
                   <span className={cn(labelCls, "pl-2 italic")}>Mutual / Acc. trabajo</span>
-                  <span className={cn(amountCls, "opacity-70")}>{fmt(pos.mutualEmployer)}</span>
+                  <AmountCell
+                    clp={pos.mutualEmployer}
+                    data={data}
+                    isDark={isDark}
+                    primaryClassName={isDark ? "text-zinc-300/70" : "text-foreground/70"}
+                  />
                 </div>
               </>
             )}
@@ -596,11 +738,21 @@ function PositionCard({
                 />
                 <div className={rowCls}>
                   <span className={cn(labelCls, "pl-2 italic")}>Prov. vacaciones</span>
-                  <span className={cn(amountCls, "opacity-70")}>{fmt(pos.vacationProvision)}</span>
+                  <AmountCell
+                    clp={pos.vacationProvision}
+                    data={data}
+                    isDark={isDark}
+                    primaryClassName={isDark ? "text-zinc-300/70" : "text-foreground/70"}
+                  />
                 </div>
                 <div className={rowCls}>
                   <span className={cn(labelCls, "pl-2 italic")}>Prov. finiquito</span>
-                  <span className={cn(amountCls, "opacity-70")}>{fmt(pos.severanceProvision)}</span>
+                  <AmountCell
+                    clp={pos.severanceProvision}
+                    data={data}
+                    isDark={isDark}
+                    primaryClassName={isDark ? "text-zinc-300/70" : "text-foreground/70"}
+                  />
                 </div>
               </>
             )}
@@ -616,9 +768,12 @@ function PositionCard({
               <span className={cn("font-semibold min-w-0 break-words", isDark ? "text-blue-400" : "text-blue-600")}>
                 Total costo empleador
               </span>
-              <span className={cpqBreakdownAmount(isDark ? "text-blue-300" : "text-blue-700 font-semibold")}>
-                {fmt(pos.totalLaborCost)}
-              </span>
+              <AmountCell
+                clp={pos.totalLaborCost}
+                data={data}
+                isDark={isDark}
+                primaryClassName={isDark ? "text-blue-300" : "text-blue-700 font-semibold"}
+              />
             </div>
           </div>
 
@@ -635,7 +790,12 @@ function PositionCard({
             <div className="space-y-0.5">
               <div className={rowCls}>
                 <span className={labelCls}>Costo de empleador</span>
-                <span className={amountCls}>{fmt(pos.totalLaborCost)}</span>
+                <AmountCell
+                  clp={pos.totalLaborCost}
+                  data={data}
+                  isDark={isDark}
+                  primaryClassName={isDark ? "text-zinc-300" : "text-foreground"}
+                />
               </div>
               <div className="py-0.5">
                 <span
@@ -652,9 +812,12 @@ function PositionCard({
               <span className={cn("font-bold min-w-0 break-words", isDark ? "text-emerald-400" : "text-emerald-600")}>
                 Precio venta puesto
               </span>
-              <span className={cpqBreakdownAmount("text-xs font-bold text-emerald-500")}>
-                {fmt(pos.salePrice)}
-              </span>
+              <AmountCell
+                clp={pos.salePrice}
+                data={data}
+                isDark={isDark}
+                primaryClassName="text-emerald-500 font-bold"
+              />
             </div>
           </div>
 
@@ -672,9 +835,17 @@ function PositionCard({
                 Valor hora de venta ({monthlyHours}h/mes)
               </span>
             </div>
-            <span className={cpqBreakdownAmount(isDark ? "text-emerald-400" : "text-emerald-600 font-bold")}>
-              {fmtCLP(Math.round(pos.hourlyRateSale))}/hr
-            </span>
+            <div className={cpqBreakdownAmount()}>
+              <CpqDualCurrencyAmount
+                clp={pos.hourlyRateSale}
+                currency={data.currency}
+                ufValue={data.ufValue}
+                size="sm"
+                isDark={isDark}
+                suffix="/hr"
+                primaryClassName={isDark ? "text-emerald-400" : "text-emerald-600 font-bold"}
+              />
+            </div>
           </div>
         </div>
       )}

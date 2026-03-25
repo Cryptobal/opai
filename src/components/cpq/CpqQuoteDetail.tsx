@@ -19,6 +19,7 @@ import { CpqPositionCard } from "@/components/cpq/CpqPositionCard";
 import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { SendPortalProposalModal } from "@/components/cpq/SendPortalProposalModal";
 import { formatCurrency } from "@/components/cpq/utils";
+import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import {
   CPQ_BREAKDOWN_SHELL,
   CPQ_BREAKDOWN_ROW,
@@ -1544,8 +1545,16 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Desglose</h2>
             {!secDesglose && (
-              <span className="text-[11px] text-muted-foreground truncate">
-                {formatCurrency(salePriceMonthly)}/mes · {marginPct}% margen
+              <span className="text-[11px] text-muted-foreground truncate inline-flex items-center gap-1.5 max-w-[min(100%,28rem)]">
+                <CpqDualCurrencyAmount
+                  clp={salePriceMonthly}
+                  currency={crmContext.currency || "CLP"}
+                  ufValue={ufValue}
+                  size="xs"
+                  inline
+                  primaryClassName="text-foreground font-medium"
+                />
+                <span>/mes · {marginPct}% margen</span>
               </span>
             )}
           </div>
@@ -1580,7 +1589,17 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             <h2 className="text-sm font-bold shrink-0">Puestos</h2>
             {!secPuestos && positions.length > 0 && (
               <span className="text-[11px] text-muted-foreground truncate">
-                {positions.length} {positions.length === 1 ? "puesto" : "puestos"} · {stats.totalGuards} guardias — <span className="font-mono font-semibold text-blue-400">{formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}</span>
+                {positions.length} {positions.length === 1 ? "puesto" : "puestos"} · {stats.totalGuards} guardias —{" "}
+                <span className="inline-flex align-middle">
+                  <CpqDualCurrencyAmount
+                    clp={positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0)}
+                    currency={crmContext.currency || "CLP"}
+                    ufValue={ufValue}
+                    size="xs"
+                    inline
+                    primaryClassName="text-blue-400 font-semibold"
+                  />
+                </span>
               </span>
             )}
           </div>
@@ -1625,6 +1644,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                     readOnly={isLocked}
                     salePriceMonthlyForPosition={positionSalePrices.get(position.id) ?? 0}
                     clientHourlyRate={positionHourlyRates.get(position.id) ?? 0}
+                    displayCurrency={crmContext.currency || "CLP"}
+                    ufValue={ufValue}
                   />
                 ))}
               </div>
@@ -1646,9 +1667,15 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                     </Button>
                   )}
                 </div>
-                <span className={cpqBreakdownAmount("text-sm font-bold")}>
-                  {formatCurrency(positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0))}
-                </span>
+                <div className={cpqBreakdownAmount()}>
+                  <CpqDualCurrencyAmount
+                    clp={positions.reduce((sum, p) => sum + Number(p.monthlyPositionCost), 0)}
+                    currency={crmContext.currency || "CLP"}
+                    ufValue={ufValue}
+                    size="sm"
+                    primaryClassName="font-bold"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -1662,7 +1689,16 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             <h2 className="text-sm font-bold shrink-0">Costos adicionales</h2>
             {!secCostos && costSummary && (costSummary.monthlyExtras ?? 0) > 0 && (
               <span className="text-[11px] text-muted-foreground truncate">
-                <span className="font-mono font-semibold text-amber-400">{formatCurrency(costSummary.monthlyExtras ?? 0)}</span>
+                <span className="inline-flex align-middle">
+                  <CpqDualCurrencyAmount
+                    clp={costSummary.monthlyExtras ?? 0}
+                    currency={crmContext.currency || "CLP"}
+                    ufValue={ufValue}
+                    size="xs"
+                    inline
+                    primaryClassName="text-amber-400 font-semibold"
+                  />
+                </span>
               </span>
             )}
           </div>
@@ -1670,7 +1706,16 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         </button>
         {secCostos && (
           <div className="px-4 pb-4">
-            <CpqQuoteCosts quoteId={quoteId} variant="inline" showFinancial={false} readOnly={isLocked} onAdditionalLinesChange={setAdditionalLines} onSaved={refresh} />
+            <CpqQuoteCosts
+              quoteId={quoteId}
+              variant="inline"
+              showFinancial={false}
+              readOnly={isLocked}
+              onAdditionalLinesChange={setAdditionalLines}
+              onSaved={refresh}
+              displayCurrency={crmContext.currency || "CLP"}
+              ufValue={ufValue}
+            />
           </div>
         )}
       </Card>
@@ -1682,7 +1727,17 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             <h2 className="text-sm font-bold shrink-0">Líneas adicionales</h2>
             {!secLineas && additionalLines.length > 0 && (
               <span className="text-[11px] text-muted-foreground truncate">
-                {additionalLines.length} {additionalLines.length === 1 ? "línea" : "líneas"} — <span className="font-mono font-semibold text-purple-400">{formatCurrency(additionalLinesTotal)}</span>
+                {additionalLines.length} {additionalLines.length === 1 ? "línea" : "líneas"} —{" "}
+                <span className="inline-flex align-middle">
+                  <CpqDualCurrencyAmount
+                    clp={additionalLinesTotal}
+                    currency={crmContext.currency || "CLP"}
+                    ufValue={ufValue}
+                    size="xs"
+                    inline
+                    primaryClassName="text-purple-400 font-semibold"
+                  />
+                </span>
               </span>
             )}
           </div>
@@ -2355,6 +2410,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         additionalLinesTotal={additionalLinesTotal}
         marginPct={marginPct}
         ufValue={ufValue}
+        displayCurrency={crmContext.currency || "CLP"}
         totalGuards={stats.totalGuards}
         portalButton={
           <Button

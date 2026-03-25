@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatCurrency, formatWeekdaysShort, getShiftType, WEEKDAY_ORDER } from "@/components/cpq/utils";
+import { formatWeekdaysShort, getShiftType, WEEKDAY_ORDER } from "@/components/cpq/utils";
+import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import {
   CPQ_BREAKDOWN_SHELL,
   CPQ_BREAKDOWN_ROW,
@@ -29,6 +30,9 @@ interface CpqPositionCardProps {
   readOnly?: boolean;
   salePriceMonthlyForPosition?: number;
   clientHourlyRate?: number;
+  /** Moneda de visualización (igual que CRM / cotización) */
+  displayCurrency?: string;
+  ufValue?: number | null;
 }
 
 type PositionDraft = {
@@ -72,6 +76,8 @@ export function CpqPositionCard({
   readOnly = false,
   salePriceMonthlyForPosition: _salePriceMonthlyForPosition = 0,
   clientHourlyRate: _clientHourlyRate = 0,
+  displayCurrency = "CLP",
+  ufValue = null,
 }: CpqPositionCardProps) {
   const { puestos, cargos, roles } = useCpqCatalogs();
   const [draft, setDraft] = useState(() => positionToDraft(position));
@@ -237,39 +243,80 @@ export function CpqPositionCard({
   const selectCls = `flex h-7 w-full rounded-md border px-2 text-xs ${fieldBg}`;
 
   if (readOnly) {
+    const net = position.netSalary != null ? Number(position.netSalary) : NaN;
+    const netOk = Number.isFinite(net) && net > 0;
     return (
       <Card className="overflow-hidden border border-muted/40">
-        <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-center px-3 py-2.5", CPQ_BREAKDOWN_SHELL)}>
-          <div className="min-w-0">
-            <div className="text-[13px] font-bold text-foreground break-words">{titleLabel}</div>
-            <div className="flex items-center gap-1 flex-wrap mt-1">
-              <Badge variant="outline" className={cn(badgeBase, "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400")}>
-                {totalGuards} {totalGuards === 1 ? "guardia" : "guardias"}
-              </Badge>
-              <Badge
-                variant="outline"
-                className={cn(
-                  badgeBase,
-                  shiftType === "night"
-                    ? "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400"
-                    : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                )}
-              >
-                {shiftType === "night" ? <Moon className="mr-0.5 h-2.5 w-2.5 inline" /> : <Sun className="mr-0.5 h-2.5 w-2.5 inline" />}
-                {shiftType === "night" ? "Nocturno" : "Diurno"}
-              </Badge>
-              <Badge variant="outline" className={cn(badgeBase, "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400")}>
-                {formatWeekdaysShort(position.weekdays)}
-              </Badge>
+        <div className={cn("px-3 py-2.5 space-y-2", CPQ_BREAKDOWN_SHELL)}>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start">
+            <div className="min-w-0">
+              <div className="text-[13px] font-bold text-foreground break-words">{titleLabel}</div>
+              <div className="flex items-center gap-1 flex-wrap mt-1">
+                <Badge variant="outline" className={cn(badgeBase, "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400")}>
+                  {totalGuards} {totalGuards === 1 ? "guardia" : "guardias"}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    badgeBase,
+                    shiftType === "night"
+                      ? "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400"
+                      : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                  )}
+                >
+                  {shiftType === "night" ? <Moon className="mr-0.5 h-2.5 w-2.5 inline" /> : <Sun className="mr-0.5 h-2.5 w-2.5 inline" />}
+                  {shiftType === "night" ? "Nocturno" : "Diurno"}
+                </Badge>
+                <Badge variant="outline" className={cn(badgeBase, "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400")}>
+                  {formatWeekdaysShort(position.weekdays)}
+                </Badge>
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                {position.startTime}-{position.endTime} · {rotationLabel}
+                {position.cargo?.name ? ` · ${position.cargo.name}` : ""}
+              </div>
             </div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">
-              {position.startTime}-{position.endTime} · {rotationLabel}
-              {position.cargo?.name ? ` · ${position.cargo.name}` : ""}
+            <div className={cpqBreakdownAmount()}>
+              <CpqDualCurrencyAmount
+                clp={Number(position.monthlyPositionCost)}
+                currency={displayCurrency}
+                ufValue={ufValue}
+                size="md"
+                primaryClassName="text-foreground font-bold"
+              />
             </div>
           </div>
-          <span className={cpqBreakdownAmount("text-[14px] font-bold text-foreground")}>
-            {formatCurrency(Number(position.monthlyPositionCost))}
-          </span>
+          {netOk ? (
+            <div className="rounded-md border border-sky-500/25 bg-sky-500/[0.07] px-2 py-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">Sueldo líquido estimado</p>
+              <div className="mt-0.5 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+                <span className="text-[11px] text-muted-foreground">Por guardia / mes</span>
+                <CpqDualCurrencyAmount
+                  clp={Math.round(net)}
+                  currency={displayCurrency}
+                  ufValue={ufValue}
+                  size="md"
+                  primaryClassName="text-sky-900 dark:text-sky-100 font-semibold"
+                />
+              </div>
+              {totalGuards > 1 && (
+                <div className="mt-1 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 border-t border-sky-500/20 pt-1">
+                  <span className="text-[11px] text-muted-foreground">Total puesto ({totalGuards} guardias)</span>
+                  <CpqDualCurrencyAmount
+                    clp={Math.round(net * totalGuards)}
+                    currency={displayCurrency}
+                    ufValue={ufValue}
+                    size="sm"
+                    primaryClassName="text-sky-800 dark:text-sky-200 font-medium"
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-[11px] text-amber-700 dark:text-amber-400/90">
+              Sueldo líquido: sin estimación en datos del puesto.
+            </p>
+          )}
         </div>
       </Card>
     );
@@ -435,10 +482,39 @@ export function CpqPositionCard({
             {draft.startTime}-{draft.endTime} · {draft.numGuards} guardia(s)
             {(draft.numPuestos || 1) > 1 ? ` × ${draft.numPuestos} puestos = ${totalGuards} guardias totales` : ""}
           </div>
-          <div className={cn(CPQ_BREAKDOWN_ROW, "text-[10px]")}>
-            <div className="text-emerald-400 font-semibold min-w-0 break-words">
-              Costo empresa: {formatCurrency(Number(position.monthlyPositionCost))}/mes
-              <span className="text-muted-foreground font-normal ml-1">({formatCurrency(Number(position.employerCost))}/guardia)</span>
+          <div className={cn(CPQ_BREAKDOWN_ROW, "text-[10px] items-start")}>
+            <div className="text-emerald-400 font-semibold min-w-0 break-words space-y-1">
+              <div>Costo empresa / mes</div>
+              <CpqDualCurrencyAmount
+                clp={Number(position.monthlyPositionCost)}
+                currency={displayCurrency}
+                ufValue={ufValue}
+                size="xs"
+                primaryClassName="text-emerald-400"
+                align="left"
+              />
+              <div className="text-muted-foreground font-normal">/ guardia</div>
+              <CpqDualCurrencyAmount
+                clp={Number(position.employerCost)}
+                currency={displayCurrency}
+                ufValue={ufValue}
+                size="xs"
+                primaryClassName="text-emerald-400/85"
+                align="left"
+              />
+              {position.netSalary != null && Number(position.netSalary) > 0 && (
+                <div className="pt-1.5 mt-1 border-t border-border/40 space-y-0.5">
+                  <span className="text-sky-500 dark:text-sky-400">Sueldo líquido estim. / guardia</span>
+                  <CpqDualCurrencyAmount
+                    clp={Math.round(Number(position.netSalary))}
+                    currency={displayCurrency}
+                    ufValue={ufValue}
+                    size="sm"
+                    primaryClassName="text-sky-600 dark:text-sky-300 font-semibold"
+                    align="left"
+                  />
+                </div>
+              )}
             </div>
             <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[10px] shrink-0 self-center" onClick={handleRecalculate} disabled={recalcLoading}>
               <RefreshCw className={cn("h-3 w-3 mr-1", recalcLoading && "animate-spin")} />
