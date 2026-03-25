@@ -15,7 +15,6 @@ import {
   Circle,
   Pencil,
   Plus,
-  Building2,
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,7 +31,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 
 /* ── Types ── */
 
@@ -73,27 +71,19 @@ function formatFileSize(bytes: number | null): string {
 
 /* ── Main Component ── */
 
-type Tab = "empresa" | "guardias";
-
 export function GlobalDocumentsClient() {
-  const [activeTab, setActiveTab] = useState<Tab>("empresa");
   const [tiposEmpresa, setTiposEmpresa] = useState<TipoDoc[]>([]);
-  const [tiposGuardia, setTiposGuardia] = useState<TipoDoc[]>([]);
   const [documents, setDocuments] = useState<DocGlobal[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
       const [tiposRes, docsRes] = await Promise.all([
-        fetch("/api/operacional/tipos"),
+        fetch("/api/operacional/tipos?capa=global"),
         fetch("/api/operacional/documentos-globales"),
       ]);
       const [tiposJson, docsJson] = await Promise.all([tiposRes.json(), docsRes.json()]);
-      if (tiposJson.success) {
-        const all: TipoDoc[] = tiposJson.data;
-        setTiposEmpresa(all.filter((t) => t.capa === "global"));
-        setTiposGuardia(all.filter((t) => t.capa === "guardia"));
-      }
+      if (tiposJson.success) setTiposEmpresa(tiposJson.data);
       if (docsJson.success) setDocuments(docsJson.data);
     } catch {
       toast.error("Error al cargar datos");
@@ -114,44 +104,35 @@ export function GlobalDocumentsClient() {
 
   return (
     <div className="space-y-4">
-      {/* Tab bar */}
-      <div className="flex gap-1 bg-muted/50 p-1 rounded-lg">
-        {([
-          { id: "empresa" as Tab, label: "Empresa", icon: Building2 },
-          { id: "guardias" as Tab, label: "Guardias", icon: User },
-        ]).map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors flex-1 justify-center",
-                activeTab === tab.id
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <EmpresaTab
+        tipos={tiposEmpresa}
+        documents={documents}
+        onRefresh={fetchData}
+      />
 
-      {activeTab === "empresa" && (
-        <EmpresaTab
-          tipos={tiposEmpresa}
-          documents={documents}
-          onRefresh={fetchData}
-        />
-      )}
-      {activeTab === "guardias" && (
-        <GuardiaTiposTab
-          tipos={tiposGuardia}
-          onRefresh={fetchData}
-        />
-      )}
+      {/* Link to existing guardia docs config */}
+      <Card>
+        <CardContent className="py-4 px-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Documentos por guardia
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Los tipos de documentos requeridos por guardia se configuran en Operaciones. Estos aparecen en la ficha de cada guardia y en la vista consolidada por instalación.
+              </p>
+            </div>
+            <a
+              href="/opai/configuracion/ops?tab=docs-guardias"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent/50"
+            >
+              Configurar
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -470,188 +451,6 @@ function EmpresaTab({
 
       {/* Delete tipo confirm */}
       <ConfirmDialog open={!!deleteTipoId} onOpenChange={(open) => !open && setDeleteTipoId(null)} title="Eliminar tipo de documento" description="Se eliminará este tipo del catálogo. Solo posible si no tiene documentos asociados." confirmLabel="Eliminar" onConfirm={() => { if (deleteTipoId) handleDeleteTipo(deleteTipoId); }} />
-    </>
-  );
-}
-
-/* ══════════════════════════════════════════════════
-   TAB: GUARDIAS — Tipos de docs requeridos por guardia
-   ══════════════════════════════════════════════════ */
-
-function GuardiaTiposTab({
-  tipos,
-  onRefresh,
-}: {
-  tipos: TipoDoc[];
-  onRefresh: () => Promise<void>;
-}) {
-  const [editTipo, setEditTipo] = useState<TipoDoc | null>(null);
-  const [editForm, setEditForm] = useState({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, diasAlerta: 30 });
-  const [deleteTipoId, setDeleteTipoId] = useState<string | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState({ nombre: "", normativa: "", obligatorio: true, tieneVencimiento: true, diasAlerta: 30 });
-
-  const handleEdit = async () => {
-    if (!editTipo) return;
-    try {
-      const res = await fetch(`/api/operacional/tipos/${editTipo.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editForm),
-      });
-      const json = await res.json();
-      if (json.success) { toast.success("Tipo actualizado"); setEditTipo(null); await onRefresh(); }
-      else toast.error(json.error || "Error");
-    } catch { toast.error("Error al actualizar"); }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await fetch(`/api/operacional/tipos/${id}`, { method: "DELETE" });
-      const json = await res.json();
-      if (json.success) { toast.success("Tipo eliminado"); await onRefresh(); }
-      else toast.error(json.error || "Error");
-    } catch { toast.error("Error al eliminar"); }
-    finally { setDeleteTipoId(null); }
-  };
-
-  const handleAdd = async () => {
-    if (!addForm.nombre.trim()) { toast.error("Nombre requerido"); return; }
-    try {
-      const res = await fetch("/api/operacional/tipos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...addForm, capa: "guardia" }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        toast.success("Tipo creado");
-        setAddOpen(false);
-        setAddForm({ nombre: "", normativa: "", obligatorio: true, tieneVencimiento: true, diasAlerta: 30 });
-        await onRefresh();
-      } else toast.error(json.error || "Error");
-    } catch { toast.error("Error al crear"); }
-  };
-
-  return (
-    <>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold">Documentos requeridos por guardia</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Define qué documentos debe tener cada guardia. Estos tipos aparecen en la ficha de cada guardia para cargar sus PDFs.
-          </p>
-        </div>
-        <Button size="sm" onClick={() => { setAddOpen(true); setAddForm({ nombre: "", normativa: "", obligatorio: true, tieneVencimiento: true, diasAlerta: 30 }); }}>
-          <Plus className="h-3.5 w-3.5 mr-1.5" /> Nuevo tipo
-        </Button>
-      </div>
-
-      <div className="space-y-2">
-        {tipos.length === 0 ? (
-          <Card><CardContent className="py-8 text-center"><p className="text-sm text-muted-foreground">No hay tipos de documentos de guardia configurados.</p></CardContent></Card>
-        ) : tipos.map((tipo) => (
-          <Card key={tipo.id}>
-            <CardContent className="flex items-center gap-3 py-3 px-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium">{tipo.nombre}</p>
-                  {tipo.obligatorio && <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-blue-500/15 text-blue-400 border-blue-500/30">Obligatorio</Badge>}
-                  {!tipo.obligatorio && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Opcional</Badge>}
-                  {tipo.tieneVencimiento && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Vence</Badge>}
-                </div>
-                <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                  {tipo.normativa && <span>{tipo.normativa}</span>}
-                  {tipo.tieneVencimiento && <span>Alerta: {tipo.diasAlerta} días antes</span>}
-                </div>
-              </div>
-              <div className="flex items-center gap-0.5 shrink-0">
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
-                  setEditTipo(tipo);
-                  setEditForm({ nombre: tipo.nombre, normativa: tipo.normativa || "", obligatorio: tipo.obligatorio, tieneVencimiento: tipo.tieneVencimiento, diasAlerta: tipo.diasAlerta });
-                }} title="Editar">
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400" onClick={() => setDeleteTipoId(tipo.id)} title="Eliminar">
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Edit modal */}
-      <Dialog open={!!editTipo} onOpenChange={(open) => !open && setEditTipo(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Editar tipo de documento guardia</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Nombre</Label>
-              <Input value={editForm.nombre} onChange={(e) => setEditForm((p) => ({ ...p, nombre: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Normativa (opcional)</Label>
-              <Input value={editForm.normativa} onChange={(e) => setEditForm((p) => ({ ...p, normativa: e.target.value }))} placeholder="Ej: D.S. 867 Art.5 N°4" />
-            </div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="guardia-obligatorio" checked={editForm.obligatorio} onChange={(e) => setEditForm((p) => ({ ...p, obligatorio: e.target.checked }))} className="rounded border-border" />
-              <Label htmlFor="guardia-obligatorio" className="text-xs cursor-pointer">Obligatorio</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="guardia-vencimiento" checked={editForm.tieneVencimiento} onChange={(e) => setEditForm((p) => ({ ...p, tieneVencimiento: e.target.checked }))} className="rounded border-border" />
-              <Label htmlFor="guardia-vencimiento" className="text-xs cursor-pointer">Tiene vencimiento</Label>
-            </div>
-            {editForm.tieneVencimiento && (
-              <div className="space-y-1.5">
-                <Label className="text-xs">Días de alerta antes del vencimiento</Label>
-                <Input type="number" min={0} value={editForm.diasAlerta} onChange={(e) => setEditForm((p) => ({ ...p, diasAlerta: parseInt(e.target.value) || 0 }))} />
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditTipo(null)}>Cancelar</Button>
-            <Button onClick={handleEdit}>Guardar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add modal */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Nuevo tipo de documento guardia</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Nombre</Label>
-              <Input value={addForm.nombre} onChange={(e) => setAddForm((p) => ({ ...p, nombre: e.target.value }))} placeholder="Ej: Licencia de conducir" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Normativa (opcional)</Label>
-              <Input value={addForm.normativa} onChange={(e) => setAddForm((p) => ({ ...p, normativa: e.target.value }))} />
-            </div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="add-g-obligatorio" checked={addForm.obligatorio} onChange={(e) => setAddForm((p) => ({ ...p, obligatorio: e.target.checked }))} className="rounded border-border" />
-              <Label htmlFor="add-g-obligatorio" className="text-xs cursor-pointer">Obligatorio</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="add-g-vencimiento" checked={addForm.tieneVencimiento} onChange={(e) => setAddForm((p) => ({ ...p, tieneVencimiento: e.target.checked }))} className="rounded border-border" />
-              <Label htmlFor="add-g-vencimiento" className="text-xs cursor-pointer">Tiene vencimiento</Label>
-            </div>
-            {addForm.tieneVencimiento && (
-              <div className="space-y-1.5">
-                <Label className="text-xs">Días de alerta</Label>
-                <Input type="number" min={0} value={addForm.diasAlerta} onChange={(e) => setAddForm((p) => ({ ...p, diasAlerta: parseInt(e.target.value) || 0 }))} />
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAdd}>Crear tipo</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <ConfirmDialog open={!!deleteTipoId} onOpenChange={(open) => !open && setDeleteTipoId(null)} title="Eliminar tipo" description="Se eliminará este tipo del catálogo. Solo posible si no tiene documentos asociados." confirmLabel="Eliminar" onConfirm={() => { if (deleteTipoId) handleDelete(deleteTipoId); }} />
     </>
   );
 }
