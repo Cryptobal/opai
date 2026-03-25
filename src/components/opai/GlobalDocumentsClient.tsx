@@ -91,8 +91,11 @@ export function GlobalDocumentsClient() {
       ]);
       const [tiposJson, docsJson] = await Promise.all([tiposRes.json(), docsRes.json()]);
       if (tiposJson.success) setTipos(tiposJson.data);
+      else console.error("[GlobalDocs] tipos error:", tiposJson);
       if (docsJson.success) setDocuments(docsJson.data);
-    } catch {
+      else console.error("[GlobalDocs] docs error:", docsJson);
+    } catch (err) {
+      console.error("[GlobalDocs] fetch error:", err);
       toast.error("Error al cargar documentos");
     } finally {
       setLoading(false);

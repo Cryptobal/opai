@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { canEdit } from "@/lib/permissions";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { ensureOpsAccess } from "@/lib/ops";
 import { deleteFile } from "@/lib/storage";
 import { calcDocStatus } from "@/lib/docs-operacionales";
 import { parseDateOnly } from "@/lib/ops";
@@ -13,11 +13,8 @@ export async function PUT(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const perms = await resolveApiPerms(ctx);
-
-    if (!canEdit(perms, "config", "inteligencia_artificial")) {
-      return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
-    }
+    const forbidden = await ensureOpsAccess(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const doc = await prisma.docOperacional.findFirst({
@@ -73,11 +70,8 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const perms = await resolveApiPerms(ctx);
-
-    if (!canEdit(perms, "config", "inteligencia_artificial")) {
-      return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
-    }
+    const forbidden = await ensureOpsAccess(ctx);
+    if (forbidden) return forbidden;
 
     const { id } = await params;
     const doc = await prisma.docOperacional.findFirst({

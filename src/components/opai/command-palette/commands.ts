@@ -56,6 +56,7 @@ import {
   Trophy,
   Smartphone,
   HardHat,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 import type { CommandItem } from './types';
@@ -899,6 +900,16 @@ const configCommands: CommandItem[] = [
     icon: ClipboardCheck,
     href: '/opai/configuracion/auditoria',
     keywords: ['log', 'actividad', 'historial', 'audit'],
+    canShow: (role) => hasConfigSubmoduleAccess(role, 'users'),
+  },
+  {
+    id: 'config-docs-operacionales',
+    label: 'Documentos Operacionales (Globales)',
+    description: 'OS10, seguros, centralización DT y documentos normativos',
+    category: 'config',
+    icon: ShieldCheck,
+    href: '/opai/configuracion/documentos-globales',
+    keywords: ['os10', 'seguro', 'dt', 'normativa', 'global', 'operacional', 'documentos globales', 'fiscalizacion'],
     canShow: (role) => hasConfigSubmoduleAccess(role, 'users'),
   },
   {

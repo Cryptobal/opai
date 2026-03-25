@@ -115,6 +115,14 @@ const CONFIG_SECTIONS: ConfigSection[] = [
         icon: ClipboardCheck,
         adminOnly: true,
       },
+      {
+        submodule: "inteligencia_artificial",
+        href: "/opai/configuracion/documentos-globales",
+        title: "Documentos Operacionales (Globales)",
+        description: "OS10, seguros, centralización DT y documentos normativos de empresa",
+        icon: ShieldCheck,
+        adminOnly: true,
+      },
     ],
   },
   {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { canView, canEdit } from "@/lib/permissions";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { ensureOpsAccess } from "@/lib/ops";
 import { uploadFile } from "@/lib/storage";
 import { calcDocStatus } from "@/lib/docs-operacionales";
 import { parseDateOnly } from "@/lib/ops";
@@ -13,14 +13,8 @@ export async function GET() {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const perms = await resolveApiPerms(ctx);
-
-    if (!canView(perms, "config", "inteligencia_artificial")) {
-      return NextResponse.json(
-        { success: false, error: "Sin permisos para ver documentos globales" },
-        { status: 403 }
-      );
-    }
+    const forbidden = await ensureOpsAccess(ctx);
+    if (forbidden) return forbidden;
 
     const docs = await prisma.docOperacional.findMany({
       where: { tenantId: ctx.tenantId, capa: "global" },
@@ -64,14 +58,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const perms = await resolveApiPerms(ctx);
-
-    if (!canEdit(perms, "config", "inteligencia_artificial")) {
-      return NextResponse.json(
-        { success: false, error: "Sin permisos para subir documentos globales" },
-        { status: 403 }
-      );
-    }
+    const forbidden = await ensureOpsAccess(ctx);
+    if (forbidden) return forbidden;
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

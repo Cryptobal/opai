@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { canView } from "@/lib/permissions";
+import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { ensureOpsAccess } from "@/lib/ops";
 
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const perms = await resolveApiPerms(ctx);
-
-    if (!canView(perms, "config", "inteligencia_artificial")) {
-      return NextResponse.json(
-        { success: false, error: "Sin permisos" },
-        { status: 403 }
-      );
-    }
+    const forbidden = await ensureOpsAccess(ctx);
+    if (forbidden) return forbidden;
 
     const { searchParams } = new URL(request.url);
     const capa = searchParams.get("capa");
