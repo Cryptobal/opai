@@ -487,14 +487,14 @@ function ResumenTablaView({ instalaciones, resumen }: { instalaciones: Instalaci
   );
 
   return (
-    <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] overflow-hidden">
-      <table className="w-full text-sm">
+    <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] overflow-x-auto">
+      <table className="w-full text-sm md:w-auto md:max-w-full">
         <thead>
           <tr className="border-b border-[#1a1f2e] text-[11px] uppercase tracking-wider text-[#64748b]">
             <th className="text-left px-4 py-3 font-semibold">Instalación</th>
-            <th className="text-center px-4 py-3 font-semibold w-24">Rondas</th>
-            <th className="text-center px-4 py-3 font-semibold w-24">Realizadas</th>
-            <th className="text-center px-4 py-3 font-semibold w-36">% Cumplimiento</th>
+            <th className="text-center px-3 py-3 font-semibold whitespace-nowrap w-24">Rondas</th>
+            <th className="text-center px-3 py-3 font-semibold whitespace-nowrap w-24">Realizadas</th>
+            <th className="text-center px-3 py-3 font-semibold whitespace-nowrap w-36">% Cumplimiento</th>
           </tr>
         </thead>
         <tbody>
@@ -502,10 +502,14 @@ function ResumenTablaView({ instalaciones, resumen }: { instalaciones: Instalaci
             const pct = inst.resumen.porcentajeCumplimiento;
             return (
               <tr key={inst.installationId} className="border-b border-[#1a1f2e]/60 hover:bg-[#1a1f2e]/30 transition-colors">
-                <td className="px-4 py-2.5 text-[#f1f5f9] font-medium">{inst.installationName}</td>
-                <td className="px-4 py-2.5 text-center text-[#94a3b8] tabular-nums">{inst.resumen.total}</td>
-                <td className="px-4 py-2.5 text-center text-[#94a3b8] tabular-nums">{inst.resumen.completadas}</td>
-                <td className="px-4 py-2.5 text-center">
+                <td className="px-4 py-2.5 text-[#f1f5f9] font-medium align-middle">{inst.installationName}</td>
+                <td className="px-3 py-2.5 text-center text-[#94a3b8] tabular-nums whitespace-nowrap align-middle">
+                  {inst.resumen.total}
+                </td>
+                <td className="px-3 py-2.5 text-center text-[#94a3b8] tabular-nums whitespace-nowrap align-middle">
+                  {inst.resumen.completadas}
+                </td>
+                <td className="px-3 py-2.5 text-center whitespace-nowrap align-middle">
                   <span className={cn("inline-block rounded-md px-3 py-1 text-xs font-bold tabular-nums min-w-[56px]", complianceBg(pct))}>
                     {pct}%
                   </span>
@@ -516,10 +520,14 @@ function ResumenTablaView({ instalaciones, resumen }: { instalaciones: Instalaci
         </tbody>
         <tfoot>
           <tr className="border-t-2 border-[#1a1f2e] bg-[#0a0e1a]/60">
-            <td className="px-4 py-3 text-[#f1f5f9] font-bold">Total general</td>
-            <td className="px-4 py-3 text-center text-[#f1f5f9] font-bold tabular-nums">{resumen.totalRondas}</td>
-            <td className="px-4 py-3 text-center text-[#f1f5f9] font-bold tabular-nums">{resumen.completadas}</td>
-            <td className="px-4 py-3 text-center">
+            <td className="px-4 py-3 text-[#f1f5f9] font-bold align-middle">Total general</td>
+            <td className="px-3 py-3 text-center text-[#f1f5f9] font-bold tabular-nums whitespace-nowrap align-middle">
+              {resumen.totalRondas}
+            </td>
+            <td className="px-3 py-3 text-center text-[#f1f5f9] font-bold tabular-nums whitespace-nowrap align-middle">
+              {resumen.completadas}
+            </td>
+            <td className="px-3 py-3 text-center whitespace-nowrap align-middle">
               <span className={cn("inline-block rounded-md px-3 py-1 text-xs font-bold tabular-nums min-w-[56px]", complianceBg(resumen.porcentajeCumplimiento))}>
                 {resumen.porcentajeCumplimiento}%
               </span>
