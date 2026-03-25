@@ -7,6 +7,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { CheckpointMapCreator } from "@/components/ops/rondas/CheckpointMapCreator";
 import { RondaTemplateForm, type EditingTemplate } from "@/components/ops/rondas/ronda-template-form";
 import { ProgramacionForm, type EditingProgramacion } from "@/components/ops/rondas/programacion-form";
+import { previewSlotTimes } from "@/lib/rondas/schedule-engine";
 import { DataTable } from "@/components/opai";
 import type { DataTableColumn } from "@/components/opai";
 import { Button } from "@/components/ui/button";
@@ -139,11 +140,23 @@ export function RondasConfiguracionClient({
     { key: "horario", label: "Horario", render: (_v, row) => `${row.horaInicio} - ${row.horaFin}` },
     {
       key: "frecuenciaMinutos",
-      label: "Frecuencia",
+      label: "Horarios de rondas",
       render: (_v, row) => {
         const custom = row.horariosCustom as string[] | null;
-        if (custom && custom.length > 0) return `${custom.length} horarios`;
-        return `${_v} min`;
+        const slots = previewSlotTimes(row.horaInicio, row.horaFin, row.frecuenciaMinutos, custom);
+        const label = custom && custom.length > 0 ? `${custom.length} horarios manuales` : `Cada ${_v} min`;
+        return (
+          <div className="space-y-1">
+            <span className="text-[11px] text-[#64748b]">{label}</span>
+            <div className="flex flex-wrap gap-1">
+              {slots.map((t) => (
+                <span key={t} className="inline-block rounded-md bg-[#2dd4bf]/10 border border-[#2dd4bf]/20 px-1.5 py-0.5 text-[11px] font-mono text-[#2dd4bf]">
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
       },
     },
     { key: "toleranciaMinutos", label: "Tolerancia", render: (v) => `${v} min` },
