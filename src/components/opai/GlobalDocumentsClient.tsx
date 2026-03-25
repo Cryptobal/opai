@@ -28,6 +28,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type TipoDoc = {
   id: string;
@@ -81,7 +88,7 @@ export function GlobalDocumentsClient() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [uploadModal, setUploadModal] = useState<{ tipoId: string; tipoNombre: string } | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadForm, setUploadForm] = useState({ issuedAt: "", expiresAt: "", notes: "" });
+  const [uploadForm, setUploadForm] = useState({ issuedAt: "", expiresAt: "", notes: "", customNombre: "", tieneVencimiento: true });
 
   const fetchData = useCallback(async () => {
     try {
@@ -104,13 +111,29 @@ export function GlobalDocumentsClient() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const openNewDocModal = () => {
+    setUploadModal({ tipoId: "__nuevo__", tipoNombre: "Nuevo documento" });
+    setUploadFile(null);
+    setUploadForm({ issuedAt: "", expiresAt: "", notes: "", customNombre: "", tieneVencimiento: true });
+  };
+
   const handleUpload = async () => {
     if (!uploadModal || !uploadFile) return;
+    const isCustom = uploadModal.tipoId === "__nuevo__";
+    if (isCustom && !uploadForm.customNombre.trim()) {
+      toast.error("Ingresa un nombre para el tipo de documento");
+      return;
+    }
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", uploadFile);
-      formData.append("tipoId", uploadModal.tipoId);
+      if (isCustom) {
+        formData.append("customNombre", uploadForm.customNombre.trim());
+        formData.append("tieneVencimiento", String(uploadForm.tieneVencimiento));
+      } else {
+        formData.append("tipoId", uploadModal.tipoId);
+      }
       if (uploadForm.issuedAt) formData.append("issuedAt", uploadForm.issuedAt);
       if (uploadForm.expiresAt) formData.append("expiresAt", uploadForm.expiresAt);
       if (uploadForm.notes) formData.append("notes", uploadForm.notes);
@@ -125,7 +148,7 @@ export function GlobalDocumentsClient() {
       toast.success("Documento subido");
       setUploadModal(null);
       setUploadFile(null);
-      setUploadForm({ issuedAt: "", expiresAt: "", notes: "" });
+      setUploadForm({ issuedAt: "", expiresAt: "", notes: "", customNombre: "", tieneVencimiento: true });
       await fetchData();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Error al subir");
@@ -211,6 +234,14 @@ export function GlobalDocumentsClient() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add new doc button */}
+      <div className="flex justify-end">
+        <Button onClick={openNewDocModal} size="sm">
+          <Upload className="h-4 w-4 mr-2" />
+          Cargar nuevo documento
+        </Button>
+      </div>
 
       {/* Checklist */}
       <div className="space-y-2">
@@ -300,7 +331,7 @@ export function GlobalDocumentsClient() {
                       onClick={() => {
                         setUploadModal({ tipoId: tipo.id, tipoNombre: tipo.nombre });
                         setUploadFile(null);
-                        setUploadForm({ issuedAt: "", expiresAt: "", notes: "" });
+                        setUploadForm({ issuedAt: "", expiresAt: "", notes: "", customNombre: "", tieneVencimiento: true });
                       }}
                     >
                       <Upload className="h-3.5 w-3.5 mr-1.5" />
@@ -318,9 +349,59 @@ export function GlobalDocumentsClient() {
       <Dialog open={!!uploadModal} onOpenChange={(open) => !open && setUploadModal(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Cargar documento: {uploadModal?.tipoNombre}</DialogTitle>
+            <DialogTitle>
+              {uploadModal?.tipoId === "__nuevo__" ? "Cargar nuevo documento" : `Cargar: ${uploadModal?.tipoNombre}`}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Tipo selector (only for "new" mode) */}
+            {uploadModal?.tipoId === "__nuevo__" && (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Tipo de documento</Label>
+                  <Select
+                    value={uploadForm.customNombre ? "__custom__" : ""}
+                    onValueChange={(val) => {
+                      if (val === "__custom__") {
+                        setUploadForm((p) => ({ ...p, customNombre: "" }));
+                      } else {
+                        const t = tipos.find((t) => t.id === val);
+                        if (t) {
+                          setUploadModal({ tipoId: t.id, tipoNombre: t.nombre });
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Seleccionar tipo..." /></SelectTrigger>
+                    <SelectContent>
+                      {tipos.filter((t) => !documents.some((d) => d.tipoId === t.id)).map((t) => (
+                        <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>
+                      ))}
+                      <SelectItem value="__custom__">+ Otro (nombre personalizado)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nombre del documento</Label>
+                  <Input
+                    value={uploadForm.customNombre}
+                    onChange={(e) => setUploadForm((p) => ({ ...p, customNombre: e.target.value }))}
+                    placeholder="Ej: Póliza de accidentes, Certificado municipal..."
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="tieneVencimiento"
+                    checked={uploadForm.tieneVencimiento}
+                    onChange={(e) => setUploadForm((p) => ({ ...p, tieneVencimiento: e.target.checked }))}
+                    className="rounded border-border"
+                  />
+                  <Label htmlFor="tieneVencimiento" className="text-xs cursor-pointer">Tiene fecha de vencimiento</Label>
+                </div>
+              </div>
+            )}
+
             {/* File drop */}
             <div
               onDragOver={(e) => e.preventDefault()}

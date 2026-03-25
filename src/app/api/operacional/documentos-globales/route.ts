@@ -63,16 +63,18 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
-    const tipoId = formData.get("tipoId") as string | null;
+    let tipoId = formData.get("tipoId") as string | null;
+    const customNombre = formData.get("customNombre") as string | null;
     const issuedAtStr = formData.get("issuedAt") as string | null;
     const expiresAtStr = formData.get("expiresAt") as string | null;
     const notes = formData.get("notes") as string | null;
+    const tieneVencimientoStr = formData.get("tieneVencimiento") as string | null;
 
     if (!file) {
       return NextResponse.json({ success: false, error: "Archivo requerido" }, { status: 400 });
     }
-    if (!tipoId) {
-      return NextResponse.json({ success: false, error: "tipoId requerido" }, { status: 400 });
+    if (!tipoId && !customNombre?.trim()) {
+      return NextResponse.json({ success: false, error: "Selecciona un tipo o ingresa un nombre" }, { status: 400 });
     }
     if (!ALLOWED_MIME.includes(file.type)) {
       return NextResponse.json({ success: false, error: "Solo se permiten archivos PDF" }, { status: 400 });
@@ -81,12 +83,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "El archivo excede 10 MB" }, { status: 400 });
     }
 
-    // Validate tipo exists and is global
-    const tipo = await prisma.tipoDocOperacional.findFirst({
-      where: { id: tipoId, tenantId: ctx.tenantId, capa: "global" },
-    });
-    if (!tipo) {
-      return NextResponse.json({ success: false, error: "Tipo de documento inválido" }, { status: 400 });
+    let tipo;
+
+    if (tipoId) {
+      // Use existing tipo
+      tipo = await prisma.tipoDocOperacional.findFirst({
+        where: { id: tipoId, tenantId: ctx.tenantId, capa: "global" },
+      });
+      if (!tipo) {
+        return NextResponse.json({ success: false, error: "Tipo de documento inválido" }, { status: 400 });
+      }
+    } else {
+      // Create new custom tipo
+      const nombre = customNombre!.trim();
+      const codigo = "custom_" + nombre.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/_+$/, "");
+      const tieneVencimiento = tieneVencimientoStr === "true";
+
+      // Check if custom tipo already exists
+      const existing = await prisma.tipoDocOperacional.findFirst({
+        where: { tenantId: ctx.tenantId, codigo },
+      });
+
+      if (existing) {
+        tipo = existing;
+      } else {
+        // Get max order for positioning
+        const maxOrder = await prisma.tipoDocOperacional.findFirst({
+          where: { tenantId: ctx.tenantId, capa: "global" },
+          orderBy: { order: "desc" },
+          select: { order: true },
+        });
+
+        tipo = await prisma.tipoDocOperacional.create({
+          data: {
+            tenantId: ctx.tenantId,
+            codigo,
+            nombre,
+            capa: "global",
+            obligatorio: false,
+            tieneVencimiento,
+            diasAlerta: tieneVencimiento ? 30 : 0,
+            order: (maxOrder?.order ?? 6) + 1,
+          },
+        });
+      }
+      tipoId = tipo.id;
     }
 
     const issuedAt = issuedAtStr ? parseDateOnly(issuedAtStr) : null;
