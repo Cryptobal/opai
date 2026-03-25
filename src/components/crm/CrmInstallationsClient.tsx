@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
-import { Plus, MapPin, Loader2 } from "lucide-react";
+import { MapPin, Loader2 } from "lucide-react";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -52,8 +52,6 @@ const DEFAULT_FORM: FormState = {
   lng: null,
   notes: "",
 };
-
-const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
 export function CrmInstallationsClient({
   accountId,
@@ -195,61 +193,38 @@ export function CrmInstallationsClient({
       <div className="space-y-3">
         {installations.map((inst) => (
           <div key={inst.id} className="rounded-lg border p-3 hover:bg-accent/30 transition-colors">
-            <div className="flex items-start gap-3">
-              {/* Datos de la instalación (clickeable → ficha) */}
-              <Link
-                href={`/crm/installations/${inst.id}`}
-                className="flex-1 min-w-0 group"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-                        {inst.name}
-                      </p>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          inst.status === "active"
-                            ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                            : inst.status === "inactive"
-                              ? "border border-amber-500/30 bg-amber-500/10 text-amber-300"
-                              : "border border-zinc-500/30 bg-zinc-500/10 text-zinc-400"
-                        }`}
-                      >
-                        {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
-                      </span>
-                    </div>
-                    {inst.address && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        {inst.address}
-                      </p>
-                    )}
-                    {(inst.city || inst.commune) && (
-                      <p className="text-xs text-muted-foreground ml-4">
-                        {[inst.commune, inst.city].filter(Boolean).join(", ")}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </Link>
-
-              {/* Mapa (derecha) */}
-              {inst.lat != null && inst.lng != null && MAPS_KEY && (
-                <Link
-                  href={`/crm/installations/${inst.id}`}
-                  className="shrink-0 block rounded overflow-hidden border border-border hover:opacity-90 transition-opacity w-[100px] h-[70px] sm:w-[140px] sm:h-[90px]"
+            <Link
+              href={`/crm/installations/${inst.id}`}
+              className="group"
+            >
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                  {inst.name}
+                </p>
+                <span
+                  className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium ${
+                    inst.status === "active"
+                      ? "bg-emerald-500/15 text-emerald-400"
+                      : inst.status === "inactive"
+                        ? "bg-amber-500/15 text-amber-400"
+                        : "bg-muted text-muted-foreground"
+                  }`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`https://maps.googleapis.com/maps/api/staticmap?center=${inst.lat},${inst.lng}&zoom=15&size=280x180&scale=2&markers=color:red%7C${inst.lat},${inst.lng}&key=${MAPS_KEY}`}
-                    alt={`Mapa ${inst.name}`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                </Link>
+                  {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
+                </span>
+              </div>
+              {inst.address && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <MapPin className="h-3 w-3 shrink-0" />
+                  {inst.address}
+                </p>
               )}
-            </div>
+              {(inst.city || inst.commune) && (
+                <p className="text-xs text-muted-foreground ml-4">
+                  {[inst.commune, inst.city].filter(Boolean).join(", ")}
+                </p>
+              )}
+            </Link>
             <div className="mt-3 flex items-center justify-end gap-2 border-t pt-2">
               <Button
                 size="sm"

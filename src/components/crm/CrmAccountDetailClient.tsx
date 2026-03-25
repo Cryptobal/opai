@@ -874,17 +874,21 @@ export function CrmAccountDetailClient({
             <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a esta cuenta." compact />
           ) : (
             <CrmRelatedRecordGrid className="!grid-cols-1">
-              {quotes.map((q) => (
-                <CrmRelatedRecordCard
-                  key={q.id}
-                  module="quotes"
-                  title={q.name ? `${q.code} — ${q.name}` : q.code}
-                  subtitle={q.clientName || undefined}
-                  meta={formatCLP(q.monthlyCost)}
-                  badge={{ label: q.status, variant: "secondary" }}
-                  href={`/crm/cotizaciones/${q.id}`}
-                />
-              ))}
+              {quotes.map((q) => {
+                const statusLabel = q.status === "draft" ? "Borrador" : q.status === "sent" ? "Enviada" : q.status === "approved" ? "Aprobada" : q.status === "rejected" ? "Rechazada" : q.status || "Borrador";
+                const statusVariant = q.status === "approved" ? "success" : q.status === "rejected" ? "destructive" : q.status === "sent" ? "default" : "secondary";
+                return (
+                  <CrmRelatedRecordCard
+                    key={q.id}
+                    module="quotes"
+                    title={q.name ? `${q.code} — ${q.name}` : q.code}
+                    subtitle={q.clientName || undefined}
+                    meta={formatCLP(q.monthlyCost)}
+                    badge={{ label: statusLabel, variant: statusVariant as any }}
+                    href={`/crm/cotizaciones/${q.id}`}
+                  />
+                );
+              })}
             </CrmRelatedRecordGrid>
           )}
         </div>
