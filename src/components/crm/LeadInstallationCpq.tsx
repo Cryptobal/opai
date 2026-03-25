@@ -12,6 +12,8 @@ import { ChevronDown, Users, Plus, Copy, Trash2, Moon, Sun, Loader2, Sparkles, R
 import { Textarea } from "@/components/ui/textarea";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import MarginSection from "@/components/cpq/MarginSection";
+import { QuoteBreakdownPanel } from "@/components/cpq/QuoteBreakdownPanel";
+import type { QuoteBreakdownData, PositionBreakdownItem } from "@/types/cpq-breakdown";
 import { FinancialCostsSection, type FinancialCostsData } from "@/components/cpq/FinancialCostsSection";
 import { AdditionalLinesSection, type AdditionalLineItem } from "@/components/cpq/AdditionalLinesSection";
 import { CommercialConditionsSection, type CommercialConditionsData } from "@/components/cpq/CommercialConditionsSection";
@@ -278,11 +280,11 @@ export function LeadInstallationCpq({
       })
       .catch(() => {});
   }, [catalogLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [secLineas, setSecLineas] = useState(false);
-  const [secFinancieros, setSecFinancieros] = useState(false);
+  const [secLineas, setSecLineas] = useState(true);
+  const [secFinancieros, setSecFinancieros] = useState(true);
   const [secMargen, setSecMargen] = useState(true);
-  const [secCondiciones, setSecCondiciones] = useState(false);
-  const [secDescripciones, setSecDescripciones] = useState(false);
+  const [secCondiciones, setSecCondiciones] = useState(true);
+  const [secDescripciones, setSecDescripciones] = useState(true);
   const [generatingCompany, setGeneratingCompany] = useState(false);
   const [generatingService, setGeneratingService] = useState(false);
   const [aiInstruction, setAiInstruction] = useState("");
@@ -671,6 +673,120 @@ export function LeadInstallationCpq({
         </div>
       </div>
 
+      {/* ── Condiciones comerciales ── */}
+      <Card className="shadow-sm overflow-hidden">
+        <button type="button" onClick={() => setSecCondiciones((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Condiciones comerciales</h2>
+            {!secCondiciones && (
+              <span className="text-[11px] text-muted-foreground">
+                {config.conditions.paymentTerms === "contrafactura" ? "Contrafactura" : config.conditions.paymentTerms === "30_dias" ? "30 días" : "Anticipado"} · {config.conditions.contractDuration}m
+              </span>
+            )}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secCondiciones && "rotate-180")} />
+        </button>
+        {secCondiciones && (
+          <div className="px-3 pb-3">
+            <CommercialConditionsSection
+              value={config.conditions}
+              onChange={(c) => update({ conditions: c })}
+              proposalTemplates={proposalTemplates}
+            />
+          </div>
+        )}
+      </Card>
+
+      {/* ── Desglose (mismo QuoteBreakdownPanel que CPQ) ── */}
+      {config.positions.length > 0 && (() => {
+        const monthlyHoursStandard = 180;
+        const totalLaborCost = estimate.manoDeObra;
+        const totalPositionCosts = totalLaborCost;
+        const fallback = config.positions.length > 0 ? 1 / config.positions.length : 0;
+        const salePriceNoLines = estimate.precioVenta - estimate.totalLineas;
+
+        const positionItems: PositionBreakdownItem[] = config.positions.map((pos, idx) => {
+          const guards = (pos.cantidad || 1) * (pos.numPuestos || 1);
+          const perGuard = payrollPreview[idx]?.employerCostPerGuard ?? 0;
+          const costClp = perGuard * guards;
+          const proportion = totalPositionCosts > 0 ? costClp / totalPositionCosts : fallback;
+          const salePrice = salePriceNoLines * proportion;
+
+          const baseSalary = (pos.baseSalary || 550000) * guards;
+
+          return {
+            id: `lead-pos-${idx}`,
+            name: (() => {
+              const pName = cpqPuestos.find(p => p.id === (pos.puestoTrabajoId || catalogDefaults?.puestoId))?.name;
+              const cName = cpqCargos.find(c => c.id === (pos.cargoId || catalogDefaults?.cargoId))?.name;
+              const rName = cpqRoles.find(r => r.id === (pos.rolId || catalogDefaults?.rolId))?.name;
+              const label = [pName, cName, rName].filter(Boolean).join(" · ");
+              return label || pos.puesto || `Posición ${idx + 1}`;
+            })(),
+            numGuards: pos.cantidad || 1,
+            numPuestos: pos.numPuestos || 1,
+            totalGuardsInPosition: guards,
+            baseSalary,
+            gratification: 0,
+            totalImponible: baseSalary,
+            sisEmployer: 0,
+            afcEmployer: 0,
+            mutualEmployer: 0,
+            vacationProvision: 0,
+            severanceProvision: 0,
+            totalLaborCost: costClp,
+            salePrice,
+            hourlyRateSale: guards > 0 && monthlyHoursStandard > 0 ? salePrice / (guards * monthlyHoursStandard) : 0,
+          };
+        });
+
+        const subtotalBase = estimate.manoDeObra + estimate.holidayAdjustment + costTotals.total;
+
+        const breakdownData: QuoteBreakdownData = {
+          positions: positionItems,
+          totalLaborCost: estimate.manoDeObra,
+          holidayAdjustment: estimate.holidayAdjustment,
+          uniforms: costTotals.monthlyUniforms,
+          exams: costTotals.monthlyExams,
+          meals: 0,
+          vehicles: 0,
+          infrastructure: 0,
+          equipment: 0,
+          transport: 0,
+          systems: 0,
+          other: costTotals.indirectos,
+          subtotalBase,
+          marginPct: config.marginPercentage,
+          marginAmount: estimate.marginAmount,
+          financial: estimate.financiero,
+          financialRatePct: config.financialCosts.financialEnabled ? config.financialCosts.financialRatePct : 0,
+          policy: estimate.poliza,
+          policyRatePct: config.financialCosts.policyEnabled ? (config.financialCosts.policyRatePct ?? 0) : 0,
+          totalSalePrice: salePriceNoLines,
+          additionalLines: estimate.totalLineas,
+          grandTotal: estimate.precioVenta,
+          monthlyHoursStandard,
+          currency: config.currency || "CLP",
+          ufValue: ufValue ?? undefined,
+        };
+
+        return (
+          <Card className="shadow-sm overflow-hidden">
+            <div className="px-3 py-2.5">
+              <h2 className="text-sm font-bold">Desglose</h2>
+            </div>
+            <div className="px-3 pb-3">
+              <QuoteBreakdownPanel data={breakdownData} variant="default" />
+            </div>
+            {!estimate.laborPayrollReady && (
+              <div className="px-3 pb-2 text-[10px] text-amber-500/90 font-medium text-center">
+                Calculando mano de obra (motor nómina)…
+              </div>
+            )}
+          </Card>
+        );
+      })()}
+
       {/* ── Puestos ── */}
       <Card className="shadow-sm overflow-hidden">
         <button type="button" onClick={() => setSecPuestos((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
@@ -1029,30 +1145,6 @@ export function LeadInstallationCpq({
         )}
       </Card>
 
-      {/* ── Condiciones comerciales ── */}
-      <Card className="shadow-sm overflow-hidden">
-        <button type="button" onClick={() => setSecCondiciones((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
-          <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm font-bold shrink-0">Condiciones comerciales</h2>
-            {!secCondiciones && (
-              <span className="text-[11px] text-muted-foreground">
-                {config.conditions.paymentTerms === "contrafactura" ? "Contrafactura" : config.conditions.paymentTerms === "30_dias" ? "30 días" : "Anticipado"} · {config.conditions.contractDuration}m
-              </span>
-            )}
-          </div>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secCondiciones && "rotate-180")} />
-        </button>
-        {secCondiciones && (
-          <div className="px-3 pb-3">
-            <CommercialConditionsSection
-              value={config.conditions}
-              onChange={(c) => update({ conditions: c })}
-              proposalTemplates={proposalTemplates}
-            />
-          </div>
-        )}
-      </Card>
-
       {/* ── Descripciones IA ── */}
       <Card className="shadow-sm overflow-hidden">
         <button type="button" onClick={() => setSecDescripciones((v) => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors">
@@ -1137,59 +1229,6 @@ export function LeadInstallationCpq({
         />
       )}
 
-      {/* ── Resumen de costos (desglose) ── */}
-      {config.positions.length > 0 && (
-        <Card className="shadow-sm overflow-hidden">
-          <div className="px-3 py-2.5 bg-emerald-500/5 border-b border-emerald-500/20">
-            <div className="text-center">
-              <div className="text-lg font-bold text-emerald-400 font-mono">{formatCurrency(Math.round(estimate.precioVenta))}</div>
-              {ufValue && ufValue > 0 && (
-                <div className="text-sm text-emerald-300/80 font-mono">{(estimate.precioVenta / ufValue).toFixed(2)} UF</div>
-              )}
-              {!estimate.laborPayrollReady && (
-                <div className="text-[10px] text-amber-500/90 font-medium">
-                  Calculando mano de obra (motor nómina)…
-                </div>
-              )}
-              <div className="text-[10px] text-muted-foreground">
-                Precio de venta mensual · {estimate.totalPuestos} puesto(s) · {estimate.totalGuardias} guardia(s) · {config.marginPercentage}%
-              </div>
-            </div>
-          </div>
-          <div className="px-3 py-2 space-y-1">
-            {[
-              { label: "Mano de obra", value: estimate.manoDeObra, color: "bg-blue-500" },
-              ...(estimate.holidayAdjustment > 0 ? [{ label: "Ajuste feriados", value: estimate.holidayAdjustment, color: "bg-blue-400" }] : []),
-              { label: "Directos", value: estimate.directos, color: "bg-amber-500" },
-              { label: "Indirectos", value: estimate.indirectos, color: "bg-orange-500" },
-              { label: "Financiero", value: estimate.financiero, color: "bg-red-400" },
-              ...(estimate.poliza > 0 ? [{ label: "Póliza", value: estimate.poliza, color: "bg-red-300" }] : []),
-              { label: "Margen", value: estimate.marginAmount, color: "bg-emerald-500" },
-              ...(estimate.totalLineas > 0 ? [{ label: "Líneas adicionales", value: estimate.totalLineas, color: "bg-purple-500" }] : []),
-            ].map((row) => {
-              const pct = estimate.precioVenta > 0 ? (row.value / estimate.precioVenta) * 100 : 0;
-              const displayAmount =
-                row.label === "Mano de obra" && !estimate.laborPayrollReady
-                  ? "…"
-                  : formatCurrency(Math.round(row.value));
-              return (
-                <div key={row.label} className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground w-24 shrink-0">{row.label}</span>
-                  <div className="flex-1 min-w-0 h-2 rounded-full bg-muted/30 overflow-hidden">
-                    <div className={cn("h-full rounded-full", row.color)} style={{ width: `${Math.min(100, pct)}%` }} />
-                  </div>
-                  <span className="text-[10px] font-mono font-semibold text-right w-24 shrink-0">{displayAmount}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="px-3 py-1.5 border-t border-border/40 text-center">
-            <p className="text-[9px] text-muted-foreground/70">
-              Mano de obra con el mismo motor de nómina que CPQ (parámetros UF/UTM/IMM vigentes). Total actualizado al aprobar con la cotización generada.
-            </p>
-          </div>
-        </Card>
-      )}
     </div>
   );
 }

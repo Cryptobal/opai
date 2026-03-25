@@ -239,8 +239,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
   const [secFinancieros, setSecFinancieros] = useState(true);
   const [secCondiciones, setSecCondiciones] = useState(true);
   const [secMargen, setSecMargen] = useState(true);
-  const [secAiContent, setSecAiContent] = useState(false);
-  const [secDesglose, setSecDesglose] = useState(false);
+  const [secAiContent, setSecAiContent] = useState(true);
+  const [secDesglose, setSecDesglose] = useState(true);
   const [secAuditoria, setSecAuditoria] = useState(false);
   const [pdfPreviewMode, setPdfPreviewMode] = useState<"cotizacion" | "presentacion">("cotizacion");
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -1493,6 +1493,41 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         )}
       </Card>
 
+      {/* -- Section: Desglose detallado (precio de venta, margen financiero) -- */}
+      <Card className="shadow-sm overflow-hidden scroll-mt-14">
+        <button type="button" onClick={() => setSecDesglose(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-sm font-bold shrink-0">Desglose</h2>
+            {!secDesglose && (
+              <span className="text-[11px] text-muted-foreground truncate">
+                {formatCurrency(salePriceMonthly)}/mes · {marginPct}% margen
+              </span>
+            )}
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secDesglose && "rotate-180")} />
+        </button>
+        {secDesglose && costSummary && (
+          <div className="px-4 pb-4">
+            <QuoteBreakdownPanel
+              data={buildBreakdownData(
+                costSummary,
+                costCategoryBreakdown,
+                positions,
+                positionSalePrices,
+                marginPct,
+                marginAmount,
+                salePriceMonthly,
+                additionalLinesTotal,
+                monthlyHours,
+                crmContext.currency || "UF",
+                ufValue,
+              )}
+              variant="default"
+            />
+          </div>
+        )}
+      </Card>
+
       {/* -- Section: Puestos -- */}
       <Card className="shadow-sm overflow-hidden" inert={isLocked ? true : undefined}>
         <div role="button" tabIndex={0} onClick={() => setSecPuestos(v => !v)} className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-muted/10 transition-colors cursor-pointer">
@@ -2002,9 +2037,6 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         )}
       </Card>
 
-      {/* -- Section: Adjuntos para enviar con el mail -- */}
-      <QuoteAttachmentsSection quoteId={quoteId} isLocked={isLocked} />
-
       {/* -- Section: Contenido AI (Descripcion + Detalle servicio) -- */}
       <Card className="shadow-sm overflow-hidden scroll-mt-14" inert={isLocked ? true : undefined}>
         <button type="button" onClick={() => setSecAiContent(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
@@ -2233,128 +2265,8 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         )}
       </Card>
 
-      {/* -- Section: Desglose (resumen financiero) -- */}
-      <Card className="shadow-sm overflow-hidden scroll-mt-14">
-        <button type="button" onClick={() => setSecDesglose(v => !v)} className="flex items-center justify-between w-full px-4 py-3 hover:bg-muted/10 transition-colors">
-          <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm font-bold shrink-0">Desglose</h2>
-            {!secDesglose && (
-              <span className="text-[11px] text-muted-foreground truncate">
-                {formatCurrency(salePriceMonthly)}/mes · {marginPct}% margen
-              </span>
-            )}
-          </div>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secDesglose && "rotate-180")} />
-        </button>
-        {secDesglose && (
-          <div className="px-4 pb-4 space-y-3">
-            {/* Hero Card */}
-            <div className="rounded-lg bg-gradient-to-br from-emerald-950 to-card border border-emerald-500/20 p-4">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-400 mb-1.5">
-                Precio de venta mensual
-              </div>
-              <div className="text-2xl font-extrabold text-white tabular-nums transition-all duration-300">
-                {formatCurrency(salePriceMonthly)}
-              </div>
-              {ufValue && ufValue > 0 && (
-                <div className="text-[11px] text-emerald-400 mt-0.5">{(salePriceMonthly / ufValue).toFixed(2)} UF</div>
-              )}
-              <div className="flex gap-6 mt-3 pt-3 border-t border-emerald-500/20">
-                <div>
-                  <div className="text-[10px] text-muted-foreground">Puestos</div>
-                  <div className="text-base font-bold text-foreground">{positions.length}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-muted-foreground">Guardias</div>
-                  <div className="text-base font-bold text-foreground">{stats.totalGuards}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-muted-foreground">Margen</div>
-                  <div className="text-base font-bold text-emerald-400">{marginPct}%</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Breakdown bars */}
-            {(() => {
-              const laborCost = costSummary?.monthlyPositions ?? 0;
-              const directCosts = (costSummary?.monthlyUniforms ?? 0) + (costSummary?.monthlyExams ?? 0) + (costSummary?.monthlyMeals ?? 0) + (costSummary?.monthlyHolidayAdjustment ?? 0);
-              const indirectCosts = (costSummary?.monthlyCostItems ?? 0) + (costSummary?.monthlyVehicles ?? 0) + (costSummary?.monthlyInfrastructure ?? 0);
-              const financialCosts = (costSummary?.monthlyFinancial ?? 0) + (costSummary?.monthlyPolicy ?? 0);
-              const totalBase = laborCost + directCosts + indirectCosts + financialCosts + marginAmount;
-              const pctOf = (v: number) => totalBase > 0 ? Math.round((v / totalBase) * 100) : 0;
-
-              return (
-                <div className="rounded-lg border border-border bg-card p-3">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-3">Desglose de costos</div>
-                  {[
-                    { label: "Mano de obra", amount: laborCost, color: "bg-emerald-500" },
-                    { label: "Directos", amount: directCosts, color: "bg-blue-500" },
-                    { label: "Indirectos", amount: indirectCosts, color: "bg-purple-500" },
-                    { label: "Financiero", amount: financialCosts, color: "bg-amber-500" },
-                    { label: "Margen", amount: marginAmount, color: "bg-foreground/60" },
-                  ].map((item) => (
-                    <div key={item.label} className="mb-2.5 last:mb-0">
-                      <div className="flex justify-between mb-0.5">
-                        <span className="text-[11px] text-muted-foreground">{item.label}</span>
-                        <span className="text-[11px] font-semibold tabular-nums transition-all duration-300">{formatCurrency(item.amount)}</span>
-                      </div>
-                      <div className="h-1.5 bg-border rounded-full overflow-hidden">
-                        <div
-                          className={cn("h-full rounded-full opacity-70 transition-all duration-500", item.color)}
-                          style={{ width: `${pctOf(item.amount)}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-
-            {/* Additional lines summary */}
-            {additionalLinesTotal > 0 && (
-              <div className="rounded-lg border border-border bg-card p-3">
-                <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1">Líneas adicionales</div>
-                <div className="text-lg font-bold text-amber-400 tabular-nums transition-all duration-300">{formatCurrency(additionalLinesTotal)}</div>
-                <div className="text-[11px] text-muted-foreground">
-                  {additionalLines.length} {additionalLines.length === 1 ? "servicio/producto" : "servicios/productos"}
-                </div>
-                <div className="mt-2 pt-2 border-t border-border">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-0.5">Total facturación</div>
-                  <div className="text-xl font-extrabold text-white tabular-nums transition-all duration-300">{formatCurrency(salePriceMonthly + additionalLinesTotal)}</div>
-                </div>
-              </div>
-            )}
-
-            {/* Detailed breakdown panel */}
-            {costSummary && (() => {
-              const breakdownData = buildBreakdownData(
-                costSummary,
-                costCategoryBreakdown,
-                positions,
-                positionSalePrices,
-                marginPct,
-                marginAmount,
-                salePriceMonthly,
-                additionalLinesTotal,
-                monthlyHours,
-                crmContext.currency || "UF",
-                ufValue,
-              );
-              return (
-                <details className="group">
-                  <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                    Ver desglose detallado
-                  </summary>
-                  <div className="mt-2">
-                    <QuoteBreakdownPanel data={breakdownData} variant="default" />
-                  </div>
-                </details>
-              );
-            })()}
-          </div>
-        )}
-      </Card>
+      {/* -- Section: Adjuntos para enviar con el mail -- */}
+      <QuoteAttachmentsSection quoteId={quoteId} isLocked={isLocked} />
 
       {/* -- Section: Auditoría (registro de todos los cambios) -- */}
       <Card className="shadow-sm overflow-visible">
