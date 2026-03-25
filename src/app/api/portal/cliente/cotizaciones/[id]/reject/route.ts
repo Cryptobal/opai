@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
+import { resend } from "@/lib/resend";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { sendNotification } from "@/lib/notification-service";
 
 export async function POST(
   request: Request,
@@ -17,7 +20,7 @@ export async function POST(
 
   const { id } = await params;
 
-  // Verify ownership
+  // Verify ownership — include dealId for pipeline update
   const quote = await prisma.cpqQuote.findFirst({
     where: {
       id,
@@ -25,7 +28,7 @@ export async function POST(
       tenantId: session.tenantId,
       ...cpqQuoteListedInClientPortalWhere(),
     },
-    select: { id: true },
+    select: { id: true, code: true, dealId: true, name: true, monthlyCost: true, currency: true },
   });
 
   if (!quote) {
@@ -40,6 +43,7 @@ export async function POST(
     // No body or invalid JSON — reason is optional
   }
 
+  // ── 1. Update quote status ──
   await prisma.cpqQuote.update({
     where: { id },
     data: {
@@ -48,20 +52,89 @@ export async function POST(
     },
   });
 
-  const quoteWithCode = await prisma.cpqQuote.findFirst({ where: { id }, select: { code: true } });
+  // ── 2. Move deal to "Perdido" stage ──
+  if (quote.dealId) {
+    let perdidoStage = await prisma.crmPipelineStage.findFirst({
+      where: {
+        tenantId: session.tenantId,
+        name: { contains: "Perdid", mode: "insensitive" },
+      },
+    });
+
+    if (!perdidoStage) {
+      perdidoStage = await prisma.crmPipelineStage.create({
+        data: {
+          tenantId: session.tenantId,
+          name: "Perdido",
+          isActive: true,
+          order: 100,
+        },
+      });
+    }
+
+    await prisma.crmDeal.update({
+      where: { id: quote.dealId },
+      data: { stageId: perdidoStage.id, status: "lost" },
+    });
+  }
+
+  // ── 3. Audit log ──
   await createCrmHistoryLog({
     tenantId: session.tenantId,
     entityType: "quote",
     entityId: id,
     action: "quote_rejected",
     details: {
-      quoteCode: quoteWithCode?.code ?? null,
+      quoteCode: quote.code ?? null,
       source: "portal_cliente",
       contactId: session.contactId ?? null,
       reason: reason ?? null,
     },
     createdBy: null,
   });
+
+  // ── 4. Send email notification to commercial team (tenant-aware) ──
+  const account = await prisma.crmAccount.findUnique({
+    where: { id: session.accountId },
+    select: { name: true, rut: true },
+  });
+
+  const tenantConfig = await getTenantCompanyConfig(session.tenantId);
+
+  try {
+    await resend.emails.send({
+      from: tenantConfig.emailFrom,
+      to: tenantConfig.email,
+      replyTo: tenantConfig.emailReplyTo,
+      subject: `Propuesta rechazada: ${account?.name} - ${quote.code}`,
+      html: `
+        <h2>Propuesta Rechazada</h2>
+        <p>El cliente <strong>${account?.name}</strong> (RUT: ${account?.rut ?? "N/A"}) ha rechazado la propuesta <strong>${quote.code}</strong> desde el Portal del Cliente.</p>
+        <p><strong>Monto:</strong> ${quote.monthlyCost} ${quote.currency}/mes</p>
+        ${reason ? `<p><strong>Motivo:</strong> ${reason}</p>` : "<p><em>No indicó motivo.</em></p>"}
+        <p><strong>Contacto:</strong> ${session.firstName} ${session.lastName} (${session.email ?? "sin email"})</p>
+        <p>El negocio ha sido movido a estado <strong>Perdido</strong>.</p>
+      `,
+      tags: [{ name: "type", value: "proposal-rejected" }],
+    });
+  } catch (emailErr) {
+    console.error("[Portal] Error sending rejection email:", emailErr);
+  }
+
+  // ── 5. Internal bell notification (respects user preferences) ──
+  try {
+    await sendNotification({
+      tenantId: session.tenantId,
+      type: "quote_rejected_portal",
+      title: `Propuesta rechazada: ${account?.name}`,
+      message: `${account?.name} rechazó la propuesta ${quote.code}.${reason ? ` Motivo: ${reason}` : ""}`,
+      emailMessage: null,
+      link: quote.dealId ? `/crm/negocios/${quote.dealId}` : null,
+      data: { quoteId: id, quoteCode: quote.code, dealId: quote.dealId, reason },
+    });
+  } catch (notifErr) {
+    console.error("[Portal] Error sending rejection notification:", notifErr);
+  }
 
   return NextResponse.json({ success: true });
 }

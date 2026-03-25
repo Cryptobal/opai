@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
-import { resend, EMAIL_CONFIG } from "@/lib/resend";
+import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
+import { sendNotification } from "@/lib/notification-service";
 
 export async function POST(
   request: Request,
@@ -127,8 +128,9 @@ export async function POST(
 
     try {
       await resend.emails.send({
-        from: tenantConfig.emailFrom || EMAIL_CONFIG.from,
+        from: tenantConfig.emailFrom,
         to: tenantConfig.email,
+        replyTo: tenantConfig.emailReplyTo,
         subject: `Propuesta aceptada: ${account?.name} - ${quote.code}`,
         html: `
           <h2>Propuesta Aceptada</h2>
@@ -145,7 +147,22 @@ export async function POST(
       // Don't fail the whole request if email fails
     }
 
-    // 8. Audit log
+    // 8. Internal bell notification
+    try {
+      await sendNotification({
+        tenantId: session.tenantId,
+        type: "quote_approved_portal",
+        title: `Propuesta aceptada: ${account?.name}`,
+        message: `${account?.name} aceptó la propuesta ${quote.code} (${quote.monthlyCost} ${quote.currency}/mes). La cuenta ha sido activada.`,
+        emailMessage: null,
+        link: quote.dealId ? `/crm/negocios/${quote.dealId}` : null,
+        data: { quoteId, quoteCode: quote.code, dealId: quote.dealId },
+      });
+    } catch (notifErr) {
+      console.error("[Portal] Error sending acceptance notification:", notifErr);
+    }
+
+    // 9. Audit log
     try {
       await prisma.portalClienteAuditLog.create({
         data: {

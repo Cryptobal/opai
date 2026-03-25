@@ -163,6 +163,24 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultBell: true,
     defaultEmail: false,
   },
+  {
+    key: "quote_approved_portal",
+    label: "Propuesta aceptada (portal)",
+    description: "Cuando un cliente acepta una propuesta desde el portal",
+    module: "cpq",
+    category: "CPQ - Cotizaciones",
+    defaultBell: true,
+    defaultEmail: true,
+  },
+  {
+    key: "quote_rejected_portal",
+    label: "Propuesta rechazada (portal)",
+    description: "Cuando un cliente rechaza una propuesta desde el portal",
+    module: "cpq",
+    category: "CPQ - Cotizaciones",
+    defaultBell: true,
+    defaultEmail: true,
+  },
 
   // ── Documentos ──
   {

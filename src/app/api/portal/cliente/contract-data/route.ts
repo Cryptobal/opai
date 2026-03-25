@@ -155,26 +155,45 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // ── 7. Create DocSignatureRecipient ───────────────────────
-    const recipientToken = randomUUID();
-
-    await prisma.docSignatureRecipient.create({
-      data: {
-        requestId: signatureRequest.id,
-        token: recipientToken,
-        name: `${session.firstName} ${session.lastName}`.trim(),
-        email: session.email ?? "",
-        rut: companyRut,
-        role: "signer",
-        signingOrder: 1,
-        status: "pending",
-      },
+    // ── 7. Create DocSignatureRecipient per legal representative ──
+    const representantes = await prisma.accountRepresentanteLegal.findMany({
+      where: { accountId: session.accountId, tenantId: session.tenantId },
+      select: { nombre: true, rut: true, email: true },
+      orderBy: { createdAt: "asc" },
     });
+
+    // If representatives exist with emails, create one recipient per rep.
+    // Otherwise fall back to the logged-in contact (legacy behavior).
+    const signers = representantes.length > 0
+      ? representantes
+          .filter((r) => r.email?.trim())
+          .map((r) => ({ name: r.nombre, email: r.email!, rut: r.rut }))
+      : [{ name: `${session.firstName} ${session.lastName}`.trim(), email: session.email ?? "", rut: companyRut }];
+
+    let firstToken: string | null = null;
+
+    for (let i = 0; i < signers.length; i++) {
+      const token = randomUUID();
+      if (i === 0) firstToken = token;
+
+      await prisma.docSignatureRecipient.create({
+        data: {
+          requestId: signatureRequest.id,
+          token,
+          name: signers[i].name,
+          email: signers[i].email,
+          rut: signers[i].rut,
+          role: "signer",
+          signingOrder: i + 1,
+          status: "pending",
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
       documentId: document.id,
-      signatureToken: recipientToken,
+      signatureToken: firstToken,
     });
   } catch (error) {
     console.error("[Portal Cliente] contract-data error:", error);

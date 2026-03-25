@@ -14,6 +14,7 @@ interface Representante {
   id: string
   nombre: string
   rut: string
+  email: string | null
 }
 
 interface Personeria {
@@ -159,8 +160,11 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
   const [representantes, setRepresentantes] = useState<Representante[]>([])
   const [newRepNombre, setNewRepNombre] = useState('')
   const [newRepRut, setNewRepRut] = useState('')
+  const [newRepEmail, setNewRepEmail] = useState('')
   const [addingRep, setAddingRep] = useState(false)
   const [deletingRepId, setDeletingRepId] = useState<string | null>(null)
+  const [savingRepId, setSavingRepId] = useState<string | null>(null)
+  const [savedRepId, setSavedRepId] = useState<string | null>(null)
 
   // Personeria
   const [fechaEscritura, setFechaEscritura] = useState('')
@@ -237,16 +241,35 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
       const res = await fetch('/api/portal/cliente/empresa/representantes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre: newRepNombre, rut: newRepRut }),
+        body: JSON.stringify({ nombre: newRepNombre, rut: newRepRut, email: newRepEmail || null }),
       })
       const json = await res.json()
       if (json.success) {
         setRepresentantes((prev) => [...prev, json.data])
         setNewRepNombre('')
         setNewRepRut('')
+        setNewRepEmail('')
       }
     } finally {
       setAddingRep(false)
+    }
+  }
+
+  async function updateRepresentanteEmail(id: string, email: string) {
+    setSavingRepId(id)
+    try {
+      const res = await fetch('/api/portal/cliente/empresa/representantes', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, email: email || null }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setSavedRepId(id)
+        setTimeout(() => setSavedRepId(null), 2000)
+      }
+    } finally {
+      setSavingRepId(null)
     }
   }
 
@@ -387,58 +410,97 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
           <p className="text-xs text-zinc-500 mb-3">Sin representantes legales registrados.</p>
         )}
 
+        <p className="text-[11px] text-amber-400/70 mb-3">
+          El email de cada representante legal es obligatorio para el flujo de firma de contrato.
+        </p>
+
         <div className="space-y-2 mb-3">
           {representantes.map((rep) => (
             <div
               key={rep.id}
-              className="flex items-center justify-between gap-2 rounded-lg border border-zinc-700/50 bg-zinc-800/50 px-3 py-2"
+              className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 px-3 py-2 space-y-2"
             >
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-white truncate">{rep.nombre}</p>
-                <p className="text-xs text-zinc-400">{rep.rut}</p>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-white truncate">{rep.nombre}</p>
+                  <p className="text-xs text-zinc-400">{rep.rut}</p>
+                </div>
+                <button
+                  onClick={() => deleteRepresentante(rep.id)}
+                  disabled={deletingRepId === rep.id}
+                  className="text-zinc-500 hover:text-red-400 transition-colors p-1 shrink-0"
+                >
+                  {deletingRepId === rep.id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                </button>
               </div>
-              <button
-                onClick={() => deleteRepresentante(rep.id)}
-                disabled={deletingRepId === rep.id}
-                className="text-zinc-500 hover:text-red-400 transition-colors p-1 shrink-0"
-              >
-                {deletingRepId === rep.id ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5" />
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <input
+                  type="email"
+                  value={rep.email ?? ''}
+                  onChange={(e) =>
+                    setRepresentantes((prev) =>
+                      prev.map((r) => (r.id === rep.id ? { ...r, email: e.target.value } : r))
+                    )
+                  }
+                  placeholder="Email de firma (requerido)"
+                  className={cn(
+                    'flex-1 h-8 rounded-lg border bg-zinc-900 px-3 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-teal-400 transition-colors',
+                    !rep.email ? 'border-amber-500/50' : 'border-zinc-700'
+                  )}
+                />
+                <SaveButton
+                  saving={savingRepId === rep.id}
+                  saved={savedRepId === rep.id}
+                  onClick={() => updateRepresentanteEmail(rep.id, rep.email ?? '')}
+                  disabled={!rep.email?.trim()}
+                />
+              </div>
             </div>
           ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            type="text"
-            value={newRepNombre}
-            onChange={(e) => setNewRepNombre(e.target.value)}
-            placeholder="Nombre"
-            className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-teal-400 transition-colors"
-          />
-          <input
-            type="text"
-            value={newRepRut}
-            onChange={(e) => setNewRepRut(e.target.value)}
-            placeholder="RUT"
-            className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-teal-400 transition-colors"
-          />
-          <button
-            onClick={addRepresentante}
-            disabled={addingRep || !newRepNombre.trim() || !newRepRut.trim()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-700 hover:bg-zinc-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-          >
-            {addingRep ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Plus className="h-3 w-3" />
-            )}
-            Agregar
-          </button>
+        <div className="space-y-2">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={newRepNombre}
+              onChange={(e) => setNewRepNombre(e.target.value)}
+              placeholder="Nombre"
+              className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-teal-400 transition-colors"
+            />
+            <input
+              type="text"
+              value={newRepRut}
+              onChange={(e) => setNewRepRut(e.target.value)}
+              placeholder="RUT"
+              className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-teal-400 transition-colors"
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="email"
+              value={newRepEmail}
+              onChange={(e) => setNewRepEmail(e.target.value)}
+              placeholder="Email de firma"
+              className="flex-1 h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-teal-400 transition-colors"
+            />
+            <button
+              onClick={addRepresentante}
+              disabled={addingRep || !newRepNombre.trim() || !newRepRut.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-700 hover:bg-zinc-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            >
+              {addingRep ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Plus className="h-3 w-3" />
+              )}
+              Agregar
+            </button>
+          </div>
         </div>
       </Card>
 

@@ -411,12 +411,17 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
       {/* ── Approve dialog ── */}
       {approveQuote && (
         <CotizacionApproveDialog
+          quoteId={approveQuote.id}
           quoteName={approveQuote.quoteName ?? approveQuote.name ?? approveQuote.code}
           monthlyCost={approveQuote.monthlyCost}
           currency={approveQuote.currency}
           open={!!approveQuoteId}
           onOpenChange={(open) => { if (!open) setApproveQuoteId(null); }}
           onConfirm={handleApprove}
+          onNavigateToEmpresa={() => {
+            setApproveQuoteId(null);
+            onNavigate?.("empresa");
+          }}
           isProspect={isProspect}
         />
       )}

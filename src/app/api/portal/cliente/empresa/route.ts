@@ -20,7 +20,7 @@ export async function GET() {
       address: true,
       commune: true,
       representantesLegales: {
-        select: { id: true, nombre: true, rut: true },
+        select: { id: true, nombre: true, rut: true, email: true },
         orderBy: { createdAt: "asc" },
       },
       personeria: {
