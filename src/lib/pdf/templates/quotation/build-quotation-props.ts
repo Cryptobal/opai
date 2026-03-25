@@ -23,6 +23,7 @@ import { getTenantCompanyConfig } from '@/lib/tenant-config';
 import type { ProposalTemplateSections } from '@/types/cpq';
 import type { QuotationPDFProps, AdditionalLinePDF, LaborBreakdownPDF } from './render-quotation';
 import { DEFAULT_TEMPLATE_SECTIONS, DEFAULT_COMPLIANCE_ITEMS } from './render-quotation';
+import { buildCpqQuotePdfFileName } from '@/lib/pdf/cpq-quote-pdf-filename';
 
 export interface BuildQuotationOptions {
   templateSectionsOverride?: Partial<ProposalTemplateSections>;
@@ -150,6 +151,17 @@ export async function buildQuotationProps(
     });
     if (deal) dealName = deal.title;
   }
+
+  let accountName: string | null = null;
+  if (quote.accountId) {
+    const acc = await prisma.crmAccount.findUnique({
+      where: { id: quote.accountId },
+      select: { name: true },
+    });
+    accountName = acc?.name ?? null;
+  }
+  const clientLabelForFile =
+    accountName?.trim() || quote.clientName?.trim() || contactName.trim() || 'Cliente';
 
   // Additional lines
   const additionalLines = await prisma.cpqQuoteAdditionalLine.findMany({
@@ -576,7 +588,12 @@ export async function buildQuotationProps(
     complianceItems,
   };
 
-  const fileName = `${quote.code}-propuesta.pdf`;
+  const fileName = buildCpqQuotePdfFileName({
+    clientName: clientLabelForFile,
+    installationName: quote.installation?.name ?? '',
+    quoteName: quote.name,
+    quoteCode: quote.code,
+  });
 
   return { ...props, fileName };
 }

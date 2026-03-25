@@ -23,6 +23,7 @@ import {
   computeLeadPositionCostsFromPayroll,
   type LeadPositionLike,
 } from "@/lib/cpq/lead-labor-from-payroll";
+import { buildCpqQuotePdfFileName } from "@/lib/pdf/cpq-quote-pdf-filename";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -125,6 +126,8 @@ export async function POST(
       templateSlug = "standard",
       accountName = "Cliente",
       installationName = "",
+      quoteName,
+      quoteCode = "Borrador",
       positions = [] as LeadPosition[],
       costItems = [] as LeadCostItem[],
       additionalLines = [] as LeadAdditionalLine[],
@@ -523,10 +526,17 @@ export async function POST(
 
     const pdfBuffer = await renderQuotationToBuffer(props);
 
+    const fileName = buildCpqQuotePdfFileName({
+      clientName: accountName,
+      installationName,
+      quoteName: typeof quoteName === "string" ? quoteName : undefined,
+      quoteCode: typeof quoteCode === "string" ? quoteCode : "Borrador",
+    });
+
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="preview-${accountName}.pdf"`,
+        "Content-Disposition": `inline; filename="${fileName}"`,
       },
     });
   } catch (error) {

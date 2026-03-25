@@ -9,6 +9,7 @@ import { computeCpqQuoteCosts } from '@/modules/cpq/costing/compute-quote-costs'
 import { formatCurrency, formatUFSuffix } from '@/lib/utils';
 import { getUfValue, clpToUf } from '@/lib/uf';
 import { generateProposalAIContent } from './proposal-ai';
+import { buildCpqQuotePdfFileName } from '@/lib/pdf/cpq-quote-pdf-filename';
 import type { ProposalAIContent } from './proposal-ai';
 import type { QuoteBreakdownData, PositionBreakdownItem, ResourceBreakdownCategory, ResourceBreakdownItem } from '@/types/cpq-breakdown';
 
@@ -729,7 +730,12 @@ export async function buildProposalProps(
     includedItems: (quote.includedItems ?? []).filter((t) => t.trim().length > 0),
   };
 
-  const fileName = `Propuesta-Tecnica-${companyName.replace(/\s+/g, '-')}-${quote.code}.pdf`;
+  const fileName = buildCpqQuotePdfFileName({
+    clientName: companyName,
+    installationName: installation?.name ?? '',
+    quoteName: quote.name,
+    quoteCode: quote.code,
+  });
 
   return { ...props, fileName };
 }

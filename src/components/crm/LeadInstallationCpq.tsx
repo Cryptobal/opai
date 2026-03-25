@@ -1266,6 +1266,8 @@ function PdfPreviewSection({
   const commonPayload = {
     accountName: accountName || "Cliente",
     installationName: installationName || "",
+    quoteName: config.quoteName?.trim() || undefined,
+    quoteCode: "Borrador",
     positions: config.positions,
     costItems: config.costItems,
     additionalLines: config.additionalLines,

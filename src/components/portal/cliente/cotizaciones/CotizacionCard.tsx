@@ -343,6 +343,9 @@ export function CotizacionCard({
                   canAct={canAct}
                   context={context}
                   cotizacionCode={detail.code}
+                  clientName={detail.clientName}
+                  installationName={detail.installationName}
+                  quoteTitle={detail.quoteName ?? detail.name}
                   onApprove={onApprove}
                   onReject={onReject}
                   onConsult={onConsult}

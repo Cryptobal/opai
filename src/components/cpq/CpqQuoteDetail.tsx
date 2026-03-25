@@ -21,6 +21,10 @@ import { SendPortalProposalModal } from "@/components/cpq/SendPortalProposalModa
 import { formatCurrency } from "@/components/cpq/utils";
 import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { getErrorMessageFromResponse } from "@/lib/parse-fetch-error";
+import {
+  buildCpqQuotePdfFileName,
+  parseContentDispositionFileName,
+} from "@/lib/pdf/cpq-quote-pdf-filename";
 import type {
   CpqQuote,
   CpqPosition,
@@ -749,7 +753,25 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${quote?.code || "cotizacion"}-propuesta.pdf`;
+      const fromHeader = parseContentDispositionFileName(
+        response.headers.get("Content-Disposition"),
+      );
+      const accountLabel =
+        crmAccounts.find((x) => x.id === crmContext.accountId)?.name?.trim() ||
+        quoteForm.clientName?.trim() ||
+        quote?.clientName?.trim() ||
+        "Cliente";
+      const installationLabel =
+        crmInstallations.find((x) => x.id === crmContext.installationId)?.name?.trim() || "";
+      const quoteTitle = quoteForm.name?.trim() || quote?.name?.trim() || null;
+      a.download =
+        fromHeader ??
+        buildCpqQuotePdfFileName({
+          clientName: accountLabel,
+          installationName: installationLabel,
+          quoteName: quoteTitle,
+          quoteCode: quote?.code || "cotizacion",
+        });
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -779,7 +801,25 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Propuesta-Tecnica-${quote?.code || "cotizacion"}.pdf`;
+      const fromHeader = parseContentDispositionFileName(
+        response.headers.get("Content-Disposition"),
+      );
+      const accountLabel =
+        crmAccounts.find((x) => x.id === crmContext.accountId)?.name?.trim() ||
+        quoteForm.clientName?.trim() ||
+        quote?.clientName?.trim() ||
+        "Cliente";
+      const installationLabel =
+        crmInstallations.find((x) => x.id === crmContext.installationId)?.name?.trim() || "";
+      const quoteTitle = quoteForm.name?.trim() || quote?.name?.trim() || null;
+      a.download =
+        fromHeader ??
+        buildCpqQuotePdfFileName({
+          clientName: accountLabel,
+          installationName: installationLabel,
+          quoteName: quoteTitle,
+          quoteCode: quote?.code || "cotizacion",
+        });
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

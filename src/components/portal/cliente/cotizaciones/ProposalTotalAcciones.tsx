@@ -5,6 +5,10 @@ import { Check, XCircle, FileDown, FileText, MessageSquare, Loader2 } from "luci
 import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getErrorMessageFromResponse } from "@/lib/parse-fetch-error";
+import {
+  buildCpqQuotePdfFileName,
+  parseContentDispositionFileName,
+} from "@/lib/pdf/cpq-quote-pdf-filename";
 import { WhatsAppButton } from "./WhatsAppButton";
 
 interface ProposalTotalAccionesProps {
@@ -14,6 +18,9 @@ interface ProposalTotalAccionesProps {
   canAct: boolean;
   context: "prospect" | "client";
   cotizacionCode: string;
+  clientName?: string | null;
+  installationName?: string | null;
+  quoteTitle?: string | null;
   onApprove?: () => void;
   onReject?: () => void;
   onConsult?: () => void;
@@ -29,6 +36,9 @@ export function ProposalTotalAcciones({
   canAct,
   context,
   cotizacionCode,
+  clientName,
+  installationName,
+  quoteTitle,
   onApprove,
   onReject,
   onConsult,
@@ -56,9 +66,15 @@ export function ProposalTotalAcciones({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const disposition = res.headers.get("Content-Disposition");
-      const match = disposition?.match(/filename="?([^";\n]+)"?/);
-      a.download = match?.[1] ?? `Propuesta-Tecnica-${cotizacionCode}.pdf`;
+      const fromHeader = parseContentDispositionFileName(res.headers.get("Content-Disposition"));
+      a.download =
+        fromHeader ??
+        buildCpqQuotePdfFileName({
+          clientName: clientName?.trim() || "Cliente",
+          installationName: installationName?.trim() || "",
+          quoteName: quoteTitle?.trim() || undefined,
+          quoteCode: cotizacionCode,
+        });
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -88,9 +104,15 @@ export function ProposalTotalAcciones({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const disposition = res.headers.get("Content-Disposition");
-      const match = disposition?.match(/filename="?([^"]+)"?/);
-      a.download = match?.[1] ?? `cotizacion-${quoteId}.pdf`;
+      const fromHeader = parseContentDispositionFileName(res.headers.get("Content-Disposition"));
+      a.download =
+        fromHeader ??
+        buildCpqQuotePdfFileName({
+          clientName: clientName?.trim() || "Cliente",
+          installationName: installationName?.trim() || "",
+          quoteName: quoteTitle?.trim() || undefined,
+          quoteCode: cotizacionCode,
+        });
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
