@@ -2870,7 +2870,8 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
     groupedByMovement.set(item.movementId, existing);
   }
 
-  const hasFaceId = session.faceIdRegistered;
+  /** Rostro registrado en sistema (mejor experiencia Face ID); el toggle se muestra siempre. */
+  const faceEnrolled = session.faceIdRegistered;
 
   return (
     <div className="p-4 space-y-3">
@@ -2886,9 +2887,13 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
             {pendingConfirmations.length} {pendingConfirmations.length === 1 ? "entrega pendiente" : "entregas pendientes"} de confirmación
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {hasFaceId
-              ? "Usa Face ID o tu PIN de marcación para confirmar la recepción."
-              : "Usa tu PIN de marcación para confirmar la recepción."}
+            Confirma con <span className="font-medium text-foreground/90">Face ID</span> (cámara) o con tu{" "}
+            <span className="font-medium text-foreground/90">PIN de marcación</span>.
+            {!faceEnrolled && (
+              <span className="block mt-1 text-amber-600/90 dark:text-amber-400/90">
+                Si aún no tienes Face ID registrado, elige PIN o regístralo al marcar asistencia con foto.
+              </span>
+            )}
           </p>
         </div>
       )}
@@ -2899,7 +2904,7 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
           const isPending = first.confirmationStatus === "pending";
           const isConfirmed = first.confirmationStatus === "confirmed";
           const result = confirmResult[movementId];
-          const method = confirmMethod[movementId] || (hasFaceId ? "face_id" : "pin");
+          const method = confirmMethod[movementId] || (faceEnrolled ? "face_id" : "pin");
 
           return (
             <div key={movementId} className="rounded-lg border bg-card overflow-x-hidden shadow-sm">
@@ -2934,35 +2939,33 @@ function EquipamientoSection({ session }: { session: GuardSession }) {
               {/* Confirmation area */}
               {isPending && !result?.ok && (
                 <div className="p-3 border-t bg-muted/20 space-y-3">
-                  {/* Method toggle */}
-                  {hasFaceId && (
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <button
-                        type="button"
-                        onClick={() => { stopCamera(); setConfirmMethod((p) => ({ ...p, [movementId]: "face_id" })); }}
-                        className={`flex-1 min-h-11 text-xs py-2.5 px-2 rounded-md border transition-colors ${
-                          method === "face_id"
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background text-muted-foreground border-input hover:bg-muted"
-                        }`}
-                      >
-                        <Camera className="h-3.5 w-3.5 inline mr-1 align-middle" />
-                        Face ID
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { stopCamera(); setConfirmMethod((p) => ({ ...p, [movementId]: "pin" })); }}
-                        className={`flex-1 min-h-11 text-xs py-2.5 px-2 rounded-md border transition-colors ${
-                          method === "pin"
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background text-muted-foreground border-input hover:bg-muted"
-                        }`}
-                      >
-                        <Fingerprint className="h-3.5 w-3.5 inline mr-1 align-middle" />
-                        PIN de marcación
-                      </button>
-                    </div>
-                  )}
+                  {/* Face ID y PIN siempre visibles; Face ID requiere rostro registrado en backend para verificar */}
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => { stopCamera(); setConfirmMethod((p) => ({ ...p, [movementId]: "face_id" })); }}
+                      className={`flex-1 min-h-11 text-xs py-2.5 px-2 rounded-md border transition-colors ${
+                        method === "face_id"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-muted-foreground border-input hover:bg-muted"
+                      }`}
+                    >
+                      <Camera className="h-3.5 w-3.5 inline mr-1 align-middle" />
+                      Face ID
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { stopCamera(); setConfirmMethod((p) => ({ ...p, [movementId]: "pin" })); }}
+                      className={`flex-1 min-h-11 text-xs py-2.5 px-2 rounded-md border transition-colors ${
+                        method === "pin"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-muted-foreground border-input hover:bg-muted"
+                      }`}
+                    >
+                      <Fingerprint className="h-3.5 w-3.5 inline mr-1 align-middle" />
+                      PIN de marcación
+                    </button>
+                  </div>
 
                   {/* Face ID camera */}
                   {method === "face_id" && (
