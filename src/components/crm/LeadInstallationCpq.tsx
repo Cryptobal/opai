@@ -68,8 +68,13 @@ export interface LeadCpqConfig {
   uniformChangesPerYear?: number;
   avgStayMonths?: number;
   quoteName?: string;
+  /** Si no es true, `quoteName` se iguala al nombre de la instalación hasta que el usuario edite el campo. */
+  quoteNameUnlinked?: boolean;
   currency?: "CLP" | "UF";
 }
+
+/** Moneda por defecto en borradores de lead (CPQ embebido). */
+export const DEFAULT_LEAD_CPQ_CURRENCY: "CLP" | "UF" = "UF";
 
 export interface CpqCatalogOption {
   id: string;
@@ -295,6 +300,30 @@ export function LeadInstallationCpq({
   const [aiInstruction, setAiInstruction] = useState("");
 
   const update = (patch: Partial<LeadCpqConfig>) => onChange({ ...config, ...patch });
+
+  const currency = config.currency ?? DEFAULT_LEAD_CPQ_CURRENCY;
+
+  // Borradores antiguos: si cotización ≠ instalación, no sobrescribir con el nombre de instalación
+  const quoteMigrateRef = useRef(false);
+  useEffect(() => {
+    if (quoteMigrateRef.current) return;
+    const q = (config.quoteName || "").trim();
+    const ins = (installationName || "").trim();
+    if (q && ins && q !== ins && config.quoteNameUnlinked !== true) {
+      quoteMigrateRef.current = true;
+      onChange({ ...config, quoteNameUnlinked: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot; onChange/config omitidos a propósito
+  }, [installationName, config.quoteName, config.quoteNameUnlinked]);
+
+  // Mantener nombre cotización = nombre instalación mientras vayan vinculados
+  useEffect(() => {
+    if (config.quoteNameUnlinked) return;
+    const ins = installationName ?? "";
+    if ((config.quoteName || "") === ins) return;
+    onChange({ ...config, quoteName: ins });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reacciona solo a installationName / quoteNameUnlinked; evitar bucle con quoteName
+  }, [installationName, config.quoteNameUnlinked]);
 
   // ─── Cost item helpers ───
   const toggleCostItem = (catalogItemId: string) => {
@@ -655,26 +684,48 @@ export function LeadInstallationCpq({
   return (
     <div className="space-y-2">
       {/* ── Nombre cotización + Moneda ── */}
-      <div className="flex gap-2 items-end">
-        <div className="flex-1 space-y-1">
-          <Label className="text-[10px] text-muted-foreground">Nombre cotización</Label>
+      <div className="flex flex-col gap-2 sm:flex-row sm:gap-3 sm:items-end">
+        <div className="flex-1 space-y-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label className="text-[10px] text-muted-foreground">Nombre cotización</Label>
+            {config.quoteNameUnlinked ? (
+              <button
+                type="button"
+                className="text-[10px] text-primary hover:underline"
+                onClick={() => update({ quoteName: installationName || "", quoteNameUnlinked: false })}
+              >
+                Igualar al nombre de instalación
+              </button>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">(sigue al nombre de instalación)</span>
+            )}
+          </div>
           <Input
-            value={config.quoteName || ""}
-            onChange={(e) => update({ quoteName: e.target.value })}
+            value={config.quoteName ?? ""}
+            onChange={(e) => update({ quoteName: e.target.value, quoteNameUnlinked: true })}
             className="h-7 text-xs"
-            placeholder="Ej: Propuesta Control de Acceso"
+            placeholder={installationName?.trim() ? installationName : "Ej: Propuesta Control de Acceso"}
           />
         </div>
-        <div className="w-24 space-y-1">
-          <Label className="text-[10px] text-muted-foreground">Moneda</Label>
-          <select
-            className="flex h-7 w-full rounded-md border border-border bg-card px-2 text-xs"
-            value={config.currency || "CLP"}
-            onChange={(e) => update({ currency: e.target.value as "CLP" | "UF" })}
-          >
-            <option value="CLP">CLP</option>
-            <option value="UF">UF</option>
-          </select>
+        <div className="shrink-0 space-y-1">
+          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Moneda</Label>
+          <div className="flex gap-0.5">
+            {(["UF", "CLP"] as const).map((cur) => (
+              <button
+                key={cur}
+                type="button"
+                onClick={() => update({ currency: cur })}
+                className={cn(
+                  "rounded-md px-3 h-7 text-xs font-medium border transition-colors",
+                  currency === cur
+                    ? "bg-primary/15 text-primary border-primary/30"
+                    : "bg-background text-muted-foreground border-input hover:bg-accent/50",
+                )}
+              >
+                {cur}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -771,7 +822,7 @@ export function LeadInstallationCpq({
           additionalLines: estimate.totalLineas,
           grandTotal: estimate.precioVenta,
           monthlyHoursStandard,
-          currency: config.currency || "CLP",
+          currency,
           ufValue: ufValue ?? undefined,
         };
 
@@ -1284,7 +1335,7 @@ function PdfPreviewSection({
     conditions: config.conditions,
     uniformChangesPerYear: config.uniformChangesPerYear ?? 3,
     avgStayMonths: config.avgStayMonths ?? 4,
-    currency: config.currency || "CLP",
+    currency: config.currency ?? DEFAULT_LEAD_CPQ_CURRENCY,
     ...(ufValue != null && ufValue > 0 ? { ufValue } : {}),
   };
 
@@ -1612,6 +1663,6 @@ export function createDefaultLeadCpqConfig(): LeadCpqConfig {
     uniformChangesPerYear: 3,
     avgStayMonths: 4,
     quoteName: "",
-    currency: "CLP",
+    currency: DEFAULT_LEAD_CPQ_CURRENCY,
   };
 }

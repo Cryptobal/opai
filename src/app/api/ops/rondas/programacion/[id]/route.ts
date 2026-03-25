@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit, canView, hasCapability } from "@/lib/permissions";
@@ -45,7 +46,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         horaInicio: parsed.data.horaInicio,
         horaFin: parsed.data.horaFin,
         frecuenciaMinutos: parsed.data.frecuenciaMinutos,
-        horariosCustom: parsed.data.horariosCustom !== undefined ? (parsed.data.horariosCustom ?? null) : undefined,
+        horariosCustom:
+          parsed.data.horariosCustom === undefined
+            ? undefined
+            : parsed.data.horariosCustom === null
+              ? Prisma.DbNull
+              : parsed.data.horariosCustom,
         toleranciaMinutos: parsed.data.toleranciaMinutos,
         isActive: parsed.data.isActive,
       },

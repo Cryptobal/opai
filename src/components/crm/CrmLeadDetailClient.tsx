@@ -59,7 +59,12 @@ import { LeadSourceBadge } from "./LeadSourceBadge";
 import { DotacionSummary } from "./DotacionSummary";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
-import { LeadInstallationCpq, createDefaultLeadCpqConfig, type LeadCpqConfig } from "./LeadInstallationCpq";
+import {
+  LeadInstallationCpq,
+  createDefaultLeadCpqConfig,
+  DEFAULT_LEAD_CPQ_CURRENCY,
+  type LeadCpqConfig,
+} from "./LeadInstallationCpq";
 import { SERVICE_TYPES } from "@/lib/constants";
 import { computeLeadCpqMonthlySaleClp } from "@/lib/crm/lead-cpq-monthly-total";
 import { formatCurrency } from "@/components/cpq/utils";
@@ -502,16 +507,6 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const [proposalTemplates, setProposalTemplates] = useState<{ id: string; name: string; slug?: string }[]>([]);
   const [ufValue, setUfValue] = useState<number | null>(null);
   const [expandedInstallations, setExpandedInstallations] = useState<Record<string, boolean>>({});
-  /** Instalación activa para «Copiar instalación» (elige tocando la cabecera de la tarjeta). */
-  const [selectedInstallationKey, setSelectedInstallationKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    setSelectedInstallationKey((cur) => {
-      if (installations.length === 0) return null;
-      if (cur && installations.some((i) => i._key === cur)) return cur;
-      return installations[0]!._key;
-    });
-  }, [installations]);
 
   // Backward compat aliases from cpqConfigs
   const firstInstKey = installations[0]?._key;
@@ -626,8 +621,9 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     };
   }, [leadDraftFingerprint, isEditable, lead.id]);
 
-  // ─── Aggregated CPQ monthly total (all installations) for sticky header ───
+  // ─── CPQ monthly sale per installation + sum (sticky header y filas colapsadas) ───
   const [leadCpqMonthlyTotalClp, setLeadCpqMonthlyTotalClp] = useState<number | null>(null);
+  const [leadCpqSaleClpByKey, setLeadCpqSaleClpByKey] = useState<Record<string, number>>({});
   const [leadCpqTotalsLoading, setLeadCpqTotalsLoading] = useState(false);
   const cpqTotalsSerializeKey = useMemo(() => JSON.stringify(cpqConfigs), [cpqConfigs]);
   const hasCpqPositions = useMemo(
@@ -639,6 +635,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     const keys = Object.keys(cpqConfigs);
     if (keys.length === 0 || !hasCpqPositions) {
       setLeadCpqMonthlyTotalClp(null);
+      setLeadCpqSaleClpByKey({});
       setLeadCpqTotalsLoading(false);
       return;
     }
@@ -652,7 +649,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           const parts = await Promise.all(
             keys.map(async (key) => {
               const cfg = cpqConfigs[key];
-              if (!cfg || cfg.positions.length === 0) return 0;
+              if (!cfg || cfg.positions.length === 0) return { key, clp: 0 };
               const res = await fetch("/api/crm/leads/employer-cost-preview", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -664,16 +661,29 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                 }),
               });
               const json = await res.json();
-              if (!json.success || !Array.isArray(json.data?.items)) return 0;
+              if (!json.success || !Array.isArray(json.data?.items)) return { key, clp: 0 };
               const items = json.data.items.map((it: { employerCostPerGuard: number }) => ({
                 employerCostPerGuard: Number(it.employerCostPerGuard) || 0,
               }));
-              return computeLeadCpqMonthlySaleClp(cfg, items);
+              const clp = computeLeadCpqMonthlySaleClp(cfg, items);
+              return { key, clp };
             })
           );
-          if (!cancelled) setLeadCpqMonthlyTotalClp(parts.reduce((a, b) => a + b, 0));
+          if (!cancelled) {
+            const byKey: Record<string, number> = {};
+            let sum = 0;
+            for (const { key, clp } of parts) {
+              byKey[key] = clp;
+              sum += clp;
+            }
+            setLeadCpqSaleClpByKey(byKey);
+            setLeadCpqMonthlyTotalClp(sum);
+          }
         } catch {
-          if (!cancelled) setLeadCpqMonthlyTotalClp(null);
+          if (!cancelled) {
+            setLeadCpqMonthlyTotalClp(null);
+            setLeadCpqSaleClpByKey({});
+          }
         } finally {
           if (!cancelled) setLeadCpqTotalsLoading(false);
         }
@@ -1096,16 +1106,9 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   };
   const removeInstallation = (key: string) => { setInstallations((prev) => prev.filter((inst) => inst._key !== key)); };
   const addInstallation = () => {
-    const empty = createEmptyInstallation();
-    setInstallations((prev) => [...prev, empty]);
-    setSelectedInstallationKey(empty._key);
+    setInstallations((prev) => [...prev, createEmptyInstallation()]);
   };
-  const duplicateInstallation = () => {
-    const sourceKey = selectedInstallationKey;
-    if (!sourceKey) {
-      toast.error("Selecciona una instalación tocando su cabecera.");
-      return;
-    }
+  const duplicateInstallationByKey = (sourceKey: string) => {
     setInstallations((prev) => {
       const src = prev.find((i) => i._key === sourceKey);
       if (!src) return prev;
@@ -1115,7 +1118,6 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
         return { ...pc, [clone._key]: cloneLeadCpqConfig(base) };
       });
       setExpandedInstallations((ex) => ({ ...ex, [clone._key]: true }));
-      setSelectedInstallationKey(clone._key);
       return [...prev, clone];
     });
   };
@@ -1301,7 +1303,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
 
         const cpqData = cpqCfg ? {
           quoteName: cpqCfg.quoteName || undefined,
-          currency: cpqCfg.currency || "CLP",
+          currency: cpqCfg.currency ?? DEFAULT_LEAD_CPQ_CURRENCY,
           marginPercentage: cpqCfg.marginPercentage,
           marginMode: cpqCfg.marginMode,
           financialCosts: cpqCfg.financialCosts,
@@ -2045,42 +2047,38 @@ Conoce más sobre nosotros en https://gard.cl`;
         <div className="space-y-5 pb-52 sm:pb-40 lg:pb-32">
           {installations.length === 0 && (
             <div className="rounded-xl border border-dashed border-border/70 bg-card/40 px-4 py-8 text-center">
-              <p className="text-xs text-muted-foreground">Sin instalaciones. Usa &quot;Nueva instalación&quot; o &quot;Copiar instalación&quot; para comenzar.</p>
+              <p className="text-xs text-muted-foreground">Sin instalaciones. Usa &quot;Nueva instalación&quot; para comenzar (luego puedes duplicar cada una con el ícono de copiar en su fila).</p>
             </div>
           )}
           {installations.map((inst, instIdx) => {
             const instConfig = cpqConfigs[inst._key];
             const isExpanded = expandedInstallations[inst._key] !== false; // default expanded
-            const isSelected = selectedInstallationKey === inst._key;
             const instGuards = instConfig?.positions?.reduce((s, p) => s + (p.cantidad || 1) * (p.numPuestos || 1), 0) ?? 0;
+            const dispCur = (instConfig?.currency ?? DEFAULT_LEAD_CPQ_CURRENCY) as "CLP" | "UF";
+            const saleClp = leadCpqSaleClpByKey[inst._key];
+            const salePending = leadCpqTotalsLoading && !(inst._key in leadCpqSaleClpByKey);
+            const ufV = ufValue && ufValue > 0 ? ufValue : null;
+            const saleUf = saleClp != null && ufV ? saleClp / ufV : null;
+            const marginPct = instConfig?.marginPercentage ?? 0;
+            const finEnabled = instConfig?.financialCosts?.financialEnabled;
+            const finPct = instConfig?.financialCosts?.financialRatePct ?? 0;
             return (
             <div
               key={inst._key}
-              className={cn(
-                "rounded-xl border-2 bg-card shadow-sm overflow-hidden transition-[box-shadow,border-color]",
-                isSelected
-                  ? "border-primary/70 ring-2 ring-primary/30"
-                  : "border-border ring-1 ring-border/40",
-              )}
+              className="rounded-xl border-2 border-border bg-card shadow-sm ring-1 ring-border/40 overflow-hidden"
             >
-              {/* Cabecera: izquierda = seleccionar y abrir; derecha = eliminar + plegar */}
+              {/* Cabecera: izquierda = expandir/contraer; derecha = quitar, copiar, chevron */}
               <div className="flex w-full items-stretch">
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelectedInstallationKey(inst._key);
-                    setExpandedInstallations((prev) => ({ ...prev, [inst._key]: true }));
-                  }}
+                  onClick={() => setExpandedInstallations((prev) => ({ ...prev, [inst._key]: !isExpanded }))}
                   className="min-w-0 flex-1 flex items-center gap-2 px-4 py-3 text-left hover:bg-muted/10 transition-colors rounded-tl-xl"
                 >
-                  <MapPin className={cn("h-4 w-4 shrink-0", isSelected ? "text-primary" : "text-muted-foreground")} />
+                  <MapPin className="h-4 w-4 shrink-0 text-primary" />
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground shrink-0">#{instIdx + 1}</span>
                   <span className="text-sm font-semibold min-w-0 truncate">
                     {inst.name || <span className="text-muted-foreground italic">Sin nombre</span>}
                   </span>
-                  {isSelected && (
-                    <span className="text-[10px] font-medium text-primary shrink-0 hidden sm:inline">Seleccionada</span>
-                  )}
                   {!isExpanded && instGuards > 0 && (
                     <span className="text-[10px] text-muted-foreground ml-1 truncate">
                       {instConfig?.positions?.length ?? 0} puesto(s) · {instGuards} guardias
@@ -2104,6 +2102,16 @@ Conoce más sobre nosotros en https://gard.cl`;
                     type="button"
                     variant="ghost"
                     size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    title="Copiar esta instalación (datos y cotización)"
+                    onClick={() => duplicateInstallationByKey(inst._key)}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
                     className="h-8 w-8 rounded-tr-xl"
                     title={isExpanded ? "Plegar" : "Expandir"}
                     onClick={() => setExpandedInstallations((prev) => ({ ...prev, [inst._key]: !isExpanded }))}
@@ -2112,6 +2120,47 @@ Conoce más sobre nosotros en https://gard.cl`;
                   </Button>
                 </div>
               </div>
+              {!isExpanded && (instConfig?.positions?.length ?? 0) > 0 && (
+                <div className="px-4 pb-2.5 pt-1.5 border-t border-border/25 bg-muted/10 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  {salePending ? (
+                    <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin shrink-0" aria-hidden />
+                      Calculando…
+                    </span>
+                  ) : saleClp != null ? (
+                    <>
+                      {dispCur === "UF" ? (
+                        <>
+                          <span className="text-sm font-semibold tabular-nums text-emerald-500 dark:text-emerald-400">
+                            {saleUf != null
+                              ? `${saleUf.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF`
+                              : "— UF"}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground tabular-nums">{formatCurrency(saleClp)}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-sm font-semibold tabular-nums text-sky-500 dark:text-sky-400">
+                            {formatCurrency(saleClp)}
+                          </span>
+                          {saleUf != null ? (
+                            <span className="text-[11px] font-medium tabular-nums text-emerald-600/85 dark:text-emerald-400/90">
+                              {saleUf.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                      <span className="text-[10px] text-muted-foreground hidden sm:inline">·</span>
+                      <span className="text-[10px] text-muted-foreground">Margen {marginPct}%</span>
+                      {finEnabled ? (
+                        <span className="text-[10px] text-muted-foreground">Fin. {finPct}%</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">Sin total</span>
+                  )}
+                </div>
+              )}
               {/* Collapsible content */}
               {isExpanded && (
               <div className="px-4 pb-4 pt-1 space-y-3 border-t border-border/30">
@@ -2168,7 +2217,7 @@ Conoce más sobre nosotros en https://gard.cl`;
             );
           })}
           <p className="text-[10px] text-muted-foreground">
-            Toca la cabecera de una instalación para seleccionarla; «Copiar instalación» duplica la seleccionada. Cada una tiene su propia configuración de puestos, costos y margen.
+            Cada instalación tiene su propia configuración. El nombre de cotización sigue al nombre de la instalación hasta que lo edites. Con la fila plegada ves total UF/CLP y márgenes según la moneda elegida.
           </p>
         </div>
     );
@@ -2215,26 +2264,9 @@ Conoce más sobre nosotros en https://gard.cl`;
           <div className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-sm font-medium">Instalaciones y Dotación</h3>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addInstallation}>
-                  <Plus className="h-3 w-3" /> Nueva instalación
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs gap-1"
-                  onClick={duplicateInstallation}
-                  disabled={installations.length === 0 || !selectedInstallationKey}
-                  title={
-                    installations.length === 0
-                      ? "Agrega una instalación primero"
-                      : "Duplica la instalación seleccionada (cabecera resaltada)"
-                  }
-                >
-                  <Copy className="h-3 w-3" /> Copiar instalación
-                </Button>
-              </div>
+              <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addInstallation}>
+                <Plus className="h-3 w-3" /> Nueva instalación
+              </Button>
             </div>
             {installationsContent}
           </div>
