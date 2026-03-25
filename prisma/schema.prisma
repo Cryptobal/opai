@@ -3815,6 +3815,7 @@ model OpsRondaProgramacion {
   horaInicio        String   @map("hora_inicio")
   horaFin           String   @map("hora_fin")
   frecuenciaMinutos Int      @default(120) @map("frecuencia_minutos")
+  horariosCustom    Json?    @map("horarios_custom") @db.JsonB
   toleranciaMinutos Int      @default(10) @map("tolerancia_minutos")
   isActive          Boolean  @default(true) @map("is_active")
   createdBy         String?  @map("created_by")

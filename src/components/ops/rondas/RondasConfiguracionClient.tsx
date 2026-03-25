@@ -137,7 +137,15 @@ export function RondasConfiguracionClient({
       },
     },
     { key: "horario", label: "Horario", render: (_v, row) => `${row.horaInicio} - ${row.horaFin}` },
-    { key: "frecuenciaMinutos", label: "Frecuencia", render: (v) => `${v} min` },
+    {
+      key: "frecuenciaMinutos",
+      label: "Frecuencia",
+      render: (_v, row) => {
+        const custom = row.horariosCustom as string[] | null;
+        if (custom && custom.length > 0) return `${custom.length} horarios`;
+        return `${_v} min`;
+      },
+    },
     { key: "toleranciaMinutos", label: "Tolerancia", render: (v) => `${v} min` },
     {
       key: "isActive",
@@ -183,6 +191,7 @@ export function RondasConfiguracionClient({
                 horaInicio: row.horaInicio,
                 horaFin: row.horaFin,
                 frecuenciaMinutos: row.frecuenciaMinutos,
+                horariosCustom: row.horariosCustom as string[] | null,
                 toleranciaMinutos: row.toleranciaMinutos,
               });
             }}

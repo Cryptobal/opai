@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
       horaInicio: programacion.horaInicio,
       horaFin: programacion.horaFin,
       frecuenciaMinutos: programacion.frecuenciaMinutos,
+      horariosCustom: programacion.horariosCustom as string[] | null,
     });
 
     const rows = slots.map((slot) =>

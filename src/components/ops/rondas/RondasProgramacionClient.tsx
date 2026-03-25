@@ -14,6 +14,7 @@ interface ProgramacionItem {
   horaInicio: string;
   horaFin: string;
   frecuenciaMinutos: number;
+  horariosCustom?: string[] | null;
   toleranciaMinutos: number;
   isActive: boolean;
   rondaTemplate?: { name: string } | null;
@@ -40,7 +41,15 @@ export function RondasProgramacionClient({
       label: "Horario",
       render: (_v, row) => `${row.horaInicio} - ${row.horaFin}`,
     },
-    { key: "frecuenciaMinutos", label: "Frecuencia", render: (v) => `${v} min` },
+    {
+      key: "frecuenciaMinutos",
+      label: "Frecuencia",
+      render: (_v, row) => {
+        const custom = row.horariosCustom as string[] | null;
+        if (custom && custom.length > 0) return `${custom.length} horarios`;
+        return `${_v} min`;
+      },
+    },
     { key: "isActive", label: "Estado", render: (v) => (v ? "Activa" : "Inactiva") },
     {
       key: "actions",

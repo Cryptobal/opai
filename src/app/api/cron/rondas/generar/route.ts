@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
         horaInicio: p.horaInicio,
         horaFin: p.horaFin,
         frecuenciaMinutos: p.frecuenciaMinutos,
+        horariosCustom: p.horariosCustom as string[] | null,
       });
 
       // Filter out slots that already have executions

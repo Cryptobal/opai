@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
         horaInicio: parsed.data.horaInicio,
         horaFin: parsed.data.horaFin,
         frecuenciaMinutos: parsed.data.frecuenciaMinutos,
+        horariosCustom: parsed.data.horariosCustom ?? undefined,
         toleranciaMinutos: parsed.data.toleranciaMinutos,
         isActive: parsed.data.isActive,
         createdBy: ctx.userId,
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
             horaInicio: parsed.data.horaInicio,
             horaFin: parsed.data.horaFin,
             frecuenciaMinutos: parsed.data.frecuenciaMinutos,
+            horariosCustom: parsed.data.horariosCustom,
           });
 
           if (slots.length > 0) {

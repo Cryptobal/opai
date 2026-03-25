@@ -45,6 +45,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         horaInicio: parsed.data.horaInicio,
         horaFin: parsed.data.horaFin,
         frecuenciaMinutos: parsed.data.frecuenciaMinutos,
+        horariosCustom: parsed.data.horariosCustom !== undefined ? (parsed.data.horariosCustom ?? null) : undefined,
         toleranciaMinutos: parsed.data.toleranciaMinutos,
         isActive: parsed.data.isActive,
       },
@@ -86,6 +87,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           horaInicio: updated.horaInicio,
           horaFin: updated.horaFin,
           frecuenciaMinutos: updated.frecuenciaMinutos,
+          horariosCustom: updated.horariosCustom as string[] | null,
         });
 
         // Only create slots that are in the future
