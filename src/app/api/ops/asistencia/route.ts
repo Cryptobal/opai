@@ -22,15 +22,16 @@ export async function GET(request: NextRequest) {
       : {};
 
     // Auto-create asistencia rows from pauta mensual
-    // Solo días con serie pintada y shiftCode="T" (día de trabajo).
+    // Días con shiftCode="T" (trabajo) + ausencias (V/L/PCG/PSG) generan filas.
     // Días libres ("-") y sin serie no generan filas en asistencia.
+    const ABSENCE_CODES = ["V", "L", "PCG", "PSG"];
     const pauta = await prisma.opsPautaMensual.findMany({
       where: {
         tenantId: ctx.tenantId,
         ...installationFilter,
         date,
         puesto: { active: true },
-        shiftCode: "T",
+        shiftCode: { in: ["T", ...ABSENCE_CODES] },
       },
       select: {
         puestoId: true,
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
         plannedGuardiaId: true,
         replacementGuardiaId: true,
         installationId: true,
+        shiftCode: true,
         puesto: {
           select: {
             shiftStart: true,
@@ -114,30 +116,37 @@ export async function GET(request: NextRequest) {
 
     if (pauta.length > 0) {
       await prisma.opsAsistenciaDiaria.createMany({
-        data: pauta.map((item) => ({
-          ...(() => {
-            const metrics = computeAttendanceMetrics({
-              plannedShiftStart: item.puesto.shiftStart,
-              plannedShiftEnd: item.puesto.shiftEnd,
-            });
-            return {
-              plannedShiftStart: item.puesto.shiftStart,
-              plannedShiftEnd: item.puesto.shiftEnd,
-              plannedMinutes: metrics.plannedMinutes,
-              workedMinutes: 0,
-              overtimeMinutes: 0,
-              lateMinutes: 0,
-            };
-          })(),
-          tenantId: ctx.tenantId,
-          installationId: item.installationId,
-          puestoId: item.puestoId,
-          slotNumber: item.slotNumber,
-          date,
-          plannedGuardiaId: item.replacementGuardiaId ?? item.plannedGuardiaId,
-          attendanceStatus: (item.replacementGuardiaId ?? item.plannedGuardiaId) ? "pendiente" : "ppc",
-          createdBy: ctx.userId,
-        })),
+        data: pauta.map((item) => {
+          const isAbsence = ABSENCE_CODES.includes(item.shiftCode ?? "");
+          // For absences with replacement, the replacement becomes the effective planned guardia.
+          // For absences without replacement, keep original guard so their name shows, but status = ppc.
+          const effectiveGuardiaId = isAbsence
+            ? (item.replacementGuardiaId ?? item.plannedGuardiaId)
+            : (item.replacementGuardiaId ?? item.plannedGuardiaId);
+          const status = isAbsence && !item.replacementGuardiaId
+            ? "ppc"
+            : effectiveGuardiaId ? "pendiente" : "ppc";
+          const metrics = computeAttendanceMetrics({
+            plannedShiftStart: item.puesto.shiftStart,
+            plannedShiftEnd: item.puesto.shiftEnd,
+          });
+          return {
+            plannedShiftStart: item.puesto.shiftStart,
+            plannedShiftEnd: item.puesto.shiftEnd,
+            plannedMinutes: metrics.plannedMinutes,
+            workedMinutes: 0,
+            overtimeMinutes: 0,
+            lateMinutes: 0,
+            tenantId: ctx.tenantId,
+            installationId: item.installationId,
+            puestoId: item.puestoId,
+            slotNumber: item.slotNumber,
+            date,
+            plannedGuardiaId: effectiveGuardiaId,
+            attendanceStatus: status,
+            createdBy: ctx.userId,
+          };
+        }),
         skipDuplicates: true,
       });
 
@@ -145,6 +154,8 @@ export async function GET(request: NextRequest) {
       // antes de pintar la serie, o pueden tener estados viejos (asistio/reemplazo) de cuando
       // había guardia y luego se desasignó. Actualizamos plannedGuardiaId y alineamos estado.
       for (const item of pauta) {
+        const isAbsence = ABSENCE_CODES.includes(item.shiftCode ?? "");
+        const effectiveGuardiaId = item.replacementGuardiaId ?? item.plannedGuardiaId;
         await prisma.opsAsistenciaDiaria.updateMany({
           where: {
             tenantId: ctx.tenantId,
@@ -153,7 +164,7 @@ export async function GET(request: NextRequest) {
             date,
           },
           data: {
-            plannedGuardiaId: item.replacementGuardiaId ?? item.plannedGuardiaId,
+            plannedGuardiaId: effectiveGuardiaId,
             plannedShiftStart: item.puesto.shiftStart,
             plannedShiftEnd: item.puesto.shiftEnd,
             plannedMinutes: computeAttendanceMetrics({
@@ -162,9 +173,20 @@ export async function GET(request: NextRequest) {
             }).plannedMinutes,
           },
         });
-        const effectivePlannedGuardiaId = item.replacementGuardiaId ?? item.plannedGuardiaId;
-        if (effectivePlannedGuardiaId != null) {
-          // Hay guardia planificado: solo tocar status si la fila sigue en estado inicial
+        if (isAbsence && !item.replacementGuardiaId) {
+          // Ausencia sin reemplazo: forzar PPC para que aparezca como puesto por cubrir
+          await prisma.opsAsistenciaDiaria.updateMany({
+            where: {
+              tenantId: ctx.tenantId,
+              puestoId: item.puestoId,
+              slotNumber: item.slotNumber,
+              date,
+              attendanceStatus: { in: ["pendiente", "ppc"] },
+            },
+            data: { attendanceStatus: "ppc" },
+          });
+        } else if (effectiveGuardiaId != null) {
+          // Hay guardia planificado (o reemplazo asignado): solo tocar status si la fila sigue en estado inicial
           await prisma.opsAsistenciaDiaria.updateMany({
             where: {
               tenantId: ctx.tenantId,
@@ -343,14 +365,24 @@ export async function GET(request: NextRequest) {
       marcacionesByKey.set(key, list);
     }
 
+    // Build absence code lookup from pauta (puestoId|slotNumber → shiftCode)
+    const absenceBySlot = new Map<string, string>();
+    for (const p of pauta) {
+      if (p.shiftCode && ABSENCE_CODES.includes(p.shiftCode)) {
+        absenceBySlot.set(`${p.puestoId}|${p.slotNumber}`, p.shiftCode);
+      }
+    }
+
     const itemsWithMarcaciones = asistencia.map((row) => {
       const guardiaId =
         row.actualGuardiaId ?? row.replacementGuardiaId ?? row.plannedGuardiaId;
       const key = guardiaId ? `${guardiaId}|${row.installationId}` : null;
       const marcacionesRow = key ? marcacionesByKey.get(key) ?? [] : [];
+      const absenceCode = absenceBySlot.get(`${row.puestoId}|${row.slotNumber}`) ?? null;
       return {
         ...row,
         marcaciones: marcacionesRow,
+        absenceCode,
       };
     });
 

@@ -107,6 +107,7 @@ type AsistenciaItem = {
     horasExtra?: string | number | null;
   }>;
   marcaciones?: MarcacionItem[];
+  absenceCode?: string | null;
 };
 
 interface OpsPautaDiariaClientProps {
@@ -123,6 +124,13 @@ function toDateInput(date: Date): string {
 }
 
 const DATE_INPUT_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+const ABSENCE_LABELS: Record<string, string> = {
+  V: "Vacaciones",
+  L: "Licencia",
+  PCG: "Permiso c/goce",
+  PSG: "Permiso s/goce",
+};
 
 /** Parsea "YYYY-MM-DD" como fecha local (medianoche local). Si el string no es válido, devuelve hoy. */
 function parseDateLocal(dateStr: string): Date {
@@ -322,7 +330,7 @@ export function OpsPautaDiariaClient({
     if (kpiFilter !== "todos") {
       result = result.filter(item => {
         if (kpiFilter === "cubiertos") return item.attendanceStatus === "asistio" || item.attendanceStatus === "reemplazo";
-        if (kpiFilter === "ppc") return !item.plannedGuardiaId;
+        if (kpiFilter === "ppc") return !item.plannedGuardiaId || (Boolean(item.absenceCode) && item.attendanceStatus === "ppc");
         if (kpiFilter === "te") return item.turnosExtra?.some((t: { status: string }) => t.status !== "rejected");
         return true;
       });
@@ -348,7 +356,7 @@ export function OpsPautaDiariaClient({
     for (const item of shiftFilteredItems) {
       total++;
       if (item.attendanceStatus === "asistio" || item.attendanceStatus === "reemplazo") cubiertos++;
-      if (!item.plannedGuardiaId) ppc++;
+      if (!item.plannedGuardiaId || (Boolean(item.absenceCode) && item.attendanceStatus === "ppc")) ppc++;
       if (item.turnosExtra?.some((t: { status: string }) => t.status !== "rejected")) te++;
     }
     const cobertura = total > 0 ? Math.round((cubiertos / total) * 100) : 0;
@@ -631,7 +639,8 @@ export function OpsPautaDiariaClient({
                       (TE_PRIORITY[a.status] ?? 9) - (TE_PRIORITY[b.status] ?? 9)
                     )[0];
                   const isLocked = Boolean(item.lockedAt);
-                  const isPPC = !item.plannedGuardiaId;
+                  const isAbsencePPC = Boolean(item.absenceCode) && item.attendanceStatus === "ppc";
+                  const isPPC = !item.plannedGuardiaId || isAbsencePPC;
                   const showReplacementSearch =
                     isPPC ||
                     item.attendanceStatus === "no_asistio" ||
@@ -639,7 +648,7 @@ export function OpsPautaDiariaClient({
                   // Con reemplazo asignado: solo Resetear. Sin reemplazo: Asistió / No asistió
                   const tieneReemplazoAsignado = item.attendanceStatus === "reemplazo" && item.replacementGuardiaId;
                   const showAsistioNoAsistio = !isPPC && item.attendanceStatus !== "asistio" && !tieneReemplazoAsignado;
-                  const initialStatus: "pendiente" | "ppc" = item.plannedGuardiaId ? "pendiente" : "ppc";
+                  const initialStatus: "pendiente" | "ppc" = (item.plannedGuardiaId && !isAbsencePPC) ? "pendiente" : "ppc";
                   const hasChanges =
                     item.attendanceStatus !== initialStatus || item.replacementGuardiaId != null;
                   const isReplacementOpen = replacementOpenId === item.id;
@@ -695,7 +704,14 @@ export function OpsPautaDiariaClient({
                       {/* Col 2: Planificado */}
                       <div className="flex items-center gap-2 text-sm min-w-0">
                         <span className="text-xs text-muted-foreground shrink-0 md:hidden">Planificado</span>
-                        {item.plannedGuardia ? (
+                        {isAbsencePPC && item.plannedGuardia ? (
+                          <span className="truncate flex items-center gap-2">
+                            <span className="text-muted-foreground">{formatPersonName(item.plannedGuardia.persona.firstName, item.plannedGuardia.persona.lastName)}</span>
+                            <span className="inline-flex items-center rounded-full bg-green-500/20 px-1.5 py-0.5 text-[10px] font-medium text-green-400 shrink-0">
+                              {item.absenceCode}
+                            </span>
+                          </span>
+                        ) : item.plannedGuardia ? (
                           <span className="truncate flex items-center gap-2">
                             {formatPersonName(item.plannedGuardia.persona.firstName, item.plannedGuardia.persona.lastName)}
                             {item.plannedGuardia.code && (

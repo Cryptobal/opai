@@ -1281,7 +1281,7 @@ export function OpsPautaMensualClient({
     });
     setAssignModalOpen(true);
     try {
-      const res = await fetch('/api/crm/guardias?status=active');
+      const res = await fetch('/api/personas/guardias?status=active');
       const payload = await res.json();
       if (res.ok && payload.success) {
         setAvailableGuardias(payload.data.filter((g: any) => g.id !== warning.guardiaId));
