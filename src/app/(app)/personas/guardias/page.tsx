@@ -51,6 +51,15 @@ export default async function GuardiasPage() {
           name: true,
         },
       },
+      intendedInstallationId: true,
+      intendedContractDate: true,
+      intendedInstallation: {
+        select: {
+          id: true,
+          name: true,
+          account: { select: { name: true } },
+        },
+      },
       bankAccounts: {
         orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
         take: 1,

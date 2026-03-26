@@ -118,6 +118,24 @@ export async function PATCH(
       );
     }
 
+    if (body.intendedInstallationId !== undefined && body.intendedInstallationId !== null) {
+      const inst = await prisma.crmInstallation.findFirst({
+        where: {
+          id: body.intendedInstallationId,
+          tenantId: ctx.tenantId,
+          status: "active",
+          account: { type: "client", isActive: true },
+        },
+        select: { id: true },
+      });
+      if (!inst) {
+        return NextResponse.json(
+          { success: false, error: "La instalación indicada no existe o no está activa" },
+          { status: 400 }
+        );
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const prevLifecycle = existing.lifecycleStatus;
       const nextLifecycle = (body.lifecycleStatus ?? prevLifecycle) as GuardiaLifecycleStatus;
@@ -200,11 +218,20 @@ export async function PATCH(
               : undefined,
           availableExtraShifts:
             body.availableExtraShifts ?? undefined,
+          intendedInstallationId:
+            body.intendedInstallationId === undefined ? undefined : body.intendedInstallationId,
+          intendedContractDate:
+            body.intendedContractDate === undefined
+              ? undefined
+              : toNullableDate(body.intendedContractDate),
         },
         include: {
           persona: true,
           bankAccounts: {
             orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+          },
+          intendedInstallation: {
+            select: { id: true, name: true, account: { select: { id: true, name: true } } },
           },
         },
       });

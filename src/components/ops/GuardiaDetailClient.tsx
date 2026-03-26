@@ -76,6 +76,7 @@ import { FileAttachments } from "@/components/crm/FileAttachments";
 import { GuardiaDesempenoTab } from "@/components/gamification";
 import { GuardiaMarcacionesTab } from "./GuardiaMarcacionesTab";
 import OnboardingSection from "@/components/ops/guardia-sections/OnboardingSection";
+import { SeleccionadoDestinoFields } from "@/components/ops/SeleccionadoDestinoFields";
 import CommunicationSection from "@/components/ops/guardia-sections/CommunicationSection";
 import DiasTrabajadesSection from "@/components/ops/guardia-sections/DiasTrabajadesSection";
 import TurnosExtraSection from "@/components/ops/guardia-sections/TurnosExtraSection";
@@ -157,6 +158,13 @@ type GuardiaDetail = {
     id: string;
     name: string;
     marcacionCode?: string | null;
+    account?: { id: string; name: string } | null;
+  } | null;
+  intendedInstallationId?: string | null;
+  intendedContractDate?: string | null;
+  intendedInstallation?: {
+    id: string;
+    name: string;
     account?: { id: string; name: string } | null;
   } | null;
   bankAccounts: Array<{
@@ -858,6 +866,31 @@ export function GuardiaDetailClient({
           compact
         />
       </div>
+
+      {(guardia.lifecycleStatus === "seleccionado" ||
+        guardia.intendedInstallationId ||
+        guardia.intendedContractDate) && (
+        <div className="mt-3 max-w-2xl px-0">
+          <SeleccionadoDestinoFields
+            guardiaId={guardia.id}
+            lifecycleStatus={guardia.lifecycleStatus}
+            intendedInstallationId={guardia.intendedInstallationId}
+            intendedContractDate={guardia.intendedContractDate}
+            intendedInstallation={guardia.intendedInstallation}
+            canEdit={canManageGuardias}
+            onUpdated={(patch) => {
+              setGuardia((prev) => ({
+                ...prev,
+                ...patch,
+                intendedInstallation:
+                  patch.intendedInstallation !== undefined
+                    ? patch.intendedInstallation ?? null
+                    : prev.intendedInstallation,
+              }));
+            }}
+          />
+        </div>
+      )}
 
       {/* ── Content + Panel layout ── */}
       <div className="lg:flex gap-5">

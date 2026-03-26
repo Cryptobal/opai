@@ -1581,6 +1581,7 @@ model CrmInstallation {
   opsRondaTemplates               OpsRondaTemplate[]
   opsRondaAlertas                 OpsAlertaRonda[]
   guardiasActuales                OpsGuardia[]                    @relation("ops_guardia_current_installation")
+  guardiasDestinoSeleccion        OpsGuardia[]                    @relation("ops_guardia_intended_installation")
   opsControlNocturnoInstalaciones OpsControlNocturnoInstalacion[]
   supervisorAssignments           OpsAsignacionSupervisor[]       @relation("ops_supervisor_assignment_installation")
   supervisionVisits               OpsVisitaSupervision[]          @relation("ops_supervision_visit_installation")
@@ -2508,6 +2509,10 @@ model OpsGuardia {
   faceIdConsentAt       DateTime? @map("face_id_consent_at") @db.Timestamptz(6)
   faceIdConsentRevoked  Boolean   @default(false) @map("face_id_consent_revoked")
   currentInstallationId String?   @map("current_installation_id") @db.Uuid
+  /// Instalación prevista en fase Seleccionado (planificación; no reemplaza asignación operativa)
+  intendedInstallationId String?  @map("intended_installation_id") @db.Uuid
+  /// Fecha probable de contratación para la instalación prevista
+  intendedContractDate   DateTime? @map("intended_contract_date") @db.Date
   montoAnticipo         Int       @default(0) @map("monto_anticipo")
   recibeAnticipo        Boolean   @default(false) @map("recibe_anticipo")
   salaryStructureId     String?   @map("salary_structure_id") @db.Uuid
@@ -2544,6 +2549,7 @@ model OpsGuardia {
 
   persona                     OpsPersona                   @relation(fields: [personaId], references: [id], onDelete: Cascade)
   currentInstallation         CrmInstallation?             @relation("ops_guardia_current_installation", fields: [currentInstallationId], references: [id], onDelete: SetNull)
+  intendedInstallation        CrmInstallation?             @relation("ops_guardia_intended_installation", fields: [intendedInstallationId], references: [id], onDelete: SetNull)
   salaryStructure             PayrollSalaryStructure?      @relation("ops_guardia_salary_structure", fields: [salaryStructureId], references: [id], onDelete: SetNull)
   bankAccounts                OpsCuentaBancaria[]
   flags                       OpsGuardiaFlag[]

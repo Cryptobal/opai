@@ -44,6 +44,7 @@ import {
   PERSON_SEX,
 } from "@/lib/personas";
 import { hasOpsCapability } from "@/lib/ops-rbac";
+import { SeleccionadoDestinoFields } from "@/components/ops/SeleccionadoDestinoFields";
 
 type GuardiaItem = {
   id: string;
@@ -56,6 +57,13 @@ type GuardiaItem = {
   currentInstallation?: {
     id: string;
     name: string;
+  } | null;
+  intendedInstallationId?: string | null;
+  intendedContractDate?: string | null;
+  intendedInstallation?: {
+    id: string;
+    name: string;
+    account?: { name: string | null } | null;
   } | null;
   persona: {
     firstName: string;
@@ -304,7 +312,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
       if (lifecycleFilter !== "all" && item.lifecycleStatus !== lifecycleFilter) return false;
       if (!query) return true;
       const text =
-        `${formatPersonName(item.persona.firstName, item.persona.lastName)} ${item.persona.rut ?? ""} ${item.persona.email ?? ""} ${item.code ?? ""} ${item.persona.addressFormatted ?? ""} ${item.marcacionPinVisible ?? ""} ${item.currentInstallation?.name ?? ""}`.toLowerCase();
+        `${formatPersonName(item.persona.firstName, item.persona.lastName)} ${item.persona.rut ?? ""} ${item.persona.email ?? ""} ${item.code ?? ""} ${item.persona.addressFormatted ?? ""} ${item.marcacionPinVisible ?? ""} ${item.currentInstallation?.name ?? ""} ${item.intendedInstallation?.name ?? ""} ${item.intendedInstallation?.account?.name ?? ""}`.toLowerCase();
       return text.includes(query);
     });
   }, [guardias, search, lifecycleFilter]);
@@ -986,6 +994,36 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       ) : (
                         <p className="text-xs text-muted-foreground mt-1">Sin teléfono</p>
                       )}
+                      {(item.lifecycleStatus === "seleccionado" ||
+                        item.intendedInstallationId ||
+                        item.intendedContractDate) && (
+                        <SeleccionadoDestinoFields
+                          guardiaId={item.id}
+                          lifecycleStatus={item.lifecycleStatus}
+                          intendedInstallationId={item.intendedInstallationId}
+                          intendedContractDate={item.intendedContractDate}
+                          intendedInstallation={item.intendedInstallation}
+                          canEdit={canManageGuardias}
+                          compact
+                          className="mt-2"
+                          onUpdated={(patch) => {
+                            setGuardias((prev) =>
+                              prev.map((g) =>
+                                g.id === item.id
+                                  ? {
+                                      ...g,
+                                      ...patch,
+                                      intendedInstallation:
+                                        patch.intendedInstallation !== undefined
+                                          ? patch.intendedInstallation ?? null
+                                          : g.intendedInstallation,
+                                    }
+                                  : g
+                              )
+                            );
+                          }}
+                        />
+                      )}
                       <div className="mt-1.5">
                         <p className="text-xs text-muted-foreground truncate">
                           {[item.currentInstallation?.name, item.persona.rut].filter(Boolean).join(" · ") || "—"}
@@ -1129,6 +1167,38 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                           </span>
                         )}
                       </div>
+                      {(item.lifecycleStatus === "seleccionado" ||
+                        item.intendedInstallationId ||
+                        item.intendedContractDate) && (
+                        <div className="md:hidden mt-2 w-full min-w-0" onClick={(e) => e.stopPropagation()}>
+                          <SeleccionadoDestinoFields
+                            guardiaId={item.id}
+                            lifecycleStatus={item.lifecycleStatus}
+                            intendedInstallationId={item.intendedInstallationId}
+                            intendedContractDate={item.intendedContractDate}
+                            intendedInstallation={item.intendedInstallation}
+                            canEdit={canManageGuardias}
+                            compact
+                            className="!p-1.5"
+                            onUpdated={(patch) => {
+                              setGuardias((prev) =>
+                                prev.map((g) =>
+                                  g.id === item.id
+                                    ? {
+                                        ...g,
+                                        ...patch,
+                                        intendedInstallation:
+                                          patch.intendedInstallation !== undefined
+                                            ? patch.intendedInstallation ?? null
+                                            : g.intendedInstallation,
+                                      }
+                                    : g
+                                )
+                              );
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Chevron for mobile */}
@@ -1162,7 +1232,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                     </div>
 
                     {/* Col 4: Instalación (hidden on mobile) */}
-                    <div className="min-w-0 max-md:hidden">
+                    <div className="min-w-0 max-md:hidden space-y-1">
                       {item.currentInstallation ? (
                         <div className="flex items-center gap-1.5 min-w-0">
                           <Building2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />
@@ -1170,6 +1240,36 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         </div>
                       ) : (
                         <span className="text-xs text-muted-foreground/50 italic">Sin instalación</span>
+                      )}
+                      {(item.lifecycleStatus === "seleccionado" ||
+                        item.intendedInstallationId ||
+                        item.intendedContractDate) && (
+                        <SeleccionadoDestinoFields
+                          guardiaId={item.id}
+                          lifecycleStatus={item.lifecycleStatus}
+                          intendedInstallationId={item.intendedInstallationId}
+                          intendedContractDate={item.intendedContractDate}
+                          intendedInstallation={item.intendedInstallation}
+                          canEdit={canManageGuardias}
+                          compact
+                          className="!p-1.5"
+                          onUpdated={(patch) => {
+                            setGuardias((prev) =>
+                              prev.map((g) =>
+                                g.id === item.id
+                                  ? {
+                                      ...g,
+                                      ...patch,
+                                      intendedInstallation:
+                                        patch.intendedInstallation !== undefined
+                                          ? patch.intendedInstallation ?? null
+                                          : g.intendedInstallation,
+                                    }
+                                  : g
+                              )
+                            );
+                          }}
+                        />
                       )}
                     </div>
                   </div>

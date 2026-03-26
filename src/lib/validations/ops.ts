@@ -320,6 +320,9 @@ export const updateGuardiaSchema = z.object({
   hiredAt: z.string().regex(dateRegex, "hiredAt debe tener formato YYYY-MM-DD").optional().nullable(),
   terminatedAt: z.string().regex(dateRegex, "terminatedAt debe tener formato YYYY-MM-DD").optional().nullable(),
   terminationReason: z.string().trim().max(500).optional().nullable(),
+  /** Planificación en fase Seleccionado — instalación activa prevista (no es asignación operativa) */
+  intendedInstallationId: z.string().uuid().optional().nullable(),
+  intendedContractDate: z.string().regex(dateRegex, "intendedContractDate debe tener formato YYYY-MM-DD").optional().nullable(),
 });
 
 
