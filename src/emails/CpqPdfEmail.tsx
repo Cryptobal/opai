@@ -26,6 +26,8 @@ interface CpqPdfEmailProps {
   recipientEmail?: string;
   companyName?: string;
   quoteCode: string;
+  /** Nombre de cotización (CPQ); si falta se puede usar installationName en el párrafo inferior */
+  quoteName?: string | null;
   installationName?: string;
   bodyText: string;
   senderName: string;
@@ -43,6 +45,7 @@ export const CpqPdfEmail = ({
   recipientEmail,
   companyName,
   quoteCode = "CPQ-0001",
+  quoteName,
   installationName,
   bodyText = "",
   senderName = "Equipo Comercial",
@@ -54,7 +57,12 @@ export const CpqPdfEmail = ({
   portalUrl,
   portalPin,
 }: CpqPdfEmailProps) => {
-  const previewText = `Hola ${recipientFirstName}, te adjunto la propuesta económica de ${brandName}`;
+  const trimmedQuoteName = quoteName?.trim() || "";
+  const idParts = [trimmedQuoteName ? `"${trimmedQuoteName}"` : "", quoteCode].filter(Boolean);
+  const idLine = idParts.join(" · ");
+  const previewText = idLine
+    ? `${recipientFirstName}: propuesta ${idLine}${companyName ? ` — ${companyName}` : ""}. Adjunto PDF · ${brandName}`
+    : `Hola ${recipientFirstName}, te adjunto la propuesta económica de ${brandName}`;
 
   const rawParagraphs = bodyText
     .split(/\n{2,}/)
@@ -83,6 +91,27 @@ export const CpqPdfEmail = ({
             <Heading style={h1}>
               Hola {recipientFirstName}, tu propuesta<br />de seguridad está lista
             </Heading>
+            {(trimmedQuoteName || quoteCode) && (
+              <Text style={heroQuoteRef}>
+                {trimmedQuoteName ? (
+                  <>
+                    Cotización: <strong>{trimmedQuoteName}</strong>
+                    {quoteCode ? (
+                      <>
+                        <br />
+                        Referencia: <strong>{quoteCode}</strong>
+                      </>
+                    ) : null}
+                  </>
+                ) : (
+                  quoteCode && (
+                    <>
+                      Referencia: <strong>{quoteCode}</strong>
+                    </>
+                  )
+                )}
+              </Text>
+            )}
             <Text style={heroText}>
               <strong>{senderName}</strong> de {brandName} preparó una propuesta a medida
               {companyName || installationName ? ` para ${companyName || installationName}` : ""}.
@@ -362,6 +391,17 @@ const h1 = {
   fontWeight: "700",
   lineHeight: "1.35",
   margin: "0 0 16px",
+};
+
+const heroQuoteRef = {
+  color: "#334155",
+  fontSize: "14px",
+  lineHeight: "1.6",
+  margin: "0 0 16px",
+  padding: "12px 16px",
+  backgroundColor: "#f1f5f9",
+  borderRadius: "8px",
+  borderLeft: "4px solid #14b8a6",
 };
 
 const heroText = {

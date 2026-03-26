@@ -30,6 +30,8 @@ interface PortalProspectoInviteEmailProps {
   pin: string;
   portalUrl: string;
   ejecutivoName: string;
+  /** Nombre de cotización (CPQ); opcional */
+  quoteName?: string | null;
   quoteCode?: string;
   /** URL de WhatsApp con mensaje prellenado (wa.me/...?text=...) */
   whatsappUrl?: string | null;
@@ -42,10 +44,17 @@ export const PortalProspectoInviteEmail = ({
   pin = '1234',
   portalUrl = 'https://opai.gard.cl/portal/cliente',
   ejecutivoName = 'Ejecutivo Comercial',
+  quoteName,
   quoteCode,
   whatsappUrl,
 }: PortalProspectoInviteEmailProps) => {
-  const previewText = `${companyName} — Tu propuesta de seguridad está lista. Accede con tu PIN personal.`;
+  const trimmedQuoteName = quoteName?.trim() || '';
+  const idParts = [trimmedQuoteName ? `"${trimmedQuoteName}"` : '', quoteCode || ''].filter(Boolean);
+  const idLine = idParts.join(' · ');
+  const firstName = contactName.split(/\s+/)[0] || contactName;
+  const previewText = idLine
+    ? `${firstName}: propuesta ${idLine} — ${companyName}. Accede con tu correo y PIN.`
+    : `${companyName} — Tu propuesta de seguridad está lista. Accede con tu PIN personal.`;
 
   return (
     <Html>
@@ -71,6 +80,25 @@ export const PortalProspectoInviteEmail = ({
             <Heading style={h1}>
               Hola {contactName}, tu propuesta<br />de seguridad está lista
             </Heading>
+            {(trimmedQuoteName || quoteCode) && (
+              <Text style={heroQuoteRef}>
+                {trimmedQuoteName ? (
+                  <>
+                    Cotización: <strong>{trimmedQuoteName}</strong>
+                    {quoteCode ? (
+                      <>
+                        <br />
+                        Referencia: <strong>{quoteCode}</strong>
+                      </>
+                    ) : null}
+                  </>
+                ) : quoteCode ? (
+                  <>
+                    Referencia: <strong>{quoteCode}</strong>
+                  </>
+                ) : null}
+              </Text>
+            )}
             <Text style={heroText}>
               <strong>{ejecutivoName}</strong> de Gard Security preparó una propuesta
               a medida para <strong>{companyName}</strong>. Accede ahora a tu portal
@@ -314,6 +342,17 @@ const h1 = {
   fontWeight: '700',
   lineHeight: '1.35',
   margin: '0 0 16px',
+};
+
+const heroQuoteRef = {
+  color: '#334155',
+  fontSize: '14px',
+  lineHeight: '1.6',
+  margin: '0 0 16px',
+  padding: '12px 16px',
+  backgroundColor: '#f1f5f9',
+  borderRadius: '8px',
+  borderLeft: '4px solid #14b8a6',
 };
 
 const heroText = {

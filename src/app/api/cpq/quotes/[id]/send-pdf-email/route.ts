@@ -43,6 +43,7 @@ export async function POST(
       select: {
         id: true,
         code: true,
+        name: true,
         dealId: true,
         accountId: true,
         contactId: true,
@@ -93,6 +94,9 @@ export async function POST(
 
     const firstTo = Array.isArray(to) ? to[0] : String(to).trim();
 
+    const quoteNameForEmail =
+      quote.name?.trim() || quote.installation?.name?.trim() || undefined;
+
     // Render full HTML with branded template
     const fullHtml = await render(
       CpqPdfEmail({
@@ -100,6 +104,7 @@ export async function POST(
         recipientEmail: firstTo?.includes("@") ? firstTo : undefined,
         companyName: undefined,
         quoteCode: quote.code,
+        quoteName: quoteNameForEmail,
         installationName: quote.installation?.name,
         bodyText: htmlBody,
         senderName: sender?.name || companyConfig.commercialName || "Equipo Comercial",

@@ -48,6 +48,13 @@ export interface SendQuoteToPortalResult {
   contactName: string;
 }
 
+/** Evita asuntos demasiado largos en clientes de correo. */
+function truncateForEmailSubject(s: string, max = 72): string {
+  const t = s.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, Math.max(1, max - 1))}…`;
+}
+
 export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Promise<SendQuoteToPortalResult> {
   const {
     quoteId,
@@ -291,9 +298,27 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   const whatsappBase = (tenantConfig.whatsappLink || "https://wa.me/5698277711").replace(/\?.*$/, "");
   const whatsappUrl = `${whatsappBase}?text=${encodeURIComponent(whatsappMsg)}`;
 
+  const quoteNameForEmail =
+    quote.name?.trim() || quote.installation?.name?.trim() || undefined;
+  const subjectDisplayLabel = quoteNameForEmail
+    ? truncateForEmailSubject(quoteNameForEmail, 72)
+    : null;
+  const tenantBrand = tenantConfig.commercialName?.trim() || "Gard Security";
+  const emailSubject = subjectDisplayLabel
+    ? `${subjectDisplayLabel} · ${quote.code} — ${tenantBrand}`
+    : `Propuesta · ${quote.code} — ${tenantBrand}`;
+
   const emailHtml = await render(
     PortalProspectoInviteEmail({
-      contactName, companyName: account.name, email: contact.email, pin, portalUrl, ejecutivoName, quoteCode: quote.code, whatsappUrl,
+      contactName,
+      companyName: account.name,
+      email: contact.email,
+      pin,
+      portalUrl,
+      ejecutivoName,
+      quoteName: quoteNameForEmail,
+      quoteCode: quote.code,
+      whatsappUrl,
     })
   );
 
@@ -354,7 +379,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     cc: [...new Set([tenantConfig.email, ...mergedCcEmails])],
     bcc: bccEmails.length ? bccEmails : undefined,
     replyTo: tenantConfig.emailReplyTo || EMAIL_CONFIG.replyTo,
-    subject: `Propuesta comercial para ${account.name} - ${tenantConfig.commercialName}`,
+    subject: emailSubject,
     html: emailHtml,
     ...(attachments.length > 0 && { attachments }),
     tags: [{ name: "type", value: "portal-prospecto-invite" }, { name: "quote", value: quote.code }],
