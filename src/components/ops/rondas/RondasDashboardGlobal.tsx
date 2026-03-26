@@ -480,61 +480,302 @@ function complianceBg(pct: number): string {
   return "bg-emerald-500/70 text-white";
 }
 
-function ResumenTablaView({ instalaciones, resumen }: { instalaciones: InstalacionRow[]; resumen: ResumenGlobal }) {
-  // Sort by compliance ascending (worst first)
-  const sorted = [...instalaciones].sort(
-    (a, b) => a.resumen.porcentajeCumplimiento - b.resumen.porcentajeCumplimiento,
-  );
+/* ────────────────────────────────────────────────────────────────
+   Multi-day range table view
+   ──────────────────────────────────────────────────────────────── */
+
+interface DayCell {
+  total: number;
+  completadas: number;
+  porcentaje: number;
+}
+
+interface RangoInstalacion {
+  installationId: string;
+  installationName: string;
+  dias: Record<string, DayCell>;
+  resumen: { total: number; completadas: number; porcentaje: number };
+}
+
+interface RangoData {
+  desde: string;
+  hasta: string;
+  fechas: string[];
+  instalaciones: RangoInstalacion[];
+  totalesPorDia: Record<string, DayCell>;
+}
+
+type RangoPreset = "3d" | "7d" | "30d" | "custom";
+
+function formatShortDate(iso: string): string {
+  const d = new Date(iso + "T12:00:00");
+  return d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit" });
+}
+
+function formatDayLabel(iso: string): string {
+  const d = new Date(iso + "T12:00:00");
+  const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  return dayNames[d.getDay()];
+}
+
+function getDateNDaysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - (n - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+function ResumenTablaRangoView({
+  rangoData,
+  loading,
+  desde,
+  hasta,
+  preset,
+  onPresetChange,
+  onDesdeChange,
+  onHastaChange,
+}: {
+  rangoData: RangoData | null;
+  loading: boolean;
+  desde: string;
+  hasta: string;
+  preset: RangoPreset;
+  onPresetChange: (p: RangoPreset) => void;
+  onDesdeChange: (d: string) => void;
+  onHastaChange: (d: string) => void;
+}) {
+  const today = getLocalDate();
 
   return (
-    <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] overflow-x-auto">
-      <table className="w-full text-sm md:w-auto md:max-w-full">
-        <thead>
-          <tr className="border-b border-[#1a1f2e] text-[11px] uppercase tracking-wider text-[#64748b]">
-            <th className="text-left px-4 py-3 font-semibold">Instalación</th>
-            <th className="text-center px-3 py-3 font-semibold whitespace-nowrap w-24">Rondas</th>
-            <th className="text-center px-3 py-3 font-semibold whitespace-nowrap w-24">Realizadas</th>
-            <th className="text-center px-3 py-3 font-semibold whitespace-nowrap w-36">% Cumplimiento</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((inst) => {
-            const pct = inst.resumen.porcentajeCumplimiento;
-            return (
-              <tr key={inst.installationId} className="border-b border-[#1a1f2e]/60 hover:bg-[#1a1f2e]/30 transition-colors">
-                <td className="px-4 py-2.5 text-[#f1f5f9] font-medium align-middle">{inst.installationName}</td>
-                <td className="px-3 py-2.5 text-center text-[#94a3b8] tabular-nums whitespace-nowrap align-middle">
-                  {inst.resumen.total}
-                </td>
-                <td className="px-3 py-2.5 text-center text-[#94a3b8] tabular-nums whitespace-nowrap align-middle">
-                  {inst.resumen.completadas}
-                </td>
-                <td className="px-3 py-2.5 text-center whitespace-nowrap align-middle">
-                  <span className={cn("inline-block rounded-md px-3 py-1 text-xs font-bold tabular-nums min-w-[56px]", complianceBg(pct))}>
-                    {pct}%
-                  </span>
-                </td>
+    <div className="space-y-3">
+      {/* Range controls */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Preset buttons */}
+        {(
+          [
+            { key: "3d" as RangoPreset, label: "3 días" },
+            { key: "7d" as RangoPreset, label: "Semana" },
+            { key: "30d" as RangoPreset, label: "30 días" },
+          ] as const
+        ).map((p) => (
+          <button
+            key={p.key}
+            onClick={() => onPresetChange(p.key)}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
+              preset === p.key
+                ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300"
+                : "bg-[#0a0e1a] border-[#1a1f2e] text-[#94a3b8] hover:bg-[#1a1f2e] hover:text-[#f1f5f9]",
+            )}
+          >
+            {p.label}
+          </button>
+        ))}
+
+        <div className="w-px h-6 bg-[#1a1f2e] mx-1" />
+
+        {/* Custom date range */}
+        <div className="flex items-center gap-1.5">
+          <input
+            type="date"
+            value={desde}
+            onChange={(e) => {
+              onDesdeChange(e.target.value);
+              onPresetChange("custom");
+            }}
+            className="h-8 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[12px] text-[#f1f5f9] px-2 w-[130px]"
+          />
+          <span className="text-[11px] text-[#64748b]">→</span>
+          <input
+            type="date"
+            value={hasta}
+            onChange={(e) => {
+              onHastaChange(e.target.value);
+              onPresetChange("custom");
+            }}
+            className="h-8 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[12px] text-[#f1f5f9] px-2 w-[130px]"
+          />
+        </div>
+
+        {loading && (
+          <div className="flex items-center gap-1.5 text-[#64748b] ml-2">
+            <div className="w-3.5 h-3.5 rounded-full border-2 border-[#06b6d4] border-t-transparent animate-spin" />
+            <span className="text-[11px]">Cargando...</span>
+          </div>
+        )}
+      </div>
+
+      {/* Table */}
+      {rangoData && rangoData.fechas.length > 0 && (
+        <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#1a1f2e] text-[11px] uppercase tracking-wider text-[#64748b]">
+                <th className="text-left px-4 py-3 font-semibold sticky left-0 bg-[#111827] z-10 min-w-[180px]">
+                  Instalación
+                </th>
+                {rangoData.fechas.map((fecha) => {
+                  const isToday = fecha === today;
+                  return (
+                    <th
+                      key={fecha}
+                      className={cn(
+                        "text-center px-2 py-3 font-semibold whitespace-nowrap min-w-[72px]",
+                        isToday && "bg-cyan-500/5",
+                      )}
+                    >
+                      <div className="leading-tight">
+                        <span className="block text-[10px] text-[#64748b]">
+                          {formatDayLabel(fecha)}
+                        </span>
+                        <span className={cn("block", isToday && "text-cyan-400")}>
+                          {formatShortDate(fecha)}
+                        </span>
+                      </div>
+                    </th>
+                  );
+                })}
+                <th className="text-center px-3 py-3 font-semibold whitespace-nowrap min-w-[80px] bg-[#0a0e1a]/40">
+                  Total
+                </th>
               </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr className="border-t-2 border-[#1a1f2e] bg-[#0a0e1a]/60">
-            <td className="px-4 py-3 text-[#f1f5f9] font-bold align-middle">Total general</td>
-            <td className="px-3 py-3 text-center text-[#f1f5f9] font-bold tabular-nums whitespace-nowrap align-middle">
-              {resumen.totalRondas}
-            </td>
-            <td className="px-3 py-3 text-center text-[#f1f5f9] font-bold tabular-nums whitespace-nowrap align-middle">
-              {resumen.completadas}
-            </td>
-            <td className="px-3 py-3 text-center whitespace-nowrap align-middle">
-              <span className={cn("inline-block rounded-md px-3 py-1 text-xs font-bold tabular-nums min-w-[56px]", complianceBg(resumen.porcentajeCumplimiento))}>
-                {resumen.porcentajeCumplimiento}%
-              </span>
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+            </thead>
+            <tbody>
+              {rangoData.instalaciones.map((inst) => (
+                <tr
+                  key={inst.installationId}
+                  className="border-b border-[#1a1f2e]/60 hover:bg-[#1a1f2e]/30 transition-colors"
+                >
+                  <td className="px-4 py-2 text-[#f1f5f9] font-medium align-middle sticky left-0 bg-[#111827] z-10">
+                    {inst.installationName}
+                  </td>
+                  {rangoData.fechas.map((fecha) => {
+                    const day = inst.dias[fecha];
+                    const isToday = fecha === today;
+                    if (!day || day.total === 0) {
+                      return (
+                        <td
+                          key={fecha}
+                          className={cn(
+                            "px-2 py-2 text-center align-middle",
+                            isToday && "bg-cyan-500/5",
+                          )}
+                        >
+                          <span className="text-[11px] text-[#334155]">—</span>
+                        </td>
+                      );
+                    }
+                    return (
+                      <td
+                        key={fecha}
+                        className={cn(
+                          "px-2 py-2 text-center align-middle",
+                          isToday && "bg-cyan-500/5",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "inline-block rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums min-w-[44px]",
+                            complianceBg(day.porcentaje),
+                          )}
+                        >
+                          {day.porcentaje}%
+                        </span>
+                        {isToday && (
+                          <span className="block text-[10px] text-[#94a3b8] mt-0.5 tabular-nums">
+                            {day.completadas}/{day.total}
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-2 text-center align-middle bg-[#0a0e1a]/40">
+                    <span
+                      className={cn(
+                        "inline-block rounded-md px-2.5 py-0.5 text-xs font-bold tabular-nums min-w-[50px]",
+                        complianceBg(inst.resumen.porcentaje),
+                      )}
+                    >
+                      {inst.resumen.porcentaje}%
+                    </span>
+                    <span className="block text-[10px] text-[#64748b] mt-0.5 tabular-nums">
+                      {inst.resumen.completadas}/{inst.resumen.total}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-[#1a1f2e] bg-[#0a0e1a]/60">
+                <td className="px-4 py-3 text-[#f1f5f9] font-bold align-middle sticky left-0 bg-[#0a0e1a] z-10">
+                  Total general
+                </td>
+                {rangoData.fechas.map((fecha) => {
+                  const day = rangoData.totalesPorDia[fecha];
+                  const isToday = fecha === today;
+                  if (!day || day.total === 0) {
+                    return (
+                      <td
+                        key={fecha}
+                        className={cn(
+                          "px-2 py-3 text-center align-middle",
+                          isToday && "bg-cyan-500/5",
+                        )}
+                      >
+                        <span className="text-[11px] text-[#334155]">—</span>
+                      </td>
+                    );
+                  }
+                  return (
+                    <td
+                      key={fecha}
+                      className={cn(
+                        "px-2 py-3 text-center align-middle",
+                        isToday && "bg-cyan-500/5",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "inline-block rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums min-w-[44px]",
+                          complianceBg(day.porcentaje),
+                        )}
+                      >
+                        {day.porcentaje}%
+                      </span>
+                      {isToday && (
+                        <span className="block text-[10px] text-[#94a3b8] mt-0.5 tabular-nums">
+                          {day.completadas}/{day.total}
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+                {/* Total column footer */}
+                {(() => {
+                  let t = 0, c = 0;
+                  for (const d of Object.values(rangoData.totalesPorDia)) { t += d.total; c += d.completadas; }
+                  const pct = t > 0 ? Math.round((c / t) * 100) : 0;
+                  return (
+                    <td className="px-3 py-3 text-center align-middle bg-[#0a0e1a]/40">
+                      <span className={cn("inline-block rounded-md px-2.5 py-0.5 text-xs font-bold tabular-nums min-w-[50px]", complianceBg(pct))}>
+                        {pct}%
+                      </span>
+                      <span className="block text-[10px] text-[#64748b] mt-0.5 tabular-nums">
+                        {c}/{t}
+                      </span>
+                    </td>
+                  );
+                })()}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {rangoData && rangoData.instalaciones.length === 0 && !loading && (
+        <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-8 text-center text-sm text-[#64748b]">
+          Sin rondas en el rango seleccionado
+        </div>
+      )}
     </div>
   );
 }
@@ -557,6 +798,13 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
+  // Range state for table view
+  const [rangoPreset, setRangoPreset] = useState<RangoPreset>("3d");
+  const [rangoDesde, setRangoDesde] = useState(() => getDateNDaysAgo(3));
+  const [rangoHasta, setRangoHasta] = useState(() => getLocalDate());
+  const [rangoData, setRangoData] = useState<RangoData | null>(null);
+  const [rangoLoading, setRangoLoading] = useState(false);
 
   // Set today's date on the client to avoid UTC issues from SSR
   useEffect(() => {
@@ -583,9 +831,45 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
     }
   }, []);
 
+  // Fetch range data for table view
+  const fetchRangoData = useCallback(async (desde: string, hasta: string) => {
+    if (!desde || !hasta) return;
+    setRangoLoading(true);
+    try {
+      const res = await fetch(`/api/ops/rondas/reportes/dashboard-rango?desde=${desde}&hasta=${hasta}`);
+      const json = await res.json();
+      if (json.success) {
+        setRangoData(json.data);
+      } else {
+        toast.error(json.error ?? "Error cargando rango");
+      }
+    } catch {
+      toast.error("Error cargando rango");
+    } finally {
+      setRangoLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void fetchData(fecha);
   }, [fecha, fetchData]);
+
+  // Fetch range data when table view is active or range changes
+  useEffect(() => {
+    if (viewMode === "table") {
+      void fetchRangoData(rangoDesde, rangoHasta);
+    }
+  }, [viewMode, rangoDesde, rangoHasta, fetchRangoData]);
+
+  // Handle preset changes
+  const handlePresetChange = useCallback((p: RangoPreset) => {
+    setRangoPreset(p);
+    const hoy = getLocalDate();
+    setRangoHasta(hoy);
+    if (p === "3d") setRangoDesde(getDateNDaysAgo(3));
+    else if (p === "7d") setRangoDesde(getDateNDaysAgo(7));
+    else if (p === "30d") setRangoDesde(getDateNDaysAgo(30));
+  }, []);
 
   // Auto-refresh if viewing today
   useEffect(() => {
@@ -714,12 +998,21 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
           <p className="text-xs font-semibold uppercase tracking-wider text-[#64748b]">
             {viewMode === "grid" ? "Grilla de rondas por instalación" : "Resumen por instalación"}
           </p>
-          {data.instalaciones.length === 0 ? (
+          {data.instalaciones.length === 0 && viewMode === "grid" ? (
             <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-8 text-center text-sm text-[#64748b]">
               Sin rondas programadas para este día
             </div>
-          ) : viewMode === "table" && resumen ? (
-            <ResumenTablaView instalaciones={data.instalaciones} resumen={resumen} />
+          ) : viewMode === "table" ? (
+            <ResumenTablaRangoView
+              rangoData={rangoData}
+              loading={rangoLoading}
+              desde={rangoDesde}
+              hasta={rangoHasta}
+              preset={rangoPreset}
+              onPresetChange={handlePresetChange}
+              onDesdeChange={setRangoDesde}
+              onHastaChange={setRangoHasta}
+            />
           ) : (
             data.instalaciones.map((inst) => (
               <InstalacionGridRow key={inst.installationId} inst={inst} />
