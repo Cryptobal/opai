@@ -35,7 +35,12 @@ const nextConfig = {
     '/api/pdf/generate-pricing-v2': ['node_modules/@sparticuz/chromium/bin/**/*'],
     '/api/ops/pauta-mensual/export-pdf/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
     '/api/ops/guard-events/\\[id\\]/send-doc/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/ops/control-nocturno/\\[id\\]/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/ops/control-nocturno/\\[id\\]': ['node_modules/@sparticuz/chromium/bin/**/*'],
     '/api/ops/control-nocturno/\\[id\\]/test-email/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    // Turno close: genera PDF con Playwright + Chromium para adjuntar al email
+    '/api/ops/rondas/monitoreo/turno/\\[id\\]/close/route': ['node_modules/@sparticuz/chromium/bin/**/*'],
+    '/api/ops/rondas/monitoreo/turno/\\[id\\]/close': ['node_modules/@sparticuz/chromium/bin/**/*'],
     '/api/cpq/quotes/\\[id\\]/proposal-pdf/route': [
       'node_modules/@sparticuz/chromium/bin/**/*',
       './public/fonts/**/*',
