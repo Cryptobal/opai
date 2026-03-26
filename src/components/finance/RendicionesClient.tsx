@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -14,12 +16,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
 import {
   Plus,
   Receipt,
   Car,
   ChevronRight,
+  CheckCircle2,
+  XCircle,
+  Wallet,
+  Loader2,
+  CreditCard,
+  Landmark,
+  ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ListToolbar } from "@/components/shared/ListToolbar";
@@ -39,6 +54,7 @@ interface RendicionRow {
   costCenterName: string | null;
   submitterName: string;
   submitterId: string;
+  beneficiaryName: string | null;
   createdAt: string;
 }
 
@@ -51,6 +67,8 @@ interface RendicionesClientProps {
   rendiciones: RendicionRow[];
   items: ItemOption[];
   canSubmit: boolean;
+  canApprove: boolean;
+  canPay: boolean;
   currentUserId: string;
 }
 
@@ -107,12 +125,31 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
   minimumFractionDigits: 0,
 });
 
+function extractFilenameFromDisposition(
+  contentDisposition: string | null,
+  fallback: string
+): string {
+  if (!contentDisposition) return fallback;
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+  const asciiMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  return asciiMatch?.[1] ?? fallback;
+}
+
 /* ── Component ── */
 
 export function RendicionesClient({
   rendiciones,
   items,
   canSubmit,
+  canApprove,
+  canPay,
   currentUserId,
 }: RendicionesClientProps) {
   const router = useRouter();
@@ -120,6 +157,21 @@ export function RendicionesClient({
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [displayView, setDisplayView] = useState<ViewMode>("list");
+
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Bulk action dialogs
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [payDialogOpen, setPayDialogOpen] = useState(false);
+  const [bulkComment, setBulkComment] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
+  const [paymentType, setPaymentType] = useState("MANUAL");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [processing, setProcessing] = useState(false);
+
+  /* ── Filtering ── */
 
   const filtered = useMemo(() => {
     let list = rendiciones;
@@ -137,7 +189,8 @@ export function RendicionesClient({
           r.code.toLowerCase().includes(q) ||
           r.description?.toLowerCase().includes(q) ||
           r.submitterName.toLowerCase().includes(q) ||
-          r.itemName?.toLowerCase().includes(q)
+          r.itemName?.toLowerCase().includes(q) ||
+          r.beneficiaryName?.toLowerCase().includes(q)
       );
     }
 
@@ -162,8 +215,234 @@ export function RendicionesClient({
     })),
   [rendiciones]);
 
+  /* ── Selection ── */
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    const filteredIds = filtered.map((r) => r.id);
+    const allSelected = filteredIds.every((id) => selectedIds.has(id));
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredIds));
+    }
+  }, [filtered, selectedIds]);
+
+  const selectedRendiciones = useMemo(
+    () => rendiciones.filter((r) => selectedIds.has(r.id)),
+    [rendiciones, selectedIds]
+  );
+
+  const selectedAmount = useMemo(
+    () => selectedRendiciones.reduce((sum, r) => sum + r.amount, 0),
+    [selectedRendiciones]
+  );
+
+  // What actions are available based on selection
+  const selectedApprovable = useMemo(
+    () => selectedRendiciones.filter((r) => ["SUBMITTED", "IN_APPROVAL"].includes(r.status)),
+    [selectedRendiciones]
+  );
+
+  const selectedPayable = useMemo(
+    () => selectedRendiciones.filter((r) => r.status === "APPROVED"),
+    [selectedRendiciones]
+  );
+
+  // Summary by beneficiary for payment dialog
+  const beneficiarySummary = useMemo(() => {
+    const map = new Map<string, { name: string; total: number; count: number }>();
+    for (const r of selectedPayable) {
+      const name = r.beneficiaryName || r.submitterName;
+      const entry = map.get(name) ?? { name, total: 0, count: 0 };
+      entry.total += r.amount;
+      entry.count += 1;
+      map.set(name, entry);
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total);
+  }, [selectedPayable]);
+
+  /* ── Bulk Actions ── */
+
+  const handleBulkApprove = useCallback(async () => {
+    if (selectedApprovable.length === 0) return;
+    setProcessing(true);
+    try {
+      const res = await fetch("/api/finance/rendiciones/bulk-approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rendicionIds: selectedApprovable.map((r) => r.id),
+          comment: bulkComment || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Error al aprobar");
+
+      toast.success(`${selectedApprovable.length} rendición(es) aprobada(s)`);
+      setApproveDialogOpen(false);
+      setBulkComment("");
+      setSelectedIds(new Set());
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al aprobar");
+    } finally {
+      setProcessing(false);
+    }
+  }, [selectedApprovable, bulkComment, router]);
+
+  const handleBulkReject = useCallback(async () => {
+    if (selectedApprovable.length === 0 || !rejectReason.trim()) return;
+    setProcessing(true);
+    try {
+      const res = await fetch("/api/finance/rendiciones/bulk-reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rendicionIds: selectedApprovable.map((r) => r.id),
+          reason: rejectReason,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Error al rechazar");
+
+      toast.success(`${selectedApprovable.length} rendición(es) rechazada(s)`);
+      setRejectDialogOpen(false);
+      setRejectReason("");
+      setSelectedIds(new Set());
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al rechazar");
+    } finally {
+      setProcessing(false);
+    }
+  }, [selectedApprovable, rejectReason, router]);
+
+  const handleCreatePayment = useCallback(async () => {
+    if (selectedPayable.length === 0) return;
+    setProcessing(true);
+    try {
+      const res = await fetch("/api/finance/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: paymentType,
+          rendicionIds: selectedPayable.map((r) => r.id),
+          notes: paymentNotes || undefined,
+        }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        data?: { id?: string; code?: string };
+      };
+      if (!res.ok) throw new Error(data.error || "Error al crear pago");
+
+      const paymentId = data.data?.id;
+      const paymentCode = data.data?.code ?? "sin-codigo";
+
+      if (paymentType === "BATCH_SANTANDER" && paymentId) {
+        const exportRes = await fetch(
+          `/api/finance/payments/${paymentId}/export-santander`,
+          { method: "GET" }
+        );
+        if (exportRes.ok) {
+          const blob = await exportRes.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = extractFilenameFromDisposition(
+            exportRes.headers.get("Content-Disposition"),
+            `${paymentCode}-santander.xlsx`
+          );
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          toast.success(
+            `Pago ${paymentCode} creado y archivo Santander descargado`
+          );
+        } else {
+          toast.success(
+            `Pago ${paymentCode} creado (no se pudo descargar archivo Santander)`
+          );
+        }
+      } else {
+        toast.success(
+          `Pago ${paymentCode} creado con ${selectedPayable.length} rendición(es)`
+        );
+      }
+
+      setPayDialogOpen(false);
+      setPaymentNotes("");
+      setSelectedIds(new Set());
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al crear pago");
+    } finally {
+      setProcessing(false);
+    }
+  }, [selectedPayable, paymentType, paymentNotes, router]);
+
+  /* ── Table columns ── */
+
+  const showSelection = canApprove || canPay;
+
   const tableColumns: DataTableColumn[] = useMemo(
     () => [
+      ...(showSelection
+        ? [
+            {
+              key: "_select",
+              label: "",
+              className: "w-10",
+              render: (_: unknown, row: RendicionRow) => (
+                <div
+                  role="checkbox"
+                  aria-checked={selectedIds.has(row.id)}
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSelect(row.id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleSelect(row.id);
+                    }
+                  }}
+                  className={cn(
+                    "h-4 w-4 rounded border flex items-center justify-center cursor-pointer shrink-0",
+                    selectedIds.has(row.id)
+                      ? "bg-primary border-primary"
+                      : "border-muted-foreground/40 hover:border-muted-foreground"
+                  )}
+                >
+                  {selectedIds.has(row.id) && (
+                    <svg
+                      className="h-3 w-3 text-primary-foreground"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                    >
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+              ),
+            } satisfies DataTableColumn,
+          ]
+        : []),
       {
         key: "code",
         label: "Código",
@@ -202,6 +481,21 @@ export function RendicionesClient({
         ),
       },
       {
+        key: "description",
+        label: "Motivo",
+        render: (value: string | null) =>
+          value ? (
+            <span
+              className="text-muted-foreground text-xs max-w-[150px] truncate block"
+              title={value}
+            >
+              {value}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
         key: "amount",
         label: "Monto",
         className: "text-right",
@@ -232,6 +526,19 @@ export function RendicionesClient({
         ),
       },
       {
+        key: "beneficiaryName",
+        label: "Destinatario",
+        render: (value: string | null) =>
+          value ? (
+            <span className="text-xs text-emerald-400 flex items-center gap-1">
+              <ArrowRight className="h-3 w-3" />
+              {value}
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-xs">—</span>
+          ),
+      },
+      {
         key: "_chevron",
         label: "",
         render: () => (
@@ -239,7 +546,7 @@ export function RendicionesClient({
         ),
       },
     ],
-    []
+    [showSelection, selectedIds, toggleSelect]
   );
 
   return (
@@ -278,6 +585,62 @@ export function RendicionesClient({
           </div>
         }
       />
+
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+          <div className="flex items-center gap-3 text-sm">
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              {filtered.every((r) => selectedIds.has(r.id))
+                ? "Deseleccionar todo"
+                : "Seleccionar todo"}
+            </button>
+            <span className="text-muted-foreground">
+              {selectedIds.size} seleccionada(s) ={" "}
+              <span className="font-medium text-foreground">
+                {fmtCLP.format(selectedAmount)}
+              </span>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {canApprove && selectedApprovable.length > 0 && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                  onClick={() => setApproveDialogOpen(true)}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                  Aprobar ({selectedApprovable.length})
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-red-400 border-red-500/30 hover:bg-red-500/10"
+                  onClick={() => setRejectDialogOpen(true)}
+                >
+                  <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                  Rechazar ({selectedApprovable.length})
+                </Button>
+              </>
+            )}
+            {canPay && selectedPayable.length > 0 && (
+              <Button
+                size="sm"
+                onClick={() => setPayDialogOpen(true)}
+              >
+                <Wallet className="h-3.5 w-3.5 mr-1.5" />
+                Crear pago ({selectedPayable.length})
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Results count */}
       <p className="text-xs text-muted-foreground">
@@ -330,37 +693,79 @@ export function RendicionesClient({
                 label: r.status,
                 className: "bg-muted text-muted-foreground",
               };
+              const isSelected = selectedIds.has(r.id);
               return (
-                <Link key={r.id} href={`/finanzas/rendiciones/${r.id}`}>
-                  <div className="rounded-lg border border-border p-3 transition-colors hover:bg-accent/30">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {r.code}
-                          </span>
-                          <Badge className={cn("text-[10px]", statusCfg.className)}>
-                            {statusCfg.label}
-                          </Badge>
+                <div key={r.id} className="relative">
+                  {showSelection && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        toggleSelect(r.id);
+                      }}
+                      className={cn(
+                        "absolute left-2 top-3 z-10 h-4 w-4 rounded border flex items-center justify-center",
+                        isSelected
+                          ? "bg-primary border-primary"
+                          : "border-muted-foreground/40"
+                      )}
+                    >
+                      {isSelected && (
+                        <svg
+                          className="h-3 w-3 text-primary-foreground"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={3}
+                        >
+                          <path d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
+                  <Link href={`/finanzas/rendiciones/${r.id}`}>
+                    <div className={cn(
+                      "rounded-lg border border-border p-3 transition-colors hover:bg-accent/30",
+                      showSelection && "pl-8",
+                      isSelected && "border-primary/40 bg-primary/5"
+                    )}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {r.code}
+                            </span>
+                            <Badge className={cn("text-[10px]", statusCfg.className)}>
+                              {statusCfg.label}
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-medium truncate">
+                            {r.description || r.itemName || TYPE_LABELS[r.type]}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                            <span>{format(new Date(r.date), "dd MMM yyyy", { locale: es })}</span>
+                            <span>·</span>
+                            <span className="inline-flex items-center gap-1">
+                              {r.type === "MILEAGE" ? <Car className="h-3 w-3" /> : <Receipt className="h-3 w-3" />}
+                              {TYPE_LABELS[r.type]}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                            <span>{r.submitterName}</span>
+                            {r.beneficiaryName && (
+                              <span className="text-emerald-400">
+                                → {r.beneficiaryName}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-sm font-medium truncate">
-                          {r.description || r.itemName || TYPE_LABELS[r.type]}
+                        <p className="text-sm font-semibold tabular-nums shrink-0">
+                          {fmtCLP.format(r.amount)}
                         </p>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                          <span>{format(new Date(r.date), "dd MMM yyyy", { locale: es })}</span>
-                          <span>·</span>
-                          <span className="inline-flex items-center gap-1">
-                            {r.type === "MILEAGE" ? <Car className="h-3 w-3" /> : <Receipt className="h-3 w-3" />}
-                            {TYPE_LABELS[r.type]}
-                          </span>
-                        </div>
                       </div>
-                      <p className="text-sm font-semibold tabular-nums shrink-0">
-                        {fmtCLP.format(r.amount)}
-                      </p>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
+                </div>
               );
             })}
           </div>
@@ -396,15 +801,281 @@ export function RendicionesClient({
                       {TYPE_LABELS[r.type]}
                     </span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 truncate">
-                    {r.submitterName}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1 text-xs">
+                    <span className="text-muted-foreground truncate">
+                      {r.submitterName}
+                    </span>
+                    {r.beneficiaryName && (
+                      <span className="text-emerald-400 truncate">
+                        → {r.beneficiaryName}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </Link>
             );
           })}
         </div>
       )}
+
+      {/* ── Approve dialog ── */}
+      <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aprobar rendiciones</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Rendiciones a aprobar</span>
+                <span className="font-medium">{selectedApprovable.length}</span>
+              </div>
+              <div className="flex justify-between text-sm mt-1">
+                <span className="text-muted-foreground">Monto total</span>
+                <span className="font-semibold">
+                  {fmtCLP.format(selectedApprovable.reduce((s, r) => s + r.amount, 0))}
+                </span>
+              </div>
+            </div>
+
+            {selectedRendiciones.length > selectedApprovable.length && (
+              <p className="text-xs text-amber-400">
+                {selectedRendiciones.length - selectedApprovable.length} rendición(es)
+                seleccionada(s) no están en estado aprobable y serán ignoradas.
+              </p>
+            )}
+
+            <div className="max-h-40 overflow-y-auto space-y-1">
+              {selectedApprovable.map((r) => (
+                <div key={r.id} className="flex items-center justify-between text-xs py-1">
+                  <span className="text-muted-foreground">
+                    {r.code} — {r.submitterName}
+                  </span>
+                  <span className="tabular-nums">{fmtCLP.format(r.amount)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <Label htmlFor="approveComment">Comentario (opcional)</Label>
+              <textarea
+                id="approveComment"
+                value={bulkComment}
+                onChange={(e) => setBulkComment(e.target.value)}
+                rows={2}
+                maxLength={500}
+                placeholder="Comentario de aprobación..."
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setApproveDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleBulkApprove}
+                disabled={processing}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                {processing ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                )}
+                Aprobar {selectedApprovable.length}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Reject dialog ── */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rechazar rendiciones</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Rendiciones a rechazar</span>
+                <span className="font-medium">{selectedApprovable.length}</span>
+              </div>
+              <div className="flex justify-between text-sm mt-1">
+                <span className="text-muted-foreground">Monto total</span>
+                <span className="font-semibold">
+                  {fmtCLP.format(selectedApprovable.reduce((s, r) => s + r.amount, 0))}
+                </span>
+              </div>
+            </div>
+
+            <div className="max-h-40 overflow-y-auto space-y-1">
+              {selectedApprovable.map((r) => (
+                <div key={r.id} className="flex items-center justify-between text-xs py-1">
+                  <span className="text-muted-foreground">
+                    {r.code} — {r.submitterName}
+                  </span>
+                  <span className="tabular-nums">{fmtCLP.format(r.amount)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <Label htmlFor="rejectReason">Motivo de rechazo *</Label>
+              <textarea
+                id="rejectReason"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="Indica el motivo del rechazo..."
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setRejectDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleBulkReject}
+                disabled={processing || !rejectReason.trim()}
+              >
+                {processing ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-1.5" />
+                )}
+                Rechazar {selectedApprovable.length}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Payment dialog ── */}
+      <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Crear pago</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 rounded-lg bg-muted/30 border border-border">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Rendiciones</span>
+                <span>{selectedPayable.length}</span>
+              </div>
+              <div className="flex justify-between text-sm mt-1">
+                <span className="text-muted-foreground">Monto total</span>
+                <span className="font-semibold">
+                  {fmtCLP.format(selectedPayable.reduce((s, r) => s + r.amount, 0))}
+                </span>
+              </div>
+            </div>
+
+            {selectedRendiciones.length > selectedPayable.length && (
+              <p className="text-xs text-amber-400">
+                {selectedRendiciones.length - selectedPayable.length} rendición(es)
+                seleccionada(s) no están aprobadas y serán ignoradas.
+              </p>
+            )}
+
+            {/* Beneficiary summary */}
+            {beneficiarySummary.length > 0 && (
+              <div>
+                <Label className="text-xs text-muted-foreground">Resumen por destinatario</Label>
+                <div className="mt-1.5 space-y-1 max-h-32 overflow-y-auto">
+                  {beneficiarySummary.map((b) => (
+                    <div
+                      key={b.name}
+                      className="flex items-center justify-between text-xs py-1 px-2 rounded bg-muted/20"
+                    >
+                      <span>
+                        {b.name}
+                        <span className="text-muted-foreground ml-1">
+                          ({b.count})
+                        </span>
+                      </span>
+                      <span className="font-medium tabular-nums">
+                        {fmtCLP.format(b.total)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <Label>Tipo de pago</Label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setPaymentType("MANUAL")}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border p-3 text-left transition-colors text-sm",
+                    paymentType === "MANUAL"
+                      ? "border-primary/50 bg-primary/10"
+                      : "border-border hover:bg-accent/30"
+                  )}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Manual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentType("BATCH_SANTANDER")}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border p-3 text-left transition-colors text-sm",
+                    paymentType === "BATCH_SANTANDER"
+                      ? "border-primary/50 bg-primary/10"
+                      : "border-border hover:bg-accent/30"
+                  )}
+                >
+                  <Landmark className="h-4 w-4" />
+                  Santander
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="paymentNotes">Notas (opcional)</Label>
+              <textarea
+                id="paymentNotes"
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                rows={2}
+                placeholder="Observaciones del pago..."
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setPayDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleCreatePayment} disabled={processing}>
+                {processing ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <Wallet className="h-4 w-4 mr-1.5" />
+                )}
+                Crear pago
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

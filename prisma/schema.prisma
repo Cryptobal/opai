@@ -4955,13 +4955,15 @@ model FinancePayment {
   tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   code           String   @unique
   type           String   @default("MANUAL") // BATCH_SANTANDER | MANUAL
-  bankFileName   String?  @map("bank_file_name")
-  bankFileUrl    String?  @map("bank_file_url")
-  totalAmount    Int      @map("total_amount")
-  rendicionCount Int      @map("rendicion_count")
-  paidById       String   @map("paid_by_id")
-  paidAt         DateTime @default(now()) @map("paid_at") @db.Timestamptz(6)
-  notes          String?
+  bankFileName       String?  @map("bank_file_name")
+  bankFileUrl        String?  @map("bank_file_url")
+  receiptFileName    String?  @map("receipt_file_name")
+  receiptUrl         String?  @map("receipt_url")
+  totalAmount        Int      @map("total_amount")
+  rendicionCount     Int      @map("rendicion_count")
+  paidById           String   @map("paid_by_id")
+  paidAt             DateTime @default(now()) @map("paid_at") @db.Timestamptz(6)
+  notes              String?
 
   rendiciones FinanceRendicion[]
 

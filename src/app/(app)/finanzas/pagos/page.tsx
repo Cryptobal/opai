@@ -78,6 +78,8 @@ export default async function PagosPage() {
     paidAt: p.paidAt.toISOString(),
     bankFileName: p.bankFileName,
     bankFileUrl: p.bankFileUrl,
+    receiptFileName: p.receiptFileName,
+    receiptUrl: p.receiptUrl,
     notes: p.notes,
     rendiciones: p.rendiciones.map((r) => ({
       id: r.id,

@@ -30,12 +30,21 @@ export default async function RendicionesPage() {
     ? { tenantId }
     : { tenantId, submitterId: session.user.id };
 
+  const canApprove = hasCapability(perms, "rendicion_approve");
+  const canPay = hasCapability(perms, "rendicion_pay");
+
   const [rendiciones, items] = await Promise.all([
     prisma.financeRendicion.findMany({
       where: whereClause,
       include: {
         item: { select: { id: true, name: true } },
         costCenter: { select: { id: true, name: true } },
+        beneficiaryGuardia: {
+          select: {
+            id: true,
+            persona: { select: { firstName: true, lastName: true } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: 200,
@@ -47,28 +56,44 @@ export default async function RendicionesPage() {
     }),
   ]);
 
-  // Resolve submitter names
+  // Resolve submitter names + beneficiary admin names
   const submitterIds = [...new Set(rendiciones.map((r) => r.submitterId))];
-  const submitters = await prisma.admin.findMany({
-    where: { id: { in: submitterIds } },
+  const beneficiaryAdminIds = rendiciones
+    .map((r) => r.beneficiaryAdminId)
+    .filter((id): id is string => !!id);
+  const allAdminIds = [...new Set([...submitterIds, ...beneficiaryAdminIds])];
+
+  const admins = await prisma.admin.findMany({
+    where: { id: { in: allAdminIds } },
     select: { id: true, name: true },
   });
-  const submitterMap = Object.fromEntries(submitters.map((s) => [s.id, s.name]));
+  const adminMap = Object.fromEntries(admins.map((a) => [a.id, a.name]));
 
-  const data = rendiciones.map((r) => ({
-    id: r.id,
-    code: r.code,
-    date: r.date.toISOString(),
-    type: r.type,
-    amount: r.amount,
-    status: r.status,
-    description: r.description,
-    itemName: r.item?.name ?? null,
-    costCenterName: r.costCenter?.name ?? null,
-    submitterName: submitterMap[r.submitterId] ?? "Desconocido",
-    submitterId: r.submitterId,
-    createdAt: r.createdAt.toISOString(),
-  }));
+  const data = rendiciones.map((r) => {
+    let beneficiaryName: string | null = null;
+    if (r.beneficiaryGuardia?.persona) {
+      const p = r.beneficiaryGuardia.persona;
+      beneficiaryName = `${p.firstName} ${p.lastName}`.trim();
+    } else if (r.beneficiaryAdminId) {
+      beneficiaryName = adminMap[r.beneficiaryAdminId] ?? null;
+    }
+
+    return {
+      id: r.id,
+      code: r.code,
+      date: r.date.toISOString(),
+      type: r.type,
+      amount: r.amount,
+      status: r.status,
+      description: r.description,
+      itemName: r.item?.name ?? null,
+      costCenterName: r.costCenter?.name ?? null,
+      submitterName: adminMap[r.submitterId] ?? "Desconocido",
+      submitterId: r.submitterId,
+      beneficiaryName,
+      createdAt: r.createdAt.toISOString(),
+    };
+  });
 
   return (
     <div className="space-y-6 min-w-0">
@@ -80,6 +105,8 @@ export default async function RendicionesPage() {
         rendiciones={data}
         items={items}
         canSubmit={canSubmit}
+        canApprove={canApprove}
+        canPay={canPay}
         currentUserId={session.user.id}
       />
     </div>

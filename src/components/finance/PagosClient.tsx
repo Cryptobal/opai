@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -30,6 +30,10 @@ import {
   CheckSquare,
   Square,
   Inbox,
+  Upload,
+  Image as ImageIcon,
+  FileText,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +56,8 @@ interface Payment {
   paidAt: string;
   bankFileName: string | null;
   bankFileUrl: string | null;
+  receiptFileName: string | null;
+  receiptUrl: string | null;
   notes: string | null;
   rendiciones: PaymentRendicion[];
 }
@@ -119,6 +125,9 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
   const [creating, setCreating] = useState(false);
   const [expandedPayment, setExpandedPayment] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
+  const [uploadingReceiptId, setUploadingReceiptId] = useState<string | null>(null);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
+  const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
 
   /* ── Selection ── */
 
@@ -277,8 +286,62 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
     []
   );
 
+  const handleUploadReceipt = useCallback(
+    async (paymentId: string, file: File) => {
+      setUploadingReceiptId(paymentId);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch(`/api/finance/payments/${paymentId}`, {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Error al subir comprobante");
+
+        toast.success("Comprobante subido correctamente");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Error al subir comprobante");
+      } finally {
+        setUploadingReceiptId(null);
+        setReceiptPaymentId(null);
+      }
+    },
+    [router]
+  );
+
+  const triggerReceiptUpload = useCallback((paymentId: string) => {
+    setReceiptPaymentId(paymentId);
+    // Small delay to ensure state is set before the file input triggers
+    setTimeout(() => receiptInputRef.current?.click(), 0);
+  }, []);
+
+  const onReceiptFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file && receiptPaymentId) {
+        handleUploadReceipt(receiptPaymentId, file);
+      }
+      // Reset the input so the same file can be selected again
+      e.target.value = "";
+    },
+    [receiptPaymentId, handleUploadReceipt]
+  );
+
   return (
     <div className="space-y-4">
+      {/* Hidden file input for receipt upload */}
+      <input
+        ref={receiptInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
+        className="hidden"
+        onChange={onReceiptFileChange}
+      />
+
       {/* Summary cards */}
       <KpiGrid columns={3}>
         <KpiCard title="Pendientes de pago" value={pendingRendiciones.length} />
@@ -506,6 +569,12 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
                               >
                                 {TYPE_LABELS[p.type] ?? p.type}
                               </Badge>
+                              {p.receiptUrl && (
+                                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
+                                  <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" />
+                                  Comprobante
+                                </Badge>
+                              )}
                             </div>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                               <span>
@@ -554,6 +623,60 @@ export function PagosClient({ payments, pendingRendiciones }: PagosClientProps) 
                               </div>
                             ))}
                           </div>
+
+                          {/* Receipt section */}
+                          {p.receiptUrl ? (
+                            <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                              {p.receiptFileName?.match(/\.(jpg|jpeg|png|webp)$/i) ? (
+                                <ImageIcon className="h-4 w-4 text-emerald-400 shrink-0" />
+                              ) : (
+                                <FileText className="h-4 w-4 text-emerald-400 shrink-0" />
+                              )}
+                              <span className="text-xs text-emerald-400 truncate flex-1">
+                                {p.receiptFileName ?? "Comprobante"}
+                              </span>
+                              <a
+                                href={p.receiptUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                                  <Download className="h-3 w-3 mr-1" />
+                                  Ver
+                                </Button>
+                              </a>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => triggerReceiptUpload(p.id)}
+                                disabled={uploadingReceiptId === p.id}
+                              >
+                                {uploadingReceiptId === p.id ? (
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                ) : (
+                                  <Upload className="h-3 w-3 mr-1" />
+                                )}
+                                Reemplazar
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => triggerReceiptUpload(p.id)}
+                              disabled={uploadingReceiptId === p.id}
+                            >
+                              {uploadingReceiptId === p.id ? (
+                                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                              ) : (
+                                <Upload className="h-3.5 w-3.5 mr-1" />
+                              )}
+                              Subir comprobante
+                            </Button>
+                          )}
+
                           <div className="flex gap-2 pt-2">
                             {p.bankFileUrl && (
                               <a
