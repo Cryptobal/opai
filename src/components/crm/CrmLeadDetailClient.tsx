@@ -1624,12 +1624,21 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
     const phone = sanitizePhone(lead.phone || "");
     const nombre = (lead.firstName || "").split(" ")[0];
     const nombreEmpresa = lead.companyName || "";
-    const solicitud = lead.notes || "";
-    const message = `Hola ${nombre}, soy Carlos de Gard Security 👋
-Hemos recibido tu consulta para ${nombreEmpresa}. La vamos a trabajar con mucho gusto.
-Quería confirmar contigo que el servicio requerido es: ${solicitud}
-¿Es correcto? Así avanzamos de inmediato.
-Conoce más sobre nosotros en https://gard.cl`;
+    const solicitud = (lead.notes || "").trim();
+    // Saltos \n\n para que WhatsApp respete párrafos; sin emoji (wa.me a veces lo corrompe).
+    const message = [
+      `Hola ${nombre}, soy Carlos de Gard Security`,
+      "",
+      `Hemos recibido tu consulta para ${nombreEmpresa}. La vamos a trabajar con mucho gusto.`,
+      "",
+      "Quería confirmar contigo que el servicio requerido es:",
+      "",
+      solicitud || "—",
+      "",
+      "¿Es correcto? Así avanzamos de inmediato.",
+      "",
+      "Conoce más sobre nosotros en https://gard.cl",
+    ].join("\n");
     return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   };
 
