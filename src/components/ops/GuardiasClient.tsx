@@ -63,7 +63,7 @@ type GuardiaItem = {
   intendedInstallation?: {
     id: string;
     name: string;
-    account?: { name: string | null } | null;
+    account?: { id?: string; name?: string | null } | null;
   } | null;
   persona: {
     firstName: string;

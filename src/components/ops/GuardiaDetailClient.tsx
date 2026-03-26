@@ -165,7 +165,7 @@ type GuardiaDetail = {
   intendedInstallation?: {
     id: string;
     name: string;
-    account?: { id: string; name: string } | null;
+    account?: { id?: string; name?: string | null } | null;
   } | null;
   bankAccounts: Array<{
     id: string;

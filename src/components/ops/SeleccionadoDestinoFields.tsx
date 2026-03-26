@@ -59,7 +59,7 @@ export type SeleccionadoDestinoFieldsProps = {
   intendedInstallation?: {
     id: string;
     name: string;
-    account?: { name?: string | null } | null;
+    account?: { id?: string; name?: string | null } | null;
   } | null;
   canEdit: boolean;
   compact?: boolean;
