@@ -9,6 +9,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { createCrmHistoryLog } from "@/lib/crm-history";
+import { syncCrmDealQuoteLink } from "@/lib/crm-sync-quote-deal-link";
 
 export async function POST(
   _request: NextRequest,
@@ -235,6 +236,14 @@ export async function POST(
             precio: line.precio,
             orden: line.orden,
           })),
+        });
+      }
+
+      if (newQuote.dealId) {
+        await syncCrmDealQuoteLink(tx, {
+          tenantId,
+          quoteId: newQuote.id,
+          dealId: newQuote.dealId,
         });
       }
 

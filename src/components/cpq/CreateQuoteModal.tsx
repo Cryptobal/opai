@@ -72,19 +72,13 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "No se pudo crear la cotización.");
       const quoteId = data?.data?.id;
-      let dealQuote: { id: string; quoteId: string } | undefined;
-      if (quoteId && dealId) {
-        const linkRes = await fetch(`/api/crm/deals/${dealId}/quotes`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ quoteId }),
-        });
-        const linkPayload = await linkRes.json();
-        if (linkRes.ok && linkPayload?.data) {
-          dealQuote = { id: linkPayload.data.id, quoteId: linkPayload.data.quoteId };
-        } else {
-          toast.error("Cotización creada pero no se pudo vincular al negocio.");
-        }
+      const dealQuoteRaw = data?.dealQuoteLink as { id: string; quoteId: string } | null | undefined;
+      const dealQuote: { id: string; quoteId: string } | undefined =
+        dealQuoteRaw?.id && dealQuoteRaw?.quoteId
+          ? { id: dealQuoteRaw.id, quoteId: dealQuoteRaw.quoteId }
+          : undefined;
+      if (quoteId && dealId && !dealQuote) {
+        toast.error("Cotización creada pero no se pudo vincular al negocio.");
       }
       setOpen(false);
       setQuoteName("");

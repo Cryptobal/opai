@@ -10,6 +10,7 @@ import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { applyDefaultQuoteIncludes } from "@/lib/cpq/apply-default-quote-includes";
+import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
 export async function GET(request: NextRequest) {
   try {
@@ -66,6 +67,19 @@ export async function POST(request: NextRequest) {
     const dealId = body?.dealId?.trim() || null;
     const installationId = body?.installationId?.trim() || null;
 
+    if (dealId) {
+      const dealExists = await prisma.crmDeal.findFirst({
+        where: { id: dealId, tenantId },
+        select: { id: true },
+      });
+      if (!dealExists) {
+        return NextResponse.json(
+          { success: false, error: "Negocio no encontrado" },
+          { status: 400 }
+        );
+      }
+    }
+
     // Generar código único con retry para evitar race condition
     const year = new Date().getFullYear();
     let quote = null;
@@ -120,7 +134,53 @@ export async function POST(request: NextRequest) {
       console.error("Error auto-inserting default includes:", err);
     }
 
-    return NextResponse.json({ success: true, data: quote }, { status: 201 });
+    let dealQuoteLink: { id: string; quoteId: string } | null = null;
+    if (dealId) {
+      try {
+        dealQuoteLink = await prisma.crmDealQuote.create({
+          data: {
+            tenantId,
+            dealId,
+            quoteId: quote.id,
+          },
+          select: { id: true, quoteId: true },
+        });
+      } catch (linkErr: unknown) {
+        const code =
+          linkErr && typeof linkErr === "object" && "code" in linkErr
+            ? (linkErr as { code: string }).code
+            : "";
+        if (code === "P2002") {
+          dealQuoteLink = await prisma.crmDealQuote.findFirst({
+            where: { tenantId, dealId, quoteId: quote.id },
+            select: { id: true, quoteId: true },
+          });
+        } else {
+          console.error("Error linking quote to deal:", linkErr);
+        }
+      }
+      if (dealQuoteLink) {
+        try {
+          const costs = await computeCpqQuoteCosts(quote.id);
+          if (costs.monthlyTotal > 0) {
+            await prisma.crmDeal.update({
+              where: { id: dealId },
+              data: {
+                amount: costs.monthlyTotal,
+                totalPuestos: costs.totalGuards,
+              },
+            });
+          }
+        } catch (amountError) {
+          console.error("Error syncing deal amount from new quote:", amountError);
+        }
+      }
+    }
+
+    return NextResponse.json(
+      { success: true, data: quote, dealQuoteLink },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error creating CPQ quote:", error);
     return NextResponse.json(

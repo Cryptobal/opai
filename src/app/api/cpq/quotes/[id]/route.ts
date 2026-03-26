@@ -10,6 +10,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqView, requireCpqEdit, requireCpqDelete } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
+import { syncCrmDealQuoteLink } from "@/lib/crm-sync-quote-deal-link";
 
 export async function GET(
   _request: NextRequest,
@@ -126,10 +127,40 @@ export async function PATCH(
       );
     }
 
-    const quote = await prisma.cpqQuote.update({
-      where: { id },
-      data: updateData,
-    });
+    if (body.dealId !== undefined) {
+      const nextDealId = body.dealId ? String(body.dealId).trim() : null;
+      if (nextDealId) {
+        const dealOk = await prisma.crmDeal.findFirst({
+          where: { id: nextDealId, tenantId },
+          select: { id: true },
+        });
+        if (!dealOk) {
+          return NextResponse.json(
+            { success: false, error: "Negocio no encontrado" },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    const quote =
+      body.dealId !== undefined
+        ? await prisma.$transaction(async (tx) => {
+            const q = await tx.cpqQuote.update({
+              where: { id },
+              data: updateData,
+            });
+            await syncCrmDealQuoteLink(tx, {
+              tenantId,
+              quoteId: id,
+              dealId: q.dealId,
+            });
+            return q;
+          })
+        : await prisma.cpqQuote.update({
+            where: { id },
+            data: updateData,
+          });
 
     // Audit log: quote_updated with changed fields
     if (Object.keys(updateData).length > 0) {
@@ -210,7 +241,10 @@ export async function DELETE(
       );
     }
 
-    await prisma.cpqQuote.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.crmDealQuote.deleteMany({ where: { tenantId, quoteId: id } });
+      await tx.cpqQuote.delete({ where: { id } });
+    });
     await createCrmHistoryLog({
       tenantId: ctx.tenantId,
       entityType: "quote",
