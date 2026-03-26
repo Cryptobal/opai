@@ -19,6 +19,25 @@ function toDateInputValue(iso: string | null | undefined): string {
   return s.slice(0, 10);
 }
 
+function formatPlanLogLine(iso: string | null | undefined, userName: string | null | undefined): string | null {
+  if (!iso && !userName?.trim()) return null;
+  let when = "";
+  if (iso) {
+    const d = new Date(iso);
+    if (!Number.isNaN(d.getTime())) {
+      when = new Intl.DateTimeFormat("es-CL", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(d);
+    }
+  }
+  const who = userName?.trim() || "—";
+  return when ? `${who} · ${when}` : who;
+}
+
 function buildOptions(
   rows: InstallationApiRow[],
   current?: { id: string; name: string; account?: { name?: string | null } | null } | null
@@ -61,6 +80,8 @@ export type SeleccionadoDestinoFieldsProps = {
     name: string;
     account?: { id?: string; name?: string | null } | null;
   } | null;
+  intendedPlanUpdatedAt?: string | null;
+  intendedPlanUpdatedBy?: { id: string; name: string } | null;
   canEdit: boolean;
   compact?: boolean;
   className?: string;
@@ -68,6 +89,8 @@ export type SeleccionadoDestinoFieldsProps = {
     intendedInstallationId?: string | null;
     intendedContractDate?: string | null;
     intendedInstallation?: SeleccionadoDestinoFieldsProps["intendedInstallation"];
+    intendedPlanUpdatedAt?: string | null;
+    intendedPlanUpdatedBy?: { id: string; name: string } | null;
   }) => void;
 };
 
@@ -77,6 +100,8 @@ export function SeleccionadoDestinoFields({
   intendedInstallationId,
   intendedContractDate,
   intendedInstallation,
+  intendedPlanUpdatedAt,
+  intendedPlanUpdatedBy,
   canEdit,
   compact,
   className,
@@ -132,7 +157,14 @@ export function SeleccionadoDestinoFields({
           intendedInstallationId?: string | null;
           intendedContractDate?: Date | string | null;
           intendedInstallation?: SeleccionadoDestinoFieldsProps["intendedInstallation"];
+          intendedPlanUpdatedAt?: Date | string | null;
+          intendedPlanUpdatedBy?: { id: string; name: string } | null;
         };
+        const planAt = g.intendedPlanUpdatedAt
+          ? typeof g.intendedPlanUpdatedAt === "string"
+            ? g.intendedPlanUpdatedAt
+            : g.intendedPlanUpdatedAt.toISOString?.() ?? null
+          : null;
         onUpdated({
           intendedInstallationId: g.intendedInstallationId ?? null,
           intendedContractDate: g.intendedContractDate
@@ -141,6 +173,8 @@ export function SeleccionadoDestinoFields({
               : g.intendedContractDate.toISOString?.() ?? null
             : null,
           intendedInstallation: g.intendedInstallation ?? undefined,
+          intendedPlanUpdatedAt: planAt,
+          intendedPlanUpdatedBy: g.intendedPlanUpdatedBy ?? null,
         });
       } catch {
         toast.error("Error de conexión");
@@ -161,6 +195,8 @@ export function SeleccionadoDestinoFields({
 
   const disabled = !canEdit || saving || lifecycleStatus !== "seleccionado";
 
+  const planLogLine = formatPlanLogLine(intendedPlanUpdatedAt ?? null, intendedPlanUpdatedBy?.name ?? null);
+
   return (
     <div
       className={cn(
@@ -171,16 +207,32 @@ export function SeleccionadoDestinoFields({
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
-      <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-        <span>Plan selección</span>
-        {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-        {loading && !installations.length && (
-          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide min-w-0">
+          <span>Plan selección</span>
+          {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
+          {loading && !installations.length && (
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+          )}
+        </div>
+        {planLogLine && (
+          <p
+            className="text-[9px] text-muted-foreground text-right leading-snug max-w-[min(100%,14rem)] shrink-0"
+            title="Última modificación de instalación prevista o fecha probable"
+          >
+            <span className="block text-[8px] uppercase tracking-wide text-muted-foreground/80">Última actualización</span>
+            <span className="block font-medium text-foreground/90 tabular-nums [overflow-wrap:anywhere]">{planLogLine}</span>
+          </p>
         )}
       </div>
-      <div className={cn("grid gap-2", compact ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2")}>
-        <div className="space-y-1 min-w-0">
-          <Label className="text-[10px] text-muted-foreground">Instalación prevista</Label>
+      <div
+        className={cn(
+          "grid gap-3",
+          compact ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 sm:items-end"
+        )}
+      >
+        <div className="flex flex-col gap-1 min-w-0">
+          <Label className="text-[10px] text-muted-foreground h-4 flex items-center">Instalación prevista</Label>
           <SearchableSelect
             value={valueId}
             options={options}
@@ -193,9 +245,9 @@ export function SeleccionadoDestinoFields({
             }}
           />
         </div>
-        <div className="space-y-1 min-w-0">
-          <Label className="text-[10px] text-muted-foreground flex items-center gap-1">
-            <CalendarDays className="h-3 w-3" />
+        <div className="flex flex-col gap-1 min-w-0">
+          <Label className="text-[10px] text-muted-foreground h-4 flex items-center gap-1">
+            <CalendarDays className="h-3 w-3 shrink-0" aria-hidden />
             Fecha probable contratación
           </Label>
           <input

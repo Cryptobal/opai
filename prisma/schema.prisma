@@ -206,6 +206,7 @@ model Admin {
   portalEjecutivoCuentas CrmAccount[]             @relation("PortalEjecutivo")
   inventoryPhoneLineAssignments InventoryPhoneLineAssignment[]
   companyPresentationsSent CrmCompanyPresentation[]
+  guardiasPlanSeleccionUpdates   OpsGuardia[] @relation("ops_guardia_intended_plan_updated_by")
 
   @@index([email])
   @@index([status])
@@ -2513,6 +2514,10 @@ model OpsGuardia {
   intendedInstallationId String?  @map("intended_installation_id") @db.Uuid
   /// Fecha probable de contratación para la instalación prevista
   intendedContractDate   DateTime? @map("intended_contract_date") @db.Date
+  /// Última actualización del plan de selección (instalación prevista / fecha)
+  intendedPlanUpdatedAt   DateTime? @map("intended_plan_updated_at") @db.Timestamptz(6)
+  intendedPlanUpdatedById String?   @map("intended_plan_updated_by")
+  intendedPlanUpdatedBy   Admin?    @relation("ops_guardia_intended_plan_updated_by", fields: [intendedPlanUpdatedById], references: [id], onDelete: SetNull)
   montoAnticipo         Int       @default(0) @map("monto_anticipo")
   recibeAnticipo        Boolean   @default(false) @map("recibe_anticipo")
   salaryStructureId     String?   @map("salary_structure_id") @db.Uuid

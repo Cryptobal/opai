@@ -69,6 +69,8 @@ export type DocsSubmoduleKey =
 
 export type OpsCapability =
   | "guardias_manage"
+  /** Editar instalación prevista y fecha probable (supervisor, jefe ops, reclutamiento, etc.) */
+  | "guardias_plan_seleccion"
   | "guardias_documents"
   | "guardias_te_ingreso" // Ingreso rápido guardia Turno Extra (Supervisor, Admin, RRHH)
   | "ops_execution"
@@ -120,6 +122,7 @@ const ALL_DOCS_SUBMODULES: DocsSubmoduleKey[] = [
 ];
 const ALL_OPS_CAPABILITIES: OpsCapability[] = [
   "guardias_manage",
+  "guardias_plan_seleccion",
   "guardias_documents",
   "guardias_te_ingreso",
   "ops_execution",
@@ -172,7 +175,16 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: ALL_CRM_SUBMODULES,
     configSubmodules: [],
     docsSubmodules: ALL_DOCS_SUBMODULES,
-    opsCapabilities: ["guardias_manage", "guardias_documents", "ops_execution", "te_execution", "rondas_configure", "rondas_monitor", "rondas_resolve"],
+    opsCapabilities: [
+      "guardias_manage",
+      "guardias_plan_seleccion",
+      "guardias_documents",
+      "ops_execution",
+      "te_execution",
+      "rondas_configure",
+      "rondas_monitor",
+      "rondas_resolve",
+    ],
   },
   jefe_operaciones: {
     rank: 2,
@@ -181,7 +193,17 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: ["overview", "accounts", "installations", "contacts"],
     configSubmodules: [],
     docsSubmodules: [],
-    opsCapabilities: ["guardias_manage", "guardias_te_ingreso", "guardias_documents", "ops_execution", "te_execution", "rondas_configure", "rondas_monitor", "rondas_resolve"],
+    opsCapabilities: [
+      "guardias_manage",
+      "guardias_plan_seleccion",
+      "guardias_te_ingreso",
+      "guardias_documents",
+      "ops_execution",
+      "te_execution",
+      "rondas_configure",
+      "rondas_monitor",
+      "rondas_resolve",
+    ],
   },
   central_monitoreo: {
     rank: 1,
@@ -199,7 +221,7 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: ["accounts", "installations", "contacts"],
     configSubmodules: [],
     docsSubmodules: [],
-    opsCapabilities: ["guardias_te_ingreso", "ops_execution", "rondas_monitor"],
+    opsCapabilities: ["guardias_plan_seleccion", "guardias_te_ingreso", "ops_execution", "rondas_monitor"],
   },
   viewer: {
     rank: 0,
@@ -220,7 +242,14 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: [],
     configSubmodules: [],
     docsSubmodules: [],
-    opsCapabilities: ["guardias_manage", "guardias_documents", "guardias_te_ingreso", "rrhh_events", "rondas_monitor"],
+    opsCapabilities: [
+      "guardias_manage",
+      "guardias_plan_seleccion",
+      "guardias_documents",
+      "guardias_te_ingreso",
+      "rrhh_events",
+      "rondas_monitor",
+    ],
   },
   operaciones: {
     rank: 2,
@@ -247,7 +276,7 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: [],
     configSubmodules: [],
     docsSubmodules: [],
-    opsCapabilities: ["guardias_manage", "guardias_documents"],
+    opsCapabilities: ["guardias_manage", "guardias_plan_seleccion", "guardias_documents"],
   },
   solo_ops: {
     rank: 1,

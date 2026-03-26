@@ -22,3 +22,8 @@ const ROLE_OPS_CAPABILITIES: Record<string, OpsCapability[]> = {
 export function hasOpsCapability(role: string, capability: OpsCapability): boolean {
   return (ROLE_OPS_CAPABILITIES[role] || []).includes(capability);
 }
+
+/** Instalación prevista + fecha probable: supervisores y roles con plan o gestión completa de guardias */
+export function canEditGuardiasPlanSeleccion(role: string): boolean {
+  return hasOpsCapability(role, "guardias_manage") || hasOpsCapability(role, "guardias_plan_seleccion");
+}

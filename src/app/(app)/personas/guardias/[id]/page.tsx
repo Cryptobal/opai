@@ -36,6 +36,7 @@ export default async function GuardiaDetailPage({
         intendedInstallation: {
           select: { id: true, name: true, account: { select: { id: true, name: true } } },
         },
+        intendedPlanUpdatedBy: { select: { id: true, name: true } },
         bankAccounts: { orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] },
         comments: { orderBy: [{ createdAt: "desc" }], take: 100 },
         documents: { include: { folder: true }, orderBy: [{ createdAt: "desc" }] },

@@ -43,7 +43,7 @@ import {
   normalizeRut,
   PERSON_SEX,
 } from "@/lib/personas";
-import { hasOpsCapability } from "@/lib/ops-rbac";
+import { canEditGuardiasPlanSeleccion, hasOpsCapability } from "@/lib/ops-rbac";
 import { SeleccionadoDestinoFields } from "@/components/ops/SeleccionadoDestinoFields";
 
 type GuardiaItem = {
@@ -65,6 +65,8 @@ type GuardiaItem = {
     name: string;
     account?: { id?: string; name?: string | null } | null;
   } | null;
+  intendedPlanUpdatedAt?: string | null;
+  intendedPlanUpdatedBy?: { id: string; name: string } | null;
   persona: {
     firstName: string;
     lastName: string;
@@ -298,6 +300,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
     cuenta_rut: "Cuenta RUT",
   };
   const canManageGuardias = hasOpsCapability(userRole, "guardias_manage");
+  const canEditPlanSeleccion = canEditGuardiasPlanSeleccion(userRole);
   const canChangeLifecycle =
     hasOpsCapability(userRole, "guardias_manage") ||
     hasOpsCapability(userRole, "rrhh_events");
@@ -1003,7 +1006,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                           intendedInstallationId={item.intendedInstallationId}
                           intendedContractDate={item.intendedContractDate}
                           intendedInstallation={item.intendedInstallation}
-                          canEdit={canManageGuardias}
+                          intendedPlanUpdatedAt={item.intendedPlanUpdatedAt}
+                          intendedPlanUpdatedBy={item.intendedPlanUpdatedBy}
+                          canEdit={canEditPlanSeleccion}
                           compact
                           className="mt-2"
                           onUpdated={(patch) => {
@@ -1177,7 +1182,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                             intendedInstallationId={item.intendedInstallationId}
                             intendedContractDate={item.intendedContractDate}
                             intendedInstallation={item.intendedInstallation}
-                            canEdit={canManageGuardias}
+                            intendedPlanUpdatedAt={item.intendedPlanUpdatedAt}
+                            intendedPlanUpdatedBy={item.intendedPlanUpdatedBy}
+                            canEdit={canEditPlanSeleccion}
                             compact
                             className="!p-1.5"
                             onUpdated={(patch) => {
@@ -1250,7 +1257,9 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                           intendedInstallationId={item.intendedInstallationId}
                           intendedContractDate={item.intendedContractDate}
                           intendedInstallation={item.intendedInstallation}
-                          canEdit={canManageGuardias}
+                          intendedPlanUpdatedAt={item.intendedPlanUpdatedAt}
+                          intendedPlanUpdatedBy={item.intendedPlanUpdatedBy}
+                          canEdit={canEditPlanSeleccion}
                           compact
                           className="!p-1.5"
                           onUpdated={(patch) => {

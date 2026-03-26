@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { updateGuardiaSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess, ensureOpsCapability } from "@/lib/ops";
+import { hasOpsCapability } from "@/lib/ops-rbac";
 import {
   lifecycleToLegacyStatus,
   normalizeNullable,
@@ -30,6 +31,18 @@ function toNullablePercent(value?: number | string | null): Prisma.Decimal | nul
   return new Prisma.Decimal(parsed);
 }
 
+function dateOnlyIso(d: Date | null | undefined): string | null {
+  if (!d) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+const PLAN_SELECCION_KEYS = new Set(["intendedInstallationId", "intendedContractDate"]);
+
+function isPlanSeleccionOnlyBody(body: Record<string, unknown>): boolean {
+  const keys = Object.keys(body).filter((k) => body[k] !== undefined);
+  return keys.length > 0 && keys.every((k) => PLAN_SELECCION_KEYS.has(k));
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<Params> }
@@ -49,6 +62,7 @@ export async function GET(
         bankAccounts: {
           orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
         },
+        intendedPlanUpdatedBy: { select: { id: true, name: true } },
         flags: {
           where: { active: true },
           orderBy: [{ createdAt: "desc" }],
@@ -99,13 +113,31 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await ensureOpsCapability(ctx, "guardias_manage");
-    if (forbidden) return forbidden;
+    const forbiddenModule = await ensureOpsAccess(ctx);
+    if (forbiddenModule) return forbiddenModule;
 
     const { id } = await params;
     const parsed = await parseBody(request, updateGuardiaSchema);
     if (parsed.error) return parsed.error;
     const body = parsed.data;
+
+    const canManage = hasOpsCapability(ctx.userRole, "guardias_manage");
+    const canPlanSeleccion = hasOpsCapability(ctx.userRole, "guardias_plan_seleccion");
+    const planOnly = isPlanSeleccionOnlyBody(body as Record<string, unknown>);
+    if (canManage) {
+      /* edición completa */
+    } else if (canPlanSeleccion && planOnly) {
+      /* solo plan de selección */
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Sin permisos para editar estos datos. El plan de selección lo pueden editar supervisores y roles superiores.",
+        },
+        { status: 403 }
+      );
+    }
 
     const existing = await prisma.opsGuardia.findFirst({
       where: { id, tenantId: ctx.tenantId },
@@ -136,10 +168,34 @@ export async function PATCH(
       }
     }
 
+    const nextInstallationId =
+      body.intendedInstallationId === undefined
+        ? existing.intendedInstallationId
+        : body.intendedInstallationId;
+    const installationChanged =
+      body.intendedInstallationId !== undefined &&
+      nextInstallationId !== existing.intendedInstallationId;
+
+    const nextContractDateIso =
+      body.intendedContractDate === undefined
+        ? dateOnlyIso(existing.intendedContractDate)
+        : body.intendedContractDate || null;
+    const contractDateChanged =
+      body.intendedContractDate !== undefined &&
+      nextContractDateIso !== dateOnlyIso(existing.intendedContractDate);
+
+    const planFieldsPresent =
+      body.intendedInstallationId !== undefined || body.intendedContractDate !== undefined;
+    const planAuditData =
+      planFieldsPresent && (installationChanged || contractDateChanged)
+        ? { intendedPlanUpdatedAt: new Date() as Date, intendedPlanUpdatedById: ctx.userId }
+        : {};
+
     const result = await prisma.$transaction(async (tx) => {
       const prevLifecycle = existing.lifecycleStatus;
       const nextLifecycle = (body.lifecycleStatus ?? prevLifecycle) as GuardiaLifecycleStatus;
 
+      if (!planOnly) {
       await tx.opsPersona.update({
         where: { id: existing.personaId },
         data: {
@@ -188,9 +244,10 @@ export async function PATCH(
           personalEmail: body.personalEmail !== undefined ? normalizeNullable(body.personalEmail) : undefined,
         },
       });
+      }
 
       // Also save personalEmail on OpsGuardia for direct access
-      if (body.personalEmail !== undefined) {
+      if (!planOnly && body.personalEmail !== undefined) {
         await tx.opsGuardia.update({
           where: { id },
           data: { personalEmail: normalizeNullable(body.personalEmail) },
@@ -199,32 +256,43 @@ export async function PATCH(
 
       const updated = await tx.opsGuardia.update({
         where: { id },
-        data: {
-          lifecycleStatus: nextLifecycle,
-          status: body.status ?? lifecycleToLegacyStatus(nextLifecycle),
-          hiredAt:
-            body.hiredAt !== undefined
-              ? toNullableDate(body.hiredAt)
-              : nextLifecycle === "contratado" && !existing.hiredAt
-                ? new Date()
-                : undefined,
-          terminatedAt:
-            body.terminatedAt !== undefined
-              ? toNullableDate(body.terminatedAt)
-              : undefined,
-          terminationReason:
-            body.terminationReason !== undefined
-              ? normalizeNullable(body.terminationReason)
-              : undefined,
-          availableExtraShifts:
-            body.availableExtraShifts ?? undefined,
-          intendedInstallationId:
-            body.intendedInstallationId === undefined ? undefined : body.intendedInstallationId,
-          intendedContractDate:
-            body.intendedContractDate === undefined
-              ? undefined
-              : toNullableDate(body.intendedContractDate),
-        },
+        data: planOnly
+          ? {
+              intendedInstallationId:
+                body.intendedInstallationId === undefined ? undefined : body.intendedInstallationId,
+              intendedContractDate:
+                body.intendedContractDate === undefined
+                  ? undefined
+                  : toNullableDate(body.intendedContractDate),
+              ...planAuditData,
+            }
+          : {
+              lifecycleStatus: nextLifecycle,
+              status: body.status ?? lifecycleToLegacyStatus(nextLifecycle),
+              hiredAt:
+                body.hiredAt !== undefined
+                  ? toNullableDate(body.hiredAt)
+                  : nextLifecycle === "contratado" && !existing.hiredAt
+                    ? new Date()
+                    : undefined,
+              terminatedAt:
+                body.terminatedAt !== undefined
+                  ? toNullableDate(body.terminatedAt)
+                  : undefined,
+              terminationReason:
+                body.terminationReason !== undefined
+                  ? normalizeNullable(body.terminationReason)
+                  : undefined,
+              availableExtraShifts:
+                body.availableExtraShifts ?? undefined,
+              intendedInstallationId:
+                body.intendedInstallationId === undefined ? undefined : body.intendedInstallationId,
+              intendedContractDate:
+                body.intendedContractDate === undefined
+                  ? undefined
+                  : toNullableDate(body.intendedContractDate),
+              ...planAuditData,
+            },
         include: {
           persona: true,
           bankAccounts: {
@@ -233,6 +301,7 @@ export async function PATCH(
           intendedInstallation: {
             select: { id: true, name: true, account: { select: { id: true, name: true } } },
           },
+          intendedPlanUpdatedBy: { select: { id: true, name: true } },
         },
       });
 

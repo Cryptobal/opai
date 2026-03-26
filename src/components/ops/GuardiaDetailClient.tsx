@@ -60,7 +60,7 @@ import {
   TOP_GARMENT_SIZES,
   TIPO_PENSION,
 } from "@/lib/personas";
-import { hasOpsCapability } from "@/lib/ops-rbac";
+import { canEditGuardiasPlanSeleccion, hasOpsCapability } from "@/lib/ops-rbac";
 import { PersonaRendicionesTab } from "@/components/finance/PersonaRendicionesTab";
 import { GuardEventsTab } from "@/components/ops/guard-events";
 import { GuardContractsTab } from "@/components/ops/guard-contracts";
@@ -167,6 +167,8 @@ type GuardiaDetail = {
     name: string;
     account?: { id?: string; name?: string | null } | null;
   } | null;
+  intendedPlanUpdatedAt?: string | null;
+  intendedPlanUpdatedBy?: { id: string; name: string } | null;
   bankAccounts: Array<{
     id: string;
     bankCode?: string | null;
@@ -325,6 +327,7 @@ export function GuardiaDetailClient({
 
   // ── Permissions ──
   const canManageGuardias = hasOpsCapability(userRole, "guardias_manage");
+  const canEditPlanSeleccion = canEditGuardiasPlanSeleccion(userRole);
   const canChangeLifecycle = hasOpsCapability(userRole, "guardias_manage") || hasOpsCapability(userRole, "rrhh_events");
   const canManageDocs = hasOpsCapability(userRole, "guardias_documents");
 
@@ -877,7 +880,9 @@ export function GuardiaDetailClient({
             intendedInstallationId={guardia.intendedInstallationId}
             intendedContractDate={guardia.intendedContractDate}
             intendedInstallation={guardia.intendedInstallation}
-            canEdit={canManageGuardias}
+            intendedPlanUpdatedAt={guardia.intendedPlanUpdatedAt}
+            intendedPlanUpdatedBy={guardia.intendedPlanUpdatedBy}
+            canEdit={canEditPlanSeleccion}
             onUpdated={(patch) => {
               setGuardia((prev) => ({
                 ...prev,

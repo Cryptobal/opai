@@ -53,6 +53,8 @@ export default async function GuardiasPage() {
       },
       intendedInstallationId: true,
       intendedContractDate: true,
+      intendedPlanUpdatedAt: true,
+      intendedPlanUpdatedBy: { select: { id: true, name: true } },
       intendedInstallation: {
         select: {
           id: true,
