@@ -45,12 +45,12 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
       {/* Costo financiero */}
       <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-[11px] font-semibold">Financiero</span>
+          <span className="text-sm font-semibold">Financiero</span>
           <button
             type="button"
             disabled={isLocked}
             className={cn(
-              "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+              "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
               value.financialEnabled
                 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                 : "bg-muted/30 text-muted-foreground"
@@ -63,7 +63,7 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
         </div>
         <div className="space-y-1.5">
           <div>
-            <Label className="text-[10px] text-muted-foreground">Tasa %</Label>
+            <Label className="text-xs text-muted-foreground">Tasa %</Label>
             <Input
               type="text"
               inputMode="decimal"
@@ -84,7 +84,7 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
           {!showManualBase ? (
             <div className="space-y-1">
               {calculatedBase != null && calculatedBase > 0 && (
-                <div className="text-[10px] text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   Base: {formatCurrency(calculatedBase)} (automática)
                 </div>
               )}
@@ -92,7 +92,7 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
                 <button
                   type="button"
                   onClick={() => setShowManualBase(true)}
-                  className="text-[10px] text-primary/70 hover:text-primary underline"
+                  className="text-xs text-primary/70 hover:text-primary underline"
                 >
                   Usar base manual
                 </button>
@@ -101,12 +101,12 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
           ) : (
             <div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <Label className="text-[10px] text-muted-foreground">Base venta (manual)</Label>
+                <Label className="text-xs text-muted-foreground">Base venta (manual)</Label>
                 {!isLocked && (
                   <button
                     type="button"
                     onClick={() => { setShowManualBase(false); update({ salePriceBase: 0 }); }}
-                    className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
                   >
                     Usar automática
                   </button>
@@ -132,7 +132,7 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
           )}
         </div>
         {value.financialEnabled && monthlyFinancial > 0 && (
-          <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+          <div className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
             = {formatCurrency(monthlyFinancial)}/mes
           </div>
         )}
@@ -141,12 +141,12 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
       {/* Poliza */}
       <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-[11px] font-semibold">Poliza</span>
+          <span className="text-sm font-semibold">Poliza</span>
           <button
             type="button"
             disabled={isLocked}
             className={cn(
-              "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+              "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
               value.policyEnabled
                 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                 : "bg-muted/30 text-muted-foreground"
@@ -159,7 +159,7 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
           <div>
-            <Label className="text-[10px] text-muted-foreground">Meses</Label>
+            <Label className="text-xs text-muted-foreground">Meses</Label>
             <Input
               type="number"
               disabled={isLocked}
@@ -170,7 +170,7 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
             />
           </div>
           <div>
-            <Label className="text-[10px] text-muted-foreground">% Poliza</Label>
+            <Label className="text-xs text-muted-foreground">% Poliza</Label>
             <Input
               type="text"
               inputMode="decimal"
@@ -189,7 +189,7 @@ export function FinancialCostsSection({ value, onChange, isLocked, calculatedBas
             />
           </div>
           <div>
-            <Label className="text-[10px] text-muted-foreground">Tasa %</Label>
+            <Label className="text-xs text-muted-foreground">Tasa %</Label>
             <Input
               type="text"
               inputMode="decimal"

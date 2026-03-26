@@ -219,7 +219,7 @@ export function VisitaTecnicaSolicitudModal({
           {/* Instalación (read-only) */}
           {installation && (
             <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Instalación</p>
+              <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Instalación</p>
               <p className="text-sm font-medium">{installation.name}</p>
               {installation.address && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -237,7 +237,7 @@ export function VisitaTecnicaSolicitudModal({
           {/* Puestos (read-only) */}
           {positions.length > 0 && (
             <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                 Puestos cotizados ({positions.length})
               </p>
               <div className="space-y-1 max-h-28 overflow-y-auto">

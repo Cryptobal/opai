@@ -104,7 +104,7 @@ export function CpqPositionCard({
   }, [draft.puestoTrabajoId, draft.cargoId, draft.rolId, puestos, cargos, roles, position.customName, position.puestoTrabajo?.name]);
 
   const shiftType = getShiftType(draft.startTime);
-  const badgeBase = "h-5 rounded-md border px-1.5 text-[10px] font-semibold leading-none";
+  const badgeBase = "h-6 rounded-md border px-1.5 text-sm font-semibold leading-none";
   const totalGuards = draft.numGuards * (draft.numPuestos || 1);
 
   const persist = useCallback(
@@ -240,7 +240,7 @@ export function CpqPositionCard({
     ((draft.weekdays?.length ?? 7) >= 6 ? "6x1" : (draft.weekdays?.length ?? 5) === 5 ? "5x2" : `${draft.weekdays?.length ?? 0}x${7 - (draft.weekdays?.length ?? 0)}`);
 
   const fieldBg = "bg-[#1a1a1a] border-border/60";
-  const selectCls = `flex h-7 w-full rounded-md border px-2 text-xs ${fieldBg}`;
+  const selectCls = `flex h-8 w-full rounded-md border px-2 text-sm ${fieldBg}`;
 
   if (readOnly) {
     const net = position.netSalary != null ? Number(position.netSalary) : NaN;
@@ -271,7 +271,7 @@ export function CpqPositionCard({
                   {formatWeekdaysShort(position.weekdays)}
                 </Badge>
               </div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">
+              <div className="text-sm text-muted-foreground mt-0.5">
                 {position.startTime}-{position.endTime} · {rotationLabel}
                 {position.cargo?.name ? ` · ${position.cargo.name}` : ""}
               </div>
@@ -288,9 +288,9 @@ export function CpqPositionCard({
           </div>
           {netOk ? (
             <div className="rounded-md border border-sky-500/25 bg-sky-500/[0.07] px-2 py-1.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">Sueldo líquido estimado</p>
+              <p className="text-sm font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">Sueldo líquido estimado</p>
               <div className="mt-0.5 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
-                <span className="text-[11px] text-muted-foreground">Por guardia / mes</span>
+                <span className="text-sm text-muted-foreground">Por guardia / mes</span>
                 <CpqDualCurrencyAmount
                   clp={Math.round(net)}
                   currency={displayCurrency}
@@ -301,7 +301,7 @@ export function CpqPositionCard({
               </div>
               {totalGuards > 1 && (
                 <div className="mt-1 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 border-t border-sky-500/20 pt-1">
-                  <span className="text-[11px] text-muted-foreground">Total puesto ({totalGuards} guardias)</span>
+                  <span className="text-sm text-muted-foreground">Total puesto ({totalGuards} guardias)</span>
                   <CpqDualCurrencyAmount
                     clp={Math.round(net * totalGuards)}
                     currency={displayCurrency}
@@ -313,7 +313,7 @@ export function CpqPositionCard({
               )}
             </div>
           ) : (
-            <p className="text-[11px] text-amber-700 dark:text-amber-400/90">
+            <p className="text-sm text-amber-700 dark:text-amber-400/90">
               Sueldo líquido: sin estimación en datos del puesto.
             </p>
           )}
@@ -326,21 +326,21 @@ export function CpqPositionCard({
     <div className="rounded-md border border-border/60 bg-[#0a0a0a] p-2.5 space-y-2">
         <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start", CPQ_BREAKDOWN_SHELL)}>
           <div className="min-w-0">
-            <div className="text-[12px] font-semibold break-words">{titleLabel}</div>
+            <div className="text-sm font-semibold break-words">{titleLabel}</div>
             <div className="flex items-center gap-1 flex-wrap mt-1">
-              <Badge variant="outline" className="h-5 text-[10px] gap-0.5">
+              <Badge variant="outline" className="h-6 text-sm gap-0.5">
                 {shiftType === "night" ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
                 {shiftType === "night" ? "Noche" : "Día"}
               </Badge>
               {saving && (
-                <span className="text-[10px] text-muted-foreground inline-flex items-center gap-0.5">
+                <span className="text-sm text-muted-foreground inline-flex items-center gap-0.5">
                   <Loader2 className="h-3 w-3 animate-spin" /> Guardando…
                 </span>
               )}
             </div>
           </div>
           <div className="flex items-center gap-0.5 shrink-0 self-start">
-            <Button type="button" variant="outline" size="sm" className="h-6 px-1.5 text-[10px]" onClick={handleClone} title="Duplicar">
+            <Button type="button" variant="outline" size="sm" className="h-7 px-1.5 text-sm" onClick={handleClone} title="Duplicar">
               <Copy className="h-3 w-3" />
             </Button>
             <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={handleDelete} title="Eliminar">
@@ -351,7 +351,7 @@ export function CpqPositionCard({
 
         <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
           <div className="space-y-1">
-            <Label className="text-[10px]">Guardias</Label>
+            <Label className="text-sm">Guardias</Label>
             <select className={selectCls} value={draft.numGuards} onChange={(e) => updateDraft({ numGuards: Number(e.target.value) })}>
               {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n}>{n}</option>
@@ -359,7 +359,7 @@ export function CpqPositionCard({
             </select>
           </div>
           <div className="space-y-1">
-            <Label className="text-[10px]">Nº Puestos</Label>
+            <Label className="text-sm">Nº Puestos</Label>
             <select className={selectCls} value={draft.numPuestos} onChange={(e) => updateDraft({ numPuestos: Number(e.target.value) })}>
               {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n}>{n}</option>
@@ -367,22 +367,22 @@ export function CpqPositionCard({
             </select>
           </div>
           <div className="space-y-1">
-            <Label className="text-[10px]">Sueldo bruto</Label>
+            <Label className="text-sm">Sueldo bruto</Label>
             <Input
               type="text"
               inputMode="numeric"
               value={formatNumber(draft.baseSalary, { minDecimals: 0, maxDecimals: 0 })}
               onChange={(e) => updateDraft({ baseSalary: parseLocalizedNumber(e.target.value) || 0 })}
-              className={cn("h-7 text-xs", fieldBg)}
+              className={cn("h-8 text-sm", fieldBg)}
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-[10px]">Turno</Label>
+            <Label className="text-sm">Turno</Label>
             <div className="flex gap-1">
               <button
                 type="button"
                 className={cn(
-                  "flex-1 h-7 rounded-md border text-[10px] font-medium",
+                  "flex-1 h-8 rounded-md border text-sm font-medium",
                   shiftType !== "night" ? "border-amber-500/40 bg-amber-500/10 text-amber-400" : "border-border text-muted-foreground"
                 )}
                 onClick={() => updateDraft({ startTime: "08:00", endTime: "20:00" })}
@@ -392,7 +392,7 @@ export function CpqPositionCard({
               <button
                 type="button"
                 className={cn(
-                  "flex-1 h-7 rounded-md border text-[10px] font-medium",
+                  "flex-1 h-8 rounded-md border text-sm font-medium",
                   shiftType === "night" ? "border-purple-500/40 bg-purple-500/10 text-purple-400" : "border-border text-muted-foreground"
                 )}
                 onClick={() => updateDraft({ startTime: "20:00", endTime: "08:00" })}
@@ -402,7 +402,7 @@ export function CpqPositionCard({
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-[10px]">Inicio</Label>
+            <Label className="text-sm">Inicio</Label>
             <select className={cn(selectCls, "font-mono")} value={draft.startTime} onChange={(e) => updateDraft({ startTime: e.target.value })}>
               {HOURS_24.map((t) => (
                 <option key={t} value={t}>{t}</option>
@@ -410,7 +410,7 @@ export function CpqPositionCard({
             </select>
           </div>
           <div className="space-y-1">
-            <Label className="text-[10px]">Término</Label>
+            <Label className="text-sm">Término</Label>
             <select className={cn(selectCls, "font-mono")} value={draft.endTime} onChange={(e) => updateDraft({ endTime: e.target.value })}>
               {HOURS_24.map((t) => (
                 <option key={t} value={t}>{t}</option>
@@ -423,7 +423,7 @@ export function CpqPositionCard({
           <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {puestos.length > 0 && (
               <div className="space-y-1">
-                <Label className="text-[10px]">Tipo de Puesto</Label>
+                <Label className="text-sm">Tipo de Puesto</Label>
                 <select className={selectCls} value={draft.puestoTrabajoId} onChange={(e) => updateDraft({ puestoTrabajoId: e.target.value })}>
                   <option value="">Seleccionar…</option>
                   {puestos.map((p) => (
@@ -434,7 +434,7 @@ export function CpqPositionCard({
             )}
             {cargos.length > 0 && (
               <div className="space-y-1">
-                <Label className="text-[10px]">Cargo</Label>
+                <Label className="text-sm">Cargo</Label>
                 <select className={selectCls} value={draft.cargoId} onChange={(e) => updateDraft({ cargoId: e.target.value })}>
                   <option value="">Seleccionar…</option>
                   {cargos.map((c) => (
@@ -445,7 +445,7 @@ export function CpqPositionCard({
             )}
             {roles.length > 0 && (
               <div className="space-y-1">
-                <Label className="text-[10px]">Rol</Label>
+                <Label className="text-sm">Rol</Label>
                 <select className={selectCls} value={draft.rolId} onChange={(e) => updateDraft({ rolId: e.target.value })}>
                   <option value="">Seleccionar…</option>
                   {roles.map((r) => (
@@ -458,7 +458,7 @@ export function CpqPositionCard({
         )}
 
         <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-[10px] text-muted-foreground mr-1">Días:</span>
+          <span className="text-sm text-muted-foreground mr-1">Días:</span>
           {WEEKDAY_ORDER.map((d) => {
             const active = draft.weekdays.includes(d);
             return (
@@ -466,7 +466,7 @@ export function CpqPositionCard({
                 key={d}
                 type="button"
                 className={cn(
-                  "h-5 min-w-[1.75rem] px-1 rounded text-[9px] font-bold transition-colors",
+                  "h-6 min-w-[2rem] px-1 rounded text-xs font-bold transition-colors",
                   active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent"
                 )}
                 onClick={() => toggleWeekday(d)}
@@ -477,12 +477,12 @@ export function CpqPositionCard({
           })}
         </div>
 
-        <div className="text-[10px] space-y-1 pt-1 border-t border-border/40">
+        <div className="text-sm space-y-1 pt-1 border-t border-border/40">
           <div className="text-muted-foreground">
             {draft.startTime}-{draft.endTime} · {draft.numGuards} guardia(s)
             {(draft.numPuestos || 1) > 1 ? ` × ${draft.numPuestos} puestos = ${totalGuards} guardias totales` : ""}
           </div>
-          <div className={cn(CPQ_BREAKDOWN_ROW, "text-[10px] items-start")}>
+          <div className={cn(CPQ_BREAKDOWN_ROW, "text-sm items-start")}>
             <div className="text-emerald-400 font-semibold min-w-0 break-words space-y-1">
               <div>Costo empresa / mes</div>
               <CpqDualCurrencyAmount
@@ -516,7 +516,7 @@ export function CpqPositionCard({
                 </div>
               )}
             </div>
-            <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[10px] shrink-0 self-center" onClick={handleRecalculate} disabled={recalcLoading}>
+            <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-sm shrink-0 self-center" onClick={handleRecalculate} disabled={recalcLoading}>
               <RefreshCw className={cn("h-3 w-3 mr-1", recalcLoading && "animate-spin")} />
               Recalcular
             </Button>

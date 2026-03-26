@@ -34,7 +34,7 @@ export function CommercialConditionsSection({
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <div className="space-y-1">
-        <Label className="text-[11px] text-muted-foreground">Forma de pago</Label>
+        <Label className="text-sm text-muted-foreground">Forma de pago</Label>
         <select
           value={value.paymentTerms}
           onChange={(e) => update({ paymentTerms: e.target.value })}
@@ -47,7 +47,7 @@ export function CommercialConditionsSection({
         </select>
       </div>
       <div className="space-y-1">
-        <Label className="text-[11px] text-muted-foreground">Inicio servicios</Label>
+        <Label className="text-sm text-muted-foreground">Inicio servicios</Label>
         <div className="flex items-center gap-1">
           <Input
             type="number"
@@ -58,11 +58,11 @@ export function CommercialConditionsSection({
             disabled={isLocked}
             className="h-8 bg-card text-foreground border-border text-xs w-16"
           />
-          <span className="text-[10px] text-muted-foreground whitespace-nowrap">días háb.</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">días háb.</span>
         </div>
       </div>
       <div className="space-y-1">
-        <Label className="text-[11px] text-muted-foreground">Duración contrato</Label>
+        <Label className="text-sm text-muted-foreground">Duración contrato</Label>
         <div className="flex items-center gap-1">
           <Input
             type="number"
@@ -73,12 +73,12 @@ export function CommercialConditionsSection({
             disabled={isLocked}
             className="h-8 bg-card text-foreground border-border text-xs w-16"
           />
-          <span className="text-[10px] text-muted-foreground">meses</span>
+          <span className="text-xs text-muted-foreground">meses</span>
         </div>
       </div>
       {filteredTemplates.length > 0 && (
         <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">Propuesta económica</Label>
+          <Label className="text-sm text-muted-foreground">Propuesta económica</Label>
           <select
             value={value.proposalTemplateId ?? ""}
             onChange={(e) => update({ proposalTemplateId: e.target.value || null })}

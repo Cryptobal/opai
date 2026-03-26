@@ -89,7 +89,7 @@ export function QuoteKpiBar({
 
         {/* UF equivalent */}
         {ufDisplay && (
-          <span className="text-[11px] font-semibold text-emerald-600/70 dark:text-emerald-400/60 shrink-0">
+          <span className="text-sm font-semibold text-emerald-600/70 dark:text-emerald-400/60 shrink-0">
             {ufDisplay}
           </span>
         )}
@@ -97,7 +97,7 @@ export function QuoteKpiBar({
         <span className="flex-1" />
 
         {/* Margin badge */}
-        <span className="inline-flex items-center rounded-md bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 shrink-0">
+        <span className="inline-flex items-center rounded-md bg-emerald-500/15 px-2 py-0.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 shrink-0">
           {marginLabel}%
         </span>
 
@@ -120,19 +120,19 @@ export function QuoteKpiBar({
         )}
       >
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
             Puestos
           </p>
           <p className="text-xs font-bold font-mono">{positionsCount}</p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
             Guardias
           </p>
           <p className="text-xs font-bold font-mono">{totalGuards}</p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
             Costo
           </p>
           <p className="text-xs font-bold font-mono truncate">
@@ -140,7 +140,7 @@ export function QuoteKpiBar({
           </p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
             Margen
           </p>
           <p className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-400">
@@ -153,8 +153,8 @@ export function QuoteKpiBar({
       {isExpanded && additionalLinesTotal > 0 && (
         <div className="px-3 pb-2">
           <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "py-1 border-t border-purple-500/20 text-xs")}>
-            <span className="text-[10px] text-purple-400 break-words min-w-0">Serv. adicionales</span>
-            <span className={cpqBreakdownAmount("text-[11px] font-medium text-purple-400")}>
+            <span className="text-xs text-purple-400 break-words min-w-0">Serv. adicionales</span>
+            <span className={cpqBreakdownAmount("text-sm font-medium text-purple-400")}>
               {formatCurrency(additionalLinesTotal)}
             </span>
           </div>

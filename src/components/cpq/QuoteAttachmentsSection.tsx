@@ -130,7 +130,7 @@ export function QuoteAttachmentsSection({ quoteId, isLocked }: QuoteAttachmentsS
         <div className="flex items-center gap-2 min-w-0">
           <h2 className="text-sm font-bold shrink-0">Para adjuntar documentos</h2>
           {!expanded && attachments.length > 0 && (
-            <span className="text-[11px] text-muted-foreground truncate">
+            <span className="text-sm text-muted-foreground truncate">
               {attachments.length} documento{attachments.length !== 1 ? "s" : ""}
             </span>
           )}

@@ -118,7 +118,7 @@ export function CpqQuickAddCost({
   return (
     <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.04] p-3 space-y-2.5">
       <div className="flex items-center justify-between">
-        <span className="text-[12px] font-bold text-emerald-400">+ Nuevo costo</span>
+        <span className="text-sm font-bold text-emerald-400">+ Nuevo costo</span>
         <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
@@ -134,7 +134,7 @@ export function CpqQuickAddCost({
             value={search}
             onChange={(e) => { setSearch(e.target.value); setShowResults(true); setSelectedItem(null); }}
             onFocus={() => search.trim() && setShowResults(true)}
-            className="h-8 pl-8 text-xs bg-card border-border"
+            className="h-8 pl-8 text-sm bg-card border-border"
           />
         </div>
         {showResults && search.trim() && (
@@ -144,7 +144,7 @@ export function CpqQuickAddCost({
                 key={item.id}
                 type="button"
                 onClick={() => handleSelectCatalogItem(item)}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-xs hover:bg-accent transition-colors"
+                className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-accent transition-colors"
               >
                 <span>{item.name}</span>
                 <span className="text-muted-foreground">{formatCurrency(Number(item.basePrice))}</span>
@@ -153,7 +153,7 @@ export function CpqQuickAddCost({
             <button
               type="button"
               onClick={handleCreateCustom}
-              className="w-full flex items-center px-3 py-1.5 text-xs text-emerald-400 hover:bg-accent transition-colors border-t border-border"
+              className="w-full flex items-center px-3 py-1.5 text-sm text-emerald-400 hover:bg-accent transition-colors border-t border-border"
             >
               Crear: &ldquo;{search.trim()}&rdquo;
             </button>
@@ -173,7 +173,7 @@ export function CpqQuickAddCost({
             type="button"
             onClick={() => setCostType(t.value)}
             className={cn(
-              "flex-1 h-7 rounded-md border text-[11px] font-semibold transition-colors",
+              "flex-1 h-7 rounded-md border text-sm font-semibold transition-colors",
               costType === t.value
                 ? "bg-emerald-500 text-emerald-950 border-emerald-500"
                 : "bg-card text-muted-foreground border-border hover:bg-muted/50",
@@ -188,30 +188,30 @@ export function CpqQuickAddCost({
       {costType === "investment" ? (
         <div className="flex gap-2">
           <div className="flex-1 space-y-1">
-            <label className="text-[10px] text-muted-foreground">Monto inversión</label>
+            <label className="text-sm text-muted-foreground">Monto inversión</label>
             <Input
               type="text"
               inputMode="numeric"
               value={amount ? formatCurrency(amount).replace("$", "") : ""}
               onChange={(e) => setAmount(Number(e.target.value.replace(/\D/g, "")) || 0)}
-              className="h-7 text-xs bg-card border-border"
+              className="h-7 text-sm bg-card border-border"
               placeholder="$1.300.000"
             />
           </div>
           <div className="w-24 space-y-1">
-            <label className="text-[10px] text-muted-foreground">Amort. meses</label>
+            <label className="text-sm text-muted-foreground">Amort. meses</label>
             <Input
               type="number"
               min={1}
               value={investmentMonths}
               onChange={(e) => setInvestmentMonths(Number(e.target.value) || contractDuration)}
-              className="h-7 text-xs bg-card border-border"
+              className="h-7 text-sm bg-card border-border"
             />
           </div>
         </div>
       ) : (
         <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground">
+          <label className="text-sm text-muted-foreground">
             {costType === "per_guard" ? "Precio por guardia/mes" : "Precio mensual"}
           </label>
           <Input
@@ -227,7 +227,7 @@ export function CpqQuickAddCost({
 
       {/* Investment monthly preview */}
       {costType === "investment" && amount > 0 && (
-        <div className="rounded-md bg-emerald-500/10 px-2.5 py-1.5 text-[12px] font-semibold text-emerald-400">
+        <div className="rounded-md bg-emerald-500/10 px-2.5 py-1.5 text-sm font-semibold text-emerald-400">
           → Costo mensual: {formatCurrency(monthlyCost)}
         </div>
       )}
@@ -235,7 +235,7 @@ export function CpqQuickAddCost({
       {/* Footer */}
       <div className="flex items-center justify-between pt-1">
         <div className="flex flex-col gap-1.5">
-          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer">
+          <label className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer">
             <input
               type="checkbox"
               checked={saveToCatalog}
@@ -248,7 +248,7 @@ export function CpqQuickAddCost({
             <select
               value={catalogType}
               onChange={(e) => setCatalogType(e.target.value)}
-              className="h-6 text-[10px] rounded border border-border bg-card px-1 text-foreground"
+              className="h-6 text-sm rounded border border-border bg-card px-1 text-foreground"
             >
               <option value="other">Otros costos adicionales</option>
               <option value="uniform">Uniforme</option>
@@ -265,7 +265,7 @@ export function CpqQuickAddCost({
         </div>
         <Button
           size="sm"
-          className="h-7 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+          className="h-7 px-3 text-sm gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
           onClick={handleSubmit}
           disabled={saving || (!search.trim() && !selectedItem)}
         >

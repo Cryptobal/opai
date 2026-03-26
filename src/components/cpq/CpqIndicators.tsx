@@ -80,7 +80,7 @@ export function CpqIndicators({ className }: { className?: string }) {
             {formatCLP(data.uf.value)}
           </span>
           {data.uf.date && (
-            <span className="hidden lg:inline text-[10px] text-muted-foreground/70">
+            <span className="hidden lg:inline text-xs text-muted-foreground/70">
               {data.uf.date}
             </span>
           )}
@@ -95,7 +95,7 @@ export function CpqIndicators({ className }: { className?: string }) {
             {formatCLP(data.utm.value)}
           </span>
           {data.utm.monthShort && (
-            <span className="hidden lg:inline text-[10px] text-muted-foreground/70">
+            <span className="hidden lg:inline text-xs text-muted-foreground/70">
               {data.utm.monthShort}
             </span>
           )}

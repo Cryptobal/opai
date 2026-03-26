@@ -33,7 +33,7 @@ export interface CpqDualCurrencyAmountProps {
 }
 
 const SIZE_PRIMARY: Record<NonNullable<CpqDualCurrencyAmountProps["size"]>, string> = {
-  xs: "text-[10px] font-semibold",
+  xs: "text-xs font-semibold",
   sm: "text-xs font-semibold",
   md: "text-sm font-bold",
   lg: "text-2xl font-bold",
@@ -41,8 +41,8 @@ const SIZE_PRIMARY: Record<NonNullable<CpqDualCurrencyAmountProps["size"]>, stri
 
 const SIZE_SECONDARY: Record<NonNullable<CpqDualCurrencyAmountProps["size"]>, string> = {
   xs: "text-[9px] font-medium",
-  sm: "text-[10px] font-medium",
-  md: "text-[11px] font-medium",
+  sm: "text-xs font-medium",
+  md: "text-sm font-medium",
   lg: "text-sm font-medium",
 };
 

@@ -214,19 +214,19 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
               <div className="flex items-center gap-2">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Horario</Label>
                 <div className="flex gap-1.5">
-                  <Button type="button" size="sm" variant={form.startTime === "08:00" && form.endTime === "20:00" ? "default" : "outline"} className="h-6 px-2 text-[10px]" onClick={() => setForm((p) => ({ ...p, startTime: "08:00", endTime: "20:00" }))}>Día</Button>
-                  <Button type="button" size="sm" variant={form.startTime === "20:00" && form.endTime === "08:00" ? "default" : "outline"} className="h-6 px-2 text-[10px]" onClick={() => setForm((p) => ({ ...p, startTime: "20:00", endTime: "08:00" }))}>Noche</Button>
+                  <Button type="button" size="sm" variant={form.startTime === "08:00" && form.endTime === "20:00" ? "default" : "outline"} className="h-6 px-2 text-xs" onClick={() => setForm((p) => ({ ...p, startTime: "08:00", endTime: "20:00" }))}>Día</Button>
+                  <Button type="button" size="sm" variant={form.startTime === "20:00" && form.endTime === "08:00" ? "default" : "outline"} className="h-6 px-2 text-xs" onClick={() => setForm((p) => ({ ...p, startTime: "20:00", endTime: "08:00" }))}>Noche</Button>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-[10px]">Inicio</Label>
+                  <Label className="text-xs">Inicio</Label>
                   <select className={selectClass} value={form.startTime} onChange={(e) => setForm((p) => ({ ...p, startTime: e.target.value }))}>
                     {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px]">Término</Label>
+                  <Label className="text-xs">Término</Label>
                   <select className={selectClass} value={form.endTime} onChange={(e) => setForm((p) => ({ ...p, endTime: e.target.value }))}>
                     {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
@@ -239,16 +239,16 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
               <div className="space-y-2">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Días</Label>
                 <div className="flex flex-wrap gap-1.5">
-                  <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => applyWeekdayPreset("weekdays")}>Lun-Vie</Button>
-                  <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => applyWeekdayPreset("weekend")}>Sáb-Dom</Button>
-                  <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[10px]" onClick={() => applyWeekdayPreset("all")}>Todos</Button>
-                  <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-muted-foreground" onClick={() => applyWeekdayPreset("clear")}>Limpiar</Button>
+                  <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => applyWeekdayPreset("weekdays")}>Lun-Vie</Button>
+                  <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => applyWeekdayPreset("weekend")}>Sáb-Dom</Button>
+                  <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => applyWeekdayPreset("all")}>Todos</Button>
+                  <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-xs text-muted-foreground" onClick={() => applyWeekdayPreset("clear")}>Limpiar</Button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {WEEKDAY_ORDER.map((day) => {
                     const active = form.weekdays.includes(day);
                     return (
-                      <button key={day} type="button" onClick={() => toggleWeekday(day)} aria-pressed={active} className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${active ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}>{day}</button>
+                      <button key={day} type="button" onClick={() => toggleWeekday(day)} aria-pressed={active} className={`rounded-full border px-2.5 py-0.5 text-sm transition-colors ${active ? "border-primary/50 bg-primary/15 text-primary" : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}>{day}</button>
                     );
                   })}
                 </div>
@@ -291,7 +291,7 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
           </div>
 
           <div className="flex items-center justify-between border-t pt-3">
-            <Badge variant="outline" className="text-[10px] text-muted-foreground">
+            <Badge variant="outline" className="text-xs text-muted-foreground">
               AFP Modelo · Fonasa por defecto
             </Badge>
             <Button type="submit" size="sm" disabled={loading}>

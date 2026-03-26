@@ -153,7 +153,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
               placeholder="Ej: Propuesta guardias planta norte"
               className="h-9 bg-background text-sm"
             />
-            <p className="text-[11px] text-muted-foreground">Opcional — para identificar fácilmente la cotización</p>
+            <p className="text-sm text-muted-foreground">Opcional — para identificar fácilmente la cotización</p>
           </div>
           {hasContext ? (
             <div className="space-y-1.5">

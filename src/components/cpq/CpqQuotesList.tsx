@@ -117,7 +117,7 @@ export function CpqQuotesList({ quotes, loading, onRefresh }: CpqQuotesListProps
                     <span className="ml-2">{statusLabel(quote.status)}</span>
                   </Badge>
                   {listed ? (
-                    <Badge variant="outline" className="text-[10px] shrink-0 border-teal-500/40 text-teal-600 dark:text-teal-400">
+                    <Badge variant="outline" className="text-xs shrink-0 border-teal-500/40 text-teal-600 dark:text-teal-400">
                       Portal
                     </Badge>
                   ) : null}
@@ -135,7 +135,7 @@ export function CpqQuotesList({ quotes, loading, onRefresh }: CpqQuotesListProps
             <div className="flex flex-col justify-center gap-1 px-3 py-2 border-l border-border/60 bg-muted/5 min-w-[7.5rem]">
               <Label
                 htmlFor={`portal-${quote.id}`}
-                className="text-[10px] text-muted-foreground font-normal leading-tight cursor-pointer"
+                className="text-xs text-muted-foreground font-normal leading-tight cursor-pointer"
               >
                 Portal cliente
               </Label>

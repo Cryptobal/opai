@@ -1256,7 +1256,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                       : quote.status}
             </Badge>
           </div>
-          <span className="text-[11px] text-muted-foreground truncate block">
+          <span className="text-sm text-muted-foreground truncate block">
             {quote.clientName || "Sin cliente"}
             {crmContext.contactId && (() => {
               const c = crmContacts.find((x) => x.id === crmContext.contactId);
@@ -1265,7 +1265,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           </span>
           {crmContext.accountId ? (
             <div className="flex items-center gap-2 mt-1.5 flex-wrap max-w-full">
-              <Label htmlFor="cpq-portal-visible" className="text-[11px] text-muted-foreground font-normal cursor-pointer shrink-0">
+              <Label htmlFor="cpq-portal-visible" className="text-sm text-muted-foreground font-normal cursor-pointer shrink-0">
                 Visible en portal del cliente
               </Label>
               <Switch
@@ -1282,7 +1282,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               {portalVisibilitySaving ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" aria-hidden />
               ) : null}
-              <span className="text-[10px] text-muted-foreground/80 leading-tight hidden sm:inline max-w-[220px]">
+              <span className="text-xs text-muted-foreground/80 leading-tight hidden sm:inline max-w-[220px]">
                 {quote.status === "draft"
                   ? "Puedes dejarla visible mientras editas en borrador."
                   : "Desactiva para ocultarla del portal sin cambiar el estado."}
@@ -1312,11 +1312,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           {/* Desktop: acciones de estado (en móvil van al menú ⋮ para no duplicar el badge de estado) */}
           <div className="hidden lg:flex items-center gap-1">
             {quote.status === "sent" ? (
-              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setStatusChangePending("draft")} disabled={changingStatus}>
+              <Button size="sm" variant="outline" className="h-7 px-2 text-sm" onClick={() => setStatusChangePending("draft")} disabled={changingStatus}>
                 {changingStatus ? "..." : "Marcar borrador"}
               </Button>
             ) : (
-              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10" onClick={() => setStatusChangePending("sent")} disabled={changingStatus}>
+              <Button size="sm" variant="outline" className="h-7 px-2 text-sm border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10" onClick={() => setStatusChangePending("sent")} disabled={changingStatus}>
                 {changingStatus ? "..." : "Marcar enviada"}
               </Button>
             )}
@@ -1381,14 +1381,14 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         </div>
       </div>
       <div className="mt-1.5 pt-1.5 border-t border-border/40 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-[10px] sm:text-[11px] text-muted-foreground flex items-center gap-1.5 min-w-0">
+        <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 min-w-0">
           {!isLocked && (savingQuote || savingFinancials) && (
             <Loader2 className="h-3 w-3 animate-spin shrink-0 text-muted-foreground" aria-hidden />
           )}
           <span className="leading-tight">{headerPersistLabel}</span>
         </div>
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 text-[11px] sm:text-xs tabular-nums">
-          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 text-sm tabular-nums">
+          <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
             Total / mes
           </span>
           <span className="font-semibold text-foreground">{formatCurrency(billingMonthlyTotal)}</span>
@@ -1409,7 +1409,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Datos</h2>
             {!secDatos && (
-              <span className="text-[11px] text-muted-foreground truncate">
+              <span className="text-sm text-muted-foreground truncate">
                 {quoteForm.clientName || "Sin cliente"}{crmContext.currency ? ` · ${crmContext.currency}` : ""}
               </span>
             )}
@@ -1448,7 +1448,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Condiciones comerciales</h2>
             {!secCondiciones && (
-              <span className="text-[11px] text-muted-foreground truncate">
+              <span className="text-sm text-muted-foreground truncate">
                 {quoteForm.paymentTerms === "contrafactura" ? "Contrafactura" : quoteForm.paymentTerms === "30_dias" ? "30 días" : "Anticipado"} · {quoteForm.serviceStartDays}d · {quoteForm.contractDuration}m
               </span>
             )}
@@ -1459,7 +1459,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           <div className="px-4 pb-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Forma de pago</Label>
+                <Label className="text-sm text-muted-foreground">Forma de pago</Label>
                 <select
                   value={quoteForm.paymentTerms}
                   onChange={(e) => { setQuoteForm(prev => ({ ...prev, paymentTerms: e.target.value })); setQuoteDirty(true); }}
@@ -1472,7 +1472,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                 </select>
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Inicio servicios</Label>
+                <Label className="text-sm text-muted-foreground">Inicio servicios</Label>
                 <div className="flex items-center gap-1">
                   <Input
                     type="number"
@@ -1483,11 +1483,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                     disabled={isLocked}
                     className="h-8 bg-card text-foreground border-border text-xs w-16"
                   />
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">días háb.</span>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">días háb.</span>
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Duración contrato</Label>
+                <Label className="text-sm text-muted-foreground">Duración contrato</Label>
                 <div className="flex items-center gap-1">
                   <Input
                     type="number"
@@ -1498,11 +1498,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                     disabled={isLocked}
                     className="h-8 bg-card text-foreground border-border text-xs w-16"
                   />
-                  <span className="text-[10px] text-muted-foreground">meses</span>
+                  <span className="text-xs text-muted-foreground">meses</span>
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Propuesta económica</Label>
+                <Label className="text-sm text-muted-foreground">Propuesta económica</Label>
                 <div className="flex items-center gap-1.5">
                   <select
                     value={proposalTemplateId ?? ""}
@@ -1545,7 +1545,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Desglose</h2>
             {!secDesglose && (
-              <span className="text-[11px] text-muted-foreground truncate inline-flex items-center gap-1.5 max-w-[min(100%,28rem)]">
+              <span className="text-sm text-muted-foreground truncate inline-flex items-center gap-1.5 max-w-[min(100%,28rem)]">
                 <CpqDualCurrencyAmount
                   clp={salePriceMonthly}
                   currency={crmContext.currency || "CLP"}
@@ -1588,7 +1588,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Puestos</h2>
             {!secPuestos && positions.length > 0 && (
-              <span className="text-[11px] text-muted-foreground truncate">
+              <span className="text-sm text-muted-foreground truncate">
                 {positions.length} {positions.length === 1 ? "puesto" : "puestos"} · {stats.totalGuards} guardias —{" "}
                 <span className="inline-flex align-middle">
                   <CpqDualCurrencyAmount
@@ -1658,7 +1658,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                       disabled={recalculatingAll}
                       onClick={handleRecalculateAll}
                     >
@@ -1688,7 +1688,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Costos adicionales</h2>
             {!secCostos && costSummary && (costSummary.monthlyExtras ?? 0) > 0 && (
-              <span className="text-[11px] text-muted-foreground truncate">
+              <span className="text-sm text-muted-foreground truncate">
                 <span className="inline-flex align-middle">
                   <CpqDualCurrencyAmount
                     clp={costSummary.monthlyExtras ?? 0}
@@ -1726,7 +1726,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Líneas adicionales</h2>
             {!secLineas && additionalLines.length > 0 && (
-              <span className="text-[11px] text-muted-foreground truncate">
+              <span className="text-sm text-muted-foreground truncate">
                 {additionalLines.length} {additionalLines.length === 1 ? "línea" : "líneas"} —{" "}
                 <span className="inline-flex align-middle">
                   <CpqDualCurrencyAmount
@@ -1775,7 +1775,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                           updated[idx] = { ...updated[idx], descripcion: e.target.value };
                           setAdditionalLines(updated);
                         }}
-                        className="h-6 bg-transparent border-none text-[11px] text-muted-foreground p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40"
+                        className="h-6 bg-transparent border-none text-sm text-muted-foreground p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40"
                         disabled={isLocked}
                       />
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -1791,7 +1791,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                               setAdditionalLines(updated);
                             }}
                             className={cn(
-                              "h-5 rounded px-1.5 text-[10px] font-semibold capitalize transition-colors",
+                              "h-5 rounded px-1.5 text-xs font-semibold capitalize transition-colors",
                               (line.tipo || "servicio") === t
                                 ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
                                 : "bg-muted/30 text-muted-foreground border border-transparent hover:bg-muted/50",
@@ -1817,7 +1817,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                               setAdditionalLines(updated);
                             }}
                             className={cn(
-                              "h-5 rounded px-1.5 text-[10px] font-semibold transition-colors",
+                              "h-5 rounded px-1.5 text-xs font-semibold transition-colors",
                               (line.recurrencia || "mensual") === r.value
                                 ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                                 : "bg-muted/30 text-muted-foreground border border-transparent hover:bg-muted/50",
@@ -1855,7 +1855,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground">Margen:</span>
+                          <span className="text-xs text-muted-foreground">Margen:</span>
                           <Input
                             type="text"
                             inputMode="numeric"
@@ -1867,24 +1867,24 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                               updated[idx] = { ...updated[idx], marginPct: val || null };
                               setAdditionalLines(updated);
                             }}
-                            className="h-6 w-12 bg-card text-foreground border-border text-[10px] text-right font-mono px-1"
+                            className="h-6 w-12 bg-card text-foreground border-border text-xs text-right font-mono px-1"
                             disabled={isLocked}
                           />
-                          <span className="text-[10px] text-muted-foreground">%</span>
+                          <span className="text-xs text-muted-foreground">%</span>
                         </div>
                       </div>
                       <div className="text-right">
                         <span className="text-[13px] font-bold tabular-nums">
                           {formatCurrency(precioMensual)}
-                          <span className="text-[10px] text-muted-foreground font-normal">/mes</span>
+                          <span className="text-xs text-muted-foreground font-normal">/mes</span>
                         </span>
                         {isUnico && (
-                          <div className="text-[10px] text-muted-foreground">
+                          <div className="text-xs text-muted-foreground">
                             Inv: {formatCurrency(precioVenta)} ÷ {quoteForm.contractDuration}m
                           </div>
                         )}
                         {mPct > 0 && (
-                          <div className="text-[10px] text-emerald-400">
+                          <div className="text-xs text-emerald-400">
                             Venta: {formatCurrency(precioVenta)}
                           </div>
                         )}
@@ -1928,7 +1928,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             )}
             {additionalLines.length > 0 && (
               <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "pt-1 border-t border-purple-500/20 text-xs")}>
-                <span className="text-[11px] font-medium text-purple-300 break-words min-w-0">Total líneas adicionales</span>
+                <span className="text-sm font-medium text-purple-300 break-words min-w-0">Total líneas adicionales</span>
                 <span className={cpqBreakdownAmount("text-sm font-bold text-purple-300")}>
                   {formatCurrency(additionalLinesTotal)}
                 </span>
@@ -1944,11 +1944,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Gastos financieros</h2>
             {!secFinancieros && costSummary && ((costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0)) > 0 && (
-              <span className="text-[11px] text-muted-foreground truncate">
+              <span className="text-sm text-muted-foreground truncate">
                 <span className="font-mono font-semibold text-orange-400">{formatCurrency((costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0))}</span>
               </span>
             )}
-            {savingFinancials && <span className="text-[10px] text-muted-foreground">Guardando...</span>}
+            {savingFinancials && <span className="text-xs text-muted-foreground">Guardando...</span>}
           </div>
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secFinancieros && "rotate-180")} />
         </button>
@@ -1959,11 +1959,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             {/* Costo financiero */}
             <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="text-[11px] font-semibold">Financiero</span>
+                <span className="text-sm font-semibold">Financiero</span>
                 <button
                   type="button"
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+                    "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
                     costParams?.financialEnabled
                       ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                       : "bg-muted/30 text-muted-foreground"
@@ -1977,7 +1977,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 <div>
-                  <Label className="text-[10px] text-muted-foreground">Base venta</Label>
+                  <Label className="text-xs text-muted-foreground">Base venta</Label>
                   <Input
                     type="text"
                     inputMode="numeric"
@@ -1995,7 +1995,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                   />
                 </div>
                 <div>
-                  <Label className="text-[10px] text-muted-foreground">Tasa %</Label>
+                  <Label className="text-xs text-muted-foreground">Tasa %</Label>
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -2014,7 +2014,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                 </div>
               </div>
               {salePriceBase > 0 && (
-                <div className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                <div className="text-xs text-emerald-700 dark:text-emerald-400">
                   = {formatCurrency(salePriceBase * ((costParams?.financialRatePct ?? 2.5) / 100))}/mes
                 </div>
               )}
@@ -2023,11 +2023,11 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             {/* Poliza */}
             <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="text-[11px] font-semibold">Poliza</span>
+                <span className="text-sm font-semibold">Poliza</span>
                 <button
                   type="button"
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+                    "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
                     policyEnabled
                       ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                       : "bg-muted/30 text-muted-foreground"
@@ -2041,7 +2041,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               </div>
               <div className="grid grid-cols-3 gap-1">
                 <div>
-                  <Label className="text-[10px] text-muted-foreground">Meses</Label>
+                  <Label className="text-xs text-muted-foreground">Meses</Label>
                   <Input
                     type="number"
                     value={policyContractMonths}
@@ -2056,7 +2056,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                   />
                 </div>
                 <div>
-                  <Label className="text-[10px] text-muted-foreground">% Poliza</Label>
+                  <Label className="text-xs text-muted-foreground">% Poliza</Label>
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -2074,7 +2074,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                   />
                 </div>
                 <div>
-                  <Label className="text-[10px] text-muted-foreground">Tasa %</Label>
+                  <Label className="text-xs text-muted-foreground">Tasa %</Label>
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -2093,7 +2093,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                 </div>
               </div>
               {policyEnabled && salePriceBase > 0 && (
-                <div className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                <div className="text-xs text-emerald-700 dark:text-emerald-400">
                   = {formatCurrency(
                     (salePriceBase * policyContractMonths * (policyContractPct / 100) * ((costParams?.policyRatePct ?? 2.5) / 100)) / 12
                   )}/mes
@@ -2103,7 +2103,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           </div>
 
           {financialError && (
-            <div className="text-[11px] text-red-400">{financialError}</div>
+            <div className="text-sm text-red-400">{financialError}</div>
           )}
           </div>
         )}
@@ -2115,7 +2115,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold shrink-0">Margen de venta</h2>
             {!secMargen && (
-              <span className="text-[11px] text-muted-foreground truncate">
+              <span className="text-sm text-muted-foreground truncate">
                 <span className={cn("font-semibold", marginPct >= 15 ? "text-emerald-400" : marginPct >= 10 ? "text-amber-400" : "text-red-400")}>{Number(marginPct || 0).toFixed(1)}%</span>
                 {marginAmount > 0 && <> — <span className="font-mono font-semibold text-emerald-400">{formatCurrency(marginAmount)}</span></>}
               </span>
@@ -2144,7 +2144,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             <Sparkles className="h-4 w-4 text-purple-400 shrink-0" />
             <h2 className="text-sm font-bold shrink-0">Contenido AI</h2>
             {!secAiContent && (
-              <span className="text-[11px] text-muted-foreground truncate">
+              <span className="text-sm text-muted-foreground truncate">
                 {quote.aiDescription ? "Descripción generada" : "Sin descripción"}
               </span>
             )}
@@ -2270,7 +2270,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               type="button"
               onClick={() => { setPdfPreviewMode("cotizacion"); setPdfPreviewUrl(null); }}
               className={cn(
-                "h-7 rounded-md px-2.5 text-[10px] font-semibold border transition-colors flex items-center gap-1",
+                "h-7 rounded-md px-2.5 text-xs font-semibold border transition-colors flex items-center gap-1",
                 pdfPreviewMode === "cotizacion"
                   ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
                   : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
@@ -2283,7 +2283,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               type="button"
               onClick={() => { setPdfPreviewMode("presentacion"); setPdfPreviewUrl(null); }}
               className={cn(
-                "h-7 rounded-md px-2.5 text-[10px] font-semibold border transition-colors flex items-center gap-1",
+                "h-7 rounded-md px-2.5 text-xs font-semibold border transition-colors flex items-center gap-1",
                 pdfPreviewMode === "presentacion"
                   ? "border-blue-500/40 bg-blue-500/10 text-blue-400"
                   : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
@@ -2304,7 +2304,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
                 type="button"
                 onClick={() => { setPdfTemplateSlug(t.slug); setPdfPreviewUrl(null); }}
                 className={cn(
-                  "h-5 rounded px-2 text-[9px] font-medium border transition-colors",
+                  "h-6 rounded px-2 text-xs font-medium border transition-colors",
                   pdfTemplateSlug === t.slug
                     ? "border-primary/40 bg-primary/10 text-primary"
                     : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
@@ -2316,7 +2316,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             <Button
               variant="outline"
               size="sm"
-              className="h-7 text-[10px] px-2 ml-1"
+              className="h-7 text-sm px-2 ml-1"
               disabled={pdfPreviewLoading}
               onClick={async () => {
                 setPdfPreviewLoading(true);
@@ -2357,7 +2357,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             title={pdfPreviewMode === "presentacion" ? "Preview presentación PDF" : "Preview cotización PDF"}
           />
         ) : (
-          <div className="flex items-center justify-center h-[200px] text-muted-foreground text-[11px]">
+          <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
             {pdfPreviewMode === "presentacion"
               ? "Click \"Generar PDF\" para ver la presentación técnica"
               : "Click \"Generar PDF\" para ver la vista previa de la cotización"}
@@ -2374,7 +2374,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           <button type="button" onClick={() => setSecAuditoria((v) => !v)} className="flex-1 flex items-center gap-2 min-w-0 text-left hover:bg-muted/10 transition-colors -m-1 p-1 rounded">
             <h2 className="text-sm font-bold shrink-0">Auditoría</h2>
             {!secAuditoria && activityEvents.length > 0 && (
-              <span className="text-[11px] text-muted-foreground truncate">
+              <span className="text-sm text-muted-foreground truncate">
                 {activityEvents.length} registro{activityEvents.length !== 1 ? "s" : ""}
               </span>
             )}
@@ -2390,7 +2390,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
         </div>
         {secAuditoria && (
           <div className="px-4 pb-4">
-            <p className="text-[11px] text-muted-foreground mb-3">
+            <p className="text-sm text-muted-foreground mb-3">
               Registro de todos los cambios: quién, cuándo y qué se modificó.
             </p>
             <CrmActivityTimeline events={activityEvents} />

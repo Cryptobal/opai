@@ -241,7 +241,7 @@ export function DatosSection({
         {/* ── CRM Context: 2 columnas x 2 filas, cada campo ocupa la mitad del ancho de la sección ── */}
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 w-full">
           <div className="min-w-0">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Cuenta</Label>
+            <Label className="text-sm uppercase tracking-wider text-muted-foreground font-medium">Cuenta</Label>
             <div className="flex gap-0.5">
               <div className="flex-1 min-w-0">
                 <SearchableSelect
@@ -276,7 +276,7 @@ export function DatosSection({
             </div>
           </div>
           <div className="min-w-0">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Instalación</Label>
+            <Label className="text-sm uppercase tracking-wider text-muted-foreground font-medium">Instalación</Label>
             <div className="flex gap-0.5">
               <div className="flex-1 min-w-0">
                 <SearchableSelect
@@ -300,7 +300,7 @@ export function DatosSection({
             </div>
           </div>
           <div className="min-w-0">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Contacto</Label>
+            <Label className="text-sm uppercase tracking-wider text-muted-foreground font-medium">Contacto</Label>
             <div className="flex gap-0.5">
               <div className="flex-1 min-w-0">
                 <SearchableSelect
@@ -324,7 +324,7 @@ export function DatosSection({
             </div>
           </div>
           <div className="min-w-0">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Negocio</Label>
+            <Label className="text-sm uppercase tracking-wider text-muted-foreground font-medium">Negocio</Label>
             <div className="flex gap-0.5">
               <div className="flex-1 min-w-0">
                 <SearchableSelect
@@ -364,7 +364,7 @@ export function DatosSection({
               {(inlineCreateType === "account" || inlineCreateType === "installation") && (
                 <>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Nombre *</Label>
+                    <Label className="text-sm">Nombre *</Label>
                     <Input
                       value={inlineForm.name}
                       onChange={(e) => setInlineForm((p) => ({ ...p, name: e.target.value }))}
@@ -375,7 +375,7 @@ export function DatosSection({
                   </div>
                   {inlineCreateType === "installation" && (
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Dirección * (Google Maps)</Label>
+                      <Label className="text-sm">Dirección * (Google Maps)</Label>
                       <AddressAutocomplete
                         value={inlineForm.address}
                         onChange={(result: AddressResult) =>
@@ -410,28 +410,28 @@ export function DatosSection({
               )}
               {inlineCreateType === "contact" && (
                 <>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
+                  <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
                     El email identifica al contacto. Es obligatorio y evita duplicados.
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Nombre *</Label>
+                      <Label className="text-sm">Nombre *</Label>
                       <Input value={inlineForm.firstName} onChange={(e) => setInlineForm((p) => ({ ...p, firstName: e.target.value }))} className="bg-background" autoFocus />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Apellido *</Label>
+                      <Label className="text-sm">Apellido *</Label>
                       <Input value={inlineForm.lastName} onChange={(e) => setInlineForm((p) => ({ ...p, lastName: e.target.value }))} className="bg-background" />
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Email *</Label>
+                    <Label className="text-sm">Email *</Label>
                     <Input value={inlineForm.email} onChange={(e) => setInlineForm((p) => ({ ...p, email: e.target.value }))} placeholder="correo@empresa.com" className="bg-background" />
                   </div>
                 </>
               )}
               {inlineCreateType === "deal" && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Título del negocio</Label>
+                  <Label className="text-sm">Título del negocio</Label>
                   <Input
                     value={inlineForm.title}
                     onChange={(e) => setInlineForm((p) => ({ ...p, title: e.target.value }))}
@@ -463,7 +463,7 @@ export function DatosSection({
         {/* ── Quote name + Date + Currency + save indicator — compact row ── */}
         <div className="grid grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto] gap-x-2 gap-y-1.5 items-end">
           <div>
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Nombre cotización</Label>
+            <Label className="text-sm uppercase tracking-wider text-muted-foreground font-medium">Nombre cotización</Label>
             <Input
               value={quoteForm.name}
               onChange={(e) => {
@@ -471,12 +471,12 @@ export function DatosSection({
                 setQuoteDirty(true);
               }}
               placeholder="Ej: Propuesta guardias planta norte"
-              className="h-8 bg-background text-xs"
+              className="h-8 bg-background text-sm"
               disabled={isLocked}
             />
           </div>
           <div>
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Válida hasta</Label>
+            <Label className="text-sm uppercase tracking-wider text-muted-foreground font-medium">Válida hasta</Label>
             <Input
               type="date"
               value={quoteForm.validUntil}
@@ -484,12 +484,12 @@ export function DatosSection({
                 setQuoteForm((prev) => ({ ...prev, validUntil: e.target.value }));
                 setQuoteDirty(true);
               }}
-              className="h-8 bg-background text-xs text-foreground [color-scheme:dark]"
+              className="h-8 bg-background text-sm text-foreground [color-scheme:dark]"
               disabled={isLocked}
             />
           </div>
           <div className="shrink-0">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Moneda</Label>
+            <Label className="text-sm uppercase tracking-wider text-muted-foreground font-medium">Moneda</Label>
             <div className="flex gap-0.5">
               {["CLP", "UF"].map((cur) => (
                 <button
@@ -498,7 +498,7 @@ export function DatosSection({
                   disabled={isLocked}
                   onClick={() => saveCrmContext({ currency: cur })}
                   className={cn(
-                    "rounded-md px-3 h-8 text-xs font-medium border transition-colors",
+                    "rounded-md px-3 h-8 text-sm font-medium border transition-colors",
                     crmContext.currency === cur
                       ? "bg-primary/15 text-primary border-primary/30"
                       : "bg-background text-muted-foreground border-input hover:bg-accent/50"
@@ -509,25 +509,25 @@ export function DatosSection({
               ))}
             </div>
           </div>
-          <span className="text-[10px] text-muted-foreground shrink-0 pb-2">
+          <span className="text-sm text-muted-foreground shrink-0 pb-2">
             {savingQuote ? "Guardando..." : quoteDirty ? "" : "Guardado ✓"}
           </span>
         </div>
 
         {quoteError && (
-          <div className="text-[11px] text-red-400">{quoteError}</div>
+          <div className="text-sm text-red-400">{quoteError}</div>
         )}
       </div>
 
       {crmContext.installationId && (
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <MapPin className="h-3 w-3 shrink-0" />
           <span className="truncate">{selectedInstallationAddress || "Sin dirección registrada"}</span>
           {selectedInstallationMapsUrl && (
             <button
               type="button"
               onClick={() => window.open(selectedInstallationMapsUrl, "_blank", "noopener,noreferrer")}
-              className="shrink-0 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+              className="shrink-0 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
             >
               <ExternalLink className="h-3 w-3" />
             </button>

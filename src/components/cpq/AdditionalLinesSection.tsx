@@ -170,7 +170,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
                   type="button"
                   disabled={isLocked}
                   className={cn(
-                    "h-5 rounded px-1.5 text-[10px] font-medium border transition-colors",
+                    "h-5 rounded px-1.5 text-xs font-medium border transition-colors",
                     (line.tipo || "servicio") === t.value
                       ? "border-primary/40 bg-primary/10 text-primary"
                       : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
@@ -187,7 +187,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
                   type="button"
                   disabled={isLocked}
                   className={cn(
-                    "h-5 rounded px-1.5 text-[10px] font-medium border transition-colors",
+                    "h-5 rounded px-1.5 text-xs font-medium border transition-colors",
                     (line.recurrencia || "mensual") === r.value
                       ? "border-purple-500/40 bg-purple-500/10 text-purple-400"
                       : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted"
@@ -202,7 +202,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
             {/* Price row */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-1.5">
               <div>
-                <Label className="text-[10px] text-muted-foreground">Precio base</Label>
+                <Label className="text-xs text-muted-foreground">Precio base</Label>
                 <Input
                   type="text"
                   inputMode="numeric"
@@ -214,7 +214,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
                 />
               </div>
               <div>
-                <Label className="text-[10px] text-muted-foreground">Cantidad</Label>
+                <Label className="text-xs text-muted-foreground">Cantidad</Label>
                 <Input
                   type="number"
                   min={1}
@@ -225,7 +225,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
                 />
               </div>
               <div>
-                <Label className="text-[10px] text-muted-foreground">Margen %</Label>
+                <Label className="text-xs text-muted-foreground">Margen %</Label>
                 <Input
                   type="number"
                   min={0}
@@ -240,7 +240,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
             </div>
 
             {/* Calculated total */}
-            <div className="flex justify-end mt-1 text-[10px]">
+            <div className="flex justify-end mt-1 text-xs">
               <span className="text-muted-foreground">
                 Venta: <span className="font-mono font-semibold text-purple-400">{formatCurrency(precioMensual)}</span>/mes
                 {isUnico && ` (${formatCurrency(precioVenta)} / ${contractDuration}m)`}
@@ -258,7 +258,7 @@ export function AdditionalLinesSection({ lines, onChange, contractDuration = 12,
 
       {lines.length > 0 && (
         <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "pt-1 border-t border-purple-500/20 text-xs")}>
-          <span className="text-[11px] font-medium text-purple-300 break-words min-w-0">Total líneas adicionales</span>
+          <span className="text-sm font-medium text-purple-300 break-words min-w-0">Total líneas adicionales</span>
           <span className={cpqBreakdownAmount("text-sm font-bold text-purple-300")}>{formatCurrency(total)}</span>
         </div>
       )}

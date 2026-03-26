@@ -75,7 +75,7 @@ export function MobileBottomBar({
             secondaryClassName="!text-blue-400/90"
             align="left"
           />
-          <span className="text-[10px] text-emerald-400">
+          <span className="text-xs text-emerald-400">
             Margen {Number(marginPct || 0).toFixed(0)}%{totalGuards ? ` · ${totalGuards} guardias` : ""}
           </span>
         </div>
@@ -86,7 +86,7 @@ export function MobileBottomBar({
             <button
               type="button"
               onClick={() => setSendSheetOpen(true)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors w-full max-w-[200px]"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-sm font-semibold text-white transition-colors w-full max-w-[200px]"
             >
               <Send className="h-3 w-3 shrink-0" />
               Enviar

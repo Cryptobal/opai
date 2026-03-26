@@ -634,7 +634,7 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
         <div className="flex items-center gap-1.5">
           <ListChecks className="h-3.5 w-3.5 text-teal-400" />
           <span className="text-xs font-semibold">Incluye</span>
-          <span className="text-[10px] text-muted-foreground">(aparece en PDF)</span>
+          <span className="text-xs text-muted-foreground">(aparece en PDF)</span>
         </div>
       </div>
 
@@ -704,13 +704,13 @@ export function QuoteIncludesEditor({ quoteId, isLocked = false }: QuoteIncludes
       {!isLocked && availableSuggestions.length > 0 && (
         <div className="border-t border-border/30 pt-2 space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
               Sugerencias
             </span>
             {hasDefaultsToAdd && (
               <button
                 type="button"
-                className="text-[10px] text-teal-400 hover:text-teal-300 transition-colors"
+                className="text-xs text-teal-400 hover:text-teal-300 transition-colors"
                 onClick={handleAddAllDefaults}
               >
                 + Agregar predeterminados

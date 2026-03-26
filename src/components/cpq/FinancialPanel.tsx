@@ -334,7 +334,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
           <div className="p-2.5 space-y-2">
             {/* Hero Card */}
             <div className="rounded-lg bg-gradient-to-br from-emerald-950 to-card border border-emerald-500/20 p-3">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-400 mb-1.5">
+              <div className="text-xs font-semibold uppercase tracking-[0.08em] text-emerald-400 mb-1.5">
                 Precio de venta mensual
               </div>
               <CpqDualCurrencyAmount
@@ -348,15 +348,15 @@ export function FinancialPanel(props: FinancialPanelProps) {
               />
               <div className="flex gap-4 mt-2 pt-2 border-t border-emerald-500/20">
                 <div>
-                  <div className="text-[10px] text-muted-foreground">Puestos</div>
+                  <div className="text-xs text-muted-foreground">Puestos</div>
                   <div className="text-[15px] font-bold text-foreground">{positionsCount}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-muted-foreground">Guardias</div>
+                  <div className="text-xs text-muted-foreground">Guardias</div>
                   <div className="text-[15px] font-bold text-foreground">{totalGuards}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-muted-foreground">Margen</div>
+                  <div className="text-xs text-muted-foreground">Margen</div>
                   <div className="text-[15px] font-bold text-emerald-400">{marginPct}%</div>
                 </div>
               </div>
@@ -364,7 +364,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
 
             {/* Breakdown with progress bars */}
             <div className={cn("rounded-lg border border-border bg-card p-2.5", CPQ_BREAKDOWN_SHELL)}>
-              <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-2.5">Desglose</div>
+              <div className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground mb-2.5">Desglose</div>
               {[
                 { label: "Mano de obra", amount: laborCost, color: "bg-emerald-500" },
                 { label: "Directos", amount: directCosts, color: "bg-blue-500" },
@@ -373,7 +373,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
                 { label: "Margen", amount: marginAmount, color: "bg-foreground/60" },
               ].map((item) => (
                 <div key={item.label} className="mb-2 last:mb-0">
-                  <div className={cn(CPQ_BREAKDOWN_ROW, "text-[11px] mb-0.5")}>
+                  <div className={cn(CPQ_BREAKDOWN_ROW, "text-sm mb-0.5")}>
                     <span className="text-muted-foreground min-w-0 break-words">{item.label}</span>
                     <div className={cpqBreakdownAmount()}>
                       <CpqDualCurrencyAmount
@@ -399,7 +399,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
             {/* Additional lines summary */}
             {additionalLinesTotal > 0 && (
               <div className="rounded-lg border border-border bg-card p-2.5">
-                <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1">Líneas adicionales</div>
+                <div className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1">Líneas adicionales</div>
                 <CpqDualCurrencyAmount
                   clp={additionalLinesTotal}
                   currency={crmContext.currency || "CLP"}
@@ -408,11 +408,11 @@ export function FinancialPanel(props: FinancialPanelProps) {
                   isDark
                   primaryClassName="text-amber-400 font-bold"
                 />
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-sm text-muted-foreground">
                   {additionalLines.length} {additionalLines.length === 1 ? "servicio/producto" : "servicios/productos"}
                 </div>
                 <div className="mt-2 pt-2 border-t border-border">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-0.5">Total facturación</div>
+                  <div className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground mb-0.5">Total facturación</div>
                   <CpqDualCurrencyAmount
                     clp={totalFact}
                     currency={crmContext.currency || "CLP"}
@@ -429,7 +429,7 @@ export function FinancialPanel(props: FinancialPanelProps) {
             {/* Detailed breakdown panel */}
             {breakdownData && (
               <details className="group">
-                <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
                   Ver desglose detallado
                 </summary>
                 <div className="mt-2">
@@ -591,7 +591,7 @@ function PreviewTab({
             <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border/40 shrink-0">
               <span className="text-xs font-semibold text-muted-foreground">Vista previa · {proposalTemplateSlug}</span>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => { setPreviewKey((k) => k + 1); }} className="text-[11px] text-teal-400 hover:text-teal-300">Refrescar</button>
+                <button type="button" onClick={() => { setPreviewKey((k) => k + 1); }} className="text-sm text-teal-400 hover:text-teal-300">Refrescar</button>
                 <button type="button" onClick={() => setFullscreen(false)} className="p-1 rounded hover:bg-muted/50">
                   <X className="h-4 w-4 text-muted-foreground" />
                 </button>
@@ -626,14 +626,14 @@ function PreviewTab({
       {/* Desktop: inline iframe preview */}
       <div className="hidden lg:flex flex-1 flex-col min-h-0 overflow-hidden">
         <div className="px-2 py-1.5 bg-muted/20 border-b border-border/40 flex items-center justify-between shrink-0">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Vista previa · {proposalTemplateSlug}
           </span>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setFullscreen(true)} className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300">
+            <button type="button" onClick={() => setFullscreen(true)} className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
               <Maximize2 className="h-3 w-3" /> Pantalla completa
             </button>
-            <button type="button" onClick={refreshPreview} className="text-[10px] text-teal-400 hover:text-teal-300">Refrescar</button>
+            <button type="button" onClick={refreshPreview} className="text-xs text-teal-400 hover:text-teal-300">Refrescar</button>
           </div>
         </div>
         <div className="flex-1 min-h-[200px] overflow-hidden bg-muted/10 relative">
@@ -689,7 +689,7 @@ function PreviewTab({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 gap-1 text-[11px] shrink-0"
+                  className="h-7 gap-1 text-sm shrink-0"
                   onClick={onGenerateAiDescription}
                   disabled={generatingAi}
                 >
@@ -723,7 +723,7 @@ function PreviewTab({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 gap-1 text-[11px] shrink-0"
+                  className="h-7 gap-1 text-sm shrink-0"
                   onClick={onGenerateServiceDetail}
                   disabled={generatingServiceDetail}
                 >

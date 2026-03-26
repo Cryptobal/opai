@@ -106,7 +106,7 @@ export function QuoteNotesDrawer({
             <MessageSquareText className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-semibold">Notas</span>
             {noteCount > 0 && (
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 ({noteCount})
               </span>
             )}

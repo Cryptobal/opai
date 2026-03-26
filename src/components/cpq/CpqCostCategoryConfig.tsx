@@ -177,7 +177,7 @@ export function CpqCostCategoryConfig() {
         if (!cats.length && !loading) return null;
         return (
           <Card key={type} className="p-3 sm:p-4 space-y-2 border-border/40 bg-card/50">
-            <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               {TYPE_LABELS[type]}
             </h3>
             <div className="space-y-1">
@@ -192,7 +192,7 @@ export function CpqCostCategoryConfig() {
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-base shrink-0">{ICON_EMOJI[c.icon ?? "box"] ?? "📦"}</span>
                     <span className="text-sm font-medium truncate">{c.name}</span>
-                    <span className="text-[10px] text-muted-foreground">{c.slug}</span>
+                    <span className="text-xs text-muted-foreground">{c.slug}</span>
                   </div>
                   <Button
                     size="sm"

@@ -113,7 +113,7 @@ export function CpqDefaultsConfig() {
                 <option key={m.value} value={m.value}>{m.label}</option>
               ))}
             </select>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {MARGIN_MODES.find((m) => m.value === form.defaultMarginMode)?.desc}
             </p>
           </div>

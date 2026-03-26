@@ -550,7 +550,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                         >
                           <div className="min-w-0 flex items-center gap-2">
                             {item.isDefault && (
-                              <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium text-emerald-500">
+                              <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs font-medium text-emerald-500">
                                 Default
                               </span>
                             )}
@@ -591,7 +591,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                               />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Especificaciones técnicas (default)
                               </label>
                               <textarea

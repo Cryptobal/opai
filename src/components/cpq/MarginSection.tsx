@@ -70,7 +70,7 @@ export default function MarginSection({
               disabled={isLocked}
               onClick={() => onMarginModeChange?.(m.value)}
               className={cn(
-                "h-6 rounded-md border px-2 text-[10px] font-semibold transition-colors",
+                "h-6 rounded-md border px-2 text-xs font-semibold transition-colors",
                 marginMode === m.value
                   ? "border-emerald-500 bg-emerald-500 text-emerald-950"
                   : "border-border bg-muted/40 text-muted-foreground hover:bg-muted",

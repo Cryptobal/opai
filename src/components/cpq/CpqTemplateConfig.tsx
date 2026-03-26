@@ -241,12 +241,12 @@ export function CpqTemplateConfig() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold truncate">{t.name}</span>
                     {t.isDefault && (
-                      <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium text-emerald-500">
+                      <span className="shrink-0 rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs font-medium text-emerald-500">
                         Default
                       </span>
                     )}
                     {isSystem && (
-                      <span className="shrink-0 rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-medium text-blue-400">
+                      <span className="shrink-0 rounded bg-blue-500/20 px-1.5 py-0.5 text-xs font-medium text-blue-400">
                         Sistema
                       </span>
                     )}
@@ -358,19 +358,19 @@ export function CpqTemplateConfig() {
 
             {/* Preview */}
             <div className="rounded-md border border-border/40 bg-muted/30 p-3">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Preview de secciones
               </p>
               <div className="flex flex-wrap gap-1">
                 {TOGGLE_KEYS.filter((k) => editForm.sections[k]).map((k) => (
                   <span
                     key={k}
-                    className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary font-medium"
+                    className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary font-medium"
                   >
                     {SECTION_LABELS[k]}
                   </span>
                 ))}
-                <span className="inline-flex rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-400 font-medium">
+                <span className="inline-flex rounded-full bg-blue-500/10 px-2 py-0.5 text-xs text-blue-400 font-medium">
                   Encabezado: {HEADER_STYLE_OPTIONS.find((o) => o.value === editForm.sections.headerStyle)?.label ?? "Estándar"}
                 </span>
               </div>

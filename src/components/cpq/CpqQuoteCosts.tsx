@@ -901,9 +901,9 @@ export function CpqQuoteCosts({
       >
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
           <span className="text-[13px] shrink-0">{meta.icon}</span>
-          <span className="text-[12px] font-medium break-words">{meta.label}</span>
+          <span className="text-sm font-medium break-words">{meta.label}</span>
           {count > 0 && (
-            <span className="text-[10px] text-muted-foreground shrink-0">({count})</span>
+            <span className="text-xs text-muted-foreground shrink-0">({count})</span>
           )}
         </div>
         <div className="flex items-center gap-2 justify-end shrink-0">
@@ -976,13 +976,13 @@ export function CpqQuoteCosts({
       </div>
       <div
         title={calcTooltip}
-        className={cn("text-[11px] text-muted-foreground mb-1.5 flex items-center gap-1 flex-wrap", calcTooltip && "cursor-help")}
+        className={cn("text-sm text-muted-foreground mb-1.5 flex items-center gap-1 flex-wrap", calcTooltip && "cursor-help")}
       >
         <span className={cn(calcTooltip && "border-b border-dotted border-muted-foreground/50")}>
           Base: {formatCurrency(Number(item.basePrice))} / {unitLabel}
         </span>
         {item.type === "uniform" && (
-          <span className={cn("px-1 py-0.5 rounded text-[9px] font-medium", logic === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400")}>
+          <span className={cn("px-1.5 py-0.5 rounded text-xs font-medium", logic === "prorated" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400")}>
             {logic === "prorated" ? "prorrateo" : "rotación"}
           </span>
         )}
@@ -997,7 +997,7 @@ export function CpqQuoteCosts({
       />
       {onSpecsChange && (
         <div className="mt-1.5 space-y-1">
-          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Especificaciones técnicas
           </label>
           <textarea
@@ -1005,7 +1005,7 @@ export function CpqQuoteCosts({
             placeholder="Ej: Uniforme completo incl. casaca..."
             value={sel?.technicalSpecs ?? item.defaultTechnicalSpecs ?? ""}
             onChange={(e) => onSpecsChange(e.target.value || null)}
-            className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
       )}
@@ -1027,7 +1027,7 @@ export function CpqQuoteCosts({
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
-      <div className="text-[11px] text-muted-foreground mb-1.5">
+      <div className="text-sm text-muted-foreground mb-1.5">
         Base: {formatCurrency(Number(item.basePrice))} / {unitLabel}
       </div>
       <Input
@@ -1039,7 +1039,7 @@ export function CpqQuoteCosts({
         className={inputClass}
       />
       <div className="mt-1.5 space-y-1">
-        <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Especificaciones técnicas
         </label>
         <textarea
@@ -1047,7 +1047,7 @@ export function CpqQuoteCosts({
           placeholder="Ej: Camioneta doble cabina 4x4, motor 2.8L..."
           value={costItem?.technicalSpecs ?? item.defaultTechnicalSpecs ?? ""}
           onChange={(e) => upsertCostItem(item, { technicalSpecs: e.target.value || null })}
-          className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
     </div>
@@ -1083,7 +1083,7 @@ export function CpqQuoteCosts({
         <div className="flex items-center justify-between mb-2">
           <span className="text-[13px] font-semibold">{item.name}</span>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-muted-foreground">Por fórmula</span>
+            <span className="text-sm text-muted-foreground">Por fórmula</span>
             <button type="button" onClick={() => upsertCostItem(item, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10">
               <Trash2 className="h-3 w-3" />
             </button>
@@ -1091,19 +1091,19 @@ export function CpqQuoteCosts({
         </div>
         <div className="grid gap-2 grid-cols-3">
           <div className="space-y-1">
-            <label className="text-[10px] text-muted-foreground">Km/día</label>
+            <label className="text-xs text-muted-foreground">Km/día</label>
             <Input type="text" inputMode="numeric" placeholder="50" value={fuelParams.kmPerDay ? fmtN(fuelParams.kmPerDay) : ""} onChange={(e) => updateFuelParam("kmPerDay", toNumber(e.target.value))} className={inputClass} />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] text-muted-foreground">Km/litro</label>
+            <label className="text-xs text-muted-foreground">Km/litro</label>
             <Input type="text" inputMode="numeric" placeholder="10" value={fuelParams.kmPerLiter ? fmtN(fuelParams.kmPerLiter) : ""} onChange={(e) => updateFuelParam("kmPerLiter", toNumber(e.target.value))} className={inputClass} />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] text-muted-foreground">$/litro</label>
+            <label className="text-xs text-muted-foreground">$/litro</label>
             <Input type="text" inputMode="numeric" placeholder="1250" value={fuelParams.fuelPrice ? fmtN(fuelParams.fuelPrice) : ""} onChange={(e) => updateFuelParam("fuelPrice", toNumber(e.target.value))} className={inputClass} />
           </div>
         </div>
-        <div className="flex items-center gap-3 rounded-md bg-muted/40 px-2.5 py-1.5 mt-2 text-[11px]">
+        <div className="flex items-center gap-3 rounded-md bg-muted/40 px-2.5 py-1.5 mt-2 text-sm">
           <span className="text-muted-foreground">
             {fuelParams.kmPerDay} km/d &times; 30 = <strong>{kmMes.toLocaleString("es-CL")} km/m</strong>
           </span>
@@ -1119,7 +1119,7 @@ export function CpqQuoteCosts({
           </div>
         </div>
         <div className="mt-1.5 space-y-1">
-          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Especificaciones técnicas
           </label>
           <textarea
@@ -1127,7 +1127,7 @@ export function CpqQuoteCosts({
             placeholder="Ej: Camioneta doble cabina 4x4, motor 2.8L..."
             value={costItem?.technicalSpecs ?? item.defaultTechnicalSpecs ?? ""}
             onChange={(e) => upsertCostItem(item, { technicalSpecs: e.target.value || null })}
-            className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
       </div>
@@ -1206,7 +1206,7 @@ export function CpqQuoteCosts({
     <div className={cn("rounded-xl border bg-card overflow-hidden", CPQ_BREAKDOWN_SHELL)}>
       {/* ── DIRECTOS ── */}
       <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 bg-emerald-500/5 text-xs")}>
-        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-500 break-words min-w-0">
+        <span className="text-xs font-bold uppercase tracking-[0.08em] text-emerald-500 break-words min-w-0">
           Directos
         </span>
         <div className={cpqBreakdownAmount()}>
@@ -1315,14 +1315,14 @@ export function CpqQuoteCosts({
                         <Trash2 className="h-3 w-3" />
                       </button>
                     </div>
-                    <div className="text-[11px] text-muted-foreground mb-1.5">Base: {formatCurrency(Number(item.basePrice))} / {item.unit || "ud"}</div>
+                    <div className="text-sm text-muted-foreground mb-1.5">Base: {formatCurrency(Number(item.basePrice))} / {item.unit || "ud"}</div>
                     <div className="grid grid-cols-2 gap-1.5">
                       <Input type="text" inputMode="numeric" placeholder="Comidas/día" value={fmtN(meal?.mealsPerDay ?? 0)} onChange={(e) => updateMeal(item.name, { mealsPerDay: toNumber(e.target.value) })} className={inputClass} />
                       <Input type="text" inputMode="numeric" placeholder="Días/mes" value={fmtN(meal?.daysOfService ?? 0)} onChange={(e) => updateMeal(item.name, { daysOfService: toNumber(e.target.value) })} className={inputClass} />
                       <Input type="text" inputMode="numeric" placeholder="Precio mensual" value={meal?.priceOverride != null ? fmtN(Number(meal.priceOverride)) : ""} onChange={(e) => updateMeal(item.name, { priceOverride: toNumber(e.target.value) })} className={cn(inputClass, "col-span-2")} />
                     </div>
                     <div className="mt-1.5 space-y-1">
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                         Especificaciones técnicas
                       </label>
                       <textarea
@@ -1330,7 +1330,7 @@ export function CpqQuoteCosts({
                         placeholder="Ej: Almuerzo tipo ejecutivo, colación..."
                         value={meal?.technicalSpecs ?? item.defaultTechnicalSpecs ?? ""}
                         onChange={(e) => updateMeal(item.name, { technicalSpecs: e.target.value || null })}
-                        className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                        className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
                       />
                     </div>
                   </div>
@@ -1353,8 +1353,8 @@ export function CpqQuoteCosts({
       <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 text-xs")}>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
           <span className="text-[13px] shrink-0">{"\u{1F4C5}"}</span>
-          <span className="text-[12px] font-medium break-words">Ajuste feriados</span>
-          <span className="text-[9px] font-semibold uppercase text-amber-400 bg-amber-500/10 rounded px-1.5 py-0.5 shrink-0">
+          <span className="text-sm font-medium break-words">Ajuste feriados</span>
+          <span className="text-xs font-semibold uppercase text-amber-400 bg-amber-500/10 rounded px-1.5 py-0.5 shrink-0">
             Auto
           </span>
         </div>
@@ -1376,7 +1376,7 @@ export function CpqQuoteCosts({
 
       {/* ── INDIRECTOS ── */}
       <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 bg-amber-400/5 text-xs")}>
-        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-amber-400 break-words min-w-0">
+        <span className="text-xs font-bold uppercase tracking-[0.08em] text-amber-400 break-words min-w-0">
           Indirectos
         </span>
         <div className={cpqBreakdownAmount()}>
@@ -1477,7 +1477,7 @@ export function CpqQuoteCosts({
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
-                  <div className="text-[11px] text-muted-foreground mb-1.5">Base: {formatCurrency(Number(ci?.basePrice ?? 0))} / {ci?.unit || "mes"}</div>
+                  <div className="text-sm text-muted-foreground mb-1.5">Base: {formatCurrency(Number(ci?.basePrice ?? 0))} / {ci?.unit || "mes"}</div>
                   <Input
                     type="text"
                     inputMode="numeric"
@@ -1487,7 +1487,7 @@ export function CpqQuoteCosts({
                     className={inputClass}
                   />
                   <div className="mt-1.5 space-y-1">
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                       Especificaciones técnicas
                     </label>
                     <textarea
@@ -1495,7 +1495,7 @@ export function CpqQuoteCosts({
                       placeholder="Ej: Sistema CCTV 4 cámaras IP..."
                       value={item.technicalSpecs ?? ci?.defaultTechnicalSpecs ?? ""}
                       onChange={(e) => setCostItems((prev) => prev.map((c) => (item.id ? c.id === item.id : c.catalogItemId === item.catalogItemId) ? { ...c, technicalSpecs: e.target.value || null } : c))}
-                      className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
                     />
                   </div>
                 </div>
@@ -1515,7 +1515,7 @@ export function CpqQuoteCosts({
 
       {/* ── TOTAL FOOTER ── */}
       <div className={cn(CPQ_BREAKDOWN_ROW, "border-t-2 border-primary bg-primary/5 px-3 py-2 text-xs")}>
-        <span className="text-[10px] font-bold text-primary uppercase tracking-[0.08em] break-words min-w-0">
+        <span className="text-xs font-bold text-primary uppercase tracking-[0.08em] break-words min-w-0">
           Total costos adicionales
         </span>
         <div className={cpqBreakdownAmount()}>
@@ -1564,7 +1564,7 @@ export function CpqQuoteCosts({
               <div key={item.id ?? item.catalogItemId} className={cn("p-2.5 rounded-lg bg-muted/10 border border-border/50 space-y-2", isPolicy && "col-span-full")}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[13px] font-semibold">{itemName}</span>
-                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>Tasa base: {formatNumber(Number(ci?.basePrice || 0), { minDecimals: 2, maxDecimals: 2 })}%</span>
                     <button type="button" className="w-5 h-5 rounded flex items-center justify-center hover:text-destructive hover:bg-destructive/10" onClick={() => {
                       if (ci) upsertCostItem(ci, { isEnabled: false });
@@ -1576,7 +1576,7 @@ export function CpqQuoteCosts({
                 </div>
                 <div className={cn("grid gap-2", isPolicy ? "grid-cols-3" : "grid-cols-1")}>
                   <div className="space-y-1">
-                    <Label className="text-[10px]">Tasa (%)</Label>
+                    <Label className="text-xs">Tasa (%)</Label>
                     <Input
                       type="text"
                       inputMode="decimal"
@@ -1597,11 +1597,11 @@ export function CpqQuoteCosts({
                   {isPolicy && (
                     <>
                       <div className="space-y-1">
-                        <Label className="text-[10px]">Meses</Label>
+                        <Label className="text-xs">Meses</Label>
                         <Input type="text" inputMode="numeric" value={fmtN(parameters.policyContractMonths)} onChange={(e) => setParameters((prev) => ({ ...prev, policyContractMonths: toNumber(e.target.value) }))} className={inputClass} />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[10px]">% contrato</Label>
+                        <Label className="text-xs">% contrato</Label>
                         <Input
                           type="text"
                           inputMode="decimal"
@@ -1641,7 +1641,7 @@ export function CpqQuoteCosts({
         <h3 className="text-[13px] font-semibold">Margen y parámetros</h3>
         <div className="grid gap-2 grid-cols-2">
           <div className="space-y-1">
-            <Label className="text-[10px]">Margen (%)</Label>
+            <Label className="text-xs">Margen (%)</Label>
             <Input
               type="text"
               inputMode="decimal"
@@ -1658,7 +1658,7 @@ export function CpqQuoteCosts({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-[10px]">Meses contrato</Label>
+            <Label className="text-xs">Meses contrato</Label>
             <Input type="text" inputMode="numeric" value={fmtN(parameters.contractMonths)} onChange={(e) => setParameters((prev) => ({ ...prev, contractMonths: toNumber(e.target.value) }))} className={inputClass} />
           </div>
         </div>
@@ -1674,7 +1674,7 @@ export function CpqQuoteCosts({
     <section className="space-y-1">
       {/* Save indicator */}
       <div className="flex justify-end px-1">
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {saving ? "Guardando..." : lastSaved ? "Guardado \u2713" : ""}
         </span>
       </div>

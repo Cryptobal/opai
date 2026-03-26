@@ -53,7 +53,7 @@ export function QuoteBreakdownPanel({
             : "bg-gradient-to-b from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20",
         )}
       >
-        <div className="text-[10px] uppercase tracking-wider font-semibold text-emerald-500 mb-1">
+        <div className="text-xs uppercase tracking-wider font-semibold text-emerald-500 mb-1">
           Precio Venta Mensual
         </div>
         <CpqDualCurrencyAmount
@@ -258,7 +258,7 @@ function TotalView({ data, isDark }: TotalViewProps) {
                 <span className={cn("w-2 h-2 rounded-full shrink-0", section.color)} />
                 <span
                   className={cn(
-                    "text-[11px] font-semibold uppercase tracking-wide break-words",
+                    "text-sm font-semibold uppercase tracking-wide break-words",
                     isDark ? "text-zinc-300" : "text-foreground",
                   )}
                 >
@@ -266,7 +266,7 @@ function TotalView({ data, isDark }: TotalViewProps) {
                 </span>
               </div>
               <div className="flex items-center gap-2 justify-end shrink-0">
-                <span className={cn("text-[10px] tabular-nums", isDark ? "text-zinc-500" : "text-muted-foreground")}>
+                <span className={cn("text-xs tabular-nums", isDark ? "text-zinc-500" : "text-muted-foreground")}>
                   {pct(sectionTotal)}
                 </span>
                 <AmountCell
@@ -377,10 +377,10 @@ function TotalView({ data, isDark }: TotalViewProps) {
         )}
       >
         <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs")}>
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-500 break-words min-w-0">
+          <span className="text-sm font-semibold uppercase tracking-wide text-emerald-500 break-words min-w-0">
             Margen comercial
           </span>
-          <span className={cpqBreakdownAmount("text-[10px] text-emerald-500/70 font-normal")}>
+          <span className={cpqBreakdownAmount("text-xs text-emerald-500/70 font-normal")}>
             {data.marginPct}% sobre precio venta
           </span>
         </div>
@@ -405,7 +405,7 @@ function TotalView({ data, isDark }: TotalViewProps) {
             isDark ? "border-orange-500/20 bg-orange-500/5" : "border-orange-500/20 bg-orange-500/5",
           )}
         >
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-orange-500/80">
+          <span className="text-sm font-semibold uppercase tracking-wide text-orange-500/80">
             Costo Financiero
           </span>
           {data.financial > 0 && (
@@ -475,7 +475,7 @@ function TotalView({ data, isDark }: TotalViewProps) {
             />
           </div>
         )}
-        <div className={cn("text-[10px] mt-1.5", isDark ? "text-zinc-500" : "text-muted-foreground")}>
+        <div className={cn("text-xs mt-1.5", isDark ? "text-zinc-500" : "text-muted-foreground")}>
           Valores netos · IVA se factura según ley vigente
         </div>
       </div>
@@ -526,7 +526,7 @@ function PorPuestoView({ data, isDark }: PorPuestoViewProps) {
             primaryClassName="text-emerald-500 font-bold"
           />
         </div>
-        <div className={cn("text-[10px] mt-1", isDark ? "text-zinc-500" : "text-muted-foreground")}>
+        <div className={cn("text-xs mt-1", isDark ? "text-zinc-500" : "text-muted-foreground")}>
           Valores netos · IVA se factura según ley vigente
         </div>
       </div>
@@ -579,7 +579,7 @@ function PositionCard({
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span
                 className={cn(
-                  "flex items-center gap-1 text-[11px]",
+                  "flex items-center gap-1 text-sm",
                   isDark ? "text-zinc-400" : "text-muted-foreground",
                 )}
               >
@@ -589,7 +589,7 @@ function PositionCard({
               </span>
               <span
                 className={cn(
-                  "flex items-center gap-1 text-[11px]",
+                  "flex items-center gap-1 text-sm",
                   isDark ? "text-zinc-400" : "text-muted-foreground",
                 )}
               >
@@ -633,11 +633,11 @@ function PositionCard({
               isDark ? "border-sky-500/25 bg-sky-500/[0.07]" : "border-sky-500/30 bg-sky-500/5",
             )}
           >
-            <p className={cn("text-[11px] font-semibold uppercase tracking-wide", isDark ? "text-sky-300" : "text-sky-700")}>
+            <p className={cn("text-sm font-semibold uppercase tracking-wide", isDark ? "text-sky-300" : "text-sky-700")}>
               Sueldo líquido estimado
             </p>
             <div className="mt-1 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-              <span className={cn("text-[11px]", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+              <span className={cn("text-sm", isDark ? "text-zinc-400" : "text-muted-foreground")}>
                 Por guardia / mes
               </span>
               <CpqDualCurrencyAmount
@@ -651,7 +651,7 @@ function PositionCard({
             </div>
             {pos.totalGuardsInPosition > 1 && (
               <div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-4 gap-y-1 pt-1.5 border-t border-sky-500/20">
-                <span className={cn("text-[11px]", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+                <span className={cn("text-sm", isDark ? "text-zinc-400" : "text-muted-foreground")}>
                   Total puesto ({pos.totalGuardsInPosition} guardias)
                 </span>
                 <CpqDualCurrencyAmount
@@ -666,7 +666,7 @@ function PositionCard({
             )}
           </div>
         ) : (
-          <p className={cn("text-[11px] leading-snug", isDark ? "text-amber-400/90" : "text-amber-700")}>
+          <p className={cn("text-sm leading-snug", isDark ? "text-amber-400/90" : "text-amber-700")}>
             Sueldo líquido: no hay estimación en este puesto. Si la cotización está bloqueada, el valor quedó al enviarla; si falta, al desbloquear usa Recalcular en el puesto.
           </p>
         )}
@@ -682,7 +682,7 @@ function PositionCard({
         >
           {/* Labor breakdown */}
           <div className="space-y-0.5 mb-2">
-            <div className={cn("text-[10px] font-semibold uppercase tracking-wide mb-1.5", isDark ? "text-blue-400" : "text-blue-600")}>
+            <div className={cn("text-xs font-semibold uppercase tracking-wide mb-1.5", isDark ? "text-blue-400" : "text-blue-600")}>
               Mano de obra ({pos.totalGuardsInPosition} guardia{pos.totalGuardsInPosition !== 1 ? "s" : ""})
             </div>
 
@@ -784,7 +784,7 @@ function PositionCard({
               isDark ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-500/20 bg-emerald-500/5",
             )}
           >
-            <div className={cn("text-[10px] font-semibold uppercase tracking-wide", isDark ? "text-emerald-500" : "text-emerald-600")}>
+            <div className={cn("text-xs font-semibold uppercase tracking-wide", isDark ? "text-emerald-500" : "text-emerald-600")}>
               Precio de venta
             </div>
             <div className="space-y-0.5">
@@ -800,7 +800,7 @@ function PositionCard({
               <div className="py-0.5">
                 <span
                   className={cn(
-                    "text-[10px] block min-w-0 break-words",
+                    "text-xs block min-w-0 break-words",
                     isDark ? "text-emerald-500/60" : "text-emerald-600/70",
                   )}
                 >
@@ -831,7 +831,7 @@ function PositionCard({
           >
             <div className="flex items-center gap-1.5 min-w-0">
               <Clock className={cn("h-3.5 w-3.5 shrink-0", isDark ? "text-zinc-400" : "text-muted-foreground")} />
-              <span className={cn("text-[11px] break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+              <span className={cn("text-sm break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
                 Valor hora de venta ({monthlyHours}h/mes)
               </span>
             </div>
