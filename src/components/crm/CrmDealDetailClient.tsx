@@ -389,6 +389,7 @@ export function CrmDealDetailClient({
     numGuards: number;
     baseSalary: number;
     employerCost: number;
+    netSalary?: number | null;
     puestoTrabajo?: { name: string } | null;
     cargo?: { name: string } | null;
   };
@@ -409,59 +410,55 @@ export function CrmDealDetailClient({
       : "—";
     const activeQuote = deal.activeQuoteSummary;
     const quoteCode = activeQuote?.code || "Sin código";
-    const amountClp = activeQuote ? `$${Math.round(activeQuote.amountClp).toLocaleString("es-CL")}` : "—";
     const totalGuards = activeQuote?.totalGuards ?? positions.reduce((sum, p) => sum + p.numGuards, 0);
     const opaiUrl = typeof window !== "undefined" ? `${window.location.origin}/crm/deals/${deal.id}` : `/crm/deals/${deal.id}`;
 
-    lines.push("🏢 *NEGOCIO ADJUDICADO*");
+    lines.push("*NEGOCIO ADJUDICADO*");
     lines.push("");
-    lines.push("📋 *Datos del Negocio*");
+    lines.push("*Datos del Negocio*");
     lines.push(`Negocio: ${dealTitle}`);
     lines.push(`Cliente: ${accountName}`);
     lines.push(`Etapa: ${currentStage?.name || "Adjudicado"}`);
     lines.push("");
-    lines.push("👤 *Contacto Principal*");
+    lines.push("*Contacto Principal*");
     lines.push(`Nombre: ${contactName}`);
     lines.push(`Email: ${contactEmail}`);
     lines.push(`Celular: ${contactPhone}`);
     lines.push("");
-    lines.push("📍 *Instalación*");
+    lines.push("*Instalacion*");
     lines.push(`Nombre: ${installName}`);
-    lines.push(`Dirección: ${installAddress}`);
+    lines.push(`Direccion: ${installAddress}`);
     if (mapsLink) lines.push(`Google Maps: ${mapsLink}`);
     lines.push("");
-    lines.push("📅 *Fecha de Inicio del Servicio*");
+    lines.push("*Fecha de Inicio del Servicio*");
     lines.push(startDate);
     lines.push("");
-    lines.push(`💼 *Detalle de la Cotización (${quoteCode})*`);
-    lines.push(`Monto mensual: ${amountClp}`);
+    lines.push(`*Detalle de la Cotizacion (${quoteCode})*`);
 
     if (positions.length > 0) {
       lines.push("");
-      lines.push("👥 *Dotación de Personal*");
+      lines.push("*Dotacion de Personal*");
       for (const pos of positions) {
         const cargoName = pos.cargo?.name || "Guardia";
         const puestoName = pos.puestoTrabajo?.name || "Sin puesto";
         const days = formatWeekdaysShort(pos.weekdays);
-        const salary = `$${Math.round(pos.baseSalary).toLocaleString("es-CL")}`;
-        const empCost = `$${Math.round(pos.employerCost).toLocaleString("es-CL")}`;
+        const netPay = pos.netSalary ? `$${Math.round(pos.netSalary).toLocaleString("es-CL")}` : "—";
         lines.push("");
-        lines.push(`▸ ${cargoName} — Puesto: ${puestoName}`);
+        lines.push(`- ${cargoName} — Puesto: ${puestoName}`);
         if (pos.customName) lines.push(`  Nombre: ${pos.customName}`);
-        lines.push(`  Días: ${days} · Horario: ${pos.startTime} - ${pos.endTime}`);
-        lines.push(`  Guardias: ${pos.numGuards} · Sueldo base: ${salary}`);
-        lines.push(`  Costo empleador: ${empCost}`);
+        lines.push(`  Dias: ${days} | Horario: ${pos.startTime} - ${pos.endTime}`);
+        lines.push(`  Guardias: ${pos.numGuards} | Sueldo liquido: ${netPay}`);
       }
       lines.push("");
       lines.push(`Total guardias: ${totalGuards}`);
     }
 
     lines.push("");
-    lines.push("🔗 *Ver negocio en OPAI*");
+    lines.push("*Ver negocio en OPAI*");
     lines.push(opaiUrl);
     lines.push("");
     lines.push("---");
-    lines.push("Mensaje generado automáticamente desde OPAI");
+    lines.push("Mensaje generado automaticamente desde OPAI");
 
     return lines.join("\n");
   }, [deal, dealTitle, dealServiceStartDate, currentStage, accountInstallations]);
@@ -485,11 +482,7 @@ export function CrmDealDetailClient({
   };
 
   const sendWaAdjudicado = () => {
-    if (!whatsappPhone) {
-      window.open(`https://wa.me/?text=${encodeURIComponent(waAdjudicadoMsg)}`, "_blank");
-      return;
-    }
-    window.open(`https://wa.me/${whatsappPhone}?text=${encodeURIComponent(waAdjudicadoMsg)}`, "_blank");
+    window.open(`https://wa.me/?text=${encodeURIComponent(waAdjudicadoMsg)}`, "_blank");
   };
 
   const copyWaAdjudicado = () => {
