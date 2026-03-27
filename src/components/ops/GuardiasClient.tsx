@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { Avatar, EmptyState } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw, Share2, MessageCircle } from "lucide-react";
+import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw, Share2, MessageCircle, FileCheck, FileX } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import {
@@ -90,6 +90,7 @@ type GuardiaItem = {
   faceIdPhotoUrl?: string | null;
   marcacionPin?: string | null;
   marcacionPinVisible?: string | null;
+  hasHistorialPenal?: boolean;
   bankAccounts?: Array<{
     id: string;
     bankName: string;
@@ -1022,6 +1023,17 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                             {pinDisplay(item)}
                           </span>
                         )}
+                        <span
+                          className={`shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                            item.hasHistorialPenal
+                              ? "bg-emerald-500/15 text-emerald-400"
+                              : "bg-red-500/15 text-red-400"
+                          }`}
+                          title={item.hasHistorialPenal ? "Antecedentes penales al día" : "Sin antecedentes penales"}
+                        >
+                          {item.hasHistorialPenal ? <FileCheck className="h-3 w-3" /> : <FileX className="h-3 w-3" />}
+                          Ant. Penales
+                        </span>
                       </div>
                       {item.code && (
                         <p className="text-[10px] text-muted-foreground/60 mt-0.5">{item.code}</p>
@@ -1168,11 +1180,24 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                             <span className="text-[10px] text-muted-foreground/60 shrink-0">{item.code}</span>
                           )}
                         </div>
-                        {pinDisplay(item) && (
-                          <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
-                            {pinDisplay(item)}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {pinDisplay(item) && (
+                            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-emerald-500/20 text-emerald-400">
+                              {pinDisplay(item)}
+                            </span>
+                          )}
+                          <span
+                            className={`shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                              item.hasHistorialPenal
+                                ? "bg-emerald-500/15 text-emerald-400"
+                                : "bg-red-500/15 text-red-400"
+                            }`}
+                            title={item.hasHistorialPenal ? "Antecedentes penales al día" : "Sin antecedentes penales"}
+                          >
+                            {item.hasHistorialPenal ? <FileCheck className="h-3 w-3" /> : <FileX className="h-3 w-3" />}
+                            <span className="hidden lg:inline">Ant. Penales</span>
                           </span>
-                        )}
+                        </div>
                       </div>
                       {phone ? (
                         <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()}>

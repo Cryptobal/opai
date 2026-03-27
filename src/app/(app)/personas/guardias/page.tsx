@@ -66,14 +66,20 @@ export default async function GuardiasPage() {
         orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
         take: 1,
       },
+      documents: {
+        where: { type: "historial_penal" },
+        select: { id: true },
+        take: 1,
+      },
     },
     orderBy: [{ isBlacklisted: "asc" }, { createdAt: "desc" }],
   });
 
-  const guardias = guardiasRaw.map(({ marcacionPin, ...g }) => ({
+  const guardias = guardiasRaw.map(({ marcacionPin, documents, ...g }) => ({
     ...g,
     marcacionPinVisible: g.marcacionPinVisible,
     marcacionPin: marcacionPin ? "[configurado]" : null,
+    hasHistorialPenal: documents.length > 0,
   }));
 
   return (
