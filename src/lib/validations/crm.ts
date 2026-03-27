@@ -202,6 +202,7 @@ export const createDealSchema = z.object({
 
 export const updateDealStageSchema = z.object({
   stageId: z.string().uuid("stageId inválido"),
+  serviceStartDate: z.string().optional().nullable(),
 });
 
 export const linkDealQuoteSchema = z.object({
@@ -215,6 +216,7 @@ export const createPipelineStageSchema = z.object({
   color: z.string().max(20).optional().nullable(),
   isClosedWon: z.boolean().default(false),
   isClosedLost: z.boolean().default(false),
+  isAccepted: z.boolean().default(false),
 });
 
 // ── Email Template ──

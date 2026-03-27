@@ -22,7 +22,7 @@ export async function POST(
     const { id } = await params;
     const parsed = await parseBody(request, updateDealStageSchema);
     if (parsed.error) return parsed.error;
-    const { stageId } = parsed.data;
+    const { stageId, serviceStartDate } = parsed.data;
 
     const [deal, stage] = await Promise.all([
       prisma.crmDeal.findFirst({ where: { id, tenantId: ctx.tenantId } }),
@@ -43,6 +43,14 @@ export async function POST(
       );
     }
 
+    // Validar que etapa aceptada requiere serviceStartDate
+    if (stage.isAccepted && !serviceStartDate) {
+      return NextResponse.json(
+        { success: false, error: "La fecha de inicio es requerida para esta etapa" },
+        { status: 400 }
+      );
+    }
+
     const nextStatus =
       stage.isClosedWon ? "won" : stage.isClosedLost ? "lost" : "open";
     const shouldSetProposalSentAt =
@@ -57,6 +65,9 @@ export async function POST(
           stageId: stage.id,
           status: nextStatus,
           proposalSentAt: shouldSetProposalSentAt ? new Date() : undefined,
+          serviceStartDate: stage.isAccepted && serviceStartDate
+            ? new Date(serviceStartDate)
+            : undefined,
         },
         include: {
           account: {
@@ -113,7 +124,7 @@ export async function POST(
       }
 
       // Si se mueve a etapa de cierre (ganado/perdido) o Negociación, cancelar follow-ups pendientes
-      const shouldCancelFollowUps = nextStatus === "won" || nextStatus === "lost" || stage.name === "Negociación";
+      const shouldCancelFollowUps = nextStatus === "won" || nextStatus === "lost" || stage.isAccepted || stage.name === "Negociación";
       if (shouldCancelFollowUps) {
         try {
           const { cancelPendingFollowUps } = await import("@/lib/followup-scheduler");
@@ -123,7 +134,9 @@ export async function POST(
               ? "Deal ganado"
               : nextStatus === "lost"
                 ? "Deal perdido"
-                : `Etapa cambiada a ${stage.name}`
+                : stage.isAccepted
+                  ? "Deal adjudicado"
+                  : `Etapa cambiada a ${stage.name}`
           );
         } catch (e) {
           console.error("Error cancelling follow-ups on deal close:", e);

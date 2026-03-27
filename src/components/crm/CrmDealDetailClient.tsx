@@ -98,7 +98,7 @@ type QuoteOption = {
 type DealQuote = { id: string; quoteId: string; };
 type ContactRow = { id: string; firstName: string; lastName: string; email?: string | null; phone?: string | null; roleTitle?: string | null; isPrimary?: boolean; };
 type DealContactRow = { id: string; dealId: string; contactId: string; role: string; contact: ContactRow; };
-type PipelineStageOption = { id: string; name: string; color?: string | null; isClosedWon?: boolean; isClosedLost?: boolean; };
+type PipelineStageOption = { id: string; name: string; color?: string | null; isClosedWon?: boolean; isClosedLost?: boolean; isAccepted?: boolean; };
 type FollowUpConfigState = {
   isActive: boolean;
   firstFollowUpDays: number;
@@ -161,6 +161,7 @@ export type DealDetail = {
   quotes?: DealQuote[];
   proposalLink?: string | null;
   proposalSentAt?: string | null;
+  serviceStartDate?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -340,6 +341,10 @@ export function CrmDealDetailClient({
   const [changingStage, setChangingStage] = useState(false);
   const [wonConfirmOpen, setWonConfirmOpen] = useState(false);
   const [pendingWonStageId, setPendingWonStageId] = useState<string | null>(null);
+  const [acceptedDialogOpen, setAcceptedDialogOpen] = useState(false);
+  const [pendingAcceptedStageId, setPendingAcceptedStageId] = useState<string | null>(null);
+  const [acceptedDate, setAcceptedDate] = useState("");
+  const [dealServiceStartDate, setDealServiceStartDate] = useState(deal.serviceStartDate || null);
   const [linking, setLinking] = useState(false);
 
   // ── Email compose state ──
@@ -785,10 +790,18 @@ export function CrmDealDetailClient({
     } catch { toast.error("No se pudo actualizar."); }
   };
 
-  const updateStage = async (stageId: string) => {
+  const updateStage = async (stageId: string, extraBody?: Record<string, unknown>) => {
     if (!stageId || currentStage?.id === stageId) return;
     const nextStage = pipelineStages.find((stage) => stage.id === stageId);
     if (!nextStage) return;
+
+    // Si la etapa es "aceptada" y no viene serviceStartDate, mostrar dialog
+    if (nextStage.isAccepted && !extraBody?.serviceStartDate) {
+      setPendingAcceptedStageId(stageId);
+      setAcceptedDate("");
+      setAcceptedDialogOpen(true);
+      return;
+    }
 
     const snapshot = currentStage;
     setCurrentStage({ id: nextStage.id, name: nextStage.name, color: nextStage.color });
@@ -797,7 +810,7 @@ export function CrmDealDetailClient({
       const response = await fetch(`/api/crm/deals/${deal.id}/stage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stageId }),
+        body: JSON.stringify({ stageId, ...extraBody }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error || "Error cambiando etapa");
@@ -812,6 +825,9 @@ export function CrmDealDetailClient({
       if (typeof payload.data?.proposalLink === "string") {
         setDealProposalLink(payload.data.proposalLink);
       }
+      if (payload.data?.serviceStartDate) {
+        setDealServiceStartDate(payload.data.serviceStartDate);
+      }
       toast.success("Etapa actualizada");
     } catch (error) {
       console.error(error);
@@ -820,6 +836,13 @@ export function CrmDealDetailClient({
     } finally {
       setChangingStage(false);
     }
+  };
+
+  const confirmAccepted = async () => {
+    if (!pendingAcceptedStageId || !acceptedDate) return;
+    setAcceptedDialogOpen(false);
+    await updateStage(pendingAcceptedStageId, { serviceStartDate: acceptedDate });
+    setPendingAcceptedStageId(null);
   };
 
   const handleWonClick = () => {
@@ -992,6 +1015,17 @@ export function CrmDealDetailClient({
             label="Flujo seguimiento"
             value={<Badge variant="outline" className={followUpFlowStatus.className}>{followUpFlowStatus.label}</Badge>}
           />
+          {dealServiceStartDate && (
+            <DetailField
+              label="Inicio del servicio"
+              value={
+                <span className="inline-flex items-center gap-1.5 font-semibold text-teal-400">
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  {new Date(dealServiceStartDate).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" })}
+                </span>
+              }
+            />
+          )}
           <DetailField label="Fecha creación" value={deal.createdAt ? new Date(deal.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
           <DetailField label="Última modificación" value={deal.updatedAt ? new Date(deal.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
         </DetailFieldGrid>
@@ -1718,6 +1752,36 @@ export function CrmDealDetailClient({
         loading={changingStage}
         loadingLabel="Procesando..."
       />
+
+      {/* Dialog: Fecha de inicio para etapa Adjudicado */}
+      <Dialog open={acceptedDialogOpen} onOpenChange={(o) => { if (!o) { setAcceptedDialogOpen(false); setPendingAcceptedStageId(null); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Fecha de inicio del servicio</DialogTitle>
+            <DialogDescription>
+              Ingresa la fecha estimada de inicio del servicio para este negocio adjudicado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Label htmlFor="accepted-start-date">Fecha de inicio</Label>
+            <Input
+              id="accepted-start-date"
+              type="date"
+              value={acceptedDate}
+              onChange={(e) => setAcceptedDate(e.target.value)}
+              className="mt-1.5"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAcceptedDialogOpen(false); setPendingAcceptedStageId(null); }}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmAccepted} disabled={!acceptedDate}>
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

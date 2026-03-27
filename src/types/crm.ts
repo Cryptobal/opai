@@ -94,6 +94,7 @@ export interface CrmPipelineStage {
   color?: string | null;
   isClosedWon?: boolean;
   isClosedLost?: boolean;
+  isAccepted?: boolean;
 }
 
 export interface CrmActiveQuoteSummary {
@@ -132,6 +133,7 @@ export interface CrmDeal {
   lat?: number | null;
   lng?: number | null;
   installationWebsite?: string | null;
+  serviceStartDate?: string | null;
   activeQuotationId?: string | null;
   activeQuoteSummary?: CrmActiveQuoteSummary | null;
   account: CrmAccount;

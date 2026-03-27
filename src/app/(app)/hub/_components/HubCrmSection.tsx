@@ -12,6 +12,7 @@ import { HubMiniFunnel } from './HubMiniFunnel';
 import { HubStaleDeals } from './HubStaleDeals';
 import { HubPendingLeads } from './HubPendingLeads';
 import { HubPortalRanking } from './HubPortalRanking';
+import { HubUpcomingProjects } from './HubUpcomingProjects';
 import { formatCLP } from '../_lib/hub-utils';
 import type { HubClosingSectionProps } from '../_lib/hub-types';
 
@@ -26,7 +27,7 @@ function getStoredLastSeen(): number {
   }
 }
 
-export function HubCrmSection({ closingData, sellerFirstName }: HubClosingSectionProps) {
+export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects = [] }: HubClosingSectionProps) {
   const [activeTab, setActiveTab] = useState('hot');
   const [leadsLastSeenCount, setLeadsLastSeenCount] = useState(0);
   const { kpis, hotDeals, staleDeals, pendingLeads, funnel, portalTopUsers } = closingData;
@@ -53,6 +54,9 @@ export function HubCrmSection({ closingData, sellerFirstName }: HubClosingSectio
 
   const tabs = [
     { id: 'hot', label: '🔥 Calientes', badge: hotDeals.length },
+    ...(upcomingProjects.length > 0
+      ? [{ id: 'upcoming', label: '📅 Por iniciar', badge: upcomingProjects.length }]
+      : []),
     {
       id: 'leads',
       label: 'Leads nuevos',
@@ -108,6 +112,7 @@ export function HubCrmSection({ closingData, sellerFirstName }: HubClosingSectio
           </>
         )}
 
+        {activeTab === 'upcoming' && <HubUpcomingProjects projects={upcomingProjects} />}
         {activeTab === 'leads' && <HubPendingLeads leads={pendingLeads} />}
         {activeTab === 'stale' && <HubStaleDeals deals={staleDeals} sellerFirstName={sellerFirstName} tenantName={closingData.commercialName} />}
       </div>
@@ -139,6 +144,7 @@ export function HubCrmSection({ closingData, sellerFirstName }: HubClosingSectio
 
         {/* Right column: sidebar */}
         <div className="space-y-3 md:sticky md:top-4">
+          {upcomingProjects.length > 0 && <HubUpcomingProjects projects={upcomingProjects} />}
           <HubStaleDeals deals={staleDeals} sellerFirstName={sellerFirstName} tenantName={closingData.commercialName} />
           <HubPendingLeads leads={pendingLeads} />
           <HubPortalRanking users={portalTopUsers} />

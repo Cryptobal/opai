@@ -268,6 +268,7 @@ export default async function CrmDealDetailPage({
   const initialDeal = JSON.parse(JSON.stringify(deal)) as DealDetail;
   initialDeal.proposalLink = deal.proposalLink ?? null;
   initialDeal.proposalSentAt = deal.proposalSentAt ? deal.proposalSentAt.toISOString() : null;
+  initialDeal.serviceStartDate = deal.serviceStartDate ? deal.serviceStartDate.toISOString() : null;
   initialDeal.status = deal.status;
   initialDeal.activeQuotationId = (deal as any).activeQuotationId ?? null;
   initialDeal.activeQuoteSummary = activeQuoteSummary

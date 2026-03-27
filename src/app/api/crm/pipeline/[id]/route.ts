@@ -38,6 +38,7 @@ export async function PATCH(
         isActive: body?.isActive ?? stage.isActive,
         isClosedWon: body?.isClosedWon ?? stage.isClosedWon,
         isClosedLost: body?.isClosedLost ?? stage.isClosedLost,
+        isAccepted: body?.isAccepted ?? stage.isAccepted,
       },
     });
 

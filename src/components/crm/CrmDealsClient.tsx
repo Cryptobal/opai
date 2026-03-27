@@ -249,6 +249,66 @@ function DealColumn({
   const stageColor = stage.color || "#94a3b8";
   const isOver = isOverColumn || isOverHeader || highlightDropTarget;
 
+  if (collapsed) {
+    return (
+      <div
+        ref={setColumnNodeRef}
+        className={cn(
+          "flex-shrink-0 rounded-lg border bg-muted/30 transition-colors overflow-hidden snap-center",
+          "w-11 min-w-[44px] max-w-[44px]",
+          isOver ? "border-primary/60 bg-primary/5" : "border-border"
+        )}
+      >
+        <div
+          ref={setHeaderNodeRef}
+          role={onToggleCollapse ? "button" : undefined}
+          tabIndex={onToggleCollapse ? 0 : undefined}
+          onClick={onToggleCollapse}
+          onKeyDown={
+            onToggleCollapse
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onToggleCollapse();
+                  }
+                }
+              : undefined
+          }
+          className={cn(
+            "flex flex-col items-center gap-2 py-2.5 px-1 cursor-pointer hover:opacity-90 active:opacity-80 transition-colors h-full min-h-[120px]",
+            highlightDropTarget && "ring-1 ring-primary/50 bg-primary/10"
+          )}
+          style={{ backgroundColor: `${stageColor}10` }}
+        >
+          <span
+            className="h-2.5 w-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: stageColor }}
+          />
+          <span
+            className="text-[10px] font-semibold leading-tight"
+            style={{
+              color: stageColor,
+              writingMode: "vertical-rl",
+              textOrientation: "mixed",
+            }}
+          >
+            {stage.name}
+          </span>
+          <span
+            className="text-[9px] text-muted-foreground tabular-nums mt-auto"
+            style={{
+              writingMode: "vertical-rl",
+              textOrientation: "mixed",
+            }}
+          >
+            {deals.length}
+          </span>
+          <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={setColumnNodeRef}
@@ -275,7 +335,6 @@ function DealColumn({
         className={cn(
           "w-full mb-2 rounded-md px-2.5 py-1.5 flex items-center justify-between gap-2 transition-colors",
           onToggleCollapse && "cursor-pointer hover:opacity-90 active:opacity-80",
-          collapsed && highlightDropTarget && "ring-1 ring-primary/50 bg-primary/10"
         )}
         style={{
           borderLeft: `3px solid ${stageColor}`,
@@ -290,11 +349,11 @@ function DealColumn({
         </span>
         {onToggleCollapse && (
           <span className="shrink-0 text-muted-foreground" aria-hidden>
-            {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            <ChevronDown className="h-3.5 w-3.5" />
           </span>
         )}
       </div>
-      {!collapsed && children}
+      {children}
     </div>
   );
 }
@@ -617,6 +676,9 @@ export function CrmDealsClient({
   const sheetDeal = sheetDealId ? deals.find((d) => d.id === sheetDealId) : null;
   const focusLabel = getDealsFocusLabel(initialFocus);
   const negotiatingStageIds = useMemo(() => getNegotiatingStageIds(stages), [stages]);
+  // Accepted-stage dialog state
+  const [acceptedPending, setAcceptedPending] = useState<{ dealId: string; stageId: string } | null>(null);
+  const [acceptedDate, setAcceptedDate] = useState("");
 
   const resolveStageIdFromOverId = useCallback((overId: string): string | undefined => {
     if (overId.startsWith("stage-header-")) return overId.replace("stage-header-", "");
@@ -709,12 +771,20 @@ export function CrmDealsClient({
     }
   };
 
-  const updateStage = async (dealId: string, stageId: string) => {
+  const updateStage = async (dealId: string, stageId: string, extraBody?: Record<string, unknown>) => {
     if (!stageId) return;
     const current = deals.find((deal) => deal.id === dealId);
     if (!current || current.stage?.id === stageId) return;
 
     const nextStage = stages.find((stage) => stage.id === stageId);
+
+    // Si la etapa es "aceptada", mostrar dialog para pedir fecha de inicio
+    if (nextStage?.isAccepted && !extraBody?.serviceStartDate) {
+      setAcceptedPending({ dealId, stageId });
+      setAcceptedDate("");
+      return;
+    }
+
     const snapshot = JSON.parse(JSON.stringify(current)) as CrmDeal;
     const previousMoveRank = recentMoveRankByDealId[dealId];
     moveRankCounterRef.current += 1;
@@ -733,7 +803,7 @@ export function CrmDealsClient({
       const response = await fetch(`/api/crm/deals/${dealId}/stage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stageId }),
+        body: JSON.stringify({ stageId, ...extraBody }),
       });
       const payload = await response.json();
       if (!response.ok) {
@@ -758,6 +828,13 @@ export function CrmDealsClient({
       });
       toast.error("No se pudo actualizar la etapa.");
     }
+  };
+
+  const confirmAccepted = async () => {
+    if (!acceptedPending || !acceptedDate) return;
+    const { dealId, stageId } = acceptedPending;
+    setAcceptedPending(null);
+    await updateStage(dealId, stageId, { serviceStartDate: acceptedDate });
   };
 
   const filteredDeals = useMemo(() => {
@@ -1322,6 +1399,36 @@ export function CrmDealsClient({
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ── Dialog: Fecha de inicio para etapa Adjudicado ── */}
+      <Dialog open={!!acceptedPending} onOpenChange={(o) => { if (!o) setAcceptedPending(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Fecha de inicio del servicio</DialogTitle>
+            <DialogDescription>
+              Ingresa la fecha estimada de inicio del servicio para este negocio adjudicado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Label htmlFor="accepted-date">Fecha de inicio</Label>
+            <Input
+              id="accepted-date"
+              type="date"
+              value={acceptedDate}
+              onChange={(e) => setAcceptedDate(e.target.value)}
+              className="mt-1.5"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAcceptedPending(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmAccepted} disabled={!acceptedDate}>
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

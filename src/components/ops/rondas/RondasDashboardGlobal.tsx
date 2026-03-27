@@ -520,7 +520,13 @@ function formatDayLabel(iso: string): string {
 
 function getDateNDaysAgo(n: number): string {
   const d = new Date();
-  d.setDate(d.getDate() - (n - 1));
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+function getYesterday(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
   return d.toISOString().slice(0, 10);
 }
 
@@ -607,10 +613,10 @@ function ResumenTablaRangoView({
       {/* Table */}
       {rangoData && rangoData.fechas.length > 0 && (
         <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="text-sm border-collapse">
             <thead>
               <tr className="border-b border-[#1a1f2e] text-[11px] uppercase tracking-wider text-[#64748b]">
-                <th className="text-left px-4 py-3 font-semibold sticky left-0 bg-[#111827] z-10 min-w-[180px]">
+                <th className="text-left px-3 py-3 font-semibold sticky left-0 bg-[#111827] z-10 whitespace-nowrap">
                   Instalación
                 </th>
                 {rangoData.fechas.map((fecha) => {
@@ -619,7 +625,7 @@ function ResumenTablaRangoView({
                     <th
                       key={fecha}
                       className={cn(
-                        "text-center px-2 py-3 font-semibold whitespace-nowrap min-w-[72px]",
+                        "text-center px-1.5 py-3 font-semibold whitespace-nowrap",
                         isToday && "bg-cyan-500/5",
                       )}
                     >
@@ -634,7 +640,7 @@ function ResumenTablaRangoView({
                     </th>
                   );
                 })}
-                <th className="text-center px-3 py-3 font-semibold whitespace-nowrap min-w-[80px] bg-[#0a0e1a]/40">
+                <th className="text-center px-2 py-3 font-semibold whitespace-nowrap bg-[#0a0e1a]/40">
                   Total
                 </th>
               </tr>
@@ -645,7 +651,7 @@ function ResumenTablaRangoView({
                   key={inst.installationId}
                   className="border-b border-[#1a1f2e]/60 hover:bg-[#1a1f2e]/30 transition-colors"
                 >
-                  <td className="px-4 py-2 text-[#f1f5f9] font-medium align-middle sticky left-0 bg-[#111827] z-10">
+                  <td className="px-3 py-2 text-[#f1f5f9] font-medium align-middle sticky left-0 bg-[#111827] z-10 whitespace-nowrap">
                     {inst.installationName}
                   </td>
                   {rangoData.fechas.map((fecha) => {
@@ -656,7 +662,7 @@ function ResumenTablaRangoView({
                         <td
                           key={fecha}
                           className={cn(
-                            "px-2 py-2 text-center align-middle",
+                            "px-1.5 py-2 text-center align-middle",
                             isToday && "bg-cyan-500/5",
                           )}
                         >
@@ -688,7 +694,7 @@ function ResumenTablaRangoView({
                       </td>
                     );
                   })}
-                  <td className="px-3 py-2 text-center align-middle bg-[#0a0e1a]/40">
+                  <td className="px-2 py-2 text-center align-middle bg-[#0a0e1a]/40">
                     <span
                       className={cn(
                         "inline-block rounded-md px-2.5 py-0.5 text-xs font-bold tabular-nums min-w-[50px]",
@@ -706,7 +712,7 @@ function ResumenTablaRangoView({
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-[#1a1f2e] bg-[#0a0e1a]/60">
-                <td className="px-4 py-3 text-[#f1f5f9] font-bold align-middle sticky left-0 bg-[#0a0e1a] z-10">
+                <td className="px-3 py-3 text-[#f1f5f9] font-bold align-middle sticky left-0 bg-[#0a0e1a] z-10 whitespace-nowrap">
                   Total general
                 </td>
                 {rangoData.fechas.map((fecha) => {
@@ -717,7 +723,7 @@ function ResumenTablaRangoView({
                       <td
                         key={fecha}
                         className={cn(
-                          "px-2 py-3 text-center align-middle",
+                          "px-1.5 py-3 text-center align-middle",
                           isToday && "bg-cyan-500/5",
                         )}
                       >
@@ -755,7 +761,7 @@ function ResumenTablaRangoView({
                   for (const d of Object.values(rangoData.totalesPorDia)) { t += d.total; c += d.completadas; }
                   const pct = t > 0 ? Math.round((c / t) * 100) : 0;
                   return (
-                    <td className="px-3 py-3 text-center align-middle bg-[#0a0e1a]/40">
+                    <td className="px-2 py-3 text-center align-middle bg-[#0a0e1a]/40">
                       <span className={cn("inline-block rounded-md px-2.5 py-0.5 text-xs font-bold tabular-nums min-w-[50px]", complianceBg(pct))}>
                         {pct}%
                       </span>
@@ -802,7 +808,7 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
   // Range state for table view
   const [rangoPreset, setRangoPreset] = useState<RangoPreset>("3d");
   const [rangoDesde, setRangoDesde] = useState(() => getDateNDaysAgo(3));
-  const [rangoHasta, setRangoHasta] = useState(() => getLocalDate());
+  const [rangoHasta, setRangoHasta] = useState(() => getYesterday());
   const [rangoData, setRangoData] = useState<RangoData | null>(null);
   const [rangoLoading, setRangoLoading] = useState(false);
 
@@ -864,8 +870,8 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
   // Handle preset changes
   const handlePresetChange = useCallback((p: RangoPreset) => {
     setRangoPreset(p);
-    const hoy = getLocalDate();
-    setRangoHasta(hoy);
+    const ayer = getYesterday();
+    setRangoHasta(ayer);
     if (p === "3d") setRangoDesde(getDateNDaysAgo(3));
     else if (p === "7d") setRangoDesde(getDateNDaysAgo(7));
     else if (p === "30d") setRangoDesde(getDateNDaysAgo(30));

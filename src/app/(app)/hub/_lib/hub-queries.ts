@@ -657,6 +657,55 @@ export async function getClosingHubData(
 }
 
 /* ------------------------------------------------------------------ */
+/* Upcoming projects (deals in accepted/adjudicado stage)              */
+/* ------------------------------------------------------------------ */
+
+export async function getUpcomingProjects(
+  tenantId: string,
+): Promise<import('./hub-types').UpcomingProject[]> {
+  const acceptedStages = await prisma.crmPipelineStage.findMany({
+    where: { tenantId, isActive: true, isAccepted: true },
+    select: { id: true, name: true, color: true },
+  });
+
+  if (acceptedStages.length === 0) return [];
+
+  const stageMap = new Map(acceptedStages.map((s) => [s.id, s]));
+  const deals = await prisma.crmDeal.findMany({
+    where: {
+      tenantId,
+      stageId: { in: acceptedStages.map((s) => s.id) },
+      serviceStartDate: { not: null },
+    },
+    include: {
+      account: { select: { name: true } },
+      primaryContact: { select: { firstName: true, lastName: true } },
+    },
+    orderBy: { serviceStartDate: 'asc' },
+  });
+
+  const ufValue = await getUfValue();
+
+  return deals.map((d) => {
+    const stage = stageMap.get(d.stageId);
+    const amountClp = Number(d.amount || 0);
+    return {
+      id: d.id,
+      title: d.title,
+      accountName: d.account?.name || 'Sin cliente',
+      serviceStartDate: d.serviceStartDate!.toISOString(),
+      stageName: stage?.name || '',
+      stageColor: stage?.color || null,
+      amountClp,
+      totalGuards: d.totalPuestos,
+      contactName: d.primaryContact
+        ? `${d.primaryContact.firstName} ${d.primaryContact.lastName}`.trim()
+        : null,
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* Commercial / CRM metrics — @deprecated (kept for backward compat)  */
 /* ------------------------------------------------------------------ */
 

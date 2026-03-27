@@ -1716,6 +1716,7 @@ model CrmPipelineStage {
   isActive     Boolean  @default(true) @map("is_active")
   isClosedWon  Boolean  @default(false) @map("is_closed_won")
   isClosedLost Boolean  @default(false) @map("is_closed_lost")
+  isAccepted   Boolean  @default(false) @map("is_accepted")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -1762,6 +1763,7 @@ model CrmDeal {
   lat                 Float?
   lng                 Float?
   installationWebsite String?   @map("installation_website")
+  serviceStartDate    DateTime? @map("service_start_date") @db.Date
   totalPuestos        Int       @default(0) @map("total_puestos")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)

@@ -36,6 +36,7 @@ export interface HubClientWrapperProps {
   activities: ActivityEntry[];
   supervisionMetrics: SupervisionMetrics | null;
   showPortalLink?: boolean;
+  upcomingProjects?: import('../_lib/hub-types').UpcomingProject[];
 }
 
 export function HubClientWrapper({
@@ -49,6 +50,7 @@ export function HubClientWrapper({
   activities,
   supervisionMetrics,
   showPortalLink,
+  upcomingProjects,
 }: HubClientWrapperProps) {
   const pendingFollowUpsCount = closingData?.kpis.followUpsOverdueCount ?? 0;
 
@@ -67,6 +69,7 @@ export function HubClientWrapper({
           perms={hubPerms}
           closingData={closingData}
           sellerFirstName={firstName}
+          upcomingProjects={upcomingProjects}
         />
       )}
 

@@ -19,6 +19,7 @@ type PipelineStage = {
   color?: string | null;
   isClosedWon: boolean;
   isClosedLost: boolean;
+  isAccepted: boolean;
   isActive: boolean;
 };
 
@@ -46,6 +47,7 @@ export function CrmPipelineTab({
     color: "#3b82f6",
     isClosedWon: false,
     isClosedLost: false,
+    isAccepted: false,
   });
 
   const inputClassName =
@@ -91,12 +93,13 @@ export function CrmPipelineTab({
           color: newStage.color,
           isClosedWon: newStage.isClosedWon,
           isClosedLost: newStage.isClosedLost,
+          isAccepted: newStage.isAccepted,
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Error al crear");
       setStages((prev) => [data.data, ...prev]);
-      setNewStage({ name: "", order: "1", color: "#3b82f6", isClosedWon: false, isClosedLost: false });
+      setNewStage({ name: "", order: "1", color: "#3b82f6", isClosedWon: false, isClosedLost: false, isAccepted: false });
     } catch (error) {
       console.error(error);
       toast.error("No se pudo crear la etapa.");
@@ -163,12 +166,28 @@ export function CrmPipelineTab({
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
+                    checked={newStage.isAccepted}
+                    onChange={(event) =>
+                      setNewStage((prev) => ({
+                        ...prev,
+                        isAccepted: event.target.checked,
+                        isClosedWon: event.target.checked ? false : prev.isClosedWon,
+                        isClosedLost: event.target.checked ? false : prev.isClosedLost,
+                      }))
+                    }
+                  />
+                  Adjudicado
+                </label>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
                     checked={newStage.isClosedWon}
                     onChange={(event) =>
                       setNewStage((prev) => ({
                         ...prev,
                         isClosedWon: event.target.checked,
                         isClosedLost: event.target.checked ? false : prev.isClosedLost,
+                        isAccepted: event.target.checked ? false : prev.isAccepted,
                       }))
                     }
                   />
@@ -183,6 +202,7 @@ export function CrmPipelineTab({
                         ...prev,
                         isClosedLost: event.target.checked,
                         isClosedWon: event.target.checked ? false : prev.isClosedWon,
+                        isAccepted: event.target.checked ? false : prev.isAccepted,
                       }))
                     }
                   />
@@ -268,12 +288,28 @@ export function CrmPipelineTab({
                       <label className="flex items-center gap-2">
                         <input
                           type="checkbox"
+                          checked={stage.isAccepted}
+                          onChange={(event) =>
+                            setStages((prev) =>
+                              prev.map((item) =>
+                                item.id === stage.id
+                                  ? { ...item, isAccepted: event.target.checked, isClosedWon: event.target.checked ? false : item.isClosedWon, isClosedLost: event.target.checked ? false : item.isClosedLost }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                        Adjudicado
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
                           checked={stage.isClosedWon}
                           onChange={(event) =>
                             setStages((prev) =>
                               prev.map((item) =>
                                 item.id === stage.id
-                                  ? { ...item, isClosedWon: event.target.checked, isClosedLost: event.target.checked ? false : item.isClosedLost }
+                                  ? { ...item, isClosedWon: event.target.checked, isClosedLost: event.target.checked ? false : item.isClosedLost, isAccepted: event.target.checked ? false : item.isAccepted }
                                   : item,
                               ),
                             )
@@ -289,7 +325,7 @@ export function CrmPipelineTab({
                             setStages((prev) =>
                               prev.map((item) =>
                                 item.id === stage.id
-                                  ? { ...item, isClosedLost: event.target.checked, isClosedWon: event.target.checked ? false : item.isClosedWon }
+                                  ? { ...item, isClosedLost: event.target.checked, isClosedWon: event.target.checked ? false : item.isClosedWon, isAccepted: event.target.checked ? false : item.isAccepted }
                                   : item,
                               ),
                             )

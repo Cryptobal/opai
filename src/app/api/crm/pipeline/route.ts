@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
         isActive: true,
         isClosedWon: Boolean(body?.isClosedWon),
         isClosedLost: Boolean(body?.isClosedLost),
+        isAccepted: Boolean(body?.isAccepted),
       },
     });
 

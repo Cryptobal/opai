@@ -442,8 +442,21 @@ export interface ClosingPortalTopUser {
   lastAccessAt: Date | null;
 }
 
+export interface UpcomingProject {
+  id: string;
+  title: string;
+  accountName: string;
+  serviceStartDate: string;
+  stageName: string;
+  stageColor: string | null;
+  amountClp: number;
+  totalGuards: number;
+  contactName: string | null;
+}
+
 export interface HubClosingSectionProps {
   perms: HubPerms;
   closingData: ClosingHubData;
   sellerFirstName: string;
+  upcomingProjects?: UpcomingProject[];
 }

@@ -31,6 +31,7 @@ import {
   getNotifications,
   getTicketMetrics,
   getSupervisionMetrics,
+  getUpcomingProjects,
 } from './_lib/hub-queries';
 import type { HubPerms } from './_lib/hub-types';
 
@@ -71,7 +72,7 @@ export default async function HubPage() {
   };
 
   // Fetch data in parallel — only for modules user has access to
-  const [closingData, financeMetrics, opsMetrics, activities, notifications, ticketMetrics, supervisionMetrics] =
+  const [closingData, financeMetrics, opsMetrics, activities, notifications, ticketMetrics, supervisionMetrics, upcomingProjects] =
     await Promise.all([
       hubPerms.hasCrm
         ? getClosingHubData(tenantId, thirtyDaysAgo, now)
@@ -88,6 +89,9 @@ export default async function HubPage() {
       hubPerms.hasSupervision
         ? getSupervisionMetrics(tenantId)
         : null,
+      hubPerms.hasCrm
+        ? getUpcomingProjects(tenantId)
+        : [],
     ]);
 
   const firstName = session.user.name?.split(' ')[0] || 'Usuario';
@@ -110,6 +114,7 @@ export default async function HubPage() {
       activities={activities}
       supervisionMetrics={supervisionMetrics}
       showPortalLink={showPortalLink}
+      upcomingProjects={upcomingProjects}
     />
   );
 }
