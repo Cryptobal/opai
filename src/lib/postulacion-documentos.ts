@@ -111,6 +111,21 @@ export async function getPostulacionDocumentTypesVisibleOnGuardForm(
 }
 
 /**
+ * Documentos de postulación visibles en el formulario público de Turno Extra.
+ * Respeta `visibleInTeForm` en la configuración de ficha (default false).
+ */
+export async function getPostulacionDocumentTypesVisibleOnTeForm(
+  tenantId?: string | null
+): Promise<PostulacionDocumentItem[]> {
+  const [docs, cfg] = await Promise.all([
+    getPostulacionDocumentTypes(tenantId),
+    getGuardiaDocumentosConfig(tenantId),
+  ]);
+  const vis = new Map(cfg.map((c) => [c.code, Boolean(c.visibleInTeForm)]));
+  return docs.filter((d) => vis.get(d.code) === true);
+}
+
+/**
  * Guarda la lista de documentos de postulación.
  */
 export async function setPostulacionDocumentTypes(

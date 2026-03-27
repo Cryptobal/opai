@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { Avatar, EmptyState } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw } from "lucide-react";
+import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw, Share2, MessageCircle } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import {
@@ -600,6 +600,49 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
           <ExternalLink className="h-3.5 w-3.5 mr-1" />
           Acceder al formulario de postulación
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 px-2 text-xs"
+            >
+              <Share2 className="h-3.5 w-3.5 mr-1" />
+              Compartir enlace
+              <ChevronDown className="h-3 w-3 ml-1" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => {
+                const url = `${window.location.origin}/ingreso-te`;
+                const msg = `Hola, te invitamos a completar tu registro como guardia de Turno Extra en Gard Security. Ingresa aquí: ${url}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+              }}
+            >
+              <MessageCircle className="h-3.5 w-3.5 mr-2 text-emerald-500" />
+              Enviar formulario Turno Extra
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={async () => {
+                try {
+                  const response = await fetch("/api/personas/postulacion-link");
+                  const payload = await response.json();
+                  if (!response.ok || !payload.success) throw new Error(payload.error);
+                  const url = payload.data?.url || `${window.location.origin}${payload.data?.path}`;
+                  const msg = `Hola, te invitamos a postularte como guardia en Gard Security. Completa el formulario aquí: ${url}`;
+                  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+                } catch {
+                  toast.error("No se pudo generar el link de postulación");
+                }
+              }}
+            >
+              <MessageCircle className="h-3.5 w-3.5 mr-2 text-emerald-500" />
+              Enviar formulario Postulación
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
           <DialogTrigger asChild>
             <Button

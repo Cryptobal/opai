@@ -13,6 +13,8 @@ export type GuardiaDocumentoConfigItem = {
   alertDaysBefore: number;
   /** Si false, el documento no aparece en el formulario público de postulación (sí en ficha admin). Default true. */
   visibleInGuardForm?: boolean;
+  /** Si false, el documento no aparece en el formulario público de ingreso Turno Extra. Default false. */
+  visibleInTeForm?: boolean;
 };
 
 const SETTING_KEY = "ops_guardia_documentos_config";
@@ -39,6 +41,7 @@ function parseConfig(value: string | null): GuardiaDocumentoConfigItem[] {
             hasExpiration: Boolean(c.hasExpiration),
             alertDaysBefore: Math.max(1, Math.min(365, Number(c.alertDaysBefore) || DEFAULT_ALERT_DAYS)),
             visibleInGuardForm: c.visibleInGuardForm !== false,
+            visibleInTeForm: Boolean(c.visibleInTeForm),
           });
         }
       }
@@ -55,6 +58,7 @@ function getDefaults(): GuardiaDocumentoConfigItem[] {
     hasExpiration: false,
     alertDaysBefore: DEFAULT_ALERT_DAYS,
     visibleInGuardForm: true,
+    visibleInTeForm: false,
   }));
 }
 
@@ -70,6 +74,7 @@ function mergeWithDefaults(partial: GuardiaDocumentoConfigItem[]): GuardiaDocume
         Math.min(365, Number(existing?.alertDaysBefore) || DEFAULT_ALERT_DAYS)
       ),
       visibleInGuardForm: existing?.visibleInGuardForm !== false,
+      visibleInTeForm: Boolean(existing?.visibleInTeForm),
     };
   });
   const docCodes = new Set(DOCUMENT_TYPES as readonly string[]);
@@ -84,6 +89,7 @@ function mergeWithDefaults(partial: GuardiaDocumentoConfigItem[]): GuardiaDocume
       hasExpiration: Boolean(p.hasExpiration),
       alertDaysBefore: Math.max(1, Math.min(365, Number(p.alertDaysBefore) || DEFAULT_ALERT_DAYS)),
       visibleInGuardForm: p.visibleInGuardForm !== false,
+      visibleInTeForm: Boolean(p.visibleInTeForm),
     });
   }
   return [...base, ...mergedExtras];

@@ -128,7 +128,7 @@ export function OpsDocsGuardiasTab({
           Documentos de guardias
         </h3>
         <p className="text-xs text-muted-foreground">
-          Lista de documentos para postulación y ficha de guardia. Obligatorio: requerido para enviar la postulación (entre los visibles). Vencimiento: alertas en la ficha. Visible en formulario: si se desactiva, el guardia no lo ve en la postulación pública, pero sí puede cargarlo un administrador en la ficha.
+          Lista de documentos para postulación y ficha de guardia. Obligatorio: requerido para enviar la postulación (entre los visibles). Vencimiento: alertas en la ficha. Visible formulario: si se desactiva, el guardia no lo ve en la postulación pública, pero sí puede cargarlo un administrador en la ficha. Visible form. TE: si se activa, el documento aparece en el formulario público de ingreso de Turno Extra.
         </p>
 
         {(postulacionDocsLoading || guardiaDocConfigLoading) ? (
@@ -175,13 +175,32 @@ export function OpsDocsGuardiasTab({
                           } else {
                             setGuardiaDocConfig((prev) => [
                               ...prev,
-                              { code: doc.code, hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: v },
+                              { code: doc.code, hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: v, visibleInTeForm: false },
                             ]);
                           }
                         }}
                         className="rounded border-border"
                       />
                       <span className="text-xs">Visible formulario</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(guardia.visibleInTeForm)}
+                        onChange={(e) => {
+                          const v = e.target.checked;
+                          if (guardiaIndex >= 0) {
+                            updateGuardiaDocConfigItem(guardiaIndex, { visibleInTeForm: v });
+                          } else {
+                            setGuardiaDocConfig((prev) => [
+                              ...prev,
+                              { code: doc.code, hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: true, visibleInTeForm: v },
+                            ]);
+                          }
+                        }}
+                        className="rounded border-border"
+                      />
+                      <span className="text-xs">Visible form. TE</span>
                     </label>
                     <label className="flex items-center gap-1.5 cursor-pointer">
                       <input
@@ -201,6 +220,7 @@ export function OpsDocsGuardiasTab({
                                 hasExpiration: e.target.checked,
                                 alertDaysBefore: 30,
                                 visibleInGuardForm: true,
+                                visibleInTeForm: false,
                               },
                             ]);
                           }
