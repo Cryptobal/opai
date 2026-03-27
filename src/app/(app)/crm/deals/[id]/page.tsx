@@ -128,6 +128,8 @@ export default async function CrmDealDetailPage({
             address: true,
             city: true,
             commune: true,
+            lat: true,
+            lng: true,
             status: true,
           },
         })

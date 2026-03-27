@@ -490,6 +490,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       supervision_view_own: true,
       supervision_dashboard: true,
       rendicion_submit: true,
+      rondas_configure: true,
     },
     hubLayout: "supervisor",
   },
