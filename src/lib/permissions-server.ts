@@ -158,6 +158,12 @@ function ensureSupervisorSupervisionAccess(
     changed = true;
   }
 
+  // 3c. ops.rondas al menos "edit" (gestionar rondas)
+  if (LEVEL_RANK[getEffectiveLevel(patched, "ops", "rondas")] < LEVEL_RANK.edit) {
+    submodules["ops.rondas"] = "edit";
+    changed = true;
+  }
+
   // 4. finance.rendiciones al menos "edit" (crear rendiciones)
   if (LEVEL_RANK[getEffectiveLevel(perms, "finance", "rendiciones")] < LEVEL_RANK.edit) {
     submodules["finance.rendiciones"] = "edit";
@@ -181,6 +187,12 @@ function ensureSupervisorSupervisionAccess(
   }
   if (!capabilities.supervision_dashboard) {
     capabilities.supervision_dashboard = true;
+    changed = true;
+  }
+
+  // 5b. rondas_configure siempre activa para supervisores
+  if (!capabilities.rondas_configure) {
+    capabilities.rondas_configure = true;
     changed = true;
   }
 
