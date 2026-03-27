@@ -109,7 +109,13 @@ export async function PATCH(
       );
     }
 
-    if (!["draft", "pending"].includes(existing.status)) {
+    // Allow cancelling approved ausencias (reverts pauta shiftCodes)
+    const isCancellation =
+      body.status === "cancelled" &&
+      existing.status === "approved" &&
+      existing.category === "ausencia";
+
+    if (!isCancellation && !["draft", "pending"].includes(existing.status)) {
       return NextResponse.json(
         { success: false, error: "Solo se pueden editar eventos en borrador o pendiente" },
         { status: 400 },
@@ -117,21 +123,62 @@ export async function PATCH(
     }
 
     const updateData: any = {};
-    if (body.startDate !== undefined) updateData.startDate = body.startDate ? new Date(body.startDate) : null;
-    if (body.endDate !== undefined) updateData.endDate = body.endDate ? new Date(body.endDate) : null;
-    if (body.finiquitoDate !== undefined) updateData.finiquitoDate = body.finiquitoDate ? new Date(body.finiquitoDate) : null;
-    if (body.totalDays !== undefined) updateData.totalDays = body.totalDays;
-    if (body.causalDtCode !== undefined) updateData.causalDtCode = body.causalDtCode;
-    if (body.causalDtLabel !== undefined) updateData.causalDtLabel = body.causalDtLabel;
-    if (body.reason !== undefined) updateData.reason = body.reason;
-    if (body.internalNotes !== undefined) updateData.internalNotes = body.internalNotes;
-    if (body.vacationDaysPending !== undefined) updateData.vacationDaysPending = body.vacationDaysPending;
-    if (body.vacationPaymentAmount !== undefined) updateData.vacationPaymentAmount = body.vacationPaymentAmount;
-    if (body.pendingRemunerationAmount !== undefined) updateData.pendingRemunerationAmount = body.pendingRemunerationAmount;
-    if (body.yearsOfServiceAmount !== undefined) updateData.yearsOfServiceAmount = body.yearsOfServiceAmount;
-    if (body.substituteNoticeAmount !== undefined) updateData.substituteNoticeAmount = body.substituteNoticeAmount;
-    if (body.totalSettlementAmount !== undefined) updateData.totalSettlementAmount = body.totalSettlementAmount;
+    // For cancellation of approved events, only allow status change
+    if (!isCancellation) {
+      if (body.startDate !== undefined) updateData.startDate = body.startDate ? new Date(body.startDate) : null;
+      if (body.endDate !== undefined) updateData.endDate = body.endDate ? new Date(body.endDate) : null;
+      if (body.finiquitoDate !== undefined) updateData.finiquitoDate = body.finiquitoDate ? new Date(body.finiquitoDate) : null;
+      if (body.totalDays !== undefined) updateData.totalDays = body.totalDays;
+      if (body.causalDtCode !== undefined) updateData.causalDtCode = body.causalDtCode;
+      if (body.causalDtLabel !== undefined) updateData.causalDtLabel = body.causalDtLabel;
+      if (body.reason !== undefined) updateData.reason = body.reason;
+      if (body.internalNotes !== undefined) updateData.internalNotes = body.internalNotes;
+      if (body.vacationDaysPending !== undefined) updateData.vacationDaysPending = body.vacationDaysPending;
+      if (body.vacationPaymentAmount !== undefined) updateData.vacationPaymentAmount = body.vacationPaymentAmount;
+      if (body.pendingRemunerationAmount !== undefined) updateData.pendingRemunerationAmount = body.pendingRemunerationAmount;
+      if (body.yearsOfServiceAmount !== undefined) updateData.yearsOfServiceAmount = body.yearsOfServiceAmount;
+      if (body.substituteNoticeAmount !== undefined) updateData.substituteNoticeAmount = body.substituteNoticeAmount;
+      if (body.totalSettlementAmount !== undefined) updateData.totalSettlementAmount = body.totalSettlementAmount;
+    }
     if (body.status !== undefined) updateData.status = body.status;
+    if (isCancellation) {
+      updateData.cancelledBy = ctx.userId;
+      updateData.cancelledAt = new Date();
+    }
+
+    // Revert pauta shiftCodes when cancelling an approved ausencia
+    if (isCancellation && existing.startDate && existing.endDate) {
+      const subtypeDef = EVENT_SUBTYPES.ausencia.find((s) => s.value === existing.subtype);
+      const absenceCode = subtypeDef?.shiftCode;
+      if (absenceCode) {
+        // Revert shiftCode to "T" and clear replacement/guardEvent links
+        await prisma.opsPautaMensual.updateMany({
+          where: {
+            tenantId: ctx.tenantId,
+            guardEventId: id,
+            date: { gte: existing.startDate, lte: existing.endDate },
+            shiftCode: absenceCode,
+          },
+          data: {
+            shiftCode: "T",
+            guardEventId: null,
+            replacementGuardiaId: null,
+            replacementReason: null,
+          },
+        });
+
+        // Also clean affected asistencia rows so they get re-synced
+        await prisma.opsAsistenciaDiaria.deleteMany({
+          where: {
+            tenantId: ctx.tenantId,
+            plannedGuardiaId: existing.guardiaId,
+            date: { gte: existing.startDate, lte: existing.endDate },
+            attendanceStatus: { in: ["pendiente", "ppc"] },
+            lockedAt: null,
+          },
+        });
+      }
+    }
 
     const updated = await prisma.opsGuardEvent.update({
       where: { id },

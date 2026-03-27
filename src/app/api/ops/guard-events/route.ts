@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
             date: { gte: created.startDate, lte: created.endDate },
             shiftCode: "T",
           },
-          data: { shiftCode },
+          data: { shiftCode, guardEventId: created.id },
         });
 
         await prisma.opsAsistenciaDiaria.deleteMany({

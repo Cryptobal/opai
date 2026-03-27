@@ -1284,7 +1284,17 @@ export function OpsPautaMensualClient({
       const res = await fetch('/api/personas/guardias?status=active');
       const payload = await res.json();
       if (res.ok && payload.success) {
-        setAvailableGuardias(payload.data.filter((g: any) => g.id !== warning.guardiaId));
+        setAvailableGuardias(
+          payload.data
+            .filter((g: any) => g.id !== warning.guardiaId)
+            .map((g: any) => ({
+              id: g.id,
+              name: g.persona
+                ? `${g.persona.firstName ?? ""} ${g.persona.lastName ?? ""}`.trim()
+                : g.name ?? g.id,
+              rut: g.persona?.rut ?? g.rut ?? null,
+            })),
+        );
       }
     } catch {
       toast.error("No se pudieron cargar los guardias");

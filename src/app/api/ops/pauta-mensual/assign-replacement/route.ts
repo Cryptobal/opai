@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { z } from "zod";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
+import { EVENT_SUBTYPES } from "@/lib/guard-events";
 
 const assignReplacementSchema = z.object({
     puestoId: z.string().uuid(),
@@ -76,18 +77,23 @@ export async function POST(request: NextRequest) {
         // Assign reason from the guardEvent subtype if not provided
         const reason = body.replacementReason || guardEvent.subtype;
 
+        // Determine the absence shiftCode from the event subtype
+        const subtypeDef = EVENT_SUBTYPES.ausencia.find((s) => s.value === guardEvent.subtype);
+        const absenceShiftCode = subtypeDef?.shiftCode;
+
         // 4. Update entries in OpsPautaMensual within the date range
         const start = new Date(body.startDate);
         const end = new Date(body.endDate);
 
-        // Only update slots that are "working" days (shiftCode = 'T')
-        // We update replacing the replacement fields
+        // Update slots with the absence shiftCode (V/L/PCG/PSG) that were painted
+        // when the absence was approved. Fallback to "T" for legacy data.
+        const targetShiftCodes = absenceShiftCode ? [absenceShiftCode, "T"] : ["T"];
         const updatedCount = await prisma.opsPautaMensual.updateMany({
             where: {
                 tenantId: ctx.tenantId,
                 puestoId: body.puestoId,
                 slotNumber: body.slotNumber,
-                shiftCode: "T",
+                shiftCode: { in: targetShiftCodes },
                 date: {
                     gte: start,
                     lte: end,

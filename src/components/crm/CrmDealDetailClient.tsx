@@ -347,6 +347,7 @@ export function CrmDealDetailClient({
   const [pendingAcceptedStageId, setPendingAcceptedStageId] = useState<string | null>(null);
   const [acceptedDate, setAcceptedDate] = useState("");
   const [dealServiceStartDate, setDealServiceStartDate] = useState(deal.serviceStartDate || null);
+  const [dealTitle, setDealTitle] = useState(deal.title);
   const [linking, setLinking] = useState(false);
 
   // ── Email compose state ──
@@ -498,7 +499,6 @@ export function CrmDealDetailClient({
   // ── Deal edit state ──
   const [editDealOpen, setEditDealOpen] = useState(false);
   const [savingDeal, setSavingDeal] = useState(false);
-  const [dealTitle, setDealTitle] = useState(deal.title);
   const [dealAmount, setDealAmount] = useState(deal.amount);
   const [accountOptions, setAccountOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [editDealForm, setEditDealForm] = useState({
