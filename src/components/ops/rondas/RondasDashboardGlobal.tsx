@@ -981,7 +981,9 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
 
         <button
           onClick={() => {
-            const params = new URLSearchParams({ format: "xlsx", from: fecha, to: fecha });
+            const from = viewMode === "table" ? rangoDesde : fecha;
+            const to = viewMode === "table" ? rangoHasta : fecha;
+            const params = new URLSearchParams({ format: "xlsx", from, to });
             window.open(`/api/ops/rondas/reportes/export?${params}`, "_blank");
           }}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] hover:bg-[#1a1f2e] text-xs text-[#94a3b8] hover:text-[#f1f5f9] transition-colors"

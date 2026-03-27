@@ -19,6 +19,7 @@ type PipelineStage = {
   color?: string | null;
   isClosedWon: boolean;
   isClosedLost: boolean;
+  isAccepted: boolean;
   isActive: boolean;
 };
 
