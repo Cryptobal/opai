@@ -141,7 +141,7 @@ export function OpsDocsGuardiasTab({
                 const guardia =
                   guardiaIndex >= 0
                     ? guardiaDocConfig[guardiaIndex]
-                    : { hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: true };
+                    : { hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: true, visibleInTeForm: false };
                 const assocCount = documentCountsByType[doc.code] ?? 0;
                 return (
                   <div
