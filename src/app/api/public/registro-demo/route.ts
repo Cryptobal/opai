@@ -68,12 +68,8 @@ const INDUSTRY_LABELS: Record<string, string> = {
 };
 
 function generatePin(): string {
-  const digits = "0123456789";
-  let pin = "";
-  for (let i = 0; i < 6; i++) {
-    pin += digits[Math.floor(Math.random() * digits.length)];
-  }
-  return pin;
+  // 4 dígitos — consistente con el resto del sistema (CPQ, portal invites, etc.)
+  return String(Math.floor(1000 + Math.random() * 9000));
 }
 
 export async function OPTIONS() {

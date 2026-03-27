@@ -42,6 +42,7 @@ export const RegistroDemoEmail = ({
 }: RegistroDemoEmailProps) => {
   const firstName = contactName.split(/\s+/)[0] || contactName;
   const previewText = `${firstName}, su cuenta demo en el Portal Gard está lista. Acceda con su correo y PIN.`;
+  const portalUrlWithEmail = `${portalUrl}?email=${encodeURIComponent(email)}`;
 
   return (
     <Html>
@@ -94,7 +95,7 @@ export const RegistroDemoEmail = ({
 
           {/* CTA */}
           <Section style={ctaSection}>
-            <Button style={ctaButton} href={portalUrl}>
+            <Button style={ctaButton} href={portalUrlWithEmail}>
               Acceder a mi portal
             </Button>
             <Text style={ctaHint}>
