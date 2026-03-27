@@ -1468,6 +1468,7 @@ model CrmAccount {
   type                    String    @default("prospect") // legacy compat: "prospect" | "client"
   status                  String    @default("prospect") // canonical lifecycle: prospect | client_active | client_inactive
   isActive                Boolean   @default(false) @map("is_active") // legacy compat, derived from status
+  source                  String?   // origen del prospecto: outreach_email, web_registro, web_cotizador, referido, etc.
   website                 String?
   address                 String?
   commune                 String?
