@@ -109,6 +109,7 @@ export function OpsConfigTabs() {
           hasExpiration: false,
           alertDaysBefore: 30,
           visibleInGuardForm: true,
+          visibleInTeForm: false,
         })),
       ]);
     }

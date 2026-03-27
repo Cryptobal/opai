@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
-import { CalendarDays, FilePlus2, Upload, X } from "lucide-react";
+import { FilePlus2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -316,29 +316,17 @@ export function TePublicForm() {
                 }))
               }
             />
-            <div
-              className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-within:ring-1 focus-within:ring-ring"
-              role="group"
-            >
-              <input
+            <div className="space-y-1">
+              <label htmlFor="te-birthdate" className="text-sm text-muted-foreground">
+                Fecha de nacimiento *
+              </label>
+              <Input
                 type="date"
-                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground outline-none [color-scheme:light]"
+                id="te-birthdate"
+                className="[color-scheme:dark]"
                 value={form.birthDate}
                 onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
-                id="te-birthdate"
-                aria-label="Fecha de nacimiento"
               />
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                className="h-8 w-8 shrink-0 border-border bg-muted/50 text-foreground hover:bg-muted"
-                onClick={() => (document.getElementById("te-birthdate") as HTMLInputElement | null)?.showPicker?.()}
-                title="Abrir calendario"
-              >
-                <CalendarDays className="h-4 w-4 text-white" />
-              </Button>
-              <span className="shrink-0 text-muted-foreground">Fecha de nacimiento *</span>
             </div>
             <div className="md:col-span-2">
               <AddressAutocomplete
@@ -361,18 +349,12 @@ export function TePublicForm() {
               placeholder="Banco *"
               onChange={(val) => setForm((prev) => ({ ...prev, bankCode: val }))}
             />
-            <select
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+            <SearchableSelect
               value={form.accountType}
-              onChange={(e) => setForm((prev) => ({ ...prev, accountType: e.target.value }))}
-            >
-              <option value="">Tipo de cuenta *</option>
-              {BANK_ACCOUNT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {ACCOUNT_TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
+              options={BANK_ACCOUNT_TYPES.map((t) => ({ id: t, label: ACCOUNT_TYPE_LABELS[t] ?? t }))}
+              placeholder="Tipo de cuenta *"
+              onChange={(val) => setForm((prev) => ({ ...prev, accountType: val }))}
+            />
             <Input
               placeholder="Número de cuenta *"
               value={form.accountNumber}
@@ -393,18 +375,15 @@ export function TePublicForm() {
                   : "Sube los documentos que apliquen."}
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                <select
-                  className="h-9 rounded-md border border-border bg-background px-3 text-sm"
+                <SearchableSelect
                   value={docType}
-                  onChange={(e) => setDocType(e.target.value)}
-                >
-                  {documentTypes.map((dt) => (
-                    <option key={dt.code} value={dt.code}>
-                      {dt.label}
-                      {dt.required ? " *" : ""}
-                    </option>
-                  ))}
-                </select>
+                  options={documentTypes.map((dt) => ({
+                    id: dt.code,
+                    label: `${dt.label}${dt.required ? " *" : ""}`,
+                  }))}
+                  placeholder="Tipo de documento"
+                  onChange={(val) => setDocType(val)}
+                />
                 <input
                   ref={fileInputRef}
                   type="file"

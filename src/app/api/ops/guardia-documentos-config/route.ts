@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
           typeof (i as GuardiaDocumentoConfigItem).visibleInGuardForm === "boolean"
             ? (i as GuardiaDocumentoConfigItem).visibleInGuardForm
             : true,
+        visibleInTeForm: Boolean((i as GuardiaDocumentoConfigItem).visibleInTeForm),
       }));
 
     const saved = await setGuardiaDocumentosConfig(valid, ctx.tenantId);

@@ -146,122 +146,128 @@ export function OpsDocsGuardiasTab({
                 return (
                   <div
                     key={doc.code}
-                    className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border p-3"
+                    className="rounded-lg border border-border p-3 space-y-2"
                   >
-                    <Input
-                      className="text-sm font-medium min-w-[140px] max-w-[260px] h-8"
-                      value={doc.label}
-                      onChange={(e) => updatePostulacionDoc(postIndex, { label: e.target.value })}
-                      aria-label={`Nombre visible: ${doc.code}`}
-                    />
-                    <span className="text-[11px] text-muted-foreground font-mono shrink-0">{doc.code}</span>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={doc.required}
-                        onChange={(e) => updatePostulacionDoc(postIndex, { required: e.target.checked })}
-                        className="rounded border-border"
+                    {/* Fila superior: nombre + código + botón eliminar */}
+                    <div className="flex items-center gap-3">
+                      <Input
+                        className="text-sm font-medium min-w-[140px] max-w-[260px] h-8"
+                        value={doc.label}
+                        onChange={(e) => updatePostulacionDoc(postIndex, { label: e.target.value })}
+                        aria-label={`Nombre visible: ${doc.code}`}
                       />
-                      <span className="text-xs">Obligatorio</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={guardia.visibleInGuardForm !== false}
-                        onChange={(e) => {
-                          const v = e.target.checked;
-                          if (guardiaIndex >= 0) {
-                            updateGuardiaDocConfigItem(guardiaIndex, { visibleInGuardForm: v });
-                          } else {
-                            setGuardiaDocConfig((prev) => [
-                              ...prev,
-                              { code: doc.code, hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: v, visibleInTeForm: false },
-                            ]);
-                          }
-                        }}
-                        className="rounded border-border"
-                      />
-                      <span className="text-xs">Visible formulario</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(guardia.visibleInTeForm)}
-                        onChange={(e) => {
-                          const v = e.target.checked;
-                          if (guardiaIndex >= 0) {
-                            updateGuardiaDocConfigItem(guardiaIndex, { visibleInTeForm: v });
-                          } else {
-                            setGuardiaDocConfig((prev) => [
-                              ...prev,
-                              { code: doc.code, hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: true, visibleInTeForm: v },
-                            ]);
-                          }
-                        }}
-                        className="rounded border-border"
-                      />
-                      <span className="text-xs">Visible form. TE</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={guardia.hasExpiration}
-                        onChange={(e) => {
-                          if (guardiaIndex >= 0) {
-                            updateGuardiaDocConfigItem(guardiaIndex, {
-                              hasExpiration: e.target.checked,
-                              alertDaysBefore: e.target.checked ? guardia.alertDaysBefore : 30,
-                            });
-                          } else {
-                            setGuardiaDocConfig((prev) => [
-                              ...prev,
-                              {
-                                code: doc.code,
-                                hasExpiration: e.target.checked,
-                                alertDaysBefore: 30,
-                                visibleInGuardForm: true,
-                                visibleInTeForm: false,
-                              },
-                            ]);
-                          }
-                        }}
-                        className="rounded border-border"
-                      />
-                      <span className="text-xs">Vence</span>
-                    </label>
-                    {guardia.hasExpiration && guardiaIndex >= 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-muted-foreground">Alerta:</span>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={365}
-                          value={guardia.alertDaysBefore}
-                          onChange={(e) =>
-                            updateGuardiaDocConfigItem(guardiaIndex, {
-                              alertDaysBefore: Math.max(1, Math.min(365, Number(e.target.value) || 30)),
-                            })
-                          }
-                          className="h-7 w-16 min-w-[4rem] text-xs"
+                      <span className="text-[11px] text-muted-foreground font-mono shrink-0">{doc.code}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive ml-auto shrink-0 disabled:opacity-50"
+                        onClick={() => removePostulacionDoc(postIndex)}
+                        disabled={assocCount > 0}
+                        title={
+                          assocCount > 0
+                            ? `Hay ${assocCount} archivo(s) en fichas con este tipo; elimínalos antes de quitar el documento`
+                            : "Quitar documento"
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {/* Fila inferior: opciones alineadas */}
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pl-1">
+                      <label className="flex items-center gap-1.5 cursor-pointer min-w-[100px]">
+                        <input
+                          type="checkbox"
+                          checked={doc.required}
+                          onChange={(e) => updatePostulacionDoc(postIndex, { required: e.target.checked })}
+                          className="rounded border-border"
                         />
-                        <span className="text-[11px] text-muted-foreground">días</span>
-                      </div>
-                    )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive ml-auto shrink-0 disabled:opacity-50"
-                      onClick={() => removePostulacionDoc(postIndex)}
-                      disabled={assocCount > 0}
-                      title={
-                        assocCount > 0
-                          ? `Hay ${assocCount} archivo(s) en fichas con este tipo; elimínalos antes de quitar el documento`
-                          : "Quitar documento"
-                      }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                        <span className="text-xs">Obligatorio</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer min-w-[130px]">
+                        <input
+                          type="checkbox"
+                          checked={guardia.visibleInGuardForm !== false}
+                          onChange={(e) => {
+                            const v = e.target.checked;
+                            if (guardiaIndex >= 0) {
+                              updateGuardiaDocConfigItem(guardiaIndex, { visibleInGuardForm: v });
+                            } else {
+                              setGuardiaDocConfig((prev) => [
+                                ...prev,
+                                { code: doc.code, hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: v, visibleInTeForm: false },
+                              ]);
+                            }
+                          }}
+                          className="rounded border-border"
+                        />
+                        <span className="text-xs">Visible formulario</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer min-w-[120px]">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(guardia.visibleInTeForm)}
+                          onChange={(e) => {
+                            const v = e.target.checked;
+                            if (guardiaIndex >= 0) {
+                              updateGuardiaDocConfigItem(guardiaIndex, { visibleInTeForm: v });
+                            } else {
+                              setGuardiaDocConfig((prev) => [
+                                ...prev,
+                                { code: doc.code, hasExpiration: false, alertDaysBefore: 30, visibleInGuardForm: true, visibleInTeForm: v },
+                              ]);
+                            }
+                          }}
+                          className="rounded border-border"
+                        />
+                        <span className="text-xs">Visible form. TE</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={guardia.hasExpiration}
+                          onChange={(e) => {
+                            if (guardiaIndex >= 0) {
+                              updateGuardiaDocConfigItem(guardiaIndex, {
+                                hasExpiration: e.target.checked,
+                                alertDaysBefore: e.target.checked ? guardia.alertDaysBefore : 30,
+                              });
+                            } else {
+                              setGuardiaDocConfig((prev) => [
+                                ...prev,
+                                {
+                                  code: doc.code,
+                                  hasExpiration: e.target.checked,
+                                  alertDaysBefore: 30,
+                                  visibleInGuardForm: true,
+                                  visibleInTeForm: false,
+                                },
+                              ]);
+                            }
+                          }}
+                          className="rounded border-border"
+                        />
+                        <span className="text-xs">Vence</span>
+                      </label>
+                      {guardia.hasExpiration && guardiaIndex >= 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-muted-foreground">Alerta:</span>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={365}
+                            value={guardia.alertDaysBefore}
+                            onChange={(e) =>
+                              updateGuardiaDocConfigItem(guardiaIndex, {
+                                alertDaysBefore: Math.max(1, Math.min(365, Number(e.target.value) || 30)),
+                              })
+                            }
+                            className="h-7 w-16 min-w-[4rem] text-xs"
+                          />
+                          <span className="text-[11px] text-muted-foreground">días</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
