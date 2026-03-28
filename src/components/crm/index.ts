@@ -19,6 +19,7 @@ export * from "./CrmToolbar";
 export * from "./LeadSourceBadge";
 export * from "./LeadContactActions";
 export * from "./DotacionSummary";
+export * from "./ApolloProspectingClient";
 export * from "@/components/shared/FilterPills";
 export * from "@/components/shared/SortSelect";
 export * from "@/components/shared/ViewToggle";

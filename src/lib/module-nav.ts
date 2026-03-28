@@ -109,6 +109,7 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "crm-deals", href: "/crm/deals", label: "Negocios", icon: TrendingUp, subKey: "deals" },
   { key: "crm-contacts", href: "/crm/contacts", label: "Contactos", icon: Contact, subKey: "contacts" },
   { key: "crm-quotes", href: "/crm/cotizaciones", label: "Cotizaciones", icon: DollarSign, subKey: "quotes" },
+  { key: "crm-prospecting", href: "/crm/prospecting", label: "Prospección", icon: Sparkles, subKey: "leads" },
 ];
 
 /* ── Ops sub-items ── */

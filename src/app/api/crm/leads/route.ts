@@ -86,6 +86,47 @@ export async function POST(request: NextRequest) {
       console.error('[CRM] Error sending lead_new push:', err);
     }
 
+    // Apollo auto-enrich (background, non-blocking)
+    if (process.env.APOLLO_API_KEY) {
+      const enrichEmail = lead.email?.trim();
+      const enrichDomain = lead.website?.trim()?.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+      if (enrichEmail || enrichDomain || lead.firstName) {
+        import("@/lib/apollo-client").then(async ({ enrichPerson }) => {
+          try {
+            const result = await enrichPerson({
+              ...(enrichEmail ? { email: enrichEmail } : {}),
+              ...(enrichDomain ? { domain: enrichDomain } : {}),
+              ...(lead.firstName ? { first_name: lead.firstName } : {}),
+              ...(lead.lastName ? { last_name: lead.lastName } : {}),
+              ...(lead.companyName ? { organization_name: lead.companyName } : {}),
+            });
+            if (result.person || result.organization) {
+              const p = result.person;
+              const o = result.organization;
+              const apolloEnrichment = {
+                person: p ? { title: p.title, seniority: p.seniority, linkedinUrl: p.linkedin_url, headline: p.headline, photoUrl: p.photo_url, city: p.city, country: p.country, departments: p.departments, isLikelyToEngage: p.is_likely_to_engage } : undefined,
+                organization: o ? { name: o.name, industry: o.industry, employees: o.estimated_num_employees, annualRevenue: o.annual_revenue_printed, website: o.website_url, description: o.short_description, logoUrl: o.logo_url, keywords: o.keywords, technologies: o.technologies } : undefined,
+              };
+              const existingMeta = (lead.metadata && typeof lead.metadata === "object" && !Array.isArray(lead.metadata)) ? lead.metadata as Record<string, unknown> : {};
+              await prisma.crmLead.update({
+                where: { id: lead.id },
+                data: { metadata: { ...existingMeta, apolloEnrichment } },
+              });
+              // Auto-fill missing fields from Apollo
+              const updates: Record<string, string> = {};
+              if (!lead.industry && o?.industry) updates.industry = o.industry;
+              if (!lead.website && o?.website_url) updates.website = o.website_url;
+              if (Object.keys(updates).length > 0) {
+                await prisma.crmLead.update({ where: { id: lead.id }, data: updates });
+              }
+            }
+          } catch (err) {
+            console.error("[CRM] Apollo auto-enrich failed:", err);
+          }
+        }).catch(() => {});
+      }
+    }
+
     return NextResponse.json({ success: true, data: lead }, { status: 201 });
   } catch (error) {
     console.error("Error creating CRM lead:", error);

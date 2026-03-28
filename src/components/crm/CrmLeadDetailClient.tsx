@@ -522,6 +522,17 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   const [whatsappSentTo, setWhatsappSentTo] = useState("");
   const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
   const [detectedCompanyLogoUrl, setDetectedCompanyLogoUrl] = useState<string | null>(null);
+  const [enrichingApollo, setEnrichingApollo] = useState(false);
+  type ApolloEnrichData = {
+    person?: { title?: string; seniority?: string; linkedinUrl?: string; headline?: string; photoUrl?: string; city?: string; country?: string; departments?: string[]; isLikelyToEngage?: boolean; employmentHistory?: { company: string; title: string; current: boolean }[] };
+    organization?: { name?: string; industry?: string; employees?: number; annualRevenue?: string; website?: string; description?: string; logoUrl?: string; keywords?: string[]; technologies?: string[] };
+  };
+  const [apolloData, setApolloData] = useState<ApolloEnrichData | null>(() => {
+    // Restore from lead metadata if previously enriched
+    const meta = lead.metadata as Record<string, unknown> | undefined;
+    const saved = meta?.apolloEnrichment as ApolloEnrichData | undefined;
+    return saved && (saved.person || saved.organization) ? saved : null;
+  });
 
   // ─── Autosave borrador completo (todas las pestañas editables, debounced ~2,5s) ───
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1097,6 +1108,64 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       toast.error(detail || "No se pudo traer datos de la empresa. Verifica que la URL sea correcta e intenta de nuevo.");
     } finally {
       setEnrichingCompanyInfo(false);
+    }
+  };
+
+  // ─── Enrich from Apollo ───
+  const enrichFromApollo = async () => {
+    const email = lead.email?.trim();
+    const domain = approveForm.website?.trim()?.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    const name = [lead.firstName, lead.lastName].filter(Boolean).join(" ").trim();
+    if (!email && !domain && !name) { toast.error("Se necesita al menos email, sitio web o nombre para buscar en Apollo."); return; }
+    setEnrichingApollo(true);
+    try {
+      const response = await fetch("/api/crm/apollo/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(email ? { email } : {}),
+          ...(domain ? { domain } : {}),
+          ...(lead.firstName ? { first_name: lead.firstName } : {}),
+          ...(lead.lastName ? { last_name: lead.lastName } : {}),
+          ...(approveForm.accountName ? { organization_name: approveForm.accountName } : {}),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.success) throw new Error(payload?.error || "Error al consultar Apollo.");
+      if (!payload.data) { toast.info("No se encontró información en Apollo para este contacto."); return; }
+      const { person, organization } = payload.data;
+      setApolloData({ person, organization });
+
+      // Auto-fill campos vacíos del formulario de aprobación
+      setApproveForm((prev) => ({
+        ...prev,
+        accountName: shouldReplaceEnriched(prev.accountName) && organization?.name ? organization.name : prev.accountName,
+        industry: shouldReplaceEnriched(prev.industry) && organization?.industry ? organization.industry : prev.industry,
+        website: shouldReplaceEnriched(prev.website) && organization?.website ? organization.website : prev.website,
+        companyInfo: shouldReplaceEnriched(prev.companyInfo) && organization?.description ? organization.description : prev.companyInfo,
+      }));
+      if (organization?.logoUrl && !detectedCompanyLogoUrl) setDetectedCompanyLogoUrl(organization.logoUrl);
+
+      // Persist Apollo data to lead metadata
+      const enrichPayload = { person, organization };
+      fetch(`/api/crm/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          metadata: {
+            ...((lead.metadata && typeof lead.metadata === "object" && !Array.isArray(lead.metadata)) ? lead.metadata : {}),
+            apolloEnrichment: enrichPayload,
+          },
+        }),
+      }).catch((err) => console.error("[apollo] Error saving to metadata:", err));
+
+      toast.success("Datos de Apollo cargados correctamente.");
+    } catch (error) {
+      console.error("[apollo enrich]", error);
+      const detail = error instanceof Error ? error.message : "";
+      toast.error(detail || "No se pudo consultar Apollo. Intenta más tarde.");
+    } finally {
+      setEnrichingApollo(false);
     }
   };
 
@@ -1740,6 +1809,50 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           </div>
         )}
 
+        {/* Datos Apollo — visibles solo si hay datos reales */}
+        {apolloData && (apolloData.person?.title || apolloData.person?.seniority || apolloData.person?.linkedinUrl || apolloData.organization?.name || apolloData.organization?.industry) && (
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+            <h4 className="text-sm font-medium text-amber-400 flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              Datos Apollo
+            </h4>
+            <div className="space-y-2 text-sm">
+              {apolloData.person && (apolloData.person.title || apolloData.person.seniority || apolloData.person.linkedinUrl) && (
+                <DetailFieldGrid columns={3}>
+                  {apolloData.person.title && <DetailField label="Cargo" value={apolloData.person.title} />}
+                  {apolloData.person.seniority && <DetailField label="Seniority" value={apolloData.person.seniority} />}
+                  {(apolloData.person.city || apolloData.person.country) && <DetailField label="Ubicación" value={[apolloData.person.city, apolloData.person.country].filter(Boolean).join(", ")} />}
+                  {apolloData.person.linkedinUrl && (
+                    <DetailField label="LinkedIn" value={<a href={apolloData.person.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80 inline-flex items-center gap-1"><ExternalLink className="h-3 w-3" />Perfil</a>} />
+                  )}
+                  {apolloData.person.departments && apolloData.person.departments.length > 0 && (
+                    <DetailField label="Departamento" value={apolloData.person.departments.join(", ")} />
+                  )}
+                  {apolloData.person.headline && <DetailField label="Headline" value={apolloData.person.headline} />}
+                </DetailFieldGrid>
+              )}
+              {apolloData.organization && (apolloData.organization.name || apolloData.organization.industry) && (
+                <DetailFieldGrid columns={3}>
+                  {apolloData.organization.name && <DetailField label="Empresa (Apollo)" value={apolloData.organization.name} />}
+                  {apolloData.organization.industry && <DetailField label="Industria" value={apolloData.organization.industry} />}
+                  {apolloData.organization.employees != null && <DetailField label="Empleados" value={String(apolloData.organization.employees)} />}
+                  {apolloData.organization.annualRevenue && <DetailField label="Revenue anual" value={apolloData.organization.annualRevenue} />}
+                  {apolloData.organization.keywords && apolloData.organization.keywords.length > 0 && (
+                    <div className="md:col-span-2 lg:col-span-3">
+                      <Label className="text-xs text-muted-foreground">Keywords</Label>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {apolloData.organization.keywords.slice(0, 10).map((k) => (
+                          <Badge key={k} variant="outline" className="text-[10px]">{k}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </DetailFieldGrid>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Dotación solicitada (read-only summary) */}
         {dotacion && dotacion.length > 0 && (
           <DotacionSummary dotacion={dotacion} totalGuards={totalGuards} />
@@ -1978,10 +2091,16 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
             <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
               <div className="flex items-center justify-between gap-2">
                 <Label className="text-xs">Página web</Label>
-                <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={enrichCompanyInfoFromWebsite} disabled={enrichingCompanyInfo || !approveForm.website.trim()}>
-                  {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-                  Traer datos de la empresa
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={enrichCompanyInfoFromWebsite} disabled={enrichingCompanyInfo || !approveForm.website.trim()}>
+                    {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                    Traer datos web
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10" onClick={enrichFromApollo} disabled={enrichingApollo || (!lead.email && !approveForm.website.trim() && !lead.firstName)}>
+                    {enrichingApollo ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
+                    Apollo
+                  </Button>
+                </div>
               </div>
               <Input value={approveForm.website} onChange={(e) => updateApproveForm("website", e.target.value)} placeholder="https://www.empresa.cl" className={inputClassName} />
               <p className="text-[10px] text-muted-foreground">Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.</p>
