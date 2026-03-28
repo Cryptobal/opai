@@ -76,11 +76,12 @@ export function ApolloProspectingClient() {
   const [peopleResults, setPeopleResults] = useState<ApolloPersonResult[]>([]);
   const [peoplePagination, setPeoplePagination] = useState<{ page: number; total_entries: number; total_pages: number } | null>(null);
 
-  // Company search
-  const [orgKeywords, setOrgKeywords] = useState("guardias de seguridad");
+  // Company search — buscar PROSPECTOS que necesitan guardias, no empresas de seguridad
+  const [orgKeywords, setOrgKeywords] = useState("");
   const [orgName, setOrgName] = useState("");
   const [orgLocations, setOrgLocations] = useState("Chile");
-  const [orgEmployees, setOrgEmployees] = useState("");
+  const [orgEmployees, setOrgEmployees] = useState("51,1000");
+  const [orgIndustry, setOrgIndustry] = useState("mining,construction,retail,logistics,real estate,manufacturing,hospitality");
   const [orgResults, setOrgResults] = useState<ApolloOrgResult[]>([]);
   const [orgPagination, setOrgPagination] = useState<{ page: number; total_entries: number; total_pages: number } | null>(null);
 
@@ -117,7 +118,12 @@ export function ApolloProspectingClient() {
     setLoading(true);
     try {
       const body: Record<string, unknown> = { page, per_page: 25 };
-      if (orgKeywords.trim()) body.q_organization_keyword_tags = orgKeywords.split(",").map((t) => t.trim()).filter(Boolean);
+      // Combine industry and keywords as keyword_tags
+      const allTags = [
+        ...orgIndustry.split(",").map((t) => t.trim()).filter(Boolean),
+        ...orgKeywords.split(",").map((t) => t.trim()).filter(Boolean),
+      ];
+      if (allTags.length > 0) body.q_organization_keyword_tags = allTags;
       if (orgName.trim()) body.q_organization_name = orgName.trim();
       if (orgLocations.trim()) body.organization_locations = orgLocations.split(",").map((l) => l.trim()).filter(Boolean);
       if (orgEmployees.trim()) body.organization_num_employees_ranges = [orgEmployees.trim()];
@@ -129,16 +135,26 @@ export function ApolloProspectingClient() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || "Error en búsqueda");
-      setOrgResults(json.data.organizations || []);
+
+      // Filter out security companies (competitors) from results
+      const excludeKeywords = ["security", "seguridad", "vigilancia", "guard", "protective"];
+      const filtered = (json.data.organizations || []).filter((o: ApolloOrgResult) => {
+        const ind = (o.industry || "").toLowerCase();
+        const name = (o.name || "").toLowerCase();
+        const kws = (o.keywords || []).map((k: string) => k.toLowerCase()).join(" ");
+        return !excludeKeywords.some((ek) => ind.includes(ek) || name.includes(ek) || kws.includes(ek));
+      });
+
+      setOrgResults(filtered);
       setOrgPagination(json.data.pagination);
       setCurrentPage(page);
-      if ((json.data.organizations || []).length === 0) toast.info("No se encontraron empresas. Intenta con otros filtros.");
+      if (filtered.length === 0) toast.info("No se encontraron prospectos. Intenta con otros filtros o industrias.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al buscar");
     } finally {
       setLoading(false);
     }
-  }, [orgKeywords, orgName, orgLocations, orgEmployees]);
+  }, [orgKeywords, orgName, orgLocations, orgEmployees, orgIndustry]);
 
   const createLeadFromPerson = async (person: ApolloPersonResult) => {
     setCreatingLead(person.apolloId);
@@ -154,10 +170,26 @@ export function ApolloProspectingClient() {
           industry: person.organization?.industry || "",
           source: "apollo_prospecting",
           metadata: {
-            apolloPersonId: person.apolloId,
-            apolloTitle: person.title,
-            apolloSeniority: person.seniority,
-            apolloLinkedin: person.linkedinUrl,
+            apolloEnrichment: {
+              person: {
+                title: person.title,
+                seniority: person.seniority,
+                linkedinUrl: person.linkedinUrl,
+                headline: person.headline,
+                photoUrl: person.photoUrl,
+                city: person.city,
+                country: person.country,
+                departments: person.departments,
+                isLikelyToEngage: person.isLikelyToEngage,
+              },
+              organization: person.organization ? {
+                name: person.organization.name,
+                industry: person.organization.industry,
+                employees: person.organization.employees,
+                website: person.organization.website,
+                logoUrl: person.organization.logoUrl,
+              } : undefined,
+            },
           },
         }),
       });
@@ -184,9 +216,18 @@ export function ApolloProspectingClient() {
           source: "apollo_prospecting",
           phone: org.phone || "",
           metadata: {
-            apolloOrgId: org.apolloId,
-            apolloRevenue: org.annualRevenue,
-            apolloEmployees: org.employees,
+            apolloEnrichment: {
+              organization: {
+                name: org.name,
+                industry: org.industry,
+                employees: org.employees,
+                annualRevenue: org.annualRevenue,
+                website: org.website,
+                description: org.description,
+                logoUrl: org.logoUrl,
+                keywords: org.keywords,
+              },
+            },
           },
         }),
       });
@@ -249,14 +290,11 @@ export function ApolloProspectingClient() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">Keywords / Intención de compra</Label>
-              <Input value={orgKeywords} onChange={(e) => setOrgKeywords(e.target.value)} placeholder="guardias de seguridad, vigilancia..." className="h-8 text-sm" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Nombre empresa</Label>
-              <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Buscar por nombre..." className="h-8 text-sm" />
+              <Label className="text-xs">Industrias (separadas por coma)</Label>
+              <Input value={orgIndustry} onChange={(e) => setOrgIndustry(e.target.value)} placeholder="mining, construction, retail, logistics..." className="h-8 text-sm" />
+              <p className="text-[10px] text-muted-foreground">Empresas de estas industrias que podrían necesitar guardias. Se excluyen empresas de seguridad.</p>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Ubicación</Label>
@@ -264,7 +302,15 @@ export function ApolloProspectingClient() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Rango empleados</Label>
-              <Input value={orgEmployees} onChange={(e) => setOrgEmployees(e.target.value)} placeholder="11,50 o 51,200..." className="h-8 text-sm" />
+              <Input value={orgEmployees} onChange={(e) => setOrgEmployees(e.target.value)} placeholder="51,1000 o 1001,5000..." className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Keywords adicionales</Label>
+              <Input value={orgKeywords} onChange={(e) => setOrgKeywords(e.target.value)} placeholder="Filtros adicionales..." className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Nombre empresa</Label>
+              <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Buscar por nombre..." className="h-8 text-sm" />
             </div>
           </div>
         )}
