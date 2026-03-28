@@ -31,7 +31,14 @@ export async function POST(request: NextRequest) {
     const parsed = await parseBody(request, orgSearchSchema);
     if (parsed.error) return parsed.error;
 
-    const result = await searchOrganizations(parsed.data);
+    let result;
+    try {
+      result = await searchOrganizations(parsed.data);
+    } catch (apolloErr) {
+      console.error("[apollo/org-search] Apollo call failed:", apolloErr);
+      const detail = apolloErr instanceof Error ? apolloErr.message : "Apollo API call failed";
+      return NextResponse.json({ success: false, error: detail }, { status: 502 });
+    }
     return NextResponse.json({
       success: true,
       data: {
