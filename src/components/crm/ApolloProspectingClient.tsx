@@ -103,10 +103,11 @@ export function ApolloProspectingClient() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || "Error en búsqueda");
-      setPeopleResults(json.data.people || []);
-      setPeoplePagination(json.data.pagination);
+      const people = json.data.people || [];
+      setPeopleResults(people);
+      setPeoplePagination(json.data.pagination || { page, total_entries: people.length, total_pages: 1 });
       setCurrentPage(page);
-      if ((json.data.people || []).length === 0) toast.info("No se encontraron resultados. Intenta con otros filtros.");
+      if (people.length === 0) toast.info("No se encontraron resultados. Intenta con otros filtros.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al buscar");
     } finally {
@@ -134,11 +135,14 @@ export function ApolloProspectingClient() {
         body: JSON.stringify(body),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error || "Error en búsqueda");
+      if (!res.ok || !json.success) {
+        console.error("[org-search] API error:", json);
+        throw new Error(json.error || "Error en búsqueda de empresas");
+      }
 
-      const results = json.data.organizations || [];
+      const results = json.data?.organizations || [];
       setOrgResults(results);
-      setOrgPagination(json.data.pagination);
+      setOrgPagination(json.data?.pagination || { page, total_entries: results.length, total_pages: 1 });
       setCurrentPage(page);
       if (results.length === 0) toast.info("No se encontraron empresas. Intenta con otros filtros.");
     } catch (err) {
@@ -151,39 +155,40 @@ export function ApolloProspectingClient() {
   const createLeadFromPerson = async (person: ApolloPersonResult) => {
     setCreatingLead(person.apolloId);
     try {
+      const leadData: Record<string, unknown> = {
+        source: "apollo_prospecting",
+        metadata: {
+          apolloEnrichment: {
+            person: {
+              title: person.title,
+              seniority: person.seniority,
+              linkedinUrl: person.linkedinUrl,
+              headline: person.headline,
+              photoUrl: person.photoUrl,
+              city: person.city,
+              country: person.country,
+              departments: person.departments,
+              isLikelyToEngage: person.isLikelyToEngage,
+            },
+            organization: person.organization ? {
+              name: person.organization.name,
+              industry: person.organization.industry,
+              employees: person.organization.employees,
+              website: person.organization.website,
+              logoUrl: person.organization.logoUrl,
+            } : undefined,
+          },
+        },
+      };
+      if (person.firstName) leadData.firstName = person.firstName;
+      if (person.lastName) leadData.lastName = person.lastName;
+      if (person.organization?.name) leadData.companyName = person.organization.name;
+      if (person.organization?.website) leadData.website = person.organization.website;
+      if (person.organization?.industry) leadData.industry = person.organization.industry;
       const res = await fetch("/api/crm/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName: person.firstName || "",
-          lastName: person.lastName || "",
-          companyName: person.organization?.name || "",
-          website: person.organization?.website || "",
-          industry: person.organization?.industry || "",
-          source: "apollo_prospecting",
-          metadata: {
-            apolloEnrichment: {
-              person: {
-                title: person.title,
-                seniority: person.seniority,
-                linkedinUrl: person.linkedinUrl,
-                headline: person.headline,
-                photoUrl: person.photoUrl,
-                city: person.city,
-                country: person.country,
-                departments: person.departments,
-                isLikelyToEngage: person.isLikelyToEngage,
-              },
-              organization: person.organization ? {
-                name: person.organization.name,
-                industry: person.organization.industry,
-                employees: person.organization.employees,
-                website: person.organization.website,
-                logoUrl: person.organization.logoUrl,
-              } : undefined,
-            },
-          },
-        }),
+        body: JSON.stringify(leadData),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || "Error creando lead");
@@ -332,7 +337,7 @@ export function ApolloProspectingClient() {
       {mode === "people" && peopleResults.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            {peoplePagination?.total_entries ?? 0} resultados encontrados
+            {(peoplePagination?.total_entries || peopleResults.length) > 0 ? `${peoplePagination?.total_entries || peopleResults.length} resultados encontrados` : `${peopleResults.length} resultados`}
           </p>
           <div className="grid gap-2">
             {peopleResults.map((p) => (
@@ -380,7 +385,7 @@ export function ApolloProspectingClient() {
       {mode === "companies" && orgResults.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            {orgPagination?.total_entries ?? 0} empresas encontradas
+            {orgResults.length} empresas en esta página{orgPagination && orgPagination.total_pages > 1 ? ` (${orgPagination.total_entries || "?"} total)` : ""}
           </p>
           <div className="grid gap-2">
             {orgResults.map((o) => (
