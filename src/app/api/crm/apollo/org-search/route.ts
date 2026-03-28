@@ -32,7 +32,6 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
 
     const result = await searchOrganizations(parsed.data);
-
     return NextResponse.json({
       success: true,
       data: {

@@ -76,12 +76,12 @@ export function ApolloProspectingClient() {
   const [peopleResults, setPeopleResults] = useState<ApolloPersonResult[]>([]);
   const [peoplePagination, setPeoplePagination] = useState<{ page: number; total_entries: number; total_pages: number } | null>(null);
 
-  // Company search — buscar PROSPECTOS que necesitan guardias, no empresas de seguridad
+  // Company search
   const [orgKeywords, setOrgKeywords] = useState("");
   const [orgName, setOrgName] = useState("");
   const [orgLocations, setOrgLocations] = useState("Chile");
   const [orgEmployees, setOrgEmployees] = useState("51,1000");
-  const [orgIndustry, setOrgIndustry] = useState("mining,construction,retail,logistics,real estate,manufacturing,hospitality");
+  const [orgIndustry, setOrgIndustry] = useState("mining, construction, retail, logistics, real estate, manufacturing, hospitality");
   const [orgResults, setOrgResults] = useState<ApolloOrgResult[]>([]);
   const [orgPagination, setOrgPagination] = useState<{ page: number; total_entries: number; total_pages: number } | null>(null);
 
@@ -136,19 +136,11 @@ export function ApolloProspectingClient() {
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || "Error en búsqueda");
 
-      // Filter out security companies (competitors) from results
-      const excludeKeywords = ["security", "seguridad", "vigilancia", "guard", "protective"];
-      const filtered = (json.data.organizations || []).filter((o: ApolloOrgResult) => {
-        const ind = (o.industry || "").toLowerCase();
-        const name = (o.name || "").toLowerCase();
-        const kws = (o.keywords || []).map((k: string) => k.toLowerCase()).join(" ");
-        return !excludeKeywords.some((ek) => ind.includes(ek) || name.includes(ek) || kws.includes(ek));
-      });
-
-      setOrgResults(filtered);
+      const results = json.data.organizations || [];
+      setOrgResults(results);
       setOrgPagination(json.data.pagination);
       setCurrentPage(page);
-      if (filtered.length === 0) toast.info("No se encontraron prospectos. Intenta con otros filtros o industrias.");
+      if (results.length === 0) toast.info("No se encontraron empresas. Intenta con otros filtros.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al buscar");
     } finally {
@@ -195,7 +187,10 @@ export function ApolloProspectingClient() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || "Error creando lead");
-      toast.success(`Lead creado: ${person.name || person.firstName}`);
+      const leadId = json.data?.id;
+      toast.success(`Lead creado: ${person.name || person.firstName}`, {
+        action: leadId ? { label: "Ver lead", onClick: () => window.open(`/crm/leads/${leadId}`, "_blank") } : undefined,
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al crear lead");
     } finally {
@@ -233,7 +228,10 @@ export function ApolloProspectingClient() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error || "Error creando lead");
-      toast.success(`Lead creado: ${org.name}`);
+      const leadId = json.data?.id;
+      toast.success(`Lead creado: ${org.name}`, {
+        action: leadId ? { label: "Ver lead", onClick: () => window.open(`/crm/leads/${leadId}`, "_blank") } : undefined,
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al crear lead");
     } finally {
