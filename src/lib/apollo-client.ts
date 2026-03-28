@@ -204,6 +204,37 @@ export type OrgSearchParams = {
   page?: number;
 };
 
+type ApolloAccount = {
+  id: string;
+  name: string | null;
+  domain: string | null;
+  website_url: string | null;
+  linkedin_url: string | null;
+  logo_url: string | null;
+  phone: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  organization_city: string | null;
+  organization_country: string | null;
+  organization_state: string | null;
+  organization_revenue_printed: string | null;
+  organization_revenue: number | null;
+  industry: string | null;
+  founded_year: number | null;
+  intent_strength: string | null;
+};
+
+type RawOrgSearchResponse = {
+  accounts: ApolloAccount[];
+  pagination: {
+    page: number;
+    per_page: number;
+    total_entries: number;
+    total_pages: number;
+  };
+};
+
 export type OrgSearchResponse = {
   organizations: ApolloOrganization[];
   pagination: {
@@ -217,7 +248,37 @@ export type OrgSearchResponse = {
 export async function searchOrganizations(
   params: OrgSearchParams
 ): Promise<OrgSearchResponse> {
-  return apolloFetch<OrgSearchResponse>("/mixed_companies/search", {
+  const raw = await apolloFetch<RawOrgSearchResponse>("/mixed_companies/search", {
     body: { ...params, per_page: params.per_page ?? 25 },
   });
+  // Apollo returns data in "accounts" not "organizations"
+  return {
+    organizations: (raw.accounts || []).map((a) => ({
+      id: a.id,
+      name: a.name,
+      website_url: a.website_url || (a.domain ? `https://${a.domain}` : null),
+      linkedin_url: a.linkedin_url,
+      industry: a.industry,
+      estimated_num_employees: null,
+      founded_year: a.founded_year,
+      annual_revenue: a.organization_revenue,
+      annual_revenue_printed: a.organization_revenue_printed,
+      total_funding: null,
+      total_funding_printed: null,
+      latest_funding_stage: null,
+      phone: a.phone,
+      street_address: null,
+      city: a.organization_city || a.city,
+      state: a.organization_state || a.state,
+      country: a.organization_country || a.country,
+      postal_code: null,
+      short_description: null,
+      seo_description: null,
+      logo_url: a.logo_url,
+      keywords: [],
+      technologies: [],
+      current_technologies: [],
+    })),
+    pagination: raw.pagination,
+  };
 }

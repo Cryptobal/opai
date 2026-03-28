@@ -77,11 +77,9 @@ export function ApolloProspectingClient() {
   const [peoplePagination, setPeoplePagination] = useState<{ page: number; total_entries: number; total_pages: number } | null>(null);
 
   // Company search
-  const [orgKeywords, setOrgKeywords] = useState("");
   const [orgName, setOrgName] = useState("");
   const [orgLocations, setOrgLocations] = useState("Chile");
   const [orgEmployees, setOrgEmployees] = useState("51,1000");
-  const [orgIndustry, setOrgIndustry] = useState("mining, construction, retail, logistics, real estate, manufacturing, hospitality");
   const [orgResults, setOrgResults] = useState<ApolloOrgResult[]>([]);
   const [orgPagination, setOrgPagination] = useState<{ page: number; total_entries: number; total_pages: number } | null>(null);
 
@@ -119,12 +117,6 @@ export function ApolloProspectingClient() {
     setLoading(true);
     try {
       const body: Record<string, unknown> = { page, per_page: 25 };
-      // Combine industry and keywords as keyword_tags
-      const allTags = [
-        ...orgIndustry.split(",").map((t) => t.trim()).filter(Boolean),
-        ...orgKeywords.split(",").map((t) => t.trim()).filter(Boolean),
-      ];
-      if (allTags.length > 0) body.q_organization_keyword_tags = allTags;
       if (orgName.trim()) body.q_organization_name = orgName.trim();
       if (orgLocations.trim()) body.organization_locations = orgLocations.split(",").map((l) => l.trim()).filter(Boolean);
       if (orgEmployees.trim()) body.organization_num_employees_ranges = [orgEmployees.trim()];
@@ -150,7 +142,7 @@ export function ApolloProspectingClient() {
     } finally {
       setLoading(false);
     }
-  }, [orgKeywords, orgName, orgLocations, orgEmployees, orgIndustry]);
+  }, [orgName, orgLocations, orgEmployees]);
 
   const createLeadFromPerson = async (person: ApolloPersonResult) => {
     setCreatingLead(person.apolloId);
@@ -293,29 +285,23 @@ export function ApolloProspectingClient() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Industrias (separadas por coma)</Label>
-              <Input value={orgIndustry} onChange={(e) => setOrgIndustry(e.target.value)} placeholder="mining, construction, retail, logistics..." className="h-8 text-sm" />
-              <p className="text-[10px] text-muted-foreground">Empresas de estas industrias que podrían necesitar guardias. Se excluyen empresas de seguridad.</p>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Ubicación</Label>
+                <Input value={orgLocations} onChange={(e) => setOrgLocations(e.target.value)} placeholder="Chile, Santiago..." className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Rango empleados</Label>
+                <Input value={orgEmployees} onChange={(e) => setOrgEmployees(e.target.value)} placeholder="51,1000 o 1001,5000..." className="h-8 text-sm" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Nombre empresa</Label>
+                <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Falabella, Codelco..." className="h-8 text-sm" />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Ubicación</Label>
-              <Input value={orgLocations} onChange={(e) => setOrgLocations(e.target.value)} placeholder="Chile, Santiago..." className="h-8 text-sm" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Rango empleados</Label>
-              <Input value={orgEmployees} onChange={(e) => setOrgEmployees(e.target.value)} placeholder="51,1000 o 1001,5000..." className="h-8 text-sm" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Keywords adicionales</Label>
-              <Input value={orgKeywords} onChange={(e) => setOrgKeywords(e.target.value)} placeholder="Filtros adicionales..." className="h-8 text-sm" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Nombre empresa</Label>
-              <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Buscar por nombre..." className="h-8 text-sm" />
-            </div>
-          </div>
+            <p className="text-[10px] text-muted-foreground">Busca empresas grandes en Chile que podrían necesitar servicios de seguridad.</p>
+          </>
         )}
         <div className="flex items-center gap-2">
           <Button
