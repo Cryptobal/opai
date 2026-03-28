@@ -237,7 +237,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "crm.contacts", module: "crm", submodule: "contacts", label: "Contactos", href: "/crm/contacts" },
   { key: "crm.deals", module: "crm", submodule: "deals", label: "Negocios", href: "/crm/deals" },
   { key: "crm.quotes", module: "crm", submodule: "quotes", label: "Cotizaciones", href: "/crm/cotizaciones" },
-  { key: "crm.prospecting", module: "crm", submodule: "leads", label: "Prospección", href: "/crm/prospecting" },
+  { key: "crm.prospecting", module: "crm", submodule: "prospecting", label: "Prospección", href: "/crm/prospecting" },
   // ── Docs ──
   { key: "docs.presentaciones", module: "docs", submodule: "presentaciones", label: "Presentaciones", href: "/opai/inicio" },
   { key: "docs.gestion", module: "docs", submodule: "gestion", label: "Gestión documental", href: "/opai/documentos" },

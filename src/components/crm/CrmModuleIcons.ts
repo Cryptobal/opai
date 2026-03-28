@@ -366,6 +366,7 @@ export const SUBMODULE_TO_MODULE: Record<string, CrmModuleKey> = {
   contacts: "contacts",
   deals: "deals",
   quotes: "quotes",
+  prospecting: "leads",
 };
 
 /**
