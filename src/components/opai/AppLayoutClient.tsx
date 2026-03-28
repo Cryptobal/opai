@@ -32,6 +32,7 @@ import {
   UserRoundCheck,
   Bell,
   FileBarChart,
+  Sparkles,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, canViewInstallations, hasCapability } from '@/lib/permissions';
@@ -134,6 +135,7 @@ function AppLayoutClientInner({
         canView(permissions, 'crm', 'deals') && { href: '/crm/deals', label: 'Negocios', icon: TrendingUp, badge: notesByModule.deal },
         canView(permissions, 'crm', 'contacts') && { href: '/crm/contacts', label: 'Contactos', icon: Contact, badge: notesByModule.contact },
         canView(permissions, 'crm', 'quotes') && { href: '/crm/cotizaciones', label: 'Cotizaciones', icon: DollarSign, badge: notesByModule.quotation },
+        canView(permissions, 'crm', 'leads') && { href: '/crm/prospecting', label: 'Prospección', icon: Sparkles },
       ].filter(Boolean) as NavItem['children'],
     },
     {
