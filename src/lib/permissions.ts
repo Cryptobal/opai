@@ -69,6 +69,7 @@ export const SUBMODULE_KEYS = {
     "eventos_laborales",
     "gamificacion",
     "installations",
+    "alertas_cobertura",
   ] as const,
   crm: [
     "leads",
@@ -148,6 +149,9 @@ export const CAPABILITY_KEYS = [
   "gamificacion_bonos_aprobar",
   "dt_manage_sessions",
   "dt_view_incidents",
+  "alerta_cobertura_crear",
+  "alerta_cobertura_gestionar",
+  "alerta_cobertura_config",
 ] as const;
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
 
@@ -229,6 +233,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "ops.eventos_laborales", module: "ops", submodule: "eventos_laborales", label: "Eventos laborales", href: "/personas/guardias" },
   { key: "ops.gamificacion", module: "ops", submodule: "gamificacion", label: "Gamificación", href: "/ops/gamificacion" },
   { key: "ops.installations", module: "ops", submodule: "installations", label: "Instalaciones", href: "/crm/installations" },
+  { key: "ops.alertas_cobertura", module: "ops", submodule: "alertas_cobertura", label: "Alertas de cobertura", href: "/ops/alertas-cobertura" },
   // ── CRM ──
   { key: "crm.leads", module: "crm", submodule: "leads", label: "Leads", href: "/crm/leads" },
   { key: "crm.accounts", module: "crm", submodule: "accounts", label: "Cuentas", href: "/crm/accounts" },
@@ -305,6 +310,9 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "gamificacion_bonos_aprobar", label: "Aprobar bonos gamificación", description: "Puede aprobar o rechazar sugerencias de bono generadas por gamificación", moduleKey: "ops", submoduleKey: "gamificacion" },
   { key: "dt_manage_sessions", label: "Gestionar accesos DT", description: "Puede crear y revocar accesos temporales para inspectores de la DT", moduleKey: "fiscalizacion" },
   { key: "dt_view_incidents", label: "Ver incidentes de servicio", description: "Puede ver y registrar incidentes de servicio del sistema", moduleKey: "fiscalizacion" },
+  { key: "alerta_cobertura_crear", label: "Crear alertas de cobertura", description: "Puede crear alertas de cobertura nacional cuando falta un guardia", moduleKey: "ops", submoduleKey: "alertas_cobertura" },
+  { key: "alerta_cobertura_gestionar", label: "Gestionar alertas de cobertura", description: "Puede cancelar, re-alertar y confirmar alertas de cobertura", moduleKey: "ops", submoduleKey: "alertas_cobertura" },
+  { key: "alerta_cobertura_config", label: "Configurar alertas de cobertura", description: "Puede modificar oleadas, tiempos y parámetros del módulo de alertas", moduleKey: "ops", submoduleKey: "alertas_cobertura" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -422,6 +430,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       rendicion_submit: true,
       rendicion_approve: true,
       rendicion_view_all: true,
+      alerta_cobertura_crear: true,
+      alerta_cobertura_gestionar: true,
     },
   },
 
@@ -452,6 +462,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       rendicion_submit: true,
       rendicion_approve: true,
       rendicion_view_all: true,
+      alerta_cobertura_crear: true,
+      alerta_cobertura_gestionar: true,
     },
   },
 
@@ -461,6 +473,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "ops.rondas": "edit",
       "ops.supervision": "view",
       "ops.control_nocturno": "view",
+      "ops.alertas_cobertura": "edit",
       "crm.installations": "view",
     },
     capabilities: {
@@ -470,6 +483,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       ticket_approve: true,
       supervision_view_all: true,
       supervision_dashboard: true,
+      alerta_cobertura_crear: true,
+      alerta_cobertura_gestionar: true,
     },
   },
 
@@ -483,6 +498,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       "crm.deals": "none",
       "crm.quotes": "none",
       "ops.supervision": "full",
+      "ops.alertas_cobertura": "edit",
       "finance.rendiciones": "edit",
     },
     capabilities: {
@@ -492,6 +508,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       supervision_dashboard: true,
       rendicion_submit: true,
       rondas_configure: true,
+      alerta_cobertura_crear: true,
+      alerta_cobertura_gestionar: true,
     },
     hubLayout: "supervisor",
   },

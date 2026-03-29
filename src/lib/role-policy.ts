@@ -78,7 +78,10 @@ export type OpsCapability =
   | "rrhh_events"
   | "rondas_configure"
   | "rondas_monitor"
-  | "rondas_resolve";
+  | "rondas_resolve"
+  | "alerta_cobertura_crear"
+  | "alerta_cobertura_gestionar"
+  | "alerta_cobertura_config";
 
 export interface RolePolicy {
   rank: number;
@@ -131,6 +134,9 @@ const ALL_OPS_CAPABILITIES: OpsCapability[] = [
   "rondas_configure",
   "rondas_monitor",
   "rondas_resolve",
+  "alerta_cobertura_crear",
+  "alerta_cobertura_gestionar",
+  "alerta_cobertura_config",
 ];
 
 export const ROLE_POLICIES: Record<Role, RolePolicy> = {
@@ -184,6 +190,8 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
       "rondas_configure",
       "rondas_monitor",
       "rondas_resolve",
+      "alerta_cobertura_crear",
+      "alerta_cobertura_gestionar",
     ],
   },
   jefe_operaciones: {
@@ -203,6 +211,8 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
       "rondas_configure",
       "rondas_monitor",
       "rondas_resolve",
+      "alerta_cobertura_crear",
+      "alerta_cobertura_gestionar",
     ],
   },
   central_monitoreo: {
@@ -212,7 +222,7 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: ["installations"],
     configSubmodules: [],
     docsSubmodules: [],
-    opsCapabilities: ["rondas_monitor", "rondas_resolve"],
+    opsCapabilities: ["rondas_monitor", "rondas_resolve", "alerta_cobertura_crear", "alerta_cobertura_gestionar"],
   },
   supervisor: {
     rank: 1,
@@ -221,7 +231,7 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: ["accounts", "installations", "contacts"],
     configSubmodules: [],
     docsSubmodules: [],
-    opsCapabilities: ["guardias_plan_seleccion", "guardias_te_ingreso", "ops_execution", "rondas_monitor"],
+    opsCapabilities: ["guardias_plan_seleccion", "guardias_te_ingreso", "ops_execution", "rondas_monitor", "alerta_cobertura_crear", "alerta_cobertura_gestionar"],
   },
   viewer: {
     rank: 0,

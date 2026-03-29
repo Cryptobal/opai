@@ -207,6 +207,7 @@ model Admin {
   inventoryPhoneLineAssignments InventoryPhoneLineAssignment[]
   companyPresentationsSent CrmCompanyPresentation[]
   guardiasPlanSeleccionUpdates   OpsGuardia[] @relation("ops_guardia_intended_plan_updated_by")
+  alertasCoberturaCreadas        OpsAlertaCobertura[] @relation("alertas_cobertura_creador")
 
   @@index([email])
   @@index([status])
@@ -1622,6 +1623,7 @@ model CrmInstallation {
   gamificacionFondosPremio    GamificacionFondoPremio[]     @relation("gamificacion_fondo_installation")
   gamificacionDesafios        GamificacionDesafio[]         @relation("gamificacion_desafio_installation")
   docsOperacionales           DocOperacional[]
+  alertasCobertura            OpsAlertaCobertura[] @relation("alertas_cobertura_installation")
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -2604,6 +2606,8 @@ model OpsGuardia {
   emailLogs                    OpsEmailLog[]
   onboardingStatus             OpsOnboardingStatus?
   rendicionesBeneficiario      FinanceRendicion[]                    @relation("finance_rendicion_beneficiary")
+  alertasCoberturaAceptadas    OpsAlertaCobertura[]                  @relation("alertas_cobertura_aceptada_por")
+  alertasAceptacionIntentos    OpsAlertaAceptacion[]                 @relation("alerta_aceptacion_guardia")
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -2897,6 +2901,7 @@ model OpsPuestoOperativo {
   refuerzoSolicitudes OpsRefuerzoSolicitud[]
   series              OpsSerieAsignacion[]
   marcaciones         OpsMarcacion[]
+  alertasCobertura    OpsAlertaCobertura[] @relation("alertas_cobertura_puesto")
 
   @@index([tenantId], map: "idx_ops_puestos_tenant")
   @@index([installationId], map: "idx_ops_puestos_installation")
@@ -3507,6 +3512,7 @@ model OpsTurnoExtra {
   guardia           OpsGuardia            @relation("ops_turno_extra_guardia", fields: [guardiaId], references: [id], onDelete: Restrict)
   paymentItems      OpsPagoTeItem[]
   refuerzoSolicitud OpsRefuerzoSolicitud? @relation("ops_refuerzo_turno_extra")
+  alertaCobertura   OpsAlertaCobertura?   @relation("alerta_cobertura_turno_extra")
 
   @@index([tenantId], map: "idx_ops_turnos_extra_tenant")
   @@index([status], map: "idx_ops_turnos_extra_status")
@@ -7339,5 +7345,158 @@ model DocOperacional {
   @@index([tenantId, status], map: "idx_doc_operacional_tenant_status")
   @@index([expiresAt], map: "idx_doc_operacional_expires")
   @@map("docs_operacionales")
+  @@schema("ops")
+}
+
+// ==========================================
+// ALERTAS DE COBERTURA NACIONAL
+// ==========================================
+
+enum OpsAlertaCoberturaEstado {
+  BORRADOR
+  ACTIVA
+  ACEPTADA
+  CONFIRMADA
+  ASIGNADA_PAUTA
+  CANCELADA
+  EXPIRADA
+
+  @@schema("ops")
+}
+
+enum OpsAlertaCoberturaModalidad {
+  GGSS
+  CCTV
+  TACTICO
+
+  @@schema("ops")
+}
+
+model OpsAlertaCobertura {
+  id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId              String   @map("tenant_id")
+
+  // Creador
+  creadaPorId           String   @map("creada_por_id")
+  creadaPor             Admin    @relation("alertas_cobertura_creador", fields: [creadaPorId], references: [id])
+
+  // Ubicación
+  installationId        String   @map("installation_id") @db.Uuid
+  installation          CrmInstallation @relation("alertas_cobertura_installation", fields: [installationId], references: [id])
+  puestoId              String?  @map("puesto_id") @db.Uuid
+  puesto                OpsPuestoOperativo? @relation("alertas_cobertura_puesto", fields: [puestoId], references: [id])
+
+  // Segmentación
+  radioKm               Float    @default(30) @map("radio_km")
+  genero                String?
+  modalidad             OpsAlertaCoberturaModalidad
+  requiereOS10          Boolean  @default(true) @map("requiere_os10")
+  soloDealer            Boolean  @default(false) @map("solo_dealer")
+  soloConMovilizacion   Boolean  @default(false) @map("solo_con_movilizacion")
+
+  // Detalle del turno
+  fechaInicio           DateTime @map("fecha_inicio") @db.Timestamptz(6)
+  fechaFin              DateTime @map("fecha_fin") @db.Timestamptz(6)
+  montoOfrecido         Int      @map("monto_ofrecido")
+  funciones             String
+  urgencia              String?
+  notasInternas         String?  @map("notas_internas")
+
+  // State Machine
+  estado                OpsAlertaCoberturaEstado @default(ACTIVA)
+
+  // Oleadas
+  oleadaActual          Int      @default(0) @map("oleada_actual")
+  oleadasConfig         Json     @default("[]") @map("oleadas_config") @db.JsonB
+  proximaOleadaAt       DateTime @map("proxima_oleada_at") @db.Timestamptz(6)
+
+  // Aceptación
+  aceptadaPorGuardiaId  String?  @map("aceptada_por_guardia_id") @db.Uuid
+  aceptadaPorGuardia    OpsGuardia? @relation("alertas_cobertura_aceptada_por", fields: [aceptadaPorGuardiaId], references: [id])
+  aceptadaAt            DateTime? @map("aceptada_at") @db.Timestamptz(6)
+  esInternoAceptacion   Boolean?  @map("es_interno_aceptacion")
+
+  // Confirmación
+  confirmadaAt          DateTime? @map("confirmada_at") @db.Timestamptz(6)
+  confirmadaPorId       String?   @map("confirmada_por_id")
+  asignacionPauta       String?   @map("asignacion_pauta")
+
+  // Turno extra generado
+  turnoExtraId          String?  @unique @map("turno_extra_id") @db.Uuid
+  turnoExtra            OpsTurnoExtra? @relation("alerta_cobertura_turno_extra", fields: [turnoExtraId], references: [id])
+
+  // Re-alertas
+  reAlertaCount         Int      @default(0) @map("re_alerta_count")
+  reAlertaMotivo        String?  @map("re_alerta_motivo")
+
+  // TTL
+  expiraAt              DateTime @map("expira_at") @db.Timestamptz(6)
+
+  // Timestamps
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  canceladaAt           DateTime? @map("cancelada_at") @db.Timestamptz(6)
+  canceladaPorId        String?   @map("cancelada_por_id")
+  cancelMotivo          String?   @map("cancel_motivo")
+
+  // Relaciones
+  aceptaciones          OpsAlertaAceptacion[]
+  notificaciones        OpsAlertaNotificacion[]
+  oleadasLog            OpsAlertaOleadaLog[]
+
+  @@index([tenantId, estado], map: "idx_alertas_cobertura_tenant_estado")
+  @@index([installationId], map: "idx_alertas_cobertura_installation")
+  @@index([tenantId, createdAt], map: "idx_alertas_cobertura_tenant_created")
+  @@map("alertas_cobertura")
+  @@schema("ops")
+}
+
+model OpsAlertaAceptacion {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  alertaId        String   @map("alerta_id") @db.Uuid
+  alerta          OpsAlertaCobertura @relation(fields: [alertaId], references: [id], onDelete: Cascade)
+  guardiaId       String   @map("guardia_id") @db.Uuid
+  guardia         OpsGuardia @relation("alerta_aceptacion_guardia", fields: [guardiaId], references: [id])
+  oleadaNumero    Int      @map("oleada_numero")
+  esInterno       Boolean  @map("es_interno")
+  exito           Boolean
+  distanciaKm     Float?   @map("distancia_km")
+  intentoAt       DateTime @default(now()) @map("intento_at") @db.Timestamptz(6)
+
+  @@unique([alertaId, guardiaId], map: "uq_alerta_aceptacion_alerta_guardia")
+  @@map("alerta_aceptaciones")
+  @@schema("ops")
+}
+
+model OpsAlertaNotificacion {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  alertaId        String   @map("alerta_id") @db.Uuid
+  alerta          OpsAlertaCobertura @relation(fields: [alertaId], references: [id], onDelete: Cascade)
+  guardiaId       String   @map("guardia_id") @db.Uuid
+  oleadaNumero    Int      @map("oleada_numero")
+  canal           String
+  enviadaAt       DateTime @default(now()) @map("enviada_at") @db.Timestamptz(6)
+  entregada       Boolean  @default(false)
+  leida           Boolean  @default(false)
+  leidaAt         DateTime? @map("leida_at") @db.Timestamptz(6)
+  errorDetalle    String?  @map("error_detalle")
+
+  @@index([alertaId, oleadaNumero], map: "idx_alerta_notificaciones_alerta_oleada")
+  @@map("alerta_notificaciones")
+  @@schema("ops")
+}
+
+model OpsAlertaOleadaLog {
+  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  alertaId            String   @map("alerta_id") @db.Uuid
+  alerta              OpsAlertaCobertura @relation(fields: [alertaId], references: [id], onDelete: Cascade)
+  oleadaNumero        Int      @map("oleada_numero")
+  tipo                String
+  radioMinKm          Float?   @map("radio_min_km")
+  radioMaxKm          Float?   @map("radio_max_km")
+  guardiasNotificados Int      @default(0) @map("guardias_notificados")
+  iniciadaAt          DateTime @default(now()) @map("iniciada_at") @db.Timestamptz(6)
+
+  @@map("alerta_oleada_log")
   @@schema("ops")
 }
