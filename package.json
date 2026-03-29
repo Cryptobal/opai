@@ -13,7 +13,8 @@
     "postinstall": "prisma generate",
     "generate-icons": "node scripts/generate-gard-icons.mjs",
     "migrate:soho": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/migrate-soho-crm.ts",
-    "db:migrate": "prisma migrate deploy"
+    "db:migrate": "prisma migrate deploy",
+    "geocode-guardias": "npx tsx prisma/scripts/geocode-guardias.ts"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
