@@ -5,6 +5,7 @@ import { ensureOpsAccess, createOpsAuditLog } from "@/lib/ops";
 import { canView, hasCapability } from "@/lib/permissions";
 import { crearAlertaSchema } from "@/lib/validations/alertas-cobertura";
 import { getAlertaCoberturaConfig } from "@/lib/alertas-cobertura/config";
+import { generarOleadas } from "@/lib/alertas-cobertura/oleadas.service";
 import { addHours, addMinutes } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 
@@ -191,7 +192,76 @@ export async function POST(request: NextRequest) {
       montoOfrecido,
     });
 
-    return NextResponse.json({ success: true, data: alerta }, { status: 201 });
+    // Generar oleadas de segmentación geográfica
+    const instGeo = await prisma.crmInstallation.findUnique({
+      where: { id: body.installationId },
+      select: { lat: true, lng: true },
+    });
+
+    let oleadasGeneradas = 0;
+    if (instGeo?.lat != null && instGeo?.lng != null) {
+      try {
+        const resultado = await generarOleadas({
+          tenantId: ctx.tenantId,
+          installationId: body.installationId,
+          instalacionLat: Number(instGeo.lat),
+          instalacionLng: Number(instGeo.lng),
+          fechaInicio: new Date(body.fechaInicio),
+          fechaFin: new Date(body.fechaFin),
+          radioKm: body.radioKm ?? 30,
+          genero: body.genero ?? null,
+          modalidad: body.modalidad,
+          requiereOS10: body.requiereOS10 ?? true,
+          soloDealer: body.soloDealer ?? false,
+          soloConMovilizacion: body.soloConMovilizacion ?? false,
+        });
+
+        const primeraOleada = resultado.oleadas[0];
+        const nuevaProximaOleadaAt = primeraOleada
+          ? addMinutes(now, primeraOleada.esperaMin)
+          : expiraAt;
+
+        await prisma.opsAlertaCobertura.update({
+          where: { id: alerta.id },
+          data: {
+            oleadasConfig: resultado.oleadas as unknown as Record<string, unknown>[],
+            proximaOleadaAt: nuevaProximaOleadaAt,
+          },
+        });
+
+        // Log primera oleada
+        if (primeraOleada) {
+          await prisma.opsAlertaOleadaLog.create({
+            data: {
+              alertaId: alerta.id,
+              oleadaNumero: primeraOleada.numero,
+              tipo: primeraOleada.tipo,
+              radioMinKm: primeraOleada.radioMinKm,
+              radioMaxKm: primeraOleada.radioMaxKm,
+              guardiasNotificados: primeraOleada.guardiaCount,
+            },
+          });
+        }
+
+        oleadasGeneradas = resultado.oleadas.length;
+        // TODO Sprint 3: Disparar notificaciones a oleada 0
+        console.log(
+          `[AlertaCobertura] Alerta ${alerta.id} creada con ${resultado.oleadas.length} oleadas, ${resultado.totalGuardias} guardias totales`,
+        );
+      } catch (err) {
+        console.error("[AlertaCobertura] Error generando oleadas:", err);
+        // La alerta se creó correctamente, oleadas se pueden regenerar vía re-alerta
+      }
+    } else {
+      console.warn(
+        `[AlertaCobertura] Instalación ${body.installationId} sin coordenadas — oleadas no generadas`,
+      );
+    }
+
+    return NextResponse.json(
+      { success: true, data: { ...alerta, oleadasGeneradas } },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[AlertasCobertura] Error al crear alerta:", error);
     return NextResponse.json(

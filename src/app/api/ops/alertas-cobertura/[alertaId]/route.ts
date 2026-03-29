@@ -4,11 +4,14 @@ import { requireAuth, parseBody, resolveApiPerms } from "@/lib/api-auth";
 import { ensureOpsAccess, createOpsAuditLog } from "@/lib/ops";
 import { canView, hasCapability } from "@/lib/permissions";
 import { validarTransicion } from "@/lib/alertas-cobertura/state-machine";
+import { generarOleadas } from "@/lib/alertas-cobertura/oleadas.service";
+import { getAlertaCoberturaConfig } from "@/lib/alertas-cobertura/config";
 import {
   cancelarAlertaSchema,
   confirmarAlertaSchema,
   reAlertarSchema,
 } from "@/lib/validations/alertas-cobertura";
+import { addHours, addMinutes } from "date-fns";
 import type { OpsAlertaCoberturaEstado } from "@prisma/client";
 
 export async function GET(
@@ -111,7 +114,22 @@ export async function PATCH(
 
     const alerta = await prisma.opsAlertaCobertura.findFirst({
       where: { id: alertaId, tenantId: ctx.tenantId },
-      select: { id: true, estado: true, reAlertaCount: true },
+      select: {
+        id: true,
+        estado: true,
+        reAlertaCount: true,
+        installationId: true,
+        fechaInicio: true,
+        fechaFin: true,
+        radioKm: true,
+        genero: true,
+        modalidad: true,
+        requiereOS10: true,
+        soloDealer: true,
+        soloConMovilizacion: true,
+        expiraAt: true,
+        installation: { select: { lat: true, lng: true } },
+      },
     });
 
     if (!alerta) {
@@ -163,18 +181,67 @@ export async function PATCH(
         );
       }
 
+      // Regenerar oleadas
+      let oleadasConfig: unknown[] = [];
+      let proximaOleadaAt = new Date();
+
+      const inst = alerta.installation;
+      if (inst?.lat != null && inst?.lng != null) {
+        try {
+          const config = await getAlertaCoberturaConfig(ctx.tenantId);
+          const resultado = await generarOleadas({
+            tenantId: ctx.tenantId,
+            installationId: alerta.installationId,
+            instalacionLat: Number(inst.lat),
+            instalacionLng: Number(inst.lng),
+            fechaInicio: alerta.fechaInicio,
+            fechaFin: alerta.fechaFin,
+            radioKm: alerta.radioKm,
+            genero: alerta.genero,
+            modalidad: alerta.modalidad,
+            requiereOS10: alerta.requiereOS10,
+            soloDealer: alerta.soloDealer,
+            soloConMovilizacion: alerta.soloConMovilizacion,
+          });
+          oleadasConfig = resultado.oleadas;
+          const primeraOleada = resultado.oleadas[0];
+          proximaOleadaAt = primeraOleada
+            ? addMinutes(new Date(), primeraOleada.esperaMin)
+            : alerta.expiraAt;
+
+          if (primeraOleada) {
+            await prisma.opsAlertaOleadaLog.create({
+              data: {
+                alertaId,
+                oleadaNumero: primeraOleada.numero,
+                tipo: primeraOleada.tipo,
+                radioMinKm: primeraOleada.radioMinKm,
+                radioMaxKm: primeraOleada.radioMaxKm,
+                guardiasNotificados: primeraOleada.guardiaCount,
+              },
+            });
+          }
+
+          console.log(
+            `[AlertaCobertura] Re-alerta ${alertaId}: ${resultado.oleadas.length} oleadas, ${resultado.totalGuardias} guardias`,
+          );
+        } catch (err) {
+          console.error("[AlertaCobertura] Error regenerando oleadas en re-alerta:", err);
+        }
+      }
+
       const updated = await prisma.opsAlertaCobertura.update({
         where: { id: alertaId },
         data: {
           estado: "ACTIVA",
           oleadaActual: 0,
-          oleadasConfig: [],
+          oleadasConfig: oleadasConfig as unknown as Record<string, unknown>[],
           aceptadaPorGuardiaId: null,
           aceptadaAt: null,
           esInternoAceptacion: null,
           reAlertaCount: alerta.reAlertaCount + 1,
           reAlertaMotivo: parsed.data.motivo ?? null,
-          proximaOleadaAt: new Date(),
+          proximaOleadaAt,
         },
       });
 
