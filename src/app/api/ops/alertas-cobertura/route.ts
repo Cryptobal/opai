@@ -6,6 +6,7 @@ import { canView, hasCapability } from "@/lib/permissions";
 import { crearAlertaSchema } from "@/lib/validations/alertas-cobertura";
 import { getAlertaCoberturaConfig } from "@/lib/alertas-cobertura/config";
 import { generarOleadas } from "@/lib/alertas-cobertura/oleadas.service";
+import { notificarOleada, emitirEventoPusher } from "@/lib/alertas-cobertura/notificacion.service";
 import { addHours, addMinutes } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 
@@ -195,7 +196,7 @@ export async function POST(request: NextRequest) {
     // Generar oleadas de segmentación geográfica
     const instGeo = await prisma.crmInstallation.findUnique({
       where: { id: body.installationId },
-      select: { lat: true, lng: true },
+      select: { lat: true, lng: true, address: true },
     });
 
     let oleadasGeneradas = 0;
@@ -244,7 +245,40 @@ export async function POST(request: NextRequest) {
         }
 
         oleadasGeneradas = resultado.oleadas.length;
-        // TODO Sprint 3: Disparar notificaciones a oleada 0
+
+        // Sprint 3: Disparar notificaciones a oleada 0 (fire-and-forget)
+        if (primeraOleada && primeraOleada.guardiaIds.length > 0) {
+          notificarOleada({
+            tenantId: ctx.tenantId,
+            alertaId: alerta.id,
+            oleadaNumero: 0,
+            guardiaIds: primeraOleada.guardiaIds,
+            esInterno: primeraOleada.tipo !== "EXTERNO",
+            instalacionNombre: installation.name,
+            instalacionDireccion: instGeo?.address ?? "",
+            instalacionId: body.installationId,
+            fechaInicio: new Date(body.fechaInicio),
+            fechaFin: new Date(body.fechaFin),
+            montoOfrecido: montoOfrecido,
+            funciones: body.funciones,
+            urgencia: body.urgencia ?? null,
+            tiempoRestanteOleadaMin: primeraOleada.esperaMin,
+          }).catch((err) => console.error("[AlertaCobertura] Error notificando oleada 0:", err));
+        }
+
+        // Pusher: nueva alerta creada
+        emitirEventoPusher(ctx.tenantId, "alerta-creada", {
+          alertaId: alerta.id,
+          installationId: body.installationId,
+          instalacionNombre: installation.name,
+          estado: "ACTIVA",
+          oleadaActual: 0,
+          totalOleadas: resultado.oleadas.length,
+          totalGuardias: resultado.totalGuardias,
+          urgencia: body.urgencia ?? null,
+          montoOfrecido,
+        }).catch(() => {});
+
         console.log(
           `[AlertaCobertura] Alerta ${alerta.id} creada con ${resultado.oleadas.length} oleadas, ${resultado.totalGuardias} guardias totales`,
         );

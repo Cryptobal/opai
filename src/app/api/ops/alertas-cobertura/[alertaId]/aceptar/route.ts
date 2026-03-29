@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/api-auth";
+import { notificarSupervisorAceptacion } from "@/lib/alertas-cobertura/notificacion.service";
 
 export async function POST(
   request: NextRequest,
@@ -144,7 +145,40 @@ export async function POST(
     });
 
     if (resultado.exito) {
-      // TODO Sprint 3: Notificar supervisor (push + email + chat)
+      // Sprint 3: Notificar supervisor (fire-and-forget)
+      const alertaCompleta = await prisma.opsAlertaCobertura.findUnique({
+        where: { id: alertaId },
+        select: {
+          tenantId: true,
+          installationId: true,
+          creadaPorId: true,
+          installation: { select: { name: true } },
+        },
+      });
+
+      const guardiaData = await prisma.opsGuardia.findUnique({
+        where: { id: guardiaId },
+        include: {
+          persona: { select: { firstName: true, lastName: true, phone: true, email: true } },
+        },
+      });
+
+      if (alertaCompleta && guardiaData) {
+        notificarSupervisorAceptacion({
+          tenantId: alertaCompleta.tenantId,
+          alertaId,
+          instalacionId: alertaCompleta.installationId,
+          instalacionNombre: alertaCompleta.installation.name,
+          guardiaId,
+          guardiaNombre: `${guardiaData.persona.firstName} ${guardiaData.persona.lastName}`,
+          guardiaPhone: guardiaData.persona.phone,
+          guardiaEmail: guardiaData.persona.email,
+          distanciaKm: distanciaKm ?? null,
+          esInterno,
+          creadaPorId: alertaCompleta.creadaPorId,
+        }).catch((err) => console.error("[AlertaCobertura] Error notificando aceptación:", err));
+      }
+
       return NextResponse.json({
         success: true,
         message: "¡Turno extra confirmado! El supervisor ha sido notificado.",

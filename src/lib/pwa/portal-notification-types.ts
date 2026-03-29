@@ -241,6 +241,14 @@ export const PORTAL_NOTIFICATION_TYPES: PortalNotifTypeDef[] = [
   // PORTAL GUARDIA
   // =========================================================
   {
+    key: 'alerta_cobertura',
+    label: 'Turno Extra Disponible',
+    description: 'Alertas de turnos extra disponibles cerca de ti',
+    portals: ['guardia'],
+    defaultPush: true,
+    defaultEmail: true,
+  },
+  {
     key: 'shift_reminder',
     label: 'Recordatorio de turno',
     description: 'Recordatorio antes del inicio de tu turno',
@@ -277,6 +285,24 @@ export const PORTAL_NOTIFICATION_TYPES: PortalNotifTypeDef[] = [
     label: 'Entrega de equipamiento',
     description: 'Cuando se te entrega uniformes o equipamiento',
     portals: ['guardia'],
+    defaultPush: true,
+    defaultEmail: false,
+  },
+
+  // ── Alertas de Cobertura (admin/supervisor) ──
+  {
+    key: 'alerta_cobertura_aceptada',
+    label: 'Cobertura Resuelta',
+    description: 'Cuando un guardia acepta una alerta de cobertura',
+    portals: ['app'],
+    defaultPush: true,
+    defaultEmail: true,
+  },
+  {
+    key: 'alerta_cobertura_confirmar',
+    label: 'Confirmar Asistencia',
+    description: 'Confirmación de que el guardia se presentó al turno',
+    portals: ['app'],
     defaultPush: true,
     defaultEmail: false,
   },

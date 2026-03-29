@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAlertaCoberturaConfig } from "@/lib/alertas-cobertura/config";
+import { notificarSupervisorConfirmacion } from "@/lib/alertas-cobertura/notificacion.service";
 import { addMinutes } from "date-fns";
 
 // Cron: Confirmación post-aceptación de alertas de cobertura.
@@ -55,11 +56,17 @@ export async function GET(request: NextRequest) {
         : "Guardia";
       const nombreInstalacion = alerta.installation?.name ?? "instalación";
 
-      // TODO Sprint 3: Enviar notificación real al supervisor
-      // "¿Se presentó [nombre guardia] al turno en [instalación]?"
-      // [SÍ → confirmar AUTOMATICA] [NO → confirmar MANUAL]
+      // Sprint 3: Enviar notificación real al supervisor
+      await notificarSupervisorConfirmacion({
+        tenantId: alerta.tenantId,
+        alertaId: alerta.id,
+        creadaPorId: alerta.creadaPorId,
+        guardiaNombre: nombreGuardia,
+        instalacionNombre: nombreInstalacion,
+      });
+
       console.log(
-        `[AlertaCobertura:Cron:Confirmar] Alerta ${alerta.id}: ¿Se presentó ${nombreGuardia} al turno en ${nombreInstalacion}?`,
+        `[AlertaCobertura:Cron:Confirmar] Alerta ${alerta.id}: Notificado supervisor sobre ${nombreGuardia} en ${nombreInstalacion}`,
       );
 
       notificadas++;

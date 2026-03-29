@@ -1,0 +1,445 @@
+/**
+ * Alertas de Cobertura — Notification Service
+ *
+ * Centraliza TODOS los envíos de notificación del módulo de alertas.
+ * Se llama desde: crear alerta, cron escalar, aceptación, confirmación.
+ *
+ * Canales: Push (portal guardia), Email (Resend), Chat sistema, Bell, Pusher real-time.
+ */
+
+import { prisma } from "@/lib/prisma";
+import { sendPushToPortalUser, sendPushToSpecificAdmins } from "@/lib/pwa/push-service";
+import { sendSystemChatMessage } from "@/lib/chat-system-message";
+import { getPusherServer } from "@/lib/chat";
+import { sendNotificationToUser } from "@/lib/notification-service";
+import { resend, getTenantEmailConfig } from "@/lib/resend";
+import { render } from "@react-email/render";
+import AlertaCoberturaEmail from "@/emails/AlertaCoberturaEmail";
+import AlertaAceptadaEmail from "@/emails/AlertaAceptadaEmail";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { toZonedTime } from "date-fns-tz";
+
+const TZ = "America/Santiago";
+const SITE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+
+// ======================================
+// 1. NOTIFICAR GUARDIA — Nueva alerta disponible
+// ======================================
+
+export async function notificarGuardiaAlerta(params: {
+  tenantId: string;
+  guardiaId: string;
+  personaId: string;
+  alertaId: string;
+  esInterno: boolean;
+  oleadaNumero: number;
+  instalacionNombre: string;
+  instalacionDireccion: string;
+  fechaInicio: Date;
+  fechaFin: Date;
+  montoOfrecido: number;
+  funciones: string;
+  urgencia: string | null;
+  tiempoRestanteOleadaMin: number;
+}): Promise<{ push: boolean; email: boolean }> {
+  const resultado = { push: false, email: false };
+
+  const titulo = params.urgencia === "URGENTE"
+    ? "\uD83D\uDEA8 TURNO EXTRA URGENTE"
+    : "\u26A0\uFE0F Turno Extra Disponible";
+
+  const montoFormateado = new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0,
+  }).format(params.montoOfrecido);
+
+  const horario = formatearRangoHorario(params.fechaInicio, params.fechaFin);
+  const cuerpo = `${params.instalacionNombre}\n${horario}\n${montoFormateado}`;
+  const linkAceptar = `/portal/guardia/alertas/${params.alertaId}`;
+
+  // === PUSH (guardias internos con suscripción al portal guardia) ===
+  if (params.esInterno) {
+    try {
+      await sendPushToPortalUser({
+        tenantId: params.tenantId,
+        notifKey: "alerta_cobertura",
+        userType: "guardia",
+        userId: params.guardiaId,
+        portalType: "guardia",
+        title: titulo,
+        body: cuerpo,
+        url: linkAceptar,
+        tag: `alerta-cobertura-${params.alertaId}`,
+      });
+      resultado.push = true;
+    } catch (e) {
+      console.error("[AlertaCobertura:Notif] Push error:", e);
+    }
+  }
+
+  // === EMAIL ===
+  try {
+    const persona = await prisma.opsPersona.findUnique({
+      where: { id: params.personaId },
+      select: { email: true, personalEmail: true, firstName: true },
+    });
+
+    const emailDestino = persona?.personalEmail || persona?.email;
+    if (emailDestino) {
+      const emailConfig = await getTenantEmailConfig(params.tenantId);
+      const html = await render(
+        AlertaCoberturaEmail({
+          nombre: persona.firstName ?? "Guardia",
+          instalacion: params.instalacionNombre,
+          direccion: params.instalacionDireccion,
+          horario,
+          monto: montoFormateado,
+          funciones: params.funciones,
+          urgencia: params.urgencia,
+          linkAceptar: `${SITE_URL}${linkAceptar}`,
+          esInterno: params.esInterno,
+          tiempoRestanteMin: params.tiempoRestanteOleadaMin,
+        }),
+      );
+
+      await resend.emails.send({
+        from: emailConfig.from,
+        replyTo: emailConfig.replyTo,
+        to: emailDestino,
+        subject: titulo,
+        html,
+      });
+      resultado.email = true;
+    }
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Email error:", e);
+  }
+
+  // === REGISTRAR en DB ===
+  const canales: string[] = [];
+  if (resultado.push) canales.push("PUSH");
+  if (resultado.email) canales.push("EMAIL");
+
+  for (const canal of canales) {
+    await prisma.opsAlertaNotificacion.create({
+      data: {
+        alertaId: params.alertaId,
+        guardiaId: params.guardiaId,
+        oleadaNumero: params.oleadaNumero,
+        canal,
+      },
+    }).catch((err) => console.error("[AlertaCobertura:Notif] DB log error:", err));
+  }
+
+  return resultado;
+}
+
+// ======================================
+// 2. NOTIFICAR OLEADA COMPLETA — Batch
+// ======================================
+
+export async function notificarOleada(params: {
+  tenantId: string;
+  alertaId: string;
+  oleadaNumero: number;
+  guardiaIds: string[];
+  esInterno: boolean;
+  instalacionNombre: string;
+  instalacionDireccion: string;
+  instalacionId: string;
+  fechaInicio: Date;
+  fechaFin: Date;
+  montoOfrecido: number;
+  funciones: string;
+  urgencia: string | null;
+  tiempoRestanteOleadaMin: number;
+}): Promise<{ total: number; exitosas: number; fallidas: number }> {
+  let exitosas = 0;
+  let fallidas = 0;
+
+  // Obtener datos de todos los guardias de la oleada
+  const guardias = await prisma.opsGuardia.findMany({
+    where: { id: { in: params.guardiaIds } },
+    select: {
+      id: true,
+      persona: {
+        select: { id: true, email: true, personalEmail: true, phone: true, firstName: true, lastName: true },
+      },
+    },
+  });
+
+  for (const guardia of guardias) {
+    try {
+      await notificarGuardiaAlerta({
+        tenantId: params.tenantId,
+        guardiaId: guardia.id,
+        personaId: guardia.persona.id,
+        alertaId: params.alertaId,
+        esInterno: params.esInterno,
+        oleadaNumero: params.oleadaNumero,
+        instalacionNombre: params.instalacionNombre,
+        instalacionDireccion: params.instalacionDireccion,
+        fechaInicio: params.fechaInicio,
+        fechaFin: params.fechaFin,
+        montoOfrecido: params.montoOfrecido,
+        funciones: params.funciones,
+        urgencia: params.urgencia,
+        tiempoRestanteOleadaMin: params.tiempoRestanteOleadaMin,
+      });
+      exitosas++;
+    } catch (e) {
+      console.error(`[AlertaCobertura:Notif] Error notificando guardia ${guardia.id}:`, e);
+      fallidas++;
+    }
+  }
+
+  // === CHAT DE INSTALACIÓN ===
+  try {
+    const installation = await prisma.crmInstallation.findUnique({
+      where: { id: params.instalacionId },
+      select: { chatEnabled: true, chatChannel: { select: { id: true } } },
+    });
+
+    if (installation?.chatEnabled && installation?.chatChannel?.id) {
+      const tipoOleada = params.esInterno ? "personal interno" : "pool externo";
+      await sendSystemChatMessage({
+        tenantId: params.tenantId,
+        channelId: installation.chatChannel.id,
+        content: `\u26A0\uFE0F Alerta de cobertura activada — Oleada ${params.oleadaNumero + 1} (${tipoOleada}): ${params.guardiaIds.length} guardias notificados.${params.urgencia === "URGENTE" ? " \uD83D\uDEA8 URGENTE" : ""}`,
+        systemEventType: "alerta_cobertura",
+        systemEventData: {
+          alertaId: params.alertaId,
+          oleadaNumero: params.oleadaNumero,
+          guardiaCount: params.guardiaIds.length,
+          tipo: params.esInterno ? "INTERNA" : "EXTERNA",
+          link: `/ops/alertas-cobertura/${params.alertaId}`,
+        },
+      });
+    }
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Chat error:", e);
+  }
+
+  // === PUSHER REAL-TIME (para dashboard supervisor) ===
+  try {
+    const pusher = getPusherServer();
+    await pusher.trigger(`alertas-cobertura-${params.tenantId}`, "oleada-activada", {
+      alertaId: params.alertaId,
+      oleadaNumero: params.oleadaNumero,
+      guardiaCount: params.guardiaIds.length,
+      esInterno: params.esInterno,
+      exitosas,
+      fallidas,
+    });
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Pusher error:", e);
+  }
+
+  return { total: params.guardiaIds.length, exitosas, fallidas };
+}
+
+// ======================================
+// 3. NOTIFICAR SUPERVISOR — Guardia aceptó
+// ======================================
+
+export async function notificarSupervisorAceptacion(params: {
+  tenantId: string;
+  alertaId: string;
+  instalacionId: string;
+  instalacionNombre: string;
+  guardiaId: string;
+  guardiaNombre: string;
+  guardiaPhone: string | null;
+  guardiaEmail: string | null;
+  distanciaKm: number | null;
+  esInterno: boolean;
+  creadaPorId: string;
+}): Promise<void> {
+  const linkAlerta = `/ops/alertas-cobertura/${params.alertaId}`;
+
+  // 1. Push al admin que creó la alerta
+  try {
+    await sendPushToSpecificAdmins(
+      params.tenantId,
+      [params.creadaPorId],
+      "alerta_cobertura_aceptada",
+      "Cobertura Resuelta",
+      `${params.guardiaNombre} aceptó el turno en ${params.instalacionNombre}`,
+      linkAlerta,
+    );
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Push supervisor error:", e);
+  }
+
+  // 2. Email al admin
+  try {
+    const admin = await prisma.admin.findUnique({
+      where: { id: params.creadaPorId },
+      select: { email: true, name: true },
+    });
+    if (admin?.email) {
+      const emailConfig = await getTenantEmailConfig(params.tenantId);
+      const html = await render(
+        AlertaAceptadaEmail({
+          supervisorNombre: admin.name,
+          guardiaNombre: params.guardiaNombre,
+          guardiaPhone: params.guardiaPhone,
+          guardiaEmail: params.guardiaEmail,
+          instalacion: params.instalacionNombre,
+          distanciaKm: params.distanciaKm,
+          esInterno: params.esInterno,
+          linkAlerta: `${SITE_URL}${linkAlerta}`,
+        }),
+      );
+
+      await resend.emails.send({
+        from: emailConfig.from,
+        replyTo: emailConfig.replyTo,
+        to: admin.email,
+        subject: "\u2705 Cobertura Resuelta",
+        html,
+      });
+    }
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Email supervisor error:", e);
+  }
+
+  // 3. Chat de instalación
+  try {
+    const installation = await prisma.crmInstallation.findUnique({
+      where: { id: params.instalacionId },
+      select: { chatEnabled: true, chatChannel: { select: { id: true } } },
+    });
+
+    if (installation?.chatEnabled && installation?.chatChannel?.id) {
+      await sendSystemChatMessage({
+        tenantId: params.tenantId,
+        channelId: installation.chatChannel.id,
+        content: `\u2705 Cobertura resuelta — ${params.guardiaNombre} aceptó el turno extra.${params.esInterno ? "" : " (Personal externo)"}`,
+        systemEventType: "alerta_cobertura_aceptada",
+        systemEventData: {
+          alertaId: params.alertaId,
+          guardiaId: params.guardiaId,
+          guardiaNombre: params.guardiaNombre,
+        },
+      });
+    }
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Chat aceptación error:", e);
+  }
+
+  // 4. Notificación bell
+  try {
+    await sendNotificationToUser({
+      tenantId: params.tenantId,
+      targetUserId: params.creadaPorId,
+      type: "alerta_cobertura_aceptada",
+      title: "Cobertura Resuelta",
+      message: `${params.guardiaNombre} aceptó el turno en ${params.instalacionNombre}`,
+      link: linkAlerta,
+      data: { alertaId: params.alertaId },
+    });
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Bell error:", e);
+  }
+
+  // 5. Pusher real-time (dashboard se actualiza)
+  try {
+    const pusher = getPusherServer();
+    await pusher.trigger(`alertas-cobertura-${params.tenantId}`, "alerta-aceptada", {
+      alertaId: params.alertaId,
+      guardiaId: params.guardiaId,
+      guardiaNombre: params.guardiaNombre,
+      esInterno: params.esInterno,
+    });
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Pusher aceptación error:", e);
+  }
+}
+
+// ======================================
+// 4. NOTIFICAR SUPERVISOR — Confirmación post-turno
+// ======================================
+
+export async function notificarSupervisorConfirmacion(params: {
+  tenantId: string;
+  alertaId: string;
+  creadaPorId: string;
+  guardiaNombre: string;
+  instalacionNombre: string;
+}): Promise<void> {
+  const linkAlerta = `/ops/alertas-cobertura/${params.alertaId}`;
+
+  // Push
+  try {
+    await sendPushToSpecificAdmins(
+      params.tenantId,
+      [params.creadaPorId],
+      "alerta_cobertura_confirmar",
+      "Confirmación de Cobertura",
+      `¿Se presentó ${params.guardiaNombre} al turno en ${params.instalacionNombre}?`,
+      linkAlerta,
+    );
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Push confirmación error:", e);
+  }
+
+  // Bell notification
+  try {
+    await sendNotificationToUser({
+      tenantId: params.tenantId,
+      targetUserId: params.creadaPorId,
+      type: "alerta_cobertura_confirmar",
+      title: "Confirmar Asistencia",
+      message: `¿Se presentó ${params.guardiaNombre} al turno en ${params.instalacionNombre}?`,
+      link: linkAlerta,
+      data: { alertaId: params.alertaId },
+    });
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Bell confirmación error:", e);
+  }
+
+  // Pusher real-time
+  try {
+    const pusher = getPusherServer();
+    await pusher.trigger(`alertas-cobertura-${params.tenantId}`, "alerta-pendiente-confirmacion", {
+      alertaId: params.alertaId,
+      guardiaNombre: params.guardiaNombre,
+      instalacionNombre: params.instalacionNombre,
+    });
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Pusher confirmación error:", e);
+  }
+}
+
+// ======================================
+// 5. PUSHER — Eventos genéricos de estado
+// ======================================
+
+export async function emitirEventoPusher(
+  tenantId: string,
+  evento: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const pusher = getPusherServer();
+    await pusher.trigger(`alertas-cobertura-${tenantId}`, evento, data);
+  } catch (e) {
+    console.error(`[AlertaCobertura:Notif] Pusher ${evento} error:`, e);
+  }
+}
+
+// ======================================
+// HELPERS
+// ======================================
+
+function formatearRangoHorario(inicio: Date, fin: Date): string {
+  const inicioZoned = toZonedTime(inicio, TZ);
+  const finZoned = toZonedTime(fin, TZ);
+  const dia = format(inicioZoned, "EEE d MMM", { locale: es });
+  const horaInicio = format(inicioZoned, "HH:mm");
+  const horaFin = format(finZoned, "HH:mm");
+  return `${dia} | ${horaInicio} - ${horaFin}`;
+}

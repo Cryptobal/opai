@@ -337,6 +337,48 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultEmail: false,
   },
 
+  // ── Operaciones - Alertas de Cobertura (requiere ops.alertas_cobertura) ──
+  {
+    key: "alerta_cobertura_nueva",
+    label: "Nueva alerta de cobertura",
+    description: "Cuando se crea una nueva alerta de cobertura y se notifican guardias",
+    module: "ops",
+    submodule: "alertas_cobertura",
+    category: "Operaciones - Cobertura",
+    defaultBell: true,
+    defaultEmail: true,
+  },
+  {
+    key: "alerta_cobertura_aceptada",
+    label: "Alerta de cobertura aceptada",
+    description: "Cuando un guardia acepta una alerta de cobertura",
+    module: "ops",
+    submodule: "alertas_cobertura",
+    category: "Operaciones - Cobertura",
+    defaultBell: true,
+    defaultEmail: true,
+  },
+  {
+    key: "alerta_cobertura_confirmar",
+    label: "Confirmar asistencia de cobertura",
+    description: "Solicitud para confirmar si el guardia se presentó al turno",
+    module: "ops",
+    submodule: "alertas_cobertura",
+    category: "Operaciones - Cobertura",
+    defaultBell: true,
+    defaultEmail: false,
+  },
+  {
+    key: "alerta_cobertura_expirada",
+    label: "Alerta de cobertura expirada",
+    description: "Cuando una alerta de cobertura expira sin ser aceptada",
+    module: "ops",
+    submodule: "alertas_cobertura",
+    category: "Operaciones - Cobertura",
+    defaultBell: true,
+    defaultEmail: false,
+  },
+
   // ── CRM - Portal Cliente ──
   {
     key: "portal_cliente_access_granted",

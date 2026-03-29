@@ -150,6 +150,9 @@ self.addEventListener('push', (event) => {
   // Panic alerts get aggressive vibration and persistent display
   const isPanicNotif = title && (title.includes('\uD83C\uDE9A') || title.includes('🆘') || title.includes('PÁNICO') || title.includes('PANICO'));
 
+  // Alerta de cobertura: urgent notifications with require interaction
+  const isAlertaCobertura = notifData?.type === 'alerta_cobertura' || (tag && tag.startsWith('alerta-cobertura-'));
+
   const options = {
     body: displayBody,
     icon: icon || '/icons/icon-192x192.png',
@@ -160,8 +163,9 @@ self.addEventListener('push', (event) => {
     silent: silent || false,
     timestamp: timestamp || Date.now(),
     data: notifData,
-    vibrate: isPanicNotif ? [500, 200, 500, 200, 500, 200, 500] : [200, 100, 200],
-    requireInteraction: isPanicNotif ? true : undefined,
+    vibrate: isPanicNotif ? [500, 200, 500, 200, 500, 200, 500] : isAlertaCobertura ? [300, 100, 300] : [200, 100, 200],
+    requireInteraction: isPanicNotif || isAlertaCobertura ? true : undefined,
+    actions: data.actions || undefined,
   };
 
   // Notify open clients for in-app toast (Prompt 3)
@@ -212,6 +216,14 @@ self.addEventListener('notificationclick', (event) => {
   // Handle action clicks
   if (event.action === 'dismiss') {
     return; // Just close, don't navigate
+  }
+
+  // Alerta de cobertura: "aceptar" action — navigate to acceptance page
+  if (event.action === 'aceptar' && event.notification.data?.type === 'alerta_cobertura') {
+    const alertaUrl = event.notification.data?.url || '/portal/guardia/alertas';
+    const target = new URL(alertaUrl, self.location.origin);
+    event.waitUntil(self.clients.openWindow(target.href));
+    return;
   }
 
   // Mark notification as read if notificationId is present

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addMinutes } from "date-fns";
+import { notificarOleada } from "@/lib/alertas-cobertura/notificacion.service";
 
 // Cron: Escalamiento de oleadas de alertas de cobertura.
 // Frecuencia: cada 1 minuto
@@ -72,7 +73,42 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      // TODO Sprint 3: notificar guardias de oleada[siguienteOleada].guardiaIds
+      // Sprint 3: notificar guardias de la oleada escalada (fire-and-forget)
+      if (oleada.guardiaIds && oleada.guardiaIds.length > 0) {
+        const alertaCompleta = await prisma.opsAlertaCobertura.findUnique({
+          where: { id: alerta.id },
+          select: {
+            tenantId: true,
+            fechaInicio: true,
+            fechaFin: true,
+            montoOfrecido: true,
+            funciones: true,
+            urgencia: true,
+            installationId: true,
+            installation: { select: { name: true, address: true } },
+          },
+        });
+
+        if (alertaCompleta) {
+          notificarOleada({
+            tenantId: alertaCompleta.tenantId,
+            alertaId: alerta.id,
+            oleadaNumero: siguienteOleada,
+            guardiaIds: oleada.guardiaIds,
+            esInterno: oleada.tipo !== "EXTERNO",
+            instalacionNombre: alertaCompleta.installation.name,
+            instalacionDireccion: alertaCompleta.installation.address ?? "",
+            instalacionId: alertaCompleta.installationId,
+            fechaInicio: alertaCompleta.fechaInicio,
+            fechaFin: alertaCompleta.fechaFin,
+            montoOfrecido: alertaCompleta.montoOfrecido,
+            funciones: alertaCompleta.funciones,
+            urgencia: alertaCompleta.urgencia,
+            tiempoRestanteOleadaMin: oleada.esperaMin,
+          }).catch((err) => console.error(`[AlertaCobertura:Cron] Error notificando oleada ${siguienteOleada}:`, err));
+        }
+      }
+
       console.log(
         `[AlertaCobertura:Cron:Escalar] Alerta ${alerta.id} escalada a oleada ${siguienteOleada} (${oleada.tipo}), ${oleada.guardiaCount} guardias`,
       );
