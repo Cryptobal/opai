@@ -1,10 +1,8 @@
 /**
- * Alertas de Cobertura — WhatsApp Service (Twilio Content API)
+ * Alertas de Cobertura — WhatsApp Service (Twilio)
  *
- * Envía alertas de turno extra via WhatsApp usando Content Templates API de Twilio.
- * Template: "alerta_turno_extra" (UTILITY / Call to Action)
- * Body vars: {{1}}-{{5}} (instalación, horario, monto, modalidad, funciones)
- * Button URL var: {{1}} suffix para link de aceptación
+ * Envía alertas de turno extra via WhatsApp.
+ * Estrategia: Content Template si está configurado, sino texto plano.
  */
 
 import Twilio from "twilio";
@@ -12,7 +10,9 @@ import Twilio from "twilio";
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const fromNumber = process.env.TWILIO_WHATSAPP_FROM;
-const contentSid = process.env.TWILIO_WHATSAPP_CONTENT_SID;
+const contentSid = process.env.TWILIO_WHATSAPP_CONTENT_SID; // Optional
+
+const SITE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
 
 let twilioClient: Twilio.Twilio | null = null;
 
@@ -41,7 +41,7 @@ export async function enviarAlertaWhatsApp(
   params: EnviarAlertaWhatsAppParams,
 ): Promise<{ success: boolean; messageSid?: string; error?: string }> {
   const client = getClient();
-  if (!client || !fromNumber || !contentSid) {
+  if (!client || !fromNumber) {
     console.warn("[WhatsApp] Twilio not configured, skipping");
     return { success: false, error: "Twilio not configured" };
   }
@@ -52,37 +52,64 @@ export async function enviarAlertaWhatsApp(
     return { success: false, error: "Teléfono inválido" };
   }
 
+  const to = `whatsapp:${telefonoNormalizado}`;
+
+  // Estrategia 1: Content Template (si está configurado y aprobado)
+  if (contentSid) {
+    try {
+      const message = await client.messages.create({
+        from: fromNumber,
+        to,
+        contentSid,
+        contentVariables: JSON.stringify({
+          "1": params.instalacion.substring(0, 200),
+          "2": params.horario.substring(0, 100),
+          "3": params.monto.substring(0, 50),
+          "4": params.modalidad.substring(0, 100),
+          "5": params.funciones.substring(0, 200),
+        }),
+      });
+
+      console.log(`[WhatsApp] Template enviado a ${telefonoNormalizado}: SID=${message.sid}`);
+      return { success: true, messageSid: message.sid };
+    } catch (templateError: any) {
+      console.warn(`[WhatsApp] Template falló (${templateError?.code || templateError?.message}), intentando texto plano...`);
+      // Fall through to plain text
+    }
+  }
+
+  // Estrategia 2: Texto plano con link
   try {
+    const linkAceptar = `${SITE_URL}/alerta/${params.urlPath}`;
+    const body = [
+      "⚠️ *TURNO EXTRA DISPONIBLE*",
+      "",
+      `📍 ${params.instalacion}`,
+      `📅 ${params.horario}`,
+      `💰 ${params.monto}`,
+      `🛡️ ${params.modalidad}`,
+      "",
+      params.funciones,
+      "",
+      `👉 Aceptar turno: ${linkAceptar}`,
+    ].join("\n");
+
     const message = await client.messages.create({
       from: fromNumber,
-      to: `whatsapp:${telefonoNormalizado}`,
-      contentSid,
-      contentVariables: JSON.stringify({
-        "1": params.instalacion.substring(0, 200),
-        "2": params.horario.substring(0, 100),
-        "3": params.monto.substring(0, 50),
-        "4": params.modalidad.substring(0, 100),
-        "5": params.funciones.substring(0, 200),
-      }),
+      to,
+      body,
     });
 
-    console.log(
-      `[WhatsApp] Enviado a ${telefonoNormalizado}: SID=${message.sid}, Status=${message.status}`,
-    );
+    console.log(`[WhatsApp] Texto plano enviado a ${telefonoNormalizado}: SID=${message.sid}`);
     return { success: true, messageSid: message.sid };
   } catch (error: any) {
-    console.error(
-      `[WhatsApp] Error enviando a ${telefonoNormalizado}:`,
-      error?.message || error,
-    );
+    console.error(`[WhatsApp] Error enviando a ${telefonoNormalizado}:`, error?.message || error);
     return { success: false, error: error?.message || "Error desconocido" };
   }
 }
 
 /**
  * Normaliza teléfono chileno a formato E.164 (+56XXXXXXXXX).
- * Soporta: +56912345678, 56912345678, 912345678, 12345678
- * También acepta formatos internacionales con +.
  */
 function normalizarTelefonoChileno(telefono: string): string | null {
   if (!telefono) return null;
@@ -100,5 +127,5 @@ function normalizarTelefonoChileno(telefono: string): string | null {
 }
 
 export function isWhatsAppConfigured(): boolean {
-  return !!(accountSid && authToken && fromNumber && contentSid);
+  return !!(accountSid && authToken && fromNumber);
 }
