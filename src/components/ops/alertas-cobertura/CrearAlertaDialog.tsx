@@ -327,8 +327,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
                 <SelectContent>
                   <SelectItem value="GGSS">GGSS — Guardia de Seguridad</SelectItem>
                   <SelectItem value="CCTV">CCTV — Monitoreo Cámaras</SelectItem>
-                  <SelectItem value="CONTROL_ACCESO">Control de Acceso</SelectItem>
-                  <SelectItem value="RONDAS">Rondas</SelectItem>
+                  <SelectItem value="TACTICO">Táctico</SelectItem>
                   <SelectItem value="MIXTO">Mixto</SelectItem>
                 </SelectContent>
               </Select>
