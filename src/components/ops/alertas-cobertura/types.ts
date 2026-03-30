@@ -124,6 +124,11 @@ export interface IndiceGeograficoItem {
   };
   scoreOptimizacion: number;
   alertas: string | null;
+  guardias?: Array<{
+    id: string;
+    nombre: string;
+    distanciaKm: number | null;
+  }>;
 }
 
 export interface AlertaCoberturaConfig {

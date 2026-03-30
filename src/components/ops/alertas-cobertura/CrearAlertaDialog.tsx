@@ -280,12 +280,12 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
             {puestos.length > 0 && (
               <div className="space-y-1.5">
                 <Label>Puesto</Label>
-                <Select value={puestoId} onValueChange={setPuestoId}>
+                <Select value={puestoId || "__all__"} onValueChange={(v) => setPuestoId(v === "__all__" ? "" : v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Todos los puestos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos los puestos</SelectItem>
+                    <SelectItem value="__all__">Todos los puestos</SelectItem>
                     {puestos.map((p) => (
                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
@@ -399,12 +399,12 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
 
               <div className="space-y-1.5">
                 <Label>Género</Label>
-                <Select value={genero} onValueChange={setGenero}>
+                <Select value={genero || "__none__"} onValueChange={(v) => setGenero(v === "__none__" ? "" : v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sin restricción" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sin restricción</SelectItem>
+                    <SelectItem value="__none__">Sin restricción</SelectItem>
                     <SelectItem value="M">Masculino</SelectItem>
                     <SelectItem value="F">Femenino</SelectItem>
                   </SelectContent>

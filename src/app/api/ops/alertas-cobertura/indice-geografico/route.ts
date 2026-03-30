@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         guardia: {
           select: {
             persona: {
-              select: { lat: true, lng: true },
+              select: { firstName: true, lastName: true, lat: true, lng: true },
             },
           },
         },
@@ -84,19 +84,31 @@ export async function GET(request: NextRequest) {
 
       let sinCoordenadas = 0;
       const distancias: number[] = [];
+      const guardiasDetalle: Array<{ id: string; nombre: string; distanciaKm: number | null }> = [];
 
       for (const g of guardias) {
         const gLat = g.guardia?.persona?.lat;
         const gLng = g.guardia?.persona?.lng;
+        const nombre = `${g.guardia?.persona?.firstName ?? ""} ${g.guardia?.persona?.lastName ?? ""}`.trim() || "Sin nombre";
 
         if (gLat == null || gLng == null) {
           sinCoordenadas++;
+          guardiasDetalle.push({ id: g.guardiaId, nombre, distanciaKm: null });
           continue;
         }
 
         const distM = haversineDistance(instLat, instLng, Number(gLat), Number(gLng));
-        distancias.push(distM / 1000);
+        const distKm = Math.round((distM / 1000) * 10) / 10;
+        distancias.push(distKm);
+        guardiasDetalle.push({ id: g.guardiaId, nombre, distanciaKm: distKm });
       }
+
+      // Ordenar por distancia (null al final)
+      guardiasDetalle.sort((a, b) => {
+        if (a.distanciaKm == null) return 1;
+        if (b.distanciaKm == null) return -1;
+        return a.distanciaKm - b.distanciaKm;
+      });
 
       const cercanos = distancias.filter((d) => d <= 5).length;
       const medianos = distancias.filter((d) => d > 5 && d <= 15).length;
@@ -150,6 +162,7 @@ export async function GET(request: NextRequest) {
         },
         scoreOptimizacion: Math.max(0, Math.min(100, score)),
         alertas: alertas.length > 0 ? alertas.join(" | ") : null,
+        guardias: guardiasDetalle,
       };
     });
 

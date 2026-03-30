@@ -134,6 +134,9 @@ export function IndiceGeografico() {
                 </Badge>
               </div>
               <p className="text-sm font-medium truncate">{item.name}</p>
+              {item.commune && (
+                <p className="text-[10px] text-muted-foreground truncate">{item.commune}{item.city ? `, ${item.city}` : ""}</p>
+              )}
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                 <Users className="h-3 w-3" />
                 {item.totalGuardias} guardias · avg {item.distanciaPromedioKm}km
@@ -185,6 +188,31 @@ export function IndiceGeografico() {
                 </span>
               )}
             </div>
+
+            {/* Guard list */}
+            {selected.guardias && selected.guardias.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Guardias asignados</p>
+                <div className="rounded-lg border border-zinc-800 divide-y divide-zinc-800">
+                  {selected.guardias.map((g) => (
+                    <div key={g.id} className="flex items-center justify-between px-3 py-2">
+                      <span className="text-sm">{g.nombre}</span>
+                      {g.distanciaKm != null ? (
+                        <span className={`text-xs font-mono ${
+                          g.distanciaKm <= 5 ? "text-emerald-400" :
+                          g.distanciaKm <= 15 ? "text-amber-400" :
+                          g.distanciaKm <= 30 ? "text-orange-400" : "text-red-400"
+                        }`}>
+                          {g.distanciaKm} km
+                        </span>
+                      ) : (
+                        <span className="text-xs text-zinc-500">Sin coords</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {selected.alertas && (
               <div className="rounded-md bg-amber-500/10 border border-amber-500/20 p-2">

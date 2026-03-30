@@ -24,6 +24,7 @@ import {
   Shield,
   Sparkles,
   Trophy,
+  Siren,
 } from "lucide-react";
 
 type ConfigItem = {
@@ -198,6 +199,13 @@ const CONFIG_SECTIONS: ConfigSection[] = [
         description: "Pesos, niveles, puntos, badges y beneficios",
         icon: Trophy,
         adminOnly: true,
+      },
+      {
+        submodule: "alertas_cobertura",
+        href: "/opai/configuracion/alertas-cobertura",
+        title: "Alertas de Cobertura",
+        description: "Oleadas, tiempos, canales y parámetros de alertas",
+        icon: Siren,
       },
     ],
   },
