@@ -2561,15 +2561,17 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                           data?: { sentTo?: string; whatsappMessage?: string; whatsappPhone?: string | null };
                         }>(res);
                         if (!res.ok || !data.success) throw new Error(data.error || "Error al enviar");
-                        toast.success(`Propuesta enviada a ${data.data.sentTo}`);
+                        const payload = data.data;
+                        if (!payload?.sentTo) throw new Error("Respuesta incompleta del servidor");
+                        toast.success(`Propuesta enviada a ${payload.sentTo}`);
                         setApprovalResult(null);
-                        if (data.data.whatsappMessage) {
-                          const phone = data.data.whatsappPhone ?? "";
+                        if (payload.whatsappMessage) {
+                          const phone = payload.whatsappPhone ?? "";
                           const waUrl = phone
-                            ? `https://wa.me/${phone}?text=${encodeURIComponent(data.data.whatsappMessage)}`
-                            : `https://wa.me/?text=${encodeURIComponent(data.data.whatsappMessage)}`;
+                            ? `https://wa.me/${phone}?text=${encodeURIComponent(payload.whatsappMessage)}`
+                            : `https://wa.me/?text=${encodeURIComponent(payload.whatsappMessage)}`;
                           setWhatsappUrl(waUrl);
-                          setWhatsappSentTo(data.data.sentTo ?? "");
+                          setWhatsappSentTo(payload.sentTo ?? "");
                           setWhatsappModalOpen(true);
                         } else {
                           router.push("/crm/leads");
