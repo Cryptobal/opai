@@ -30,7 +30,8 @@ export function CedulaQRScanner({ onResult, onCancel }: Props) {
         const scanner = new Html5Qrcode(scannerId, {
           formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
           experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-        });
+          verbose: false,
+        } as import("html5-qrcode/esm/html5-qrcode").Html5QrcodeFullConfig);
         html5QrRef.current = scanner;
 
         await scanner.start(
