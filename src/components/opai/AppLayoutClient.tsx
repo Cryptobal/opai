@@ -33,6 +33,7 @@ import {
   Bell,
   FileBarChart,
   Sparkles,
+  Siren,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, canViewInstallations, hasCapability } from '@/lib/permissions';
@@ -157,6 +158,7 @@ function AppLayoutClientInner({
         canView(permissions, 'ops', 'supervision') && { href: '/ops/supervision', label: 'Supervisión', icon: ClipboardCheck, badge: notesByModule.supervision_visit },
         canView(permissions, 'ops', 'tickets') && { href: '/ops/tickets', label: 'Tickets', icon: Ticket, badge: notesByModule.ticket },
         canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas', label: 'Rondas', icon: Route },
+        canView(permissions, 'ops', 'alertas_cobertura') && { href: '/ops/alertas-cobertura', label: 'Alertas Cobertura', icon: Siren },
         canView(permissions, 'ops', 'inventario') && { href: '/ops/inventario', label: 'Inventario', icon: Package },
       ].filter(Boolean) as NavItem['children'],
     },
