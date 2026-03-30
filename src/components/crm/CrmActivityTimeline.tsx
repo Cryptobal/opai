@@ -119,6 +119,9 @@ function formatDetailLines(event: CrmActivityEvent): string[] {
   const to = typeof details.to === "string" ? details.to : null;
   if (to) lines.push(`Destino: ${to}`);
 
+  const subject = typeof details.subject === "string" ? details.subject : null;
+  if (subject) lines.push(`Asunto: ${subject}`);
+
   const fromStage = typeof details.fromStageName === "string" ? details.fromStageName : null;
   const toStage = typeof details.toStageName === "string" ? details.toStageName : null;
   if (fromStage || toStage) lines.push(`${fromStage || "Sin etapa"} -> ${toStage || "Sin etapa"}`);

@@ -19,6 +19,10 @@ import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-qu
 import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 import { syncLeadOnProposalSent } from "@/lib/crm/sync-lead-on-proposal-sent";
+import {
+  buildDefaultPortalInviteEmailSubject,
+  truncateCustomEmailSubject,
+} from "@/lib/cpq-portal-email-subject";
 
 export interface SendQuoteToPortalOptions {
   quoteId: string;
@@ -35,6 +39,8 @@ export interface SendQuoteToPortalOptions {
   includeQuotationPdf?: boolean;
   /** IDs de documentos adjuntos de la cotización a incluir en el correo. */
   attachmentIds?: string[];
+  /** Asunto del correo; si se omite o va vacío, se usa el asunto por defecto del sistema. */
+  emailSubject?: string;
 }
 
 export interface SendQuoteToPortalResult {
@@ -46,13 +52,6 @@ export interface SendQuoteToPortalResult {
   whatsappPhone: string | null;
   whatsappMessage: string;
   contactName: string;
-}
-
-/** Evita asuntos demasiado largos en clientes de correo. */
-function truncateForEmailSubject(s: string, max = 72): string {
-  const t = s.trim();
-  if (t.length <= max) return t;
-  return `${t.slice(0, Math.max(1, max - 1))}…`;
 }
 
 export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Promise<SendQuoteToPortalResult> {
@@ -68,6 +67,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     includeProposalPdf = false,
     includeQuotationPdf = false,
     attachmentIds = [],
+    emailSubject: emailSubjectOverride,
   } = options;
 
   const quote = await prisma.cpqQuote.findFirst({
@@ -300,13 +300,16 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
 
   const quoteNameForEmail =
     quote.name?.trim() || quote.installation?.name?.trim() || undefined;
-  const subjectDisplayLabel = quoteNameForEmail
-    ? truncateForEmailSubject(quoteNameForEmail, 72)
-    : null;
   const tenantBrand = tenantConfig.commercialName?.trim() || "Gard Security";
-  const emailSubject = subjectDisplayLabel
-    ? `${subjectDisplayLabel} · ${quote.code} — ${tenantBrand}`
-    : `Propuesta · ${quote.code} — ${tenantBrand}`;
+  const emailSubject =
+    emailSubjectOverride?.trim().length > 0
+      ? truncateCustomEmailSubject(emailSubjectOverride)
+      : buildDefaultPortalInviteEmailSubject({
+          quoteCode: quote.code,
+          quoteName: quote.name,
+          installationName: quote.installation?.name,
+          tenantBrand,
+        });
 
   const emailHtml = await render(
     PortalProspectoInviteEmail({
@@ -442,7 +445,22 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
 
   // Log
   await prisma.crmHistoryLog.create({
-    data: { tenantId, entityType: "quote", entityId: quoteId, action: "quote_sent_portal", details: { to: contact.email, contactName, quoteCode: quote.code, emailId: emailResult?.data?.id || null, portalUrl, method: "portal_prospecto" }, createdBy: userId },
+    data: {
+      tenantId,
+      entityType: "quote",
+      entityId: quoteId,
+      action: "quote_sent_portal",
+      details: {
+        to: contact.email,
+        contactName,
+        quoteCode: quote.code,
+        subject: emailSubject,
+        emailId: emailResult?.data?.id || null,
+        portalUrl,
+        method: "portal_prospecto",
+      },
+      createdBy: userId,
+    },
   });
 
   return {

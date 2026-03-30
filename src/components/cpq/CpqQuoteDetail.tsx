@@ -68,6 +68,7 @@ import { VisitaTecnicaSolicitudModal } from "@/components/cpq/VisitaTecnicaSolic
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
 import { isCpqQuoteListedInClientPortal } from "@/lib/cpq-portal-visibility";
+import { buildDefaultPortalInviteEmailSubject } from "@/lib/cpq-portal-email-subject";
 
 type ActivityEvent = {
   id: string;
@@ -82,6 +83,10 @@ interface CpqQuoteDetailProps {
   quoteId: string;
   currentUserId?: string;
   activityEvents?: ActivityEvent[];
+  /** Asunto sugerido al abrir «Enviar propuesta al portal» (desde servidor + nombre de cotización). */
+  defaultPortalEmailSubject?: string;
+  /** Marca comercial para recalcular el asunto cuando carga el detalle de la cotización. */
+  tenantBrandName?: string;
 }
 
 type CrmInstallationOption = {
@@ -117,7 +122,13 @@ function roundUpToNice(value: number): number {
   return Math.ceil(value / 100000) * 100000;
 }
 
-export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: CpqQuoteDetailProps) {
+export function CpqQuoteDetail({
+  quoteId,
+  currentUserId,
+  activityEvents = [],
+  defaultPortalEmailSubject,
+  tenantBrandName,
+}: CpqQuoteDetailProps) {
   const router = useRouter();
   const [quote, setQuote] = useState<CpqQuote | null>(null);
   const [positions, setPositions] = useState<CpqPosition[]>([]);
@@ -218,6 +229,29 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
       status: quote.status,
     });
   }, [quote]);
+
+  const portalInviteSubjectDefault = useMemo(() => {
+    const installationName =
+      crmContext.installationId
+        ? crmInstallations.find((i) => i.id === crmContext.installationId)?.name?.trim() || null
+        : null;
+    if (quote?.code) {
+      return buildDefaultPortalInviteEmailSubject({
+        quoteCode: quote.code,
+        quoteName: quote.name,
+        installationName,
+        tenantBrand: tenantBrandName,
+      });
+    }
+    return defaultPortalEmailSubject ?? "";
+  }, [
+    quote?.code,
+    quote?.name,
+    crmContext.installationId,
+    crmInstallations,
+    defaultPortalEmailSubject,
+    tenantBrandName,
+  ]);
 
   const handlePortalVisibilityChange = useCallback(
     async (checked: boolean) => {
@@ -2445,6 +2479,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
               onOpenChange={setPortalProposalOpen}
               quoteId={quoteId}
               quoteCode={quote?.code ?? ""}
+              defaultEmailSubject={portalInviteSubjectDefault}
               dealId={crmContext.dealId}
               quoteContact={{
                 id: qc.id,

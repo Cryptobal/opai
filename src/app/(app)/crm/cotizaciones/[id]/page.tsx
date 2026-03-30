@@ -11,6 +11,8 @@ import { Breadcrumb } from "@/components/opai";
 import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
 import { CpqIndicators } from "@/components/cpq/CpqIndicators";
 import { z } from "zod";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { buildDefaultPortalInviteEmailSubject } from "@/lib/cpq-portal-email-subject";
 
 const uuidSchema = z.string().uuid();
 
@@ -31,11 +33,21 @@ export default async function CrmCotizacionDetailPage({
   const quote = isUuid
     ? await prisma.cpqQuote.findFirst({
         where: { id, tenantId },
-        select: { id: true, code: true },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          installation: { select: { name: true } },
+        },
       })
     : await prisma.cpqQuote.findFirst({
         where: { code: id, tenantId },
-        select: { id: true, code: true },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          installation: { select: { name: true } },
+        },
       });
 
   if (!quote) {
@@ -72,6 +84,15 @@ export default async function CrmCotizacionDetailPage({
     createdByName: log.createdBy ? activityActorMap.get(log.createdBy) ?? null : null,
   }));
 
+  const tenantCfg = await getTenantCompanyConfig(tenantId);
+  const defaultPortalEmailSubject = buildDefaultPortalInviteEmailSubject({
+    quoteCode: quote.code,
+    quoteName: quote.name,
+    installationName: quote.installation?.name ?? null,
+    tenantBrand: tenantCfg.commercialName,
+  });
+  const tenantBrandName = tenantCfg.commercialName?.trim() || "Gard Security";
+
   return (
     <>
       <Breadcrumb
@@ -85,7 +106,13 @@ export default async function CrmCotizacionDetailPage({
       <div className="mb-1">
         <CpqIndicators />
       </div>
-      <CpqQuoteDetail quoteId={id} currentUserId={session.user.id} activityEvents={activityEvents} />
+      <CpqQuoteDetail
+        quoteId={id}
+        currentUserId={session.user.id}
+        activityEvents={activityEvents}
+        defaultPortalEmailSubject={defaultPortalEmailSubject}
+        tenantBrandName={tenantBrandName}
+      />
     </>
   );
 }

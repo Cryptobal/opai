@@ -35,6 +35,8 @@ export async function POST(
     const attachmentIds: string[] = Array.isArray(body?.attachmentIds)
       ? body.attachmentIds.filter((x: unknown) => typeof x === "string")
       : [];
+    const emailSubject =
+      typeof body?.emailSubject === "string" ? body.emailSubject : undefined;
 
     const result = await sendQuoteToPortal({
       quoteId: id,
@@ -48,6 +50,7 @@ export async function POST(
       includeProposalPdf,
       includeQuotationPdf,
       attachmentIds,
+      emailSubject,
     });
 
     return NextResponse.json({

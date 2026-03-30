@@ -30,6 +30,8 @@ type Step = "compose" | "followup";
 interface SendPortalProposalModalProps {
   quoteId: string;
   quoteCode: string;
+  /** Asunto sugerido del correo (editable; coincide con el que usa el servidor si no lo cambias). */
+  defaultEmailSubject: string;
   dealId: string;
   /** Contacto principal de la cotización (por defecto destinatario) */
   quoteContact: ContactRow;
@@ -56,6 +58,7 @@ interface SendPortalProposalModalProps {
 export function SendPortalProposalModal({
   quoteId,
   quoteCode,
+  defaultEmailSubject,
   dealId,
   quoteContact,
   disabled,
@@ -83,6 +86,7 @@ export function SendPortalProposalModal({
   const [ccIds, setCcIds] = useState<Set<string>>(new Set());
   const [ccManual, setCcManual] = useState("");
   const [bccManual, setBccManual] = useState("");
+  const [emailSubject, setEmailSubject] = useState(defaultEmailSubject);
   const [includeQuotationPdf, setIncludeQuotationPdf] = useState(false);
   const [includeProposalPdf, setIncludeProposalPdf] = useState(false);
   const [sending, setSending] = useState(false);
@@ -128,10 +132,11 @@ export function SendPortalProposalModal({
     setCcIds(new Set());
     setCcManual("");
     setBccManual("");
+    setEmailSubject(defaultEmailSubject);
     setIncludeQuotationPdf(false);
     setIncludeProposalPdf(false);
     setSelectedAttachmentIds(new Set());
-  }, [open, quoteContact.id]);
+  }, [open, quoteContact.id, defaultEmailSubject]);
 
   useEffect(() => {
     if (!open || !quoteId) return;
@@ -168,6 +173,10 @@ export function SendPortalProposalModal({
       toast.error("Selecciona un contacto con correo válido");
       return;
     }
+    if (!emailSubject.trim()) {
+      toast.error("Escribe un asunto para el correo");
+      return;
+    }
     setStep("followup");
   };
 
@@ -187,6 +196,7 @@ export function SendPortalProposalModal({
           ccContactIds,
           ccEmails: ccExtra,
           bccEmails: bccExtra,
+          emailSubject: emailSubject.trim(),
           includeQuotationPdf,
           includeProposalPdf,
           attachmentIds: Array.from(selectedAttachmentIds),
@@ -235,7 +245,7 @@ export function SendPortalProposalModal({
           </DialogTitle>
           <DialogDescription>
             {step === "compose"
-              ? `Cotización ${quoteCode}: elige destinatario, adjuntos y copias. Luego configura el seguimiento.`
+              ? `Cotización ${quoteCode}: asunto, destinatario, adjuntos y copias. Luego configura el seguimiento.`
               : "Define el seguimiento antes de enviar la invitación."}
           </DialogDescription>
         </DialogHeader>
@@ -249,6 +259,20 @@ export function SendPortalProposalModal({
               </div>
             ) : (
               <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Asunto del correo</Label>
+                  <Input
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    placeholder="Propuesta · CPQ-… — …"
+                    className="bg-background text-sm"
+                    autoComplete="off"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Texto sugerido; puedes editarlo antes de enviar.
+                  </p>
+                </div>
+
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold">Destinatario principal (portal + PIN)</Label>
                   <div className="space-y-2 rounded-md border border-border p-2 max-h-40 overflow-y-auto">
