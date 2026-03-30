@@ -49,6 +49,8 @@ interface Installation {
 interface Puesto {
   id: string;
   name: string;
+  shiftStart: string | null;
+  shiftEnd: string | null;
   teMontoClp: number | null;
 }
 
@@ -57,6 +59,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
   const [installationId, setInstallationId] = useState("");
   const [puestoId, setPuestoId] = useState("");
   const [modalidad, setModalidad] = useState("GGSS");
+  const [fechaTurno, setFechaTurno] = useState("");
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
   const [montoOfrecido, setMontoOfrecido] = useState(0);
@@ -112,7 +115,13 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
           for (const item of data) {
             const p = item.puesto || item;
             if (p.id && !puestosMap.has(p.id)) {
-              puestosMap.set(p.id, { id: p.id, name: p.name, teMontoClp: p.teMontoClp ?? null });
+              puestosMap.set(p.id, {
+                id: p.id,
+                name: p.name,
+                shiftStart: p.shiftStart ?? null,
+                shiftEnd: p.shiftEnd ?? null,
+                teMontoClp: p.teMontoClp ?? null,
+              });
             }
           }
           setPuestos(Array.from(puestosMap.values()));
@@ -121,13 +130,26 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
       .catch(() => {});
   }, [installationId]);
 
-  // Auto-set monto when puesto changes
+  // Auto-set monto and compute dates when puesto or fechaTurno changes
   useEffect(() => {
     if (puestoId) {
       const puesto = puestos.find((p) => p.id === puestoId);
       if (puesto?.teMontoClp) setMontoOfrecido(puesto.teMontoClp);
+
+      // Auto-compute fechaInicio/fechaFin from puesto shift times + selected date
+      if (fechaTurno && puesto?.shiftStart && puesto?.shiftEnd) {
+        setFechaInicio(`${fechaTurno}T${puesto.shiftStart}`);
+        // If shiftEnd < shiftStart, it's a night shift (ends next day)
+        if (puesto.shiftEnd < puesto.shiftStart) {
+          const d = new Date(fechaTurno);
+          d.setDate(d.getDate() + 1);
+          setFechaFin(`${d.toISOString().slice(0, 10)}T${puesto.shiftEnd}`);
+        } else {
+          setFechaFin(`${fechaTurno}T${puesto.shiftEnd}`);
+        }
+      }
     }
-  }, [puestoId, puestos]);
+  }, [puestoId, puestos, fechaTurno]);
 
   // Preview oleadas with debounce
   const fetchPreview = useCallback(async () => {
@@ -224,6 +246,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
     setInstallationId("");
     setPuestoId("");
     setModalidad("GGSS");
+    setFechaTurno("");
     setFechaInicio("");
     setFechaFin("");
     setMontoOfrecido(0);
@@ -313,24 +336,30 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
 
             <div className="h-px bg-border" />
 
-            {/* Fechas */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Fecha/hora inicio *</Label>
-                <Input
-                  type="datetime-local"
-                  value={fechaInicio}
-                  onChange={(e) => setFechaInicio(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Fecha/hora fin *</Label>
-                <Input
-                  type="datetime-local"
-                  value={fechaFin}
-                  onChange={(e) => setFechaFin(e.target.value)}
-                />
-              </div>
+            {/* Fecha del turno */}
+            <div className="space-y-1.5">
+              <Label>Dia del turno *</Label>
+              <Input
+                type="date"
+                value={fechaTurno}
+                onChange={(e) => setFechaTurno(e.target.value)}
+              />
+              {puestoId && fechaTurno && fechaInicio && fechaFin && (
+                <p className="text-xs text-muted-foreground">
+                  Horario: {fechaInicio.slice(11, 16)} — {fechaFin.slice(11, 16)}
+                  {fechaFin.slice(0, 10) !== fechaTurno ? " (dia siguiente)" : ""}
+                </p>
+              )}
+              {puestoId && fechaTurno && !fechaInicio && (
+                <p className="text-xs text-amber-400">
+                  El puesto seleccionado no tiene horario configurado
+                </p>
+              )}
+              {!puestoId && fechaTurno && (
+                <p className="text-xs text-muted-foreground">
+                  Selecciona un puesto para auto-completar el horario
+                </p>
+              )}
             </div>
 
             <div className="h-px bg-border" />
