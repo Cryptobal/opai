@@ -174,9 +174,9 @@ export async function autoAsignarEnPauta(params: {
         tenantId: params.tenantId,
         userId: params.confirmadoPorId,
         action: "alerta_cobertura_asignada_pauta",
-        entityType: "OpsTurnoExtra",
+        entity: "OpsTurnoExtra",
         entityId: turnoExtra.id,
-        changes: {
+        details: {
           alertaId: params.alertaId,
           guardiaId: params.guardiaId,
           installationId: params.installationId,
@@ -215,7 +215,7 @@ export async function registrarAsignacionManual(params: {
       tenantId: params.tenantId,
       userId: params.confirmadoPorId,
       action: "alerta_cobertura_asignacion_manual",
-      entityType: "OpsAlertaCobertura",
+      entity: "OpsAlertaCobertura",
       entityId: params.alertaId,
     },
   });
