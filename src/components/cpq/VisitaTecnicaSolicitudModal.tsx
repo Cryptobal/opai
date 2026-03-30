@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Briefcase, MapPin, MessageCircle, CalendarDays, User, Phone } from "lucide-react";
+import { Loader2, Briefcase, MapPin, MessageCircle, CalendarDays, User, Phone, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { CpqPosition } from "@/types/cpq";
 
@@ -47,6 +47,7 @@ interface Props {
     visitaId: string;
     supervisorName: string;
     supervisorEmail: string;
+    supervisors?: Array<{ name: string; email: string; emailSent: boolean }>;
     installationName?: string;
     installationAddress: string | null;
     mapsUrl?: string | null;
@@ -56,6 +57,7 @@ interface Props {
     quoteCode?: string;
     puestosDetail?: Array<{ name: string; cargo?: string | null; numGuards: number; numPuestos: number; startTime?: string | null; endTime?: string | null }>;
     emailSent: boolean;
+    googleCalendarUrl?: string;
   }) => void;
 }
 
@@ -74,7 +76,7 @@ export function VisitaTecnicaSolicitudModal({
   const [accountContacts, setAccountContacts] = useState<AccountContact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
 
-  const [supervisorId, setSupervisorId] = useState("");
+  const [selectedSupervisorIds, setSelectedSupervisorIds] = useState<string[]>([]);
   const [scheduledAt, setScheduledAt] = useState("");
   const [contactMode, setContactMode] = useState<"select" | "manual">("select");
   const [selectedContactId, setSelectedContactId] = useState("");
@@ -94,7 +96,7 @@ export function VisitaTecnicaSolicitudModal({
       .then((json) => {
         if (json.success) {
           setSupervisors(json.data ?? []);
-          if (json.data?.length === 1) setSupervisorId(json.data[0].id);
+          if (json.data?.length === 1) setSelectedSupervisorIds([json.data[0].id]);
         }
       })
       .catch(() => toast.error("No se pudo cargar la lista de supervisores"))
@@ -166,8 +168,14 @@ export function VisitaTecnicaSolicitudModal({
   const effectiveContactPhone =
     contactMode === "manual" ? contactPhone : resolvedContact?.phone ?? "";
 
+  const toggleSupervisor = (id: string) => {
+    setSelectedSupervisorIds((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+    );
+  };
+
   async function handleSubmit() {
-    if (!supervisorId) { toast.error("Selecciona un supervisor"); return; }
+    if (selectedSupervisorIds.length === 0) { toast.error("Selecciona al menos un supervisor"); return; }
     if (!scheduledAt) { toast.error("Indica fecha y hora"); return; }
 
     setSending(true);
@@ -183,7 +191,7 @@ export function VisitaTecnicaSolicitudModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          supervisorId,
+          supervisorIds: selectedSupervisorIds,
           scheduledAt: scheduledAtIso,
           contactName: effectiveContactName,
           contactPhone: effectiveContactPhone,
@@ -193,7 +201,8 @@ export function VisitaTecnicaSolicitudModal({
       if (!res.ok || !json.success) {
         throw new Error(json.error || "No se pudo crear la visita técnica");
       }
-      toast.success("Visita técnica programada. Se envió email al supervisor.");
+      const emailCount = json.data.supervisors?.filter((s: { emailSent: boolean }) => s.emailSent).length ?? (json.data.emailSent ? 1 : 0);
+      toast.success(`Visita técnica programada. Se envió email a ${emailCount} supervisor${emailCount !== 1 ? "es" : ""}.`);
       onOpenChange(false);
       onSuccess(json.data);
     } catch (error) {
@@ -203,7 +212,7 @@ export function VisitaTecnicaSolicitudModal({
     }
   }
 
-  const selectedSupervisor = supervisors.find((s) => s.id === supervisorId);
+  const selectedSupervisorsInfo = supervisors.filter((s) => selectedSupervisorIds.includes(s.id));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -252,30 +261,47 @@ export function VisitaTecnicaSolicitudModal({
             </div>
           )}
 
-          {/* Supervisor */}
+          {/* Supervisores */}
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5" /> Supervisor asignado *
+              <User className="h-3.5 w-3.5" /> Supervisores a notificar *
             </Label>
             {loadingSupervisors ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
                 <Loader2 className="h-4 w-4 animate-spin" /> Cargando supervisores...
               </div>
             ) : (
-              <select
-                value={supervisorId}
-                onChange={(e) => setSupervisorId(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                disabled={sending}
-              >
-                <option value="">Seleccionar supervisor...</option>
-                {supervisors.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.email})</option>
-                ))}
-              </select>
+              <div className="max-h-36 overflow-y-auto rounded-md border border-input bg-background p-1 space-y-0.5">
+                {supervisors.map((s) => {
+                  const isSelected = selectedSupervisorIds.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => toggleSupervisor(s.id)}
+                      disabled={sending}
+                      className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
+                        isSelected
+                          ? "bg-sky-500/15 text-sky-300"
+                          : "text-muted-foreground hover:bg-muted/60"
+                      }`}
+                    >
+                      <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                        isSelected ? "border-sky-500 bg-sky-500" : "border-muted-foreground/40"
+                      }`}>
+                        {isSelected && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <span className="truncate">{s.name}</span>
+                      <span className="ml-auto text-xs text-muted-foreground truncate">{s.email}</span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
-            {selectedSupervisor && (
-              <p className="text-xs text-muted-foreground">Se enviará email a {selectedSupervisor.email}</p>
+            {selectedSupervisorsInfo.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Se enviará email a {selectedSupervisorsInfo.map((s) => s.email).join(", ")}
+              </p>
             )}
           </div>
 
@@ -410,7 +436,7 @@ export function VisitaTecnicaSolicitudModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={sending || !supervisorId || !scheduledAt}
+            disabled={sending || selectedSupervisorIds.length === 0 || !scheduledAt}
             className="gap-2"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Briefcase className="h-4 w-4" />}

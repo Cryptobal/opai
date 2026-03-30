@@ -54,7 +54,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Send, Check, Briefcase, Phone, FileText, Sparkles } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Send, Check, Briefcase, Phone, FileText, Sparkles, CalendarDays } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -153,6 +153,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
   const [visitaTecnicaWaData, setVisitaTecnicaWaData] = useState<{
     supervisorName: string;
     supervisorEmail: string;
+    supervisors?: Array<{ name: string; email: string; emailSent: boolean }>;
     installationName?: string;
     installationAddress: string | null;
     mapsUrl?: string | null;
@@ -161,6 +162,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
     scheduledAt: string;
     quoteCode?: string;
     puestosDetail?: Array<{ name: string; cargo?: string | null; numGuards: number; numPuestos: number; startTime?: string | null; endTime?: string | null }>;
+    googleCalendarUrl?: string;
   } | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savingFinancials, setSavingFinancials] = useState(false);
@@ -2519,6 +2521,7 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
           setVisitaTecnicaWaData({
             supervisorName: data.supervisorName,
             supervisorEmail: data.supervisorEmail,
+            supervisors: data.supervisors,
             installationName: data.installationName,
             installationAddress: data.installationAddress,
             mapsUrl: data.mapsUrl,
@@ -2527,27 +2530,45 @@ export function CpqQuoteDetail({ quoteId, currentUserId, activityEvents = [] }: 
             scheduledAt: data.scheduledAt,
             quoteCode: data.quoteCode,
             puestosDetail: data.puestosDetail,
+            googleCalendarUrl: data.googleCalendarUrl,
           });
           setVisitaTecnicaWaModalOpen(true);
           refresh();
         }}
       />
 
-      {/* ── Modal WhatsApp post visita técnica ── */}
+      {/* ── Modal WhatsApp + Google Calendar post visita técnica ── */}
       <Dialog open={visitaTecnicaWaModalOpen} onOpenChange={setVisitaTecnicaWaModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-green-400" />
-              ¡Visita programada! Avisa por WhatsApp
+              ¡Visita programada!
             </DialogTitle>
           </DialogHeader>
           {visitaTecnicaWaData && (
             <div className="py-2 space-y-3">
               <p className="text-sm text-muted-foreground flex-shrink-0">
-                Email enviado a <strong className="text-foreground">{visitaTecnicaWaData.supervisorEmail}</strong>.
-                Puedes enviarle también un mensaje por WhatsApp.
+                {visitaTecnicaWaData.supervisors && visitaTecnicaWaData.supervisors.length > 1 ? (
+                  <>Email enviado a <strong className="text-foreground">{visitaTecnicaWaData.supervisors.filter((s) => s.emailSent).map((s) => s.email).join(", ")}</strong>.</>
+                ) : (
+                  <>Email enviado a <strong className="text-foreground">{visitaTecnicaWaData.supervisorEmail}</strong>.</>
+                )}
               </p>
+
+              {/* Google Calendar */}
+              {visitaTecnicaWaData.googleCalendarUrl && (
+                <Button
+                  className="w-full gap-2"
+                  variant="outline"
+                  onClick={() => {
+                    window.open(visitaTecnicaWaData.googleCalendarUrl!, "_blank");
+                  }}
+                >
+                  <CalendarDays className="h-4 w-4 text-blue-400" />
+                  Agregar a Google Calendar
+                </Button>
+              )}
               {(() => {
                 const d = visitaTecnicaWaData;
                 const fecha = new Date(d.scheduledAt);

@@ -20,16 +20,24 @@ export async function POST(
     if (forbidden) return forbidden;
 
     const body = await request.json();
-    const { supervisorId, scheduledAt, contactName, contactPhone } = body as {
-      supervisorId: string;
+    const { supervisorIds, supervisorId: legacySupervisorId, scheduledAt, contactName, contactPhone } = body as {
+      supervisorIds?: string[];
+      supervisorId?: string;
       scheduledAt: string;
       contactName: string;
       contactPhone: string;
     };
 
-    if (!supervisorId || !scheduledAt) {
+    // Soportar tanto supervisorIds (array) como supervisorId (string legacy)
+    const resolvedSupervisorIds: string[] = supervisorIds?.length
+      ? supervisorIds
+      : legacySupervisorId
+        ? [legacySupervisorId]
+        : [];
+
+    if (resolvedSupervisorIds.length === 0 || !scheduledAt) {
       return NextResponse.json(
-        { success: false, error: "supervisorId y scheduledAt son requeridos" },
+        { success: false, error: "Al menos un supervisor y scheduledAt son requeridos" },
         { status: 400 }
       );
     }
@@ -79,18 +87,21 @@ export async function POST(
       );
     }
 
-    // Validar supervisor
-    const supervisor = await prisma.admin.findFirst({
-      where: { id: supervisorId, tenantId: ctx.tenantId, status: "active" },
+    // Validar supervisores
+    const allSupervisors = await prisma.admin.findMany({
+      where: { id: { in: resolvedSupervisorIds }, tenantId: ctx.tenantId, status: "active" },
       select: { id: true, name: true, email: true },
     });
 
-    if (!supervisor) {
+    if (allSupervisors.length === 0) {
       return NextResponse.json(
-        { success: false, error: "Supervisor no encontrado" },
+        { success: false, error: "Ningún supervisor válido encontrado" },
         { status: 404 }
       );
     }
+
+    // El primer supervisor seleccionado será el asignado a la visita
+    const primarySupervisor = allSupervisors.find((s) => s.id === resolvedSupervisorIds[0]) ?? allSupervisors[0];
 
     // Construir resumen de puestos para guardar
     const puestosDetail = quote.positions.map((p) => ({
@@ -103,11 +114,11 @@ export async function POST(
       weekdays: p.weekdays,
     }));
 
-    // Crear visita técnica programada
+    // Crear visita técnica programada (asignada al supervisor principal)
     const visita = await prisma.opsVisitaTecnica.create({
       data: {
         tenantId: ctx.tenantId,
-        userId: supervisorId,
+        userId: primarySupervisor.id,
         installationId: quote.installationId,
         accountId: quote.accountId,
         dealId: quote.dealId ?? undefined,
@@ -130,35 +141,43 @@ export async function POST(
 
     const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/supervisor`;
 
-    // Enviar email al supervisor
-    let emailSent = false;
-    try {
-      const emailConfig = await getTenantEmailConfig(ctx.tenantId);
-      const html = await render(
-        VisitaTecnicaSupervisorEmail({
-          supervisorName: supervisor.name,
-          installationName: installation.name,
-          installationAddress: installation.address ?? null,
-          mapsUrl,
-          scheduledAt: new Date(scheduledAt),
-          contactName: contactName || null,
-          contactPhone: contactPhone || null,
-          quoteCode: quote.code,
-          puestosDetail,
-          portalUrl,
-          solicitadoPor: ctx.userEmail,
-        })
-      );
-      await resend.emails.send({
-        from: emailConfig.from,
-        to: supervisor.email,
-        subject: `Visita técnica programada — ${installation.name}`,
-        html,
-      });
-      emailSent = true;
-    } catch (emailError) {
-      console.error("[solicitar-visita-tecnica] Error enviando email:", emailError);
+    // Enviar email a todos los supervisores seleccionados
+    const emailConfig = await getTenantEmailConfig(ctx.tenantId);
+    const supervisorResults: Array<{ name: string; email: string; emailSent: boolean }> = [];
+
+    for (const sup of allSupervisors) {
+      let sent = false;
+      try {
+        const html = await render(
+          VisitaTecnicaSupervisorEmail({
+            supervisorName: sup.name,
+            installationName: installation.name,
+            installationAddress: installation.address ?? null,
+            mapsUrl,
+            scheduledAt: new Date(scheduledAt),
+            contactName: contactName || null,
+            contactPhone: contactPhone || null,
+            quoteCode: quote.code,
+            puestosDetail,
+            portalUrl,
+            solicitadoPor: ctx.userEmail,
+          })
+        );
+        await resend.emails.send({
+          from: emailConfig.from,
+          to: sup.email,
+          subject: `Visita técnica programada — ${installation.name}`,
+          html,
+        });
+        sent = true;
+      } catch (emailError) {
+        console.error(`[solicitar-visita-tecnica] Error enviando email a ${sup.email}:`, emailError);
+      }
+      supervisorResults.push({ name: sup.name, email: sup.email, emailSent: sent });
     }
+
+    const anyEmailSent = supervisorResults.some((s) => s.emailSent);
+    const supervisorNames = allSupervisors.map((s) => s.name).join(", ");
 
     // Historial en la cotización
     await createCrmHistoryLog({
@@ -168,13 +187,14 @@ export async function POST(
       action: "quote_visita_tecnica_programada",
       details: {
         visitaId: visita.id,
-        supervisorId: supervisor.id,
-        supervisorName: supervisor.name,
-        supervisorEmail: supervisor.email,
+        supervisorId: primarySupervisor.id,
+        supervisorName: primarySupervisor.name,
+        supervisorEmail: primarySupervisor.email,
+        notifiedSupervisors: supervisorResults.map((s) => ({ name: s.name, email: s.email })),
         scheduledAt,
         installationName: installation.name,
         contactName: contactName || null,
-        emailSent,
+        emailSent: anyEmailSent,
       },
       createdBy: ctx.userId,
     });
@@ -189,21 +209,56 @@ export async function POST(
         visitaId: visita.id,
         quoteId,
         quoteCode: quote.code,
-        supervisorId: supervisor.id,
-        supervisorName: supervisor.name,
+        supervisorId: primarySupervisor.id,
+        supervisorName: primarySupervisor.name,
+        notifiedSupervisors: supervisorResults.map((s) => ({ name: s.name, email: s.email })),
         scheduledAt,
         contactName: contactName || null,
-        emailSent,
+        emailSent: anyEmailSent,
       },
       createdBy: ctx.userId,
     });
+
+    // Construir URL de Google Calendar
+    const startDate = new Date(scheduledAt);
+    const endDate = new Date(startDate.getTime() + 90 * 60 * 1000); // 1.5h duración
+    const formatGCalDate = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+    const gcalDates = `${formatGCalDate(startDate)}/${formatGCalDate(endDate)}`;
+
+    const puestosLines = puestosDetail.map((p) =>
+      `• ${p.name}${p.cargo ? ` — ${p.cargo}` : ""}: ${p.numGuards} guardia${p.numGuards !== 1 ? "s" : ""} · ${p.startTime}–${p.endTime}`
+    ).join("\n");
+    const gcalDetails = [
+      `Cotización: ${quote.code}`,
+      "",
+      "Dotación solicitada:",
+      puestosLines,
+      "",
+      contactName ? `Contacto: ${contactName}` : "",
+      contactPhone ? `Teléfono: ${contactPhone}` : "",
+      "",
+      `Supervisores notificados: ${allSupervisors.map((s) => s.name).join(", ")}`,
+      "",
+      `Portal supervisor: ${portalUrl}`,
+    ].filter(Boolean).join("\n");
+
+    const gcalGuests = allSupervisors.map((s) => s.email).join(",");
+
+    const googleCalendarUrl = new URL("https://calendar.google.com/calendar/render");
+    googleCalendarUrl.searchParams.set("action", "TEMPLATE");
+    googleCalendarUrl.searchParams.set("text", `Visita Técnica — ${installation.name}`);
+    googleCalendarUrl.searchParams.set("dates", gcalDates);
+    googleCalendarUrl.searchParams.set("details", gcalDetails);
+    if (installation.address) googleCalendarUrl.searchParams.set("location", installation.address);
+    googleCalendarUrl.searchParams.set("add", gcalGuests);
 
     return NextResponse.json({
       success: true,
       data: {
         visitaId: visita.id,
-        supervisorName: supervisor.name,
-        supervisorEmail: supervisor.email,
+        supervisorName: primarySupervisor.name,
+        supervisorEmail: primarySupervisor.email,
+        supervisors: supervisorResults,
         installationName: installation.name,
         installationAddress: installation.address ?? null,
         mapsUrl,
@@ -212,7 +267,8 @@ export async function POST(
         scheduledAt,
         quoteCode: quote.code,
         puestosDetail,
-        emailSent,
+        emailSent: anyEmailSent,
+        googleCalendarUrl: googleCalendarUrl.toString(),
       },
     });
   } catch (error) {
