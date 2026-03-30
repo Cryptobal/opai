@@ -301,9 +301,10 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   const quoteNameForEmail =
     quote.name?.trim() || quote.installation?.name?.trim() || undefined;
   const tenantBrand = tenantConfig.commercialName?.trim() || "Gard Security";
+  const trimmedEmailSubject = emailSubjectOverride?.trim() ?? "";
   const emailSubject =
-    emailSubjectOverride?.trim().length > 0
-      ? truncateCustomEmailSubject(emailSubjectOverride)
+    trimmedEmailSubject.length > 0
+      ? truncateCustomEmailSubject(trimmedEmailSubject)
       : buildDefaultPortalInviteEmailSubject({
           quoteCode: quote.code,
           quoteName: quote.name,
