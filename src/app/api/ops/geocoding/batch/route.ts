@@ -31,14 +31,14 @@ export async function POST(request: NextRequest) {
     const pendientes = await prisma.opsPersona.findMany({
       where: {
         tenantId: ctx.tenantId,
-        address: { not: null },
+        addressFormatted: { not: null },
         OR: [{ lat: null }, { lng: null }],
       },
       select: {
         id: true,
         firstName: true,
         lastName: true,
-        address: true,
+        addressFormatted: true,
       },
       take: 50, // Process max 50 per batch to stay within rate limits
     });
@@ -58,10 +58,10 @@ export async function POST(request: NextRequest) {
     const results: Array<{ id: string; nombre: string; status: string }> = [];
 
     for (const persona of pendientes) {
-      if (!persona.address) continue;
+      if (!persona.addressFormatted) continue;
 
       try {
-        const coords = await geocodeAddress(persona.address);
+        const coords = await geocodeAddress(persona.addressFormatted);
         if (coords) {
           await prisma.opsPersona.update({
             where: { id: persona.id },
