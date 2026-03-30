@@ -347,21 +347,25 @@ export function AccessControlEntry({
                       <input
                         value={rutBody}
                         onChange={(e) => {
-                          const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 9);
+                          const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 8);
                           setRutBody(digits);
                           if (digits.length >= 7) {
-                            setRut(`${digits}-${computeRutDv(digits)}`);
+                            const fullRut = `${digits}-${computeRutDv(digits)}`;
+                            setRut(fullRut);
+                            if (digits.length === 8) {
+                              e.target.blur();
+                            }
                           } else {
                             setRut(digits);
                           }
                         }}
-                        maxLength={9}
-                        placeholder="13255838"
+                        maxLength={8}
+                        placeholder="Ej: 13255838"
                         className="w-0 flex-1 bg-transparent px-3 py-2 text-lg font-mono text-white placeholder:text-zinc-500 outline-none"
                         inputMode="numeric"
                       />
                       {rutBody.length >= 7 && (
-                        <span className="pr-3 text-lg font-mono font-bold text-emerald-400 select-none">
+                        <span className="pr-3 text-lg font-mono font-bold text-emerald-400 select-none animate-in fade-in">
                           -{computeRutDv(rutBody)}
                         </span>
                       )}
@@ -369,11 +373,12 @@ export function AccessControlEntry({
                     <Button
                       onClick={handleManualRut}
                       disabled={rutBody.length < 7 || !validateRut(rut) || validating}
+                      className={rutBody.length >= 7 ? "bg-emerald-600 hover:bg-emerald-700" : ""}
                     >
                       {validating ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <ChevronRight className="h-4 w-4" />
+                        <ChevronRight className="h-5 w-5" />
                       )}
                     </Button>
                   </div>
