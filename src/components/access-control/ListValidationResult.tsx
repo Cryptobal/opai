@@ -9,11 +9,12 @@ import { formatRut } from "@/lib/access-control/utils";
 interface Props {
   result: RutValidationResult;
   rut: string;
+  fullName?: string;
   onContinue: () => void;
   onBack: () => void;
 }
 
-export function ListValidationResult({ result, rut, onContinue, onBack }: Props) {
+export function ListValidationResult({ result, rut, fullName, onContinue, onBack }: Props) {
   // ── BLACKLIST: Full red screen ──
   if (result.listMatch === "blacklist") {
     return (
@@ -103,8 +104,27 @@ export function ListValidationResult({ result, rut, onContinue, onBack }: Props)
   }
 
   // ── NOT IN ANY LIST ──
+  const displayName =
+    fullName ||
+    result.frequentData?.fullName ||
+    result.preregistration?.visitorName;
+  const displayCompany =
+    result.frequentData?.company ||
+    result.personData?.company;
+
   return (
     <div className="space-y-4">
+      {/* Person data card */}
+      <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-4 space-y-1.5">
+        {displayName && (
+          <p className="text-lg font-semibold text-zinc-100">{displayName}</p>
+        )}
+        <p className="text-sm font-mono text-zinc-400">{formatRut(rut)}</p>
+        {displayCompany && (
+          <p className="text-xs text-zinc-500">{displayCompany}</p>
+        )}
+      </div>
+
       {result.isFrequent && result.frequentData && (
         <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
           <div className="flex items-center gap-3">

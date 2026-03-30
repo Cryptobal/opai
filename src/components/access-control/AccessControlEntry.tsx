@@ -98,15 +98,10 @@ export function AccessControlEntry({
       ...(data.parsedMrz?.fullName ? { full_name: data.parsedMrz.fullName } : {}),
     }));
     setShowQR(false);
-
-    if (!data.parsedMrz?.fullName) {
-      setNeedsMrzCapture(true);
-    } else {
-      validateRutAgainstLists(data.rut);
-    }
+    validateRutAgainstLists(data.rut, !data.parsedMrz?.fullName);
   };
 
-  // ── Step 2b: MRZ OCR Result ──
+  // ── Step 2b: MRZ OCR Result (after validation, if still no name) ──
   const handleMrzResult = (data: { fullName: string; rut?: string }) => {
     setNeedsMrzCapture(false);
     setFormData((prev) => ({
@@ -114,12 +109,12 @@ export function AccessControlEntry({
       full_name: data.fullName,
       ...(data.rut ? { rut: data.rut } : {}),
     }));
-    validateRutAgainstLists(rut);
+    setStep("validation");
   };
 
   const handleMrzSkip = () => {
     setNeedsMrzCapture(false);
-    validateRutAgainstLists(rut);
+    setStep("validation");
   };
 
   // ── Step 2: Manual RUT ──
@@ -129,11 +124,11 @@ export function AccessControlEntry({
       return;
     }
     setFormData((prev) => ({ ...prev, rut: cleanRut(rut), qrSource: "manual" }));
-    validateRutAgainstLists(rut);
+    validateRutAgainstLists(rut, false);
   };
 
   // ── Validate RUT against lists ──
-  const validateRutAgainstLists = async (rutValue: string) => {
+  const validateRutAgainstLists = async (rutValue: string, qrWithoutName = false) => {
     setValidating(true);
     try {
       const res = await fetch("/api/access-control/validate-rut", {
@@ -145,13 +140,11 @@ export function AccessControlEntry({
       if (json.success) {
         setValidationResult(json.data);
 
-        // If blacklisted, show blocked screen
         if (json.data.listMatch === "blacklist") {
           setStep("validation");
           return;
         }
 
-        // Auto-fill data
         const autoData: Record<string, unknown> = { rut: cleanRut(rutValue) };
         if (json.data.listMatch === "whitelist" && json.data.personData) {
           autoData.full_name = json.data.personData.fullName;
@@ -168,10 +161,14 @@ export function AccessControlEntry({
         }
 
         setFormData((prev) => ({ ...prev, ...autoData }));
-        setStep("validation");
+
+        if (!autoData.full_name && qrWithoutName) {
+          setNeedsMrzCapture(true);
+        } else {
+          setStep("validation");
+        }
       }
     } catch {
-      // Offline: skip validation, go to form
       setFormData((prev) => ({ ...prev, rut: cleanRut(rutValue) }));
       setStep("form");
     } finally {
@@ -386,6 +383,7 @@ export function AccessControlEntry({
           <ListValidationResult
             result={validationResult}
             rut={rut}
+            fullName={formData.full_name as string | undefined}
             onContinue={handleContinueFromValidation}
             onBack={onClose}
           />

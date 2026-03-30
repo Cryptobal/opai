@@ -23,32 +23,34 @@ export function CedulaQRScanner({ onResult, onCancel }: Props) {
 
     async function startScanner() {
       try {
-        const { Html5Qrcode } = await import("html5-qrcode");
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
         if (!mounted) return;
 
         const scannerId = "cedula-qr-scanner";
-        const scanner = new Html5Qrcode(scannerId);
+        const scanner = new Html5Qrcode(scannerId, {
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+        });
         html5QrRef.current = scanner;
 
         await scanner.start(
           { facingMode: "environment" },
           {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
+            fps: 20,
+            qrbox: { width: 280, height: 280 },
             aspectRatio: 1,
+            disableFlip: false,
           },
           (decodedText) => {
-            // Try to parse as cédula QR
             const data = parseCedulaQR(decodedText);
             if (data) {
-              // Vibrate for feedback
               navigator.vibrate?.(200);
               started = false;
               scanner.stop().catch(() => {});
               onResult(data);
             }
           },
-          () => {} // ignore failures
+          () => {}
         );
 
         started = true;
