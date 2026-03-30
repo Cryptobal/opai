@@ -702,6 +702,19 @@ function InicioSection({
               <p className="text-[11px] text-muted-foreground">Detalle y pagos</p>
             </div>
           </button>
+
+          <button
+            onClick={() => onNavigate("alertas-cobertura")}
+            className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 shadow-sm active:bg-accent transition-colors text-left"
+          >
+            <div className="h-9 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+              <Siren className="h-5 w-5 text-emerald-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Turnos Disponibles</p>
+              <p className="text-[11px] text-muted-foreground">Ofertas de cobertura</p>
+            </div>
+          </button>
         </div>
       </div>
     </div>
