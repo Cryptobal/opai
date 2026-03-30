@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, parseBody, resolveApiPerms } from "@/lib/api-auth";
 import { ensureOpsAccess, createOpsAuditLog } from "@/lib/ops";
@@ -246,7 +247,7 @@ export async function PATCH(
         data: {
           estado: "ACTIVA",
           oleadaActual: 0,
-          oleadasConfig: oleadasConfig as unknown as Record<string, unknown>[],
+          oleadasConfig: oleadasConfig as Prisma.InputJsonValue,
           aceptadaPorGuardiaId: null,
           aceptadaAt: null,
           esInternoAceptacion: null,

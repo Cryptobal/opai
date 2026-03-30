@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, parseBody, resolveApiPerms } from "@/lib/api-auth";
 import { ensureOpsAccess, createOpsAuditLog } from "@/lib/ops";
@@ -225,7 +226,7 @@ export async function POST(request: NextRequest) {
         await prisma.opsAlertaCobertura.update({
           where: { id: alerta.id },
           data: {
-            oleadasConfig: resultado.oleadas as unknown as Record<string, unknown>[],
+            oleadasConfig: resultado.oleadas as Prisma.InputJsonValue,
             proximaOleadaAt: nuevaProximaOleadaAt,
           },
         });

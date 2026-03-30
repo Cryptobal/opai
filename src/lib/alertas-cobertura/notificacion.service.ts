@@ -4,7 +4,7 @@
  * Centraliza TODOS los envíos de notificación del módulo de alertas.
  * Se llama desde: crear alerta, cron escalar, aceptación, confirmación.
  *
- * Canales: Push (portal guardia), Email (Resend), Chat sistema, Bell, Pusher real-time.
+ * Canales: Push (portal guardia), Email (Resend), WhatsApp (Twilio), Chat sistema, Bell, Pusher real-time.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -17,6 +17,8 @@ import { render } from "@react-email/render";
 import AlertaCoberturaEmail from "@/emails/AlertaCoberturaEmail";
 import AlertaAceptadaEmail from "@/emails/AlertaAceptadaEmail";
 import { generarTokenExterno } from "@/lib/alertas-cobertura/token.service";
+import { getAlertaCoberturaConfig } from "@/lib/alertas-cobertura/config";
+import { enviarAlertaWhatsApp, isWhatsAppConfigured } from "@/lib/alertas-cobertura/whatsapp.service";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
@@ -43,8 +45,9 @@ export async function notificarGuardiaAlerta(params: {
   funciones: string;
   urgencia: string | null;
   tiempoRestanteOleadaMin: number;
-}): Promise<{ push: boolean; email: boolean }> {
-  const resultado = { push: false, email: false };
+  modalidad?: string;
+}): Promise<{ push: boolean; email: boolean; whatsapp: boolean }> {
+  const resultado = { push: false, email: false, whatsapp: false };
 
   const titulo = params.urgencia === "URGENTE"
     ? "\uD83D\uDEA8 TURNO EXTRA URGENTE"
@@ -128,10 +131,57 @@ export async function notificarGuardiaAlerta(params: {
     console.error("[AlertaCobertura:Notif] Email error:", e);
   }
 
+  // === WHATSAPP (Twilio Content API) ===
+  if (isWhatsAppConfigured()) {
+    try {
+      const config = await getAlertaCoberturaConfig(params.tenantId);
+      const canalesConfig = params.esInterno ? config.canalInternoDefault : config.canalExternoDefault;
+
+      if (canalesConfig.includes("WHATSAPP")) {
+        const persona = await prisma.opsPersona.findUnique({
+          where: { id: params.personaId },
+          select: { phone: true },
+        });
+
+        if (persona?.phone) {
+          // URL path para botón: alertaId?token=jwt (externo) o alertaId (interno)
+          let urlPath: string;
+          if (!params.esInterno) {
+            try {
+              const token = await generarTokenExterno(params.alertaId, params.guardiaId);
+              urlPath = `${params.alertaId}?token=${token}`;
+            } catch {
+              urlPath = params.alertaId;
+            }
+          } else {
+            urlPath = params.alertaId;
+          }
+
+          const waResult = await enviarAlertaWhatsApp({
+            telefono: persona.phone,
+            instalacion: `${params.instalacionNombre} - ${params.instalacionDireccion}`,
+            horario,
+            monto: montoFormateado,
+            modalidad: mapearModalidadLabel(params.modalidad || "GGSS"),
+            funciones: params.funciones || "Turno de cobertura",
+            urlPath,
+          });
+
+          if (waResult.success) {
+            resultado.whatsapp = true;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[AlertaCobertura:Notif] WhatsApp error:", e);
+    }
+  }
+
   // === REGISTRAR en DB ===
   const canales: string[] = [];
   if (resultado.push) canales.push("PUSH");
   if (resultado.email) canales.push("EMAIL");
+  if (resultado.whatsapp) canales.push("WHATSAPP");
 
   for (const canal of canales) {
     await prisma.opsAlertaNotificacion.create({
@@ -166,6 +216,7 @@ export async function notificarOleada(params: {
   funciones: string;
   urgencia: string | null;
   tiempoRestanteOleadaMin: number;
+  modalidad?: string;
 }): Promise<{ total: number; exitosas: number; fallidas: number }> {
   let exitosas = 0;
   let fallidas = 0;
@@ -198,6 +249,7 @@ export async function notificarOleada(params: {
         funciones: params.funciones,
         urgencia: params.urgencia,
         tiempoRestanteOleadaMin: params.tiempoRestanteOleadaMin,
+        modalidad: params.modalidad,
       });
       exitosas++;
     } catch (e) {
@@ -524,4 +576,13 @@ function formatearRangoHorario(inicio: Date, fin: Date): string {
   const horaInicio = format(inicioZoned, "HH:mm");
   const horaFin = format(finZoned, "HH:mm");
   return `${dia} | ${horaInicio} - ${horaFin}`;
+}
+
+function mapearModalidadLabel(modalidad: string): string {
+  const map: Record<string, string> = {
+    GGSS: "Guardia de Seguridad (GGSS)",
+    CCTV: "Operador CCTV",
+    TACTICO: "Táctico",
+  };
+  return map[modalidad] || modalidad;
 }
