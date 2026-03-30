@@ -341,27 +341,21 @@ export function AccessControlEntry({
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-zinc-400">RUT</Label>
+                  <Label className="text-zinc-400">RUT (solo números)</Label>
                   <div className="flex gap-2">
                     <Input
-                      value={(() => {
-                        if (!rutBody) return "";
-                        const dots = rutBody.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-                        if (rutBody.length >= 7) return `${dots}-${computeRutDv(rutBody)}`;
-                        return dots;
-                      })()}
+                      value={rutBody}
                       onChange={(e) => {
                         const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 9);
                         setRutBody(digits);
                         if (digits.length >= 7) {
-                          const dv = computeRutDv(digits);
-                          setRut(`${digits}-${dv}`);
+                          setRut(`${digits}-${computeRutDv(digits)}`);
                         } else {
                           setRut(digits);
                         }
                       }}
-                      placeholder="13.255.838"
-                      className="flex-1 bg-zinc-800 border-zinc-600 text-lg font-mono"
+                      placeholder="Ej: 13255838"
+                      className="flex-1 bg-zinc-800 border-zinc-600 text-lg font-mono tracking-wider"
                       inputMode="numeric"
                     />
                     <Button
@@ -376,9 +370,11 @@ export function AccessControlEntry({
                     </Button>
                   </div>
                   {rutBody.length >= 7 && (
-                    <p className="text-xs text-emerald-400">
-                      Dígito verificador: <span className="font-bold">{computeRutDv(rutBody)}</span>
-                    </p>
+                    <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2">
+                      <p className="text-sm text-emerald-300 font-mono font-semibold">
+                        {rutBody.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}-{computeRutDv(rutBody)}
+                      </p>
+                    </div>
                   )}
                 </div>
               </>
