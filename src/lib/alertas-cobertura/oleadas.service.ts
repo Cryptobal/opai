@@ -62,39 +62,8 @@ export async function generarOleadas(params: GenerarOleadasParams): Promise<Olea
   // Contar guardias sin coordenadas para el reporte
   const guardiasSinCoordenadas = await contarGuardiasSinCoordenadas(params.tenantId);
 
-  // === OLEADA 0: Turno Saliente ===
-  if (config.incluirTurnoSaliente) {
-    const turnoSaliente = await resolverTurnoSaliente(
-      params.tenantId,
-      params.installationId,
-      params.fechaInicio,
-    );
-
-    if (turnoSaliente.length > 0) {
-      const ids = turnoSaliente.map((g) => g.guardiaId);
-      ids.forEach((id) => guardiaIdsUsados.add(id));
-
-      const oleada: Oleada = {
-        numero: oleadaNumero,
-        tipo: "TURNO_SALIENTE",
-        radioMinKm: 0,
-        radioMaxKm: 0,
-        esperaMin: config.oleada0EsperaMin,
-        guardiaIds: ids,
-        guardiaCount: ids.length,
-      };
-      oleadas.push(oleada);
-      previews.push({
-        ...oleada,
-        guardias: turnoSaliente.map((g) => ({
-          id: g.guardiaId,
-          nombre: `${g.firstName} ${g.lastName}`,
-          distanciaKm: 0,
-        })),
-      });
-      oleadaNumero++;
-    }
-  }
+  // NOTA: Oleada "Turno Saliente" fue removida — un guardia no puede doblar turno (prohibido).
+  // Los guardias que están terminando turno en la instalación NO son candidatos.
 
   // === OLEADAS INTERNAS: por anillos de distancia ===
   const radioMaxInterno = Math.max(params.radioKm, config.oleada3RadioKm);

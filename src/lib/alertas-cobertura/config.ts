@@ -47,7 +47,7 @@ const DEFAULTS: AlertaCoberturaConfig = {
   montoDefaultClp: 0,
   habilitado: false,
   autoAsignarPauta: true,
-  incluirTurnoSaliente: true,
+  incluirTurnoSaliente: false, // Desactivado: doblar turno está prohibido
   notificarChatInterno: true,
 };
 
