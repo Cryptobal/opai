@@ -21,7 +21,7 @@ import type {
   RutValidationResult, FormFieldConfig, CedulaQRData,
 } from "@/lib/access-control/types";
 import { RECORD_TYPE_CONFIG, DEFAULT_FORM_FIELDS } from "@/lib/access-control/types";
-import { validateRut, formatRut, cleanRut, formatRutDash } from "@/lib/access-control/utils";
+import { validateRut, formatRut, cleanRut, formatRutDash, computeRutDv } from "@/lib/access-control/utils";
 
 // ═══════════════════════════════════════════════════════════════
 
@@ -344,17 +344,23 @@ export function AccessControlEntry({
                     <Input
                       value={rut}
                       onChange={(e) => {
-                        const formatted = formatRut(e.target.value.replace(/[^0-9kK]/g, ""));
-                        setRut(formatted);
+                        const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 9);
+                        if (!digits) { setRut(""); return; }
+                        const formatted = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                        if (digits.length >= 7) {
+                          const dv = computeRutDv(digits);
+                          setRut(`${formatted}-${dv}`);
+                        } else {
+                          setRut(formatted);
+                        }
                       }}
-                      placeholder="12.345.678-K"
-                      className="flex-1 bg-zinc-800 border-zinc-600 text-lg"
-                      inputMode="text"
-                      autoCapitalize="characters"
+                      placeholder="13.255.838"
+                      className="flex-1 bg-zinc-800 border-zinc-600 text-lg font-mono"
+                      inputMode="numeric"
                     />
                     <Button
                       onClick={handleManualRut}
-                      disabled={!rut || validating}
+                      disabled={!rut || !validateRut(rut) || validating}
                     >
                       {validating ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -363,8 +369,10 @@ export function AccessControlEntry({
                       )}
                     </Button>
                   </div>
-                  {rut && !validateRut(rut) && rut.length > 3 && (
-                    <p className="text-xs text-red-400">RUT inválido</p>
+                  {rut && rut.includes("-") && (
+                    <p className="text-xs text-emerald-400">
+                      Dígito verificador: <span className="font-bold">{rut.split("-")[1]}</span>
+                    </p>
                   )}
                 </div>
               </>
