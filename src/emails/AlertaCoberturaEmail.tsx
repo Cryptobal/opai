@@ -48,7 +48,7 @@ export default function AlertaCoberturaEmail({
     <Html>
       <Head />
       <Preview>
-        {esUrgente ? "\uD83D\uDEA8 TURNO EXTRA URGENTE" : "\u26A0\uFE0F Turno Extra Disponible"} — {instalacion}
+        {esUrgente ? "🚨 TURNO EXTRA URGENTE" : "⚠️ Turno Extra Disponible"} — {instalacion}
       </Preview>
       <Body style={main}>
         <Container style={container}>
@@ -63,7 +63,7 @@ export default function AlertaCoberturaEmail({
           </Section>
 
           <Text style={categoryTag}>
-            {esUrgente ? "\uD83D\uDEA8 URGENTE" : "\u26A0\uFE0F TURNO EXTRA"}
+            {esUrgente ? "🚨 URGENTE" : "⚠️ TURNO EXTRA"}
           </Text>
 
           <Heading style={h1}>
@@ -100,14 +100,14 @@ export default function AlertaCoberturaEmail({
 
           {esInterno && tiempoRestanteMin > 0 && (
             <Text style={tiempoRestante}>
-              \u23F1\uFE0F Tienes {tiempoRestanteMin} minutos antes de que esta oferta se extienda a
+              {"⏱️"} Tienes {tiempoRestanteMin} minutos antes de que esta oferta se extienda a
               personal externo.
             </Text>
           )}
 
           <Section style={buttonWrap}>
             <Button href={fullUrl} style={esUrgente ? buttonUrgente : button}>
-              \u2705 ACEPTAR TURNO EXTRA
+              {"✅"} ACEPTAR TURNO EXTRA
             </Button>
           </Section>
 

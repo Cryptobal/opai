@@ -63,7 +63,7 @@ export async function notificarGuardiaAlerta(params: {
   const cuerpo = `${params.instalacionNombre}\n${horario}\n${montoFormateado}`;
 
   // Link de aceptación: interno usa portal, externo usa landing pública con token
-  let linkAceptar = `/portal/guardia/alertas/${params.alertaId}`;
+  let linkAceptar = `/portal/guardia?section=alertas&alertaId=${params.alertaId}`;
   if (!params.esInterno) {
     try {
       const token = await generarTokenExterno(params.alertaId, params.guardiaId);
@@ -505,7 +505,7 @@ export async function notificarGuardiaConfirmacion(params: {
       portalType: "guardia",
       title: "✅ Turno Extra Confirmado",
       body: mensaje,
-      url: `/portal/guardia/alertas/${params.alertaId}`,
+      url: `/portal/guardia?section=alertas&alertaId=${params.alertaId}`,
       tag: `alerta-confirmada-${params.alertaId}`,
     });
   } catch (e) {
