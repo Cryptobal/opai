@@ -343,34 +343,32 @@ export function AccessControlEntry({
                 <div className="space-y-2">
                   <Label className="text-zinc-400">RUT</Label>
                   <div className="flex gap-2">
-                    <Input
-                      value={rutBody}
-                      onChange={(e) => {
-                        const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 9);
-                        setRutBody(digits);
-                        if (digits.length >= 7) {
-                          setRut(`${digits}-${computeRutDv(digits)}`);
-                        } else {
-                          setRut(digits);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (rutBody.length >= 7) {
-                          const dots = rutBody.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-                          setRutBody(`${dots}-${computeRutDv(rutBody)}`);
-                        }
-                      }}
-                      onFocus={() => {
-                        const digits = rutBody.replace(/[^0-9]/g, "");
-                        setRutBody(digits);
-                      }}
-                      placeholder="Ej: 13255838"
-                      className="flex-1 bg-zinc-800 border-zinc-600 text-lg font-mono"
-                      inputMode="numeric"
-                    />
+                    <div className="flex items-center flex-1 rounded-md border border-zinc-600 bg-zinc-800 overflow-hidden">
+                      <input
+                        value={rutBody}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 9);
+                          setRutBody(digits);
+                          if (digits.length >= 7) {
+                            setRut(`${digits}-${computeRutDv(digits)}`);
+                          } else {
+                            setRut(digits);
+                          }
+                        }}
+                        maxLength={9}
+                        placeholder="13255838"
+                        className="w-0 flex-1 bg-transparent px-3 py-2 text-lg font-mono text-white placeholder:text-zinc-500 outline-none"
+                        inputMode="numeric"
+                      />
+                      {rutBody.length >= 7 && (
+                        <span className="pr-3 text-lg font-mono font-bold text-emerald-400 select-none">
+                          -{computeRutDv(rutBody)}
+                        </span>
+                      )}
+                    </div>
                     <Button
                       onClick={handleManualRut}
-                      disabled={rutBody.replace(/[^0-9]/g, "").length < 7 || !validateRut(rut) || validating}
+                      disabled={rutBody.length < 7 || !validateRut(rut) || validating}
                     >
                       {validating ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
