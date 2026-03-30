@@ -48,6 +48,14 @@ import { ESTADO_BADGE, URGENCIA_BADGE, formatClp } from "./types";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+interface AlertaStats {
+  totalAlertas: number;
+  alertasActivas: number;
+  tasaAceptacion: number;
+  tiempoPromedioAceptacionMin: number;
+  montoTotalOfrecido: number;
+}
+
 interface Props {
   userRole: string;
   tenantId: string;
@@ -66,6 +74,7 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
   const [filtroFechaHasta, setFiltroFechaHasta] = useState("");
   const [historialPage, setHistorialPage] = useState(1);
   const [historialTotal, setHistorialTotal] = useState(0);
+  const [stats, setStats] = useState<AlertaStats | null>(null);
 
   const fetchAlertas = useCallback(async () => {
     try {
@@ -102,6 +111,14 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
     if (tab !== "geografico") fetchAlertas();
   }, [fetchAlertas, tab]);
 
+  // Fetch stats on mount
+  useEffect(() => {
+    fetch("/api/ops/alertas-cobertura/stats")
+      .then((res) => res.json())
+      .then((json) => { if (json.success) setStats(json.stats); })
+      .catch(() => {});
+  }, []);
+
   // Pusher real-time
   useEffect(() => {
     if (!tenantId) return;
@@ -120,6 +137,8 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
       channel.bind("oleada-activada", () => fetchAlertas());
       channel.bind("alerta-aceptada", () => fetchAlertas());
       channel.bind("alerta-pendiente-confirmacion", () => fetchAlertas());
+      channel.bind("alerta-re-alertada", () => fetchAlertas());
+      channel.bind("alerta-asignada", () => fetchAlertas());
     });
 
     return () => {
@@ -190,6 +209,35 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
 
   return (
     <div className="space-y-4">
+      {stats && stats.totalAlertas > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCard
+            icon={<Siren className="h-4 w-4 text-blue-400" />}
+            value={String(stats.alertasActivas)}
+            label="Activas ahora"
+            color="text-blue-400"
+          />
+          <KpiCard
+            icon={<Clock className="h-4 w-4 text-amber-400" />}
+            value={`${stats.tiempoPromedioAceptacionMin} min`}
+            label="Tiempo promedio"
+            color="text-amber-400"
+          />
+          <KpiCard
+            icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+            value={`${stats.tasaAceptacion}%`}
+            label="Tasa aceptación"
+            color="text-emerald-400"
+          />
+          <KpiCard
+            icon={<Shield className="h-4 w-4 text-teal-400" />}
+            value={formatClp(stats.montoTotalOfrecido)}
+            label="Total ofrecido"
+            color="text-teal-400"
+          />
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <Tabs value={tab} onValueChange={setTab} className="w-full">
           <div className="flex items-center justify-between gap-4">
@@ -302,6 +350,7 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
                   <SelectItem value="ACTIVA">Activa</SelectItem>
                   <SelectItem value="ACEPTADA">Aceptada</SelectItem>
                   <SelectItem value="CONFIRMADA">Confirmada</SelectItem>
+                  <SelectItem value="ASIGNADA_PAUTA">Asignada Pauta</SelectItem>
                   <SelectItem value="CANCELADA">Cancelada</SelectItem>
                   <SelectItem value="EXPIRADA">Expirada</SelectItem>
                   <SelectItem value="NO_CUBIERTA">No Cubierta</SelectItem>
@@ -609,6 +658,30 @@ function AlertaAceptadaCard({
         <Button variant="ghost" size="sm" className="w-full text-xs" onClick={onViewDetail}>
           Ver detalle completo
         </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function KpiCard({
+  icon,
+  value,
+  label,
+  color,
+}: {
+  icon: React.ReactNode;
+  value: string;
+  label: string;
+  color: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4 flex items-center gap-3">
+        <div className="shrink-0">{icon}</div>
+        <div className="min-w-0">
+          <p className={`text-lg font-bold truncate ${color}`}>{value}</p>
+          <p className="text-xs text-muted-foreground truncate">{label}</p>
+        </div>
       </CardContent>
     </Card>
   );

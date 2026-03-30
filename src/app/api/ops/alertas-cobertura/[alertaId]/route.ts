@@ -12,7 +12,14 @@ import {
   reAlertarSchema,
 } from "@/lib/validations/alertas-cobertura";
 import { addHours, addMinutes } from "date-fns";
-import type { OpsAlertaCoberturaEstado } from "@prisma/client";
+// OpsAlertaCoberturaEstado enum — validated by state-machine.ts
+type OpsAlertaCoberturaEstado = "BORRADOR" | "ACTIVA" | "ACEPTADA" | "CONFIRMADA" | "ASIGNADA_PAUTA" | "CANCELADA" | "EXPIRADA";
+import {
+  autoAsignarEnPauta,
+  registrarAsignacionManual,
+} from "@/lib/alertas-cobertura/asignacion.service";
+import { notificarGuardiaConfirmacion, emitirEventoPusher } from "@/lib/alertas-cobertura/notificacion.service";
+import { sendSystemChatMessage } from "@/lib/chat-system-message";
 
 export async function GET(
   request: NextRequest,
@@ -119,8 +126,10 @@ export async function PATCH(
         estado: true,
         reAlertaCount: true,
         installationId: true,
+        puestoId: true,
         fechaInicio: true,
         fechaFin: true,
+        montoOfrecido: true,
         radioKm: true,
         genero: true,
         modalidad: true,
@@ -128,7 +137,9 @@ export async function PATCH(
         soloDealer: true,
         soloConMovilizacion: true,
         expiraAt: true,
-        installation: { select: { lat: true, lng: true } },
+        aceptadaPorGuardiaId: true,
+        creadaPorId: true,
+        installation: { select: { name: true, lat: true, lng: true } },
       },
     });
 
@@ -251,6 +262,37 @@ export async function PATCH(
         estadoAnterior: alerta.estado,
       });
 
+      // Chat de instalación (fire-and-forget)
+      (async () => {
+        try {
+          const installation = await prisma.crmInstallation.findUnique({
+            where: { id: alerta.installationId },
+            select: { chatEnabled: true, chatChannels: { select: { id: true }, take: 1 } },
+          });
+          if (installation?.chatEnabled && installation.chatChannels[0]?.id) {
+            await sendSystemChatMessage({
+              tenantId: ctx.tenantId,
+              channelId: installation.chatChannels[0].id,
+              content: "🔄 Alerta de cobertura re-activada — el guardia anterior no se presentó. Se están enviando nuevas oleadas.",
+              systemEventType: "alerta_cobertura",
+              systemEventData: {
+                alertaId,
+                reAlertaCount: alerta.reAlertaCount + 1,
+                link: `/ops/alertas-cobertura/${alertaId}`,
+              },
+            });
+          }
+        } catch (e) {
+          console.error("[AlertaCobertura] Error enviando chat re-alerta:", e);
+        }
+      })();
+
+      // Pusher real-time (fire-and-forget)
+      emitirEventoPusher(ctx.tenantId, "alerta-re-alertada", {
+        alertaId,
+        reAlertaCount: alerta.reAlertaCount + 1,
+      }).catch(() => {});
+
       return NextResponse.json({ success: true, data: updated });
     }
 
@@ -266,22 +308,100 @@ export async function PATCH(
         );
       }
 
-      const updated = await prisma.opsAlertaCobertura.update({
-        where: { id: alertaId },
-        data: {
-          estado: "CONFIRMADA",
-          confirmadaAt: new Date(),
-          confirmadaPorId: ctx.userId,
-          asignacionPauta: parsed.data.asignacionPauta,
-        },
-      });
+      if (!alerta.aceptadaPorGuardiaId) {
+        return NextResponse.json(
+          { success: false, error: "No hay guardia aceptado para confirmar" },
+          { status: 400 },
+        );
+      }
 
-      await createOpsAuditLog(ctx, "alerta_cobertura.confirmed", "alerta_cobertura", alertaId, {
-        asignacionPauta: parsed.data.asignacionPauta,
-        estadoAnterior: alerta.estado,
-      });
+      if (parsed.data.asignacionPauta === "AUTOMATICA") {
+        const config = await getAlertaCoberturaConfig(ctx.tenantId);
 
-      return NextResponse.json({ success: true, data: updated });
+        if (!config.autoAsignarPauta) {
+          return NextResponse.json(
+            { success: false, error: "Auto-asignación en pauta está deshabilitada en la configuración" },
+            { status: 400 },
+          );
+        }
+
+        const resultado = await autoAsignarEnPauta({
+          tenantId: ctx.tenantId,
+          alertaId: alerta.id,
+          guardiaId: alerta.aceptadaPorGuardiaId,
+          installationId: alerta.installationId,
+          puestoId: alerta.puestoId,
+          fechaInicio: alerta.fechaInicio,
+          fechaFin: alerta.fechaFin,
+          montoOfrecido: alerta.montoOfrecido,
+          confirmadoPorId: ctx.userId,
+        });
+
+        if (!resultado.success) {
+          return NextResponse.json(
+            { success: false, error: resultado.error || "Error al asignar en pauta" },
+            { status: 500 },
+          );
+        }
+
+        await createOpsAuditLog(ctx, "alerta_cobertura.confirmed_auto", "alerta_cobertura", alertaId, {
+          asignacionPauta: "AUTOMATICA",
+          turnoExtraId: resultado.turnoExtraId,
+          estadoAnterior: alerta.estado,
+        });
+
+        // Notificar guardia (fire-and-forget)
+        notificarGuardiaConfirmacion({
+          tenantId: ctx.tenantId,
+          guardiaId: alerta.aceptadaPorGuardiaId,
+          alertaId: alerta.id,
+          instalacionNombre: alerta.installation.name,
+          fechaInicio: alerta.fechaInicio,
+          montoOfrecido: alerta.montoOfrecido,
+          asignacionTipo: "AUTOMATICA",
+        }).catch((err) => console.error("[AlertaCobertura] Error notificando guardia confirmación:", err));
+
+        // Pusher real-time (fire-and-forget)
+        emitirEventoPusher(ctx.tenantId, "alerta-asignada", {
+          alertaId: alerta.id,
+          turnoExtraId: resultado.turnoExtraId,
+          asistenciaId: resultado.asistenciaId,
+        }).catch(() => {});
+
+        return NextResponse.json({
+          success: true,
+          message: "Turno extra registrado y asignado en pauta automáticamente",
+          turnoExtraId: resultado.turnoExtraId,
+        });
+      } else {
+        // MANUAL
+        await registrarAsignacionManual({
+          tenantId: ctx.tenantId,
+          alertaId: alerta.id,
+          confirmadoPorId: ctx.userId,
+        });
+
+        await createOpsAuditLog(ctx, "alerta_cobertura.confirmed_manual", "alerta_cobertura", alertaId, {
+          asignacionPauta: "MANUAL",
+          estadoAnterior: alerta.estado,
+        });
+
+        // Notificar guardia (fire-and-forget)
+        notificarGuardiaConfirmacion({
+          tenantId: ctx.tenantId,
+          guardiaId: alerta.aceptadaPorGuardiaId,
+          alertaId: alerta.id,
+          instalacionNombre: alerta.installation.name,
+          fechaInicio: alerta.fechaInicio,
+          montoOfrecido: alerta.montoOfrecido,
+          asignacionTipo: "MANUAL",
+        }).catch((err) => console.error("[AlertaCobertura] Error notificando guardia confirmación:", err));
+
+        return NextResponse.json({
+          success: true,
+          message: "Alerta confirmada. Asigne manualmente en la pauta.",
+        });
+      }
     }
 
     return NextResponse.json({ success: false, error: "Acción no reconocida" }, { status: 400 });

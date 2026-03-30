@@ -2,64 +2,95 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/api-auth";
 import { notificarSupervisorAceptacion } from "@/lib/alertas-cobertura/notificacion.service";
+import { verificarTokenExterno } from "@/lib/alertas-cobertura/token.service";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ alertaId: string }> },
 ) {
   try {
-    // Auth dual: session del portal guardia O token en body
-    const ctx = await requireAuth();
-    // TODO Sprint 3: Soportar token externo para pool de dealers
-    if (!ctx) {
-      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
-    }
-
     const { alertaId } = await params;
 
-    // Resolver guardiaId desde el usuario autenticado
-    const guardia = await prisma.opsGuardia.findFirst({
-      where: { tenantId: ctx.tenantId, persona: { email: ctx.userEmail } },
-      select: {
-        id: true,
-        currentInstallationId: true,
-        persona: { select: { lat: true, lng: true } },
-      },
-    });
+    // Auth dual: session del portal guardia O token JWT externo
+    let guardiaId: string;
+    let esInterno: boolean;
+    let guardiaLat: unknown = null;
+    let guardiaLng: unknown = null;
 
-    if (!guardia) {
-      return NextResponse.json(
-        { success: false, error: "No se encontró guardia asociado a este usuario" },
-        { status: 404 },
-      );
+    const ctx = await requireAuth().catch(() => null);
+
+    if (ctx) {
+      // Auth vía sesión (guardia interno con login)
+      const guardia = await prisma.opsGuardia.findFirst({
+        where: { tenantId: ctx.tenantId, persona: { email: ctx.userEmail } },
+        select: {
+          id: true,
+          currentInstallationId: true,
+          persona: { select: { lat: true, lng: true } },
+        },
+      });
+
+      if (!guardia) {
+        return NextResponse.json(
+          { success: false, error: "No se encontró guardia asociado a este usuario" },
+          { status: 404 },
+        );
+      }
+
+      guardiaId = guardia.id;
+      esInterno = true;
+      guardiaLat = guardia.persona?.lat;
+      guardiaLng = guardia.persona?.lng;
+    } else {
+      // Auth vía token JWT (guardia externo sin login)
+      const tokenHeader = request.headers.get("X-Alerta-Token");
+      const tokenParam = request.nextUrl.searchParams.get("token");
+      const token = tokenHeader || tokenParam;
+
+      if (!token) {
+        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+      }
+
+      const decoded = await verificarTokenExterno(token);
+      if (!decoded || decoded.alertaId !== alertaId) {
+        return NextResponse.json({ success: false, error: "Token inválido o expirado" }, { status: 401 });
+      }
+
+      guardiaId = decoded.guardiaId;
+      esInterno = false;
+
+      // Obtener coordenadas del guardia externo
+      const guardia = await prisma.opsGuardia.findUnique({
+        where: { id: guardiaId },
+        select: { persona: { select: { lat: true, lng: true } } },
+      });
+      guardiaLat = guardia?.persona?.lat;
+      guardiaLng = guardia?.persona?.lng;
     }
-
-    const guardiaId = guardia.id;
-    const esInterno = true; // TODO Sprint 2: determinar por pool externo
 
     // Calcular distancia si hay coordenadas
     let distanciaKm: number | null = null;
-    if (guardia.persona?.lat && guardia.persona?.lng) {
-      const alerta = await prisma.opsAlertaCobertura.findUnique({
+    if (guardiaLat && guardiaLng) {
+      const alertaGeo = await prisma.opsAlertaCobertura.findUnique({
         where: { id: alertaId },
         select: {
           installation: { select: { lat: true, lng: true } },
         },
       });
-      if (alerta?.installation?.lat && alerta?.installation?.lng) {
+      if (alertaGeo?.installation?.lat && alertaGeo?.installation?.lng) {
         const { haversineDistance } = await import("@/lib/marcacion");
         const distM = haversineDistance(
-          guardia.persona.lat,
-          guardia.persona.lng,
-          alerta.installation.lat,
-          alerta.installation.lng,
+          Number(guardiaLat),
+          Number(guardiaLng),
+          Number(alertaGeo.installation.lat),
+          Number(alertaGeo.installation.lng),
         );
         distanciaKm = Math.round((distM / 1000) * 100) / 100;
       }
     }
 
     // Transacción atómica — race condition safe
-    const resultado = await prisma.$transaction(async (tx) => {
+    const resultado = await prisma.$transaction(async (tx: any) => {
       // 1. Leer estado actual de la alerta
       const alerta = await tx.opsAlertaCobertura.findUnique({
         where: { id: alertaId },
@@ -75,7 +106,8 @@ export async function POST(
         return { exito: false, error: "Alerta no encontrada", status: 404 };
       }
 
-      if (alerta.tenantId !== ctx.tenantId) {
+      // For internal auth, verify tenant matches
+      if (ctx && alerta.tenantId !== ctx.tenantId) {
         return { exito: false, error: "No autorizado", status: 403 };
       }
 

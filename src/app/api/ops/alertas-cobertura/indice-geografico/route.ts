@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       where: {
         tenantId: ctx.tenantId,
         isActive: true,
-        installationId: installationId ? installationId : { in: installations.map((i) => i.id) },
+        installationId: installationId ? installationId : { in: installations.map((i: any) => i.id) },
       },
       select: {
         installationId: true,
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       asignacionesPorInst.set(a.installationId, arr);
     }
 
-    const resultados = installations.map((inst) => {
+    const resultados = installations.map((inst: any) => {
       const instLat = Number(inst.lat);
       const instLng = Number(inst.lng);
       const guardias = asignacionesPorInst.get(inst.id) ?? [];
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Ordenar por score ASC (peores primero)
-    resultados.sort((a, b) => a.scoreOptimizacion - b.scoreOptimizacion);
+    resultados.sort((a: any, b: any) => a.scoreOptimizacion - b.scoreOptimizacion);
 
     return NextResponse.json({
       success: true,
@@ -164,10 +164,10 @@ export async function GET(request: NextRequest) {
         scorePromedio:
           resultados.length > 0
             ? Math.round(
-                resultados.reduce((s, r) => s + r.scoreOptimizacion, 0) / resultados.length,
+                resultados.reduce((s: number, r: any) => s + r.scoreOptimizacion, 0) / resultados.length,
               )
             : 0,
-        instalacionesCriticas: resultados.filter((r) => r.scoreOptimizacion < 40).length,
+        instalacionesCriticas: resultados.filter((r: any) => r.scoreOptimizacion < 40).length,
       },
     });
   } catch (error) {

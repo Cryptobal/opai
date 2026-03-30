@@ -67,6 +67,7 @@ export type AlertaEstado =
   | "ACTIVA"
   | "ACEPTADA"
   | "CONFIRMADA"
+  | "ASIGNADA_PAUTA"
   | "CANCELADA"
   | "EXPIRADA"
   | "NO_CUBIERTA"
@@ -206,6 +207,7 @@ export const ESTADO_BADGE: Record<string, { label: string; className: string }> 
   ACEPTADA: { label: "Aceptada", className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
   PENDIENTE_CONFIRMACION: { label: "Pendiente Confirmación", className: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
   CONFIRMADA: { label: "Confirmada", className: "bg-green-500/20 text-green-400 border-green-500/30" },
+  ASIGNADA_PAUTA: { label: "Asignada Pauta", className: "bg-teal-500/20 text-teal-400 border-teal-500/30" },
   CANCELADA: { label: "Cancelada", className: "bg-red-500/20 text-red-400 border-red-500/30" },
   EXPIRADA: { label: "Expirada", className: "bg-gray-500/20 text-gray-400 border-gray-500/30" },
   NO_CUBIERTA: { label: "No Cubierta", className: "bg-orange-500/20 text-orange-400 border-orange-500/30" },

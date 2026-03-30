@@ -16,6 +16,7 @@ import { resend, getTenantEmailConfig } from "@/lib/resend";
 import { render } from "@react-email/render";
 import AlertaCoberturaEmail from "@/emails/AlertaCoberturaEmail";
 import AlertaAceptadaEmail from "@/emails/AlertaAceptadaEmail";
+import { generarTokenExterno } from "@/lib/alertas-cobertura/token.service";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
@@ -57,7 +58,17 @@ export async function notificarGuardiaAlerta(params: {
 
   const horario = formatearRangoHorario(params.fechaInicio, params.fechaFin);
   const cuerpo = `${params.instalacionNombre}\n${horario}\n${montoFormateado}`;
-  const linkAceptar = `/portal/guardia/alertas/${params.alertaId}`;
+
+  // Link de aceptación: interno usa portal, externo usa landing pública con token
+  let linkAceptar = `/portal/guardia/alertas/${params.alertaId}`;
+  if (!params.esInterno) {
+    try {
+      const token = await generarTokenExterno(params.alertaId, params.guardiaId);
+      linkAceptar = `/alerta/${params.alertaId}?token=${token}`;
+    } catch (e) {
+      console.error("[AlertaCobertura:Notif] Error generando token externo:", e);
+    }
+  }
 
   // === PUSH (guardias internos con suscripción al portal guardia) ===
   if (params.esInterno) {
@@ -130,7 +141,7 @@ export async function notificarGuardiaAlerta(params: {
         oleadaNumero: params.oleadaNumero,
         canal,
       },
-    }).catch((err) => console.error("[AlertaCobertura:Notif] DB log error:", err));
+    }).catch((e: unknown) => console.error("[AlertaCobertura:Notif] DB log error:", e));
   }
 
   return resultado;
@@ -415,7 +426,78 @@ export async function notificarSupervisorConfirmacion(params: {
 }
 
 // ======================================
-// 5. PUSHER — Eventos genéricos de estado
+// 5. NOTIFICAR GUARDIA — Confirmación post-turno
+// ======================================
+
+export async function notificarGuardiaConfirmacion(params: {
+  tenantId: string;
+  guardiaId: string;
+  alertaId: string;
+  instalacionNombre: string;
+  fechaInicio: Date;
+  montoOfrecido: number;
+  asignacionTipo: string;
+}): Promise<void> {
+  const mensaje =
+    params.asignacionTipo === "AUTOMATICA"
+      ? `Tu turno en ${params.instalacionNombre} ha sido confirmado. Ya está registrado en tu pauta.`
+      : `Tu turno en ${params.instalacionNombre} ha sido confirmado. El supervisor registrará la asignación.`;
+
+  // Push al guardia
+  try {
+    await sendPushToPortalUser({
+      tenantId: params.tenantId,
+      notifKey: "alerta_cobertura_confirmada",
+      userType: "guardia",
+      userId: params.guardiaId,
+      portalType: "guardia",
+      title: "✅ Turno Extra Confirmado",
+      body: mensaje,
+      url: `/portal/guardia/alertas/${params.alertaId}`,
+      tag: `alerta-confirmada-${params.alertaId}`,
+    });
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Push guardia confirmación error:", e);
+  }
+
+  // Email al guardia
+  try {
+    const guardia = await prisma.opsGuardia.findUnique({
+      where: { id: params.guardiaId },
+      select: { persona: { select: { email: true, personalEmail: true, firstName: true } } },
+    });
+    const emailDestino = guardia?.persona?.personalEmail || guardia?.persona?.email;
+    if (emailDestino) {
+      const emailConfig = await getTenantEmailConfig(params.tenantId);
+      const montoFormateado = new Intl.NumberFormat("es-CL", {
+        style: "currency",
+        currency: "CLP",
+        maximumFractionDigits: 0,
+      }).format(params.montoOfrecido);
+
+      const horario = formatearRangoHorario(params.fechaInicio, params.fechaInicio); // single date display
+      await resend.emails.send({
+        from: emailConfig.from,
+        replyTo: emailConfig.replyTo,
+        to: emailDestino,
+        subject: "✅ Turno Extra Confirmado",
+        html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
+          <h2 style="color:#059669">✅ Turno Extra Confirmado</h2>
+          <p>Hola ${guardia?.persona?.firstName ?? "Guardia"},</p>
+          <p>${mensaje}</p>
+          <p><strong>Instalación:</strong> ${params.instalacionNombre}</p>
+          <p><strong>Monto:</strong> ${montoFormateado}</p>
+          <p style="margin-top:20px;color:#6b7280;font-size:12px">OPAI — Sistema de Gestión Operacional</p>
+        </div>`,
+      });
+    }
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Email guardia confirmación error:", e);
+  }
+}
+
+// ======================================
+// 6. PUSHER — Eventos genéricos de estado
 // ======================================
 
 export async function emitirEventoPusher(

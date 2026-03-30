@@ -6,6 +6,7 @@
  * No se recalculan después salvo en re-alerta.
  */
 
+import { prisma } from "@/lib/prisma";
 import { getAlertaCoberturaConfig } from "./config";
 import {
   resolverCandidatos,
