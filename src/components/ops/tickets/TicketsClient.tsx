@@ -59,9 +59,9 @@ interface TicketsClientProps {
 
 type ViewState = { view: "list" } | { view: "create" };
 
-type ListMode = "list" | "cards";
+type ListMode = "list" | "cards" | "kanban";
 
-type ModuleView = "dashboard" | "list" | "kanban";
+type ModuleView = "dashboard" | "tickets";
 
 // ═══════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
@@ -86,7 +86,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [filterPriorities, setFilterPriorities] = useState<Set<TicketPriority>>(new Set());
   const [originTab, setOriginTab] = useState<"all" | "internal" | "guard">("all");
   const [listMode, setListMode] = useState<ListMode>("list");
-  const [moduleView, setModuleView] = useState<ModuleView>("list");
+  const [moduleView, setModuleView] = useState<ModuleView>("tickets");
+  const [filterTypeId, setFilterTypeId] = useState<string>("all");
+  const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -113,6 +115,14 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       window.removeEventListener("focus", fetchTickets);
     };
   }, [fetchTickets]);
+
+  // Load ticket types for filter
+  useEffect(() => {
+    fetch("/api/ops/ticket-types?activeOnly=true")
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setTicketTypes(d.data); })
+      .catch(() => {});
+  }, []);
 
   function togglePriority(p: TicketPriority) {
     setFilterPriorities((prev) => {
@@ -146,6 +156,10 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       result = result.filter((t) => filterPriorities.has(t.priority));
     }
 
+    if (filterTypeId !== "all") {
+      result = result.filter((t) => t.ticketTypeId === filterTypeId);
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -158,7 +172,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       );
     }
     return result;
-  }, [tickets, filterStatus, filterPriorities, searchQuery, originTab]);
+  }, [tickets, filterStatus, filterPriorities, searchQuery, originTab, filterTypeId]);
 
   function handleTicketCreated(ticket: Ticket) {
     setTickets((prev) => [ticket, ...prev]);
@@ -200,12 +214,11 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         </Button>
       </div>
 
-      {/* Module view switcher: Dashboard / Lista / Kanban */}
+      {/* Module view switcher: Dashboard / Tickets */}
       <div className="flex gap-1 rounded-lg bg-muted p-0.5">
         {([
           { value: "dashboard" as const, label: "Dashboard" },
-          { value: "list" as const, label: "Lista" },
-          { value: "kanban" as const, label: "Kanban" },
+          { value: "tickets" as const, label: "Tickets" },
         ]).map((tab) => (
           <button
             key={tab.value}
@@ -225,36 +238,8 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       {/* Dashboard view */}
       {moduleView === "dashboard" && <TicketsDashboard />}
 
-      {/* Kanban view */}
-      {moduleView === "kanban" && (
-        <TicketsKanban
-          tickets={filteredTickets}
-          loading={loading}
-          onTicketClick={(id) => router.push(`/ops/tickets/${id}`)}
-          onStatusChange={async (ticketId, newStatus) => {
-            // Optimistic update
-            setTickets((prev) =>
-              prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t)),
-            );
-            try {
-              const res = await fetch(`/api/ops/tickets/${ticketId}/transition`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: newStatus }),
-              });
-              const data = await res.json();
-              if (!data.success) throw new Error(data.error);
-              toast.success(`Estado actualizado`);
-            } catch {
-              fetchTickets(); // revert
-              toast.error("Error al cambiar estado");
-            }
-          }}
-        />
-      )}
-
-      {/* List view (only when moduleView = "list") */}
-      {moduleView === "list" && (
+      {/* Tickets view (List/Cards/Kanban) */}
+      {moduleView === "tickets" && (
         <>
       {/* Search bar */}
       <div className="relative">
@@ -267,7 +252,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         />
       </div>
 
-      {/* Origin tabs */}
+      {/* Origin tabs + View mode toggle */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {([
           { value: "all" as const, label: "Todos" },
@@ -288,30 +273,33 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           </button>
         ))}
 
-        {/* View mode toggle */}
+        {/* View mode toggle: Lista / Cards / Kanban */}
         <div className="ml-auto flex gap-1 rounded-md bg-muted p-0.5">
-          <button
-            type="button"
-            onClick={() => setListMode("list")}
-            className={`rounded-sm px-2 py-1 text-[10px] font-medium ${
-              listMode === "list" ? "bg-background shadow-sm" : "text-muted-foreground"
-            }`}
-          >
-            Lista
-          </button>
-          <button
-            type="button"
-            onClick={() => setListMode("cards")}
-            className={`rounded-sm px-2 py-1 text-[10px] font-medium ${
-              listMode === "cards" ? "bg-background shadow-sm" : "text-muted-foreground"
-            }`}
-          >
-            Cards
-          </button>
+          {([
+            { value: "list" as const, label: "Lista" },
+            { value: "cards" as const, label: "Cards" },
+            { value: "kanban" as const, label: "Kanban" },
+          ]).map((mode) => (
+            <button
+              key={mode.value}
+              type="button"
+              onClick={() => {
+                setListMode(mode.value);
+                if (mode.value === "kanban" && filterStatus === "active") {
+                  setFilterStatus("all");
+                }
+              }}
+              className={`rounded-sm px-2 py-1 text-[10px] font-medium ${
+                listMode === mode.value ? "bg-background shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              {mode.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Priority pills (toggleable) */}
+      {/* Filters: Priority pills + Status + Ticket type */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
         {(Object.entries(TICKET_PRIORITY_CONFIG) as [TicketPriority, (typeof TICKET_PRIORITY_CONFIG)["p1"]][]).map(
           ([key, cfg]) => {
@@ -358,10 +346,56 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             <SelectItem value="cancelled">Cancelado</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Ticket type filter */}
+        {ticketTypes.length > 0 && (
+          <Select
+            value={filterTypeId}
+            onValueChange={setFilterTypeId}
+          >
+            <SelectTrigger className="h-7 w-[140px] text-[11px] border-0 bg-muted/50 shrink-0">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los tipos</SelectItem>
+              {ticketTypes.map((tt) => (
+                <SelectItem key={tt.id} value={tt.id}>
+                  {tt.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
-      {/* Content */}
-      {loading ? (
+      {/* Kanban sub-view */}
+      {listMode === "kanban" ? (
+        <TicketsKanban
+          tickets={filteredTickets}
+          loading={loading}
+          onTicketClick={(id) => router.push(`/ops/tickets/${id}`)}
+          onStatusChange={async (ticketId, newStatus) => {
+            setTickets((prev) =>
+              prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t)),
+            );
+            try {
+              const res = await fetch(`/api/ops/tickets/${ticketId}/transition`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus }),
+              });
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error);
+              toast.success(`Estado actualizado`);
+            } catch {
+              fetchTickets();
+              toast.error("Error al cambiar estado");
+            }
+          }}
+        />
+      ) : (
+      /* List/Cards content */
+      loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
@@ -403,7 +437,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             />
           ))}
         </div>
-      )}
+      ))}
         </>
       )}
 

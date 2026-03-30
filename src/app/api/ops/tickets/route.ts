@@ -255,6 +255,13 @@ export async function POST(request: NextRequest) {
       const { sendNotificationToUsers } = await import("@/lib/notification-service");
       const targetUserIds: string[] = [];
 
+      // Resolve reporter name for notification
+      const reporter = await prisma.admin.findFirst({
+        where: { id: ctx.userId, tenantId: ctx.tenantId },
+        select: { name: true, email: true },
+      });
+      const reporterName = reporter?.name || reporter?.email || "Usuario";
+
       // Always notify the requester (if it's a user, not a guardia)
       if (ctx.userId) targetUserIds.push(ctx.userId);
 
@@ -277,12 +284,26 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const teamLabel = TICKET_TEAM_CONFIG[ticket.assignedTeam as keyof typeof TICKET_TEAM_CONFIG]?.label ?? ticket.assignedTeam;
+      const bellMessage = `Tipo: ${ticketType.name} · Prioridad: ${ticket.priority.toUpperCase()}${requiresApproval ? " · Pendiente de aprobación" : ""}`;
+      const emailLines = [
+        `Tipo: ${ticketType.name} · Origen: ${ticket.source === "guard_portal" ? "Portal del guardia" : ticket.source === "manual" ? "Manual" : ticket.source}${requiresApproval ? " · Pendiente de aprobación" : ""}`,
+        `Creado por: ${reporterName}`,
+        `Equipo: ${teamLabel}`,
+        `Prioridad: ${ticket.priority.toUpperCase()}`,
+      ];
+      if (ticket.description) {
+        const desc = ticket.description.length > 200 ? ticket.description.slice(0, 200) + "…" : ticket.description;
+        emailLines.push(`\nDescripción:\n${desc}`);
+      }
+
       if (targetUserIds.length > 0) {
         await sendNotificationToUsers({
           tenantId: ctx.tenantId,
           type: "ticket_created",
           title: `Nuevo ticket: ${ticket.code} - ${ticket.title}`,
-          message: `Tipo: ${ticketType.name} · Prioridad: ${ticket.priority.toUpperCase()}${requiresApproval ? " · Pendiente de aprobación" : ""}`,
+          message: bellMessage,
+          emailMessage: emailLines.join("\n"),
           data: { ticketId: ticket.id, code: ticket.code, priority: ticket.priority },
           link: `/ops/tickets/${ticket.id}`,
           targetUserIds: [...new Set(targetUserIds)],

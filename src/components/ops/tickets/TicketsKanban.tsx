@@ -34,10 +34,13 @@ interface TicketsKanbanProps {
 }
 
 const KANBAN_COLUMNS: { status: TicketStatus; color: string }[] = [
+  { status: "pending_approval", color: "bg-orange-500" },
   { status: "open", color: "bg-amber-500" },
   { status: "in_progress", color: "bg-blue-500" },
   { status: "waiting", color: "bg-purple-500" },
   { status: "resolved", color: "bg-emerald-500" },
+  { status: "closed", color: "bg-slate-500" },
+  { status: "cancelled", color: "bg-red-500" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -69,6 +72,10 @@ export function TicketsKanban({
       {KANBAN_COLUMNS.map((col) => {
         const colTickets = tickets.filter((t) => t.status === col.status);
         const statusCfg = TICKET_STATUS_CONFIG[col.status];
+
+        // Hide terminal columns (closed, cancelled) if empty
+        const isTerminal = ["closed", "cancelled", "rejected"].includes(col.status);
+        if (isTerminal && colTickets.length === 0) return null;
 
         return (
           <div

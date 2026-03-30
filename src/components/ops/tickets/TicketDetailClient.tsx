@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   AlertTriangle,
-  ArrowLeft,
-  ArrowRight,
   Check,
   ChevronRight,
   Clock,
@@ -286,14 +284,23 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   if (!ticket) {
     return (
       <div className="space-y-4">
-        <button
-          type="button"
-          onClick={() => router.push("/ops/tickets")}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Volver a tickets
-        </button>
+        <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <button
+            type="button"
+            onClick={() => router.push("/ops")}
+            className="hover:text-foreground transition-colors"
+          >
+            Operaciones
+          </button>
+          <ChevronRight className="h-3 w-3" />
+          <button
+            type="button"
+            onClick={() => router.push("/ops/tickets")}
+            className="hover:text-foreground transition-colors"
+          >
+            Tickets
+          </button>
+        </nav>
         <div className="rounded-xl border border-dashed border-border p-8 text-center">
           <p className="text-sm text-muted-foreground">Ticket no encontrado.</p>
         </div>
@@ -314,15 +321,26 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
   return (
     <div className="space-y-3 pb-24">
-      {/* Back */}
-      <button
-        type="button"
-        onClick={() => router.push("/ops/tickets")}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Volver a tickets
-      </button>
+      {/* Breadcrumbs */}
+      <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <button
+          type="button"
+          onClick={() => router.push("/ops")}
+          className="hover:text-foreground transition-colors"
+        >
+          Operaciones
+        </button>
+        <ChevronRight className="h-3 w-3" />
+        <button
+          type="button"
+          onClick={() => router.push("/ops/tickets")}
+          className="hover:text-foreground transition-colors"
+        >
+          Tickets
+        </button>
+        <ChevronRight className="h-3 w-3" />
+        <span className="font-medium text-foreground">{ticket.code}</span>
+      </nav>
 
       {/* ── CARD: Header ── */}
       <div className={`rounded-xl border bg-[#161b22] p-4 space-y-3 ${breached ? "border-red-500/40" : "border-border"}`}>
