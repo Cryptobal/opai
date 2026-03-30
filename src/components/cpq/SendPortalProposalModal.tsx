@@ -221,16 +221,20 @@ export function SendPortalProposalModal({
       if (!response.ok || !payload.success) {
         throw new Error(payload.error || "No se pudo enviar");
       }
+      const data = payload.data;
+      if (!data?.sentTo) {
+        throw new Error("Respuesta incompleta del servidor");
+      }
       toast.success(
-        `Invitación enviada a ${payload.data.sentTo}. ${payload.data.pinGenerated ? "Se generó PIN de acceso." : "PIN existente."}`
+        `Invitación enviada a ${data.sentTo}. ${data.pinGenerated ? "Se generó PIN de acceso." : "PIN existente."}`
       );
       onComplete?.({
         decision,
         result: {
-          sentTo: payload.data.sentTo,
-          whatsappMessage: payload.data.whatsappMessage,
-          whatsappPhone: payload.data.whatsappPhone,
-          pinGenerated: payload.data.pinGenerated,
+          sentTo: data.sentTo,
+          whatsappMessage: data.whatsappMessage,
+          whatsappPhone: data.whatsappPhone,
+          pinGenerated: data.pinGenerated,
         },
       });
       setOpen(false);
