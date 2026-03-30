@@ -207,6 +207,10 @@ export function LeadInstallationCpq({
   const [secPuestos, setSecPuestos] = useState(true);
   const [secCostos, setSecCostos] = useState(true);
 
+  // Ref to always access the latest config inside async callbacks (avoids stale closures)
+  const configRef = useRef(config);
+  configRef.current = config;
+
   // Catalog items for cost accordion
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
@@ -227,9 +231,12 @@ export function LeadInstallationCpq({
             priceLogic: item.priceLogic ?? "uniform",
           })));
           setCatalogLoaded(true);
+          // Usar configRef.current para obtener el config más reciente (evita stale closure
+          // cuando el parent restaura cpqConfigs desde metadata después del mount inicial).
+          const currentConfig = configRef.current;
           // Hidratar costItems existentes y agregar ítems nuevos del catálogo en leads ya creados.
           const catalogById = new Map(res.data.map((c: any) => [c.id, c]));
-          const hydrated: LeadCostItem[] = config.costItems.map((item) => {
+          const hydrated: LeadCostItem[] = currentConfig.costItems.map((item) => {
             const def = catalogById.get(item.catalogItemId) as
               | { defaultTechnicalSpecs?: string | null; priceLogic?: string; unit?: string; type?: string; name?: string; basePrice?: number }
               | undefined;
@@ -239,11 +246,14 @@ export function LeadInstallationCpq({
               (def.defaultTechnicalSpecs != null ? toTechnicalSpecs(def.defaultTechnicalSpecs) : null);
             const priceLogic = def.priceLogic ?? item.priceLogic ?? "uniform";
             const unit = def.unit ?? item.unit;
+            const catalogPrice = Number(def.basePrice);
             return {
               ...item,
               name: def.name ?? item.name,
               type: def.type ?? item.type,
-              basePrice: Number(def.basePrice) || item.basePrice,
+              // Usar precio del catálogo siempre que sea un número válido (incluyendo 0 intencional).
+              // Solo caer en item.basePrice si el catálogo no tiene precio definido.
+              basePrice: !Number.isNaN(catalogPrice) ? catalogPrice : item.basePrice,
               unit,
               technicalSpecs: specs ?? item.technicalSpecs,
               priceLogic,
@@ -251,7 +261,7 @@ export function LeadInstallationCpq({
           });
 
           const enabledTypes = new Set<string>();
-          for (const g of config.selectedCostGroups) {
+          for (const g of currentConfig.selectedCostGroups) {
             const types = COST_GROUP_TYPES_MAP[g];
             if (types) types.forEach((t) => enabledTypes.add(t));
           }
@@ -259,33 +269,37 @@ export function LeadInstallationCpq({
           const existingIds = new Set(hydrated.map((item) => item.catalogItemId));
           const missingCatalogItems: LeadCostItem[] = res.data
             .filter((item: any) => !existingIds.has(item.id))
-            .map((item: any) => ({
-              catalogItemId: item.id,
-              name: item.name,
-              type: item.type,
-              unit: item.unit,
-              basePrice: Number(item.basePrice) || 0,
-              priceOverride: null,
-              enabled: Boolean(item.isDefault) && enabledTypes.has(item.type),
-              technicalSpecs: toTechnicalSpecs(item.defaultTechnicalSpecs) ?? null,
-              priceLogic: item.priceLogic ?? "uniform",
-            }));
+            .map((item: any) => {
+              const bp = Number(item.basePrice);
+              return {
+                catalogItemId: item.id,
+                name: item.name,
+                type: item.type,
+                unit: item.unit,
+                basePrice: !Number.isNaN(bp) ? bp : 0,
+                priceOverride: null,
+                enabled: Boolean(item.isDefault) && enabledTypes.has(item.type),
+                technicalSpecs: toTechnicalSpecs(item.defaultTechnicalSpecs) ?? null,
+                priceLogic: item.priceLogic ?? "uniform",
+              };
+            });
 
           const merged = [...hydrated, ...missingCatalogItems];
           const changed =
-            merged.length !== config.costItems.length ||
+            merged.length !== currentConfig.costItems.length ||
             hydrated.some(
               (h, i) =>
-                h.name !== config.costItems[i]?.name ||
-                h.type !== config.costItems[i]?.type ||
-                h.basePrice !== config.costItems[i]?.basePrice ||
-                h.technicalSpecs !== config.costItems[i]?.technicalSpecs ||
-                h.priceLogic !== config.costItems[i]?.priceLogic ||
-                h.unit !== config.costItems[i]?.unit
+                h.name !== currentConfig.costItems[i]?.name ||
+                h.type !== currentConfig.costItems[i]?.type ||
+                h.basePrice !== currentConfig.costItems[i]?.basePrice ||
+                h.technicalSpecs !== currentConfig.costItems[i]?.technicalSpecs ||
+                h.priceLogic !== currentConfig.costItems[i]?.priceLogic ||
+                h.unit !== currentConfig.costItems[i]?.unit
             );
 
           if (changed) {
-            onChange({ ...config, costItems: merged });
+            // Usar configRef.current para preservar el resto del config (positions, margin, etc.)
+            onChange({ ...configRef.current, costItems: merged });
           }
         }
       })
@@ -490,10 +504,23 @@ export function LeadInstallationCpq({
 
   // ─── Cost group toggle ───
   const toggleCostGroup = (id: string) => {
-    const groups = config.selectedCostGroups.includes(id)
-      ? config.selectedCostGroups.filter((g) => g !== id)
-      : [...config.selectedCostGroups, id];
-    update({ selectedCostGroups: groups });
+    const isAdding = !config.selectedCostGroups.includes(id);
+    const groups = isAdding
+      ? [...config.selectedCostGroups, id]
+      : config.selectedCostGroups.filter((g) => g !== id);
+
+    // Al activar/desactivar un grupo, habilitar/deshabilitar sus ítems de costo correspondientes
+    const types = COST_GROUP_TYPES_MAP[id];
+    if (types) {
+      const typeSet = new Set(types);
+      const items = config.costItems.map((item) => {
+        if (!typeSet.has(item.type)) return item;
+        return { ...item, enabled: isAdding };
+      });
+      update({ selectedCostGroups: groups, costItems: items });
+    } else {
+      update({ selectedCostGroups: groups });
+    }
   };
 
   // ─── AI description generation ───
