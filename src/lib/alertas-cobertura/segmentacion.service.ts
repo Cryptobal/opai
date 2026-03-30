@@ -68,7 +68,7 @@ export async function resolverCandidatos(
     where: {
       tenantId: filtros.tenantId,
       status: "active",
-      lifecycleStatus: { in: ["contratado", "active"] },
+      lifecycleStatus: { in: ["contratado", "seleccionado", "te"] },
       isBlacklisted: false,
       persona: {
         lat: { not: null },
