@@ -66,7 +66,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
   const [funciones, setFunciones] = useState("");
   const [urgencia, setUrgencia] = useState<string>("");
   const [radioKm, setRadioKm] = useState(30);
-  const [requiereOS10, setRequiereOS10] = useState(true);
+  const [requiereOS10, setRequiereOS10] = useState(false);
   const [soloConMovilizacion, setSoloConMovilizacion] = useState(false);
   const [soloDealer, setSoloDealer] = useState(false);
   const [genero, setGenero] = useState<string>("");
@@ -253,7 +253,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
     setFunciones("");
     setUrgencia("");
     setRadioKm(30);
-    setRequiereOS10(true);
+    setRequiereOS10(false);
     setSoloConMovilizacion(false);
     setSoloDealer(false);
     setGenero("");
