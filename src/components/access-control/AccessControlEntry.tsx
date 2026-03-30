@@ -347,9 +347,10 @@ export function AccessControlEntry({
                         const formatted = formatRut(e.target.value.replace(/[^0-9kK]/g, ""));
                         setRut(formatted);
                       }}
-                      placeholder="12.345.678-9"
+                      placeholder="12.345.678-K"
                       className="flex-1 bg-zinc-800 border-zinc-600 text-lg"
-                      inputMode="numeric"
+                      inputMode="text"
+                      autoCapitalize="characters"
                     />
                     <Button
                       onClick={handleManualRut}
