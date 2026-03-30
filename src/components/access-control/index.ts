@@ -6,6 +6,7 @@ export { AccessControlExit } from "./AccessControlExit";
 export { CedulaQRScanner } from "./CedulaQRScanner";
 export { DynamicFormRenderer } from "./DynamicFormRenderer";
 export { VehiclePlateOCR } from "./VehiclePlateOCR";
+export { MrzCameraCapture } from "./MrzCameraCapture";
 export { ListValidationResult } from "./ListValidationResult";
 export { InSiteList } from "./InSiteList";
 export { ExpectedToday } from "./ExpectedToday";

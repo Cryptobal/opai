@@ -49,6 +49,7 @@ export function AccessPortalApp() {
   const [isOnline, setIsOnline] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const [config, setConfig] = useState<AccessControlConfigData | null>(null);
+  const [quickEntryRequested, setQuickEntryRequested] = useState(false);
   const [pairingData, setPairingData] = useState<{
     installationName: string;
     installationAddress: string;
@@ -446,6 +447,8 @@ export function AccessPortalApp() {
             tenantId=""
             config={config}
             onEntryRegistered={() => {}}
+            quickEntry={quickEntryRequested}
+            onQuickEntryConsumed={() => setQuickEntryRequested(false)}
           />
         )}
         {activeTab === "en-sitio" && (
@@ -477,7 +480,10 @@ export function AccessPortalApp() {
       {(activeTab === "inicio" || activeTab === "registro") && (
         <button
           type="button"
-          onClick={() => setActiveTab("registro")}
+          onClick={() => {
+            setActiveTab("registro");
+            setQuickEntryRequested(true);
+          }}
           className="fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 transition-transform active:scale-95"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 6rem)' }}
           aria-label="Registro rápido"

@@ -318,6 +318,19 @@ export function isWithinValidity(
 //  OCR PLATE PROMPT
 // ═══════════════════════════════════════════════════════════════
 
+export const OCR_MRZ_PROMPT = `Analiza esta imagen del reverso de una cédula de identidad chilena.
+Lee las 3 líneas MRZ (Machine Readable Zone) impresas en la parte inferior.
+Son texto monoespaciado OCR-B, 3 líneas de 30 caracteres cada una, usando letras, números y el carácter "<".
+
+Línea 3 contiene: APELLIDOS<<NOMBRES (separados por <<, espacios internos con <).
+Línea 2 contiene después de "CHL": el RUT sin puntos ni guión seguido de <digito_verificador.
+
+Extrae el nombre completo y el RUT.
+
+Responde SOLO con un JSON:
+{"fullName": "Nombres Apellidos", "rut": "12345678-9", "mrz_line1": "...", "mrz_line2": "...", "mrz_line3": "...", "confidence": 0.95}
+Si no puedes leer el MRZ, responde: {"fullName": null, "rut": null, "confidence": 0, "error": "descripción"}`;
+
 export const OCR_PLATE_PROMPT = `Analiza esta imagen de una patente de vehículo chilena. Extrae el texto de la patente.
 Las patentes chilenas tienen estos formatos:
 - Formato antiguo: BB-9999 o BB9999 (2 letras + 4 números)

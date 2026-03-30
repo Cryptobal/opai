@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CedulaQRScanner } from "./CedulaQRScanner";
+import { MrzCameraCapture } from "./MrzCameraCapture";
 import { DynamicFormRenderer } from "./DynamicFormRenderer";
 import { VehiclePlateOCR } from "./VehiclePlateOCR";
 import { ListValidationResult } from "./ListValidationResult";
@@ -56,6 +57,7 @@ export function AccessControlEntry({
   // Identification
   const [rut, setRut] = useState("");
   const [qrData, setQrData] = useState<CedulaQRData | null>(null);
+  const [needsMrzCapture, setNeedsMrzCapture] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<RutValidationResult | null>(null);
 
@@ -96,7 +98,28 @@ export function AccessControlEntry({
       ...(data.parsedMrz?.fullName ? { full_name: data.parsedMrz.fullName } : {}),
     }));
     setShowQR(false);
-    validateRutAgainstLists(data.rut);
+
+    if (!data.parsedMrz?.fullName) {
+      setNeedsMrzCapture(true);
+    } else {
+      validateRutAgainstLists(data.rut);
+    }
+  };
+
+  // ── Step 2b: MRZ OCR Result ──
+  const handleMrzResult = (data: { fullName: string; rut?: string }) => {
+    setNeedsMrzCapture(false);
+    setFormData((prev) => ({
+      ...prev,
+      full_name: data.fullName,
+      ...(data.rut ? { rut: data.rut } : {}),
+    }));
+    validateRutAgainstLists(rut);
+  };
+
+  const handleMrzSkip = () => {
+    setNeedsMrzCapture(false);
+    validateRutAgainstLists(rut);
   };
 
   // ── Step 2: Manual RUT ──
@@ -285,6 +308,22 @@ export function AccessControlEntry({
                 onResult={handleQRResult}
                 onCancel={() => setShowQR(false)}
               />
+            ) : needsMrzCapture ? (
+              <div className="space-y-3">
+                {rut && (
+                  <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2">
+                    <Check className="h-4 w-4 text-emerald-400" />
+                    <span className="text-sm text-emerald-300">
+                      RUT: <span className="font-mono font-medium">{rut}</span>
+                    </span>
+                  </div>
+                )}
+                <MrzCameraCapture
+                  onResult={handleMrzResult}
+                  onSkip={handleMrzSkip}
+                  existingRut={rut}
+                />
+              </div>
             ) : (
               <>
                 <Button
@@ -331,6 +370,13 @@ export function AccessControlEntry({
                   )}
                 </div>
               </>
+            )}
+
+            {validating && (
+              <div className="flex items-center justify-center gap-2 py-4 text-sm text-zinc-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Validando RUT...
+              </div>
             )}
           </div>
         )}

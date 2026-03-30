@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -44,6 +44,8 @@ interface RegistroTabProps {
   tenantId: string;
   config: AccessControlConfigData;
   onEntryRegistered?: () => void;
+  quickEntry?: boolean;
+  onQuickEntryConsumed?: () => void;
 }
 
 type ActiveFlow = "none" | "entry" | "exit";
@@ -56,8 +58,17 @@ export default function RegistroTab({
   tenantId,
   config,
   onEntryRegistered,
+  quickEntry,
+  onQuickEntryConsumed,
 }: RegistroTabProps) {
   const [activeFlow, setActiveFlow] = useState<ActiveFlow>("none");
+
+  useEffect(() => {
+    if (quickEntry && activeFlow === "none") {
+      setActiveFlow("entry");
+      onQuickEntryConsumed?.();
+    }
+  }, [quickEntry, activeFlow, onQuickEntryConsumed]);
 
   const enabledTypes = config.enabledRecordTypes ?? [];
 

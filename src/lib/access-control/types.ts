@@ -202,6 +202,16 @@ export interface PlateOcrResult {
   error?: string;
 }
 
+export interface MrzOcrResult {
+  fullName: string | null;
+  rut: string | null;
+  mrzLine1: string | null;
+  mrzLine2: string | null;
+  mrzLine3: string | null;
+  confidence: number;
+  error?: string;
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  QR CEDULA
 // ═══════════════════════════════════════════════════════════════
