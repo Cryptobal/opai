@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { parseResponseJson } from "@/lib/parse-response-json";
 import {
   Dialog,
   DialogContent,
@@ -2554,7 +2555,11 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                             recipientContactId: approvalResult!.contact.id,
                           }),
                         });
-                        const data = await res.json();
+                        const data = await parseResponseJson<{
+                          success?: boolean;
+                          error?: string;
+                          data?: { sentTo?: string; whatsappMessage?: string; whatsappPhone?: string | null };
+                        }>(res);
                         if (!res.ok || !data.success) throw new Error(data.error || "Error al enviar");
                         toast.success(`Propuesta enviada a ${data.data.sentTo}`);
                         setApprovalResult(null);

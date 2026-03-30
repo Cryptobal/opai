@@ -16,6 +16,7 @@ import { Send, Loader2, FileText, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { FollowUpDecisionContent, type FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
 import { cn } from "@/lib/utils";
+import { parseResponseJson } from "@/lib/parse-response-json";
 
 type ContactRow = {
   id: string;
@@ -207,7 +208,16 @@ export function SendPortalProposalModal({
           },
         }),
       });
-      const payload = await response.json();
+      const payload = await parseResponseJson<{
+        success?: boolean;
+        error?: string;
+        data?: {
+          sentTo: string;
+          pinGenerated?: boolean;
+          whatsappMessage?: string;
+          whatsappPhone?: string | null;
+        };
+      }>(response);
       if (!response.ok || !payload.success) {
         throw new Error(payload.error || "No se pudo enviar");
       }
