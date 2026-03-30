@@ -60,7 +60,11 @@ import {
   TOP_GARMENT_SIZES,
   TIPO_PENSION,
 } from "@/lib/personas";
-import { canEditGuardiasPlanSeleccion, hasOpsCapability } from "@/lib/ops-rbac";
+import {
+  canEditGuardiasPlanSeleccion,
+  canReloadGuardiaMarcacionPin,
+  hasOpsCapability,
+} from "@/lib/ops-rbac";
 import { PersonaRendicionesTab } from "@/components/finance/PersonaRendicionesTab";
 import { GuardEventsTab } from "@/components/ops/guard-events";
 import { GuardContractsTab } from "@/components/ops/guard-contracts";
@@ -327,6 +331,7 @@ export function GuardiaDetailClient({
 
   // ── Permissions ──
   const canManageGuardias = hasOpsCapability(userRole, "guardias_manage");
+  const canReloadMarcacionPin = canReloadGuardiaMarcacionPin(userRole);
   const canEditPlanSeleccion = canEditGuardiasPlanSeleccion(userRole);
   const canChangeLifecycle = hasOpsCapability(userRole, "guardias_manage") || hasOpsCapability(userRole, "rrhh_events");
   const canManageDocs = hasOpsCapability(userRole, "guardias_documents");
@@ -550,7 +555,7 @@ export function GuardiaDetailClient({
                 )}>
                   {guardia.marcacionPinVisible ?? (guardia.marcacionPin ? "Recargar para generar" : "—")}
                 </span>
-                {canManageGuardias && (
+                {canReloadMarcacionPin && (
                   <Button
                     type="button"
                     variant="outline"
@@ -627,6 +632,7 @@ export function GuardiaDetailClient({
                 faceIdPhotoUrl={guardia.faceIdPhotoUrl}
                 faceIdRegisteredAt={guardia.faceIdRegisteredAt}
                 canManageGuardias={canManageGuardias}
+                canReloadMarcacionPin={canReloadMarcacionPin}
                 onPinUpdated={(pin) => setGuardia((prev) => ({ ...prev, marcacionPin: "[configurado]", marcacionPinVisible: pin }))}
                 onFaceIdReset={() => setGuardia((prev) => ({ ...prev, faceIdRegistered: false, faceIdPhotoUrl: null, faceIdAwsId: null }))}
               />

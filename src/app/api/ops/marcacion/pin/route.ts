@@ -7,6 +7,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/api-auth";
+import { ensureOpsAccess } from "@/lib/ops";
+import { canReloadGuardiaMarcacionPin } from "@/lib/ops-rbac";
 import { generatePin } from "@/lib/marcacion";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -22,6 +24,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: "No autorizado" },
         { status: 401 }
+      );
+    }
+
+    const opsBlocked = await ensureOpsAccess(auth);
+    if (opsBlocked) return opsBlocked;
+
+    if (!canReloadGuardiaMarcacionPin(auth.userRole)) {
+      return NextResponse.json(
+        { success: false, error: "Sin permisos para recargar el PIN de marcación" },
+        { status: 403 }
       );
     }
 

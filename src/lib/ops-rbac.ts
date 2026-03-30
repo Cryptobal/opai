@@ -27,3 +27,11 @@ export function hasOpsCapability(role: string, capability: OpsCapability): boole
 export function canEditGuardiasPlanSeleccion(role: string): boolean {
   return hasOpsCapability(role, "guardias_manage") || hasOpsCapability(role, "guardias_plan_seleccion");
 }
+
+/** Recargar / generar PIN de marcación en ficha (supervisores tienen plan de selección, no gestión completa). */
+export function canReloadGuardiaMarcacionPin(role: string): boolean {
+  return (
+    hasOpsCapability(role, "guardias_manage") ||
+    hasOpsCapability(role, "guardias_plan_seleccion")
+  );
+}

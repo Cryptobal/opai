@@ -13,6 +13,8 @@ interface MarcacionSectionProps {
   faceIdPhotoUrl?: string | null;
   faceIdRegisteredAt?: string | null;
   canManageGuardias: boolean;
+  /** Generar/resetear PIN (incluye supervisores con plan de selección). */
+  canReloadMarcacionPin?: boolean;
   onPinUpdated: (pin: string) => void;
   onFaceIdReset?: () => void;
 }
@@ -25,10 +27,12 @@ export default function MarcacionSection({
   faceIdPhotoUrl,
   faceIdRegisteredAt,
   canManageGuardias,
+  canReloadMarcacionPin,
   onPinUpdated,
   onFaceIdReset,
 }: MarcacionSectionProps) {
   const [faceIdResetting, setFaceIdResetting] = useState(false);
+  const canPinActions = canReloadMarcacionPin ?? canManageGuardias;
 
   const handleFaceIdReset = async () => {
     setFaceIdResetting(true);
@@ -154,7 +158,7 @@ export default function MarcacionSection({
         )}
       </div>
 
-      {canManageGuardias && (
+      {canPinActions && (
         <MarcacionPinSection
           guardiaId={guardiaId}
           hasPin={!!marcacionPin}
