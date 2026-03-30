@@ -236,7 +236,7 @@ function KanbanCard({
           <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
             <div
               className={`h-full rounded-full ${slaColor}`}
-              style={{ width: `${Math.max(slaPercent ?? 0, 2)}%` }}
+              style={{ width: `${slaPercent === 0 ? 100 : Math.max(slaPercent ?? 0, 2)}%` }}
             />
           </div>
           <span className={`text-[9px] font-medium ${slaTextColor}`}>{slaText}</span>

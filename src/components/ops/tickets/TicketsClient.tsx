@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -90,8 +90,10 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [filterTypeId, setFilterTypeId] = useState<string>("all");
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
 
-  const fetchTickets = useCallback(async () => {
-    setLoading(true);
+  const initialLoadDone = useRef(false);
+
+  const fetchTickets = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     try {
       const res = await fetch("/api/ops/tickets");
       const data = await res.json();
@@ -100,19 +102,23 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       toast.error("Error al cargar tickets");
     } finally {
       setLoading(false);
+      initialLoadDone.current = true;
     }
   }, []);
 
   useEffect(() => {
-    fetchTickets();
+    fetchTickets(true); // initial load shows spinner
     function handleVisibility() {
-      if (document.visibilityState === "visible") fetchTickets();
+      if (document.visibilityState === "visible" && initialLoadDone.current) fetchTickets();
+    }
+    function handleFocus() {
+      if (initialLoadDone.current) fetchTickets();
     }
     document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("focus", fetchTickets);
+    window.addEventListener("focus", handleFocus);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("focus", fetchTickets);
+      window.removeEventListener("focus", handleFocus);
     };
   }, [fetchTickets]);
 
@@ -571,7 +577,7 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
           <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${slaColor}`}
-              style={{ width: `${Math.max(slaPercent ?? 0, 2)}%` }}
+              style={{ width: `${slaPercent === 0 ? 100 : Math.max(slaPercent ?? 0, 2)}%` }}
             />
           </div>
           <div className={`flex items-center gap-1 text-[10px] font-medium ${slaTextColor}`}>
@@ -616,7 +622,7 @@ export function SlaBar({
       <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
         <div
           className={`h-full rounded-full transition-all ${slaColor}`}
-          style={{ width: `${Math.max(slaPercent ?? 0, 2)}%` }}
+          style={{ width: `${slaPercent === 0 ? 100 : Math.max(slaPercent ?? 0, 2)}%` }}
         />
       </div>
       {showText && (
