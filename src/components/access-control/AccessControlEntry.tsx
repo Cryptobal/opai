@@ -56,6 +56,7 @@ export function AccessControlEntry({
 
   // Identification
   const [rut, setRut] = useState("");
+  const [rutBody, setRutBody] = useState("");
   const [qrData, setQrData] = useState<CedulaQRData | null>(null);
   const [needsMrzCapture, setNeedsMrzCapture] = useState(false);
   const [validating, setValidating] = useState(false);
@@ -90,6 +91,7 @@ export function AccessControlEntry({
   const handleQRResult = (data: CedulaQRData) => {
     setQrData(data);
     setRut(data.rut);
+    setRutBody(cleanRut(data.rut).replace(/[^0-9]/g, ""));
     setFormData((prev) => ({
       ...prev,
       rut: data.rut,
@@ -342,16 +344,20 @@ export function AccessControlEntry({
                   <Label className="text-zinc-400">RUT</Label>
                   <div className="flex gap-2">
                     <Input
-                      value={rut}
+                      value={(() => {
+                        if (!rutBody) return "";
+                        const dots = rutBody.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                        if (rutBody.length >= 7) return `${dots}-${computeRutDv(rutBody)}`;
+                        return dots;
+                      })()}
                       onChange={(e) => {
                         const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 9);
-                        if (!digits) { setRut(""); return; }
-                        const formatted = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                        setRutBody(digits);
                         if (digits.length >= 7) {
                           const dv = computeRutDv(digits);
-                          setRut(`${formatted}-${dv}`);
+                          setRut(`${digits}-${dv}`);
                         } else {
-                          setRut(formatted);
+                          setRut(digits);
                         }
                       }}
                       placeholder="13.255.838"
@@ -360,7 +366,7 @@ export function AccessControlEntry({
                     />
                     <Button
                       onClick={handleManualRut}
-                      disabled={!rut || !validateRut(rut) || validating}
+                      disabled={rutBody.length < 7 || !validateRut(rut) || validating}
                     >
                       {validating ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -369,9 +375,9 @@ export function AccessControlEntry({
                       )}
                     </Button>
                   </div>
-                  {rut && rut.includes("-") && (
+                  {rutBody.length >= 7 && (
                     <p className="text-xs text-emerald-400">
-                      Dígito verificador: <span className="font-bold">{rut.split("-")[1]}</span>
+                      Dígito verificador: <span className="font-bold">{computeRutDv(rutBody)}</span>
                     </p>
                   )}
                 </div>
