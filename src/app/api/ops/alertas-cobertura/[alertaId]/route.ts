@@ -247,7 +247,7 @@ export async function PATCH(
         data: {
           estado: "ACTIVA",
           oleadaActual: 0,
-          oleadasConfig: oleadasConfig as Prisma.InputJsonValue,
+          oleadasConfig: oleadasConfig as unknown as Prisma.InputJsonValue,
           aceptadaPorGuardiaId: null,
           aceptadaAt: null,
           esInternoAceptacion: null,

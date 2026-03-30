@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
         await prisma.opsAlertaCobertura.update({
           where: { id: alerta.id },
           data: {
-            oleadasConfig: resultado.oleadas as Prisma.InputJsonValue,
+            oleadasConfig: resultado.oleadas as unknown as Prisma.InputJsonValue,
             proximaOleadaAt: nuevaProximaOleadaAt,
           },
         });
