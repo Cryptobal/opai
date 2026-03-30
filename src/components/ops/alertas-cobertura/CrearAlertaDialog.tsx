@@ -271,7 +271,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-auto">
         <DialogHeader>
           <DialogTitle>Nueva Alerta de Cobertura</DialogTitle>
         </DialogHeader>

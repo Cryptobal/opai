@@ -238,43 +238,41 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <Tabs value={tab} onValueChange={setTab} className="w-full">
-          <div className="flex items-center justify-between gap-4">
-            <TabsList>
-              <TabsTrigger value="activas" className="gap-1.5">
-                <Siren className="h-3.5 w-3.5" />
-                Activas
-                {activas.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-                    {activas.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="aceptadas" className="gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Aceptadas
-                {aceptadas.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-                    {aceptadas.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="historial" className="gap-1.5">
-                <History className="h-3.5 w-3.5" />
-                Historial
-              </TabsTrigger>
-              <TabsTrigger value="geografico" className="gap-1.5">
-                <MapPin className="h-3.5 w-3.5" />
-                Geografico
-              </TabsTrigger>
-            </TabsList>
+      {/* Mobile: botón full width arriba */}
+      <Button onClick={() => setCrearOpen(true)} className="w-full sm:w-auto gap-1.5" size="lg">
+        <Plus className="h-4 w-4" />
+        Nueva Alerta
+      </Button>
 
-            <Button onClick={() => setCrearOpen(true)} size="sm" className="gap-1.5">
-              <Plus className="h-4 w-4" />
-              Nueva Alerta
-            </Button>
-          </div>
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
+          <TabsList className="w-full grid grid-cols-4">
+            <TabsTrigger value="activas" className="gap-1 text-xs sm:text-sm">
+              <Siren className="h-3.5 w-3.5 hidden sm:block" />
+              Activas
+              {activas.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                  {activas.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="aceptadas" className="gap-1 text-xs sm:text-sm">
+              <CheckCircle2 className="h-3.5 w-3.5 hidden sm:block" />
+              Aceptadas
+              {aceptadas.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                  {aceptadas.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="historial" className="gap-1 text-xs sm:text-sm">
+              <History className="h-3.5 w-3.5 hidden sm:block" />
+              Historial
+            </TabsTrigger>
+            <TabsTrigger value="geografico" className="gap-1 text-xs sm:text-sm">
+              <MapPin className="h-3.5 w-3.5 hidden sm:block" />
+              Geo
+            </TabsTrigger>
+          </TabsList>
 
           {/* Tab Activas */}
           <TabsContent value="activas" className="mt-4">
@@ -378,7 +376,7 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
               </div>
             ) : (
               <>
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -474,7 +472,6 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
             <IndiceGeografico />
           </TabsContent>
         </Tabs>
-      </div>
 
       <CrearAlertaDialog open={crearOpen} onOpenChange={setCrearOpen} onCreated={fetchAlertas} />
     </div>
