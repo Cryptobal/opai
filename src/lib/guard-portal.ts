@@ -103,7 +103,8 @@ export type PortalSection =
   | "chat"
   | "control-acceso"
   | "desempeno"
-  | "equipamiento";
+  | "equipamiento"
+  | "alertas-cobertura";
 
 export interface PortalNavItem {
   key: PortalSection;
@@ -119,6 +120,7 @@ export const PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "asistencia", label: "Asistencia", icon: "UserCheck", description: "Registro de asistencia" },
   { key: "marcaciones", label: "Marcaciones", icon: "Fingerprint", description: "Historial de check-in/out" },
   { key: "turnos-extra", label: "Turnos Extra", icon: "Clock", description: "Horas extra y pagos" },
+  { key: "alertas-cobertura", label: "Turnos Disponibles", icon: "Siren", description: "Ofertas de turno extra disponibles" },
   { key: "documentos", label: "Documentos", icon: "FileText", description: "Mis documentos" },
   { key: "perfil", label: "Perfil", icon: "User", description: "Mis datos personales" },
   { key: "protocolo", label: "Mi Protocolo", icon: "BookOpen", description: "Protocolo de la instalación" },

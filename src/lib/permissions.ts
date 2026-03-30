@@ -96,6 +96,7 @@ export const SUBMODULE_KEYS = {
     "ops",
     "tipos_ticket",
     "finanzas",
+    "alertas_cobertura",
   ] as const,
   finance: [
     "rendiciones",
@@ -272,6 +273,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "config.tipos_ticket", module: "config", submodule: "tipos_ticket", label: "Tipos de ticket", href: "/opai/configuracion/tipos-ticket" },
   { key: "config.finanzas", module: "config", submodule: "finanzas", label: "Finanzas", href: "/opai/configuracion/finanzas" },
   { key: "config.inteligencia_artificial", module: "config", submodule: "inteligencia_artificial", label: "Inteligencia Artificial", href: "/opai/configuracion/inteligencia-artificial" },
+  { key: "config.alertas_cobertura", module: "config", submodule: "alertas_cobertura", label: "Alertas Cobertura", href: "/opai/configuracion/alertas-cobertura" },
   // ── Fiscalización DT ──
   { key: "fiscalizacion.marcaciones", module: "fiscalizacion", submodule: "marcaciones", label: "Marcaciones", href: "/fiscalizacion" },
   { key: "fiscalizacion.asistencia", module: "fiscalizacion", submodule: "asistencia", label: "Asistencia", href: "/fiscalizacion" },

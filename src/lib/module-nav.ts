@@ -46,6 +46,7 @@ import {
   Smartphone,
   Phone,
   Brain,
+  Siren,
   // TE
   CheckCircle2,
   Layers,
@@ -120,6 +121,7 @@ const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-supervision", href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
   { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
   { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
+  { key: "ops-alertas-cobertura", href: "/ops/alertas-cobertura", label: "Alertas", icon: Siren, subKey: "alertas_cobertura" },
   { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];
 
@@ -236,6 +238,7 @@ const CONFIG_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "config-ops", href: "/opai/configuracion/ops", label: "Ops", icon: ClipboardList, subKey: "ops" },
   { key: "config-ticket-types", href: "/opai/configuracion/tipos-ticket", label: "Tickets", icon: Ticket, subKey: "tipos_ticket" },
   { key: "config-ia", href: "/opai/configuracion/inteligencia-artificial", label: "IA", icon: Sparkles, subKey: "inteligencia_artificial" },
+  { key: "config-alertas-cobertura", href: "/opai/configuracion/alertas-cobertura", label: "Alertas", icon: Siren, subKey: "alertas_cobertura" },
 ];
 
 /* ── Module detection ── */

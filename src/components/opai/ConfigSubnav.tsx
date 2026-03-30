@@ -13,6 +13,7 @@ import {
   Calculator,
   Bell,
   ClipboardList,
+  Siren,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -27,6 +28,7 @@ const CONFIG_ICONS: Record<string, LucideIcon> = {
   payroll: Calculator,
   notificaciones: Bell,
   ops: ClipboardList,
+  alertas_cobertura: Siren,
 };
 
 export function ConfigSubnav({ role }: { role: string }) {

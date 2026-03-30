@@ -37,6 +37,9 @@ import {
   Navigation,
   Camera,
   Package,
+  Siren,
+  Zap,
+  DollarSign,
 } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
@@ -47,6 +50,7 @@ import { IdCardIcon } from "@/components/auth/icons";
 import { ChatGuardPortal } from "@/components/portal/ChatGuardPortal";
 import { GuardDesempenoSection } from "@/components/portal/GuardDesempenoSection";
 import { AccessControlGuardHome } from "@/components/access-control/AccessControlGuardHome";
+import { AlertasCoberturaGuardiaSection } from "@/components/portal/AlertasCoberturaGuardiaSection";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import { FaceCameraCapture } from "@/app/portal/marcacion/_components/FaceCameraCapture";
@@ -94,6 +98,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   MessageCircle: <MessageCircle className="h-5 w-5" />,
   ShieldCheck: <ShieldCheck className="h-5 w-5" />,
   TrendingUp: <TrendingUp className="h-5 w-5" />,
+  Siren: <Siren className="h-5 w-5" />,
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -241,6 +246,9 @@ export function GuardPortalClient() {
           )}
           {activeSection === "turnos-extra" && (
             <TurnosExtraSection session={session} />
+          )}
+          {activeSection === "alertas-cobertura" && (
+            <AlertasCoberturaGuardiaSection session={session} />
           )}
           {activeSection === "documentos" && (
             <DocumentosSection session={session} />
