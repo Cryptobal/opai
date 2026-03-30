@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   AlertTriangle,
+  ChevronDown,
+  ChevronRight,
   Clock,
   Shield,
   UserCircle,
@@ -33,13 +35,12 @@ interface TicketsKanbanProps {
   onStatusChange: (ticketId: string, newStatus: TicketStatus) => void;
 }
 
-const KANBAN_COLUMNS: { status: TicketStatus; color: string }[] = [
+const KANBAN_COLUMNS: { status: TicketStatus; extraStatuses?: TicketStatus[]; color: string }[] = [
   { status: "pending_approval", color: "bg-orange-500" },
   { status: "open", color: "bg-amber-500" },
   { status: "in_progress", color: "bg-blue-500" },
   { status: "waiting", color: "bg-purple-500" },
-  { status: "resolved", color: "bg-emerald-500" },
-  { status: "closed", color: "bg-slate-500" },
+  { status: "resolved", extraStatuses: ["closed"], color: "bg-emerald-500" },
   { status: "cancelled", color: "bg-red-500" },
 ];
 
@@ -54,6 +55,16 @@ export function TicketsKanban({
   onStatusChange,
 }: TicketsKanbanProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  function toggleCollapse(status: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  }
 
   if (loading) {
     return (
@@ -66,33 +77,59 @@ export function TicketsKanban({
   return (
     <div
       ref={scrollRef}
-      className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory -mx-1 px-1"
+      className="flex gap-2 overflow-x-auto pb-4 snap-x snap-mandatory -mx-1 px-1"
       style={{ scrollSnapType: "x mandatory" }}
     >
       {KANBAN_COLUMNS.map((col) => {
-        const colTickets = tickets.filter((t) => t.status === col.status);
+        const matchStatuses = [col.status, ...(col.extraStatuses ?? [])];
+        const colTickets = tickets.filter((t) => matchStatuses.includes(t.status));
         const statusCfg = TICKET_STATUS_CONFIG[col.status];
+        const isCollapsed = collapsed.has(col.status);
 
-        // Hide terminal columns (closed, cancelled) if empty
-        const isTerminal = ["closed", "cancelled", "rejected"].includes(col.status);
-        if (isTerminal && colTickets.length === 0) return null;
+        // Hide terminal columns (cancelled) if empty
+        const isTerminalCol = ["cancelled", "rejected"].includes(col.status);
+        if (isTerminalCol && colTickets.length === 0) return null;
+
+        if (isCollapsed) {
+          return (
+            <button
+              key={col.status}
+              type="button"
+              onClick={() => toggleCollapse(col.status)}
+              className="flex-none w-10 snap-center rounded-xl border border-dashed border-border/50 p-2 flex flex-col items-center gap-2 hover:bg-muted/30 transition-colors"
+            >
+              <div className={`h-2.5 w-2.5 rounded-full ${col.color} shrink-0`} />
+              <span className="text-[10px] font-medium text-muted-foreground [writing-mode:vertical-lr] rotate-180">
+                {statusCfg.label}
+              </span>
+              <span className="text-[10px] text-muted-foreground rounded-full bg-muted px-1.5 py-0.5 shrink-0">
+                {colTickets.length}
+              </span>
+            </button>
+          );
+        }
 
         return (
           <div
             key={col.status}
-            className="flex-none w-[85vw] sm:w-[320px] snap-center"
+            className="flex-none w-[80vw] sm:w-[280px] snap-center"
           >
             {/* Column header */}
-            <div className="flex items-center gap-2 mb-2 sticky top-0 z-10">
-              <div className={`h-2.5 w-2.5 rounded-full ${col.color}`} />
-              <h3 className="text-xs font-semibold">{statusCfg.label}</h3>
-              <span className="text-[10px] text-muted-foreground ml-auto rounded-full bg-muted px-1.5 py-0.5">
+            <button
+              type="button"
+              onClick={() => toggleCollapse(col.status)}
+              className="flex items-center gap-2 mb-2 sticky top-0 z-10 w-full text-left group"
+            >
+              <div className={`h-2.5 w-2.5 rounded-full ${col.color} shrink-0`} />
+              <h3 className="text-xs font-semibold truncate">{statusCfg.label}</h3>
+              <span className="text-[10px] text-muted-foreground rounded-full bg-muted px-1.5 py-0.5 shrink-0">
                 {colTickets.length}
               </span>
-            </div>
+              <ChevronDown className="h-3 w-3 text-muted-foreground/50 ml-auto shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
 
             {/* Column content */}
-            <div className="space-y-2 min-h-[200px] rounded-xl border border-dashed border-border/50 p-2">
+            <div className="space-y-2 min-h-[120px] rounded-xl border border-dashed border-border/50 p-1.5">
               {colTickets.length === 0 ? (
                 <p className="py-8 text-center text-[11px] text-muted-foreground/50">
                   Sin tickets
@@ -131,26 +168,26 @@ function KanbanCard({
   const slaColor = getSlaColor(slaPercent);
   const slaTextColor = getSlaTextColor(slaPercent);
   const breached = isSlaBreached(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
+  const isTerminal = ["resolved", "closed", "rejected", "cancelled"].includes(ticket.status);
   const borderColor = getPriorityBorderColor(ticket.priority);
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-lg border-l-[3px] border border-border bg-[#161b22] p-2.5 text-left transition-colors hover:bg-[#1c2333] ${borderColor} ${
-        breached ? "border-red-500/40" : ""
+      className={`w-full rounded-lg border-l-[3px] border border-border bg-[#161b22] p-2 text-left transition-colors hover:bg-[#1c2333] ${borderColor} ${
+        breached && !isTerminal ? "border-red-500/40" : ""
       }`}
     >
-      {/* Header: code + priority */}
+      {/* Header: code + priority + avatar */}
       <div className="flex items-center gap-1.5 mb-1">
         <span className="font-mono text-[9px] text-muted-foreground">{ticket.code}</span>
         <span className={`text-[9px] font-semibold ${priorityCfg.color}`}>
           {ticket.priority.toUpperCase()}
         </span>
-        {breached && (
+        {breached && !isTerminal && (
           <AlertTriangle className="h-2.5 w-2.5 text-red-500 ml-auto" />
         )}
-        {/* Avatar */}
         {ticket.assignedToName ? (
           <div
             className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-[8px] font-bold text-primary"
@@ -167,13 +204,13 @@ function KanbanCard({
       <p className="text-[11px] font-medium leading-snug line-clamp-2 mb-1">{ticket.title}</p>
 
       {/* Team */}
-      <p className="text-[10px] text-muted-foreground mb-1">
+      <p className="text-[10px] text-muted-foreground mb-0.5">
         {TICKET_TEAM_CONFIG[ticket.assignedTeam]?.label ?? ticket.assignedTeam}
       </p>
 
       {/* Guard badge */}
       {ticket.guardiaName && (
-        <div className="flex items-center gap-1 mb-1">
+        <div className="flex items-center gap-1 mb-0.5">
           <Shield className="h-2.5 w-2.5 text-blue-400" />
           <span className="text-[10px] text-blue-400 truncate">{ticket.guardiaName}</span>
         </div>
@@ -181,7 +218,7 @@ function KanbanCard({
 
       {/* Tags */}
       {ticket.tags.length > 0 && (
-        <div className="flex flex-wrap gap-0.5 mb-1">
+        <div className="flex flex-wrap gap-0.5 mb-0.5">
           {ticket.tags.slice(0, 2).map((tag) => (
             <span
               key={tag}
@@ -194,7 +231,7 @@ function KanbanCard({
       )}
 
       {/* SLA bar */}
-      {slaText && (
+      {slaText && !isTerminal && (
         <div className="flex items-center gap-1.5 mt-1">
           <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
             <div

@@ -314,6 +314,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   const sourceCfg = TICKET_SOURCE_CONFIG[ticket.source];
   const slaText = getSlaRemaining(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
   const breached = isSlaBreached(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
+  const isTerminal = ["resolved", "closed", "rejected", "cancelled"].includes(ticket.status);
 
   const availableTransitions = (Object.keys(TICKET_STATUS_CONFIG) as TicketStatus[]).filter(
     (s) => canTransitionTo(ticket.status, s),
@@ -343,7 +344,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       </nav>
 
       {/* ── CARD: Header ── */}
-      <div className={`rounded-xl border bg-[#161b22] p-4 space-y-3 ${breached ? "border-red-500/40" : "border-border"}`}>
+      <div className={`rounded-xl border bg-[#161b22] p-4 space-y-3 ${breached && !isTerminal ? "border-red-500/40" : "border-border"}`}>
         {/* Row 1: Code + Status + Priority + Delete */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-xs text-muted-foreground">{ticket.code}</span>
@@ -351,7 +352,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
           <span className={`text-xs font-semibold ${priorityCfg.color}`}>
             {ticket.priority.toUpperCase()}
           </span>
-          {breached && (
+          {breached && !isTerminal && (
             <Badge variant="destructive" className="gap-0.5 text-[10px]">
               <AlertTriangle className="h-2.5 w-2.5" />
               SLA vencido

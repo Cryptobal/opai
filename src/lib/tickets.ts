@@ -574,8 +574,8 @@ export function canTransitionTo(current: TicketStatus, target: TicketStatus): bo
     open: ["in_progress", "waiting", "resolved", "cancelled"],
     in_progress: ["waiting", "resolved", "cancelled"],
     waiting: ["in_progress", "resolved", "cancelled"],
-    resolved: ["closed", "in_progress"], // reopen
-    closed: [],
+    resolved: ["in_progress"], // reopen only
+    closed: [], // legacy — no longer reachable
     rejected: ["open"], // can re-open a rejected ticket
     cancelled: [],
   };

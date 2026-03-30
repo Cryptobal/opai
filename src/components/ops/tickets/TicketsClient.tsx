@@ -342,7 +342,6 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             <SelectItem value="in_progress">En progreso</SelectItem>
             <SelectItem value="waiting">En espera</SelectItem>
             <SelectItem value="resolved">Resuelto</SelectItem>
-            <SelectItem value="closed">Cerrado</SelectItem>
             <SelectItem value="cancelled">Cancelado</SelectItem>
           </SelectContent>
         </Select>
@@ -465,6 +464,7 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
   const slaColor = getSlaColor(slaPercent);
   const slaTextColor = getSlaTextColor(slaPercent);
   const breached = isSlaBreached(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
+  const isTerminal = ["resolved", "closed", "rejected", "cancelled"].includes(ticket.status);
   const typeName = ticket.ticketType?.name ?? ticket.assignedTeam;
   const teamName = TICKET_TEAM_CONFIG[ticket.assignedTeam]?.label ?? ticket.assignedTeam;
   const borderColor = getPriorityBorderColor(ticket.priority);
@@ -474,7 +474,7 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
       type="button"
       onClick={onClick}
       className={`group relative flex w-full flex-col gap-2 rounded-xl border-l-[3px] border border-border bg-[#161b22] p-3.5 text-left transition-all hover:bg-[#1c2333] hover:border-primary/20 active:bg-[#1c2333] ${borderColor} ${
-        breached ? "animate-pulse-subtle border-red-500/40" : ""
+        breached && !isTerminal ? "animate-pulse-subtle border-red-500/40" : ""
       }`}
     >
       {/* Row 1: Code + Status + Priority + Avatar */}
@@ -492,7 +492,7 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
             Aprobación
           </Badge>
         )}
-        {breached && (
+        {breached && !isTerminal && (
           <Badge variant="destructive" className="text-[10px] gap-0.5">
             <AlertTriangle className="h-2.5 w-2.5" />
             SLA Vencido
