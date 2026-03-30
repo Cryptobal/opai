@@ -64,7 +64,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
   const [fechaFin, setFechaFin] = useState("");
   const [montoOfrecido, setMontoOfrecido] = useState(0);
   const [funciones, setFunciones] = useState("");
-  const [urgencia, setUrgencia] = useState<string>("NORMAL");
+  const [urgencia, setUrgencia] = useState<string>("");
   const [radioKm, setRadioKm] = useState(30);
   const [requiereOS10, setRequiereOS10] = useState(true);
   const [soloConMovilizacion, setSoloConMovilizacion] = useState(false);
@@ -166,11 +166,11 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
           installationId,
           puestoId: puestoId || undefined,
           modalidad,
-          fechaInicio,
-          fechaFin,
+          fechaInicio: new Date(fechaInicio).toISOString(),
+          fechaFin: new Date(fechaFin).toISOString(),
           montoOfrecido,
           funciones,
-          urgencia: urgencia || undefined,
+          urgencia: urgencia && urgencia !== "__none__" ? urgencia : undefined,
           radioKm,
           requiereOS10,
           soloConMovilizacion,
@@ -213,16 +213,16 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
           installationId,
           puestoId: puestoId || undefined,
           modalidad,
-          fechaInicio,
-          fechaFin,
+          fechaInicio: new Date(fechaInicio).toISOString(),
+          fechaFin: new Date(fechaFin).toISOString(),
           montoOfrecido,
           funciones,
-          urgencia: urgencia || undefined,
+          urgencia: urgencia && urgencia !== "__none__" ? urgencia : undefined,
           radioKm,
           requiereOS10,
           soloConMovilizacion,
           soloDealer,
-          genero: genero || undefined,
+          genero: genero && genero !== "__none__" ? genero : undefined,
           notasInternas: notasInternas || undefined,
         }),
       });
@@ -251,7 +251,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
     setFechaFin("");
     setMontoOfrecido(0);
     setFunciones("");
-    setUrgencia("NORMAL");
+    setUrgencia("");
     setRadioKm(30);
     setRequiereOS10(true);
     setSoloConMovilizacion(false);
@@ -394,14 +394,14 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
             {/* Urgencia */}
             <div className="space-y-1.5">
               <Label>Urgencia</Label>
-              <Select value={urgencia} onValueChange={setUrgencia}>
+              <Select value={urgencia || "__none__"} onValueChange={(v) => setUrgencia(v === "__none__" ? "" : v)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Sin urgencia" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">Sin urgencia</SelectItem>
                   <SelectItem value="URGENTE">🚨 Urgente</SelectItem>
                   <SelectItem value="HOY">⚠️ Hoy</SelectItem>
-                  <SelectItem value="NORMAL">📋 Normal</SelectItem>
                   <SelectItem value="PROGRAMADA">📅 Programada</SelectItem>
                 </SelectContent>
               </Select>
