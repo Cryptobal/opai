@@ -33,8 +33,10 @@ export async function GET(request: NextRequest) {
 
     const alertas = await prisma.opsAlertaCobertura.findMany({
       where: {
-        id: { in: alertaIds },
-        estado: "ACTIVA",
+        OR: [
+          { id: { in: alertaIds }, estado: "ACTIVA" },
+          { aceptadaPorGuardiaId: guardiaId, estado: { in: ["ACEPTADA", "CONFIRMADA", "ASIGNADA_PAUTA"] } },
+        ],
       },
       include: {
         installation: {
