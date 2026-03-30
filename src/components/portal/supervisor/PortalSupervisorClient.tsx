@@ -31,6 +31,7 @@ import { VisitaTecnicaForm } from "./VisitaTecnicaForm";
 import { VisitaTecnicaDetail } from "./VisitaTecnicaDetail";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
+import { AlertasCoberturaClient } from "@/components/ops/alertas-cobertura/AlertasCoberturaClient";
 
 export function PortalSupervisorClient() {
   const searchParams = useSearchParams();
@@ -276,6 +277,14 @@ export function PortalSupervisorClient() {
           <SupervisorRendiciones
             adminId={session!.adminId}
             onCreateRendicion={() => setShowCrearRendicion(true)}
+          />
+        );
+
+      case "alertas-cobertura":
+        return (
+          <AlertasCoberturaClient
+            userRole={session!.role}
+            tenantId={session!.tenantId}
           />
         );
 

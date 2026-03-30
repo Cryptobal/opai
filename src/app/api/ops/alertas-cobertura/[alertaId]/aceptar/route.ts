@@ -42,24 +42,39 @@ export async function POST(
       guardiaLat = guardia.persona?.lat;
       guardiaLng = guardia.persona?.lng;
     } else {
-      // Auth vía token JWT (guardia externo sin login)
+      // Auth vía token JWT (guardia externo sin login) o guardiaId en body (portal guardia)
       const tokenHeader = request.headers.get("X-Alerta-Token");
       const tokenParam = request.nextUrl.searchParams.get("token");
       const token = tokenHeader || tokenParam;
 
-      if (!token) {
-        return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+      if (token) {
+        // Token JWT externo
+        const decoded = await verificarTokenExterno(token);
+        if (!decoded || decoded.alertaId !== alertaId) {
+          return NextResponse.json({ success: false, error: "Token inválido o expirado" }, { status: 401 });
+        }
+        guardiaId = decoded.guardiaId;
+        esInterno = false;
+      } else {
+        // Portal guardia: guardiaId viene en el body
+        let body: any = {};
+        try { body = await request.json(); } catch { /* empty body */ }
+        if (!body?.guardiaId) {
+          return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+        }
+        // Verify guard exists
+        const guardiaExists = await prisma.opsGuardia.findUnique({
+          where: { id: body.guardiaId },
+          select: { id: true },
+        });
+        if (!guardiaExists) {
+          return NextResponse.json({ success: false, error: "Guardia no encontrado" }, { status: 404 });
+        }
+        guardiaId = body.guardiaId;
+        esInterno = true;
       }
 
-      const decoded = await verificarTokenExterno(token);
-      if (!decoded || decoded.alertaId !== alertaId) {
-        return NextResponse.json({ success: false, error: "Token inválido o expirado" }, { status: 401 });
-      }
-
-      guardiaId = decoded.guardiaId;
-      esInterno = false;
-
-      // Obtener coordenadas del guardia externo
+      // Obtener coordenadas del guardia
       const guardia = await prisma.opsGuardia.findUnique({
         where: { id: guardiaId },
         select: { persona: { select: { lat: true, lng: true } } },

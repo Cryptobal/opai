@@ -12,6 +12,7 @@ import {
   MapPin,
   Ticket,
   Briefcase,
+  Siren,
   Menu,
 } from "lucide-react";
 
@@ -21,6 +22,7 @@ export type SupervisorSection =
   | "visita-tecnica"
   | "pautas"
   | "turnos-extra"
+  | "alertas-cobertura"
   | "rendiciones"
   | "refuerzos"
   | "mi-equipo"
@@ -35,6 +37,7 @@ export const MORE_NAV: Array<{
 }> = [
   { id: "pautas", label: "Pautas", icon: Calendar },
   { id: "turnos-extra", label: "Turnos Extra", icon: Clock },
+  { id: "alertas-cobertura", label: "Alertas Cobertura", icon: Siren },
   { id: "rendiciones", label: "Rendiciones", icon: Receipt },
   { id: "refuerzos", label: "Refuerzos", icon: AlertTriangle },
   { id: "instalaciones", label: "Instalaciones", icon: MapPin },
