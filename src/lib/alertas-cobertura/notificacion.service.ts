@@ -312,6 +312,7 @@ export async function notificarSupervisorAceptacion(params: {
   alertaId: string;
   instalacionId: string;
   instalacionNombre: string;
+  instalacionDireccion?: string;
   guardiaId: string;
   guardiaNombre: string;
   guardiaPhone: string | null;
@@ -319,6 +320,10 @@ export async function notificarSupervisorAceptacion(params: {
   distanciaKm: number | null;
   esInterno: boolean;
   creadaPorId: string;
+  fechaInicio?: Date;
+  fechaFin?: Date;
+  montoOfrecido?: number;
+  funciones?: string;
 }): Promise<void> {
   const linkAlerta = `/ops/alertas-cobertura/${params.alertaId}`;
 
@@ -351,6 +356,14 @@ export async function notificarSupervisorAceptacion(params: {
           guardiaPhone: params.guardiaPhone,
           guardiaEmail: params.guardiaEmail,
           instalacion: params.instalacionNombre,
+          direccion: params.instalacionDireccion,
+          horario: params.fechaInicio && params.fechaFin
+            ? formatearRangoHorario(params.fechaInicio, params.fechaFin)
+            : undefined,
+          monto: params.montoOfrecido
+            ? new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(params.montoOfrecido)
+            : undefined,
+          funciones: params.funciones,
           distanciaKm: params.distanciaKm,
           esInterno: params.esInterno,
           linkAlerta: `${SITE_URL}${linkAlerta}`,
@@ -361,7 +374,7 @@ export async function notificarSupervisorAceptacion(params: {
         from: emailConfig.from,
         replyTo: emailConfig.replyTo,
         to: admin.email,
-        subject: "\u2705 Cobertura Resuelta",
+        subject: `✅ Cobertura Resuelta — ${params.guardiaNombre} aceptó turno en ${params.instalacionNombre}`,
         html,
       });
     }

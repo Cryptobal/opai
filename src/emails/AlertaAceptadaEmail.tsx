@@ -20,6 +20,10 @@ interface AlertaAceptadaEmailProps {
   guardiaPhone: string | null;
   guardiaEmail: string | null;
   instalacion: string;
+  direccion?: string;
+  horario?: string;
+  monto?: string;
+  funciones?: string;
   distanciaKm: number | null;
   esInterno: boolean;
   linkAlerta: string;
@@ -33,6 +37,10 @@ export default function AlertaAceptadaEmail({
   guardiaPhone,
   guardiaEmail,
   instalacion,
+  direccion,
+  horario,
+  monto,
+  funciones,
   distanciaKm,
   esInterno,
   linkAlerta,
@@ -43,7 +51,7 @@ export default function AlertaAceptadaEmail({
     <Html>
       <Head />
       <Preview>
-        \u2705 Cobertura Resuelta — {guardiaNombre} aceptó el turno en {instalacion}
+        {"✅"} Cobertura Resuelta — {guardiaNombre} aceptó el turno en {instalacion}
       </Preview>
       <Body style={main}>
         <Container style={container}>
@@ -57,7 +65,7 @@ export default function AlertaAceptadaEmail({
             />
           </Section>
 
-          <Text style={categoryTag}>\u2705 COBERTURA RESUELTA</Text>
+          <Text style={categoryTag}>{"✅"} COBERTURA RESUELTA</Text>
 
           <Heading style={h1}>Guardia Confirmado</Heading>
 
@@ -94,19 +102,51 @@ export default function AlertaAceptadaEmail({
             )}
 
             <Text style={infoLabel}>Instalación</Text>
-            <Text style={infoValueSmall}>{instalacion}</Text>
+            <Text style={infoValue}>{instalacion}</Text>
+
+            {direccion && (
+              <>
+                <Text style={infoLabel}>Dirección</Text>
+                <Text style={infoValueSmall}>{direccion}</Text>
+              </>
+            )}
+
+            {horario && (
+              <>
+                <Text style={infoLabel}>Horario</Text>
+                <Text style={infoValueSmall}>{horario}</Text>
+              </>
+            )}
+
+            {monto && (
+              <>
+                <Text style={infoLabel}>Monto ofrecido</Text>
+                <Text style={{ ...infoValueSmall, color: "#22c55e", fontWeight: "600" }}>{monto}</Text>
+              </>
+            )}
+
+            {funciones && (
+              <>
+                <Text style={infoLabel}>Funciones</Text>
+                <Text style={infoValueSmall}>{funciones}</Text>
+              </>
+            )}
 
             {distanciaKm != null && (
               <>
-                <Text style={infoLabel}>Distancia</Text>
-                <Text style={infoValueSmall}>{distanciaKm} km</Text>
+                <Text style={infoLabel}>Distancia del guardia</Text>
+                <Text style={infoValueSmall}>{distanciaKm} km de la instalación</Text>
               </>
             )}
           </Section>
 
-          <Text style={nota}>
-            En unos minutos te preguntaremos si el guardia se presentó efectivamente al turno.
-          </Text>
+          <Section style={accionBox}>
+            <Text style={{ ...infoLabel, color: "#f59e0b" }}>{"⚠️"} ACCIÓN REQUERIDA</Text>
+            <Text style={{ ...infoValueSmall, color: "#f1f5f9", margin: "4px 0 0" }}>
+              Cuando el guardia se presente, confirma su asistencia en OPAI.
+              Si no se presenta, usa "Re-Alertar" para buscar otro guardia.
+            </Text>
+          </Section>
 
           <Section style={buttonWrap}>
             <Button href={fullUrl} style={button}>
@@ -222,13 +262,12 @@ const externoBadge = {
   margin: "0 0 12px",
   display: "inline-block" as const,
 };
-const nota = {
-  color: "#64748b",
-  fontSize: "13px",
-  fontStyle: "italic" as const,
-  lineHeight: "1.5",
-  margin: "0 0 16px",
-  padding: "0 28px",
+const accionBox = {
+  backgroundColor: "#451a03",
+  borderRadius: "8px",
+  border: "1px solid #78350f",
+  padding: "12px 16px",
+  margin: "0 28px 16px",
 };
 const buttonWrap = {
   textAlign: "center" as const,

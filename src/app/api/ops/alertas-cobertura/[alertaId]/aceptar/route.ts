@@ -199,7 +199,11 @@ export async function POST(
           tenantId: true,
           installationId: true,
           creadaPorId: true,
-          installation: { select: { name: true } },
+          fechaInicio: true,
+          fechaFin: true,
+          montoOfrecido: true,
+          funciones: true,
+          installation: { select: { name: true, address: true } },
         },
       });
 
@@ -216,6 +220,7 @@ export async function POST(
           alertaId,
           instalacionId: alertaCompleta.installationId,
           instalacionNombre: alertaCompleta.installation.name,
+          instalacionDireccion: alertaCompleta.installation.address ?? undefined,
           guardiaId,
           guardiaNombre: `${guardiaData.persona.firstName} ${guardiaData.persona.lastName}`,
           guardiaPhone: guardiaData.persona.phone,
@@ -223,6 +228,10 @@ export async function POST(
           distanciaKm: distanciaKm ?? null,
           esInterno,
           creadaPorId: alertaCompleta.creadaPorId,
+          fechaInicio: alertaCompleta.fechaInicio,
+          fechaFin: alertaCompleta.fechaFin,
+          montoOfrecido: alertaCompleta.montoOfrecido,
+          funciones: alertaCompleta.funciones,
         }).catch((err) => console.error("[AlertaCobertura] Error notificando aceptación:", err));
       }
 

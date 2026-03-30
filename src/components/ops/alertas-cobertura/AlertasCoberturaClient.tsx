@@ -622,13 +622,10 @@ function AlertaAceptadaCard({
           </span>
         </div>
 
-        {alerta.confirmadaAt == null && alerta.proximaOleadaAt && (
-          <CountdownTimer
-            targetDate={alerta.proximaOleadaAt}
-            showLabel
-            label="Auto-confirma en"
-            size="sm"
-          />
+        {alerta.aceptadaAt && (
+          <p className="text-xs text-muted-foreground">
+            Aceptado {new Date(alerta.aceptadaAt).toLocaleString("es-CL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} — Pendiente confirmación de presencia
+          </p>
         )}
 
         <div className="grid grid-cols-2 gap-2 pt-1">

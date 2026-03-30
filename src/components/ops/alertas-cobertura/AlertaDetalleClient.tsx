@@ -414,12 +414,12 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                       <Badge
                         variant="outline"
                         className={
-                          a.resultado === "ACEPTADA"
+                          (a as any).exito === true || a.resultado === "ACEPTADA"
                             ? "bg-emerald-500/20 text-emerald-400"
                             : "bg-red-500/20 text-red-400"
                         }
                       >
-                        {a.resultado === "ACEPTADA" ? "✅ Aceptado" : "❌ " + a.resultado}
+                        {(a as any).exito === true || a.resultado === "ACEPTADA" ? "✅ Aceptado" : "❌ No alcanzó"}
                       </Badge>
                     </TableCell>
                   </TableRow>
