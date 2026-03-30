@@ -65,8 +65,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/portal/guardia')) return true;
   if (pathname.startsWith('/api/portal/cliente')) return true;
   if (pathname.startsWith('/api/portal/rondas')) return true;
-  if (pathname.startsWith('/api/access-control/pair')) return true; // Device pairing (no auth needed)
-  if (pathname.startsWith('/api/access-control/device')) return true; // Device validation/guards (auth by device_token)
+  if (pathname.startsWith('/api/access-control/')) return true; // All access-control routes use device_token auth
   if (pathname === '/api/devices/pair') return true; // Unified device pairing (no auth)
   if (pathname === '/api/devices/validate') return true; // Device validation (auth by device_token)
   if (pathname === '/api/devices/guards') return true; // Guards for device (auth by device_token)
