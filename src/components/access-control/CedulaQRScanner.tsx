@@ -54,6 +54,34 @@ export function CedulaQRScanner({ onResult, onCancel }: Props) {
           () => {}
         );
 
+        // Apply zoom + continuous autofocus so QR is readable from a
+        // comfortable distance (avoids blurry close-ups on Android).
+        try {
+          const caps = scanner.getRunningTrackCapabilities() as MediaTrackCapabilities & {
+            zoom?: { min: number; max: number; step: number };
+            focusMode?: string[];
+          };
+
+          const constraints: MediaTrackConstraints & Record<string, unknown> = {};
+
+          if (caps.zoom) {
+            const desiredZoom = 2.0;
+            constraints.advanced = [
+              { zoom: Math.min(desiredZoom, caps.zoom.max) } as Record<string, unknown>,
+            ];
+          }
+
+          if (caps.focusMode?.includes("continuous")) {
+            constraints.focusMode = "continuous" as never;
+          }
+
+          if (Object.keys(constraints).length > 0) {
+            await scanner.applyVideoConstraints(constraints);
+          }
+        } catch {
+          // Zoom/focus not supported — no-op, scanner works fine without it.
+        }
+
         started = true;
         if (mounted) setScanning(true);
       } catch (err) {
