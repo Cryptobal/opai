@@ -57,6 +57,14 @@ export async function enviarAlertaWhatsApp(
   // Estrategia 1: Content Template (si está configurado y aprobado)
   if (contentSid) {
     try {
+      // Variables 1-5 = body, variable 6 = botón CTA URL suffix (token JWT)
+      // El botón en Twilio está configurado como:
+      //   https://opai.gard.cl/alerta/t/{{1}}
+      // donde {{1}} del botón se mapea a contentVariables["6"]
+      const buttonToken = params.urlPath.includes("?token=")
+        ? params.urlPath.split("?token=")[1]
+        : params.urlPath;
+
       const message = await client.messages.create({
         from: fromNumber,
         to,
@@ -67,6 +75,7 @@ export async function enviarAlertaWhatsApp(
           "3": params.monto.substring(0, 50),
           "4": params.modalidad.substring(0, 100),
           "5": params.funciones.substring(0, 200),
+          "6": buttonToken,
         }),
       });
 
