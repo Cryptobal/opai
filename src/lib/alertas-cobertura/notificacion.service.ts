@@ -48,6 +48,7 @@ export async function notificarGuardiaAlerta(params: {
   modalidad?: string;
 }): Promise<{ push: boolean; email: boolean; whatsapp: boolean }> {
   const resultado = { push: false, email: false, whatsapp: false };
+  const errores: Record<string, string> = {};
 
   const titulo = params.urgencia === "URGENTE"
     ? "\uD83D\uDEA8 TURNO EXTRA URGENTE"
@@ -62,6 +63,16 @@ export async function notificarGuardiaAlerta(params: {
   const horario = formatearRangoHorario(params.fechaInicio, params.fechaFin);
   const cuerpo = `${params.instalacionNombre}\n${horario}\n${montoFormateado}`;
 
+  // Resolver config y canales habilitados
+  const config = await getAlertaCoberturaConfig(params.tenantId);
+  const canalesConfig = params.esInterno ? config.canalInternoDefault : config.canalExternoDefault;
+
+  // Cargar persona una sola vez (email + phone + nombre)
+  const persona = await prisma.opsPersona.findUnique({
+    where: { id: params.personaId },
+    select: { email: true, personalEmail: true, firstName: true, phone: true },
+  });
+
   // Link de aceptación: interno usa portal, externo usa landing pública con token
   let linkAceptar = `/portal/guardia?section=alertas-cobertura`;
   if (!params.esInterno) {
@@ -74,7 +85,7 @@ export async function notificarGuardiaAlerta(params: {
   }
 
   // === PUSH (guardias internos con suscripción al portal guardia) ===
-  if (params.esInterno) {
+  if (params.esInterno && canalesConfig.includes("PUSH")) {
     try {
       await sendPushToPortalUser({
         tenantId: params.tenantId,
@@ -88,61 +99,56 @@ export async function notificarGuardiaAlerta(params: {
         tag: `alerta-cobertura-${params.alertaId}`,
       });
       resultado.push = true;
-    } catch (e) {
+    } catch (e: any) {
+      errores.PUSH = e?.message || "Error desconocido";
       console.error("[AlertaCobertura:Notif] Push error:", e);
     }
   }
 
   // === EMAIL ===
-  try {
-    const persona = await prisma.opsPersona.findUnique({
-      where: { id: params.personaId },
-      select: { email: true, personalEmail: true, firstName: true },
-    });
+  if (canalesConfig.includes("EMAIL")) {
+    try {
+      const emailDestino = persona?.personalEmail || persona?.email;
+      if (emailDestino) {
+        const emailConfig = await getTenantEmailConfig(params.tenantId);
+        const html = await render(
+          AlertaCoberturaEmail({
+            nombre: persona.firstName ?? "Guardia",
+            instalacion: params.instalacionNombre,
+            direccion: params.instalacionDireccion,
+            horario,
+            monto: montoFormateado,
+            funciones: params.funciones,
+            urgencia: params.urgencia,
+            linkAceptar: `${SITE_URL}${linkAceptar}`,
+            esInterno: params.esInterno,
+            tiempoRestanteMin: params.tiempoRestanteOleadaMin,
+          }),
+        );
 
-    const emailDestino = persona?.personalEmail || persona?.email;
-    if (emailDestino) {
-      const emailConfig = await getTenantEmailConfig(params.tenantId);
-      const html = await render(
-        AlertaCoberturaEmail({
-          nombre: persona.firstName ?? "Guardia",
-          instalacion: params.instalacionNombre,
-          direccion: params.instalacionDireccion,
-          horario,
-          monto: montoFormateado,
-          funciones: params.funciones,
-          urgencia: params.urgencia,
-          linkAceptar: `${SITE_URL}${linkAceptar}`,
-          esInterno: params.esInterno,
-          tiempoRestanteMin: params.tiempoRestanteOleadaMin,
-        }),
-      );
-
-      await resend.emails.send({
-        from: emailConfig.from,
-        replyTo: emailConfig.replyTo,
-        to: emailDestino,
-        subject: titulo,
-        html,
-      });
-      resultado.email = true;
+        await resend.emails.send({
+          from: emailConfig.from,
+          replyTo: emailConfig.replyTo,
+          to: emailDestino,
+          subject: titulo,
+          html,
+        });
+        resultado.email = true;
+      } else {
+        errores.EMAIL = "Sin email registrado";
+      }
+    } catch (e: any) {
+      errores.EMAIL = e?.message || "Error desconocido";
+      console.error("[AlertaCobertura:Notif] Email error:", e);
     }
-  } catch (e) {
-    console.error("[AlertaCobertura:Notif] Email error:", e);
   }
 
   // === WHATSAPP (Twilio Content API) ===
-  if (isWhatsAppConfigured()) {
-    try {
-      const config = await getAlertaCoberturaConfig(params.tenantId);
-      const canalesConfig = params.esInterno ? config.canalInternoDefault : config.canalExternoDefault;
-
-      if (canalesConfig.includes("WHATSAPP")) {
-        const persona = await prisma.opsPersona.findUnique({
-          where: { id: params.personaId },
-          select: { phone: true },
-        });
-
+  if (canalesConfig.includes("WHATSAPP")) {
+    if (!isWhatsAppConfigured()) {
+      errores.WHATSAPP = "Twilio no configurado";
+    } else {
+      try {
         if (persona?.phone) {
           // URL path para botón: alertaId?token=jwt (externo) o alertaId (interno)
           let urlPath: string;
@@ -169,27 +175,51 @@ export async function notificarGuardiaAlerta(params: {
 
           if (waResult.success) {
             resultado.whatsapp = true;
+          } else {
+            errores.WHATSAPP = waResult.error || "Error de envío";
           }
+        } else {
+          errores.WHATSAPP = "Sin teléfono registrado";
         }
+      } catch (e: any) {
+        errores.WHATSAPP = e?.message || "Error desconocido";
+        console.error("[AlertaCobertura:Notif] WhatsApp error:", e);
       }
-    } catch (e) {
-      console.error("[AlertaCobertura:Notif] WhatsApp error:", e);
     }
   }
 
-  // === REGISTRAR en DB ===
-  const canales: string[] = [];
-  if (resultado.push) canales.push("PUSH");
-  if (resultado.email) canales.push("EMAIL");
-  if (resultado.whatsapp) canales.push("WHATSAPP");
+  // === REGISTRAR en DB — SIEMPRE registrar al menos un intento por guardia ===
+  const canalesIntentados = canalesConfig.filter((c: string) =>
+    (c === "PUSH" && params.esInterno) || c === "EMAIL" || c === "WHATSAPP",
+  );
 
-  for (const canal of canales) {
+  if (canalesIntentados.length > 0) {
+    for (const canal of canalesIntentados) {
+      const exito = (canal === "PUSH" && resultado.push) ||
+        (canal === "EMAIL" && resultado.email) ||
+        (canal === "WHATSAPP" && resultado.whatsapp);
+
+      await prisma.opsAlertaNotificacion.create({
+        data: {
+          alertaId: params.alertaId,
+          guardiaId: params.guardiaId,
+          oleadaNumero: params.oleadaNumero,
+          canal,
+          entregada: exito,
+          errorDetalle: errores[canal] || null,
+        },
+      }).catch((e: unknown) => console.error("[AlertaCobertura:Notif] DB log error:", e));
+    }
+  } else {
+    // Si no hubo canales disponibles, registrar de todas formas para visibilidad
     await prisma.opsAlertaNotificacion.create({
       data: {
         alertaId: params.alertaId,
         guardiaId: params.guardiaId,
         oleadaNumero: params.oleadaNumero,
-        canal,
+        canal: "NINGUNO",
+        entregada: false,
+        errorDetalle: "Sin canales de notificación habilitados para este guardia",
       },
     }).catch((e: unknown) => console.error("[AlertaCobertura:Notif] DB log error:", e));
   }

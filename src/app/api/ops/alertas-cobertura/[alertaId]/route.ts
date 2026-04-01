@@ -67,6 +67,27 @@ export async function GET(
           },
           orderBy: { intentoAt: "asc" },
         },
+        notificaciones: {
+          select: {
+            id: true,
+            guardiaId: true,
+            oleadaNumero: true,
+            canal: true,
+            enviadaAt: true,
+            entregada: true,
+            leida: true,
+            leidaAt: true,
+            errorDetalle: true,
+            guardia: {
+              select: {
+                persona: {
+                  select: { firstName: true, lastName: true, phone: true },
+                },
+              },
+            },
+          },
+          orderBy: { enviadaAt: "asc" },
+        },
         oleadasLog: { orderBy: { oleadaNumero: "asc" } },
         _count: { select: { notificaciones: true } },
       },

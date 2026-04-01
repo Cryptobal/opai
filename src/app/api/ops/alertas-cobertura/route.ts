@@ -201,6 +201,9 @@ export async function POST(request: NextRequest) {
     });
 
     let oleadasGeneradas = 0;
+    let totalGuardias = 0;
+    let advertencia: string | null = null;
+
     if (instGeo?.lat != null && instGeo?.lng != null) {
       try {
         const resultado = await generarOleadas({
@@ -246,6 +249,15 @@ export async function POST(request: NextRequest) {
         }
 
         oleadasGeneradas = resultado.oleadas.length;
+        totalGuardias = resultado.totalGuardias;
+
+        // Advertencia si no se encontraron guardias
+        if (resultado.totalGuardias === 0) {
+          advertencia = `No se encontraron guardias elegibles en un radio de ${body.radioKm ?? 30}km. Verifique que los guardias tengan coordenadas, OS10 vigente y no estén en turno. Guardias sin coordenadas: ${resultado.guardiasSinCoordenadas}.`;
+          console.warn(
+            `[AlertaCobertura] Alerta ${alerta.id}: 0 guardias encontrados. Sin coordenadas: ${resultado.guardiasSinCoordenadas}`,
+          );
+        }
 
         // Sprint 3: Disparar notificaciones a oleada 0 (fire-and-forget)
         if (primeraOleada && primeraOleada.guardiaIds.length > 0) {
@@ -264,6 +276,7 @@ export async function POST(request: NextRequest) {
             funciones: body.funciones,
             urgencia: body.urgencia ?? null,
             tiempoRestanteOleadaMin: primeraOleada.esperaMin,
+            modalidad: body.modalidad,
           }).catch((err) => console.error("[AlertaCobertura] Error notificando oleada 0:", err));
         }
 
@@ -285,16 +298,21 @@ export async function POST(request: NextRequest) {
         );
       } catch (err) {
         console.error("[AlertaCobertura] Error generando oleadas:", err);
-        // La alerta se creó correctamente, oleadas se pueden regenerar vía re-alerta
+        advertencia = "Error generando oleadas de notificación. La alerta se creó pero las notificaciones pueden no enviarse. Use Re-Alertar para reintentar.";
       }
     } else {
+      advertencia = "La instalación no tiene coordenadas geográficas. No se pueden generar oleadas de notificación. Actualice la dirección de la instalación.";
       console.warn(
         `[AlertaCobertura] Instalación ${body.installationId} sin coordenadas — oleadas no generadas`,
       );
     }
 
     return NextResponse.json(
-      { success: true, data: { ...alerta, oleadasGeneradas } },
+      {
+        success: true,
+        data: { ...alerta, oleadasGeneradas, totalGuardias },
+        ...(advertencia ? { advertencia } : {}),
+      },
       { status: 201 },
     );
   } catch (error) {

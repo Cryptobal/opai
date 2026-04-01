@@ -202,7 +202,7 @@ function agregarOleadaAnillo(
 ): void {
   const candidatos = todosInternos.filter(
     (g) =>
-      g.distanciaKm > radioMinKm &&
+      g.distanciaKm >= radioMinKm &&
       g.distanciaKm <= radioMaxKm &&
       !guardiaIdsUsados.has(g.guardiaId),
   );
