@@ -42,7 +42,7 @@ const DEFAULTS: AlertaCoberturaConfig = {
   oleadaExternaEsperaMin: 15,
   alertaTtlHoras: 4,
   confirmacionDelayMin: 60,
-  canalInternoDefault: ["PUSH", "EMAIL"],
+  canalInternoDefault: ["PUSH", "EMAIL", "WHATSAPP"],
   canalExternoDefault: ["WHATSAPP", "EMAIL"],
   montoDefaultClp: 0,
   habilitado: false,

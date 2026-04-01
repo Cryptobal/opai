@@ -173,6 +173,25 @@ export interface AlertaGuardiaPortal {
   createdAt: string;
 }
 
+export interface NotificacionRegistro {
+  id: string;
+  guardiaId: string;
+  oleadaNumero: number;
+  canal: string;
+  enviadaAt: string;
+  entregada: boolean;
+  leida: boolean;
+  leidaAt: string | null;
+  errorDetalle: string | null;
+  guardia?: {
+    persona: {
+      firstName: string;
+      lastName: string;
+      phone: string | null;
+    };
+  };
+}
+
 // Detail view includes oleadas log and aceptaciones
 export interface AlertaDetalle extends AlertaCobertura {
   puesto?: {
@@ -196,6 +215,7 @@ export interface AlertaDetalle extends AlertaCobertura {
       };
     };
   }>;
+  notificaciones?: NotificacionRegistro[];
   oleadasLog: Array<{
     id: string;
     oleadaNumero: number;

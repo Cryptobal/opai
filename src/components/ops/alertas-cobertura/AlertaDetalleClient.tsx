@@ -20,6 +20,9 @@ import {
   Shield,
   AlertTriangle,
   Users,
+  Bell,
+  MessageCircle,
+  Mail,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -186,6 +189,9 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
   const urgenciaBadge = alerta.urgencia ? URGENCIA_BADGE[alerta.urgencia] : null;
   const guardia = alerta.aceptadaPorGuardia;
   const nombreGuardia = guardia ? `${guardia.persona.firstName} ${guardia.persona.lastName}` : null;
+  const guardiasUnicosNotificados = alerta.notificaciones
+    ? new Set(alerta.notificaciones.map((n) => n.guardiaId)).size
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -304,7 +310,14 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
             {alerta._count && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Notificados</span>
-                <span>{alerta._count.notificaciones}</span>
+                <span>
+                  {alerta._count.notificaciones}
+                  {alerta.notificaciones && alerta.notificaciones.length > 0 && (
+                    <span className="text-muted-foreground text-[10px] ml-1">
+                      ({guardiasUnicosNotificados} guardias)
+                    </span>
+                  )}
+                </span>
               </div>
             )}
           </CardContent>
@@ -363,6 +376,79 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Detalle Notificados */}
+      {alerta.notificaciones && alerta.notificaciones.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              Detalle de Notificaciones ({alerta.notificaciones.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Guardia</TableHead>
+                  <TableHead>Canal</TableHead>
+                  <TableHead>Oleada</TableHead>
+                  <TableHead>Hora</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Error</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {alerta.notificaciones.map((n) => {
+                  const nombre = n.guardia
+                    ? `${n.guardia.persona.firstName} ${n.guardia.persona.lastName}`
+                    : n.guardiaId.slice(0, 8);
+                  const phone = n.guardia?.persona?.phone;
+                  const CanalIcon = n.canal === "WHATSAPP" ? MessageCircle : n.canal === "EMAIL" ? Mail : Bell;
+                  return (
+                    <TableRow key={n.id}>
+                      <TableCell className="text-xs">
+                        <div>{nombre}</div>
+                        {phone && (
+                          <span className="text-[10px] text-muted-foreground">{phone}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[10px] gap-1">
+                          <CanalIcon className="h-3 w-3" />
+                          {n.canal}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">{n.oleadaNumero}</TableCell>
+                      <TableCell className="text-xs">
+                        {format(new Date(n.enviadaAt), "HH:mm:ss")}
+                      </TableCell>
+                      <TableCell>
+                        {n.entregada ? (
+                          <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 text-[10px]">
+                            Entregada
+                          </Badge>
+                        ) : n.errorDetalle ? (
+                          <Badge variant="outline" className="bg-red-500/20 text-red-400 text-[10px]">
+                            Fallida
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-amber-500/20 text-amber-400 text-[10px]">
+                            Pendiente
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground max-w-[200px] truncate">
+                        {n.errorDetalle || "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Actions */}
       {(alerta.estado === "ACTIVA" || alerta.estado === "EXPIRADA" || alerta.estado === "NO_CUBIERTA") && (

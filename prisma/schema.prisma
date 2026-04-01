@@ -2608,6 +2608,7 @@ model OpsGuardia {
   rendicionesBeneficiario      FinanceRendicion[]                    @relation("finance_rendicion_beneficiary")
   alertasCoberturaAceptadas    OpsAlertaCobertura[]                  @relation("alertas_cobertura_aceptada_por")
   alertasAceptacionIntentos    OpsAlertaAceptacion[]                 @relation("alerta_aceptacion_guardia")
+  alertasNotificaciones        OpsAlertaNotificacion[]               @relation("alerta_notificacion_guardia")
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -7473,6 +7474,7 @@ model OpsAlertaNotificacion {
   alertaId        String   @map("alerta_id") @db.Uuid
   alerta          OpsAlertaCobertura @relation(fields: [alertaId], references: [id], onDelete: Cascade)
   guardiaId       String   @map("guardia_id") @db.Uuid
+  guardia         OpsGuardia @relation("alerta_notificacion_guardia", fields: [guardiaId], references: [id], onDelete: Cascade)
   oleadaNumero    Int      @map("oleada_numero")
   canal           String
   enviadaAt       DateTime @default(now()) @map("enviada_at") @db.Timestamptz(6)
@@ -7482,6 +7484,7 @@ model OpsAlertaNotificacion {
   errorDetalle    String?  @map("error_detalle")
 
   @@index([alertaId, oleadaNumero], map: "idx_alerta_notificaciones_alerta_oleada")
+  @@index([guardiaId], map: "idx_alerta_notificaciones_guardia")
   @@map("alerta_notificaciones")
   @@schema("ops")
 }
