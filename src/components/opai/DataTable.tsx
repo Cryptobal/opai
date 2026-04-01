@@ -69,12 +69,12 @@ export function DataTable({
   }
 
   const headerCellClasses = compact
-    ? 'px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-muted/50 border-b-2 border-border'
-    : 'px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-muted/50 border-b-2 border-border';
+    ? 'px-3 py-2 text-left text-sm font-semibold text-muted-foreground uppercase tracking-wider bg-muted/50 border-b-2 border-border'
+    : 'px-4 py-3 text-left text-sm font-semibold text-muted-foreground uppercase tracking-wider bg-muted/50 border-b-2 border-border';
 
   const dataCellClasses = compact
-    ? 'px-3 py-2 text-sm text-foreground border-b border-border/50'
-    : 'px-4 py-2.5 text-sm text-foreground border-b border-border/50';
+    ? 'px-3 py-2 text-sm sm:text-base text-foreground border-b border-border/50'
+    : 'px-4 py-2.5 text-sm sm:text-base text-foreground border-b border-border/50';
 
   // For mobile card view, show first 4 non-hidden columns
   const mobileColumns = columns.filter((c) => !c.hideOnMobile).slice(0, 4);
@@ -98,15 +98,15 @@ export function DataTable({
                 // First column is the "title" — render larger
                 if (colIdx === 0) {
                   return (
-                    <div key={col.key} className="text-sm font-medium text-foreground truncate min-w-0">
+                    <div key={col.key} className="text-base font-medium text-foreground truncate min-w-0">
                       {value}
                     </div>
                   );
                 }
                 return (
                   <div key={col.key} className="flex items-center justify-between gap-2 min-w-0">
-                    <span className="text-xs text-muted-foreground shrink-0">{col.label}</span>
-                    <span className="text-xs text-foreground truncate min-w-0 text-right">{value}</span>
+                    <span className="text-sm text-muted-foreground shrink-0">{col.label}</span>
+                    <span className="text-sm text-foreground truncate min-w-0 text-right">{value}</span>
                   </div>
                 );
               })}

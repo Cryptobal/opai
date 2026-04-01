@@ -28,9 +28,9 @@ export interface KpiCardProps {
  * KpiCard - Card estandarizada para métricas
  *
  * Tipografía:
- * - Label: text-xs uppercase text-muted-foreground
- * - Value: text-lg font-semibold font-mono
- * - Trend: text-xs
+ * - Label: text-sm uppercase text-muted-foreground
+ * - Value: text-xl font-semibold font-mono
+ * - Trend: text-sm
  */
 export function KpiCard({
   title,
@@ -91,7 +91,7 @@ export function KpiCard({
   };
 
   const padding = size === 'sm' ? 'p-3' : size === 'lg' ? 'p-4' : 'p-3';
-  const valueSize = size === 'sm' ? 'text-base' : size === 'lg' ? 'text-xl' : 'text-lg';
+  const valueSize = size === 'sm' ? 'text-lg' : size === 'lg' ? 'text-2xl' : 'text-xl';
 
   const TrendIcon = trend ? trendIcons[trend] : null;
 
@@ -103,7 +103,7 @@ export function KpiCard({
       className
     )}>
       <div className="flex items-center justify-between gap-1 mb-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 min-w-0">
+        <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 min-w-0">
           {title}
           {titleInfoTooltip != null && (
             <span className="group/info relative shrink-0 inline-flex" tabIndex={0} role="button" aria-label="Más información">
@@ -122,7 +122,7 @@ export function KpiCard({
         {value}
       </div>
       {(description || (trend && trendValue)) && (
-        <div className="mt-1 flex min-w-0 items-center gap-2 text-xs">
+        <div className="mt-1 flex min-w-0 items-center gap-2 text-sm">
           {trend && TrendIcon && trendValue && (
             <span className={cn("flex min-w-0 items-center gap-0.5", trendColors[trend])}>
               <TrendIcon className="h-3 w-3" />
@@ -141,7 +141,7 @@ export function KpiCard({
     return (
       <div className="group relative" tabIndex={0}>
         {cardContent}
-        <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-max max-w-xs -translate-x-1/2 rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg group-hover:block group-focus-within:block">
+        <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden w-max max-w-xs -translate-x-1/2 rounded-md border border-border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-lg group-hover:block group-focus-within:block">
           {tooltip}
         </div>
       </div>

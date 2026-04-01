@@ -200,7 +200,7 @@ export default function HistorialSection({
                       record.vehiclePlate ||
                       "Sin identificar"}
                   </p>
-                  <div className="flex items-center gap-2 text-xs text-[#9CA3AF]">
+                  <div className="flex items-center gap-2 text-sm text-[#9CA3AF]">
                     {record.rut && <span>{formatRut(record.rut)}</span>}
                     {record.rut && record.company && (
                       <span className="text-[#374151]">|</span>
@@ -211,13 +211,13 @@ export default function HistorialSection({
 
                 {/* Time + status */}
                 <div className="shrink-0 text-right">
-                  <p className="text-[10px] text-[#9CA3AF]">{dateStr}</p>
+                  <p className="text-xs text-[#9CA3AF]">{dateStr}</p>
                   <p className="text-xs font-medium text-[#9CA3AF]">
                     {timeStr}
                   </p>
                   <Badge
                     variant="outline"
-                    className={`mt-0.5 text-[10px] px-1.5 py-0 ${
+                    className={`mt-0.5 text-xs px-1.5 py-0 ${
                       isEntry
                         ? "border-[#10B981]/30 text-[#10B981]"
                         : "border-[#F59E0B]/30 text-[#F59E0B]"

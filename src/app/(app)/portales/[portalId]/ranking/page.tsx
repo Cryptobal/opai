@@ -132,7 +132,7 @@ export default function PortalRankingPage() {
               key={opt.value}
               variant={days === opt.value ? 'default' : 'outline'}
               size="sm"
-              className="h-7 text-[11px] px-2"
+              className="h-7 text-xs px-2"
               onClick={() => setDays(opt.value)}
             >
               {opt.label}
@@ -172,7 +172,7 @@ function RankingTable({ portalId, entries }: { portalId: string; entries: Rankin
 function RondasTable({ entries }: { entries: RankingEntry[] }) {
   return (
     <>
-      <div className="bg-muted/30 px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground grid"
+      <div className="bg-muted/30 px-4 py-2 text-xs uppercase tracking-wider text-muted-foreground grid"
         style={{ gridTemplateColumns: '32px 1.5fr 1fr 80px 100px' }}
       >
         <span>#</span>
@@ -188,17 +188,17 @@ function RondasTable({ entries }: { entries: RankingEntry[] }) {
           <RankNumber idx={idx} />
           <div className="flex items-center gap-1.5 min-w-0">
             <Users className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-            <span className="text-[13px] font-medium truncate">{e.userName}</span>
-            {e.userCode && <span className="text-[10px] text-muted-foreground">({e.userCode})</span>}
+            <span className="text-sm font-medium truncate">{e.userName}</span>
+            {e.userCode && <span className="text-xs text-muted-foreground">({e.userCode})</span>}
           </div>
           <div className="flex items-center gap-1 min-w-0">
             <MapPin className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-            <span className="text-[12px] text-muted-foreground truncate">{e.installationName ?? '—'}</span>
+            <span className="text-sm text-muted-foreground truncate">{e.installationName ?? '—'}</span>
           </div>
-          <span className="flex items-center justify-center gap-1 text-[12px] tabular-nums text-muted-foreground">
+          <span className="flex items-center justify-center gap-1 text-sm tabular-nums text-muted-foreground">
             <Route className="h-3 w-3" /> {e.totalActions}
           </span>
-          <span className="text-right text-[11px] text-muted-foreground">
+          <span className="text-right text-xs text-muted-foreground">
             {e.lastAccessAt ? timeAgo(e.lastAccessAt) : '—'}
           </span>
         </div>
@@ -210,7 +210,7 @@ function RondasTable({ entries }: { entries: RankingEntry[] }) {
 function GuardiaTable({ entries }: { entries: RankingEntry[] }) {
   return (
     <>
-      <div className="bg-muted/30 px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground grid"
+      <div className="bg-muted/30 px-4 py-2 text-xs uppercase tracking-wider text-muted-foreground grid"
         style={{ gridTemplateColumns: '32px 1.5fr 1fr 80px 80px 100px' }}
       >
         <span>#</span>
@@ -227,20 +227,20 @@ function GuardiaTable({ entries }: { entries: RankingEntry[] }) {
           <RankNumber idx={idx} />
           <div className="flex items-center gap-1.5 min-w-0">
             <Users className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-            <span className="text-[13px] font-medium truncate">{e.userName}</span>
-            {e.userCode && <span className="text-[10px] text-muted-foreground">({e.userCode})</span>}
+            <span className="text-sm font-medium truncate">{e.userName}</span>
+            {e.userCode && <span className="text-xs text-muted-foreground">({e.userCode})</span>}
           </div>
           <div className="flex items-center gap-1 min-w-0">
             <MapPin className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-            <span className="text-[12px] text-muted-foreground truncate">{e.installationName ?? '—'}</span>
+            <span className="text-sm text-muted-foreground truncate">{e.installationName ?? '—'}</span>
           </div>
-          <span className="flex items-center justify-center gap-1 text-[12px] tabular-nums text-muted-foreground">
+          <span className="flex items-center justify-center gap-1 text-sm tabular-nums text-muted-foreground">
             <LogIn className="h-3 w-3" /> {e.totalLogins ?? 0}
           </span>
-          <span className="flex items-center justify-center gap-1 text-[12px] tabular-nums text-muted-foreground">
+          <span className="flex items-center justify-center gap-1 text-sm tabular-nums text-muted-foreground">
             <Ticket className="h-3 w-3" /> {e.totalTickets ?? 0}
           </span>
-          <span className="text-right text-[11px] text-muted-foreground">
+          <span className="text-right text-xs text-muted-foreground">
             {e.lastAccessAt ? timeAgo(e.lastAccessAt) : '—'}
           </span>
         </div>
@@ -252,7 +252,7 @@ function GuardiaTable({ entries }: { entries: RankingEntry[] }) {
 function ClienteTable({ entries }: { entries: RankingEntry[] }) {
   return (
     <>
-      <div className="bg-muted/30 px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground grid"
+      <div className="bg-muted/30 px-4 py-2 text-xs uppercase tracking-wider text-muted-foreground grid"
         style={{ gridTemplateColumns: '32px 1.5fr 1fr 80px 80px 100px' }}
       >
         <span>#</span>
@@ -269,21 +269,21 @@ function ClienteTable({ entries }: { entries: RankingEntry[] }) {
           <RankNumber idx={idx} />
           <div className="flex items-center gap-1.5 min-w-0">
             <Building2 className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-            <span className="text-[13px] font-medium truncate">{e.accountName ?? '—'}</span>
+            <span className="text-sm font-medium truncate">{e.accountName ?? '—'}</span>
             {e.isProspect && (
-              <Badge variant="outline" className="text-[9px] h-4 px-1 border-amber-500/30 text-amber-500 shrink-0">
+              <Badge variant="outline" className="text-xs h-4 px-1 border-amber-500/30 text-amber-500 shrink-0">
                 Prospecto
               </Badge>
             )}
           </div>
-          <span className="text-[12px] text-muted-foreground truncate">{e.userName}</span>
-          <span className="flex items-center justify-center gap-1 text-[12px] tabular-nums text-muted-foreground">
+          <span className="text-sm text-muted-foreground truncate">{e.userName}</span>
+          <span className="flex items-center justify-center gap-1 text-sm tabular-nums text-muted-foreground">
             <Activity className="h-3 w-3" /> {e.totalActions}
           </span>
-          <span className="flex items-center justify-center gap-1 text-[12px] tabular-nums text-muted-foreground">
+          <span className="flex items-center justify-center gap-1 text-sm tabular-nums text-muted-foreground">
             <Eye className="h-3 w-3" /> {e.totalQuoteViews ?? 0}
           </span>
-          <span className="text-right text-[11px] text-muted-foreground">
+          <span className="text-right text-xs text-muted-foreground">
             {e.lastAccessAt ? timeAgo(e.lastAccessAt) : '—'}
           </span>
         </div>
@@ -295,7 +295,7 @@ function ClienteTable({ entries }: { entries: RankingEntry[] }) {
 function SupervisorTable({ entries }: { entries: RankingEntry[] }) {
   return (
     <>
-      <div className="bg-muted/30 px-4 py-2 text-[10px] uppercase tracking-wider text-muted-foreground grid"
+      <div className="bg-muted/30 px-4 py-2 text-xs uppercase tracking-wider text-muted-foreground grid"
         style={{ gridTemplateColumns: '32px 1.5fr 100px 100px' }}
       >
         <span>#</span>
@@ -310,12 +310,12 @@ function SupervisorTable({ entries }: { entries: RankingEntry[] }) {
           <RankNumber idx={idx} />
           <div className="flex items-center gap-1.5 min-w-0">
             <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-            <span className="text-[13px] font-medium truncate">{e.userName}</span>
+            <span className="text-sm font-medium truncate">{e.userName}</span>
           </div>
-          <span className="flex items-center justify-center gap-1 text-[12px] tabular-nums text-muted-foreground">
+          <span className="flex items-center justify-center gap-1 text-sm tabular-nums text-muted-foreground">
             <ClipboardCheck className="h-3 w-3" /> {e.totalActions}
           </span>
-          <span className="text-right text-[11px] text-muted-foreground">
+          <span className="text-right text-xs text-muted-foreground">
             {e.lastAccessAt ? timeAgo(e.lastAccessAt) : '—'}
           </span>
         </div>

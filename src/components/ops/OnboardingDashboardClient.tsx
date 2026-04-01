@@ -113,7 +113,7 @@ function PortalAccessCell({
     return (
       <div className="flex flex-col items-center gap-0.5">
         <Check className="h-4 w-4 text-emerald-500" />
-        <span className="text-[10px] text-muted-foreground">{formatDate(date)}</span>
+        <span className="text-xs text-muted-foreground">{formatDate(date)}</span>
       </div>
     );
   }
@@ -305,7 +305,7 @@ export function OnboardingDashboardClient({ tenantId }: OnboardingDashboardClien
                           <div>
                             <p className="font-medium">{row.guardiaNombre}</p>
                             {row.guardiaCode && (
-                              <p className="text-[10px] text-muted-foreground">{row.guardiaCode}</p>
+                              <p className="text-xs text-muted-foreground">{row.guardiaCode}</p>
                             )}
                           </div>
                         </td>

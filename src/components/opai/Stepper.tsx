@@ -61,7 +61,7 @@ export function Stepper({ steps, currentStep, onStepClick, className }: StepperP
                 </div>
                 <span
                   className={cn(
-                    "text-[10px] font-medium truncate hidden sm:inline",
+                    "text-xs font-medium truncate hidden sm:inline",
                     isCurrent && "text-foreground",
                     isCompleted && "text-muted-foreground",
                     !isCompleted && !isCurrent && "text-muted-foreground/50"
@@ -76,7 +76,7 @@ export function Stepper({ steps, currentStep, onStepClick, className }: StepperP
       </div>
       {/* Mobile: show current step name */}
       <div className="sm:hidden mt-1 text-center">
-        <span className="text-[11px] font-medium text-foreground">
+        <span className="text-xs font-medium text-foreground">
           {currentStep + 1}. {steps[currentStep]}
         </span>
       </div>

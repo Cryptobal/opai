@@ -25,7 +25,7 @@ export default async function OpsControlNocturnoDetailPage({ params }: Props) {
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950">
         <div className="flex items-start gap-3">
           <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-          <div className="text-sm text-blue-800 dark:text-blue-200">
+          <div className="text-sm sm:text-base text-blue-800 dark:text-blue-200">
             <p className="font-medium">Este módulo fue integrado al Monitor de Rondas.</p>
             <p className="mt-1">
               Los reportes nuevos se generan desde el Monitor.{" "}

@@ -32,7 +32,7 @@ export default function MetricCard({
           </span>
         )}
       </div>
-      <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+      <span className="text-sm font-medium text-gray-400 uppercase tracking-wide">
         {label}
       </span>
     </div>

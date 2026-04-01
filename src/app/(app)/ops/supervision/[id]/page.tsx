@@ -173,7 +173,7 @@ export default async function VisitaSupervisionDetailPage({
           <CardHeader>
             <CardTitle className="text-base">Resumen</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-2 text-sm sm:text-base">
             <p>
               <span className="text-muted-foreground">Supervisor:</span> {visit.supervisor.name}
             </p>
@@ -224,7 +224,7 @@ export default async function VisitaSupervisionDetailPage({
           <CardHeader>
             <CardTitle className="text-base">Instalación</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-2 text-sm sm:text-base">
             <p>{visit.installation.name}</p>
             <p className="text-muted-foreground">{visit.installation.address ?? "Sin dirección"}</p>
             <p className="text-muted-foreground">{visit.installation.commune ?? "Sin comuna"}</p>
@@ -238,7 +238,7 @@ export default async function VisitaSupervisionDetailPage({
           <CardHeader>
             <CardTitle className="text-base">Documentos verificados</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-2 text-sm sm:text-base">
             {Object.entries((visit as { documentChecklist?: Record<string, boolean> }).documentChecklist!).map(
               ([code, present]) => (
                 <p key={code}>
@@ -259,20 +259,20 @@ export default async function VisitaSupervisionDetailPage({
           <CardHeader>
             <CardTitle className="text-base">Evaluación individual de guardias ({visit.guardEvaluations.length})</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="space-y-3 text-sm sm:text-base">
             {visit.guardEvaluations.map((ev: { id: string; guardName: string; isReinforcement: boolean; presentationScore: number | null; orderScore: number | null; protocolScore: number | null; observation: string | null }) => (
               <div key={ev.id} className="rounded-md border p-3">
                 <div className="flex items-center justify-between">
                   <p className="font-medium">{ev.guardName}</p>
-                  {ev.isReinforcement && <Badge variant="warning" className="text-[10px]">Refuerzo</Badge>}
+                  {ev.isReinforcement && <Badge variant="warning" className="text-xs">Refuerzo</Badge>}
                 </div>
-                <div className="mt-1 grid grid-cols-3 gap-2 text-xs">
+                <div className="mt-1 grid grid-cols-3 gap-2 text-sm">
                   <span>Presentación: <strong>{ev.presentationScore ?? "—"}</strong>/5</span>
                   <span>Orden: <strong>{ev.orderScore ?? "—"}</strong>/5</span>
                   <span>Protocolo: <strong>{ev.protocolScore ?? "—"}</strong>/5</span>
                 </div>
                 {ev.observation && (
-                  <p className="mt-1 text-xs text-muted-foreground">{ev.observation}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{ev.observation}</p>
                 )}
               </div>
             ))}
@@ -283,7 +283,7 @@ export default async function VisitaSupervisionDetailPage({
           <CardHeader>
             <CardTitle className="text-base">Evaluación y comentarios</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-2 text-sm sm:text-base">
             <p>
               <span className="text-muted-foreground">Presentación:</span> {ratings?.presentacion ?? "N/D"}
             </p>
@@ -304,7 +304,7 @@ export default async function VisitaSupervisionDetailPage({
             <CardTitle className="text-base">Comentarios generales</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="whitespace-pre-wrap rounded-md border p-3 text-sm">
+            <p className="whitespace-pre-wrap rounded-md border p-3 text-sm sm:text-base">
               {visit.generalComments}
             </p>
           </CardContent>
@@ -317,15 +317,15 @@ export default async function VisitaSupervisionDetailPage({
           <CardHeader>
             <CardTitle className="text-base">Hallazgos ({visit.findings.length})</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-2 text-sm sm:text-base">
             {visit.findings.map((f: { id: string; category: string; severity: string; description: string; status: string }) => (
               <div key={f.id} className="rounded-md border p-3">
                 <div className="flex items-center gap-2">
-                  <Badge variant={f.severity === "critical" ? "destructive" : f.severity === "major" ? "warning" : "secondary"} className="text-[10px]">
+                  <Badge variant={f.severity === "critical" ? "destructive" : f.severity === "major" ? "warning" : "secondary"} className="text-xs">
                     {f.severity === "critical" ? "Crítico" : f.severity === "major" ? "Mayor" : "Menor"}
                   </Badge>
-                  <Badge variant="outline" className="text-[10px]">{f.category}</Badge>
-                  <Badge variant={f.status === "open" ? "warning" : f.status === "verified" ? "success" : "secondary"} className="text-[10px]">
+                  <Badge variant="outline" className="text-xs">{f.category}</Badge>
+                  <Badge variant={f.status === "open" ? "warning" : f.status === "verified" ? "success" : "secondary"} className="text-xs">
                     {f.status}
                   </Badge>
                 </div>
@@ -342,7 +342,7 @@ export default async function VisitaSupervisionDetailPage({
           <CardHeader>
             <CardTitle className="text-base">Libro de novedades</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-2 text-sm sm:text-base">
             <p>
               <span className="text-muted-foreground">Al día:</span>{" "}
               {visit.bookUpToDate ? "Sí" : "No"}
@@ -368,11 +368,11 @@ export default async function VisitaSupervisionDetailPage({
           <CardHeader>
             <CardTitle className="text-base">Duración</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm">
+          <CardContent className="text-sm sm:text-base">
             <p>
               {visit.durationMinutes} minutos
               {visit.isExpressFlagged && (
-                <Badge variant="warning" className="ml-2 text-[10px]">Visita express</Badge>
+                <Badge variant="warning" className="ml-2 text-xs">Visita express</Badge>
               )}
             </p>
           </CardContent>

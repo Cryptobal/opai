@@ -127,7 +127,7 @@ export function MapCoordinatePicker({
 
   if (!MAPS_KEY) {
     return (
-      <div className="rounded border border-dashed border-border p-3 text-xs text-muted-foreground">
+      <div className="rounded border border-dashed border-border p-3 text-sm text-muted-foreground">
         Falta `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` para usar mapa interactivo.
       </div>
     );
@@ -154,7 +154,7 @@ export function MapCoordinatePicker({
         </Button>
       </div>
       <div ref={mapRef} className="h-[420px] w-full rounded border border-border" />
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Haz click o arrastra el pin para fijar coordenadas exactas del checkpoint.
       </p>
     </div>

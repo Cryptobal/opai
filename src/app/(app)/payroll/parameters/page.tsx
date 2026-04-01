@@ -100,14 +100,14 @@ export default function PayrollParameters() {
           <CardContent>
           <div className="space-y-2">
             <div className="rounded-md bg-muted/30 px-3 py-1.5">
-              <div className="flex justify-between text-xs">
+              <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Base cotización:</span>
                 <span className="font-mono font-medium">
                   {fmtPct(data.afp.base_rate, 0)}%
                 </span>
               </div>
             </div>
-            <div className="space-y-1 text-xs">
+            <div className="space-y-1 text-sm">
               {Object.entries(data.afp.commissions)
                 .sort(([, a]: any, [, b]: any) => a.commission_rate - b.commission_rate)
                 .map(([name, config]: any) => (
@@ -134,14 +134,14 @@ export default function PayrollParameters() {
           <CardContent>
           <div className="space-y-3">
             <div className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2">
-              <div className="flex justify-between text-xs">
+              <div className="flex justify-between text-sm">
                 <span className="text-emerald-400">SIS Empleador:</span>
                 <span className="font-mono font-semibold text-emerald-400">
                   {fmtPct(data.sis.employer_rate)}%
                 </span>
               </div>
             </div>
-            <div className="space-y-1 text-xs">
+            <div className="space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Fonasa:</span>
                 <span className="font-mono">
@@ -165,7 +165,7 @@ export default function PayrollParameters() {
             <CardTitle className="text-sm">AFC (Seguro Cesantía)</CardTitle>
           </CardHeader>
           <CardContent>
-          <div className="space-y-2 text-xs">
+          <div className="space-y-2 text-sm">
             <div className="rounded-md bg-muted/30 p-2">
               <p className="mb-1 text-xs font-medium uppercase text-muted-foreground">Indefinido</p>
               <div className="space-y-0.5">
@@ -221,7 +221,7 @@ export default function PayrollParameters() {
             <div>
               <p className="mb-1.5 text-xs font-medium uppercase text-muted-foreground">Mutual (Ley 16.744)</p>
               <div className="rounded-md border border-blue-500/20 bg-blue-500/10 px-3 py-2">
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between text-sm">
                   <span className="text-blue-400">Base legal:</span>
                   <span className="font-mono font-semibold text-blue-400">
                     {fmtPct(data.work_injury.base_rate)}%
@@ -229,7 +229,7 @@ export default function PayrollParameters() {
                 </div>
               </div>
               {data.work_injury.risk_levels && (
-                <div className="mt-1.5 space-y-0.5 text-xs">
+                <div className="mt-1.5 space-y-0.5 text-sm">
                   {Object.entries(data.work_injury.risk_levels).map(([level, rate]: any) => (
                     <div key={level} className="flex justify-between">
                       <span className="capitalize text-muted-foreground">
@@ -245,7 +245,7 @@ export default function PayrollParameters() {
             {/* Topes */}
             <div className="border-t pt-2">
               <p className="mb-1.5 text-xs font-medium uppercase text-muted-foreground">Topes Imponibles</p>
-              <div className="space-y-1 text-xs">
+              <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Pensión:</span>
                   <span className="font-mono">
@@ -291,7 +291,7 @@ export default function PayrollParameters() {
                 <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
                   Art. 50 CT - Régimen 25% Mensual
                 </p>
-                <div className="space-y-1 text-xs">
+                <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Tasa mensual:</span>
                     <span className="font-mono font-medium">
@@ -324,7 +324,7 @@ export default function PayrollParameters() {
                 <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
                   Art. 50 CT - Régimen 25% Mensual
                 </p>
-                <div className="space-y-1 text-xs">
+                <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Tasa mensual:</span>
                     <span className="font-mono font-medium">
@@ -340,7 +340,7 @@ export default function PayrollParameters() {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">No configurado</p>
+              <p className="text-sm text-muted-foreground">No configurado</p>
             )}
           </div>
           </CardContent>
@@ -356,14 +356,14 @@ export default function PayrollParameters() {
             {data.imm ? (
               <>
                 <div className="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2">
-                  <div className="flex justify-between text-xs">
+                  <div className="flex justify-between text-sm">
                     <span className="text-amber-400">IMM vigente:</span>
                     <span className="font-mono font-semibold text-amber-400">
                       {formatCLP(data.imm.value_clp)}
                     </span>
                   </div>
                 </div>
-                <div className="space-y-1 text-xs">
+                <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Vigente desde:</span>
                     <span className="font-mono">{data.imm.effective_from}</span>
@@ -377,7 +377,7 @@ export default function PayrollParameters() {
             ) : (
               <div className="flex items-start gap-2 rounded-md bg-amber-500/10 p-3">
                 <Info className="mt-0.5 h-3.5 w-3.5 text-amber-400" />
-                <p className="text-xs text-amber-400">
+                <p className="text-sm text-amber-400">
                   IMM no configurado en esta versión de parámetros. Se usará $500.000 como fallback.
                 </p>
               </div>
@@ -408,7 +408,7 @@ export default function PayrollParameters() {
               emptyMessage="No configurado"
             />
           ) : (
-            <p className="text-xs text-muted-foreground">No configurado</p>
+            <p className="text-sm text-muted-foreground">No configurado</p>
           )}
         </CardContent>
       </Card>
@@ -436,7 +436,7 @@ export default function PayrollParameters() {
       </Card>
 
       {/* Footer: fuente */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Info className="h-3.5 w-3.5" />
         <span>
           Fuente: {data.version_metadata?.source || "SII, Previred, Superintendencia de Pensiones, IPS"}

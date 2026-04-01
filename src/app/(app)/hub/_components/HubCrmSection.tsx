@@ -72,7 +72,7 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
       title="Hub de Cierre"
       badge={
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold tabular-nums text-teal-400">
+          <span className="text-sm font-bold tabular-nums text-teal-400">
             {negotiationFormatted} negociando
           </span>
         </div>
@@ -96,14 +96,14 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
             {hotDeals.length === 0 ? (
               <div className="rounded-lg border border-border bg-card p-6 text-center">
                 <Flame className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No hay propuestas activas.</p>
+                <p className="text-base text-muted-foreground">No hay propuestas activas.</p>
               </div>
             ) : (
               <>
                 <div className="flex items-center gap-2 mb-1">
                   <Flame className="h-3.5 w-3.5 text-orange-400" />
-                  <p className="text-xs font-bold">Propuestas calientes</p>
-                  <span className="text-[10px] text-muted-foreground">({hotDeals.length})</span>
+                  <p className="text-sm font-bold">Propuestas calientes</p>
+                  <span className="text-xs text-muted-foreground">({hotDeals.length})</span>
                 </div>
                 <HubHotDealsMobile deals={hotDeals} sellerFirstName={sellerFirstName} tenantName={closingData.commercialName} />
               </>
@@ -124,15 +124,15 @@ export function HubCrmSection({ closingData, sellerFirstName, upcomingProjects =
           {hotDeals.length === 0 ? (
             <div className="rounded-[10px] border border-border bg-card p-6 text-center">
               <Flame className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No hay propuestas activas con engagement.</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">Envía tu primera cotización desde el pipeline.</p>
+              <p className="text-base text-muted-foreground">No hay propuestas activas con engagement.</p>
+              <p className="text-sm text-muted-foreground/70 mt-1">Envía tu primera cotización desde el pipeline.</p>
             </div>
           ) : (
             <>
               <div className="flex items-center gap-2">
                 <Flame className="h-3.5 w-3.5 text-orange-400" />
-                <p className="text-sm font-bold">Propuestas calientes</p>
-                <span className="text-[10px] text-teal-400 font-bold tabular-nums bg-teal-500/10 rounded px-1.5 py-0.5">
+                <p className="text-base font-bold">Propuestas calientes</p>
+                <span className="text-xs text-teal-400 font-bold tabular-nums bg-teal-500/10 rounded px-1.5 py-0.5">
                   {hotDeals.length}
                 </span>
               </div>

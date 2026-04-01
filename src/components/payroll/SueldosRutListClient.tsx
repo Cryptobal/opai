@@ -354,8 +354,8 @@ export function SueldosRutListClient() {
                       <Badge className="text-[9px] bg-amber-500/15 text-amber-400 border-amber-500/30">RUT</Badge>
                       {!s.isActive && <Badge variant="outline" className="text-[9px] text-muted-foreground">Inactivo</Badge>}
                     </div>
-                    <p className="text-[10px] text-muted-foreground font-mono">{s.rut}</p>
-                    <div className="flex items-center gap-3 mt-0.5 text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground font-mono">{s.rut}</p>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
                       {s.installationName && (
                         <span className="flex items-center gap-0.5"><Building2 className="h-2.5 w-2.5" />{s.installationName}</span>
                       )}
@@ -426,7 +426,7 @@ export function SueldosRutListClient() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5 py-2">
-            <Label className="text-xs">Fecha de término</Label>
+            <Label className="text-sm">Fecha de término</Label>
             <input type="date" value={deactivateDate} onChange={(e) => setDeactivateDate(e.target.value)}
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />
           </div>
@@ -566,7 +566,7 @@ export function SueldosRutListClient() {
           {!selectedGuard ? (
             <div className="space-y-3 py-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">Buscar guardia por nombre o RUT</Label>
+                <Label className="text-sm">Buscar guardia por nombre o RUT</Label>
                 <Input placeholder="Ej: Cedeño o 26746990" value={searchGuard} autoFocus
                   onChange={(e) => { setSearchGuard(e.target.value); searchGuards(e.target.value); }} className="h-9" />
               </div>
@@ -578,7 +578,7 @@ export function SueldosRutListClient() {
                       onClick={() => selectGuard(g)}>
                       <div>
                         <p className="text-sm font-medium">{g.name}</p>
-                        <p className="text-[10px] text-muted-foreground font-mono">{g.rut}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{g.rut}</p>
                       </div>
                       {g.hasSalaryOverride && <Badge className="text-[9px] bg-amber-500/15 text-amber-400">Ya tiene sueldo RUT</Badge>}
                     </div>
@@ -599,32 +599,32 @@ export function SueldosRutListClient() {
               {/* Dates */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Fecha inicio *</Label>
+                  <Label className="text-sm text-muted-foreground">Fecha inicio *</Label>
                   <input type="date" value={formDateFrom} onChange={(e) => setFormDateFrom(e.target.value)}
                     className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Fecha término (opcional)</Label>
+                  <Label className="text-sm text-muted-foreground">Fecha término (opcional)</Label>
                   <input type="date" value={formDateUntil} onChange={(e) => setFormDateUntil(e.target.value)}
                     className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />
-                  <p className="text-[9px] text-muted-foreground">Dejar vacío para vigencia indefinida</p>
+                  <p className="text-xs text-muted-foreground">Dejar vacío para vigencia indefinida</p>
                 </div>
               </div>
 
               {/* Salary fields */}
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Sueldo base *</Label>
+                  <Label className="text-sm text-muted-foreground">Sueldo base *</Label>
                   <Input type="text" inputMode="numeric" value={formatNumber(formBaseSalary, { minDecimals: 0, maxDecimals: 0 })}
                     onChange={(e) => setFormBaseSalary(parseLocalizedNumber(e.target.value))} className="h-9 bg-background text-sm" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Colación</Label>
+                  <Label className="text-sm text-muted-foreground">Colación</Label>
                   <Input type="text" inputMode="numeric" value={formatNumber(formColacion, { minDecimals: 0, maxDecimals: 0 })}
                     onChange={(e) => setFormColacion(parseLocalizedNumber(e.target.value))} className="h-9 bg-background text-sm" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Movilización</Label>
+                  <Label className="text-sm text-muted-foreground">Movilización</Label>
                   <Input type="text" inputMode="numeric" value={formatNumber(formMovilizacion, { minDecimals: 0, maxDecimals: 0 })}
                     onChange={(e) => setFormMovilizacion(parseLocalizedNumber(e.target.value))} className="h-9 bg-background text-sm" />
                 </div>
@@ -632,15 +632,15 @@ export function SueldosRutListClient() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground">Gratificación</Label>
+                  <Label className="text-sm text-muted-foreground">Gratificación</Label>
                   <div className="flex gap-1.5">
-                    <Button type="button" size="sm" variant={formGratType === "AUTO_25" ? "default" : "outline"} className="h-7 px-2.5 text-[10px]" onClick={() => setFormGratType("AUTO_25")}>Auto 25%</Button>
-                    <Button type="button" size="sm" variant={formGratType === "CUSTOM" ? "default" : "outline"} className="h-7 px-2.5 text-[10px]" onClick={() => setFormGratType("CUSTOM")}>Monto fijo</Button>
+                    <Button type="button" size="sm" variant={formGratType === "AUTO_25" ? "default" : "outline"} className="h-7 px-2.5 text-xs" onClick={() => setFormGratType("AUTO_25")}>Auto 25%</Button>
+                    <Button type="button" size="sm" variant={formGratType === "CUSTOM" ? "default" : "outline"} className="h-7 px-2.5 text-xs" onClick={() => setFormGratType("CUSTOM")}>Monto fijo</Button>
                   </div>
                 </div>
                 {formGratType === "CUSTOM" && (
                   <div className="space-y-1">
-                    <Label className="text-[10px] text-muted-foreground">Monto gratificación</Label>
+                    <Label className="text-sm text-muted-foreground">Monto gratificación</Label>
                     <Input type="text" inputMode="numeric" value={formatNumber(formGratAmount, { minDecimals: 0, maxDecimals: 0 })}
                       onChange={(e) => setFormGratAmount(parseLocalizedNumber(e.target.value))} className="h-9 bg-background text-sm" />
                   </div>
@@ -650,7 +650,7 @@ export function SueldosRutListClient() {
               {/* Bonos */}
               {bonosCatalog.length > 0 && (
                 <div className="space-y-2">
-                  <Label className="text-[10px] text-muted-foreground">Bonos</Label>
+                  <Label className="text-sm text-muted-foreground">Bonos</Label>
                   {formBonos.map((bono, idx) => {
                     const cat = bonosCatalog.find((c) => c.id === bono.bonoCatalogId);
                     return (
@@ -675,7 +675,7 @@ export function SueldosRutListClient() {
                             <Input type="number" step="0.1" value={bono.overridePercentage ?? ""}
                               onChange={(e) => { const nb = [...formBonos]; nb[idx] = { ...nb[idx], overridePercentage: Number(e.target.value) }; setFormBonos(nb); }}
                               className="h-8 w-20 bg-background text-xs" />
-                            <span className="text-[10px] text-muted-foreground">%</span>
+                            <span className="text-xs text-muted-foreground">%</span>
                           </div>
                         )}
                         <Button type="button" size="icon" variant="ghost" className="h-7 w-7 shrink-0 text-destructive"
@@ -683,7 +683,7 @@ export function SueldosRutListClient() {
                       </div>
                     );
                   })}
-                  <Button type="button" size="sm" variant="outline" className="h-7 text-[10px]"
+                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs"
                     onClick={() => setFormBonos([...formBonos, { bonoCatalogId: "" }])}><Plus className="mr-1 h-3 w-3" /> Agregar bono</Button>
                 </div>
               )}

@@ -45,7 +45,7 @@ export default function WizardStepper({ steps, currentStep }: WizardStepperProps
                 </div>
                 <span
                   className={`
-                    mt-1.5 text-[10px] font-medium text-center max-w-[72px] leading-tight
+                    mt-1.5 text-xs font-medium text-center max-w-[72px] leading-tight
                     ${isCompleted ? "text-green-400" : ""}
                     ${isActive ? "text-cyan-400" : ""}
                     ${isUpcoming ? "text-gray-500" : ""}

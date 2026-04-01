@@ -15,9 +15,9 @@ export function HubPendingLeads({ leads }: Props) {
       <div className="rounded-[10px] border border-border bg-card p-3.5">
         <div className="flex items-center gap-2 mb-1.5">
           <Inbox className="h-3.5 w-3.5 text-muted-foreground/50" />
-          <p className="text-[13px] font-bold">Leads pendientes</p>
+          <p className="text-sm font-bold">Leads pendientes</p>
         </div>
-        <p className="text-[11px] text-muted-foreground">No hay leads pendientes.</p>
+        <p className="text-sm text-muted-foreground">No hay leads pendientes.</p>
       </div>
     );
   }
@@ -26,8 +26,8 @@ export function HubPendingLeads({ leads }: Props) {
     <div>
       <div className="flex items-center gap-2 mb-2">
         <Inbox className="h-3.5 w-3.5 text-blue-400" />
-        <p className="text-[13px] font-bold">Leads pendientes</p>
-        <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-blue-500/30 text-blue-400">
+        <p className="text-sm font-bold">Leads pendientes</p>
+        <Badge variant="outline" className="text-xs px-1.5 py-0 h-4 border-blue-500/30 text-blue-400">
           {leads.length}
         </Badge>
       </div>
@@ -39,16 +39,16 @@ export function HubPendingLeads({ leads }: Props) {
             className="flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-accent/20"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold truncate">
+              <p className="text-sm font-bold truncate">
                 {lead.companyName || lead.contactName}
               </p>
               {lead.companyName && (
-                <p className="text-[11px] text-muted-foreground truncate">{lead.contactName}</p>
+                <p className="text-sm text-muted-foreground truncate">{lead.contactName}</p>
               )}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[10px] text-muted-foreground">{formatLeadSource(lead.source)}</span>
-              <span className="text-[10px] text-muted-foreground">{timeAgo(lead.createdAt)}</span>
+              <span className="text-xs text-muted-foreground">{formatLeadSource(lead.source)}</span>
+              <span className="text-xs text-muted-foreground">{timeAgo(lead.createdAt)}</span>
               <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
             </div>
           </Link>

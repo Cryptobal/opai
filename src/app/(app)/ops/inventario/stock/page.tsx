@@ -23,7 +23,7 @@ export default async function InventarioStockPage() {
         description="Stock actual por bodega y variante."
       />
       <InventarioSubnav />
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando stock…</p>}>
+      <Suspense fallback={<p className="text-sm sm:text-base text-muted-foreground">Cargando stock…</p>}>
         <InventarioStockClient />
       </Suspense>
     </div>

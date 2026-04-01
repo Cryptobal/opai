@@ -605,7 +605,7 @@ export function MarcacionScreen({
                 Registrada offline — se sincronizará al recuperar conexión
               </p>
             )}
-            <p className="text-xs text-white/25 mt-4">Vuelve a pantalla principal en 5s...</p>
+            <p className="text-sm text-white/25 mt-4">Vuelve a pantalla principal en 5s...</p>
           </div>
         </div>
       </div>
@@ -624,7 +624,7 @@ export function MarcacionScreen({
           >
             <div className="text-5xl mb-3">❌</div>
             <p className="text-red-400 font-medium">{error}</p>
-            <p className="text-xs text-white/30 mt-3">Vuelve a pantalla principal en 4s...</p>
+            <p className="text-sm text-white/30 mt-3">Vuelve a pantalla principal en 4s...</p>
           </div>
         </div>
       </div>
@@ -643,7 +643,7 @@ export function MarcacionScreen({
 
           <form onSubmit={handleRutSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs text-white/40 mb-2 text-center tracking-widest uppercase">
+              <label className="block text-sm text-white/40 mb-2 text-center tracking-widest uppercase">
                 RUT
               </label>
               <input
@@ -681,7 +681,7 @@ export function MarcacionScreen({
 
           {lastMarca && (
             <div className="mt-8 rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.03)" }}>
-              <p className="text-xs text-white/30">Última marca registrada</p>
+              <p className="text-sm text-white/30">Última marca registrada</p>
               <p className="text-sm text-white/60 mt-1">
                 {lastMarca.guardiaName} — {lastMarca.tipo === "entrada" ? "Entrada" : "Salida"}{" "}
                 {new Date(lastMarca.timestamp).toLocaleTimeString("es-CL", {
@@ -730,7 +730,7 @@ export function MarcacionScreen({
               </div>
             )}
             <div>
-              <p className="text-xs text-white/40">Hola,</p>
+              <p className="text-sm text-white/40">Hola,</p>
               <p className="text-lg font-bold text-white">{guardiaInfo.name}</p>
               <p className={`text-sm font-semibold ${tipoText}`}>
                 Tu siguiente marca: {tipo === "entrada" ? "ENTRADA" : "SALIDA"}
@@ -835,7 +835,7 @@ export function MarcacionScreen({
 
           <form onSubmit={handlePinSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs text-white/40 mb-2 text-center tracking-widest uppercase">
+              <label className="block text-sm text-white/40 mb-2 text-center tracking-widest uppercase">
                 PIN
               </label>
               <input

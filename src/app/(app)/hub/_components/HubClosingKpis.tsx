@@ -59,7 +59,7 @@ export function HubClosingKpis({ kpis }: Props) {
             className={`snap-center shrink-0 w-[140px] md:w-auto md:shrink block rounded-[10px] border border-border bg-card px-3.5 py-3 transition-colors hover:bg-accent/30 hover:border-accent/50`}
           >
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs uppercase tracking-wider text-muted-foreground">
                 {kpi.label}
               </span>
               <span className="flex items-center gap-1">
@@ -67,11 +67,11 @@ export function HubClosingKpis({ kpis }: Props) {
                 <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
               </span>
             </div>
-            <p className={`text-[22px] font-bold tabular-nums leading-tight ${kpi.color}`}>
+            <p className={`text-2xl font-bold tabular-nums leading-tight ${kpi.color}`}>
               {value}
             </p>
             {sub && (
-              <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{sub}</p>
             )}
           </Link>
         );

@@ -74,14 +74,14 @@ export function ModuleCard({
           </div>
           <div className={cn(
             'font-semibold text-foreground',
-            compactOnMobile ? 'text-xs sm:text-sm' : 'text-sm'
+            compactOnMobile ? 'text-sm sm:text-base' : 'text-base'
           )}>
             {title}
           </div>
           {description && (
             <p
               className={cn(
-                'text-xs text-muted-foreground mt-1',
+                'text-sm text-muted-foreground mt-1',
                 compactOnMobile && 'hidden sm:block'
               )}
             >

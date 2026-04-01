@@ -228,7 +228,7 @@ export default async function CRMPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <CardTitle className="text-sm font-medium">Leads recibidos</CardTitle>
-                <CardDescription className="text-xs">Últimos 12 meses por estado</CardDescription>
+                <CardDescription className="text-sm">Últimos 12 meses por estado</CardDescription>
               </div>
               <span className="text-2xl font-semibold tabular-nums tracking-tight">{totalLeads12m}</span>
             </div>
@@ -243,7 +243,7 @@ export default async function CRMPage() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <CardTitle className="text-sm font-medium">Cotizaciones enviadas</CardTitle>
-                <CardDescription className="text-xs">Últimos 24 meses</CardDescription>
+                <CardDescription className="text-sm">Últimos 24 meses</CardDescription>
               </div>
               <span className="text-2xl font-semibold tabular-nums tracking-tight">{totalQuotes24m}</span>
             </div>
@@ -259,7 +259,7 @@ export default async function CRMPage() {
         <Card className="border-border/60 min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="text-sm font-medium">Origen de leads</CardTitle>
-            <CardDescription className="text-xs">Distribución últimos 12 meses</CardDescription>
+            <CardDescription className="text-sm">Distribución últimos 12 meses</CardDescription>
           </CardHeader>
           <CardContent>
             <LeadsBySourceChart data={leadsBySourceData} />
@@ -269,7 +269,7 @@ export default async function CRMPage() {
         <Card className="border-border/60 min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="text-sm font-medium">Embudo comercial</CardTitle>
-            <CardDescription className="text-xs">Conversión últimos 30 días</CardDescription>
+            <CardDescription className="text-sm">Conversión últimos 30 días</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -278,9 +278,9 @@ export default async function CRMPage() {
                 const widthPct = step.value > 0 ? Math.max(12, (step.value / maxVal) * 100) : 4;
                 return (
                   <div key={step.label}>
-                    <div className="mb-1 flex items-center justify-between text-xs">
+                    <div className="mb-1 flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">{step.label}</span>
-                      {step.rate !== null && <span className="text-[10px] text-muted-foreground/60 tabular-nums">{step.rate}% conv.</span>}
+                      {step.rate !== null && <span className="text-xs text-muted-foreground/60 tabular-nums">{step.rate}% conv.</span>}
                     </div>
                     <div className="h-8 w-full overflow-hidden rounded-md bg-muted/30">
                       <div
@@ -290,14 +290,14 @@ export default async function CRMPage() {
                           background: i === 0 ? 'rgba(29,185,144,0.2)' : i === 1 ? 'rgba(29,185,144,0.35)' : i === 2 ? 'rgba(29,185,144,0.5)' : 'rgba(29,185,144,0.7)',
                         }}
                       >
-                        <span className="text-xs font-semibold tabular-nums text-foreground">{step.value}</span>
+                        <span className="text-sm font-semibold tabular-nums text-foreground">{step.value}</span>
                       </div>
                     </div>
                   </div>
                 );
               })}
               <div className="mt-4 flex items-center justify-between rounded-lg border border-border/40 px-3 py-2">
-                <span className="text-xs text-muted-foreground">Tasa lead a negocio</span>
+                <span className="text-sm text-muted-foreground">Tasa lead a negocio</span>
                 <span className="text-sm font-semibold text-primary tabular-nums">{leadToDealRate30}%</span>
               </div>
             </div>

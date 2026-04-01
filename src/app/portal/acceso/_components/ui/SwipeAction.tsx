@@ -74,7 +74,7 @@ export default function SwipeAction({
       >
         <button
           onClick={handleAction}
-          className="text-white text-xs font-bold uppercase tracking-wide"
+          className="text-white text-sm font-bold uppercase tracking-wide"
         >
           {actionLabel}
         </button>

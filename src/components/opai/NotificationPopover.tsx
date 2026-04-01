@@ -578,7 +578,7 @@ export function NotificationPopover({
 
                         {/* Message (1-line clamp) */}
                         {n.message && (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                          <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
                             {n.message}
                           </p>
                         )}
@@ -605,7 +605,7 @@ export function NotificationPopover({
 
                         {/* Timestamp */}
                         <time
-                          className="block text-[10px] text-muted-foreground/70 mt-1"
+                          className="block text-xs text-muted-foreground/70 mt-1"
                           dateTime={n.createdAt}
                           title={formatExactDate(n.createdAt)}
                         >
@@ -716,7 +716,7 @@ export function NotificationPopover({
                       key={reply.id}
                       className="rounded-md border border-border/40 bg-card p-2"
                     >
-                      <p className="text-[11px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {reply.author?.name || "Usuario"}
                       </p>
                       <p className="text-sm whitespace-pre-wrap">

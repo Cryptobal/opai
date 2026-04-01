@@ -942,7 +942,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             activeView={viewMode}
             onViewChange={handleViewChange}
             actionSlot={
-              <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
                 {filtered.length} persona{filtered.length === 1 ? "" : "s"}
               </span>
             }
@@ -1036,7 +1036,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         </span>
                       </div>
                       {item.code && (
-                        <p className="text-[10px] text-muted-foreground/60 mt-0.5">{item.code}</p>
+                        <p className="text-xs text-muted-foreground/60 mt-0.5">{item.code}</p>
                       )}
                       {phone ? (
                         <div className="flex items-center gap-2 mt-1" onClick={(e) => e.stopPropagation()}>
@@ -1177,7 +1177,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                           </span>
                         )}
                           {item.code && (
-                            <span className="text-[10px] text-muted-foreground/60 shrink-0">{item.code}</span>
+                            <span className="text-xs text-muted-foreground/60 shrink-0">{item.code}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -1213,7 +1213,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                             href={`https://wa.me/56${phone}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-full bg-green-600/15 px-2 py-0.5 text-[11px] font-medium text-green-500 hover:bg-green-600/25 transition-colors"
+                            className="inline-flex items-center gap-1 rounded-full bg-green-600/15 px-2 py-0.5 text-xs font-medium text-green-500 hover:bg-green-600/25 transition-colors"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor">
@@ -1375,7 +1375,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="h-7 px-2 text-[11px]"
+                      className="h-7 px-2 text-xs"
                       onClick={() => {
                         const allExpanded = Object.values(gridCollapsed).every((v) => !v);
                         const next: Record<string, boolean> = {};
@@ -1391,14 +1391,14 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="h-7 px-2 text-[11px]"
+                      className="h-7 px-2 text-xs"
                       onClick={() => void handleLoadGrid()}
                       disabled={gridLoading}
                     >
                       <RefreshCw className={`h-3 w-3 mr-1 ${gridLoading ? "animate-spin" : ""}`} />
                       Recargar
                     </Button>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {Object.values(gridData).reduce((sum, rows) => sum + rows.length, 0)} registros en {Object.keys(gridData).length} instalaciones
                     </span>
                   </div>
@@ -1419,7 +1419,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                         <Building2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />
                         <span className="text-sm font-semibold">{instName}</span>
                         {s && s.dotacion > 0 && (
-                          <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground ml-2">
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground ml-2">
                             <span>Dotación <span className="font-semibold text-foreground/80">{s.dotacion}</span></span>
                             <span className="text-border">·</span>
                             <span>Guardias <span className="font-semibold text-foreground/80">{s.asignados}</span></span>
@@ -1431,11 +1431,11 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                             )}
                           </span>
                         )}
-                        <span className="text-[11px] text-muted-foreground ml-auto">{rows.length} guardia{rows.length !== 1 ? "s" : ""}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{rows.length} guardia{rows.length !== 1 ? "s" : ""}</span>
                       </button>
                       {!gridCollapsed[instName] && (
                         <div className="overflow-x-auto">
-                          <table className="w-full text-[11px] border-collapse">
+                          <table className="w-full text-xs border-collapse">
                             <thead>
                               <tr className="bg-[#0F2847] text-white sticky top-0 z-10">
                                 {GRID_COLUMNS.map((col) => (

@@ -197,7 +197,7 @@ export default function PayrollSimulator() {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">Sueldo Base Mensual</Label>
+              <Label className="text-sm">Sueldo Base Mensual</Label>
               <Input
                 type="text"
                 inputMode="numeric"
@@ -220,14 +220,14 @@ export default function PayrollSimulator() {
                 Gratificación Legal 25%
               </label>
               {includeGrat && gratPreview > 0 && (
-                <span className="font-mono text-xs text-emerald-400">+{fmt(gratPreview)}</span>
+                <span className="font-mono text-sm text-emerald-400">+{fmt(gratPreview)}</span>
               )}
             </div>
 
             {/* Comisiones + Bonos */}
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label className="text-xs">Comisiones</Label>
+                <Label className="text-sm">Comisiones</Label>
                 <Input
                   type="text"
                   inputMode="numeric"
@@ -238,7 +238,7 @@ export default function PayrollSimulator() {
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Bonos imponibles</Label>
+                <Label className="text-sm">Bonos imponibles</Label>
                 <Input
                   type="text"
                   inputMode="numeric"
@@ -252,7 +252,7 @@ export default function PayrollSimulator() {
 
             {/* Preview imponible */}
             {baseNum > 0 && (
-              <div className="flex justify-between rounded-md bg-muted/30 px-3 py-1.5 text-xs">
+              <div className="flex justify-between rounded-md bg-muted/30 px-3 py-1.5 text-sm">
                 <span className="text-muted-foreground">Total imponible estimado</span>
                 <span className="font-mono font-medium">{fmt(totalImponiblePreview)}</span>
               </div>
@@ -267,7 +267,7 @@ export default function PayrollSimulator() {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">AFP</Label>
+              <Label className="text-sm">AFP</Label>
               <select value={afpName} onChange={(e) => setAfpName(e.target.value)} className={selectClass}>
                 {AFP_OPTIONS.map((afp) => (
                   <option key={afp.value} value={afp.value}>
@@ -279,7 +279,7 @@ export default function PayrollSimulator() {
 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label className="text-xs">Contrato</Label>
+                <Label className="text-sm">Contrato</Label>
                 <select
                   value={contractType}
                   onChange={(e) => setContractType(e.target.value as any)}
@@ -290,7 +290,7 @@ export default function PayrollSimulator() {
                 </select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Salud</Label>
+                <Label className="text-sm">Salud</Label>
                 <select
                   value={healthSystem}
                   onChange={(e) => setHealthSystem(e.target.value as any)}
@@ -304,7 +304,7 @@ export default function PayrollSimulator() {
 
             {healthSystem === "isapre" && (
               <div className="space-y-1">
-                <Label className="text-xs">Cotización adicional Isapre (%)</Label>
+                <Label className="text-sm">Cotización adicional Isapre (%)</Label>
                 <Input
                   type="text"
                   inputMode="decimal"
@@ -331,7 +331,7 @@ export default function PayrollSimulator() {
             <Card className="p-4 space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-xs">Horas Extra 50%</Label>
+                  <Label className="text-sm">Horas Extra 50%</Label>
                   <Input
                     type="text"
                     inputMode="numeric"
@@ -342,7 +342,7 @@ export default function PayrollSimulator() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Cargas familiares</Label>
+                  <Label className="text-sm">Cargas familiares</Label>
                   <Input
                     type="text"
                     inputMode="numeric"
@@ -355,7 +355,7 @@ export default function PayrollSimulator() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-xs">Colación</Label>
+                  <Label className="text-sm">Colación</Label>
                   <Input
                     type="text"
                     inputMode="numeric"
@@ -366,7 +366,7 @@ export default function PayrollSimulator() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Movilización</Label>
+                  <Label className="text-sm">Movilización</Label>
                   <Input
                     type="text"
                     inputMode="numeric"
@@ -378,7 +378,7 @@ export default function PayrollSimulator() {
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">APV Régimen B (rebaja impuesto)</Label>
+                <Label className="text-sm">APV Régimen B (rebaja impuesto)</Label>
                 <Input
                   type="text"
                   inputMode="numeric"
@@ -404,7 +404,7 @@ export default function PayrollSimulator() {
           </Button>
 
           {error && (
-            <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-xs text-red-400">
+            <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-red-400">
               {error}
             </div>
           )}
@@ -563,7 +563,7 @@ export default function PayrollSimulator() {
                   </div>
 
                   <div className="mt-3 flex items-baseline justify-between rounded-md bg-blue-500/10 px-3 py-2">
-                    <span className="text-xs font-medium text-blue-400">Costo Total Empresa</span>
+                    <span className="text-sm font-medium text-blue-400">Costo Total Empresa</span>
                     <span className="font-mono text-lg font-bold text-blue-400">
                       {fmt(result.total_employer_cost)}
                     </span>
@@ -573,7 +573,7 @@ export default function PayrollSimulator() {
 
               {/* Footer: metadata */}
               {result.simulation_id && (
-                <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between px-1 text-sm text-muted-foreground">
                   <span>ID: {result.simulation_id.slice(0, 8)}</span>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px]">Snapshot inmutable</Badge>
@@ -610,7 +610,7 @@ function Row({
         <span className={cn("text-sm", muted ? "text-muted-foreground/70" : "text-muted-foreground")}>
           {label}
         </span>
-        {sublabel && <p className="text-[11px] text-muted-foreground/50">{sublabel}</p>}
+        {sublabel && <p className="text-xs text-muted-foreground/50">{sublabel}</p>}
       </div>
       <span className={cn("shrink-0 font-mono text-sm", valueClass)}>{value}</span>
     </div>

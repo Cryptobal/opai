@@ -83,14 +83,14 @@ export function AssociatedRecordsPanel({
             >
               <PanelLeftOpen className="h-4 w-4" />
             </button>
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground [writing-mode:vertical-rl] rotate-180 select-none mt-1">
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground [writing-mode:vertical-rl] rotate-180 select-none mt-1">
               Asociados
             </div>
           </div>
         ) : (
           <div className="px-3 py-3">
             <div className="flex items-center justify-between mb-3 px-1">
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Registros asociados
               </h3>
               <button
@@ -119,7 +119,7 @@ export function AssociatedRecordsPanel({
 
       {/* Mobile: acordeon al final de la pagina */}
       <div className="lg:hidden mt-6 border-t border-border/60 pt-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 px-1">
           Registros asociados
         </h3>
         <div className="space-y-0.5">
@@ -169,7 +169,7 @@ function AccordionItem({
           {Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
           <span className="truncate font-medium text-foreground text-[13px]">{section.label}</span>
           {section.count !== undefined && (
-            <span className="text-[11px] text-muted-foreground tabular-nums">
+            <span className="text-xs text-muted-foreground tabular-nums">
               ({section.count})
             </span>
           )}

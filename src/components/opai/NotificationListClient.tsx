@@ -673,7 +673,7 @@ export function NotificationListClient() {
                           )}
                         </div>
                         <time
-                          className="block text-[10px] text-muted-foreground/70 mt-1"
+                          className="block text-xs text-muted-foreground/70 mt-1"
                           dateTime={n.createdAt}
                           title={formatExactDate(n.createdAt)}
                         >
@@ -687,7 +687,7 @@ export function NotificationListClient() {
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1.5 mt-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-[11px] font-medium text-emerald-600 hover:bg-emerald-500/20"
+                            className="inline-flex items-center gap-1.5 mt-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20"
                           >
                             <MessageSquare className="h-3 w-3" />
                             Enviar WhatsApp
@@ -700,7 +700,7 @@ export function NotificationListClient() {
                             e.stopPropagation();
                             void openReplyModal(n);
                           }}
-                          className="inline-flex max-w-full items-center gap-1.5 mt-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-[11px] font-medium text-primary hover:bg-primary/20"
+                          className="inline-flex max-w-full items-center gap-1.5 mt-2 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-medium text-primary hover:bg-primary/20"
                         >
                           <Reply className="h-3 w-3 shrink-0" />
                           <span className="truncate max-w-[250px]">
@@ -715,7 +715,7 @@ export function NotificationListClient() {
                             e.stopPropagation();
                             handleClick(n);
                           }}
-                          className="inline-flex max-w-full items-center gap-1.5 mt-2 rounded-full bg-muted border border-border px-3 py-1 text-[11px] font-medium text-foreground hover:bg-accent"
+                          className="inline-flex max-w-full items-center gap-1.5 mt-2 rounded-full bg-muted border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-accent"
                         >
                           <ExternalLink className="h-3 w-3 shrink-0" />
                           <span className="truncate max-w-[250px]">
@@ -779,7 +779,7 @@ export function NotificationListClient() {
                 <div className="max-h-40 overflow-y-auto space-y-2 border-l border-border pl-3">
                   {threadContext.replies.map((reply) => (
                     <div key={reply.id} className="rounded-md border border-border/40 bg-card p-2">
-                      <p className="text-[11px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {reply.author?.name || "Usuario"}
                       </p>
                       <p className="text-sm whitespace-pre-wrap">{reply.content}</p>

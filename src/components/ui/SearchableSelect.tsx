@@ -280,7 +280,7 @@ export function SearchableSelect({
                 onKeyDown={handleKeyDown}
               />
               {query && (
-                <span className="shrink-0 rounded-md bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+                <span className="shrink-0 rounded-md bg-muted/50 px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
                   {filtered.length}
                 </span>
               )}
@@ -293,7 +293,7 @@ export function SearchableSelect({
                   <Search className="h-5 w-5 opacity-40" />
                   <span className="text-sm">{emptyText}</span>
                   {query && (
-                    <span className="text-xs opacity-60">
+                    <span className="text-sm opacity-60">
                       Prueba con otro término
                     </span>
                   )}
@@ -339,7 +339,7 @@ export function SearchableSelect({
                           {highlightMatch(opt.label)}
                         </div>
                         {opt.description && (
-                          <div className="truncate text-xs text-muted-foreground/70 mt-0.5">
+                          <div className="truncate text-sm text-muted-foreground/70 mt-0.5">
                             {highlightMatch(opt.description)}
                           </div>
                         )}
@@ -353,7 +353,7 @@ export function SearchableSelect({
             {/* Footer with count */}
             {filtered.length > 0 && options.length > 5 && (
               <div className="border-t border-border/40 px-3 py-1.5">
-                <span className="text-[10px] text-muted-foreground/50">
+                <span className="text-xs text-muted-foreground/50">
                   {filtered.length} de {options.length} opciones
                 </span>
               </div>

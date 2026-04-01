@@ -358,7 +358,7 @@ export default function EnSitioTab({
                     <div className="flex items-center gap-2 mb-1">
                       <Badge
                         variant="outline"
-                        className="flex items-center gap-1 border-[#374151] text-[#9CA3AF] text-[10px] px-1.5 py-0"
+                        className="flex items-center gap-1 border-[#374151] text-[#9CA3AF] text-xs px-1.5 py-0"
                       >
                         {TYPE_ICONS[record.recordType]}
                         {tc.label}
@@ -372,7 +372,7 @@ export default function EnSitioTab({
                     </p>
 
                     {/* RUT and company */}
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-[#9CA3AF]">
+                    <div className="mt-0.5 flex items-center gap-2 text-sm text-[#9CA3AF]">
                       {record.rut && <span>{formatRut(record.rut)}</span>}
                       {record.rut && record.company && (
                         <span className="text-[#374151]">|</span>
@@ -388,7 +388,7 @@ export default function EnSitioTab({
                       </span>
                       <Badge
                         variant="outline"
-                        className={`text-[10px] px-1.5 py-0 ${DURATION_BADGE_COLORS[color]}`}
+                        className={`text-xs px-1.5 py-0 ${DURATION_BADGE_COLORS[color]}`}
                       >
                         {formatDuration(elapsed)}
                       </Badge>

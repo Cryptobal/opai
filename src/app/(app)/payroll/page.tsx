@@ -75,7 +75,7 @@ export default function PayrollDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-1.5 text-xs text-muted-foreground">
+          <ul className="space-y-1.5 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="mt-0.5 text-primary">·</span>
               <span>

@@ -673,7 +673,7 @@ export function AppSidebar({
                   <p
                     className={cn(
                       "truncate text-muted-foreground",
-                      showCloseButton ? "text-[13px]" : "text-[11px]"
+                      showCloseButton ? "text-sm" : "text-xs"
                     )}
                   >
                     {userEmail}

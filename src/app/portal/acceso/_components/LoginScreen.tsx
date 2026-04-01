@@ -178,7 +178,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
       <p className="mt-8 text-xs text-gray-600 text-center">
         Si no tienes acceso, contacta a tu supervisor.
       </p>
-      <p className="mt-2 text-[10px] text-gray-700 text-center">
+      <p className="mt-2 text-xs text-gray-700 text-center">
         Powered by{" "}
         <a href="https://lx3.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-500 transition-colors">LX3.ai</a>
       </p>

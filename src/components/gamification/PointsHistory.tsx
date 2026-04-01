@@ -105,7 +105,7 @@ export function PointsHistory({
               {/* Description + date */}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-foreground">{event.descripcion}</p>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {formatDateShort(event.fecha)}
                 </p>
               </div>

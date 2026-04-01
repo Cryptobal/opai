@@ -32,7 +32,7 @@ export function InstallationHeader({
           >
             <UserRoundCheck className="h-3 w-3 shrink-0" />
             <span className="truncate">{guardName}</span>
-            <span className="text-[10px] text-gray-500">· Cambiar</span>
+            <span className="text-xs text-gray-500">· Cambiar</span>
           </button>
         </div>
 
@@ -41,7 +41,7 @@ export function InstallationHeader({
           {isPreview && (
             <div className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5">
               <Eye className="h-3 w-3 text-amber-400" />
-              <span className="text-[10px] font-medium text-amber-400">Preview</span>
+              <span className="text-xs font-medium text-amber-400">Preview</span>
             </div>
           )}
           {isOnline ? (

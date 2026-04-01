@@ -67,7 +67,7 @@ function MenuItem({
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-[#F9FAFB]">{label}</p>
         {description && (
-          <p className="truncate text-xs text-[#9CA3AF]">{description}</p>
+          <p className="truncate text-sm text-[#9CA3AF]">{description}</p>
         )}
       </div>
       {badge !== undefined && badge !== null && (
@@ -224,7 +224,7 @@ export default function MasTab({
           <UserRoundCheck className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-[#9CA3AF]">Guardia en Turno</p>
+          <p className="text-sm text-[#9CA3AF]">Guardia en Turno</p>
           <p className="text-sm font-medium text-[#F9FAFB]">{guardName}</p>
         </div>
         <span className="text-xs font-medium text-[#06B6D4]">Cambiar</span>
@@ -271,12 +271,12 @@ export default function MasTab({
             <Smartphone className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-[#9CA3AF]">
+            <p className="text-sm font-medium text-[#9CA3AF]">
               Este Dispositivo
             </p>
             <p className="text-sm text-[#F9FAFB]">{installationName}</p>
             {pairedDate && (
-              <p className="text-xs text-[#6B7280]">
+              <p className="text-sm text-[#6B7280]">
                 Vinculado: {pairedDate}
               </p>
             )}

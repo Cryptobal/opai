@@ -148,7 +148,7 @@ export default function ResumenTurnoSection({
       {/* Breakdown by type */}
       {stats?.byType && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-[#F9FAFB]">
+          <h3 className="text-base font-semibold text-[#F9FAFB]">
             Desglose por Tipo
           </h3>
           <div className="space-y-2">

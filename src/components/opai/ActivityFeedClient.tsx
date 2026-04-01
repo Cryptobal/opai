@@ -362,22 +362,22 @@ export function ActivityFeedClient({ currentUserId }: ActivityFeedClientProps) {
 
                   {/* Module label */}
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {note.contextLabel} · {note.contextModule}
                     </span>
-                    <span className="text-[10px] text-muted-foreground/60">
+                    <span className="text-xs text-muted-foreground/60">
                       {timeAgo(note.createdAt)}
                     </span>
                   </div>
 
                   {/* Content preview */}
-                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2 leading-relaxed">
                     {note.content.replace(/#[A-Z_]+:[a-f0-9-]+/g, "").replace(/[@＠][\p{L}\p{N}._\- ]+/gu, (m) => m).slice(0, 150)}
                   </p>
 
                   {/* Engagement stats */}
                   {(note.replyCount > 0 || note.reactionCount > 0 || note.isMentioned) && (
-                    <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
                       {note.replyCount > 0 && (
                         <span className="inline-flex items-center gap-0.5">
                           <MessageSquare className="h-3 w-3" />
@@ -426,7 +426,7 @@ export function ActivityFeedClient({ currentUserId }: ActivityFeedClientProps) {
 
           {/* Summary */}
           <div className="text-center py-2">
-            <p className="text-[11px] text-muted-foreground/60">
+            <p className="text-xs text-muted-foreground/60">
               Mostrando {notes.length} de {total} notas
             </p>
           </div>

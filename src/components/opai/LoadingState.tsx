@@ -27,7 +27,7 @@ export function LoadingState({
     return (
       <div className={cn('flex min-h-[200px] flex-col items-center justify-center gap-3', className)}>
         <Loader2 className="h-5 w-5 animate-spin text-primary" />
-        {text && <p className="text-xs text-muted-foreground">{text}</p>}
+        {text && <p className="text-sm text-muted-foreground">{text}</p>}
       </div>
     );
   }

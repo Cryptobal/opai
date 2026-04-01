@@ -165,7 +165,7 @@ export default function TemplatesListClient() {
                 </div>
               </div>
 
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Actualizado:{" "}
                 {new Date(t.updatedAt).toLocaleDateString("es-CL", {
                   day: "2-digit",

@@ -69,10 +69,10 @@ export function GlobalIndicators({
           )}
           title={`UF vigente ${data.uf.date || ''}`}
         >
-          <p className={cn('text-xs uppercase text-muted-foreground', compact && 'text-[10px]')}>
+          <p className={cn('text-xs uppercase text-muted-foreground', compact && 'text-xs')}>
             {compact ? 'UF' : `UF ${data.uf.date || ''}`}
           </p>
-          <p className={cn('text-sm font-mono font-semibold', compact && 'text-[10px]')}>
+          <p className={cn('text-sm font-mono font-semibold', compact && 'text-xs')}>
             {formatCLP(data.uf.value)}
           </p>
         </div>
@@ -87,10 +87,10 @@ export function GlobalIndicators({
           )}
           title={data.utm.updatedAt ? `UTM vigente ${data.utm.month || ''} (actualizado ${data.utm.updatedAt})` : `UTM ${data.utm.month || ''}`}
         >
-          <p className={cn('text-xs uppercase text-muted-foreground', compact && 'text-[10px]')}>
+          <p className={cn('text-xs uppercase text-muted-foreground', compact && 'text-xs')}>
             {compact ? 'UTM' : `UTM ${(data.utm.month || '').split(' ')[0] || data.utm.monthShort || 'UTM'}`}
           </p>
-          <p className={cn('text-sm font-mono font-semibold', compact && 'text-[10px]')}>
+          <p className={cn('text-sm font-mono font-semibold', compact && 'text-xs')}>
             {formatCLP(data.utm.value)}
           </p>
         </div>

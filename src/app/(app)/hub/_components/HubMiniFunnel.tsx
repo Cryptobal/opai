@@ -16,7 +16,7 @@ export function HubMiniFunnel({ funnel }: Props) {
 
   return (
     <div className="rounded-[10px] border border-border bg-card p-3.5">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
+      <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
         Embudo 30 días
       </p>
       <div className="grid grid-cols-4 gap-3">
@@ -25,10 +25,10 @@ export function HubMiniFunnel({ funnel }: Props) {
           const pct = Math.max((value / max) * 100, 6);
           return (
             <div key={step.key} className="text-center">
-              <p className={`text-[22px] font-bold tabular-nums leading-tight ${step.textColor}`}>
+              <p className={`text-2xl font-bold tabular-nums leading-tight ${step.textColor}`}>
                 {value}
               </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{step.label}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{step.label}</p>
               <div className="mt-1.5 h-1 bg-muted/30 rounded-full overflow-hidden">
                 <div
                   className={`h-full ${step.color} rounded-full transition-all`}
@@ -40,10 +40,10 @@ export function HubMiniFunnel({ funnel }: Props) {
         })}
       </div>
       <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           Lead→Deal <span className="font-bold text-foreground">{funnel.leadToDealRate}%</span>
         </span>
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           Prop→Ganado <span className="font-bold text-foreground">{funnel.proposalToWonRate}%</span>
         </span>
       </div>

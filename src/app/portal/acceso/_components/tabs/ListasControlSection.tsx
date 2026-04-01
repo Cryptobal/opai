@@ -180,7 +180,7 @@ export default function ListasControlSection({
                     <div className="flex items-center gap-2 mb-1">
                       <Badge
                         variant="outline"
-                        className={`text-[10px] px-1.5 py-0 ${
+                        className={`text-xs px-1.5 py-0 ${
                           isWhitelist
                             ? "border-[#10B981]/30 text-[#10B981]"
                             : "border-[#EF4444]/30 text-[#EF4444]"
@@ -196,7 +196,7 @@ export default function ListasControlSection({
                       {!entry.isActive && (
                         <Badge
                           variant="outline"
-                          className="text-[10px] px-1.5 py-0 border-[#9CA3AF]/30 text-[#9CA3AF]"
+                          className="text-xs px-1.5 py-0 border-[#9CA3AF]/30 text-[#9CA3AF]"
                         >
                           Inactivo
                         </Badge>
@@ -207,7 +207,7 @@ export default function ListasControlSection({
                       {entry.fullName}
                     </p>
 
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[#9CA3AF]">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-[#9CA3AF]">
                       {entry.rut && <span>{formatRut(entry.rut)}</span>}
                       {entry.company && (
                         <span className="flex items-center gap-1">
@@ -218,13 +218,13 @@ export default function ListasControlSection({
                     </div>
 
                     {entry.blockReason && (
-                      <p className="mt-1 text-xs text-[#EF4444] italic">
+                      <p className="mt-1 text-sm text-[#EF4444] italic">
                         {entry.blockReason}
                       </p>
                     )}
 
                     {(entry.validFrom || entry.validUntil) && (
-                      <p className="mt-1 flex items-center gap-1 text-[10px] text-[#9CA3AF]">
+                      <p className="mt-1 flex items-center gap-1 text-xs text-[#9CA3AF]">
                         <Calendar className="h-3 w-3" />
                         {entry.validFrom && `Desde ${entry.validFrom}`}
                         {entry.validFrom && entry.validUntil && " — "}

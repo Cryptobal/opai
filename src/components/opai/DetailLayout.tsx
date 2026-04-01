@@ -209,7 +209,7 @@ export function DetailLayout({
       type="button"
       variant="ghost"
       size="sm"
-      className="h-7 gap-1.5 text-[11px]"
+      className="h-7 gap-1.5 text-xs"
       onClick={resetToDefault}
     >
       <RotateCcw className="h-3.5 w-3.5" />

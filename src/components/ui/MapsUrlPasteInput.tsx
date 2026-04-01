@@ -178,7 +178,7 @@ export function MapsUrlPasteInput({
 
   return (
     <div className={className}>
-      <Label className="text-xs text-muted-foreground">
+      <Label className="text-sm text-muted-foreground">
         O pegar URL de Google Maps
       </Label>
       <div className="flex gap-2 mt-1">
@@ -216,7 +216,7 @@ export function MapsUrlPasteInput({
         </button>
       </div>
       {error && (
-        <p className="text-xs text-destructive mt-1">{error}</p>
+        <p className="text-sm text-destructive mt-1">{error}</p>
       )}
     </div>
   );

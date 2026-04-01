@@ -292,7 +292,7 @@ export default async function HistorialPage() {
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{s.name}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     {s.commune ?? "Sin comuna"}
                   </p>
                 </div>
@@ -336,7 +336,7 @@ export default async function HistorialPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {visitas.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               A\u00fan no hay visitas registradas.
             </p>
           ) : (
@@ -350,7 +350,7 @@ export default async function HistorialPage() {
                   <p className="truncate text-sm font-medium">
                     {visit.installation.name}
                   </p>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-muted-foreground">
                     <span>
                       {new Intl.DateTimeFormat("es-CL", {
                         dateStyle: "short",
@@ -392,7 +392,7 @@ export default async function HistorialPage() {
 
                 <div className="flex flex-wrap items-center gap-1.5">
                   {visit.isExpressFlagged && (
-                    <Badge variant="warning" className="text-[10px]">
+                    <Badge variant="warning" className="text-xs">
                       Express
                     </Badge>
                   )}
@@ -406,7 +406,7 @@ export default async function HistorialPage() {
                             ? "warning"
                             : "outline"
                       }
-                      className="text-[10px]"
+                      className="text-xs"
                     >
                       {INSTALLATION_STATE_LABELS[visit.installationState] ??
                         visit.installationState}
@@ -421,7 +421,7 @@ export default async function HistorialPage() {
                           ? "destructive"
                           : "secondary"
                     }
-                    className="text-[10px]"
+                    className="text-xs"
                   >
                     {STATUS_LABELS[visit.status] ?? visit.status}
                   </Badge>

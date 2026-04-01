@@ -303,7 +303,7 @@ export function PortalClienteClient() {
           />
 
           <label
-            className="block text-xs font-medium text-[#9ca3af] mb-[7px]"
+            className="block text-sm font-medium text-[#9ca3af] mb-[7px]"
             style={{ letterSpacing: "0.02em", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
             PIN de acceso (4 dígitos)
@@ -364,9 +364,9 @@ export function PortalClienteClient() {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <h1 className="text-base font-semibold truncate">Portal Gard</h1>
-              <span className="text-[9px] font-medium bg-teal-500/15 text-teal-400 px-1.5 py-0.5 rounded shrink-0">OPAI</span>
+              <span className="text-xs font-medium bg-teal-500/15 text-teal-400 px-1.5 py-0.5 rounded shrink-0">OPAI</span>
             </div>
-            <p className="text-xs text-zinc-400 truncate max-w-[200px] sm:max-w-none">{session?.accountName}</p>
+            <p className="text-sm text-zinc-400 truncate max-w-[200px] sm:max-w-none">{session?.accountName}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">

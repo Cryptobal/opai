@@ -14,7 +14,7 @@ function DaysBadge({ days }: { days: number | null }) {
   if (days === null) return null;
   const color = days > 30 ? 'text-red-400 border-red-500/30' : 'text-amber-400 border-amber-500/30';
   return (
-    <span className={`text-[10px] font-bold tabular-nums border rounded px-1.5 py-0.5 ${color}`}>
+    <span className={`text-xs font-bold tabular-nums border rounded px-1.5 py-0.5 ${color}`}>
       {days}d
     </span>
   );
@@ -26,9 +26,9 @@ export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
       <div className="rounded-[10px] border border-border bg-card p-3.5">
         <div className="flex items-center gap-2 mb-1.5">
           <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground/50" />
-          <p className="text-[13px] font-bold">Sin actividad</p>
+          <p className="text-sm font-bold">Sin actividad</p>
         </div>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Todos los negocios tienen actividad reciente.
         </p>
       </div>
@@ -39,8 +39,8 @@ export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
     <div>
       <div className="flex items-center gap-2 mb-2">
         <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
-        <p className="text-[13px] font-bold">Sin actividad</p>
-        <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4">
+        <p className="text-sm font-bold">Sin actividad</p>
+        <Badge variant="destructive" className="text-xs px-1.5 py-0 h-4">
           {deals.length}
         </Badge>
       </div>
@@ -64,8 +64,8 @@ export function HubStaleDeals({ deals, sellerFirstName, tenantName }: Props) {
             >
               <Link href={`/crm/deals/${deal.id}`} className="min-w-0 flex-1 flex items-center gap-2 no-underline">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold truncate">{deal.companyName}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">
+                  <p className="text-sm font-bold truncate">{deal.companyName}</p>
+                  <p className="text-sm text-muted-foreground truncate">
                     {deal.contactName}
                     <span style={{ color: deal.stageColor ?? undefined }}> · {deal.stageName}</span>
                   </p>

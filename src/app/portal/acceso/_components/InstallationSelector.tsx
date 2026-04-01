@@ -111,7 +111,7 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
             <p className="mt-3 text-sm text-gray-400">
               No tienes instalaciones asignadas.
             </p>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-sm text-gray-500">
               Contacta a tu supervisor para que te asigne una instalacion.
             </p>
           </div>
@@ -142,7 +142,7 @@ export function InstallationSelector({ guardId, onSelect }: InstallationSelector
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-white">{inst.name}</p>
                 {inst.address && (
-                  <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
+                  <p className="mt-0.5 flex items-center gap-1 text-sm text-gray-400">
                     <MapPin className="h-3 w-3 shrink-0" />
                     <span className="truncate">{inst.address}</span>
                   </p>

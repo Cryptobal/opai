@@ -151,7 +151,7 @@ export function QuickCreateModal({ type, onClose, context }: QuickCreateModalPro
         <div className="grid gap-3 py-2">
           {config.fields.map((field) => (
             <div key={field.key} className="space-y-1.5">
-              <Label className="text-xs">
+              <Label className="text-sm">
                 {field.label}
                 {field.required && " *"}
               </Label>

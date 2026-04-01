@@ -162,7 +162,7 @@ export default function RegistroTab({
       {/* ── Enabled Record Types ──────────────────────────────────── */}
       {enabledTypes.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wider text-[#9CA3AF]">
+          <p className="text-sm font-medium uppercase tracking-wider text-[#9CA3AF]">
             Tipos habilitados
           </p>
           <div className="flex flex-wrap gap-2">

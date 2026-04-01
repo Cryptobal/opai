@@ -96,7 +96,7 @@ export default function PortalesPage() {
                         Los portales son interfaces especializadas para guardias y personal en terreno.
                         Puedes abrirlos en un panel lateral para previsualizar o en una nueva pestaña.
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground/60">
+                    <p className="mt-1 text-sm text-muted-foreground/60">
                         Si tienes un rol simulado activo, el portal reflejará esa vista.
                     </p>
                 </div>

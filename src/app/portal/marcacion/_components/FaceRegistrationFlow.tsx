@@ -98,7 +98,7 @@ export function FaceRegistrationFlow({
           >
             Acepto — Registrar Face ID
           </button>
-          <p className="text-xs text-white/25 text-center mt-4 leading-relaxed">
+          <p className="text-sm text-white/25 text-center mt-4 leading-relaxed">
             Si no desea utilizar reconocimiento facial, contacte a su supervisor para coordinar un método alternativo de verificación.
           </p>
         </div>
@@ -120,7 +120,7 @@ export function FaceRegistrationFlow({
 
           <form onSubmit={handleIdentifySubmit} className="space-y-4">
             <div>
-              <label className="block text-xs text-white/40 mb-1">RUT</label>
+              <label className="block text-sm text-white/40 mb-1">RUT</label>
               <input
                 type="text"
                 value={rut}
@@ -133,7 +133,7 @@ export function FaceRegistrationFlow({
               />
             </div>
             <div>
-              <label className="block text-xs text-white/40 mb-1">PIN</label>
+              <label className="block text-sm text-white/40 mb-1">PIN</label>
               <input
                 type="password"
                 value={pin}

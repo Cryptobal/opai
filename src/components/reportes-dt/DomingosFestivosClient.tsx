@@ -98,7 +98,7 @@ export function DomingosFestivosClient({ installations }: { installations: Insta
   const filters = (
     <div className="flex flex-wrap gap-3 items-end">
       <div>
-        <label className="block text-xs text-muted-foreground mb-1">Desde</label>
+        <label className="block text-sm text-muted-foreground mb-1">Desde</label>
         <input
           type="date"
           value={from}
@@ -107,7 +107,7 @@ export function DomingosFestivosClient({ installations }: { installations: Insta
         />
       </div>
       <div>
-        <label className="block text-xs text-muted-foreground mb-1">Hasta</label>
+        <label className="block text-sm text-muted-foreground mb-1">Hasta</label>
         <input
           type="date"
           value={to}
@@ -116,7 +116,7 @@ export function DomingosFestivosClient({ installations }: { installations: Insta
         />
       </div>
       <div>
-        <label className="block text-xs text-muted-foreground mb-1">Instalación</label>
+        <label className="block text-sm text-muted-foreground mb-1">Instalación</label>
         <select
           value={installationId}
           onChange={(e) => setInstallationId(e.target.value)}

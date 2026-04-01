@@ -113,17 +113,17 @@ export function ModificacionesTurnosClient({ installations }: { installations: I
   const filters = (
     <div className="flex flex-wrap gap-3 items-end">
       <div>
-        <label className="block text-xs text-muted-foreground mb-1">Desde</label>
+        <label className="block text-sm text-muted-foreground mb-1">Desde</label>
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
           className="border border-border rounded px-2 py-1.5 text-sm bg-background" />
       </div>
       <div>
-        <label className="block text-xs text-muted-foreground mb-1">Hasta</label>
+        <label className="block text-sm text-muted-foreground mb-1">Hasta</label>
         <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
           className="border border-border rounded px-2 py-1.5 text-sm bg-background" />
       </div>
       <div>
-        <label className="block text-xs text-muted-foreground mb-1">Instalación</label>
+        <label className="block text-sm text-muted-foreground mb-1">Instalación</label>
         <select value={installationId} onChange={(e) => setInstallationId(e.target.value)}
           className="border border-border rounded px-2 py-1.5 text-sm bg-background">
           <option value="">Todas</option>

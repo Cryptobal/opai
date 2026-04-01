@@ -186,7 +186,7 @@ export default function InicioTab({
         {/* ── Alerts ───────────────────────────────────────────────── */}
         {alerts.length > 0 && (
           <div className="space-y-2">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-[#F59E0B]">
+            <h3 className="flex items-center gap-2 text-base font-semibold text-[#F59E0B]">
               <AlertTriangle className="h-4 w-4" />
               Alertas de permanencia
             </h3>
@@ -202,7 +202,7 @@ export default function InicioTab({
                     <p className="text-sm font-medium text-[#F9FAFB] truncate">
                       {record.fullName || record.vehiclePlate || "Sin identificar"}
                     </p>
-                    <p className="text-xs text-[#9CA3AF]">
+                    <p className="text-sm text-[#9CA3AF]">
                       Lleva {formatDuration(elapsed)} en sitio
                     </p>
                   </div>
@@ -220,7 +220,7 @@ export default function InicioTab({
 
         {/* ── Recent Activity Timeline ─────────────────────────────── */}
         <div className="space-y-3">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-[#F9FAFB]">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-[#F9FAFB]">
             <Activity className="h-4 w-4 text-[#06B6D4]" />
             Actividad reciente
           </h3>
@@ -276,7 +276,7 @@ export default function InicioTab({
                       <p className="text-sm font-medium text-[#F9FAFB] truncate">
                         {record.fullName || record.vehiclePlate || "Sin identificar"}
                       </p>
-                      <p className="text-xs text-[#9CA3AF] truncate">
+                      <p className="text-sm text-[#9CA3AF] truncate">
                         {record.company || tc.label}
                       </p>
                     </div>
@@ -288,7 +288,7 @@ export default function InicioTab({
                       </p>
                       <Badge
                         variant="outline"
-                        className={`mt-0.5 text-[10px] px-1.5 py-0 ${
+                        className={`mt-0.5 text-xs px-1.5 py-0 ${
                           isEntry
                             ? "border-[#10B981]/30 text-[#10B981]"
                             : "border-[#F59E0B]/30 text-[#F59E0B]"

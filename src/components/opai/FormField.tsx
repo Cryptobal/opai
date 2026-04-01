@@ -44,7 +44,7 @@ export function FormField({
     <div className={cn('space-y-1.5', className)}>
       <Label
         htmlFor={htmlFor}
-        className="text-xs font-medium text-muted-foreground"
+        className="text-sm font-medium text-muted-foreground"
       >
         {label}
         {required && <span className="ml-0.5 text-destructive">*</span>}

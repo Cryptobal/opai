@@ -150,7 +150,7 @@ export default function EsperadosHoySection({
                       {prereg.visitorName}
                     </p>
                     {prereg.visitorRut && (
-                      <p className="text-xs text-[#9CA3AF]">
+                      <p className="text-sm text-[#9CA3AF]">
                         {formatRut(prereg.visitorRut)}
                       </p>
                     )}
@@ -165,7 +165,7 @@ export default function EsperadosHoySection({
                 </div>
 
                 {/* Details */}
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#9CA3AF]">
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#9CA3AF]">
                   {prereg.visitorCompany && (
                     <span className="flex items-center gap-1">
                       <Building2 className="h-3 w-3" />
@@ -188,7 +188,7 @@ export default function EsperadosHoySection({
 
                 {/* Purpose */}
                 {prereg.purpose && (
-                  <p className="text-xs text-[#9CA3AF] italic">
+                  <p className="text-sm text-[#9CA3AF] italic">
                     {prereg.purpose}
                   </p>
                 )}

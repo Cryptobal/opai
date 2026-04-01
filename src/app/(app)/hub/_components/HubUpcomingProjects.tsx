@@ -29,8 +29,8 @@ export function HubUpcomingProjects({ projects }: Props) {
     <div className="rounded-lg border border-border bg-card">
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
         <CalendarClock className="h-3.5 w-3.5 text-teal-400" />
-        <p className="text-xs font-bold">Proyectos por iniciar</p>
-        <span className="text-[10px] text-teal-400 font-bold tabular-nums bg-teal-500/10 rounded px-1.5 py-0.5">
+        <p className="text-sm font-bold">Proyectos por iniciar</p>
+        <span className="text-xs text-teal-400 font-bold tabular-nums bg-teal-500/10 rounded px-1.5 py-0.5">
           {projects.length}
         </span>
       </div>
@@ -52,22 +52,22 @@ export function HubUpcomingProjects({ projects }: Props) {
                 style={{ backgroundColor: p.stageColor || '#94a3b8' }}
               />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{p.title}</p>
-                <p className="text-[11px] text-muted-foreground truncate">
+                <p className="text-base font-medium truncate">{p.title}</p>
+                <p className="text-sm text-muted-foreground truncate">
                   {p.accountName}
                   {p.contactName && ` · ${p.contactName}`}
                 </p>
-                <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                   <span className="tabular-nums">{formatCLP(p.amountClp)}</span>
                   {p.totalGuards > 0 && <span>{p.totalGuards} guardias</span>}
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-xs font-semibold tabular-nums">
+                <p className="text-sm font-semibold tabular-nums">
                   {formatStartDate(p.serviceStartDate)}
                 </p>
                 <p
-                  className={`text-[10px] font-medium ${
+                  className={`text-xs font-medium ${
                     isPast
                       ? 'text-red-400'
                       : isToday

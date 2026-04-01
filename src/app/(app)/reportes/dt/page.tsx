@@ -13,7 +13,7 @@ export default function ReportesDtPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Reportes DT</h1>
-        <p className="text-sm text-muted-foreground">Reportes obligatorios Dirección del Trabajo — Res. Exenta N°38.</p>
+        <p className="text-sm sm:text-base text-muted-foreground">Reportes obligatorios Dirección del Trabajo — Res. Exenta N°38.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         {REPORTS.map((r) => (
@@ -22,7 +22,7 @@ export default function ReportesDtPage() {
             <FileBarChart className="w-5 h-5 text-primary mt-0.5 shrink-0" />
             <div>
               <p className="font-medium text-sm">{r.label}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{r.desc}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{r.desc}</p>
             </div>
           </Link>
         ))}
