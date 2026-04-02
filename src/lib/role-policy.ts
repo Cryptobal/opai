@@ -231,7 +231,7 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
     crmSubmodules: ["accounts", "installations", "contacts"],
     configSubmodules: [],
     docsSubmodules: [],
-    opsCapabilities: ["guardias_plan_seleccion", "guardias_te_ingreso", "ops_execution", "rondas_monitor", "alerta_cobertura_crear", "alerta_cobertura_gestionar"],
+    opsCapabilities: ["guardias_plan_seleccion", "guardias_te_ingreso", "ops_execution", "rondas_monitor", "rondas_resolve", "alerta_cobertura_crear", "alerta_cobertura_gestionar"],
   },
   viewer: {
     rank: 0,

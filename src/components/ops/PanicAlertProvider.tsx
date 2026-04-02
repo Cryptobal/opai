@@ -62,23 +62,30 @@ export function PanicAlertProvider({ tenantId, children }: PanicAlertProviderPro
       try {
         audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       } catch {
+        console.warn("[PanicAlarm] No se pudo crear AudioContext");
         return;
       }
     }
 
-    // Resume if suspended (autoplay policy)
-    if (audioCtxRef.current.state === "suspended") {
-      audioCtxRef.current.resume().catch(() => {});
-    }
+    const ctx = audioCtxRef.current;
 
-    // Play immediately
-    playWebAudioAlarm(audioCtxRef.current);
-
-    // Repeat every 10 seconds
-    alarmIntervalRef.current = setInterval(() => {
-      if (audioCtxRef.current && audioCtxRef.current.state === "running") {
-        playWebAudioAlarm(audioCtxRef.current);
+    // Helper: play alarm only when context is running
+    const playWhenReady = () => {
+      if (ctx.state === "running") {
+        playWebAudioAlarm(ctx);
+      } else if (ctx.state === "suspended") {
+        // Await resume and play once it resolves
+        ctx.resume().then(() => playWebAudioAlarm(ctx)).catch(() => {});
       }
+    };
+
+    // Play immediately (handles suspended state)
+    playWhenReady();
+
+    // Repeat every 10 seconds — also retry resume if still suspended
+    alarmIntervalRef.current = setInterval(() => {
+      if (!audioCtxRef.current) return;
+      playWhenReady();
     }, 10000);
   }, []);
 
@@ -93,6 +100,26 @@ export function PanicAlertProvider({ tenantId, children }: PanicAlertProviderPro
     },
     [stopAlarm],
   );
+
+  // Pre-unlock AudioContext on first user interaction (click/keydown/touch)
+  // so it's ready to play when a panic event arrives
+  useEffect(() => {
+    const unlock = () => {
+      if (!audioCtxRef.current) {
+        try {
+          audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+        } catch { /* ignore */ }
+      }
+      if (audioCtxRef.current?.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+    };
+    const events: (keyof WindowEventMap)[] = ["click", "keydown", "touchstart"];
+    events.forEach((e) => window.addEventListener(e, unlock, { once: true }));
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, unlock));
+    };
+  }, []);
 
   // Cross-tab coordination
   useEffect(() => {
