@@ -90,7 +90,7 @@ export async function GET(
 
   /* ── 3. Build entity data ── */
 
-  // Account
+  // Account + related representantes/personería for fallback enrichment
   const account = await prisma.crmAccount.findUnique({
     where: { id: quote.accountId! },
     select: {
@@ -107,8 +107,36 @@ export async function GET(
       website: true,
       notaryName: true,
       notaryDate: true,
+      representantesLegales: {
+        select: { nombre: true, rut: true },
+        orderBy: { createdAt: "asc" as const },
+        take: 1,
+      },
+      personeria: {
+        select: { fechaEscritura: true, tipoEscritura: true, notaria: true },
+      },
     },
   });
+
+  // Enrich account with data from related tables when crmAccount fields are empty
+  const accountData = account ? { ...account } as Record<string, any> : null;
+  if (accountData && account) {
+    const firstRep = account.representantesLegales?.[0];
+    if (!accountData.legalRepresentativeName && firstRep?.nombre) {
+      accountData.legalRepresentativeName = firstRep.nombre;
+    }
+    if (!accountData.legalRepresentativeRut && firstRep?.rut) {
+      accountData.legalRepresentativeRut = firstRep.rut;
+    }
+    if (!accountData.notaryName && account.personeria?.notaria) {
+      accountData.notaryName = account.personeria.notaria;
+    }
+    if (!accountData.notaryDate && account.personeria?.fechaEscritura) {
+      accountData.notaryDate = account.personeria.fechaEscritura
+        .toISOString()
+        .slice(0, 10);
+    }
+  }
 
   // Primary contact
   const contact = await prisma.crmContact.findFirst({
@@ -180,7 +208,7 @@ export async function GET(
   /* ── 4. Assemble entities ── */
   const entities: EntityData = {
     empresa: buildEmpresaEntityData(empresaSettings),
-    account: account ?? undefined,
+    account: accountData ?? undefined,
     contact: contact ?? undefined,
     deal: deal ? { ...deal, amount: deal.amount ? Number(deal.amount) : null } : undefined,
     quote: quoteData,

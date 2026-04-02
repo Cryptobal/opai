@@ -103,7 +103,20 @@ export function tiptapToPreviewHtml(doc: unknown): string {
       return text;
     }
 
-    if (type === "contractToken") return `<span style="background:#e5e7eb;padding:2px 6px;border-radius:4px;font-size:0.9em">[Token]</span>`;
+    if (type === "contractToken") {
+      const tokenKey = (n.attrs as Record<string, string>)?.tokenKey ?? "";
+      // Signature tokens: show descriptive placeholder instead of generic [Token]
+      if (tokenKey.startsWith("signature.signer_")) {
+        const num = tokenKey.replace("signature.signer_", "");
+        return `<span style="background:#e2e8f0;color:#475569;padding:2px 6px;border-radius:4px;font-size:0.85em;font-style:italic">[Firma firmante ${num}]</span>`;
+      }
+      return `<span style="background:#e5e7eb;padding:2px 6px;border-radius:4px;font-size:0.9em">[Token]</span>`;
+    }
+
+    // Raw HTML content (resolved tables, etc.) — output directly without escaping
+    if (type === "rawHtml" && (n.attrs as Record<string, string>)?.html) {
+      return (n.attrs as Record<string, string>).html;
+    }
 
     if (type === "image" && (n.attrs as Record<string, string>)?.src) {
       const src = (n.attrs as Record<string, string>).src;
@@ -169,6 +182,7 @@ export function tiptapToPlainText(doc: unknown): string {
       const key = (n.attrs as Record<string, string>)?.tokenKey;
       return key ? `{{${key}}}` : "";
     }
+    if (type === "rawHtml") return "[Tabla]";
     if (type === "hardBreak") return "\n";
     if (type === "pageBreak") return "\n\n--- Salto de página ---\n\n";
     if (type === "image") return "[Imagen]";

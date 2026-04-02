@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { FileText, Loader2, XCircle, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import { FileText, Loader2, XCircle, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PortalContractForm } from "./PortalContractForm";
@@ -66,9 +66,6 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
 
   // Contract draft view
   const [contractDraftQuoteId, setContractDraftQuoteId] = useState<string | null>(null);
-
-  // Deal collapse (prospect only)
-  const [collapsedDeals, setCollapsedDeals] = useState<Set<string>>(new Set());
 
   const context = isProspect ? "prospect" : "client";
 
@@ -161,16 +158,6 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
     } else {
       throw new Error(json.error ?? "Error");
     }
-  }
-
-  /* ── Toggle deal collapse ── */
-  function toggleDealCollapse(dealId: string) {
-    setCollapsedDeals((prev) => {
-      const next = new Set(prev);
-      if (next.has(dealId)) next.delete(dealId);
-      else next.add(dealId);
-      return next;
-    });
   }
 
   /* ── Get approve dialog quote info ── */
@@ -297,83 +284,41 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
       {/* ── Prospect: Deal-grouped view ── */}
       {isProspect && dealGroups.map((group) => {
         const hasMultiple = group.quotes.length > 1;
-        const isCollapsed = collapsedDeals.has(group.dealId);
-        const activeQuote = group.quotes[0];
-        const olderQuotes = group.quotes.slice(1);
 
         return (
           <div key={group.dealId} className="space-y-3">
             {hasMultiple && (
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-medium text-zinc-300">{group.dealTitle}</h3>
+                <h3 className="text-sm font-medium text-zinc-300">Oportunidad {group.dealTitle}</h3>
                 <span className="text-[10px] text-zinc-600">
                   {group.quotes.length} versión{group.quotes.length !== 1 ? "es" : ""}
                 </span>
               </div>
             )}
 
-            {/* Active quote */}
-            <CotizacionCard
-              cotizacion={activeQuote}
-              detail={expandedId === activeQuote.id ? detail : null}
-              detailLoading={expandedId === activeQuote.id && detailLoading}
-              variant="full"
-              context="prospect"
-              isExpanded={expandedId === activeQuote.id}
-              onToggleExpand={() => loadDetail(activeQuote.id)}
-              onApprove={() => setApproveQuoteId(activeQuote.id)}
-              onReject={() => setRejectQuoteId(activeQuote.id)}
-              onConsult={() => onNavigate?.("chat")}
-              onViewProposal={
-                (() => {
-                  const link = (expandedId === activeQuote.id && detail?.proposalLink) || activeQuote.proposalLink;
-                  return link ? () => window.open(link, "_blank") : undefined;
-                })()
-              }
-              onViewContractDraft={() => setContractDraftQuoteId(activeQuote.id)}
-            />
-
-            {/* Older versions */}
-            {hasMultiple && olderQuotes.length > 0 && (
-              <>
-                <button
-                  onClick={() => toggleDealCollapse(group.dealId)}
-                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors ml-1"
-                >
-                  {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-                  {isCollapsed
-                    ? `Ver ${olderQuotes.length} versión${olderQuotes.length !== 1 ? "es" : ""} anterior${olderQuotes.length !== 1 ? "es" : ""}`
-                    : "Ocultar versiones anteriores"}
-                </button>
-
-                {!isCollapsed && (
-                  <div className="space-y-2 ml-3 border-l border-zinc-800 pl-3">
-                    {olderQuotes.map((q) => (
-                      <CotizacionCard
-                        key={q.id}
-                        cotizacion={q}
-                        detail={expandedId === q.id ? detail : null}
-                        detailLoading={expandedId === q.id && detailLoading}
-                        variant="full"
-                        context="prospect"
-                        isExpanded={expandedId === q.id}
-                        onToggleExpand={() => loadDetail(q.id)}
-                        onApprove={() => setApproveQuoteId(q.id)}
-                        onReject={() => setRejectQuoteId(q.id)}
-                        onConsult={() => onNavigate?.("chat")}
-                        onViewProposal={
-                          (() => {
-                            const link = (expandedId === q.id && detail?.proposalLink) || q.proposalLink;
-                            return link ? () => window.open(link, "_blank") : undefined;
-                          })()
-                        }
-                        onViewContractDraft={() => setContractDraftQuoteId(q.id)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
+            {/* All quotes in the group */}
+            {group.quotes.map((q) => (
+              <CotizacionCard
+                key={q.id}
+                cotizacion={q}
+                detail={expandedId === q.id ? detail : null}
+                detailLoading={expandedId === q.id && detailLoading}
+                variant="full"
+                context="prospect"
+                isExpanded={expandedId === q.id}
+                onToggleExpand={() => loadDetail(q.id)}
+                onApprove={() => setApproveQuoteId(q.id)}
+                onReject={() => setRejectQuoteId(q.id)}
+                onConsult={() => onNavigate?.("chat")}
+                onViewProposal={
+                  (() => {
+                    const link = (expandedId === q.id && detail?.proposalLink) || q.proposalLink;
+                    return link ? () => window.open(link, "_blank") : undefined;
+                  })()
+                }
+                onViewContractDraft={() => setContractDraftQuoteId(q.id)}
+              />
+            ))}
           </div>
         );
       })}

@@ -361,6 +361,10 @@ export function resolveDocument(
       if (tokenKey === "empresa.firmaRepLegal" && value && (value.startsWith("data:image") || value.startsWith("http"))) {
         return { type: "image", attrs: { src: value, alt: "Firma representante legal" } };
       }
+      // HTML content (tables, etc.) → rawHtml node to avoid escaping
+      if (value && /<(table|div|ul|ol)\b/i.test(value)) {
+        return { type: "rawHtml", attrs: { html: value } };
+      }
       return {
         type: "text",
         text: value,

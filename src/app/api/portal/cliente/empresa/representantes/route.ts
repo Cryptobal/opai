@@ -5,6 +5,22 @@ import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 
 const REP_SELECT = { id: true, nombre: true, rut: true, email: true } as const;
 
+/** Sync the first representante legal to crmAccount fields for contract token resolution */
+async function syncFirstRepToAccount(accountId: string) {
+  const firstRep = await prisma.accountRepresentanteLegal.findFirst({
+    where: { accountId },
+    orderBy: { createdAt: "asc" },
+    select: { nombre: true, rut: true },
+  });
+  await prisma.crmAccount.update({
+    where: { id: accountId },
+    data: {
+      legalRepresentativeName: firstRep?.nombre ?? null,
+      legalRepresentativeRut: firstRep?.rut ?? null,
+    },
+  });
+}
+
 export async function GET() {
   const cookieStore = await cookies();
   const session = parsePortalClienteSessionCookie(
@@ -45,6 +61,9 @@ export async function POST(req: Request) {
     },
     select: REP_SELECT,
   });
+
+  // Sync first representante legal to crmAccount fields for contract token resolution
+  await syncFirstRepToAccount(session.accountId);
 
   return NextResponse.json({ success: true, data: created });
 }
@@ -101,6 +120,9 @@ export async function DELETE(req: NextRequest) {
   }
 
   await prisma.accountRepresentanteLegal.delete({ where: { id } });
+
+  // Sync first representante legal to crmAccount fields (or clear if none left)
+  await syncFirstRepToAccount(session.accountId);
 
   return NextResponse.json({ success: true });
 }

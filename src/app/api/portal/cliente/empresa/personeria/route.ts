@@ -61,5 +61,14 @@ export async function PUT(req: Request) {
     },
   });
 
+  // Sync personería fields to crmAccount for contract token resolution
+  await prisma.crmAccount.update({
+    where: { id: session.accountId },
+    data: {
+      notaryName: notaria ?? null,
+      notaryDate: fechaEscritura ?? null,
+    },
+  });
+
   return NextResponse.json({ success: true, data });
 }
