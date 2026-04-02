@@ -146,8 +146,9 @@ export async function GET(
           })
         : null,
       prisma.crmInstallation.findFirst({
-        where: { accountId: quote.accountId!, status: "active" },
+        where: { accountId: quote.accountId!, status: { in: ["active", "prospect"] } },
         select: { name: true, address: true, commune: true, city: true },
+        orderBy: { status: "asc" }, // "active" sorts before "prospect"
       }),
     ]);
 

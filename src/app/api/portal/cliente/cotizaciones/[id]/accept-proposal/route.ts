@@ -79,7 +79,13 @@ export async function POST(
       data: { status: "client_active", isActive: true },
     });
 
-    // 6. Create chat channels for active installations
+    // 5b. Activate prospect installations for this account
+    await prisma.crmInstallation.updateMany({
+      where: { accountId: session.accountId, status: "prospect" },
+      data: { status: "active", isActive: true },
+    });
+
+    // 6. Create chat channels for active installations (now includes newly activated)
     const installations = await prisma.crmInstallation.findMany({
       where: { accountId: session.accountId, status: "active" },
       select: { id: true, name: true },
@@ -179,7 +185,39 @@ export async function POST(
       // Don't fail the whole request if audit log fails
     }
 
-    return NextResponse.json({ success: true, quoteId });
+    // 10. Refresh session cookie: account is now active, installations activated
+    try {
+      const updatedAccount = await prisma.crmAccount.findUnique({
+        where: { id: session.accountId },
+        select: {
+          installations: {
+            where: { status: "active" },
+            select: { id: true, name: true },
+            orderBy: { name: "asc" },
+          },
+        },
+      });
+      const updatedSession = {
+        ...session,
+        isProspect: false,
+        installations: updatedAccount?.installations ?? session.installations,
+      };
+      const cookieValue = Buffer.from(JSON.stringify(updatedSession), "utf-8").toString("base64url");
+      const res = NextResponse.json({ success: true, quoteId, updatedSession });
+      res.cookies.set({
+        name: "portal_cliente_session",
+        value: cookieValue,
+        path: "/",
+        maxAge: 90 * 24 * 60 * 60,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+      });
+      return res;
+    } catch {
+      // If cookie refresh fails, still return success
+      return NextResponse.json({ success: true, quoteId });
+    }
   } catch (error) {
     console.error("Error accepting proposal:", error);
     return NextResponse.json(

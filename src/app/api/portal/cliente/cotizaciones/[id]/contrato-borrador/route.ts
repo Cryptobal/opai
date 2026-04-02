@@ -192,10 +192,11 @@ export async function GET(
     } catch { /* UF not available, leave empty */ }
   }
 
-  // First installation for the account
+  // First installation for the account (active preferred, fallback to prospect)
   const installation = await prisma.crmInstallation.findFirst({
-    where: { accountId: quote.accountId!, status: "active" },
+    where: { accountId: quote.accountId!, status: { in: ["active", "prospect"] } },
     select: { name: true, address: true, commune: true, city: true },
+    orderBy: { status: "asc" }, // "active" sorts before "prospect"
   });
 
   // Contract entity data (derive duration from quote parameters)

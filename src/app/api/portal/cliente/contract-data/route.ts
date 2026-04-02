@@ -5,7 +5,7 @@
  * the account, and generates a DocSignatureRequest + DocSignatureRecipient.
  */
 
-import { randomUUID } from "crypto";
+import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { Prisma } from "@prisma/client";
@@ -133,12 +133,20 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // ── 5. Create DocAssociation ──────────────────────────────
+    // ── 5. Create DocAssociations (account + quote) ────────────
     await prisma.docAssociation.create({
       data: {
         documentId: document.id,
         entityType: "crm_account",
         entityId: session.accountId,
+        role: "contract",
+      },
+    });
+    await prisma.docAssociation.create({
+      data: {
+        documentId: document.id,
+        entityType: "cpq_quote",
+        entityId: quoteId,
         role: "contract",
       },
     });
@@ -164,16 +172,24 @@ export async function POST(request: NextRequest) {
 
     // If representatives exist with emails, create one recipient per rep.
     // Otherwise fall back to the logged-in contact (legacy behavior).
-    const signers = representantes.length > 0
-      ? representantes
-          .filter((r) => r.email?.trim())
-          .map((r) => ({ name: r.nombre, email: r.email!, rut: r.rut }))
-      : [{ name: `${session.firstName} ${session.lastName}`.trim(), email: session.email ?? "", rut: companyRut }];
+    const repsWithEmail = representantes.filter((r) => r.email?.trim());
+    const signers = repsWithEmail.length > 0
+      ? repsWithEmail.map((r) => ({ name: r.nombre, email: r.email!.trim().toLowerCase(), rut: r.rut }))
+      : session.email?.trim()
+        ? [{ name: `${session.firstName} ${session.lastName}`.trim(), email: session.email.trim().toLowerCase(), rut: companyRut }]
+        : [];
+
+    if (signers.length === 0) {
+      return NextResponse.json(
+        { error: "Se requiere al menos un firmante con email válido. Agrega el email del representante legal en la sección Empresa." },
+        { status: 400 }
+      );
+    }
 
     let firstToken: string | null = null;
 
     for (let i = 0; i < signers.length; i++) {
-      const token = randomUUID();
+      const token = randomBytes(24).toString("hex");
       if (i === 0) firstToken = token;
 
       await prisma.docSignatureRecipient.create({

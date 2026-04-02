@@ -490,7 +490,7 @@ export async function POST(
         .map((r) => r.signingOrder);
       const nextOrder = nextOrderCandidates.length > 0 ? Math.min(...nextOrderCandidates) : null;
 
-      if (nextOrder !== null && nextOrder >= maxSignedOrder) {
+      if (nextOrder !== null && nextOrder > maxSignedOrder) {
         const nextSigners = result.recipients.filter(
           (r) => r.role === "signer" && r.signingOrder === nextOrder && ["pending", "sent", "viewed"].includes(r.status)
         );
