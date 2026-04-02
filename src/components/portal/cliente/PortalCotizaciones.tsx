@@ -128,10 +128,8 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
         setDetail((prev) => prev ? { ...prev, status: "approved" } : prev);
       }
       setApproveQuoteId(null);
-      // Client: show contract form after approval
-      if (!isProspect) {
-        setShowContractForm(id);
-      }
+      // Show contract form after approval (both prospects and clients)
+      setShowContractForm(id);
     } else {
       throw new Error(json.error ?? "Error");
     }
@@ -298,26 +296,38 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
 
             {/* All quotes in the group */}
             {group.quotes.map((q) => (
-              <CotizacionCard
-                key={q.id}
-                cotizacion={q}
-                detail={expandedId === q.id ? detail : null}
-                detailLoading={expandedId === q.id && detailLoading}
-                variant="full"
-                context="prospect"
-                isExpanded={expandedId === q.id}
-                onToggleExpand={() => loadDetail(q.id)}
-                onApprove={() => setApproveQuoteId(q.id)}
-                onReject={() => setRejectQuoteId(q.id)}
-                onConsult={() => onNavigate?.("chat")}
-                onViewProposal={
-                  (() => {
-                    const link = (expandedId === q.id && detail?.proposalLink) || q.proposalLink;
-                    return link ? () => window.open(link, "_blank") : undefined;
-                  })()
-                }
-                onViewContractDraft={() => setContractDraftQuoteId(q.id)}
-              />
+              <div key={q.id} className="space-y-0">
+                <CotizacionCard
+                  cotizacion={q}
+                  detail={expandedId === q.id ? detail : null}
+                  detailLoading={expandedId === q.id && detailLoading}
+                  variant="full"
+                  context="prospect"
+                  isExpanded={expandedId === q.id}
+                  onToggleExpand={() => loadDetail(q.id)}
+                  onApprove={() => setApproveQuoteId(q.id)}
+                  onReject={() => setRejectQuoteId(q.id)}
+                  onConsult={() => onNavigate?.("chat")}
+                  onViewProposal={
+                    (() => {
+                      const link = (expandedId === q.id && detail?.proposalLink) || q.proposalLink;
+                      return link ? () => window.open(link, "_blank") : undefined;
+                    })()
+                  }
+                  onViewContractDraft={() => setContractDraftQuoteId(q.id)}
+                />
+
+                {/* Contract form: shown inline after prospect approval */}
+                {(showContractForm === q.id || (q.status === "approved" && expandedId === q.id)) && (
+                  <div className="mt-2">
+                    <PortalContractForm
+                      quoteId={q.id}
+                      accountName={session.accountName}
+                      onComplete={() => setShowContractForm(null)}
+                    />
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         );

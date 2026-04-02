@@ -49,7 +49,7 @@ export async function requirePortalClienteAuth(): Promise<PortalClienteAuthResul
           status: true,
           isActive: true,
           installations: {
-            where: { status: "active" },
+            where: { status: { in: ["active", "prospect"] } },
             select: { id: true },
           },
         },
@@ -115,7 +115,7 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
           isActive: true,
           rut: true,
           installations: {
-            where: { status: "active" },
+            where: { status: { in: ["active", "prospect"] } },
             select: { id: true, name: true },
             orderBy: { name: "asc" },
           },

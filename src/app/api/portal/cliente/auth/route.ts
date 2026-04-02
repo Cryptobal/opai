@@ -62,7 +62,7 @@ export async function GET() {
             isActive: true,
             portalConfig: true,
             installations: {
-              where: { status: "active" },
+              where: { status: { in: ["active", "prospect"] } },
               select: { id: true, name: true },
               orderBy: { name: "asc" },
             },
