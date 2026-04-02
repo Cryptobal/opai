@@ -111,6 +111,7 @@ export const TOKEN_MODULES: TokenModule[] = [
     description: "Datos de la cotización CPQ",
     tokens: [
       { key: "quote.code", label: "Código Cotización", path: "code" },
+      { key: "quote.currency", label: "Moneda (UF/CLP)", path: "currency" },
       { key: "quote.monthlyCost", label: "Costo Mensual", path: "monthlyCost", type: "currency" },
       { key: "quote.totalPositions", label: "Total Posiciones", path: "totalPositions", type: "number" },
       { key: "quote.totalGuards", label: "Total Guardias", path: "totalGuards", type: "number" },

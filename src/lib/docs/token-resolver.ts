@@ -670,7 +670,7 @@ export async function buildQuoteEnrichedData(quoteId: string): Promise<Record<st
   const accountWithInstallations = quote.accountId
     ? await prisma.crmAccount.findUnique({
         where: { id: quote.accountId },
-        select: { installations: { select: { name: true, address: true, commune: true, city: true }, where: { status: "active" } } },
+        select: { installations: { select: { name: true, address: true, commune: true, city: true }, where: { status: { in: ["active", "prospect"] } } } },
       })
     : null;
 
@@ -716,6 +716,7 @@ export async function buildQuoteEnrichedData(quoteId: string): Promise<Record<st
 
   return {
     code: quote.code,
+    currency: quote.currency ?? "UF",
     monthlyCost: Number(quote.monthlyCost ?? 0),
     totalPositions: quote.totalPositions ?? 0,
     totalGuards: quote.totalGuards ?? 0,

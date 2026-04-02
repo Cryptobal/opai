@@ -28,6 +28,7 @@ import { PortalReportes } from "@/components/portal/cliente/PortalReportes";
 import { PortalComparativa } from "@/components/portal/cliente/PortalComparativa";
 import { PortalEncuestas } from "@/components/portal/cliente/PortalEncuestas";
 import { PortalEmpresa } from "@/components/portal/cliente/PortalEmpresa";
+import { PortalInstallationDetail } from "@/components/portal/cliente/PortalInstallationDetail";
 import { PortalPersonal } from "@/components/portal/cliente/PortalPersonal";
 
 import { PortalMarcaciones } from "@/components/portal/cliente/PortalMarcaciones";
@@ -161,8 +162,18 @@ export function PortalClienteClient() {
             isProspect={session?.isProspect}
             onSelectInstallation={(id) => {
               setSelectedInstallation(id);
-              setActiveSection("dashboard");
+              setActiveSection("instalacion-detalle");
             }}
+          />
+        );
+      case "instalacion-detalle":
+        return (
+          <PortalInstallationDetail
+            session={session}
+            installationId={selectedInstallation}
+            isProspect={session?.isProspect}
+            onBack={() => setActiveSection("instalaciones")}
+            onNavigate={(s) => setActiveSection(s as PortalSection)}
           />
         );
       case "rondas":

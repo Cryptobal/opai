@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { useEffect, useRef, useState } from 'react'
 
 export type PortalSection =
-  | 'dashboard' | 'instalaciones' | 'rondas' | 'posta' | 'chat'
+  | 'dashboard' | 'instalaciones' | 'instalacion-detalle' | 'rondas' | 'posta' | 'chat'
   | 'tickets' | 'documentacion' | 'cotizaciones'
   | 'reportes' | 'comparativa' | 'alertas' | 'encuestas'
   | 'desempeno' | 'personal' | 'propuesta' | 'nosotros' | 'empresa'
