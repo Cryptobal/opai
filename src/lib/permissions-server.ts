@@ -196,6 +196,12 @@ function ensureSupervisorSupervisionAccess(
     changed = true;
   }
 
+  // 5c. rondas_resolve_alerts siempre activa para supervisores
+  if (!capabilities.rondas_resolve_alerts) {
+    capabilities.rondas_resolve_alerts = true;
+    changed = true;
+  }
+
   // 6. hubLayout siempre "supervisor"
   if (patched.hubLayout !== "supervisor") {
     patched.hubLayout = "supervisor";
