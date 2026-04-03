@@ -152,7 +152,6 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
     });
 
     return () => cancelAnimationFrame(rafId);
-    });
   }, [data?.html]);
 
   async function handleDownloadPdf() {
