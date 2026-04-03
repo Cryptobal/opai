@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
 
@@ -39,7 +40,8 @@ export async function POST(request: NextRequest) {
       tenantId = document.tenantId;
     } else if (quoteId) {
       // Portal auth flow — find document by quote association
-      const session = parsePortalClienteSessionCookie();
+      const cookieStore = await cookies();
+      const session = parsePortalClienteSessionCookie(cookieStore.get("portal_cliente_session")?.value);
       if (!session) {
         return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
       }
@@ -169,7 +171,8 @@ export async function GET(request: NextRequest) {
       });
       documentId = doc?.id ?? null;
     } else if (quoteId) {
-      const session = parsePortalClienteSessionCookie();
+      const cookieStore = await cookies();
+      const session = parsePortalClienteSessionCookie(cookieStore.get("portal_cliente_session")?.value);
       if (!session) {
         return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
       }
