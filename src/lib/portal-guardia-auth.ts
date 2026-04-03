@@ -23,10 +23,10 @@ export async function requirePortalGuardiaAuth(
 
   const guardia = await prisma.opsGuardia.findUnique({
     where: { id: guardiaId },
-    select: { id: true, tenantId: true, isActive: true },
+    select: { id: true, tenantId: true },
   });
 
-  if (!guardia || !guardia.isActive) return null;
+  if (!guardia) return null;
 
   return {
     guardiaId: guardia.id,
