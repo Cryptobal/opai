@@ -37,16 +37,24 @@ export async function generateServiceContract(
   });
 
   if (!quote) return { success: false, error: "Cotización no encontrada" };
-  if (!(quote as any).contractTemplateId) {
-    return { success: false, error: "No hay template de contrato asignado a esta cotización" };
+
+  // 2. Load template — use assigned template, or fallback to default
+  const templateId = (quote as any).contractTemplateId;
+  const template = templateId
+    ? await prisma.docTemplate.findFirst({ where: { id: templateId, tenantId } })
+    : await prisma.docTemplate.findFirst({
+        where: {
+          tenantId,
+          module: "crm",
+          category: { in: ["contrato_servicio", "contrato_cliente"] },
+          isActive: true,
+          isDefault: true,
+        },
+      });
+
+  if (!template) {
+    return { success: false, error: "No hay template de contrato. Cree uno en Documentos > Plantillas con categoría 'Contrato de Servicio'." };
   }
-
-  // 2. Load template
-  const template = await prisma.docTemplate.findFirst({
-    where: { id: (quote as any).contractTemplateId, tenantId },
-  });
-
-  if (!template) return { success: false, error: "Template de contrato no encontrado" };
 
   // 3. Load account and contact
   const account = quote.accountId

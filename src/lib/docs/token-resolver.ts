@@ -175,10 +175,12 @@ export function resolveTokenValue(
     if (field === "contractEndDate") {
       if (!entity.contractStartDate) return "";
       const start = new Date(entity.contractStartDate);
+      if (isNaN(start.getTime())) return "";
       const months = entity.contractDuration ?? entity.contractMonths ?? 12;
       const end = new Date(start);
       end.setMonth(end.getMonth() + months);
       end.setDate(end.getDate() - 1);
+      if (isNaN(end.getTime())) return "";
       return formatDateOnly(end) ?? "";
     }
   }
@@ -772,12 +774,24 @@ export async function buildQuoteEnrichedData(quoteId: string): Promise<Record<st
     totalGuards: quote.totalGuards ?? 0,
     clientName: quote.clientName ?? "",
     salePriceMonthly,
-    salePriceUF: "", // Will be filled if UF conversion is available
+    salePriceUF: "",
     contractMonths,
     contractAmount,
     positionsTable,
     installationsTable,
     dotacionResumen,
+    // Contract service fields
+    adjustmentType: (quote as any).adjustmentType ?? "NONE",
+    adjustmentFreq: (quote as any).adjustmentFreq ?? null,
+    ipcWeight: (quote as any).ipcWeight ?? 0,
+    imoWeight: (quote as any).imoWeight ?? 0,
+    insurancePolicyUF: (quote as any).insurancePolicyUF != null ? Number((quote as any).insurancePolicyUF) : null,
+    contractStartDate: (quote as any).contractStartDate ?? null,
+    contractDuration: quote.contractDuration ?? 12,
+    liabilityMonths: (quote as any).liabilityMonths ?? 3,
+    hasCCTV: (quote as any).hasCCTV ?? false,
+    cctvRetentionDays: (quote as any).cctvRetentionDays ?? 30,
+    paymentDays: (quote as any).paymentDays ?? 5,
   };
 }
 
