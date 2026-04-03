@@ -42,11 +42,13 @@ function getBucket(): string {
 
 /**
  * Genera una key única para el objeto en R2.
- * Formato: prefix/YYYY/MM/uuid.ext
+ * Formato: {tenantId}/{prefix}/YYYY/MM/uuid.ext
+ * Si no se pasa tenantId, usa el formato legacy: prefix/YYYY/MM/uuid.ext
  */
 function buildStorageKey(
   fileName: string,
-  prefix: string = "crm"
+  prefix: string = "crm",
+  tenantId?: string,
 ): string {
   const ext = fileName.includes(".")
     ? fileName.slice(fileName.lastIndexOf("."))
@@ -56,7 +58,8 @@ function buildStorageKey(
   const m = String(now.getUTCMonth() + 1).padStart(2, "0");
   const uuid = randomUUID();
   const safeName = `${uuid}${ext}`;
-  return `${prefix}/${y}/${m}/${safeName}`;
+  const basePath = `${prefix}/${y}/${m}/${safeName}`;
+  return tenantId ? `${tenantId}/${basePath}` : basePath;
 }
 
 export type UploadResult = {
@@ -73,16 +76,18 @@ export type UploadResult = {
  * @param fileName Nombre original del archivo
  * @param mimeType MIME type
  * @param prefix Prefijo en la key (ej. "crm", "leads")
+ * @param tenantId ID del tenant para aislar archivos por tenant
  */
 export async function uploadFile(
   buffer: Buffer,
   fileName: string,
   mimeType: string,
-  prefix: string = "crm"
+  prefix: string = "crm",
+  tenantId?: string,
 ): Promise<UploadResult> {
   const client = getClient();
   const bucket = getBucket();
-  const storageKey = buildStorageKey(fileName, prefix);
+  const storageKey = buildStorageKey(fileName, prefix, tenantId);
 
   await client.send(
     new PutObjectCommand({

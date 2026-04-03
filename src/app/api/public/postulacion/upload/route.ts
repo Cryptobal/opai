@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isValidPostulacionToken } from "@/lib/postulacion-token";
 import { uploadFile } from "@/lib/storage";
+import { getDefaultTenantId } from "@/lib/tenant";
 
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const ALLOWED_MIME = new Set([
@@ -43,7 +44,8 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await uploadFile(buffer, file.name, mimeType, "guardias");
+    const tenantId = await getDefaultTenantId();
+    const result = await uploadFile(buffer, file.name, mimeType, "guardias", tenantId);
 
     return NextResponse.json({
       success: true,

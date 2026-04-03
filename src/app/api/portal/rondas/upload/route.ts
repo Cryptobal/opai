@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFile } from "@/lib/storage";
+import { getDefaultTenantId } from "@/lib/tenant";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -33,7 +34,8 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await uploadFile(buffer, file.name, file.type, "rondas");
+    const tenantId = await getDefaultTenantId();
+    const result = await uploadFile(buffer, file.name, file.type, "rondas", tenantId);
 
     return NextResponse.json({ success: true, data: { url: result.publicUrl, key: result.storageKey } });
   } catch (error) {

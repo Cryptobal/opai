@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,10 +9,11 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
 
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
@@ -19,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const [eventos, total] = await Promise.all([
       prisma.gamificacionEvento.findMany({
-        where: { guardiaId },
+        where: { guardiaId: guardAuth.guardiaId },
         orderBy: { fecha: "desc" },
         skip,
         take: limit,
@@ -35,7 +37,7 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.gamificacionEvento.count({
-        where: { guardiaId },
+        where: { guardiaId: guardAuth.guardiaId },
       }),
     ]);
 

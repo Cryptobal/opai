@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
@@ -34,11 +35,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
+      return NextResponse.json(
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
+      );
+    }
+
     // Find the movement
     const movement = await prisma.inventoryMovement.findFirst({
       where: {
         id: movementId,
-        guardiaId,
+        guardiaId: guardAuth.guardiaId,
+        tenantId: guardAuth.tenantId,
         type: "delivery",
       },
     });
@@ -75,7 +85,7 @@ export async function POST(request: NextRequest) {
 
       // Validate against guard's existing marcación PIN
       const guardia = await prisma.opsGuardia.findUnique({
-        where: { id: guardiaId },
+        where: { id: guardAuth.guardiaId },
         select: { marcacionPin: true, marcacionPinVisible: true },
       });
 
@@ -118,7 +128,7 @@ export async function POST(request: NextRequest) {
     const now = new Date();
 
     const hashInput = [
-      guardiaId,
+      guardAuth.guardiaId,
       movementId,
       method,
       now.toISOString(),

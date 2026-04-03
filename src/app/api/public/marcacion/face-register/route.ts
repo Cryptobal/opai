@@ -160,7 +160,8 @@ export async function POST(req: NextRequest) {
         imageBuffer,
         "face-reference.jpg",
         "image/jpeg",
-        `guardias/${guardia.id}`
+        `guardias/${guardia.id}`,
+        installation.tenantId
       );
       photoUrl = uploadResult.publicUrl;
       photoKey = uploadResult.storageKey;

@@ -1,28 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
-
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
-      );
-    }
-
-    // Get the guard to obtain tenantId
-    const guardia = await prisma.opsGuardia.findUnique({
-      where: { id: guardiaId },
-      select: { id: true, tenantId: true },
-    });
-
-    if (!guardia) {
-      return NextResponse.json(
-        { success: false, error: "Guardia no encontrado" },
-        { status: 404 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
@@ -30,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     const beneficios = await prisma.gamificacionBeneficio.findMany({
       where: {
-        tenantId: guardia.tenantId,
+        tenantId: guardAuth.tenantId,
         activo: true,
         OR: [
           { fechaInicio: null },
@@ -63,7 +51,7 @@ export async function GET(request: NextRequest) {
     // Get the guard's current accumulated points to show affordability
     const latestScore = await prisma.gamificacionScoreGuardia.findFirst({
       where: {
-        guardiaId,
+        guardiaId: guardAuth.guardiaId,
         periodoTipo: "diario",
       },
       orderBy: { fechaFin: "desc" },
@@ -74,7 +62,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate total redeemed points to determine actually available points
     const puntosCanjeados = await prisma.gamificacionCanje.aggregate({
-      where: { guardiaId },
+      where: { guardiaId: guardAuth.guardiaId },
       _sum: { puntosUsados: true },
     });
 

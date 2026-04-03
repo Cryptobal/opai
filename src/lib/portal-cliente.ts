@@ -2,14 +2,24 @@ import 'server-only';
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { PortalConfig, DEFAULT_PORTAL_CONFIG, ClienteSession } from "@/lib/portal-cliente-types";
+import { verifyCookie } from "@/lib/cookie-signature";
 
 export type { PortalConfig, ClienteSession };
 export { DEFAULT_PORTAL_CONFIG };
 
-/** Decodifica la cookie de sesión del portal cliente (base64url). Usar en rutas API que lean portal_cliente_session. */
+/** Decodifica y verifica la cookie de sesión del portal cliente. Acepta tanto cookies firmadas (HMAC) como legacy (base64url). */
 export function parsePortalClienteSessionCookie(raw: string | undefined): ClienteSession | null {
   if (!raw) return null;
   try {
+    // Try signed cookie first (format: base64url.hmac)
+    const verified = verifyCookie(raw);
+    if (verified) {
+      const session = JSON.parse(verified) as ClienteSession;
+      if (!session?.contactId || !session?.tenantId || !session?.accountId) return null;
+      return session;
+    }
+
+    // Fallback: legacy unsigned cookie (base64url JSON) for backward compatibility
     const decoded = Buffer.from(raw, "base64url").toString("utf-8");
     const session = JSON.parse(decoded) as ClienteSession;
     if (!session?.contactId || !session?.tenantId || !session?.accountId) return null;

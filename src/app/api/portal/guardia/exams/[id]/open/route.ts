@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 type Params = { id: string };
 
@@ -14,27 +15,16 @@ export async function POST(
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
 
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
-      );
-    }
-
-    const guardia = await prisma.opsGuardia.findUnique({
-      where: { id: guardiaId },
-      select: { id: true },
-    });
-
-    if (!guardia) {
-      return NextResponse.json(
-        { success: false, error: "Guardia no encontrado" },
-        { status: 404 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
     const assignment = await prisma.examAssignment.findFirst({
-      where: { id: assignmentId, guardId: guardiaId },
+      where: { id: assignmentId, guardId: guardAuth.guardiaId },
       select: { id: true, status: true },
     });
 

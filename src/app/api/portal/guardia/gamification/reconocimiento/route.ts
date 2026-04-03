@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getGamificacionConfig, registrarEvento } from "@/lib/gamification";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { guardiaId, receptorId, categoria, mensaje } = body;
 
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
@@ -37,25 +39,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Cannot recognize yourself
-    if (guardiaId === receptorId) {
+    if (guardAuth.guardiaId === receptorId) {
       return NextResponse.json(
         { success: false, error: "No puedes reconocerte a ti mismo" },
         { status: 400 },
       );
     }
 
-    // Get the sender guard
+    // Get the sender guard's current installation
     const dador = await prisma.opsGuardia.findUnique({
-      where: { id: guardiaId },
-      select: { id: true, tenantId: true, currentInstallationId: true },
+      where: { id: guardAuth.guardiaId },
+      select: { currentInstallationId: true },
     });
-
-    if (!dador) {
-      return NextResponse.json(
-        { success: false, error: "Guardia remitente no encontrado" },
-        { status: 404 },
-      );
-    }
 
     // Verify the receiver exists and is in the same tenant
     const receptor = await prisma.opsGuardia.findUnique({
@@ -63,7 +58,7 @@ export async function POST(request: NextRequest) {
       select: { id: true, tenantId: true },
     });
 
-    if (!receptor || receptor.tenantId !== dador.tenantId) {
+    if (!receptor || receptor.tenantId !== guardAuth.tenantId) {
       return NextResponse.json(
         { success: false, error: "Guardia receptor no encontrado" },
         { status: 404 },
@@ -78,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     const reconocimientosHoy = await prisma.gamificacionReconocimiento.count({
       where: {
-        dadorId: guardiaId,
+        dadorId: guardAuth.guardiaId,
         createdAt: { gte: hoy, lt: manana },
       },
     });
@@ -94,7 +89,7 @@ export async function POST(request: NextRequest) {
     const hace24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const reconocimientoReciente = await prisma.gamificacionReconocimiento.findFirst({
       where: {
-        dadorId: guardiaId,
+        dadorId: guardAuth.guardiaId,
         receptorId,
         createdAt: { gte: hace24h },
       },
@@ -108,7 +103,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get gamification config
-    const config = await getGamificacionConfig(dador.tenantId);
+    const config = await getGamificacionConfig(guardAuth.tenantId);
     if (!config) {
       return NextResponse.json(
         { success: false, error: "Gamificación no configurada" },
@@ -119,10 +114,10 @@ export async function POST(request: NextRequest) {
     // Create the recognition
     const reconocimiento = await prisma.gamificacionReconocimiento.create({
       data: {
-        tenantId: dador.tenantId,
-        dadorId: guardiaId,
+        tenantId: guardAuth.tenantId,
+        dadorId: guardAuth.guardiaId,
         receptorId,
-        installationId: dador.currentInstallationId,
+        installationId: dador?.currentInstallationId,
         categoria,
         mensaje: mensaje ?? null,
       },
@@ -133,8 +128,8 @@ export async function POST(request: NextRequest) {
       registrarEvento(
         {
           guardiaId: receptorId,
-          tenantId: dador.tenantId,
-          installationId: dador.currentInstallationId,
+          tenantId: guardAuth.tenantId,
+          installationId: dador?.currentInstallationId,
           tipo: "reconocimiento_recibido",
           dimension: "social",
           descripcion: `Reconocimiento recibido: ${categoria}`,
@@ -145,9 +140,9 @@ export async function POST(request: NextRequest) {
       ),
       registrarEvento(
         {
-          guardiaId,
-          tenantId: dador.tenantId,
-          installationId: dador.currentInstallationId,
+          guardiaId: guardAuth.guardiaId,
+          tenantId: guardAuth.tenantId,
+          installationId: dador?.currentInstallationId,
           tipo: "reconocimiento_dado",
           dimension: "social",
           descripcion: `Reconocimiento enviado: ${categoria}`,

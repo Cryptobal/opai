@@ -334,7 +334,7 @@ export async function POST(req: NextRequest) {
     const tenantCfg = await getTenantCompanyConfig(installation.tenantId);
 
     // Upload evidence photo to R2 (if fails, marcacion still proceeds)
-    const fotoEvidenciaUrl = await uploadMarcacionPhoto(image, guardia.id, tipo);
+    const fotoEvidenciaUrl = await uploadMarcacionPhoto(image, guardia.id, tipo, installation.tenantId);
 
     // Create marcacion and update attendance in a transaction
     const result = await prisma.$transaction(async (tx) => {

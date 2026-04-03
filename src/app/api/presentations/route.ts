@@ -122,9 +122,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Incrementar usage count del template
-    await prisma.template.update({
-      where: { id: templateId },
+    // Incrementar usage count del template (scoped by tenantId)
+    await prisma.template.updateMany({
+      where: { id: templateId, tenantId },
       data: { usageCount: { increment: 1 } },
     });
 

@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await uploadFile(buffer, file.name, mimeType, "crm");
+    const result = await uploadFile(buffer, file.name, mimeType, "crm", ctx.tenantId);
 
     const crmFile = await prisma.crmFile.create({
       data: {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 /**
  * GET /api/portal/guardia/alertas?guardiaId=xxx
@@ -11,16 +12,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
 
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
     // Buscar notificaciones enviadas a este guardia con alertas activas
     const notificaciones = await prisma.opsAlertaNotificacion.findMany({
-      where: { guardiaId },
+      where: { guardiaId: guardAuth.guardiaId },
       select: { alertaId: true, oleadaNumero: true },
       distinct: ["alertaId"],
     });
@@ -33,9 +35,10 @@ export async function GET(request: NextRequest) {
 
     const alertas = await prisma.opsAlertaCobertura.findMany({
       where: {
+        tenantId: guardAuth.tenantId,
         OR: [
           { id: { in: alertaIds }, estado: "ACTIVA" },
-          { aceptadaPorGuardiaId: guardiaId, estado: { in: ["ACEPTADA", "CONFIRMADA", "ASIGNADA_PAUTA"] } },
+          { aceptadaPorGuardiaId: guardAuth.guardiaId, estado: { in: ["ACEPTADA", "CONFIRMADA", "ASIGNADA_PAUTA"] } },
         ],
       },
       include: {

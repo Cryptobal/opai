@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateTicketCode, TICKET_STATUS_CONFIG } from "@/lib/tickets";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 import type { GuardTicket } from "@/lib/guard-portal";
 
 /* ── GET /api/portal/guardia/tickets ───────────────────────── */
@@ -10,15 +11,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
 
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
     const tickets = await prisma.opsTicket.findMany({
-      where: { guardiaId },
+      where: { guardiaId: guardAuth.guardiaId, tenantId: guardAuth.tenantId },
       include: {
         ticketType: { select: { name: true } },
       },
@@ -69,20 +71,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Load guardia to get tenantId if not provided
-    const guardia = await prisma.opsGuardia.findUnique({
-      where: { id: guardiaId },
-      select: { tenantId: true },
-    });
-
-    if (!guardia) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "Guardia no encontrado" },
-        { status: 404 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
-    const effectiveTenantId = tenantId ?? guardia.tenantId;
+    const effectiveTenantId = guardAuth.tenantId;
 
     // Load ticket type by ID or slug
     const ticketType = await prisma.opsTicketType.findFirst({
@@ -141,8 +138,8 @@ export async function POST(request: NextRequest) {
           description: description ?? null,
           assignedTeam: ticketType.assignedTeam,
           source: "portal",
-          guardiaId,
-          reportedBy: guardiaId,
+          guardiaId: guardAuth.guardiaId,
+          reportedBy: guardAuth.guardiaId,
           slaDueAt,
           currentApprovalStep: needsApproval ? 1 : null,
           approvalStatus: needsApproval ? "pending" : null,
@@ -209,7 +206,7 @@ export async function POST(request: NextRequest) {
 
       // Send email to the guard that their ticket was submitted
       const guardPersona = await prisma.opsGuardia.findFirst({
-        where: { id: guardiaId },
+        where: { id: guardAuth.guardiaId },
         select: {
           persona: { select: { firstName: true, lastName: true, email: true } },
         },
@@ -243,7 +240,7 @@ export async function POST(request: NextRequest) {
         tenantId: effectiveTenantId,
         notifKey: "ticket_created",
         userType: "guardia",
-        userId: guardiaId,
+        userId: guardAuth.guardiaId,
         portalType: "guardia",
         title: `Solicitud ${ticket.code} recibida`,
         body: `Tu solicitud "${title}" está ${needsApproval ? "pendiente de aprobación" : "en proceso"}.`,

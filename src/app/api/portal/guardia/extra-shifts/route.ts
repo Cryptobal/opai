@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 import type { GuardExtraShift } from "@/lib/guard-portal";
 import { EXTRA_SHIFT_STATUS_LABELS } from "@/lib/guard-portal";
 
@@ -7,16 +8,16 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
-
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
     const turnosExtra = await prisma.opsTurnoExtra.findMany({
-      where: { guardiaId },
+      where: { guardiaId: guardAuth.guardiaId, tenantId: guardAuth.tenantId },
       include: {
         installation: { select: { name: true } },
       },

@@ -22,9 +22,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve tenantId from the authenticated guard
+    const guardia = await prisma.opsGuardia.findUnique({
+      where: { id: guardiaId },
+      select: { tenantId: true },
+    });
+    if (!guardia) {
+      return NextResponse.json(
+        { success: false, error: "Guardia no encontrado" },
+        { status: 404 },
+      );
+    }
+    const tenantId = guardia.tenantId;
+
     const execution = await prisma.opsRondaEjecucion.findFirst({
       where: {
         id: ejecucionId,
+        tenantId,
         status: { in: ["pendiente", "en_curso", "incompleta"] },
       },
       include: {

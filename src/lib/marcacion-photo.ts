@@ -9,7 +9,8 @@ const MAX_IMAGE_SIZE = 1_000_000; // 1MB safety limit
 export async function uploadMarcacionPhoto(
   imageBase64: string,
   guardiaId: string,
-  tipo: string
+  tipo: string,
+  tenantId?: string,
 ): Promise<string | null> {
   try {
     const buffer = Buffer.from(imageBase64, "base64");
@@ -18,7 +19,7 @@ export async function uploadMarcacionPhoto(
       return null;
     }
     const fileName = `${guardiaId}-${tipo}-${Date.now()}.jpg`;
-    const result = await uploadFile(buffer, fileName, "image/jpeg", "marcaciones");
+    const result = await uploadFile(buffer, fileName, "image/jpeg", "marcaciones", tenantId);
     return result.publicUrl;
   } catch (error) {
     console.error("[marcacion-photo] Error uploading to R2:", error);

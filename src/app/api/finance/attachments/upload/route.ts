@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     // Upload to R2
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const uploadResult = await uploadFile(buffer, file.name, file.type, "finance");
+    const uploadResult = await uploadFile(buffer, file.name, file.type, "finance", ctx.tenantId);
 
     // Create DB record
     const attachment = await prisma.financeAttachment.create({

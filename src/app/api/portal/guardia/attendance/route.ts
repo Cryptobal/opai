@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { GuardAttendanceRecord } from "@/lib/guard-portal";
 import { ATTENDANCE_STATUS_LABELS } from "@/lib/guard-portal";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,10 +10,11 @@ export async function GET(request: NextRequest) {
     const guardiaId = searchParams.get("guardiaId");
     const month = searchParams.get("month"); // e.g. "2026-02"
 
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
@@ -31,16 +33,17 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(year, monthNum - 1, 1);
     const endDate = new Date(year, monthNum, 0); // last day of month
 
-    // Query asistencia records where this guard is planned, actual, or replacement
+    // Query asistencia records scoped by tenant
     const asistencias = await prisma.opsAsistenciaDiaria.findMany({
       where: {
+        tenantId: guardAuth.tenantId,
         date: {
           gte: startDate,
           lte: endDate,
         },
         OR: [
-          { plannedGuardiaId: guardiaId },
-          { actualGuardiaId: guardiaId },
+          { plannedGuardiaId: guardAuth.guardiaId },
+          { actualGuardiaId: guardAuth.guardiaId },
         ],
       },
       include: {

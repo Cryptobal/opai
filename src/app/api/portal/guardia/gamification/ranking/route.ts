@@ -1,24 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
-
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
-    // Get the guard to find their current installation
+    // Get the guard's current installation and persona
     const guardia = await prisma.opsGuardia.findUnique({
-      where: { id: guardiaId },
+      where: { id: guardAuth.guardiaId },
       select: {
-        id: true,
-        tenantId: true,
         currentInstallationId: true,
         persona: { select: { firstName: true, lastName: true } },
       },
@@ -98,13 +97,13 @@ export async function GET(request: NextRequest) {
       puntosNetos: s.puntosNetos,
       nivelActual: s.nivelActual,
       rachaActual: s.rachaActual,
-      esYo: s.guardiaId === guardiaId,
+      esYo: s.guardiaId === guardAuth.guardiaId,
     }));
 
     // Get the guard's own position (might not be in top 10)
     const myScore = await prisma.gamificacionScoreGuardia.findFirst({
       where: {
-        guardiaId,
+        guardiaId: guardAuth.guardiaId,
         periodoTipo: "diario",
         periodo: latestPeriod.periodo,
       },
@@ -121,7 +120,7 @@ export async function GET(request: NextRequest) {
 
     const myPosition = myScore
       ? {
-          guardiaId,
+          guardiaId: guardAuth.guardiaId,
           nombre: `${guardia.persona.firstName} ${guardia.persona.lastName}`,
           posicion: myScore.rankingInstalacion,
           totalGuardias: myScore.totalGuardiasInstalacion,

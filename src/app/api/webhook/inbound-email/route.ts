@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
         if (!res.ok) continue;
         const buffer = Buffer.from(await res.arrayBuffer());
         if (buffer.length > MAX_ATTACHMENT_SIZE) continue;
-        const result = await uploadFile(buffer, filename, contentType, "leads");
+        const result = await uploadFile(buffer, filename, contentType, "leads", tenantId);
         const crmFile = await prisma.crmFile.create({
           data: {
             tenantId,

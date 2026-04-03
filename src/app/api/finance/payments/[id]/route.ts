@@ -128,7 +128,7 @@ export async function POST(
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const uploadResult = await uploadFile(buffer, file.name, file.type, "finance/receipts");
+    const uploadResult = await uploadFile(buffer, file.name, file.type, "finance/receipts", ctx.tenantId);
 
     const updated = await prisma.financePayment.update({
       where: { id },

@@ -32,6 +32,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, saved: 0 });
     }
 
+    // Resolve tenantId from the guard to scope the update
+    const guardia = await prisma.opsGuardia.findUnique({
+      where: { id: guardiaId },
+      select: { tenantId: true },
+    });
+    if (!guardia) {
+      return NextResponse.json({ error: "Guardia no encontrado" }, { status: 404 });
+    }
+
     // Validate points shape (lat/lng must be numbers)
     const validPoints = points.filter(
       (p) =>
@@ -46,11 +55,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, saved: 0 });
     }
 
-    // Only update if round is still active (en_curso) to avoid mutating completed rounds
+    // Only update if round is still active (en_curso) and belongs to the same tenant
     const updated = await prisma.opsRondaEjecucion.updateMany({
       where: {
         id: ejecucionId,
         guardiaId,
+        tenantId: guardia.tenantId,
         status: "en_curso",
       },
       data: {

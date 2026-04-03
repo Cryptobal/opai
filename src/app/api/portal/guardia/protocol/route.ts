@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 /* ── GET /api/portal/guardia/protocol ────────────────────────── */
 
@@ -7,17 +8,17 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
-
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
     const guardia = await prisma.opsGuardia.findUnique({
-      where: { id: guardiaId },
-      select: { id: true, currentInstallationId: true, tenantId: true },
+      where: { id: guardAuth.guardiaId, tenantId: guardAuth.tenantId },
+      select: { id: true, currentInstallationId: true },
     });
 
     if (!guardia) {
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.protocolDocument.findMany({
-        where: { tenantId: guardia.tenantId, scope: "global" },
+        where: { tenantId: guardAuth.tenantId, scope: "global" },
         orderBy: { createdAt: "desc" },
         select: { id: true, fileName: true, fileUrl: true, fileSize: true, createdAt: true },
       }),

@@ -229,7 +229,7 @@ function pickBestLogoCandidate(candidates: LogoCandidate[]): string | null {
   return candidates[0]?.url || null;
 }
 
-async function downloadLogoToR2(logoUrl: string): Promise<string | null> {
+async function downloadLogoToR2(logoUrl: string, tenantId?: string): Promise<string | null> {
   const response = await fetch(logoUrl, {
     headers: {
       "User-Agent": "Mozilla/5.0 (compatible; OPAI-Bot/1.0; +https://gard.cl)",
@@ -282,7 +282,7 @@ async function downloadLogoToR2(logoUrl: string): Promise<string | null> {
   }
 
   try {
-    const result = await uploadFile(uploadBuffer, fileName, mimeType, "company-logos");
+    const result = await uploadFile(uploadBuffer, fileName, mimeType, "company-logos", tenantId);
     return result.publicUrl || null;
   } catch (err) {
     console.error("Logo upload to R2 failed:", err);
@@ -578,7 +578,7 @@ export async function POST(request: NextRequest) {
     let localLogoUrl: string | null = null;
     if (extracted.logoUrl) {
       try {
-        localLogoUrl = await downloadLogoToR2(extracted.logoUrl);
+        localLogoUrl = await downloadLogoToR2(extracted.logoUrl, ctx.tenantId);
       } catch (logoError) {
         console.error("Error downloading company logo:", logoError);
       }

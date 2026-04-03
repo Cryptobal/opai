@@ -165,7 +165,8 @@ export async function GET(request: NextRequest) {
             Buffer.from(pdfBuffer),
             fileName,
             "application/pdf",
-            "portal-reportes"
+            "portal-reportes",
+            account.tenantId
           );
           pdfUrl = uploadResult.publicUrl || null;
         } catch (pdfError) {

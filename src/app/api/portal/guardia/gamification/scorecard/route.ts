@@ -1,33 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getGamificacionConfig, getNivelActual, getNextNivel } from "@/lib/gamification";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
-
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
-    // Get the guard to obtain tenantId
-    const guardia = await prisma.opsGuardia.findUnique({
-      where: { id: guardiaId },
-      select: { id: true, tenantId: true, currentInstallationId: true },
-    });
-
-    if (!guardia) {
-      return NextResponse.json(
-        { success: false, error: "Guardia no encontrado" },
-        { status: 404 },
-      );
-    }
-
-    const config = await getGamificacionConfig(guardia.tenantId);
+    const config = await getGamificacionConfig(guardAuth.tenantId);
     if (!config) {
       return NextResponse.json(
         { success: false, error: "Gamificación no configurada" },
@@ -42,7 +30,7 @@ export async function GET(request: NextRequest) {
     // Get the latest daily score for this guard
     const latestScore = await prisma.gamificacionScoreGuardia.findFirst({
       where: {
-        guardiaId,
+        guardiaId: guardAuth.guardiaId,
         periodoTipo: "diario",
       },
       orderBy: { fechaFin: "desc" },
@@ -52,7 +40,7 @@ export async function GET(request: NextRequest) {
     const mesActual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
     const monthlyScore = await prisma.gamificacionScoreGuardia.findFirst({
       where: {
-        guardiaId,
+        guardiaId: guardAuth.guardiaId,
         periodoTipo: "mensual",
         periodo: mesActual,
       },
