@@ -54,7 +54,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Send, Check, Briefcase, Phone, FileText, Sparkles, CalendarDays } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Download, Loader2, Building2, Plus, MessageCircle, Send, Check, Briefcase, Phone, FileText, Sparkles, CalendarDays, FileSignature } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -148,6 +148,8 @@ export function CpqQuoteDetail({
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
+  const [generatingContract, setGeneratingContract] = useState(false);
+  const [contractTemplates, setContractTemplates] = useState<{ id: string; name: string }[]>([]);
   const [statusChangePending, setStatusChangePending] = useState<"draft" | "sent" | null>(null);
   const [changingStatus, setChangingStatus] = useState(false);
   const [portalVisibilitySaving, setPortalVisibilitySaving] = useState(false);
@@ -487,6 +489,10 @@ export function CpqQuoteDetail({
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (d?.success) setProposalTemplates(d.data); })
       .catch(() => {});
+    fetch("/api/docs/templates?module=crm&category=contrato_servicio")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.success) setContractTemplates(d.data ?? []); })
+      .catch(() => {});
     fetch("/api/branding")
       .then((r) => r.ok ? r.json() : null)
       .then((d) => {
@@ -760,6 +766,27 @@ export function CpqQuoteDetail({
       toast.error("No se pudo actualizar el estado.");
     } finally {
       setChangingStatus(false);
+    }
+  };
+
+  const handleGenerateContract = async () => {
+    if (!quote) return;
+    // Flush saves first
+    await flushPendingSaves();
+    setGeneratingContract(true);
+    try {
+      const res = await fetch(`/api/cpq/quotes/${quoteId}/generate-contract`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Error al generar contrato");
+      toast.success("Contrato generado exitosamente");
+      // Navigate to the new document
+      window.open(`/opai/documentos/${data.data.documentId}`, "_blank");
+    } catch (error: any) {
+      toast.error(error.message || "Error al generar contrato");
+    } finally {
+      setGeneratingContract(false);
     }
   };
 
@@ -1436,6 +1463,14 @@ export function CpqQuoteDetail({
                   </button>
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); setVisitaTecnicaModalOpen(true); }} disabled={!crmContext.installationId || positions.length === 0}>
                     <Briefcase className="h-3.5 w-3.5" /> Visita técnica
+                  </button>
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent font-medium text-teal-400"
+                    onClick={() => { setOverflowMenuOpen(false); handleGenerateContract(); }}
+                    disabled={generatingContract || !quoteForm.contractTemplateId}
+                    title={!quoteForm.contractTemplateId ? "Asigne un template de contrato en Condiciones comerciales" : ""}
+                  >
+                    <FileSignature className="h-3.5 w-3.5" /> {generatingContract ? "Generando..." : "Generar contrato"}
                   </button>
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); refresh(); }}>
                     <RefreshCw className="h-3.5 w-3.5" /> Refrescar
