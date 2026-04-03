@@ -329,14 +329,13 @@ function TiptapNodeRender({ node }: { node: any }) {
 
   if (node.type === "heading") {
     const level = node.attrs?.level ?? 2;
-    const Tag = `h${level}` as keyof JSX.IntrinsicElements;
-    return (
-      <Tag className="font-bold mt-6 mb-3">
-        {(node.content ?? []).map((child: any, i: number) => (
-          <TiptapNodeRender key={i} node={child} />
-        ))}
-      </Tag>
-    );
+    const children = (node.content ?? []).map((child: any, i: number) => (
+      <TiptapNodeRender key={i} node={child} />
+    ));
+    const cls = "font-bold mt-6 mb-3";
+    if (level === 1) return <h1 className={cls}>{children}</h1>;
+    if (level === 3) return <h3 className={cls}>{children}</h3>;
+    return <h2 className={cls}>{children}</h2>;
   }
 
   if (node.type === "horizontalRule") {
