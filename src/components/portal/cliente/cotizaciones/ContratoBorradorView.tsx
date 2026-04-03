@@ -40,10 +40,8 @@ interface Suggestion {
   createdAt: string;
 }
 
-/** Clause numbers considered editable by the client */
-const EDITABLE_CLAUSES = new Set([
-  "TERCERA", "CUARTA", "SÉPTIMA", "NOVENA", "DÉCIMA", "UNDÉCIMA",
-]);
+/** All clause numbers that can appear in the contract */
+const CLAUSE_PATTERN = /^(PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|SÉPTIMA|OCTAVA|NOVENA|DÉCIMA TERCERA|DÉCIMA CUARTA|DÉCIMA QUINTA|DÉCIMA SEXTA|DÉCIMA|UNDÉCIMA|DUODÉCIMA)\s*[:.]/;
 
 interface Props {
   quoteId: string;
@@ -96,19 +94,25 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
     fetchSuggestions();
   }, [fetchDraft, fetchSuggestions]);
 
-  // After HTML renders, inject "Sugerir edición" buttons on editable clause headings
+  // Inject "Sugerir edición" buttons on ALL clause headings.
+  // We use a ref-callback approach: the function runs every time the div mounts
+  // AND we re-trigger it after submitting a suggestion (via a counter).
+  const [injectTick, setInjectTick] = useState(0);
+
   useEffect(() => {
     if (!data?.html || !contractRef.current) return;
 
-    // Use requestAnimationFrame to ensure DOM has been painted
     const rafId = requestAnimationFrame(() => {
       if (!contractRef.current) return;
 
-      // Find headings — try h2, h3, and also strong/b elements that contain clause names
+      // Remove previously injected buttons to avoid duplicates
+      contractRef.current.querySelectorAll("[data-suggest-btn]").forEach((b) => b.remove());
+
+      // Find all elements containing clause names
       const candidates: Element[] = [];
       contractRef.current.querySelectorAll("h1, h2, h3, h4, p, strong").forEach((el) => {
         const text = el.textContent?.trim() ?? "";
-        if (/^(PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|SÉPTIMA|OCTAVA|NOVENA|DÉCIMA|UNDÉCIMA|DUODÉCIMA|DÉCIMA TERCERA|DÉCIMA CUARTA|DÉCIMA QUINTA|DÉCIMA SEXTA)\s*[:.]/.test(text)) {
+        if (CLAUSE_PATTERN.test(text)) {
           candidates.push(el);
         }
       });
@@ -118,12 +122,9 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
         const clauseMatch = text.match(/^(PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|SÉPTIMA|OCTAVA|NOVENA|DÉCIMA TERCERA|DÉCIMA CUARTA|DÉCIMA QUINTA|DÉCIMA SEXTA|DÉCIMA|UNDÉCIMA|DUODÉCIMA)/);
         if (!clauseMatch) return;
         const clauseName = clauseMatch[1];
-        if (!EDITABLE_CLAUSES.has(clauseName)) return;
 
         // Find the right element to append to (prefer heading, otherwise parent)
         const target = el.tagName.match(/^H[1-4]$/) ? el : el.closest("p, h1, h2, h3, h4") ?? el;
-
-        // Don't add button if already present
         if (target.querySelector("[data-suggest-btn]")) return;
 
         const btn = document.createElement("button");
@@ -134,7 +135,6 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
         btn.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          // Collect paragraph texts following this heading until the next heading
           const headingEl = target.tagName.match(/^H[1-4]$/) ? target : target.closest("h1, h2, h3, h4") ?? target;
           const paragraphs: string[] = [];
           let sibling = headingEl.nextElementSibling;
@@ -152,7 +152,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
     });
 
     return () => cancelAnimationFrame(rafId);
-  }, [data?.html]);
+  }, [data?.html, injectTick]);
 
   async function handleDownloadPdf() {
     if (pdfLoading) return;
@@ -199,9 +199,11 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
-      toast.success("Sugerencia enviada correctamente");
+      toast.success("Sugerencia enviada correctamente. Será revisada por el ejecutivo.");
       setEditModal(null);
       fetchSuggestions();
+      // Re-inject buttons after a small delay (React may re-render the contract div)
+      setTimeout(() => setInjectTick((t) => t + 1), 100);
     } catch (e: any) {
       toast.error(e.message || "Error al enviar sugerencia");
     } finally {
@@ -313,7 +315,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
         <div className="flex items-start gap-2">
           <Pencil className="h-3.5 w-3.5 text-teal-500 mt-0.5 shrink-0" />
           <p className="text-[11px] text-teal-400/80 leading-relaxed">
-            Puede sugerir modificaciones en las cláusulas editables (Tercera, Cuarta, Séptima, Novena, Décima, Undécima).
+            Puede sugerir modificaciones en cualquier cláusula del contrato.
             Haga clic en el botón{" "}
             <span className="inline-flex items-center gap-0.5 bg-teal-500/20 text-teal-700 px-1 py-0.5 rounded text-[10px] font-semibold">
               <Pencil className="h-2.5 w-2.5" /> Sugerir edición

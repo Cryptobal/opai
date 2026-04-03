@@ -98,16 +98,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate clause is editable
-    const metadata = doc?.contractMetadata as Record<string, any> | null;
-    const clauseEditability = metadata?.clauseEditability as Record<string, boolean> | null;
-    if (clauseEditability && clauseEditability[clauseNumber] === false) {
-      return NextResponse.json(
-        { success: false, error: "Esta cláusula no permite ediciones" },
-        { status: 403 }
-      );
-    }
-
     // Create suggestion
     const suggestion = await prisma.contractSuggestion.create({
       data: {
@@ -136,6 +126,39 @@ export async function POST(request: NextRequest) {
           createdBy: "portal_client",
         },
       });
+    }
+
+    // Notify admin about the new suggestion
+    try {
+      const document = await prisma.document.findUnique({
+        where: { id: documentId },
+        select: { title: true },
+      });
+      const { sendNotification } = await import("@/lib/notification-service");
+      await sendNotification({
+        tenantId,
+        type: "contract_suggestion",
+        title: `Sugerencia de edición en contrato`,
+        message: `El cliente sugirió cambios en la cláusula ${clauseNumber} del documento "${document?.title ?? "Contrato"}"`,
+        data: { documentId, suggestionId: suggestion.id, clauseNumber },
+        link: `/opai/documentos/${documentId}`,
+      });
+    } catch (e) {
+      console.warn("Failed to send suggestion notification:", e);
+    }
+
+    // Push notification to admins
+    try {
+      const { sendPushToAdmins } = await import("@/lib/pwa/push-service");
+      await sendPushToAdmins(
+        tenantId,
+        "contract_suggestion",
+        "Sugerencia de edición en contrato",
+        `Cláusula ${clauseNumber}: ${(clientNote || suggestedContent).slice(0, 80)}`,
+        `/opai/documentos/${documentId}`,
+      );
+    } catch (e) {
+      console.warn("Failed to send suggestion push:", e);
     }
 
     return NextResponse.json({ success: true, data: suggestion });
