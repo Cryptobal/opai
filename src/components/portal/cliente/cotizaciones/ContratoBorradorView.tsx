@@ -100,41 +100,58 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
   useEffect(() => {
     if (!data?.html || !contractRef.current) return;
 
-    const headings = contractRef.current.querySelectorAll("h2");
-    headings.forEach((h2) => {
-      const text = h2.textContent?.trim() ?? "";
-      // Extract clause name (e.g. "TERCERA" from "TERCERA: Precio y Forma de Pago")
-      const clauseMatch = text.match(/^(PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|SÉPTIMA|OCTAVA|NOVENA|DÉCIMA|UNDÉCIMA|DUODÉCIMA|DÉCIMA TERCERA|DÉCIMA CUARTA|DÉCIMA QUINTA|DÉCIMA SEXTA)/);
-      if (!clauseMatch) return;
-      const clauseName = clauseMatch[1];
-      if (!EDITABLE_CLAUSES.has(clauseName)) return;
+    // Use requestAnimationFrame to ensure DOM has been painted
+    const rafId = requestAnimationFrame(() => {
+      if (!contractRef.current) return;
 
-      // Don't add button if already present
-      if (h2.querySelector("[data-suggest-btn]")) return;
-
-      const btn = document.createElement("button");
-      btn.setAttribute("data-suggest-btn", clauseName);
-      btn.className = "ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-500/20 text-teal-700 hover:bg-teal-500/30 transition-colors align-middle";
-      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Sugerir edición`;
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        // Collect the paragraph texts following this heading until the next heading
-        const paragraphs: string[] = [];
-        let sibling = h2.nextElementSibling;
-        while (sibling && sibling.tagName !== "H2" && sibling.tagName !== "H1") {
-          const pText = sibling.textContent?.trim();
-          if (pText) paragraphs.push(pText);
-          sibling = sibling.nextElementSibling;
+      // Find headings — try h2, h3, and also strong/b elements that contain clause names
+      const candidates: Element[] = [];
+      contractRef.current.querySelectorAll("h1, h2, h3, h4, p, strong").forEach((el) => {
+        const text = el.textContent?.trim() ?? "";
+        if (/^(PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|SÉPTIMA|OCTAVA|NOVENA|DÉCIMA|UNDÉCIMA|DUODÉCIMA|DÉCIMA TERCERA|DÉCIMA CUARTA|DÉCIMA QUINTA|DÉCIMA SEXTA)\s*[:.]/.test(text)) {
+          candidates.push(el);
         }
-        const originalText = paragraphs.join("\n\n");
-        setEditModal({
-          clauseNumber: clauseName,
-          clauseTitle: text,
-          originalText,
-        });
-        setEditForm({ suggestedContent: originalText, clientNote: "" });
       });
-      h2.appendChild(btn);
+
+      candidates.forEach((el) => {
+        const text = el.textContent?.trim() ?? "";
+        const clauseMatch = text.match(/^(PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|SÉPTIMA|OCTAVA|NOVENA|DÉCIMA TERCERA|DÉCIMA CUARTA|DÉCIMA QUINTA|DÉCIMA SEXTA|DÉCIMA|UNDÉCIMA|DUODÉCIMA)/);
+        if (!clauseMatch) return;
+        const clauseName = clauseMatch[1];
+        if (!EDITABLE_CLAUSES.has(clauseName)) return;
+
+        // Find the right element to append to (prefer heading, otherwise parent)
+        const target = el.tagName.match(/^H[1-4]$/) ? el : el.closest("p, h1, h2, h3, h4") ?? el;
+
+        // Don't add button if already present
+        if (target.querySelector("[data-suggest-btn]")) return;
+
+        const btn = document.createElement("button");
+        btn.setAttribute("data-suggest-btn", clauseName);
+        btn.className = "ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-500/20 text-teal-700 hover:bg-teal-500/30 transition-colors align-middle cursor-pointer";
+        btn.style.cssText = "display:inline-flex !important; visibility:visible !important;";
+        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Sugerir edición`;
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          // Collect paragraph texts following this heading until the next heading
+          const headingEl = target.tagName.match(/^H[1-4]$/) ? target : target.closest("h1, h2, h3, h4") ?? target;
+          const paragraphs: string[] = [];
+          let sibling = headingEl.nextElementSibling;
+          while (sibling && !sibling.tagName.match(/^H[1-4]$/)) {
+            const pText = sibling.textContent?.trim();
+            if (pText) paragraphs.push(pText);
+            sibling = sibling.nextElementSibling;
+          }
+          const originalText = paragraphs.join("\n\n");
+          setEditModal({ clauseNumber: clauseName, clauseTitle: text, originalText });
+          setEditForm({ suggestedContent: originalText, clientNote: "" });
+        });
+        target.appendChild(btn);
+      });
+    });
+
+    return () => cancelAnimationFrame(rafId);
     });
   }, [data?.html]);
 
