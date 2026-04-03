@@ -52,7 +52,7 @@ export async function POST(
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploaded = await uploadFile(buffer, file.name, file.type, "protocols");
+    const uploaded = await uploadFile(buffer, file.name, file.type, "protocols", ctx.tenantId);
 
     const document = await prisma.protocolDocument.create({
       data: {

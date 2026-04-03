@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getGamificacionConfig, registrarEvento } from "@/lib/gamification";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { guardiaId, beneficioId } = body;
 
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
@@ -21,25 +23,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the guard
+    // Get the guard's installation for event registration
     const guardia = await prisma.opsGuardia.findUnique({
-      where: { id: guardiaId },
-      select: { id: true, tenantId: true, currentInstallationId: true },
+      where: { id: guardAuth.guardiaId },
+      select: { currentInstallationId: true },
     });
-
-    if (!guardia) {
-      return NextResponse.json(
-        { success: false, error: "Guardia no encontrado" },
-        { status: 404 },
-      );
-    }
 
     // Get the benefit
     const beneficio = await prisma.gamificacionBeneficio.findUnique({
       where: { id: beneficioId },
     });
 
-    if (!beneficio || beneficio.tenantId !== guardia.tenantId) {
+    if (!beneficio || beneficio.tenantId !== guardAuth.tenantId) {
       return NextResponse.json(
         { success: false, error: "Beneficio no encontrado" },
         { status: 404 },
@@ -82,7 +77,7 @@ export async function POST(request: NextRequest) {
     // Calculate available points
     const latestScore = await prisma.gamificacionScoreGuardia.findFirst({
       where: {
-        guardiaId,
+        guardiaId: guardAuth.guardiaId,
         periodoTipo: "diario",
       },
       orderBy: { fechaFin: "desc" },
@@ -93,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     // Subtract already redeemed points
     const puntosCanjeados = await prisma.gamificacionCanje.aggregate({
-      where: { guardiaId },
+      where: { guardiaId: guardAuth.guardiaId },
       _sum: { puntosUsados: true },
     });
 
@@ -111,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get gamification config
-    const config = await getGamificacionConfig(guardia.tenantId);
+    const config = await getGamificacionConfig(guardAuth.tenantId);
     if (!config) {
       return NextResponse.json(
         { success: false, error: "Gamificación no configurada" },
@@ -124,8 +119,8 @@ export async function POST(request: NextRequest) {
       // Create the canje record
       const nuevoCanje = await tx.gamificacionCanje.create({
         data: {
-          tenantId: guardia.tenantId,
-          guardiaId,
+          tenantId: guardAuth.tenantId,
+          guardiaId: guardAuth.guardiaId,
           beneficioId,
           puntosUsados: costoPuntos,
           status: "pendiente",
@@ -148,9 +143,9 @@ export async function POST(request: NextRequest) {
     // Register a negative event for the points deduction (outside transaction since it's non-critical)
     await registrarEvento(
       {
-        guardiaId,
-        tenantId: guardia.tenantId,
-        installationId: guardia.currentInstallationId,
+        guardiaId: guardAuth.guardiaId,
+        tenantId: guardAuth.tenantId,
+        installationId: guardia?.currentInstallationId,
         tipo: "canje",
         dimension: "bonus",
         descripcion: `Canje de beneficio: ${beneficio.nombre} (-${costoPuntos} pts)`,

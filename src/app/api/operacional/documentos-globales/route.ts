@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
     const status = calcDocStatus(expiresAt, tipo.tieneVencimiento, tipo.diasAlerta);
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploaded = await uploadFile(buffer, file.name, file.type, "ops-docs");
+    const uploaded = await uploadFile(buffer, file.name, file.type, "ops-docs", ctx.tenantId);
 
     const doc = await prisma.docOperacional.create({
       data: {

@@ -68,7 +68,7 @@ export async function POST(
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploaded = await uploadFile(buffer, file.name, file.type, "ops-supervision");
+    const uploaded = await uploadFile(buffer, file.name, file.type, "ops-supervision", ctx.tenantId);
 
     const image = await prisma.opsVisitaImagen.create({
       data: {

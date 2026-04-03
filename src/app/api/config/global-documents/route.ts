@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploaded = await uploadFile(buffer, file.name, file.type, "global-docs");
+    const uploaded = await uploadFile(buffer, file.name, file.type, "global-docs", ctx.tenantId);
 
     const document = await prisma.protocolDocument.create({
       data: {

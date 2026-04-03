@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 import { cookies } from "next/headers";
 
 export const dynamic = "force-dynamic";
@@ -24,10 +25,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Sesión inválida" }, { status: 401 });
     }
 
+    const guardAuth = await requirePortalGuardiaAuth(session.guardiaId);
+    if (!guardAuth) {
+      return NextResponse.json(
+        { error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
+      );
+    }
+
     const liquidaciones = await prisma.payrollLiquidacion.findMany({
       where: {
-        guardiaId: session.guardiaId,
-        tenantId: session.tenantId,
+        guardiaId: guardAuth.guardiaId,
+        tenantId: guardAuth.tenantId,
         status: { in: ["APPROVED", "PAID"] },
       },
       orderBy: { createdAt: "desc" },

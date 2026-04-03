@@ -242,7 +242,7 @@ export async function POST(req: NextRequest) {
     // La foto NO es biométrica — es evidencia visual.
     let fotoEvidenciaUrl: string | null = null;
     if (fotoBase64) {
-      fotoEvidenciaUrl = await uploadMarcacionPhoto(fotoBase64, guardia.id, tipo);
+      fotoEvidenciaUrl = await uploadMarcacionPhoto(fotoBase64, guardia.id, tipo, installation.tenantId);
     }
 
     // Buscar asignación activa del guardia en esta instalación para obtener puesto/slot

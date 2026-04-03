@@ -163,7 +163,8 @@ export async function POST(
         buffer,
         file.name,
         file.type || "application/pdf",
-        "contracts"
+        "contracts",
+        ctx.tenantId
       );
 
       const document = await prisma.$transaction(async (tx) => {

@@ -1,32 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
-
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
-    // Get the guard to find their installation
+    // Get the guard's current installation
     const guardia = await prisma.opsGuardia.findUnique({
-      where: { id: guardiaId },
-      select: { id: true, tenantId: true, currentInstallationId: true },
+      where: { id: guardAuth.guardiaId },
+      select: { currentInstallationId: true },
     });
 
-    if (!guardia) {
-      return NextResponse.json(
-        { success: false, error: "Guardia no encontrado" },
-        { status: 404 },
-      );
-    }
-
-    if (!guardia.currentInstallationId) {
+    if (!guardia?.currentInstallationId) {
       return NextResponse.json({
         success: true,
         data: [],
@@ -36,6 +30,7 @@ export async function GET(request: NextRequest) {
     // Fetch recent recognitions in the same installation (last 20)
     const reconocimientos = await prisma.gamificacionReconocimiento.findMany({
       where: {
+        tenantId: guardAuth.tenantId,
         installationId: guardia.currentInstallationId,
       },
       orderBy: { createdAt: "desc" },
@@ -64,6 +59,7 @@ export async function GET(request: NextRequest) {
     // We find guards currently in the same installation, then their recently earned badges
     const guardiasEnInstalacion = await prisma.opsGuardia.findMany({
       where: {
+        tenantId: guardAuth.tenantId,
         currentInstallationId: guardia.currentInstallationId,
         status: "active",
       },

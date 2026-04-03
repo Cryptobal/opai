@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 import type { GuardMarcacion } from "@/lib/guard-portal";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
-
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
+
     const marcaciones = await prisma.opsMarcacion.findMany({
-      where: { guardiaId, deletedAt: null },
+      where: { guardiaId: guardAuth.guardiaId, tenantId: guardAuth.tenantId, deletedAt: null },
       include: {
         installation: { select: { name: true } },
       },

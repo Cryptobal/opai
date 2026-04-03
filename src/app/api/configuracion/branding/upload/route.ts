@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await uploadFile(buffer, file.name, file.type, "branding");
+    const result = await uploadFile(buffer, file.name, file.type, "branding", ctx.tenantId);
 
     return NextResponse.json({
       success: true,

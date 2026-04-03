@@ -1,43 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
-
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
-    // Get the guard to obtain tenantId and installation
+    // Get the guard's current installation
     const guardia = await prisma.opsGuardia.findUnique({
-      where: { id: guardiaId },
-      select: { id: true, tenantId: true, currentInstallationId: true },
+      where: { id: guardAuth.guardiaId },
+      select: { currentInstallationId: true },
     });
-
-    if (!guardia) {
-      return NextResponse.json(
-        { success: false, error: "Guardia no encontrado" },
-        { status: 404 },
-      );
-    }
 
     const now = new Date();
 
     // Get active challenges: global (no installationId) or for the guard's installation
     const desafios = await prisma.gamificacionDesafio.findMany({
       where: {
-        tenantId: guardia.tenantId,
+        tenantId: guardAuth.tenantId,
         activo: true,
         fechaInicio: { lte: now },
         fechaFin: { gte: now },
         OR: [
           { installationId: null },
-          ...(guardia.currentInstallationId
+          ...(guardia?.currentInstallationId
             ? [{ installationId: guardia.currentInstallationId }]
             : []),
         ],
@@ -50,7 +44,7 @@ export async function GET(request: NextRequest) {
     const participaciones = desafioIds.length > 0
       ? await prisma.gamificacionDesafioParticipacion.findMany({
           where: {
-            guardiaId,
+            guardiaId: guardAuth.guardiaId,
             desafioId: { in: desafioIds },
           },
         })

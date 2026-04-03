@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 /**
  * GET /api/portal/guardia/alertas/[alertaId]?guardiaId=xxx
@@ -15,16 +16,17 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
 
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
     // Verificar que el guardia fue notificado de esta alerta
     const notificacion = await prisma.opsAlertaNotificacion.findFirst({
-      where: { alertaId, guardiaId },
+      where: { alertaId, guardiaId: guardAuth.guardiaId },
     });
 
     if (!notificacion) {
@@ -34,8 +36,8 @@ export async function GET(
       );
     }
 
-    const alerta = await prisma.opsAlertaCobertura.findUnique({
-      where: { id: alertaId },
+    const alerta = await prisma.opsAlertaCobertura.findFirst({
+      where: { id: alertaId, tenantId: guardAuth.tenantId },
       include: {
         installation: {
           select: {
@@ -67,7 +69,7 @@ export async function GET(
 
     // Verificar si el guardia ya intentó aceptar
     const aceptacionPrevia = await prisma.opsAlertaAceptacion.findUnique({
-      where: { alertaId_guardiaId: { alertaId, guardiaId } },
+      where: { alertaId_guardiaId: { alertaId, guardiaId: guardAuth.guardiaId } },
       select: { exito: true, intentoAt: true },
     });
 
@@ -82,7 +84,7 @@ export async function GET(
       estado: alerta.estado,
       tiempoRestanteSeg,
       aceptada: alerta.aceptadaPorGuardiaId != null,
-      aceptadaPorMi: alerta.aceptadaPorGuardiaId === guardiaId,
+      aceptadaPorMi: alerta.aceptadaPorGuardiaId === guardAuth.guardiaId,
       yaIntente: aceptacionPrevia != null,
       intentoExitoso: aceptacionPrevia?.exito ?? null,
       createdAt: alerta.createdAt,

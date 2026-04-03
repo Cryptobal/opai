@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 import { computeMarcacionHash, haversineDistance } from "@/lib/marcacion";
 import { sendMarcacionComprobante, sendNotificacionFueraDeRango } from "@/lib/marcacion-email";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
@@ -45,11 +46,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { guardiaId, tenantId, tipo, lat, lng, gpsAccuracy, image } = parsed.data;
+    const { guardiaId, tipo, lat, lng, gpsAccuracy, image } = parsed.data;
+
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
+      return NextResponse.json({ success: false, error: "Guardia no encontrado o inactivo" }, { status: 401 });
+    }
+    const tenantId = guardAuth.tenantId;
 
     // Validate guard exists and is active
     const guardia = await prisma.opsGuardia.findFirst({
-      where: { id: guardiaId, tenantId },
+      where: { id: guardAuth.guardiaId, tenantId },
       select: {
         id: true,
         lifecycleStatus: true,
@@ -175,7 +182,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Upload evidence photo to R2 (non-blocking)
-    const fotoEvidenciaUrl = await uploadMarcacionPhoto(image, guardia.id, tipo);
+    const fotoEvidenciaUrl = await uploadMarcacionPhoto(image, guardia.id, tipo, installation.tenantId);
 
     // -- GEOLOCALIZACION COMO EVIDENCIA (Res. Exenta N°38) --
     // GPS es EVIDENCIA, nunca restriccion. No se bloquea la marcacion por ubicacion.

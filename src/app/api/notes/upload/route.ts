@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       }
 
       const buffer = Buffer.from(await file.arrayBuffer());
-      const result = await uploadFile(buffer, file.name, file.type, "notes");
+      const result = await uploadFile(buffer, file.name, file.type, "notes", ctx.tenantId);
       results.push({
         fileName: result.fileName,
         fileUrl: result.publicUrl,

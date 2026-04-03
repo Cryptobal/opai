@@ -1,34 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
-
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
-      );
-    }
-
-    // Get the guard to obtain tenantId
-    const guardia = await prisma.opsGuardia.findUnique({
-      where: { id: guardiaId },
-      select: { id: true, tenantId: true },
-    });
-
-    if (!guardia) {
-      return NextResponse.json(
-        { success: false, error: "Guardia no encontrado" },
-        { status: 404 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
 
     // Get earned badges with badge details
     const earnedBadges = await prisma.gamificacionGuardiaBadge.findMany({
-      where: { guardiaId },
+      where: { guardiaId: guardAuth.guardiaId },
       include: {
         badge: {
           select: {
@@ -53,7 +41,7 @@ export async function GET(request: NextRequest) {
     // Get visible unearned badges: active, not secret, not yet earned
     const unearnedBadges = await prisma.gamificacionBadge.findMany({
       where: {
-        tenantId: guardia.tenantId,
+        tenantId: guardAuth.tenantId,
         activo: true,
         esSecreto: false,
         id: { notIn: earnedBadgeIds.length > 0 ? earnedBadgeIds : ["__none__"] },

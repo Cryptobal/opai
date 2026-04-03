@@ -96,7 +96,7 @@ export async function POST(
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploadResult = await uploadFile(buffer, file.name, mimeType, "cpq-quotes");
+    const uploadResult = await uploadFile(buffer, file.name, mimeType, "cpq-quotes", ctx.tenantId);
 
     const attachment = await prisma.cpqQuoteAttachment.create({
       data: {

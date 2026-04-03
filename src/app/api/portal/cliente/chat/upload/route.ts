@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(arrayBuffer);
         const mimeType = file.type || "application/octet-stream";
 
-        const uploaded = await uploadFile(buffer, file.name, mimeType, "chat");
+        const uploaded = await uploadFile(buffer, file.name, mimeType, "chat", session.tenantId);
 
         return {
           id: randomUUID(),

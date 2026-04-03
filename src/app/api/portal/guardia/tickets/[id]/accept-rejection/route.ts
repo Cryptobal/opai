@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 type Params = { id: string };
 
@@ -12,12 +13,13 @@ export async function POST(
     const body = await request.json();
     const { guardiaId } = body as { guardiaId?: string };
 
-    if (!guardiaId) {
-      return NextResponse.json({ success: false, error: "guardiaId requerido" }, { status: 400 });
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
+      return NextResponse.json({ success: false, error: "Guardia no encontrado o inactivo" }, { status: 401 });
     }
 
     const ticket = await prisma.opsTicket.findFirst({
-      where: { id: ticketId, guardiaId },
+      where: { id: ticketId, guardiaId: guardAuth.guardiaId, tenantId: guardAuth.tenantId },
       select: { id: true, status: true, tenantId: true },
     });
 

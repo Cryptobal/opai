@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 import type { GuardScheduleDay } from "@/lib/guard-portal";
 import { SHIFT_CODE_LABELS } from "@/lib/guard-portal";
 
@@ -7,14 +8,15 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
-    const month = searchParams.get("month"); // e.g. "2026-02"
-
-    if (!guardiaId) {
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
       return NextResponse.json(
-        { success: false, error: "guardiaId es requerido" },
-        { status: 400 },
+        { success: false, error: "Guardia no encontrado o inactivo" },
+        { status: 401 },
       );
     }
+
+    const month = searchParams.get("month"); // e.g. "2026-02"
 
     if (!month || !/^\d{4}-\d{2}$/.test(month)) {
       return NextResponse.json(
@@ -34,7 +36,8 @@ export async function GET(request: NextRequest) {
     // Query pauta entries for this guard and month
     const pautas = await prisma.opsPautaMensual.findMany({
       where: {
-        plannedGuardiaId: guardiaId,
+        plannedGuardiaId: guardAuth.guardiaId,
+        tenantId: guardAuth.tenantId,
         date: {
           gte: startDate,
           lte: endDate,

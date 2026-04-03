@@ -109,15 +109,15 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   }
   mergedCcEmails = [...new Set(mergedCcEmails)];
 
-  const account = await prisma.crmAccount.findUnique({
-    where: { id: quote.accountId },
+  const account = await prisma.crmAccount.findFirst({
+    where: { id: quote.accountId, tenantId },
     select: { id: true, name: true, rut: true, status: true, portalEjecutivoId: true },
   });
 
   if (!account) throw new Error("Cuenta no encontrada");
 
-  const ejecutivo = await prisma.admin.findUnique({
-    where: { id: userId },
+  const ejecutivo = await prisma.admin.findFirst({
+    where: { id: userId, tenantId },
     select: { name: true },
   });
   const ejecutivoName = ejecutivo?.name || "Ejecutivo Comercial";
@@ -127,8 +127,8 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   if (!contact.portalPin) {
     pin = String(Math.floor(1000 + Math.random() * 9000));
     const pinHash = await bcrypt.hash(pin, 10);
-    await prisma.crmContact.update({
-      where: { id: contact.id },
+    await prisma.crmContact.updateMany({
+      where: { id: contact.id, tenantId },
       data: { portalPin: pinHash, portalPinVisible: pin, portalEnabled: true },
     });
   } else if (contact.portalPinVisible && contact.portalPinVisible.trim().length > 0) {
@@ -136,8 +136,8 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   } else {
     pin = String(Math.floor(1000 + Math.random() * 9000));
     const pinHash = await bcrypt.hash(pin, 10);
-    await prisma.crmContact.update({
-      where: { id: contact.id },
+    await prisma.crmContact.updateMany({
+      where: { id: contact.id, tenantId },
       data: { portalPin: pinHash, portalPinVisible: pin },
     });
   }
@@ -146,7 +146,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   const accountUpdates: Record<string, unknown> = {};
   if (account.status !== "client_active") accountUpdates.status = "prospect";
   accountUpdates.portalEjecutivoId = userId;
-  await prisma.crmAccount.update({ where: { id: account.id }, data: accountUpdates });
+  await prisma.crmAccount.updateMany({ where: { id: account.id, tenantId }, data: accountUpdates });
 
   // Chat channel
   const existingExternal = await prisma.chatChannel.findFirst({
@@ -188,8 +188,8 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
       if (template) {
         const ACCOUNT_LOGO_PREFIX = "[[ACCOUNT_LOGO_URL:";
         const ACCOUNT_LOGO_SUFFIX = "]]";
-        const acc = await prisma.crmAccount.findUnique({ where: { id: quote.accountId! }, select: { name: true, notes: true, industry: true, segment: true } });
-        const deal = quote.dealId ? await prisma.crmDeal.findUnique({ where: { id: quote.dealId }, select: { title: true } }) : null;
+        const acc = await prisma.crmAccount.findFirst({ where: { id: quote.accountId!, tenantId }, select: { name: true, notes: true, industry: true, segment: true } });
+        const deal = quote.dealId ? await prisma.crmDeal.findFirst({ where: { id: quote.dealId, tenantId }, select: { title: true } }) : null;
         const additionalLines = await prisma.cpqQuoteAdditionalLine.findMany({ where: { quoteId }, orderBy: { orden: "asc" } });
         const totalAdditionalLines = additionalLines.reduce((s, l) => s + Number(l.precio), 0);
 
@@ -263,7 +263,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
 
         const proposalLink = `${siteUrl}/p/${uniqueId}?mode=commercial`;
         if (quote.dealId) {
-          await prisma.crmDeal.update({ where: { id: quote.dealId }, data: { proposalLink } });
+          await prisma.crmDeal.updateMany({ where: { id: quote.dealId, tenantId }, data: { proposalLink } });
         }
         presentationUniqueId = uniqueId;
       }
@@ -283,8 +283,8 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   }
 
   // Update quote status + visibilidad en portal del cliente
-  await prisma.cpqQuote.update({
-    where: { id: quoteId },
+  await prisma.cpqQuote.updateMany({
+    where: { id: quoteId, tenantId },
     data: { status: "sent", visibleInClientPortal: true },
   });
 
@@ -389,16 +389,16 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     tags: [{ name: "type", value: "portal-prospecto-invite" }, { name: "quote", value: quote.code }],
   });
 
-  await prisma.crmContact.update({
-    where: { id: contact.id },
+  await prisma.crmContact.updateMany({
+    where: { id: contact.id, tenantId },
     data: { portalInvitationSentAt: new Date() },
   });
 
   // Follow-up handling
   if (quote.dealId) {
     try {
-      await prisma.crmDeal.update({
-        where: { id: quote.dealId },
+      await prisma.crmDeal.updateMany({
+        where: { id: quote.dealId, tenantId },
         data: { proposalSentAt: new Date(), amount: monthlyTotal, totalPuestos: quote.positions.reduce((s, p) => s + p.numGuards * (p.numPuestos || 1), 0) },
       });
 
@@ -410,9 +410,9 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
         if (followUp.targetStageId) {
           const targetStage = await prisma.crmPipelineStage.findFirst({ where: { id: followUp.targetStageId, tenantId, isActive: true } });
           if (targetStage) {
-            const deal = await prisma.crmDeal.findFirst({ where: { id: quote.dealId } });
+            const deal = await prisma.crmDeal.findFirst({ where: { id: quote.dealId, tenantId } });
             if (deal && deal.stageId !== targetStage.id) {
-              await prisma.crmDeal.update({ where: { id: deal.id }, data: { stageId: targetStage.id } });
+              await prisma.crmDeal.updateMany({ where: { id: deal.id, tenantId }, data: { stageId: targetStage.id } });
               await prisma.crmDealStageHistory.create({ data: { tenantId, dealId: deal.id, fromStageId: deal.stageId, toStageId: targetStage.id, changedBy: userId } });
             }
           }
@@ -422,9 +422,9 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
         await scheduleFollowUps({ tenantId, dealId: quote.dealId });
         const cotizacionStage = await prisma.crmPipelineStage.findFirst({ where: { tenantId, name: "Cotización enviada", isActive: true } });
         if (cotizacionStage) {
-          const deal = await prisma.crmDeal.findFirst({ where: { id: quote.dealId } });
+          const deal = await prisma.crmDeal.findFirst({ where: { id: quote.dealId, tenantId } });
           if (deal && deal.stageId !== cotizacionStage.id) {
-            await prisma.crmDeal.update({ where: { id: deal.id }, data: { stageId: cotizacionStage.id } });
+            await prisma.crmDeal.updateMany({ where: { id: deal.id, tenantId }, data: { stageId: cotizacionStage.id } });
             await prisma.crmDealStageHistory.create({ data: { tenantId, dealId: deal.id, fromStageId: deal.stageId, toStageId: cotizacionStage.id, changedBy: userId } });
           }
         }

@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 import { computeMarcacionHash, haversineDistance } from "@/lib/marcacion";
 import { sendMarcacionComprobante, sendNotificacionFueraDeRango } from "@/lib/marcacion-email";
 import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops-marcacion-config";
@@ -29,8 +30,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const guardiaId = searchParams.get("guardiaId");
 
-    if (!guardiaId) {
-      return NextResponse.json({ success: false, error: "guardiaId requerido" }, { status: 400 });
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
+      return NextResponse.json({ success: false, error: "Guardia no encontrado o inactivo" }, { status: 401 });
     }
 
     const today = new Date();
@@ -40,7 +42,8 @@ export async function GET(request: NextRequest) {
 
     const ultimaMarcacion = await prisma.opsMarcacion.findFirst({
       where: {
-        guardiaId,
+        guardiaId: guardAuth.guardiaId,
+        tenantId: guardAuth.tenantId,
         timestamp: { gte: today, lt: tomorrow },
         deletedAt: null,
       },
@@ -81,11 +84,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { guardiaId, tenantId, tipo, lat, lng, gpsAccuracy } = parsed.data;
+    const { guardiaId, tipo, lat, lng, gpsAccuracy } = parsed.data;
+
+    const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+    if (!guardAuth) {
+      return NextResponse.json({ success: false, error: "Guardia no encontrado o inactivo" }, { status: 401 });
+    }
+    const tenantId = guardAuth.tenantId;
 
     // Validate guard exists and is active
     const guardia = await prisma.opsGuardia.findFirst({
-      where: { id: guardiaId, tenantId },
+      where: { id: guardAuth.guardiaId, tenantId },
       select: {
         id: true,
         lifecycleStatus: true,
