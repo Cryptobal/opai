@@ -118,6 +118,45 @@ export async function PATCH(
       });
     }
 
+    // Email client contact about the resolution
+    try {
+      // Find the contact associated with this document
+      const contactAssoc = await prisma.docAssociation.findFirst({
+        where: { documentId, entityType: "crm_contact" },
+        select: { entityId: true },
+      });
+      if (contactAssoc) {
+        const contact = await prisma.crmContact.findUnique({
+          where: { id: contactAssoc.entityId },
+          select: { email: true, firstName: true },
+        });
+        if (contact?.email) {
+          const { resend, getTenantEmailConfig } = await import("@/lib/resend");
+          const emailConfig = await getTenantEmailConfig(ctx.tenantId);
+          const statusLabel = action === "approve" ? "aprobada" : "rechazada";
+          const statusColor = action === "approve" ? "#059669" : "#dc2626";
+          await resend.emails.send({
+            from: emailConfig.from,
+            replyTo: emailConfig.replyTo,
+            to: contact.email,
+            subject: `Sugerencia de contrato ${statusLabel} — Cláusula ${suggestion.clauseNumber}`,
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:600px;">
+                <h2 style="color:${statusColor};">Sugerencia ${statusLabel}</h2>
+                <p>Hola ${contact.firstName ?? ""},</p>
+                <p>Su sugerencia de edición en la <strong>cláusula ${suggestion.clauseNumber}</strong> ha sido <strong style="color:${statusColor};">${statusLabel}</strong>.</p>
+                ${adminComment ? `<p><em>Comentario:</em> ${adminComment}</p>` : ""}
+                ${action === "approve" ? "<p>El texto del contrato ha sido actualizado con su propuesta.</p>" : "<p>El texto original del contrato se mantiene sin cambios.</p>"}
+                <p>Puede revisar el estado actualizado del contrato en su portal.</p>
+              </div>
+            `,
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to send suggestion resolution email:", e);
+    }
+
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error("Error resolving suggestion:", error);

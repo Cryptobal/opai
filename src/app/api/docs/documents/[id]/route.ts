@@ -42,7 +42,30 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ success: true, data: document });
+    // Enrich associations with entity names for display
+    const enrichedAssociations = await Promise.all(
+      (document.associations ?? []).map(async (assoc) => {
+        let entityName: string | null = null;
+        try {
+          if (assoc.entityType === "crm_account") {
+            const e = await prisma.crmAccount.findUnique({ where: { id: assoc.entityId }, select: { name: true } });
+            entityName = e?.name ?? null;
+          } else if (assoc.entityType === "crm_contact") {
+            const e = await prisma.crmContact.findUnique({ where: { id: assoc.entityId }, select: { firstName: true, lastName: true } });
+            entityName = e ? `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() : null;
+          } else if (assoc.entityType === "crm_installation") {
+            const e = await prisma.crmInstallation.findUnique({ where: { id: assoc.entityId }, select: { name: true } });
+            entityName = e?.name ?? null;
+          } else if (assoc.entityType === "crm_deal") {
+            const e = await prisma.crmDeal.findUnique({ where: { id: assoc.entityId }, select: { title: true } });
+            entityName = e?.title ?? null;
+          }
+        } catch {}
+        return { ...assoc, entityName };
+      })
+    );
+
+    return NextResponse.json({ success: true, data: { ...document, associations: enrichedAssociations } });
   } catch (error) {
     console.error("Error fetching document:", error);
     return NextResponse.json(

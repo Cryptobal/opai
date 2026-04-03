@@ -161,6 +161,41 @@ export async function POST(request: NextRequest) {
       console.warn("Failed to send suggestion push:", e);
     }
 
+    // Email to admin(s)
+    try {
+      const docForEmail = await prisma.document.findUnique({
+        where: { id: documentId },
+        select: { title: true },
+      });
+      const admins = await prisma.admin.findMany({
+        where: { tenantId, role: { in: ["owner", "admin"] }, status: "active" },
+        select: { email: true },
+      });
+      if (admins.length > 0) {
+        const { resend, getTenantEmailConfig } = await import("@/lib/resend");
+        const emailConfig = await getTenantEmailConfig(tenantId);
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+        for (const admin of admins) {
+          await resend.emails.send({
+            from: emailConfig.from,
+            replyTo: emailConfig.replyTo,
+            to: admin.email,
+            subject: `Sugerencia de edición — ${docForEmail?.title ?? "Contrato"}`,
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:600px;">
+                <h2 style="color:#0d9488;">Sugerencia de edición en contrato</h2>
+                <p>El cliente ha sugerido cambios en la <strong>cláusula ${clauseNumber}</strong> del documento <strong>"${docForEmail?.title ?? "Contrato"}"</strong>.</p>
+                ${clientNote ? `<p><em>Nota del cliente:</em> ${clientNote}</p>` : ""}
+                <p><a href="${siteUrl}/opai/documentos/${documentId}" style="display:inline-block;padding:10px 20px;background:#0d9488;color:white;border-radius:6px;text-decoration:none;">Ver sugerencia</a></p>
+              </div>
+            `,
+          }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to send suggestion email:", e);
+    }
+
     return NextResponse.json({ success: true, data: suggestion });
   } catch (error) {
     console.error("Error creating contract suggestion:", error);

@@ -79,6 +79,8 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [resolvingSuggestion, setResolvingSuggestion] = useState<string | null>(null);
+  const [rejectModal, setRejectModal] = useState<{ suggestionId: string } | null>(null);
+  const [rejectComment, setRejectComment] = useState("");
 
   const fetchDocument = useCallback(async () => {
     try {
@@ -391,13 +393,30 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
           <span className="text-xs text-muted-foreground">Asociado a:</span>
           {doc.associations.map((assoc) => {
             const Icon = ENTITY_ICONS[assoc.entityType] || FileText;
-            return (
+            const entityUrl = assoc.entityType === "crm_account" ? `/opai/crm/cuentas/${assoc.entityId}`
+              : assoc.entityType === "crm_contact" ? `/opai/crm/contactos/${assoc.entityId}`
+              : assoc.entityType === "crm_installation" ? `/opai/crm/instalaciones/${assoc.entityId}`
+              : assoc.entityType === "crm_deal" ? `/opai/crm/negocios/${assoc.entityId}`
+              : null;
+            const label = assoc.entityName
+              ? `${ENTITY_LABELS[assoc.entityType] || assoc.entityType}: ${assoc.entityName}`
+              : ENTITY_LABELS[assoc.entityType] || assoc.entityType;
+            return entityUrl ? (
+              <a
+                key={assoc.id}
+                href={entityUrl}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-xs hover:bg-muted/80 hover:text-primary transition-colors"
+              >
+                <Icon className="h-3 w-3" />
+                {label}
+              </a>
+            ) : (
               <span
                 key={assoc.id}
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-xs"
               >
                 <Icon className="h-3 w-3" />
-                {ENTITY_LABELS[assoc.entityType] || assoc.entityType}
+                {label}
               </span>
             );
           })}
@@ -585,8 +604,8 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
                     </button>
                     <button
                       onClick={() => {
-                        const comment = prompt("Comentario (opcional):");
-                        handleResolveSuggestion(s.id, "reject", comment ?? undefined);
+                        setRejectModal({ suggestionId: s.id });
+                        setRejectComment("");
                       }}
                       disabled={resolvingSuggestion === s.id}
                       className="px-3 py-1 text-xs bg-red-600 hover:bg-red-500 text-white rounded disabled:opacity-50"
@@ -615,6 +634,41 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
         </div>
       ) : (
         <ContractEditor content={content} onChange={setContent} editable={isEditable} />
+      )}
+
+      {/* Reject suggestion modal */}
+      {rejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-card border border-border rounded-lg p-5 max-w-md w-full mx-4 space-y-4">
+            <h3 className="text-sm font-semibold">Rechazar sugerencia</h3>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1.5">Comentario para el cliente (opcional)</label>
+              <textarea
+                value={rejectComment}
+                onChange={(e) => setRejectComment(e.target.value)}
+                placeholder="Explique por qué se rechaza esta sugerencia..."
+                className="w-full h-24 bg-background border border-border rounded-md p-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring resize-y"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setRejectModal(null)}>
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => {
+                  handleResolveSuggestion(rejectModal.suggestionId, "reject", rejectComment || undefined);
+                  setRejectModal(null);
+                }}
+                disabled={!!resolvingSuggestion}
+              >
+                Rechazar
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       <SignatureRequestModal
