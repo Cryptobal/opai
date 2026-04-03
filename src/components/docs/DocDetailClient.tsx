@@ -399,6 +399,35 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
         </div>
       )}
 
+      {/* Contract client portal link */}
+      {doc?.contractClientToken && (
+        <div className="flex items-center gap-2 flex-wrap p-3 rounded-lg border border-teal-600/30 bg-teal-950/20">
+          <FileSignature className="h-4 w-4 text-teal-400 shrink-0" />
+          <span className="text-xs text-teal-300 font-medium">Portal cliente:</span>
+          <code className="text-xs text-teal-400 bg-teal-950/50 px-2 py-0.5 rounded select-all">
+            {typeof window !== "undefined" ? `${window.location.origin}/contrato/${doc.contractClientToken}` : `/contrato/${doc.contractClientToken}`}
+          </code>
+          <button
+            className="text-xs text-teal-400 hover:text-teal-300 underline"
+            onClick={() => {
+              const url = `${window.location.origin}/contrato/${doc.contractClientToken}`;
+              navigator.clipboard.writeText(url);
+              toast.success("Link copiado");
+            }}
+          >
+            Copiar
+          </button>
+          <a
+            href={`/contrato/${doc.contractClientToken}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-teal-400 hover:text-teal-300 underline"
+          >
+            Abrir
+          </a>
+        </div>
+      )}
+
       {/* Signature panel */}
       {signatureLoading ? (
         <div className="text-xs text-muted-foreground">Cargando estado de firma...</div>
@@ -495,11 +524,9 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
                 </span>
               )}
             </h3>
-            {doc?.contractClientToken && (
-              <span className="text-xs text-muted-foreground">
-                Link cliente: /contrato/{doc.contractClientToken.slice(0, 8)}...
-              </span>
-            )}
+            <span className="text-xs text-muted-foreground">
+              {suggestions.filter((s: any) => s.status === "pending").length} pendiente(s)
+            </span>
           </div>
           <div className="space-y-3">
             {suggestions.map((s: any) => (
