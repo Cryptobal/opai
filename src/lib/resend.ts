@@ -15,9 +15,9 @@ export const resend = new Resend(process.env.RESEND_API_KEY);
 
 /** @deprecated — Usar getTenantCompanyConfig(tenantId) de @/lib/tenant-config */
 export const EMAIL_CONFIG = {
-  from: process.env.EMAIL_FROM || 'OPAI <opai@gard.cl>',
-  replyTo: process.env.EMAIL_REPLY_TO || 'comercial@gard.cl',
-  companyName: 'Gard Security',
+  from: process.env.EMAIL_FROM || 'OPAI <noreply@opai.cl>',
+  replyTo: process.env.EMAIL_REPLY_TO || '',
+  companyName: 'OPAI',
 };
 
 export interface TenantEmailConfig {

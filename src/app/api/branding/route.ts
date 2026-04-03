@@ -33,7 +33,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[BRANDING] Error loading public branding:", error);
-    // Return hardcoded Gard defaults on error so welcome screen always works
+    // Return generic OPAI defaults on error so welcome screen always works
     return NextResponse.json({
       success: true,
       data: {
@@ -42,12 +42,12 @@ export async function GET() {
         logoWhite: "",
         logoDark: "",
         favicon: "",
-        primaryColor: "#0a1628",
-        secondaryColor: "#0d9488",
-        accentColor: "#2dd4bf",
+        primaryColor: "#0056E0",
+        secondaryColor: "#1DB990",
+        accentColor: "#FF6B35",
         appName: "OPAI",
-        tagline: "Plataforma de Operaciones",
-        companyName: "Gard Security",
+        tagline: "Plataforma de Gestión de Seguridad",
+        companyName: "OPAI",
       },
     });
   }
