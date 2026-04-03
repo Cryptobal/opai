@@ -76,6 +76,9 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [contentHtml, setContentHtml] = useState<string | null>(null);
   const [contentHtmlLoading, setContentHtmlLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [resolvingSuggestion, setResolvingSuggestion] = useState<string | null>(null);
 
   const fetchDocument = useCallback(async () => {
     try {
@@ -110,10 +113,26 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
     }
   }, [documentId]);
 
+  const fetchSuggestions = useCallback(async () => {
+    try {
+      setSuggestionsLoading(true);
+      const res = await fetch(`/api/docs/documents/${documentId}/suggestions`);
+      const data = await res.json();
+      if (data.success) {
+        setSuggestions(data.data ?? []);
+      }
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  }, [documentId]);
+
   useEffect(() => {
     fetchDocument();
     fetchSignatureRequest();
-  }, [fetchDocument, fetchSignatureRequest]);
+    fetchSuggestions();
+  }, [fetchDocument, fetchSignatureRequest, fetchSuggestions]);
 
   // Cuando el doc está firmado y es solo lectura, cargar contenido resuelto (con firmas reales, no [Token])
   useEffect(() => {
@@ -191,6 +210,26 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
       toast.error("Error al descargar PDF");
     } finally {
       setDownloadingPdf(false);
+    }
+  };
+
+  const handleResolveSuggestion = async (suggestionId: string, action: "approve" | "reject", adminComment?: string) => {
+    setResolvingSuggestion(suggestionId);
+    try {
+      const res = await fetch(`/api/docs/documents/${documentId}/suggestions/${suggestionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, adminComment }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success(action === "approve" ? "Sugerencia aprobada" : "Sugerencia rechazada");
+      fetchSuggestions();
+      fetchDocument();
+    } catch (e: any) {
+      toast.error(e.message || "Error al resolver sugerencia");
+    } finally {
+      setResolvingSuggestion(null);
     }
   };
 
@@ -437,6 +476,93 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
                     minute: "2-digit",
                   })}
                 </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Suggestions panel (for service contracts) */}
+      {suggestions.length > 0 && (
+        <div className="p-4 rounded-lg border border-border bg-card space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <FileSignature className="h-4 w-4 text-yellow-500" />
+              Sugerencias del cliente
+              {suggestions.filter((s: any) => s.status === "pending").length > 0 && (
+                <span className="bg-yellow-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                  {suggestions.filter((s: any) => s.status === "pending").length}
+                </span>
+              )}
+            </h3>
+            {doc?.contractClientToken && (
+              <span className="text-xs text-muted-foreground">
+                Link cliente: /contrato/{doc.contractClientToken.slice(0, 8)}...
+              </span>
+            )}
+          </div>
+          <div className="space-y-3">
+            {suggestions.map((s: any) => (
+              <div
+                key={s.id}
+                className={`rounded-lg border p-3 space-y-2 ${
+                  s.status === "pending" ? "border-yellow-600/50 bg-yellow-950/20" :
+                  s.status === "approved" ? "border-green-600/30 bg-green-950/10" :
+                  "border-red-600/30 bg-red-950/10"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Cláusula {s.clauseNumber}: {s.clauseTitle}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded ${
+                    s.status === "pending" ? "bg-yellow-600/20 text-yellow-400" :
+                    s.status === "approved" ? "bg-green-600/20 text-green-400" :
+                    "bg-red-600/20 text-red-400"
+                  }`}>
+                    {s.status === "pending" ? "Pendiente" : s.status === "approved" ? "Aprobada" : "Rechazada"}
+                  </span>
+                </div>
+                {/* Diff view */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground block mb-1">Original:</span>
+                    <div className="bg-red-950/30 border border-red-900/30 rounded p-2 max-h-32 overflow-y-auto whitespace-pre-wrap">
+                      {s.originalContent}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block mb-1">Propuesto:</span>
+                    <div className="bg-green-950/30 border border-green-900/30 rounded p-2 max-h-32 overflow-y-auto whitespace-pre-wrap">
+                      {s.suggestedContent}
+                    </div>
+                  </div>
+                </div>
+                {s.clientNote && (
+                  <p className="text-xs text-muted-foreground italic">Nota del cliente: {s.clientNote}</p>
+                )}
+                {s.adminComment && (
+                  <p className="text-xs text-muted-foreground">Comentario admin: {s.adminComment}</p>
+                )}
+                {s.status === "pending" && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => handleResolveSuggestion(s.id, "approve")}
+                      disabled={resolvingSuggestion === s.id}
+                      className="px-3 py-1 text-xs bg-green-600 hover:bg-green-500 text-white rounded disabled:opacity-50"
+                    >
+                      Aprobar
+                    </button>
+                    <button
+                      onClick={() => {
+                        const comment = prompt("Comentario (opcional):");
+                        handleResolveSuggestion(s.id, "reject", comment ?? undefined);
+                      }}
+                      disabled={resolvingSuggestion === s.id}
+                      className="px-3 py-1 text-xs bg-red-600 hover:bg-red-500 text-white rounded disabled:opacity-50"
+                    >
+                      Rechazar
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

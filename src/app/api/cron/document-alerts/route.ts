@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { addDays, format } from "date-fns";
 export async function GET(request: NextRequest) {
@@ -165,12 +166,88 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 3. Service contract adjustment reminders
+    let adjustmentReminders = 0;
+    try {
+      const serviceContracts = await prisma.document.findMany({
+        where: {
+          status: "active",
+          category: "contrato_servicio",
+          contractMetadata: { not: Prisma.JsonNull },
+          signedAt: { not: null },
+        },
+        select: {
+          id: true,
+          tenantId: true,
+          title: true,
+          signedAt: true,
+          contractMetadata: true,
+        },
+      });
+
+      for (const doc of serviceContracts) {
+        const metadata = doc.contractMetadata as Record<string, any> | null;
+        if (!metadata || metadata.adjustmentType === "NONE" || !metadata.adjustmentFreq) continue;
+
+        // Calculate if adjustment is due
+        const signedDate = doc.signedAt ? new Date(doc.signedAt) : null;
+        if (!signedDate) continue;
+
+        const freqMonths: Record<string, number> = { TRIMESTRAL: 3, SEMESTRAL: 6, ANUAL: 12 };
+        const monthsInterval = freqMonths[metadata.adjustmentFreq] ?? 12;
+
+        // Find next adjustment date from signed date
+        let nextAdjustment = new Date(signedDate);
+        while (nextAdjustment <= today) {
+          nextAdjustment.setMonth(nextAdjustment.getMonth() + monthsInterval);
+        }
+
+        const daysUntilAdjustment = Math.ceil(
+          (nextAdjustment.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        // Alert 15 days before adjustment
+        if (daysUntilAdjustment <= 15 && daysUntilAdjustment > 0) {
+          const existing = await prisma.notification.findFirst({
+            where: {
+              tenantId: doc.tenantId,
+              type: "contract_adjustment_reminder",
+              data: { path: ["documentId"], equals: doc.id },
+              createdAt: { gte: addDays(today, -7) },
+            },
+          });
+
+          if (!existing) {
+            try {
+              const { sendNotification } = await import("@/lib/notification-service");
+              const adjType = metadata.adjustmentType === "IPC" ? "IPC" :
+                metadata.adjustmentType === "IMO" ? "IMO" : "polinomio IPC+IMO";
+              await sendNotification({
+                tenantId: doc.tenantId,
+                type: "contract_adjustment_reminder",
+                title: `Reajuste de contrato: ${doc.title}`,
+                message: `Toca reajuste ${metadata.adjustmentFreq.toLowerCase()} por ${adjType} en ${daysUntilAdjustment} días (${format(nextAdjustment, "dd/MM/yyyy")}).`,
+                data: { documentId: doc.id },
+                link: `/opai/documentos/${doc.id}`,
+              });
+              adjustmentReminders++;
+            } catch (e) {
+              console.warn("DocAlert: failed to send adjustment reminder", e);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("DocAlert: error processing service contract adjustments", e);
+    }
+
     return NextResponse.json({
       success: true,
       data: {
         checked: activeDocuments.length + expiredDocs.length,
         expiringNotified: expiringCount,
         expiredNotified: expiredCount,
+        adjustmentReminders,
         emailsSent,
         timestamp: new Date().toISOString(),
       },

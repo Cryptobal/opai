@@ -57,6 +57,7 @@ export interface DatosSectionProps {
     serviceStartDays: number;
     contractDuration: number;
     includedItems: string[];
+    [key: string]: any;
   };
   quoteDirty: boolean;
   savingQuote: boolean;
@@ -65,7 +66,7 @@ export interface DatosSectionProps {
 
   /** Callbacks */
   saveCrmContext: (patch: Partial<{ accountId: string; installationId: string; contactId: string; dealId: string; currency: string }>) => void;
-  setQuoteForm: React.Dispatch<React.SetStateAction<{ name: string; clientName: string; validUntil: string; notes: string; status: CpqQuoteStatus; paymentTerms: string; serviceStartDays: number; contractDuration: number; includedItems: string[] }>>;
+  setQuoteForm: React.Dispatch<React.SetStateAction<any>>;
   setQuoteDirty: (dirty: boolean) => void;
   saveQuoteBasics: () => void;
 
@@ -168,7 +169,7 @@ export function DatosSection({
         case "account":
           setCrmAccounts((prev) => [...prev, { id: created.id, name: created.name, type: created.type }]);
           saveCrmContext({ accountId: created.id, installationId: "", contactId: "", dealId: "" });
-          setQuoteForm((prev) => ({ ...prev, clientName: created.name }));
+          setQuoteForm((prev: any) => ({ ...prev, clientName: created.name }));
           setQuoteDirty(true);
           break;
         case "installation":
@@ -257,7 +258,7 @@ export function DatosSection({
                   const account = crmAccounts.find((a) => a.id === val);
                   saveCrmContext({ accountId: val, installationId: "", contactId: "", dealId: "" });
                   if (account) {
-                    setQuoteForm((prev) => ({ ...prev, clientName: account.name }));
+                    setQuoteForm((prev: any) => ({ ...prev, clientName: account.name }));
                     setQuoteDirty(true);
                   }
                 }}
@@ -467,7 +468,7 @@ export function DatosSection({
             <Input
               value={quoteForm.name}
               onChange={(e) => {
-                setQuoteForm((prev) => ({ ...prev, name: e.target.value }));
+                setQuoteForm((prev: any) => ({ ...prev, name: e.target.value }));
                 setQuoteDirty(true);
               }}
               placeholder="Ej: Propuesta guardias planta norte"
@@ -481,7 +482,7 @@ export function DatosSection({
               type="date"
               value={quoteForm.validUntil}
               onChange={(e) => {
-                setQuoteForm((prev) => ({ ...prev, validUntil: e.target.value }));
+                setQuoteForm((prev: any) => ({ ...prev, validUntil: e.target.value }));
                 setQuoteDirty(true);
               }}
               className="h-8 bg-background text-sm text-foreground [color-scheme:dark]"

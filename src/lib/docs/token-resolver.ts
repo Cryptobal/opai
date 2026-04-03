@@ -133,10 +133,60 @@ export function resolveTokenValue(
     if (!isNaN(num)) return `$${num.toLocaleString("es-CL")}`;
   }
 
+  // Quote: contract-service specific computed tokens
+  if (module === "quote") {
+    if (field === "precioNeto") {
+      const val = entity.salePriceMonthly ?? entity.monthlyCost;
+      if (val) return Number(val).toLocaleString("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 });
+      return "";
+    }
+    if (field === "precioUF") {
+      return entity.salePriceUF ? `${Number(entity.salePriceUF).toFixed(2)} UF` : "";
+    }
+    if (field === "precioTotal") {
+      const monthly = Number(entity.salePriceMonthly ?? entity.monthlyCost ?? 0);
+      const months = entity.contractMonths ?? entity.contractDuration ?? 12;
+      const total = monthly * months;
+      return total ? total.toLocaleString("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }) : "";
+    }
+    if (field === "adjustmentType") {
+      const map: Record<string, string> = {
+        NONE: "Sin reajuste",
+        IPC: "IPC",
+        IMO: "Índice de Mano de Obra",
+        POLYNOMIAL: "Polinomio mixto IPC + IMO",
+      };
+      return map[entity.adjustmentType] ?? entity.adjustmentType ?? "";
+    }
+    if (field === "adjustmentFreq") {
+      const map: Record<string, string> = {
+        TRIMESTRAL: "trimestral",
+        SEMESTRAL: "semestral",
+        ANUAL: "anual",
+      };
+      return map[entity.adjustmentFreq] ?? entity.adjustmentFreq ?? "";
+    }
+    if (field === "polinomioDescripcion") {
+      const ipc = entity.ipcWeight ?? 0;
+      const imo = entity.imoWeight ?? 0;
+      if (ipc === 0 && imo === 0) return "";
+      return `${imo}% IMO + ${ipc}% IPC`;
+    }
+    if (field === "contractEndDate") {
+      if (!entity.contractStartDate) return "";
+      const start = new Date(entity.contractStartDate);
+      const months = entity.contractDuration ?? entity.contractMonths ?? 12;
+      const end = new Date(start);
+      end.setMonth(end.getMonth() + months);
+      end.setDate(end.getDate() - 1);
+      return formatDateOnly(end) ?? "";
+    }
+  }
+
   // Currency formatting for quote pricing fields
   if (
     module === "quote" &&
-    ["monthlyCost", "salePriceMonthly", "contractAmount"].includes(field)
+    ["monthlyCost", "salePriceMonthly", "contractAmount", "precioNeto", "precioTotal"].includes(field)
   ) {
     const num = Number(value);
     if (!isNaN(num)) return `$${num.toLocaleString("es-CL")}`;

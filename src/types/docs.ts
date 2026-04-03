@@ -64,6 +64,9 @@ export interface DocDocument {
   pdfUrl?: string | null;
   pdfGeneratedAt?: string | null;
   signedViewToken?: string | null;
+  contractClientToken?: string | null;
+  contractMetadata?: Record<string, any> | null;
+  portalVisible?: boolean;
   createdBy: string;
   approvedBy?: string | null;
   approvedAt?: string | null;

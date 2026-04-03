@@ -87,6 +87,18 @@ export async function PATCH(
     if (body.paymentTerms !== undefined) updateData.paymentTerms = body.paymentTerms || "contrafactura";
     if (body.serviceStartDays !== undefined) updateData.serviceStartDays = Number(body.serviceStartDays) || 5;
     if (body.contractDuration !== undefined) updateData.contractDuration = Number(body.contractDuration) || 12;
+    // Contract service fields
+    if (body.adjustmentType !== undefined) updateData.adjustmentType = body.adjustmentType || "NONE";
+    if (body.adjustmentFreq !== undefined) updateData.adjustmentFreq = body.adjustmentFreq || null;
+    if (body.ipcWeight !== undefined) updateData.ipcWeight = body.ipcWeight != null ? Number(body.ipcWeight) : null;
+    if (body.imoWeight !== undefined) updateData.imoWeight = body.imoWeight != null ? Number(body.imoWeight) : null;
+    if (body.insurancePolicyUF !== undefined) updateData.insurancePolicyUF = body.insurancePolicyUF != null ? Number(body.insurancePolicyUF) : null;
+    if (body.contractStartDate !== undefined) updateData.contractStartDate = body.contractStartDate ? new Date(body.contractStartDate) : null;
+    if (body.liabilityMonths !== undefined) updateData.liabilityMonths = Number(body.liabilityMonths) || 3;
+    if (body.hasCCTV !== undefined) updateData.hasCCTV = Boolean(body.hasCCTV);
+    if (body.cctvRetentionDays !== undefined) updateData.cctvRetentionDays = body.cctvRetentionDays != null ? Number(body.cctvRetentionDays) : null;
+    if (body.contractTemplateId !== undefined) updateData.contractTemplateId = body.contractTemplateId || null;
+    if (body.paymentDays !== undefined) updateData.paymentDays = Number(body.paymentDays) || 5;
     if (body.includedItems !== undefined) updateData.includedItems = { set: Array.isArray(body.includedItems) ? body.includedItems : [] };
     if (body.proposalTemplateId !== undefined) updateData.proposalTemplateId = body.proposalTemplateId || null;
     if (body.visibleInClientPortal !== undefined) {
