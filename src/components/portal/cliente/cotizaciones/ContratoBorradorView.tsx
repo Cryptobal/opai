@@ -94,65 +94,65 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
     fetchSuggestions();
   }, [fetchDraft, fetchSuggestions]);
 
-  // Inject "Sugerir edición" buttons on ALL clause headings.
-  // We use a ref-callback approach: the function runs every time the div mounts
-  // AND we re-trigger it after submitting a suggestion (via a counter).
+  // Set contract HTML once and inject buttons — use a callback ref
+  // so React never re-renders the innerHTML (which would destroy buttons).
+  const [contractMounted, setContractMounted] = useState(false);
   const [injectTick, setInjectTick] = useState(0);
 
+  const contractCallbackRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      (contractRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      if (node && data?.html) {
+        node.innerHTML = data.html;
+        setContractMounted(true);
+      }
+    },
+    [data?.html]
+  );
+
   useEffect(() => {
-    if (!data?.html || !contractRef.current) return;
+    if (!contractMounted || !contractRef.current) return;
 
-    const rafId = requestAnimationFrame(() => {
-      if (!contractRef.current) return;
+    const container = contractRef.current;
 
-      // Remove previously injected buttons to avoid duplicates
-      contractRef.current.querySelectorAll("[data-suggest-btn]").forEach((b) => b.remove());
+    // Remove previously injected buttons
+    container.querySelectorAll("[data-suggest-btn]").forEach((b) => b.remove());
 
-      // Find all elements containing clause names
-      const candidates: Element[] = [];
-      contractRef.current.querySelectorAll("h1, h2, h3, h4, p, strong").forEach((el) => {
-        const text = el.textContent?.trim() ?? "";
-        if (CLAUSE_PATTERN.test(text)) {
-          candidates.push(el);
+    // Find all elements containing clause names
+    container.querySelectorAll("h1, h2, h3, h4, p, strong").forEach((el) => {
+      const text = el.textContent?.trim() ?? "";
+      if (!CLAUSE_PATTERN.test(text)) return;
+
+      const clauseMatch = text.match(/^(PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|SÉPTIMA|OCTAVA|NOVENA|DÉCIMA TERCERA|DÉCIMA CUARTA|DÉCIMA QUINTA|DÉCIMA SEXTA|DÉCIMA|UNDÉCIMA|DUODÉCIMA)/);
+      if (!clauseMatch) return;
+      const clauseName = clauseMatch[1];
+
+      const target = el.tagName.match(/^H[1-4]$/) ? el : el.closest("p, h1, h2, h3, h4") ?? el;
+      if (target.querySelector("[data-suggest-btn]")) return;
+
+      const btn = document.createElement("button");
+      btn.setAttribute("data-suggest-btn", clauseName);
+      btn.className = "ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-500/20 text-teal-700 hover:bg-teal-500/30 transition-colors align-middle cursor-pointer";
+      btn.style.cssText = "display:inline-flex !important; visibility:visible !important;";
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Sugerir edición`;
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const headingEl = target.tagName.match(/^H[1-4]$/) ? target : target.closest("h1, h2, h3, h4") ?? target;
+        const paragraphs: string[] = [];
+        let sibling = headingEl.nextElementSibling;
+        while (sibling && !sibling.tagName.match(/^H[1-4]$/)) {
+          const pText = sibling.textContent?.trim();
+          if (pText) paragraphs.push(pText);
+          sibling = sibling.nextElementSibling;
         }
+        const originalText = paragraphs.join("\n\n");
+        setEditModal({ clauseNumber: clauseName, clauseTitle: text, originalText });
+        setEditForm({ suggestedContent: originalText, clientNote: "" });
       });
-
-      candidates.forEach((el) => {
-        const text = el.textContent?.trim() ?? "";
-        const clauseMatch = text.match(/^(PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|SÉPTIMA|OCTAVA|NOVENA|DÉCIMA TERCERA|DÉCIMA CUARTA|DÉCIMA QUINTA|DÉCIMA SEXTA|DÉCIMA|UNDÉCIMA|DUODÉCIMA)/);
-        if (!clauseMatch) return;
-        const clauseName = clauseMatch[1];
-
-        // Find the right element to append to (prefer heading, otherwise parent)
-        const target = el.tagName.match(/^H[1-4]$/) ? el : el.closest("p, h1, h2, h3, h4") ?? el;
-        if (target.querySelector("[data-suggest-btn]")) return;
-
-        const btn = document.createElement("button");
-        btn.setAttribute("data-suggest-btn", clauseName);
-        btn.className = "ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-500/20 text-teal-700 hover:bg-teal-500/30 transition-colors align-middle cursor-pointer";
-        btn.style.cssText = "display:inline-flex !important; visibility:visible !important;";
-        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Sugerir edición`;
-        btn.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const headingEl = target.tagName.match(/^H[1-4]$/) ? target : target.closest("h1, h2, h3, h4") ?? target;
-          const paragraphs: string[] = [];
-          let sibling = headingEl.nextElementSibling;
-          while (sibling && !sibling.tagName.match(/^H[1-4]$/)) {
-            const pText = sibling.textContent?.trim();
-            if (pText) paragraphs.push(pText);
-            sibling = sibling.nextElementSibling;
-          }
-          const originalText = paragraphs.join("\n\n");
-          setEditModal({ clauseNumber: clauseName, clauseTitle: text, originalText });
-          setEditForm({ suggestedContent: originalText, clientNote: "" });
-        });
-        target.appendChild(btn);
-      });
+      target.appendChild(btn);
     });
-
-    return () => cancelAnimationFrame(rafId);
-  }, [data?.html, injectTick]);
+  }, [contractMounted, injectTick]);
 
   async function handleDownloadPdf() {
     if (pdfLoading) return;
@@ -378,7 +378,7 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
           </p>
         </div>
         <div
-          ref={contractRef}
+          ref={contractCallbackRef}
           className={cn(
             "px-8 py-6 prose prose-sm max-w-none",
             "text-slate-800",
@@ -388,7 +388,6 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
             "[&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm",
             "[&_p]:text-sm [&_p]:leading-relaxed"
           )}
-          dangerouslySetInnerHTML={{ __html: data.html }}
         />
       </div>
 
