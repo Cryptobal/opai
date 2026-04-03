@@ -35,7 +35,14 @@ export async function requireAuth(): Promise<AuthContext | null> {
     return null;
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
+  if (!tenantId) {
+    console.error("[AUTH] Session without tenantId", {
+      userId: session.user.id,
+      email: session.user.email,
+    });
+    return null; // Esto causa 401 en el caller via unauthorized()
+  }
 
   return {
     userId: session.user.id,
