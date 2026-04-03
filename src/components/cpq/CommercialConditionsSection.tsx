@@ -8,18 +8,18 @@ export interface CommercialConditionsData {
   serviceStartDays: number;
   contractDuration: number;
   proposalTemplateId: string | null;
-  // Contract service fields
-  adjustmentType: string;
-  adjustmentFreq: string | null;
-  ipcWeight: number | null;
-  imoWeight: number | null;
-  insurancePolicyUF: number | null;
-  contractStartDate: string | null;
-  liabilityMonths: number;
-  hasCCTV: boolean;
-  cctvRetentionDays: number | null;
-  contractTemplateId: string | null;
-  paymentDays: number;
+  // Contract service fields (optional — only used in full CPQ detail)
+  adjustmentType?: string;
+  adjustmentFreq?: string | null;
+  ipcWeight?: number | null;
+  imoWeight?: number | null;
+  insurancePolicyUF?: number | null;
+  contractStartDate?: string | null;
+  liabilityMonths?: number;
+  hasCCTV?: boolean;
+  cctvRetentionDays?: number | null;
+  contractTemplateId?: string | null;
+  paymentDays?: number;
 }
 
 interface CommercialConditionsSectionProps {
@@ -109,8 +109,8 @@ export function CommercialConditionsSection({
         )}
       </div>
 
-      {/* Contract service section */}
-      <div className="border-t border-border pt-3">
+      {/* Contract service section — only rendered when contract fields are available */}
+      {value.adjustmentType !== undefined && <div className="border-t border-border pt-3">
         <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Contrato de Servicio</h4>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="space-y-1">
@@ -307,7 +307,7 @@ export function CommercialConditionsSection({
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
