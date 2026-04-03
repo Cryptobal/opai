@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Upload evidence photo to R2 (non-blocking)
-    const fotoEvidenciaUrl = await uploadMarcacionPhoto(image, guardia.id, tipo, installation.tenantId);
+    const fotoEvidenciaUrl = await uploadMarcacionPhoto(image, guardia.id, tipo, tenantId);
 
     // -- GEOLOCALIZACION COMO EVIDENCIA (Res. Exenta N°38) --
     // GPS es EVIDENCIA, nunca restriccion. No se bloquea la marcacion por ubicacion.
