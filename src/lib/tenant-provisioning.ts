@@ -77,6 +77,7 @@ export async function provisionTenant(
   // ── Crear en transacción ──
   const result = await prisma.$transaction(async (tx) => {
     // 1. Tenant
+
     const tenant = await tx.tenant.create({
       data: { name, slug, active: true },
     });
@@ -174,7 +175,7 @@ export async function provisionTenant(
       },
       modulesEnabled: modules as unknown as string[],
     };
-  });
+  }, { timeout: 30000 });
 
   console.log(`[PROVISIONING] Tenant "${slug}" created successfully:`, {
     tenantId: result.tenant.id,
