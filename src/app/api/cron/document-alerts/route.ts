@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { addDays, format } from "date-fns";
 export async function GET(request: NextRequest) {
@@ -172,7 +173,7 @@ export async function GET(request: NextRequest) {
         where: {
           status: "active",
           category: "contrato_servicio",
-          contractMetadata: { not: null },
+          contractMetadata: { not: Prisma.JsonNull },
           signedAt: { not: null },
         },
         select: {
