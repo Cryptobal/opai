@@ -15,9 +15,9 @@ const resend = process.env.RESEND_API_KEY
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ||
   process.env.SITE_URL ||
-  "https://opai.gard.cl";
+  "https://opai.cl";
 
-const FROM = process.env.EMAIL_FROM || "OPAI <opai@gard.cl>";
+const FROM = process.env.EMAIL_FROM || "OPAI <noreply@opai.cl>";
 
 function formatCLP(amount: number): string {
   return new Intl.NumberFormat("es-CL", {

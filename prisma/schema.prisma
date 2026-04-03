@@ -59,9 +59,55 @@ model Tenant {
   opsAlertaLogs               OpsAlertaLog[]
   tiposDocOperacional         TipoDocOperacional[]
   docsOperacionales           DocOperacional[]
+  modules                     TenantModule[]
+  plan                        TenantPlan?
 
   @@index([slug])
   @@index([active])
+  @@schema("public")
+}
+
+model TenantModule {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  module    String   // Valores posibles: "crm", "cpq", "ops_asistencia", "ops_rondas",
+                     // "ops_pauta", "ops_supervision", "ops_inventario", "documentos",
+                     // "payroll", "finanzas", "portal_cliente", "portal_supervisor",
+                     // "portal_guardia", "gamificacion", "chat", "fiscalizacion"
+  enabled   Boolean  @default(true)
+  config    Json?    @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, module])
+  @@index([tenantId])
+  @@map("tenant_modules")
+  @@schema("public")
+}
+
+model TenantPlan {
+  id                 String    @id @default(cuid())
+  tenantId           String    @unique @map("tenant_id")
+  plan               String    @default("trial") // "trial", "essential", "professional", "enterprise"
+  maxGuards          Int       @default(50) @map("max_guards")
+  maxAdmins          Int       @default(3) @map("max_admins")
+  maxStorageMb       Int       @default(1000) @map("max_storage_mb")
+  pricePerGuard      Decimal   @default(0) @map("price_per_guard") @db.Decimal(10, 2)
+  basePrice          Decimal   @default(0) @map("base_price") @db.Decimal(10, 2)
+  currency           String    @default("USD")
+  billingStatus      String    @default("trial") @map("billing_status") // "trial", "active", "past_due", "suspended", "cancelled"
+  trialEndsAt        DateTime? @map("trial_ends_at")
+  currentPeriodStart DateTime? @map("current_period_start")
+  currentPeriodEnd   DateTime? @map("current_period_end")
+  mpSubscriptionId   String?   @map("mp_subscription_id") // Mercado Pago subscription ID (futuro)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_plans")
   @@schema("public")
 }
 
