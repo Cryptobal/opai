@@ -451,6 +451,20 @@ export async function POST(
       } catch (err) {
         console.error('[DOCS] Error sending document_signed push:', err);
       }
+
+      // Trigger service contract automation if applicable
+      try {
+        const signedDoc = await prisma.document.findUnique({
+          where: { id: result.documentId },
+          select: { contractMetadata: true },
+        });
+        if (signedDoc?.contractMetadata) {
+          const { onServiceContractSigned } = await import("@/lib/triggers/contract-signed-trigger");
+          await onServiceContractSigned(result.documentId, result.tenantId);
+        }
+      } catch (err) {
+        console.error("[DOCS] Error running service contract trigger:", err);
+      }
     }
 
     const notifyTargets: string[] = [];

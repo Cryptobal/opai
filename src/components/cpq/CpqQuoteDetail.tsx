@@ -189,6 +189,18 @@ export function CpqQuoteDetail({
     serviceStartDays: 5,
     contractDuration: 12,
     includedItems: [] as string[],
+    // Contract service fields
+    adjustmentType: "NONE",
+    adjustmentFreq: null as string | null,
+    ipcWeight: null as number | null,
+    imoWeight: null as number | null,
+    insurancePolicyUF: null as number | null,
+    contractStartDate: null as string | null,
+    liabilityMonths: 3,
+    hasCCTV: false,
+    cctvRetentionDays: null as number | null,
+    contractTemplateId: null as string | null,
+    paymentDays: 5,
   });
   const [quoteDirty, setQuoteDirty] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
@@ -398,7 +410,7 @@ export function CpqQuoteDetail({
       saveQuoteBasics();
     }, 2000);
     return () => clearTimeout(quoteFormAutoSaveTimer.current);
-  }, [quoteForm.name, quoteForm.validUntil, quoteForm.notes, quoteForm.paymentTerms, quoteForm.serviceStartDays, quoteForm.contractDuration]);
+  }, [quoteForm.name, quoteForm.validUntil, quoteForm.notes, quoteForm.paymentTerms, quoteForm.serviceStartDays, quoteForm.contractDuration, quoteForm.adjustmentType, quoteForm.adjustmentFreq, quoteForm.ipcWeight, quoteForm.imoWeight, quoteForm.insurancePolicyUF, quoteForm.contractStartDate, quoteForm.liabilityMonths, quoteForm.hasCCTV, quoteForm.cctvRetentionDays, quoteForm.contractTemplateId, quoteForm.paymentDays]);
 
   // Auto-calc salePriceBase when costSummary changes
   useEffect(() => {
@@ -443,6 +455,17 @@ export function CpqQuoteDetail({
       includedItems: (quote.includedItems && quote.includedItems.length > 0)
         ? quote.includedItems
         : prev.includedItems,
+      adjustmentType: (quote as any).adjustmentType ?? "NONE",
+      adjustmentFreq: (quote as any).adjustmentFreq ?? null,
+      ipcWeight: (quote as any).ipcWeight ?? null,
+      imoWeight: (quote as any).imoWeight ?? null,
+      insurancePolicyUF: (quote as any).insurancePolicyUF != null ? Number((quote as any).insurancePolicyUF) : null,
+      contractStartDate: (quote as any).contractStartDate ? formatDateInput((quote as any).contractStartDate) : null,
+      liabilityMonths: (quote as any).liabilityMonths ?? 3,
+      hasCCTV: (quote as any).hasCCTV ?? false,
+      cctvRetentionDays: (quote as any).cctvRetentionDays ?? null,
+      contractTemplateId: (quote as any).contractTemplateId ?? null,
+      paymentDays: (quote as any).paymentDays ?? 5,
     }));
     setCrmContext({
       accountId: quote.accountId ?? "",
@@ -650,6 +673,17 @@ export function CpqQuoteDetail({
           paymentTerms: quoteForm.paymentTerms,
           serviceStartDays: quoteForm.serviceStartDays,
           contractDuration: quoteForm.contractDuration,
+          adjustmentType: quoteForm.adjustmentType,
+          adjustmentFreq: quoteForm.adjustmentFreq,
+          ipcWeight: quoteForm.ipcWeight,
+          imoWeight: quoteForm.imoWeight,
+          insurancePolicyUF: quoteForm.insurancePolicyUF,
+          contractStartDate: quoteForm.contractStartDate,
+          liabilityMonths: quoteForm.liabilityMonths,
+          hasCCTV: quoteForm.hasCCTV,
+          cctvRetentionDays: quoteForm.cctvRetentionDays,
+          contractTemplateId: quoteForm.contractTemplateId,
+          paymentDays: quoteForm.paymentDays,
         }),
       });
       const data = await res.json();
@@ -1569,6 +1603,134 @@ export function CpqQuoteDetail({
                       ))}
                   </select>
                 </div>
+              </div>
+            </div>
+
+            {/* Contract service fields */}
+            <div className="border-t border-border pt-3 mt-3">
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Contrato de Servicio</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-sm text-muted-foreground">Tipo de reajuste</Label>
+                  <select
+                    value={quoteForm.adjustmentType}
+                    onChange={(e) => {
+                      const type = e.target.value;
+                      setQuoteForm(prev => ({
+                        ...prev,
+                        adjustmentType: type,
+                        ...(type === "NONE" ? { adjustmentFreq: null, ipcWeight: null, imoWeight: null } : {}),
+                        ...(type === "IPC" || type === "IMO" ? { ipcWeight: null, imoWeight: null } : {}),
+                      }));
+                      setQuoteDirty(true);
+                    }}
+                    disabled={isLocked}
+                    className="flex h-8 w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="NONE">Sin reajuste</option>
+                    <option value="IPC">IPC</option>
+                    <option value="IMO">Índice Mano de Obra</option>
+                    <option value="POLYNOMIAL">Polinomio mixto</option>
+                  </select>
+                </div>
+
+                {quoteForm.adjustmentType !== "NONE" && (
+                  <div className="space-y-1">
+                    <Label className="text-sm text-muted-foreground">Frecuencia</Label>
+                    <select
+                      value={quoteForm.adjustmentFreq ?? ""}
+                      onChange={(e) => { setQuoteForm(prev => ({ ...prev, adjustmentFreq: e.target.value || null })); setQuoteDirty(true); }}
+                      disabled={isLocked}
+                      className="flex h-8 w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      <option value="">Seleccionar</option>
+                      <option value="TRIMESTRAL">Trimestral</option>
+                      <option value="SEMESTRAL">Semestral</option>
+                      <option value="ANUAL">Anual</option>
+                    </select>
+                  </div>
+                )}
+
+                {quoteForm.adjustmentType === "POLYNOMIAL" && (
+                  <>
+                    <div className="space-y-1">
+                      <Label className="text-sm text-muted-foreground">% IPC</Label>
+                      <div className="flex items-center gap-1">
+                        <Input type="number" min={0} max={100} value={quoteForm.ipcWeight ?? ""}
+                          onChange={(e) => { const ipc = Number(e.target.value) || 0; setQuoteForm(prev => ({ ...prev, ipcWeight: ipc, imoWeight: 100 - ipc })); setQuoteDirty(true); }}
+                          disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
+                        <span className="text-xs text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm text-muted-foreground">% IMO</Label>
+                      <div className="flex items-center gap-1">
+                        <Input type="number" min={0} max={100} value={quoteForm.imoWeight ?? ""}
+                          onChange={(e) => { const imo = Number(e.target.value) || 0; setQuoteForm(prev => ({ ...prev, imoWeight: imo, ipcWeight: 100 - imo })); setQuoteDirty(true); }}
+                          disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
+                        <span className="text-xs text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="space-y-1">
+                  <Label className="text-sm text-muted-foreground">Días de pago</Label>
+                  <div className="flex items-center gap-1">
+                    <Input type="number" min={1} max={30} value={quoteForm.paymentDays}
+                      onChange={(e) => { setQuoteForm(prev => ({ ...prev, paymentDays: Number(e.target.value) || 5 })); setQuoteDirty(true); }}
+                      disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">días háb.</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-sm text-muted-foreground">Monto póliza</Label>
+                  <div className="flex items-center gap-1">
+                    <Input type="number" min={0} step={0.01} value={quoteForm.insurancePolicyUF ?? ""} placeholder="0.00"
+                      onChange={(e) => { setQuoteForm(prev => ({ ...prev, insurancePolicyUF: e.target.value ? Number(e.target.value) : null })); setQuoteDirty(true); }}
+                      disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-20" />
+                    <span className="text-xs text-muted-foreground">UF</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-sm text-muted-foreground">Límite responsabilidad</Label>
+                  <div className="flex items-center gap-1">
+                    <Input type="number" min={1} max={24} value={quoteForm.liabilityMonths}
+                      onChange={(e) => { setQuoteForm(prev => ({ ...prev, liabilityMonths: Number(e.target.value) || 3 })); setQuoteDirty(true); }}
+                      disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
+                    <span className="text-xs text-muted-foreground">meses</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-sm text-muted-foreground">Fecha inicio contrato</Label>
+                  <Input type="date" value={quoteForm.contractStartDate ?? ""}
+                    onChange={(e) => { setQuoteForm(prev => ({ ...prev, contractStartDate: e.target.value || null })); setQuoteDirty(true); }}
+                    disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs" />
+                </div>
+
+                <div className="space-y-1 flex items-end gap-2 pb-0.5">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={quoteForm.hasCCTV}
+                      onChange={(e) => { setQuoteForm(prev => ({ ...prev, hasCCTV: e.target.checked })); setQuoteDirty(true); }}
+                      disabled={isLocked} className="rounded border-border" />
+                    <span className="text-xs text-muted-foreground">Incluye CCTV</span>
+                  </label>
+                </div>
+
+                {quoteForm.hasCCTV && (
+                  <div className="space-y-1">
+                    <Label className="text-sm text-muted-foreground">Retención CCTV</Label>
+                    <div className="flex items-center gap-1">
+                      <Input type="number" min={1} max={365} value={quoteForm.cctvRetentionDays ?? 30}
+                        onChange={(e) => { setQuoteForm(prev => ({ ...prev, cctvRetentionDays: Number(e.target.value) || 30 })); setQuoteDirty(true); }}
+                        disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
+                      <span className="text-xs text-muted-foreground">días</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

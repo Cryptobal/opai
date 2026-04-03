@@ -912,6 +912,17 @@ model CpqQuote {
   paymentTerms        String    @default("contrafactura") @map("payment_terms")
   serviceStartDays    Int       @default(5) @map("service_start_days")
   contractDuration    Int       @default(12) @map("contract_duration")
+  adjustmentType      String    @default("NONE") @map("adjustment_type")      // NONE | IPC | IMO | POLYNOMIAL
+  adjustmentFreq      String?   @map("adjustment_freq")                       // TRIMESTRAL | SEMESTRAL | ANUAL
+  ipcWeight           Int?      @map("ipc_weight")                            // % del IPC en polinomio
+  imoWeight           Int?      @map("imo_weight")                            // % del IMO en polinomio
+  insurancePolicyUF   Decimal?  @map("insurance_policy_uf") @db.Decimal(10,2)
+  contractStartDate   DateTime? @map("contract_start_date") @db.Date
+  liabilityMonths     Int       @default(3) @map("liability_months")
+  hasCCTV             Boolean   @default(false) @map("has_cctv")
+  cctvRetentionDays   Int?      @default(30) @map("cctv_retention_days")
+  contractTemplateId  String?   @map("contract_template_id") @db.Uuid
+  paymentDays         Int       @default(5) @map("payment_days")
   includedItems       String[]  @default([]) @map("included_items")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -4632,18 +4643,21 @@ model Document {
   signatureData   Json?     @map("signature_data") @db.JsonB
   pdfUrl          String?   @map("pdf_url")
   pdfGeneratedAt  DateTime? @map("pdf_generated_at") @db.Timestamptz(6)
-  signedViewToken String?   @unique @map("signed_view_token")
-  portalVisible   Boolean   @default(false) @map("portal_visible")
+  signedViewToken     String?   @unique @map("signed_view_token")
+  contractClientToken String?   @unique @map("contract_client_token")
+  contractMetadata    Json?     @map("contract_metadata") @db.JsonB
+  portalVisible       Boolean   @default(false) @map("portal_visible")
   createdBy       String    @map("created_by")
   approvedBy      String?   @map("approved_by")
   approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  template          DocTemplate?          @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  associations      DocAssociation[]
-  history           DocHistory[]
-  signatureRequests DocSignatureRequest[]
+  template            DocTemplate?          @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  associations        DocAssociation[]
+  history             DocHistory[]
+  signatureRequests   DocSignatureRequest[]
+  contractSuggestions ContractSuggestion[]
 
   @@index([tenantId], map: "idx_documents_tenant")
   @@index([tenantId, module], map: "idx_documents_tenant_module")
@@ -4742,6 +4756,31 @@ model DocHistory {
   @@index([documentId], map: "idx_doc_history_document")
   @@index([createdAt(sort: Desc)], map: "idx_doc_history_created_desc")
   @@map("doc_history")
+  @@schema("docs")
+}
+
+model ContractSuggestion {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String    @map("tenant_id")
+  documentId       String    @map("document_id") @db.Uuid
+  clauseNumber     String    @map("clause_number")
+  clauseTitle      String    @map("clause_title")
+  originalContent  String    @map("original_content") @db.Text
+  suggestedContent String    @map("suggested_content") @db.Text
+  clientNote       String?   @map("client_note") @db.Text
+  adminComment     String?   @map("admin_comment") @db.Text
+  status           String    @default("pending") // pending | approved | rejected
+  resolvedBy       String?   @map("resolved_by")
+  resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId], map: "idx_contract_suggestions_document")
+  @@index([tenantId], map: "idx_contract_suggestions_tenant")
+  @@index([status], map: "idx_contract_suggestions_status")
+  @@map("contract_suggestions")
   @@schema("docs")
 }
 
