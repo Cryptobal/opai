@@ -135,11 +135,16 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   }, [fetchDocument, fetchSignatureRequest, fetchSuggestions]);
 
   // Cuando el doc está firmado y es solo lectura, cargar contenido resuelto (con firmas reales, no [Token])
+  // For service contracts (have contractMetadata), always load HTML view
+  // because resolved tokens produce text nodes that the Tiptap editor may not render
+  const isServiceContract = !!(doc?.contractMetadata);
+
   useEffect(() => {
     if (!doc || !documentId) return;
     const isSigned = !!(doc.signedAt || doc.signatureStatus === "completed");
     const isReadOnly = !["draft", "review"].includes(doc.status);
-    if (!isSigned || !isReadOnly) {
+    const needsHtml = (isSigned && isReadOnly) || isServiceContract;
+    if (!needsHtml) {
       setContentHtml(null);
       return;
     }
@@ -596,21 +601,17 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
         </div>
       )}
 
-      {/* Editor o contenido resuelto (firmado) */}
-      {doc && (doc.signedAt || doc.signatureStatus === "completed") && !isEditable ? (
+      {/* Editor o contenido resuelto */}
+      {contentHtmlLoading ? (
+        <div className="rounded-lg border border-border bg-card overflow-hidden min-h-[300px] flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : contentHtml ? (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {contentHtmlLoading ? (
-            <div className="min-h-[300px] flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : contentHtml ? (
-            <div
-              className="prose prose-invert prose-sm max-w-none p-6 text-foreground [&_p]:text-foreground [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_li]:text-foreground [&_td]:text-foreground [&_th]:text-foreground"
-              dangerouslySetInnerHTML={{ __html: contentHtml }}
-            />
-          ) : (
-            <ContractEditor content={content} onChange={setContent} editable={false} />
-          )}
+          <div
+            className="prose prose-invert prose-sm max-w-none p-6 text-foreground [&_p]:text-foreground [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_li]:text-foreground [&_td]:text-foreground [&_th]:text-foreground"
+            dangerouslySetInnerHTML={{ __html: contentHtml }}
+          />
         </div>
       ) : (
         <ContractEditor content={content} onChange={setContent} editable={isEditable} />
