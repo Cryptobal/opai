@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPAI — Rediseño de Logotipo · 5 Conceptos</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#07090F; color:#E2E8F0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:14px; line-height:1.6; }
+
+  .page-header {
+    padding:56px 48px 40px;
+    border-bottom:1px solid rgba(255,255,255,0.07);
+    display:flex; justify-content:space-between; align-items:flex-end;
+  }
+  .ph-left {}
+  .ph-eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:3px; color:#475569; font-weight:600; margin-bottom:8px; }
+  .ph-title { font-size:36px; font-weight:700; letter-spacing:-1px; }
+  .ph-title span { color:#00D4AA; }
+  .ph-sub { font-size:15px; color:#64748B; margin-top:8px; max-width:520px; line-height:1.7; }
+  .ph-right { text-align:right; }
+  .ph-date { font-size:11px; color:#334155; font-family:monospace; }
+
+  /* REFERENCE CARD */
+  .ref-section {
+    margin:40px 48px 0;
+    background:#111827;
+    border:1px solid rgba(255,255,255,0.07);
+    border-radius:14px;
+    overflow:hidden;
+  }
+  .ref-header {
+    padding:14px 22px;
+    background:#0D1521;
+    border-bottom:1px solid rgba(255,255,255,0.06);
+    display:flex; align-items:center; gap:10px;
+  }
+  .ref-label { font-size:11px; text-transform:uppercase; letter-spacing:2px; color:#475569; font-weight:600; }
+  .ref-tag { font-size:10px; padding:2px 8px; border-radius:4px; background:rgba(239,68,68,0.12); color:#EF4444; font-weight:600; border:1px solid rgba(239,68,68,0.2); }
+  .ref-body { display:flex; gap:0; }
+  .ref-logo-area { flex:1; background:#F8FAFC; padding:40px; display:flex; align-items:center; justify-content:center; min-height:160px; border-right:1px solid rgba(0,0,0,0.08); }
+  .ref-notes { flex:0 0 380px; padding:24px 28px; }
+  .ref-note { display:flex; gap:10px; margin-bottom:12px; align-items:flex-start; }
+  .rn-dot { width:6px; height:6px; border-radius:50%; margin-top:5px; flex-shrink:0; }
+  .rn-problem { background:#EF4444; }
+  .rn-ok { background:#10B981; }
+  .rn-text { font-size:12.5px; color:#94A3B8; line-height:1.6; }
+  .rn-text strong { color:#CBD5E1; }
+
+  /* CONCEPTS GRID */
+  .concepts-grid {
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:18px;
+    padding:32px 48px;
+  }
+
+  .concept-card {
+    background:#111827;
+    border:1px solid rgba(255,255,255,0.07);
+    border-radius:16px;
+    overflow:hidden;
+    transition:border-color 0.2s;
+    cursor:default;
+  }
+  .concept-card:hover { border-color:rgba(0,212,170,0.25); }
+
+  .cc-header {
+    padding:14px 20px 12px;
+    background:#0D1521;
+    border-bottom:1px solid rgba(255,255,255,0.06);
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .cc-num { font-size:10px; color:#334155; font-weight:700; font-family:monospace; }
+  .cc-name { font-size:13px; font-weight:700; letter-spacing:0.5px; color:#E2E8F0; }
+  .cc-tag { margin-left:auto; font-size:10px; padding:2px 8px; border-radius:4px; background:rgba(0,212,170,0.1); color:#00D4AA; border:1px solid rgba(0,212,170,0.2); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+
+  .cc-dark-logo {
+    background:#06080F;
+    padding:36px 32px;
+    display:flex; align-items:center; justify-content:center;
+    min-height:130px;
+    position:relative;
+  }
+  .cc-dark-logo::after {
+    content:'Principal — fondo oscuro';
+    position:absolute; bottom:8px; left:14px;
+    font-size:9px; color:#1E293B; text-transform:uppercase; letter-spacing:1px;
+  }
+
+  .cc-light-logo {
+    background:#F0F4F8;
+    padding:22px 32px;
+    display:flex; align-items:center; justify-content:center;
+    min-height:88px;
+    border-top:1px solid rgba(255,255,255,0.05);
+    position:relative;
+  }
+  .cc-light-logo::after {
+    content:'Variante — fondo claro';
+    position:absolute; bottom:6px; left:14px;
+    font-size:9px; color:#94A3B8; text-transform:uppercase; letter-spacing:1px;
+  }
+
+  .cc-bottom {
+    padding:16px 20px;
+    border-top:1px solid rgba(255,255,255,0.05);
+    display:flex; gap:16px; align-items:flex-start;
+  }
+  .cc-isotipo {
+    width:56px; height:56px;
+    background:#06080F;
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .cc-notes { flex:1; }
+  .cc-design-title { font-size:11px; font-weight:700; color:#00D4AA; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px; }
+  .cc-design-text { font-size:11.5px; color:#64748B; line-height:1.6; }
+  .cc-design-text em { color:#94A3B8; font-style:normal; }
+
+  .cc-dot-indicator {
+    margin-top:8px;
+    display:flex; align-items:center; gap:6px; font-size:10px; color:#334155;
+  }
+  .cdi-dot { width:8px; height:8px; border-radius:50%; background:#00D4AA; }
+
+  /* FOOTER */
+  .page-footer {
+    margin:8px 48px 40px;
+    padding:20px 24px;
+    background:#0D1521;
+    border:1px solid rgba(255,255,255,0.05);
+    border-radius:12px;
+    display:flex; gap:24px; align-items:flex-start;
+  }
+  .pf-label { font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#00D4AA; font-weight:700; flex-shrink:0; }
+  .pf-text { font-size:12px; color:#475569; line-height:1.7; }
+
+  /* FULL WIDTH LAST CONCEPT */
+  .full-width { grid-column:1/-1; }
+
+  @media(max-width:1100px){ .concepts-grid{grid-template-columns:1fr 1fr;} }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="page-header">
+  <div class="ph-left">
+    <div class="ph-eyebrow">OPAI · Propuesta de rediseño · Confidencial</div>
+    <h1 class="ph-title">Rediseño de Logotipo <span>OPAI</span></h1>
+    <p class="ph-sub">Cinco conceptos que mantienen la identidad de la O (monitor/pantalla), corrigen la A sin barra cruzada, y potencian el punto sobre la Ī como firma de marca. Cada concepto es una dirección comercial distinta.</p>
+  </div>
+  <div class="ph-right">
+    <div class="ph-date">Versión 1.0 · Abril 2025</div>
+    <div class="ph-date" style="margin-top:4px">Para revisión interna · Carlos I.</div>
+  </div>
+</div>
+
+<!-- REFERENCIA ACTUAL -->
+<div class="ref-section">
+  <div class="ref-header">
+    <div class="ref-label">Logotipo actual</div>
+    <div class="ref-tag">⚠ Problemas identificados</div>
+  </div>
+  <div class="ref-body">
+    <div class="ref-logo-area">
+      <!-- Current logo reproduced exactly from SVG code -->
+      <svg viewBox="0 0 320 90" width="320" height="90">
+        <!-- O: rounded square with inner square -->
+        <rect x="0" y="10" width="78" height="70" rx="10" fill="#0D1829"/>
+        <rect x="12" y="21" width="54" height="48" rx="7" fill="#F0F4F8"/>
+        <!-- P: stem + heavy bowl -->
+        <rect x="92" y="10" width="13" height="70" rx="2" fill="#0D1829"/>
+        <path d="M105,10 L134,10 C151,10 156,22 156,30 C156,38 151,50 134,50 L105,50 Z" fill="#0D1829"/>
+        <!-- A: THE PROBLEM — just a chevron, no crossbar -->
+        <path d="M168,80 L198,10 L228,80 Z M179,80 L198,24 L217,80 Z" fill="#0D1829" fill-rule="evenodd"/>
+        <!-- No crossbar at all! -->
+        <!-- I: stem -->
+        <rect x="242" y="10" width="14" height="70" rx="2" fill="#0D1829"/>
+        <!-- I dot: small and far from letter -->
+        <circle cx="249" cy="2" r="7" fill="#14B8A6"/>
+      </svg>
+    </div>
+    <div class="ref-notes">
+      <div class="ref-note">
+        <div class="rn-dot rn-problem"></div>
+        <div class="rn-text"><strong>A sin barra cruzada —</strong> El problema principal. Dos palitos convergentes forman una carpa/chevron. Sin el crossbar, la A no es una A tipográfica. Parece un símbolo de advertencia.</div>
+      </div>
+      <div class="ref-note">
+        <div class="rn-dot rn-problem"></div>
+        <div class="rn-text"><strong>Punto sobre la Ī muy pequeño y lejano —</strong> El dot es la firma más interesante del logo pero está subaprovechada. r=7px, posicionado muy lejos del cuerpo de la letra.</div>
+      </div>
+      <div class="ref-note">
+        <div class="rn-dot rn-problem"></div>
+        <div class="rn-text"><strong>P demasiado pesada y simple —</strong> El bowl de la P es muy básico. Falta refinamiento en la curva y la unión stem/bowl.</div>
+      </div>
+      <div class="ref-note">
+        <div class="rn-dot rn-ok"></div>
+        <div class="rn-text"><strong>O como monitor/pantalla —</strong> Concepto excelente y ownable. Referencia visual a tecnología, ERP, panel de control. Se mantiene en todos los conceptos.</div>
+      </div>
+      <div class="ref-note">
+        <div class="rn-dot rn-ok"></div>
+        <div class="rn-text"><strong>Color teal del dot —</strong> El acento #00D4AA funciona bien. Es el único elemento de color y es memorable. Se potencia en todos los rediseños.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 5 CONCEPTOS -->
+<div class="concepts-grid">
+
+  <!-- ═══════════════════════════════════════ CONCEPT 1 — VECTOR ═══ -->
+  <div class="concept-card">
+    <div class="cc-header">
+      <span class="cc-num">01</span>
+      <span class="cc-name">VECTOR</span>
+      <span class="cc-tag">Tech · Precision</span>
+    </div>
+    <!-- Dark -->
+    <div class="cc-dark-logo">
+      <svg viewBox="0 0 272 100" width="252" height="93">
+        <!-- O: refined monitor shape -->
+        <rect x="0" y="15" width="78" height="70" rx="11" fill="#FFFFFF"/>
+        <rect x="12" y="26" width="54" height="48" rx="8" fill="#06080F"/>
+        <!-- P: refined bowl -->
+        <rect x="92" y="15" width="12" height="70" rx="2" fill="#FFFFFF"/>
+        <path d="M104,15 L130,15 C148,15 154,25 154,34 C154,43 148,53 130,53 L104,53 Z" fill="#FFFFFF"/>
+        <path d="M104,27 L127,27 C138,27 142,31 142,34 C142,37 138,41 127,41 L104,41 Z" fill="#06080F"/>
+        <!-- A: FLAT TOP — piernas + techo plano + crossbar -->
+        <polygon points="168,85 179,85 193,15 181,15" fill="#FFFFFF"/>
+        <rect x="181" y="15" width="30" height="13" rx="1" fill="#FFFFFF"/>
+        <polygon points="211,15 223,15 234,85 223,85" fill="#FFFFFF"/>
+        <rect x="175" y="57" width="58" height="11" rx="1" fill="#FFFFFF"/>
+        <!-- I -->
+        <rect x="248" y="15" width="16" height="70" rx="2" fill="#FFFFFF"/>
+        <!-- Dot: bigger, closer -->
+        <circle cx="256" cy="5" r="10" fill="#00D4AA"/>
+      </svg>
+    </div>
+    <!-- Light -->
+    <div class="cc-light-logo">
+      <svg viewBox="0 0 272 100" width="200" height="74">
+        <rect x="0" y="15" width="78" height="70" rx="11" fill="#0D1829"/>
+        <rect x="12" y="26" width="54" height="48" rx="8" fill="#F0F4F8"/>
+        <rect x="92" y="15" width="12" height="70" rx="2" fill="#0D1829"/>
+        <path d="M104,15 L130,15 C148,15 154,25 154,34 C154,43 148,53 130,53 L104,53 Z" fill="#0D1829"/>
+        <path d="M104,27 L127,27 C138,27 142,31 142,34 C142,37 138,41 127,41 L104,41 Z" fill="#F0F4F8"/>
+        <polygon points="168,85 179,85 193,15 181,15" fill="#0D1829"/>
+        <rect x="181" y="15" width="30" height="13" rx="1" fill="#0D1829"/>
+        <polygon points="211,15 223,15 234,85 223,85" fill="#0D1829"/>
+        <rect x="175" y="57" width="58" height="11" rx="1" fill="#0D1829"/>
+        <rect x="248" y="15" width="16" height="70" rx="2" fill="#0D1829"/>
+        <circle cx="256" cy="5" r="10" fill="#00D4AA"/>
+      </svg>
+    </div>
+    <div class="cc-bottom">
+      <div class="cc-isotipo">
+        <svg viewBox="0 0 48 48" width="38" height="38">
+          <rect x="2" y="2" width="44" height="44" rx="8" fill="#FFFFFF"/>
+          <rect x="10" y="10" width="28" height="28" rx="5" fill="#06080F"/>
+          <circle cx="42" cy="6" r="6" fill="#00D4AA"/>
+        </svg>
+      </div>
+      <div class="cc-notes">
+        <div class="cc-design-title">A tipo Eurostile · techo plano</div>
+        <div class="cc-design-text">La A con apex horizontal. <em>Lectura perfecta, asociación a displays de aeropuerto/industria.</em> Crossbar en el tercio inferior. Dot r=10 (43% más grande).</div>
+        <div class="cc-dot-indicator"><div class="cdi-dot"></div>Punto sobre Ī: prominente, r=10</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ CONCEPT 2 — APEX ═══ -->
+  <div class="concept-card">
+    <div class="cc-header">
+      <span class="cc-num">02</span>
+      <span class="cc-name">APEX</span>
+      <span class="cc-tag">Bold · Authority</span>
+    </div>
+    <div class="cc-dark-logo">
+      <svg viewBox="0 0 270 100" width="252" height="93">
+        <!-- O -->
+        <rect x="0" y="15" width="78" height="70" rx="11" fill="#FFFFFF"/>
+        <rect x="12" y="26" width="54" height="48" rx="8" fill="#06080F"/>
+        <!-- P refined -->
+        <rect x="92" y="15" width="12" height="70" rx="2" fill="#FFFFFF"/>
+        <path d="M104,15 L130,15 C148,15 154,25 154,34 C154,43 148,53 130,53 L104,53 Z" fill="#FFFFFF"/>
+        <path d="M104,27 L127,27 C138,27 142,31 142,34 C142,37 138,41 127,41 L104,41 Z" fill="#06080F"/>
+        <!-- A: POINTED apex, proper crossbar, medium weight -->
+        <!-- Outer triangle -->
+        <path d="M168,85 L202,15 L236,85 Z" fill="#FFFFFF"/>
+        <!-- Inner hollow triangle -->
+        <path d="M179,85 L202,33 L225,85 Z" fill="#06080F"/>
+        <!-- Crossbar spans full width between legs -->
+        <rect x="175" y="55" width="54" height="10" rx="1" fill="#FFFFFF"/>
+        <!-- I -->
+        <rect x="250" y="15" width="16" height="70" rx="2" fill="#FFFFFF"/>
+        <!-- Dot large, close to letter -->
+        <circle cx="258" cy="4" r="11" fill="#00D4AA"/>
+      </svg>
+    </div>
+    <div class="cc-light-logo">
+      <svg viewBox="0 0 270 100" width="200" height="74">
+        <rect x="0" y="15" width="78" height="70" rx="11" fill="#0D1829"/>
+        <rect x="12" y="26" width="54" height="48" rx="8" fill="#F0F4F8"/>
+        <rect x="92" y="15" width="12" height="70" rx="2" fill="#0D1829"/>
+        <path d="M104,15 L130,15 C148,15 154,25 154,34 C154,43 148,53 130,53 L104,53 Z" fill="#0D1829"/>
+        <path d="M104,27 L127,27 C138,27 142,31 142,34 C142,37 138,41 127,41 L104,41 Z" fill="#F0F4F8"/>
+        <path d="M168,85 L202,15 L236,85 Z" fill="#0D1829"/>
+        <path d="M179,85 L202,33 L225,85 Z" fill="#F0F4F8"/>
+        <rect x="175" y="55" width="54" height="10" rx="1" fill="#0D1829"/>
+        <rect x="250" y="15" width="16" height="70" rx="2" fill="#0D1829"/>
+        <circle cx="258" cy="4" r="11" fill="#00D4AA"/>
+      </svg>
+    </div>
+    <div class="cc-bottom">
+      <div class="cc-isotipo">
+        <svg viewBox="0 0 48 48" width="38" height="38">
+          <rect x="2" y="2" width="44" height="44" rx="8" fill="#FFFFFF"/>
+          <rect x="10" y="10" width="28" height="28" rx="5" fill="#06080F"/>
+          <circle cx="44" cy="4" r="7" fill="#00D4AA"/>
+        </svg>
+      </div>
+      <div class="cc-notes">
+        <div class="cc-design-title">A clásica con apex afilado</div>
+        <div class="cc-design-text">El apex permanece en punta pero con crossbar. <em>Proporciones de Futura/Avant Garde.</em> Peso medio equilibrado. Dot r=11 (más prominente, encima de la I).</div>
+        <div class="cc-dot-indicator"><div class="cdi-dot"></div>Punto sobre Ī: bold, r=11</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ CONCEPT 3 — CIPHER ═══ -->
+  <div class="concept-card">
+    <div class="cc-header">
+      <span class="cc-num">03</span>
+      <span class="cc-name">CIPHER</span>
+      <span class="cc-tag">Premium · Intelligence</span>
+    </div>
+    <div class="cc-dark-logo">
+      <svg viewBox="0 0 266 100" width="252" height="93">
+        <!-- O -->
+        <rect x="0" y="15" width="78" height="70" rx="11" fill="#FFFFFF"/>
+        <rect x="12" y="26" width="54" height="48" rx="8" fill="#06080F"/>
+        <!-- P refined (thinner bowl) -->
+        <rect x="92" y="15" width="11" height="70" rx="2" fill="#FFFFFF"/>
+        <path d="M103,15 L128,15 C145,15 150,24 150,33 C150,42 145,51 128,51 L103,51 Z" fill="#FFFFFF"/>
+        <path d="M103,26 L125,26 C135,26 138,30 138,33 C138,36 135,40 125,40 L103,40 Z" fill="#06080F"/>
+        <!-- A: THIN/PRECISION — narrow, elegant, HIGH crossbar -->
+        <!-- Thin outer -->
+        <path d="M167,85 L199,15 L231,85 Z" fill="#FFFFFF"/>
+        <!-- Thin inner (small hollow) -->
+        <path d="M174,85 L199,25 L224,85 Z" fill="#06080F"/>
+        <!-- Crossbar HIGH — 42% from top -->
+        <rect x="183" y="38" width="32" height="8" rx="1" fill="#FFFFFF"/>
+        <!-- I -->
+        <rect x="245" y="15" width="14" height="70" rx="2" fill="#FFFFFF"/>
+        <!-- Dot refined size -->
+        <circle cx="252" cy="5" r="9" fill="#00D4AA"/>
+      </svg>
+    </div>
+    <div class="cc-light-logo">
+      <svg viewBox="0 0 266 100" width="200" height="74">
+        <rect x="0" y="15" width="78" height="70" rx="11" fill="#0D1829"/>
+        <rect x="12" y="26" width="54" height="48" rx="8" fill="#F0F4F8"/>
+        <rect x="92" y="15" width="11" height="70" rx="2" fill="#0D1829"/>
+        <path d="M103,15 L128,15 C145,15 150,24 150,33 C150,42 145,51 128,51 L103,51 Z" fill="#0D1829"/>
+        <path d="M103,26 L125,26 C135,26 138,30 138,33 C138,36 135,40 125,40 L103,40 Z" fill="#F0F4F8"/>
+        <path d="M167,85 L199,15 L231,85 Z" fill="#0D1829"/>
+        <path d="M174,85 L199,25 L224,85 Z" fill="#F0F4F8"/>
+        <rect x="183" y="38" width="32" height="8" rx="1" fill="#0D1829"/>
+        <rect x="245" y="15" width="14" height="70" rx="2" fill="#0D1829"/>
+        <circle cx="252" cy="5" r="9" fill="#00D4AA"/>
+      </svg>
+    </div>
+    <div class="cc-bottom">
+      <div class="cc-isotipo">
+        <svg viewBox="0 0 48 48" width="38" height="38">
+          <rect x="2" y="2" width="44" height="44" rx="8" fill="#FFFFFF"/>
+          <!-- Thin O -->
+          <rect x="8" y="8" width="32" height="32" rx="6" fill="#FFFFFF"/>
+          <rect x="14" y="14" width="20" height="20" rx="4" fill="#06080F"/>
+          <!-- Teal line accent -->
+          <rect x="32" y="2" width="14" height="6" rx="3" fill="#00D4AA"/>
+        </svg>
+      </div>
+      <div class="cc-notes">
+        <div class="cc-design-title">A delgada, crossbar elevado</div>
+        <div class="cc-design-text">Trazo fino, crossbar posicionado en el tercio superior. <em>Sensación premium software: Palantir, Figma, Linear.</em> Para posicionamiento enterprise de alto nivel.</div>
+        <div class="cc-dot-indicator"><div class="cdi-dot"></div>Punto sobre Ī: elegante, r=9</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ CONCEPT 4 — CUT ═══ -->
+  <div class="concept-card">
+    <div class="cc-header">
+      <span class="cc-num">04</span>
+      <span class="cc-name">CUT</span>
+      <span class="cc-tag">Modern · Decisive</span>
+    </div>
+    <div class="cc-dark-logo">
+      <svg viewBox="0 0 274 100" width="252" height="93">
+        <!-- O: same monitor -->
+        <rect x="0" y="15" width="78" height="70" rx="11" fill="#FFFFFF"/>
+        <rect x="12" y="26" width="54" height="48" rx="8" fill="#06080F"/>
+        <!-- P -->
+        <rect x="92" y="15" width="12" height="70" rx="2" fill="#FFFFFF"/>
+        <path d="M104,15 L130,15 C148,15 154,25 154,34 C154,43 148,53 130,53 L104,53 Z" fill="#FFFFFF"/>
+        <path d="M104,27 L127,27 C138,27 142,31 142,34 C142,37 138,41 127,41 L104,41 Z" fill="#06080F"/>
+        <!-- A: CUT APEX — the apex is sliced flat at 18px from top -->
+        <!-- Trapezoid outer (apex sliced) -->
+        <path d="M168,85 L195,25 L211,25 L240,85 Z" fill="#FFFFFF"/>
+        <!-- Inner triangle hollow -->
+        <path d="M179,85 L203,43 L227,85 Z" fill="#06080F"/>
+        <!-- Crossbar -->
+        <rect x="176" y="56" width="58" height="10" rx="1" fill="#FFFFFF"/>
+        <!-- I: with very subtle serif-like weight at top/bottom -->
+        <rect x="254" y="15" width="16" height="70" rx="2" fill="#FFFFFF"/>
+        <!-- The dot — distinctively large, integrated -->
+        <circle cx="262" cy="4" r="11" fill="#00D4AA"/>
+      </svg>
+    </div>
+    <div class="cc-light-logo">
+      <svg viewBox="0 0 274 100" width="200" height="74">
+        <rect x="0" y="15" width="78" height="70" rx="11" fill="#0D1829"/>
+        <rect x="12" y="26" width="54" height="48" rx="8" fill="#F0F4F8"/>
+        <rect x="92" y="15" width="12" height="70" rx="2" fill="#0D1829"/>
+        <path d="M104,15 L130,15 C148,15 154,25 154,34 C154,43 148,53 130,53 L104,53 Z" fill="#0D1829"/>
+        <path d="M104,27 L127,27 C138,27 142,31 142,34 C142,37 138,41 127,41 L104,41 Z" fill="#F0F4F8"/>
+        <path d="M168,85 L195,25 L211,25 L240,85 Z" fill="#0D1829"/>
+        <path d="M179,85 L203,43 L227,85 Z" fill="#F0F4F8"/>
+        <rect x="176" y="56" width="58" height="10" rx="1" fill="#0D1829"/>
+        <rect x="254" y="15" width="16" height="70" rx="2" fill="#0D1829"/>
+        <circle cx="262" cy="4" r="11" fill="#00D4AA"/>
+      </svg>
+    </div>
+    <div class="cc-bottom">
+      <div class="cc-isotipo">
+        <svg viewBox="0 0 48 48" width="38" height="38">
+          <!-- Cut-corner isotipo -->
+          <path d="M2,2 L36,2 L46,12 L46,46 L2,46 Z" fill="#FFFFFF"/>
+          <path d="M10,10 L32,10 L38,16 L38,38 L10,38 Z" fill="#06080F"/>
+          <circle cx="44" cy="4" r="7" fill="#00D4AA"/>
+        </svg>
+      </div>
+      <div class="cc-notes">
+        <div class="cc-design-title">A con apex cortado horizontal</div>
+        <div class="cc-design-text">Solo los últimos 10px del apex se cortan. <em>Más interesante que flat-top, más refinado que pure-pointed.</em> Evoca decisión y claridad de pensamiento. Arquitectónico.</div>
+        <div class="cc-dot-indicator"><div class="cdi-dot"></div>Punto sobre Ī: dominante, r=11</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ CONCEPT 5 — SIGNAL (full width) ═══ -->
+  <div class="concept-card full-width">
+    <div class="cc-header">
+      <span class="cc-num">05</span>
+      <span class="cc-name">SIGNAL</span>
+      <span class="cc-tag">Bold · Enterprise · Maximum Authority</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+      <div class="cc-dark-logo" style="min-height:160px">
+        <svg viewBox="0 0 290 100" width="310" height="107">
+          <!-- O: bold frame, same monitor concept -->
+          <rect x="0" y="12" width="82" height="74" rx="12" fill="#FFFFFF"/>
+          <rect x="13" y="24" width="56" height="50" rx="9" fill="#06080F"/>
+          <!-- P: bold, authoritative -->
+          <rect x="96" y="12" width="14" height="74" rx="2" fill="#FFFFFF"/>
+          <path d="M110,12 L138,12 C158,12 165,23 165,34 C165,45 158,56 138,56 L110,56 Z" fill="#FFFFFF"/>
+          <path d="M110,25 L135,25 C148,25 153,30 153,34 C153,38 148,43 135,43 L110,43 Z" fill="#06080F"/>
+          <!-- A: BOLD WIDE — maximum confidence, strong crossbar -->
+          <!-- Outer triangle, wide and bold -->
+          <path d="M179,88 L218,12 L257,88 Z" fill="#FFFFFF"/>
+          <!-- Inner hollow -->
+          <path d="M192,88 L218,30 L244,88 Z" fill="#06080F"/>
+          <!-- Bold crossbar: thick, authoritative -->
+          <rect x="189" y="55" width="58" height="14" rx="2" fill="#FFFFFF"/>
+          <!-- I: bold -->
+          <rect x="271" y="12" width="18" height="74" rx="2" fill="#FFFFFF"/>
+          <!-- Dot: THE SIGNATURE — very large, very prominent -->
+          <circle cx="280" cy="1" r="13" fill="#00D4AA"/>
+        </svg>
+      </div>
+      <div style="display:flex;flex-direction:column">
+        <div class="cc-light-logo" style="flex:1;min-height:100px">
+          <svg viewBox="0 0 290 100" width="252" height="87">
+            <rect x="0" y="12" width="82" height="74" rx="12" fill="#0D1829"/>
+            <rect x="13" y="24" width="56" height="50" rx="9" fill="#F0F4F8"/>
+            <rect x="96" y="12" width="14" height="74" rx="2" fill="#0D1829"/>
+            <path d="M110,12 L138,12 C158,12 165,23 165,34 C165,45 158,56 138,56 L110,56 Z" fill="#0D1829"/>
+            <path d="M110,25 L135,25 C148,25 153,30 153,34 C153,38 148,43 135,43 L110,43 Z" fill="#F0F4F8"/>
+            <path d="M179,88 L218,12 L257,88 Z" fill="#0D1829"/>
+            <path d="M192,88 L218,30 L244,88 Z" fill="#F0F4F8"/>
+            <rect x="189" y="55" width="58" height="14" rx="2" fill="#0D1829"/>
+            <rect x="271" y="12" width="18" height="74" rx="2" fill="#0D1829"/>
+            <circle cx="280" cy="1" r="13" fill="#00D4AA"/>
+          </svg>
+        </div>
+        <!-- Isotipo + notes for full-width card -->
+        <div class="cc-bottom" style="border-top:1px solid rgba(255,255,255,0.05)">
+          <div class="cc-isotipo" style="width:64px;height:64px;border-radius:12px">
+            <svg viewBox="0 0 56 56" width="48" height="48">
+              <rect x="2" y="2" width="52" height="52" rx="10" fill="#FFFFFF"/>
+              <rect x="13" y="13" width="30" height="30" rx="6" fill="#06080F"/>
+              <circle cx="50" cy="6" r="9" fill="#00D4AA"/>
+            </svg>
+          </div>
+          <div class="cc-notes">
+            <div class="cc-design-title">A ancha y audaz — máxima autoridad</div>
+            <div class="cc-design-text">A más ancha que en otros conceptos (+12%). Crossbar grueso (14px vs 10-11px). Dot r=13 — el elemento más grande y llamativo. <em>Compite con marcas como SentinelOne, Palo Alto Networks, CrowdStrike.</em> Para ganar contratos corporativos y bancarios. El dot se convierte en una firma tan reconocible como el punto de Apple o el anillo de Audi.</div>
+            <div class="cc-dot-indicator"><div class="cdi-dot" style="width:13px;height:13px"></div>Punto sobre Ī: ICÓNICO, r=13 — la firma de marca</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- COMPARISON STRIP -->
+<div style="margin:0 48px 24px;padding:24px;background:#0D1521;border:1px solid rgba(255,255,255,0.06);border-radius:14px">
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#475569;font-weight:600;margin-bottom:20px">Comparativa lado a lado — mismo tamaño</div>
+  <div style="display:flex;gap:32px;align-items:center;flex-wrap:wrap">
+    
+    <!-- Actual (reference, smaller) -->
+    <div style="text-align:center">
+      <svg viewBox="0 0 320 90" width="160" height="45">
+        <rect x="0" y="10" width="78" height="70" rx="10" fill="#FFFFFF"/>
+        <rect x="12" y="21" width="54" height="48" rx="7" fill="#06080F"/>
+        <rect x="92" y="10" width="13" height="70" rx="2" fill="#FFFFFF"/>
+        <path d="M105,10 L134,10 C151,10 156,22 156,30 C156,38 151,50 134,50 L105,50 Z" fill="#FFFFFF"/>
+        <path d="M168,80 L198,10 L228,80 Z M179,80 L198,24 L217,80 Z" fill="#FFFFFF" fill-rule="evenodd"/>
+        <rect x="242" y="10" width="14" height="70" rx="2" fill="#FFFFFF"/>
+        <circle cx="249" cy="2" r="7" fill="#14B8A6"/>
+      </svg>
+      <div style="font-size:10px;color:#334155;margin-top:6px;text-transform:uppercase;letter-spacing:1px">Actual</div>
+    </div>
+
+    <div style="color:#1E293B;font-size:20px">→</div>
+
+    <!-- Concept 1 -->
+    <div style="text-align:center">
+      <svg viewBox="0 0 272 100" width="136" height="50">
+        <rect x="0" y="15" width="78" height="70" rx="11" fill="#FFFFFF"/>
+        <rect x="12" y="26" width="54" height="48" rx="8" fill="#06080F"/>
+        <rect x="92" y="15" width="12" height="70" rx="2" fill="#FFFFFF"/>
+        <path d="M104,15 L130,15 C148,15 154,25 154,34 C154,43 148,53 130,53 L104,53 Z" fill="#FFFFFF"/>
+        <path d="M104,27 L127,27 C138,27 142,31 142,34 C142,37 138,41 127,41 L104,41 Z" fill="#06080F"/>
+        <polygon points="168,85 179,85 193,15 181,15" fill="#FFFFFF"/>
+        <rect x="181" y="15" width="30" height="13" rx="1" fill="#FFFFFF"/>
+        <polygon points="211,15 223,15 234,85 223,85" fill="#FFFFFF"/>
+        <rect x="175" y="57" width="58" height="11" rx="1" fill="#FFFFFF"/>
+        <rect x="248" y="15" width="16" height="70" rx="2" fill="#FFFFFF"/>
+        <circle cx="256" cy="5" r="10" fill="#00D4AA"/>
+      </svg>
+      <div style="font-size:10px;color:#00D4AA;margin-top:6px;text-transform:uppercase;letter-spacing:1px">01 Vector</div>
+    </div>
+
+    <!-- Concept 2 -->
+    <div style="text-align:center">
+      <svg viewBox="0 0 270 100" width="135" height="50">
+        <rect x="0" y="15" width="78" height="70" rx="11" fill="#FFFFFF"/>
+        <rect x="12" y="26" width="54" height="48" rx="8" fill="#06080F"/>
+        <rect x="92" y="15" width="12" height="70" rx="2" fill="#FFFFFF"/>
+        <path d="M104,15 L130,15 C148,15 154,25 154,34 C154,43 148,53 130,53 L104,53 Z" fill="#FFFFFF"/>
+        <path d="M104,27 L127,27 C138,27 142,31 142,34 C142,37 138,41 127,41 L104,41 Z" fill="#06080F"/>
+        <path d="M168,85 L202,15 L236,85 Z" fill="#FFFFFF"/>
+        <path d="M179,85 L202,33 L225,85 Z" fill="#06080F"/>
+        <rect x="175" y="55" width="54" height="10" rx="1" fill="#FFFFFF"/>
+        <rect x="250" y="15" width="16" height="70" rx="2" fill="#FFFFFF"/>
+        <circle cx="258" cy="4" r="11" fill="#00D4AA"/>
+      </svg>
+      <div style="font-size:10px;color:#00D4AA;margin-top:6px;text-transform:uppercase;letter-spacing:1px">02 Apex</div>
+    </div>
+
+    <!-- Concept 3 -->
+    <div style="text-align:center">
+      <svg viewBox="0 0 266 100" width="133" height="50">
+        <rect x="0" y="15" width="78" height="70" rx="11" fill="#FFFFFF"/>
+        <rect x="12" y="26" width="54" height="48" rx="8" fill="#06080F"/>
+        <rect x="92" y="15" width="11" height="70" rx="2" fill="#FFFFFF"/>
+        <path d="M103,15 L128,15 C145,15 150,24 150,33 C150,42 145,51 128,51 L103,51 Z" fill="#FFFFFF"/>
+        <path d="M103,26 L125,26 C135,26 138,30 138,33 C138,36 135,40 125,40 L103,40 Z" fill="#06080F"/>
+        <path d="M167,85 L199,15 L231,85 Z" fill="#FFFFFF"/>
+        <path d="M174,85 L199,25 L224,85 Z" fill="#06080F"/>
+        <rect x="183" y="38" width="32" height="8" rx="1" fill="#FFFFFF"/>
+        <rect x="245" y="15" width="14" height="70" rx="2" fill="#FFFFFF"/>
+        <circle cx="252" cy="5" r="9" fill="#00D4AA"/>
+      </svg>
+      <div style="font-size:10px;color:#00D4AA;margin-top:6px;text-transform:uppercase;letter-spacing:1px">03 Cipher</div>
+    </div>
+
+    <!-- Concept 4 -->
+    <div style="text-align:center">
+      <svg viewBox="0 0 274 100" width="137" height="50">
+        <rect x="0" y="15" width="78" height="70" rx="11" fill="#FFFFFF"/>
+        <rect x="12" y="26" width="54" height="48" rx="8" fill="#06080F"/>
+        <rect x="92" y="15" width="12" height="70" rx="2" fill="#FFFFFF"/>
+        <path d="M104,15 L130,15 C148,15 154,25 154,34 C154,43 148,53 130,53 L104,53 Z" fill="#FFFFFF"/>
+        <path d="M104,27 L127,27 C138,27 142,31 142,34 C142,37 138,41 127,41 L104,41 Z" fill="#06080F"/>
+        <path d="M168,85 L195,25 L211,25 L240,85 Z" fill="#FFFFFF"/>
+        <path d="M179,85 L203,43 L227,85 Z" fill="#06080F"/>
+        <rect x="176" y="56" width="58" height="10" rx="1" fill="#FFFFFF"/>
+        <rect x="254" y="15" width="16" height="70" rx="2" fill="#FFFFFF"/>
+        <circle cx="262" cy="4" r="11" fill="#00D4AA"/>
+      </svg>
+      <div style="font-size:10px;color:#00D4AA;margin-top:6px;text-transform:uppercase;letter-spacing:1px">04 Cut</div>
+    </div>
+
+    <!-- Concept 5 -->
+    <div style="text-align:center">
+      <svg viewBox="0 0 295 100" width="148" height="50">
+        <rect x="0" y="12" width="82" height="74" rx="12" fill="#FFFFFF"/>
+        <rect x="13" y="24" width="56" height="50" rx="9" fill="#06080F"/>
+        <rect x="96" y="12" width="14" height="74" rx="2" fill="#FFFFFF"/>
+        <path d="M110,12 L138,12 C158,12 165,23 165,34 C165,45 158,56 138,56 L110,56 Z" fill="#FFFFFF"/>
+        <path d="M110,25 L135,25 C148,25 153,30 153,34 C153,38 148,43 135,43 L110,43 Z" fill="#06080F"/>
+        <path d="M179,88 L218,12 L257,88 Z" fill="#FFFFFF"/>
+        <path d="M192,88 L218,30 L244,88 Z" fill="#06080F"/>
+        <rect x="189" y="55" width="58" height="14" rx="2" fill="#FFFFFF"/>
+        <rect x="271" y="12" width="18" height="74" rx="2" fill="#FFFFFF"/>
+        <circle cx="280" cy="1" r="13" fill="#00D4AA"/>
+      </svg>
+      <div style="font-size:10px;color:#00D4AA;margin-top:6px;text-transform:uppercase;letter-spacing:1px">05 Signal</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- FOOTER NOTES -->
+<div class="page-footer">
+  <div class="pf-label">Nota</div>
+  <div class="pf-text">
+    Estos son conceptos tipográficos vectoriales construidos a mano en SVG para presentación rápida. El paso siguiente es que elijas el concepto preferido (o combinación de elementos) para desarrollar el brand kit completo: SVG masters en múltiples variantes, guías de uso, paleta actualizada, y entrega de archivos en formatos PNG/SVG/PDF para todos los usos (web, app, impresión, bordado, valla). La O como monitor/pantalla se mantiene en todos los conceptos por ser el elemento más ownable y coherente con el posicionamiento de OPAI como plataforma de gestión digital.
+  </div>
+</div>
+
+</body>
+</html>

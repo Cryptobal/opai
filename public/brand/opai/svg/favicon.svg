@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#111111"/>
+  <!-- Outer rounded square -->
+  <rect x="6" y="8" width="18" height="18" rx="3" fill="#FFFFFF"/>
+  <!-- Inner cutout -->
+  <rect x="10" y="12" width="10" height="10" rx="2" fill="#111111"/>
+  <!-- Teal dot -->
+  <circle cx="26" cy="7" r="2" fill="#14B8A6"/>
+</svg>

@@ -67,7 +67,7 @@ export function AuthShell({
       <div className="relative z-[2] w-full max-w-[400px] px-5 pt-20 pb-16">
         {/* OPAI Logo */}
         <motion.div
-          initial={{ opacity: 0, y: -8, scale: 0.97 }}
+          initial={false}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-9"
@@ -100,7 +100,7 @@ export function AuthShell({
         {/* Portal badge */}
         {showPortalBadge && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
             className="text-center mb-7"
@@ -130,7 +130,7 @@ export function AuthShell({
 
         {/* Card container */}
         <motion.div
-          initial={{ opacity: 0, y: 14 }}
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.25 }}
           className="relative p-7 rounded-[20px]"
@@ -155,7 +155,7 @@ export function AuthShell({
         {/* Back to selector */}
         {showBackLink && (
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={false}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
             className="text-center mt-6"

@@ -48,8 +48,9 @@ export async function POST(request: NextRequest) {
 
     const resultado = await enviarAlertaWhatsApp({
       telefono,
-      instalacion: "Edificio Corporate - Av. Providencia 1234, Providencia",
-      horario: "Lun 29 Mar | 20:00 - 08:00",
+      instalacion: "Edificio Corporate",
+      direccion: "Av. Providencia 1234, Providencia",
+      horario: "Lun 31 Mar | 20:00 - 08:00",
       monto: "$45.000 CLP",
       modalidad: "Guardia de Seguridad (GGSS)",
       funciones: "Control de acceso y rondas perimetrales (TEST)",

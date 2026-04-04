@@ -165,7 +165,8 @@ export async function notificarGuardiaAlerta(params: {
 
           const waResult = await enviarAlertaWhatsApp({
             telefono: persona.phone,
-            instalacion: `${params.instalacionNombre} - ${params.instalacionDireccion}`,
+            instalacion: params.instalacionNombre,
+            direccion: params.instalacionDireccion,
             horario,
             monto: montoFormateado,
             modalidad: mapearModalidadLabel(params.modalidad || "GGSS"),

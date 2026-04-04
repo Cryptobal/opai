@@ -30,6 +30,7 @@ function getClient(): Twilio.Twilio | null {
 interface EnviarAlertaWhatsAppParams {
   telefono: string;
   instalacion: string;
+  direccion: string;
   horario: string;
   monto: string;
   modalidad: string;
@@ -57,10 +58,10 @@ export async function enviarAlertaWhatsApp(
   // Estrategia 1: Content Template (si está configurado y aprobado)
   if (contentSid) {
     try {
-      // Variables 1-5 = body, variable 6 = botón CTA URL suffix (token JWT)
-      // El botón en Twilio está configurado como:
-      //   https://opai.gard.cl/alerta/t/{{1}}
-      // donde {{1}} del botón se mapea a contentVariables["6"]
+      // Template turno_extra_notif_v2 (UTILITY, 7 vars):
+      //   {{1}} = JWT token (button URL only: /alerta/t/{{1}})
+      //   {{2}} = Instalación, {{3}} = Dirección
+      //   {{4}} = Horario, {{5}} = Monto, {{6}} = Modalidad, {{7}} = Funciones
       const buttonToken = params.urlPath.includes("?token=")
         ? params.urlPath.split("?token=")[1]
         : params.urlPath;
@@ -70,12 +71,13 @@ export async function enviarAlertaWhatsApp(
         to,
         contentSid,
         contentVariables: JSON.stringify({
-          "1": params.instalacion.substring(0, 200),
-          "2": params.horario.substring(0, 100),
-          "3": params.monto.substring(0, 50),
-          "4": params.modalidad.substring(0, 100),
-          "5": params.funciones.substring(0, 200),
-          "6": buttonToken,
+          "1": buttonToken.substring(0, 500),
+          "2": params.instalacion.substring(0, 200),
+          "3": params.direccion.substring(0, 200),
+          "4": params.horario.substring(0, 100),
+          "5": params.monto.substring(0, 50),
+          "6": params.modalidad.substring(0, 100),
+          "7": params.funciones.substring(0, 200),
         }),
       });
 
@@ -94,6 +96,7 @@ export async function enviarAlertaWhatsApp(
       "⚠️ *TURNO EXTRA DISPONIBLE*",
       "",
       `📍 ${params.instalacion}`,
+      `📌 ${params.direccion}`,
       `📅 ${params.horario}`,
       `💰 ${params.monto}`,
       `🛡️ ${params.modalidad}`,

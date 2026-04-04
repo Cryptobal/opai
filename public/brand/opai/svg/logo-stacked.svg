@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 280" width="220" height="280">
+  <defs>
+    <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#14B8A6"/>
+      <stop offset="100%" stop-color="#0EA5E9"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Isotipo grande -->
+  <g transform="translate(70,20)">
+    <path d="M12,0 L68,0 C74.6,0 80,5.4 80,12 L80,78 C80,84.6 74.6,90 68,90 L12,90 C5.4,90 0,84.6 0,78 L0,12 C0,5.4 5.4,0 12,0 Z M22,16 L58,16 C62.4,16 66,19.6 66,24 L66,66 C66,70.4 62.4,74 58,74 L22,74 C17.6,74 14,70.4 14,66 L14,24 C14,19.6 17.6,16 22,16 Z" fill="#FFFFFF" fill-rule="evenodd"/>
+    <circle cx="88" cy="8" r="6" fill="#14B8A6"/>
+  </g>
+  <!-- Teal line -->
+  <line x1="30" y1="145" x2="189.3" y2="145" stroke="url(#tealGrad)" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- OPAI small -->
+  <g transform="translate(30,160) scale(0.55)">
+      <path d="M12,0 L68,0 C74.6,0 80,5.4 80,12 L80,78 C80,84.6 74.6,90 68,90 L12,90 C5.4,90 0,84.6 0,78 L0,12 C0,5.4 5.4,0 12,0 Z M22,16 L58,16 C62.4,16 66,19.6 66,24 L66,66 C66,70.4 62.4,74 58,74 L22,74 C17.6,74 14,70.4 14,66 L14,24 C14,19.6 17.6,16 22,16 Z" fill="#FFFFFF" fill-rule="evenodd"/>
+    </g>
+  <g transform="translate(84,160) scale(0.55)">
+      <rect x="0" y="0" width="16" height="90" rx="2" fill="#FFFFFF"/>
+      <path d="M16,0 L52,0 C63.6,0 70,8 70,20 L70,28 C70,40 63.6,48 52,48 L16,48 L16,34 L48,34 C53,34 56,31 56,28 L56,20 C56,17 53,14 48,14 L16,14 Z" fill="#FFFFFF"/>
+    </g>
+  <g transform="translate(130.5,160) scale(0.55)">
+      <path d="M38,0 L76,90 L59,90 L38,30 L17,90 L0,90 Z" fill="#FFFFFF"/>
+    </g>
+  <g transform="translate(180.3,160) scale(0.55)">
+      <rect x="0" y="0" width="16" height="90" rx="2" fill="#FFFFFF"/>
+    </g>
+</svg>
