@@ -25,6 +25,16 @@ import {
 } from '@/lib/permissions';
 
 function isPublicPath(pathname: string): boolean {
+  // Marketing site pages (route group: (marketing))
+  const marketingPaths = [
+    '/funcionalidades', '/planes', '/blog', '/nosotros', '/contacto',
+    '/registrarse', '/erp-seguridad-privada', '/control-rondas-gps',
+    '/ia-seguridad-privada', '/integraciones', '/privacidad', '/terminos',
+  ];
+  for (const mp of marketingPaths) {
+    if (pathname === mp || pathname.startsWith(mp + '/')) return true;
+  }
+
   // Placeholders de módulos
   if (pathname === '/hub' || pathname === '/crm') return true;
 
@@ -141,7 +151,7 @@ export default auth((req) => {
 
   // Marketing landing: si el host es opai.cl, dejar pasar la landing page
   const host = req.headers.get('host') || '';
-  const isMarketingHost = host === 'opai.cl' || host === 'www.opai.cl' || host.startsWith('localhost');
+  const isMarketingHost = host === 'opai.cl' || host === 'www.opai.cl' || host.startsWith('localhost') || host.includes('vercel.app');
 
   if (pathname === '/' && isMarketingHost) {
     // Let the (marketing) route group handle it
