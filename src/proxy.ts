@@ -139,7 +139,16 @@ const DEFAULT_ROLE_PERMISSIONS_MAP: Record<string, true> = {
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
-  // Entrada al sitio: welcome (sin sesión) o Hub (con sesión)
+  // Marketing landing: si el host es opai.cl, dejar pasar la landing page
+  const host = req.headers.get('host') || '';
+  const isMarketingHost = host === 'opai.cl' || host === 'www.opai.cl' || host.startsWith('localhost');
+
+  if (pathname === '/' && isMarketingHost) {
+    // Let the (marketing) route group handle it
+    return;
+  }
+
+  // Entrada al sitio (ERP): welcome (sin sesión) o Hub (con sesión)
   if (pathname === '/' || pathname === '/opai' || (pathname === '/hub' && !req.auth)) {
     if (!req.auth) {
       return Response.redirect(new URL('/welcome', req.nextUrl.origin));
