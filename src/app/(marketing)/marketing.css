@@ -1,0 +1,137 @@
+/* OPAI Marketing Design System */
+:root {
+  --mk-bg:           #050A12;
+  --mk-bg-card:      #0C1523;
+  --mk-bg-card-h:    #101D2E;
+  --mk-teal:         #00D4B0;
+  --mk-teal-dim:     rgba(0,212,176,0.10);
+  --mk-teal-mid:     rgba(0,212,176,0.22);
+  --mk-teal-glow:    rgba(0,212,176,0.28);
+  --mk-orange:       #FF5A35;
+  --mk-orange-dim:   rgba(255,90,53,0.10);
+  --mk-text:         #E8EDF5;
+  --mk-muted:        #657BA0;
+  --mk-border:       #182438;
+  --mk-border-h:     #243650;
+  --mk-font-h:       var(--font-exo2), 'Exo 2', 'Barlow', sans-serif;
+  --mk-font-b:       var(--font-dm-sans), 'DM Sans', sans-serif;
+  --mk-font-m:       var(--font-jetbrains), 'JetBrains Mono', monospace;
+  --mk-max:          1200px;
+  --mk-section:      clamp(64px, 10vw, 120px);
+}
+
+/* Grid de fondo */
+.mk-grid-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,176,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,176,0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Utilidades compartidas */
+.mk-container {
+  max-width: var(--mk-max);
+  margin: 0 auto;
+  padding: 0 clamp(16px, 4vw, 32px);
+  position: relative;
+  z-index: 1;
+}
+
+.mk-section { padding: var(--mk-section) 0; }
+
+.mk-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mk-font-m);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mk-teal);
+  border: 1px solid var(--mk-teal-glow);
+  background: var(--mk-teal-dim);
+  padding: 5px 12px;
+  border-radius: 2px;
+  margin-bottom: 24px;
+}
+
+.mk-pulse {
+  width: 6px; height: 6px;
+  background: var(--mk-teal);
+  border-radius: 50%;
+  animation: mk-pulse 2s infinite;
+}
+
+@keyframes mk-pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.mk-btn-primary {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--mk-teal);
+  color: #020A0E;
+  font-family: var(--mk-font-h);
+  font-weight: 700;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  padding: 14px 28px;
+  border-radius: 3px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.mk-btn-primary:hover { background: #00EDCA; transform: translateY(-1px); }
+
+.mk-btn-ghost {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent;
+  color: var(--mk-text);
+  font-family: var(--mk-font-h);
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 13px 24px;
+  border-radius: 3px;
+  text-decoration: none;
+  border: 1px solid var(--mk-border-h);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.mk-btn-ghost:hover { border-color: var(--mk-teal); color: var(--mk-teal); }
+
+.mk-card {
+  background: var(--mk-bg-card);
+  border: 1px solid var(--mk-border);
+  border-radius: 4px;
+  transition: all 0.25s;
+}
+.mk-card:hover { border-color: var(--mk-border-h); transform: translateY(-2px); }
+
+/* MDX Blog Prose */
+.mk-prose { max-width: 720px; line-height: 1.8; color: var(--mk-muted); }
+.mk-prose h2 { font-family: var(--mk-font-h); font-size: 1.5rem; font-weight: 700; color: var(--mk-text); margin: 2.5rem 0 1rem; }
+.mk-prose h3 { font-family: var(--mk-font-h); font-size: 1.15rem; font-weight: 600; color: var(--mk-text); margin: 2rem 0 0.75rem; }
+.mk-prose p { margin-bottom: 1.25rem; font-size: 0.95rem; }
+.mk-prose ul, .mk-prose ol { margin-bottom: 1.25rem; padding-left: 1.5rem; }
+.mk-prose li { margin-bottom: 0.5rem; font-size: 0.95rem; }
+.mk-prose strong { color: var(--mk-text); font-weight: 600; }
+.mk-prose a { color: var(--mk-teal); text-decoration: underline; }
+.mk-prose code { font-family: var(--mk-font-m); background: var(--mk-bg-card); padding: 2px 6px; border-radius: 3px; font-size: 0.85rem; }
+.mk-prose blockquote { border-left: 3px solid var(--mk-teal); padding-left: 16px; margin: 1.5rem 0; font-style: italic; color: var(--mk-muted); }
+
+/* Responsive utils */
+@media (max-width: 640px) {
+  .mk-hide-mobile { display: none !important; }
+}
+@media (min-width: 641px) {
+  .mk-hide-desktop { display: none !important; }
+}

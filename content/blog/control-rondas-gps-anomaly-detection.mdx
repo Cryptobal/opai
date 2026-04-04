@@ -1,0 +1,87 @@
+---
+title: "Control de rondas GPS con anomaly detection: cómo funciona el Trust Score"
+description: "Cómo la detección de anomalías en rondas de seguridad mejora la supervisión. Trust Score, velocidad anormal y geo-fence accuracy-aware."
+date: "2026-02-28"
+category: "Operaciones"
+tags: ["rondas GPS", "anomaly detection", "Trust Score", "geo-fence", "supervisión", "guardias"]
+author: "Equipo OPAI"
+featured: false
+---
+
+## El problema con el control de rondas tradicional
+
+Durante décadas, las rondas de seguridad se controlaron con sistemas analógicos: relojes de ronda con llaves físicas en puntos fijos, bitácoras manuales o simplemente la confianza en que el guardia cumpliera su recorrido. La llegada del GPS al celular cambió el juego, pero trajo un nuevo problema: tener miles de puntos GPS no sirve de nada si nadie los analiza.
+
+La mayoría de los sistemas de control de rondas GPS se limitan a registrar que el guardia pasó por un punto en un momento determinado. Es un avance respecto al papel, pero sigue siendo un control binario: pasó o no pasó. No detecta si el guardia corrió entre puntos para compensar un retraso, si alguien más llevaba su celular o si las coordenadas reportadas son confiables dado el nivel de precisión del GPS en ese momento.
+
+## Trust Score: supervisión inteligente de 0 a 100
+
+El Trust Score es un puntaje de confiabilidad que OPAI calcula para cada ronda completada por un guardia. En lugar de simplemente verificar si el guardia pasó por los puntos requeridos, el sistema evalúa múltiples variables para determinar qué tan confiable es esa ronda en una escala de 0 a 100.
+
+### Las variables que componen el Trust Score
+
+**Cumplimiento de puntos de control (peso: 30%)**
+
+La variable más básica pero esencial. El sistema verifica cuántos de los puntos obligatorios del recorrido fueron visitados y si se visitaron dentro de la ventana de tiempo permitida. Un punto visitado 45 minutos tarde tiene menos valor que uno visitado a tiempo.
+
+**Velocidad entre puntos (peso: 25%)**
+
+Aquí es donde comienza la detección de anomalías. El sistema calcula la velocidad promedio entre puntos consecutivos usando la distancia Haversine y el tiempo transcurrido. Si un guardia a pie registra una velocidad de 15 km/h entre dos puntos que están a 800 metros, algo no cuadra. Las alertas se disparan cuando:
+
+- La velocidad supera los 7 km/h para rondas a pie
+- La velocidad supera los 40 km/h para rondas en vehículo dentro de recintos
+- La velocidad es de 0 km/h durante períodos prolongados (guardia estático)
+
+**Precisión del GPS o accuracy (peso: 20%)**
+
+No todos los puntos GPS son iguales. Un celular dentro de un edificio puede reportar una posición con 100 metros de accuracy, mientras que al aire libre puede tener 5 metros. El Trust Score penaliza las marcaciones con accuracy pobre y bonifica las que tienen alta precisión. Un punto con accuracy de 10 metros vale más que uno con 80 metros, incluso si ambos están dentro del geo-fence.
+
+**Consistencia temporal (peso: 15%)**
+
+El sistema analiza si el patrón temporal de la ronda es consistente con rondas anteriores del mismo recorrido. Si una ronda que normalmente toma 45 minutos se completa en 20, o si los intervalos entre puntos son sospechosamente regulares (como si alguien programara marcaciones automáticas), el puntaje baja.
+
+**Correlación con marcación biométrica (peso: 10%)**
+
+Si el guardia tiene una marcación Face ID activa en el turno, el sistema correlaciona la identidad verificada con la ronda. Esto cierra la brecha del buddy punching en rondas: no basta con llevar el celular de alguien más si la marcación biométrica confirma quién está realmente en el puesto.
+
+## Geo-fence accuracy-aware: por qué importa
+
+Un geo-fence tradicional define un radio fijo alrededor de un punto. Si el punto tiene un radio de 50 metros, cualquier coordenada GPS dentro de ese radio se considera válida. El problema es que este enfoque ignora la precisión del GPS en el momento de la lectura.
+
+### El problema del GPS impreciso
+
+Imaginemos un punto de control con un geo-fence de 50 metros de radio. El guardia está efectivamente en el punto, pero su celular reporta una posición con accuracy de 80 metros. La coordenada reportada podría estar a 60 metros del punto real, fuera del geo-fence, generando un falso negativo.
+
+El enfoque inverso también es problemático: un guardia que no está en el punto pero cuyo GPS reporta accuracy de 100 metros podría caer dentro del geo-fence por pura imprecisión, generando un falso positivo.
+
+### La solución accuracy-aware
+
+OPAI implementa geo-fences que se adaptan a la precisión del GPS en tiempo real. La fórmula es directa:
+
+- Si el accuracy del GPS es menor al radio del geo-fence, se usa el radio estándar
+- Si el accuracy es mayor al radio, el sistema amplía dinámicamente el radio pero penaliza el Trust Score proporcionalmente
+- Si el accuracy supera un umbral máximo configurable, la lectura se descarta y se solicita un reintento
+
+Este enfoque reduce drásticamente los falsos positivos y negativos, generando datos más confiables para la supervisión.
+
+## Casos prácticos de detección de anomalías
+
+### Caso 1: El guardia que corría
+
+Un guardia en un recinto industrial registraba consistentemente velocidades de 12 km/h entre puntos de control separados por 400 metros. El Trust Score de sus rondas promediaba 45 puntos. La investigación reveló que el guardia permanecía en la garita y salía a recorrer los puntos solo cuando se acercaba la hora límite, corriendo entre ellos.
+
+### Caso 2: Las rondas perfectamente regulares
+
+Un supervisor detectó que cierto guardia completaba sus rondas con intervalos exactos de 8 minutos entre cada punto, todas las noches, sin variación. El Trust Score penalizó la consistencia artificial y se descubrió que el guardia usaba una app de GPS falso para simular el recorrido.
+
+### Caso 3: El problema del subterráneo
+
+En un estacionamiento subterráneo, todos los guardias registraban Trust Scores bajos. El análisis reveló que el GPS accuracy promedio en esa zona era de 120 metros. La solución fue instalar beacons Bluetooth en los puntos críticos del subterráneo y combinar la señal con el GPS, mejorando el accuracy a menos de 10 metros.
+
+## De datos a decisiones operativas
+
+El Trust Score no es solo un número para un dashboard. Alimenta decisiones operativas concretas. Cuando el promedio de Trust Score de un guardia cae por debajo de 60 durante una semana, el sistema genera una alerta al supervisor. Si el promedio del sitio completo baja, puede indicar un problema estructural como mala cobertura GPS o un recorrido mal diseñado.
+
+Los clientes de empresas de seguridad también pueden acceder a reportes de Trust Score como indicador de calidad de servicio. Un promedio de Trust Score alto es evidencia medible de que las rondas se están cumpliendo de forma genuina y consistente.
+
+La detección de anomalías en rondas GPS no reemplaza al supervisor humano, pero le da las herramientas para enfocarse en lo que realmente importa en lugar de revisar planillas interminables de coordenadas sin contexto.

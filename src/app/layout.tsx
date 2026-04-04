@@ -1,6 +1,28 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { Exo_2, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "../styles/globals.css";
+
+const exo2 = Exo_2({
+  subsets: ["latin"],
+  weight: ["300", "400", "600", "700", "800", "900"],
+  variable: "--font-exo2",
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-jetbrains",
+  display: "swap",
+});
 
 /** Google Tag Manager (opai.cl) — override con NEXT_PUBLIC_GTM_ID en .env si hace falta */
 const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? "GTM-WNF9VD9B";
@@ -45,7 +67,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="dark" suppressHydrationWarning>
+    <html lang="es" className={`dark ${exo2.variable} ${dmSans.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <head>
         <Script id="theme-init" strategy="beforeInteractive">{`
           try {

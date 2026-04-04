@@ -1,0 +1,99 @@
+---
+title: "Resolución N°38 DT: cómo cumplir con la normativa de datos biométricos en tu empresa de seguridad"
+description: "Guía completa sobre la Resolución Exenta N°38 de la Dirección del Trabajo y cómo automatizar el cumplimiento en empresas de seguridad privada."
+date: "2026-03-08"
+category: "Compliance"
+tags: ["Resolución N°38", "datos biométricos", "Dirección del Trabajo", "compliance", "Face ID", "privacidad"]
+author: "Equipo OPAI"
+featured: false
+---
+
+## Qué establece la Resolución Exenta N°38
+
+La Resolución Exenta N°38 de la Dirección del Trabajo (DT) regula el uso de datos biométricos en el ámbito laboral chileno. Para las empresas de seguridad privada, que dependen de sistemas biométricos para controlar la asistencia de guardias dispersos geográficamente, esta normativa no es opcional: es una obligación cuyo incumplimiento acarrea multas significativas y riesgos legales.
+
+La resolución establece principios claros sobre cómo las empresas pueden recolectar, almacenar y destruir datos biométricos de sus trabajadores. No prohíbe el uso de biometría, pero impone condiciones estrictas que muchas empresas de seguridad desconocen o cumplen de manera informal.
+
+## Los principios fundamentales de la normativa
+
+### Proporcionalidad y necesidad
+
+La empresa debe demostrar que el uso de datos biométricos es proporcional al fin que persigue. En el caso de seguridad privada, el control de asistencia remoto mediante Face ID es fácilmente justificable: los guardias trabajan en ubicaciones dispersas donde no es viable instalar un reloj control físico. Sin embargo, es importante documentar esta justificación formalmente.
+
+### Consentimiento informado
+
+Cada guardia debe ser informado de manera clara y comprensible sobre qué datos biométricos se recolectan, para qué se utilizan, cómo se almacenan y cuándo serán destruidos. Este consentimiento debe ser específico, no puede estar escondido en una cláusula genérica del contrato de trabajo.
+
+Lo que el consentimiento debe incluir:
+
+- Tipo de dato biométrico recolectado (imagen facial, huella, etc.)
+- Finalidad específica del tratamiento
+- Período de almacenamiento
+- Método de destrucción
+- Derechos del trabajador sobre sus datos
+
+### Plazos de destrucción: la obligación más crítica
+
+La resolución establece que los datos biométricos deben ser destruidos dentro de plazos definidos. Para empresas de seguridad privada, los plazos operativos relevantes son:
+
+- **Datos de marcaciones activas**: pueden mantenerse mientras dure la relación laboral y el período necesario para fines de fiscalización
+- **Datos de trabajadores desvinculados**: deben destruirse en un plazo de 90 a 120 días posteriores al término de la relación laboral
+- **Vectores faciales y templates biométricos**: deben destruirse junto con los datos de marcación asociados
+
+El incumplimiento de estos plazos es la infracción más común en fiscalizaciones de la DT. Muchas empresas simplemente olvidan destruir los datos, acumulando registros biométricos de ex trabajadores durante años.
+
+## Por qué las empresas de seguridad están especialmente expuestas
+
+La industria de seguridad privada tiene características que amplifican el riesgo de incumplimiento. La alta rotación de personal, que puede superar el 30% anual, significa que cada mes se generan decenas de desvinculaciones, cada una con su propio plazo de destrucción de datos biométricos.
+
+Además, las empresas de seguridad suelen manejar volúmenes elevados de datos biométricos. Un guardia que marca entrada y salida diariamente con Face ID genera cientos de registros faciales al año. Multiplicado por una dotación de 500 o 1.000 guardias, el volumen de datos sujetos a regulación es considerable.
+
+### Riesgos concretos del incumplimiento
+
+- **Multas administrativas** de la Dirección del Trabajo que pueden alcanzar varias UTM por infracción
+- **Demandas laborales** de ex trabajadores cuyos datos no fueron destruidos oportunamente
+- **Daño reputacional** ante clientes corporativos que exigen compliance a sus proveedores de seguridad
+- **Inhabilitación en licitaciones** públicas y privadas que requieren certificaciones de cumplimiento
+
+## Cómo automatizar el cumplimiento con tecnología
+
+Gestionar manualmente los plazos de destrucción de datos biométricos es inviable cuando la rotación es alta. Una planilla Excel con fechas de vencimiento no escala y depende de que alguien la revise periódicamente.
+
+OPAI automatiza el ciclo completo de cumplimiento con la Resolución N°38 mediante procesos que se ejecutan sin intervención manual.
+
+### Registro automático de consentimientos
+
+Cuando un guardia se incorpora y activa su cuenta en la app móvil, el sistema le presenta el consentimiento de datos biométricos en lenguaje claro. El guardia debe aceptar explícitamente antes de poder realizar su primera marcación. El sistema registra la fecha, hora y versión del consentimiento aceptado.
+
+### Monitoreo continuo de plazos
+
+Un cron job dedicado verifica diariamente el estado de los datos biométricos de todos los trabajadores desvinculados. El sistema calcula automáticamente la fecha límite de destrucción basándose en la fecha de desvinculación y genera alertas escalonadas:
+
+- **Alerta a 30 días** del vencimiento: notificación informativa al área de compliance
+- **Alerta a 15 días**: notificación urgente con listado de registros pendientes
+- **Alerta a 5 días**: escalamiento a gerencia de operaciones
+- **Destrucción automática**: al cumplirse el plazo, el sistema ejecuta la destrucción y genera un certificado
+
+### Destrucción certificada y auditable
+
+La destrucción no es simplemente borrar registros de una base de datos. OPAI ejecuta un proceso que elimina los vectores faciales almacenados en AWS Rekognition, purga las imágenes de marcación del almacenamiento y genera un certificado de destrucción con hash criptográfico que acredita la fecha y hora exacta del proceso.
+
+Este certificado es el documento que la empresa puede presentar ante una fiscalización de la DT para demostrar cumplimiento.
+
+## Preparándose para una fiscalización
+
+Cuando la Dirección del Trabajo fiscaliza el uso de datos biométricos, solicita documentación específica. Tener esta información organizada y disponible es la diferencia entre una fiscalización rutinaria y una sanción.
+
+Los documentos que debes tener disponibles:
+
+- Política interna de tratamiento de datos biométricos
+- Registro de consentimientos firmados por cada trabajador activo
+- Certificados de destrucción de datos de ex trabajadores
+- Log de auditoría del sistema biométrico
+- Evaluación de impacto de privacidad (recomendada aunque no siempre obligatoria)
+
+## La biometría no es el problema, la gestión sí
+
+La Resolución N°38 no busca eliminar el uso de biometría en el trabajo. Reconoce que tecnologías como Face ID tienen usos legítimos, especialmente en industrias como la seguridad privada donde la verificación de identidad es crítica. Lo que la normativa exige es que las empresas gestionen estos datos con responsabilidad y transparencia.
+
+Automatizar el cumplimiento no es solo una medida defensiva ante posibles multas. Es una señal de profesionalismo hacia los clientes, los trabajadores y el mercado. Las empresas de seguridad que demuestran un manejo riguroso de datos biométricos tienen una ventaja competitiva real en licitaciones y negociaciones comerciales.

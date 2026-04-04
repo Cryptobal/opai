@@ -1,108 +1,171 @@
-import type { Metadata } from "next";
-import { Syne, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
-
-const syne = Syne({
-  subsets: ["latin"],
-  variable: "--font-syne",
-  display: "swap",
-  weight: ["700", "800"],
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-jakarta",
-  display: "swap",
-  weight: ["300", "400", "500", "600"],
-});
-
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains",
-  display: "swap",
-  weight: ["400", "500"],
-});
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import './marketing.css'
 
 export const metadata: Metadata = {
-  title: "OPAI — ERP para Empresas de Seguridad Privada en Chile",
+  metadataBase: new URL('https://www.opai.cl'),
+  title: {
+    default: 'OPAI — ERP para Empresas de Seguridad Privada | Chile',
+    template: '%s | OPAI',
+  },
   description:
-    "Sistema de gestión integral para empresas de seguridad privada. Gestión de guardias, control de rondas GPS, marcaciones, payroll y portal del cliente. El único ERP con IA diseñado para la seguridad privada en Chile.",
+    'El único ERP diseñado exclusivamente para empresas de seguridad privada. Operaciones, CRM, Finanzas y Nómina con IA operacional real. Face ID, GPS en tiempo real, alertas WhatsApp automáticas.',
   keywords: [
-    "ERP empresas de seguridad privada",
-    "software empresa de seguridad Chile",
-    "sistema de guardia de seguridad",
-    "control de rondas GPS",
-    "sistema de control de rondas",
-    "gestión guardias de seguridad",
-    "sistema de seguridad privada",
-    "portal del guardia de seguridad",
-    "portal del cliente seguridad",
-    "control de acceso empresas seguridad",
-    "sistema de marcación guardias",
-    "payroll empresa de seguridad Chile",
-    "ERP seguridad privada Chile",
+    'ERP seguridad privada Chile',
+    'software empresas guardias',
+    'sistema gestión guardias de seguridad',
+    'control rondas GPS tiempo real',
+    'marcaciones biométricas guardias',
+    'nómina guardias seguridad Chile',
+    'alertas cobertura WhatsApp seguridad',
+    'ERP seguridad privada IA',
+    'software OS10 seguridad',
+    'gestión empresas seguridad privada',
   ],
+  authors: [{ name: 'OPAI', url: 'https://www.opai.cl' }],
+  creator: 'OPAI — LX3.ai',
   openGraph: {
-    title: "OPAI — ERP para Empresas de Seguridad Privada en Chile",
+    type: 'website',
+    locale: 'es_CL',
+    url: 'https://www.opai.cl',
+    siteName: 'OPAI',
+    title: 'OPAI — ERP para Empresas de Seguridad Privada',
     description:
-      "Un solo sistema con IA para gestionar guardias, rondas, marcaciones, payroll y portal del cliente.",
-    images: [
-      { url: "/brand/opai/social/og-image.png", width: 1200, height: 630 },
-    ],
-    locale: "es_CL",
-    type: "website",
-    url: "https://opai.cl",
-    siteName: "OPAI",
+      'Operaciones, CRM, Finanzas y Nómina con IA operacional real. Face ID, GPS en tiempo real, alertas WhatsApp automáticas.',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'OPAI ERP Seguridad Privada' }],
   },
   twitter: {
-    card: "summary_large_image",
-    title: "OPAI — ERP para Empresas de Seguridad Privada en Chile",
-    description:
-      "Gestión de guardias, rondas GPS, payroll y portal del cliente en un solo sistema con IA.",
-    images: ["/brand/opai/social/og-image.png"],
+    card: 'summary_large_image',
+    title: 'OPAI — ERP para Empresas de Seguridad Privada',
+    description: 'El único ERP con IA operacional real para seguridad privada en Chile.',
+    images: ['/og-image.png'],
   },
-  alternates: { canonical: "https://opai.cl" },
-  robots: { index: true, follow: true },
-  icons: {
-    icon: [{ url: "/brand/opai/svg/favicon.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/brand/opai/favicon/favicon-180x180.png", sizes: "180x180" }],
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-video-preview': -1, 'max-image-preview': 'large' },
   },
-};
+  alternates: {
+    canonical: 'https://www.opai.cl',
+  },
+}
 
-export default function MarketingLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+const navLinks = [
+  { href: '/funcionalidades', label: 'Funcionalidades' },
+  { href: '/planes', label: 'Planes' },
+  { href: '/blog', label: 'Blog' },
+  { href: '/nosotros', label: 'Nosotros' },
+]
+
+export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className={`${syne.variable} ${jakarta.variable} ${jetbrains.variable} marketing-landing`}
-    >
-      <style>{`
-        .marketing-landing {
-          --opai-teal: #00D4AA;
-          --opai-teal2: #00B894;
-          --opai-navy: #0B1120;
-          --opai-obsidian: #06080F;
-          --opai-card: #141E30;
-          --opai-text: #E2E8F0;
-          --opai-muted: #94A3B8;
-          --opai-border: rgba(255,255,255,0.07);
-          font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
-          color: var(--opai-text);
-          background: var(--opai-navy);
-        }
-        .marketing-landing h1,
-        .marketing-landing h2,
-        .marketing-landing h3,
-        .marketing-landing h4 {
-          font-family: var(--font-syne), 'Syne', sans-serif;
-        }
-        .marketing-landing code,
-        .marketing-landing .font-mono {
-          font-family: var(--font-jetbrains), 'JetBrains Mono', monospace;
-        }
-      `}</style>
-      {children}
+    <div className="mk-grid-bg" style={{ background: 'var(--mk-bg)', color: 'var(--mk-text)', minHeight: '100vh', fontFamily: 'var(--mk-font-b)' }}>
+      {/* NAV */}
+      <nav style={{
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+        background: 'rgba(5,10,18,0.92)',
+        backdropFilter: 'blur(16px)',
+        borderBottom: '1px solid var(--mk-border)',
+      }}>
+        <div className="mk-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px' }}>
+          <Link href="/" style={{ fontFamily: 'var(--mk-font-h)', fontSize: '1.5rem', fontWeight: 800, color: 'var(--mk-text)', textDecoration: 'none', letterSpacing: '-0.02em' }}>
+            OP<span style={{ color: 'var(--mk-teal)' }}>AI</span>
+          </Link>
+          <div className="mk-hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+            {navLinks.map(l => (
+              <Link key={l.href} href={l.href} style={{ color: 'var(--mk-muted)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 500, transition: 'color 0.2s' }}>
+                {l.label}
+              </Link>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <a href="https://opai.gard.cl" target="_blank" rel="noopener" className="mk-btn-ghost mk-hide-mobile" style={{ padding: '9px 18px', fontSize: '0.85rem' }}>
+              Iniciar sesión
+            </a>
+            <a
+              href="https://opai.gard.cl/registro"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mk-btn-primary"
+              style={{ padding: '10px 20px', fontSize: '0.85rem' }}
+            >
+              Comenzar gratis →
+            </a>
+          </div>
+        </div>
+      </nav>
+
+      {/* CONTENT */}
+      <main style={{ paddingTop: '64px' }}>{children}</main>
+
+      {/* FOOTER */}
+      <footer style={{ borderTop: '1px solid var(--mk-border)', padding: 'clamp(40px,6vw,80px) 0 40px' }}>
+        <div className="mk-container">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '48px', marginBottom: '48px' }}>
+            <div>
+              <div style={{ fontFamily: 'var(--mk-font-h)', fontSize: '1.4rem', fontWeight: 800, marginBottom: '12px' }}>
+                OP<span style={{ color: 'var(--mk-teal)' }}>AI</span>
+              </div>
+              <p style={{ color: 'var(--mk-muted)', fontSize: '0.85rem', lineHeight: 1.7, maxWidth: '240px' }}>
+                El único ERP diseñado exclusivamente para empresas de seguridad privada de Chile y LatAm.
+              </p>
+              <p style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', marginTop: '16px', fontFamily: 'var(--mk-font-m)' }}>
+                Desarrollado por <a href="https://lx3.ai" target="_blank" rel="noopener" style={{ color: 'var(--mk-teal)', textDecoration: 'none' }}>LX3.ai</a>
+              </p>
+            </div>
+            <div>
+              <h4 style={{ fontFamily: 'var(--mk-font-h)', fontSize: '0.85rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mk-muted)', marginBottom: '16px' }}>Producto</h4>
+              {[
+                { href: '/funcionalidades', label: 'Funcionalidades' },
+                { href: '/funcionalidades/ia-operacional', label: 'IA Operacional' },
+                { href: '/funcionalidades/portales', label: 'Portales' },
+                { href: '/planes', label: 'Planes y precios' },
+                { href: '/integraciones', label: 'Integraciones' },
+              ].map(l => (
+                <Link key={l.href} href={l.href} style={{ display: 'block', color: 'var(--mk-muted)', textDecoration: 'none', fontSize: '0.88rem', marginBottom: '10px', transition: 'color 0.2s' }}>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+            <div>
+              <h4 style={{ fontFamily: 'var(--mk-font-h)', fontSize: '0.85rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mk-muted)', marginBottom: '16px' }}>Soluciones</h4>
+              {[
+                { href: '/erp-seguridad-privada', label: 'ERP Seguridad Privada' },
+                { href: '/control-rondas-gps', label: 'Control de Rondas GPS' },
+                { href: '/funcionalidades/face-id', label: 'Face ID Biométrico' },
+                { href: '/funcionalidades/alertas-cobertura', label: 'Alertas de Cobertura' },
+                { href: '/ia-seguridad-privada', label: 'IA en Seguridad' },
+              ].map(l => (
+                <Link key={l.href} href={l.href} style={{ display: 'block', color: 'var(--mk-muted)', textDecoration: 'none', fontSize: '0.88rem', marginBottom: '10px', transition: 'color 0.2s' }}>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+            <div>
+              <h4 style={{ fontFamily: 'var(--mk-font-h)', fontSize: '0.85rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mk-muted)', marginBottom: '16px' }}>Recursos</h4>
+              {[
+                { href: '/blog', label: 'Blog' },
+                { href: '/nosotros', label: 'Nosotros' },
+                { href: '/registrarse', label: 'Comenzar gratis' },
+                { href: '/contacto', label: 'Contacto' },
+              ].map(l => (
+                <Link key={l.href} href={l.href} style={{ display: 'block', color: 'var(--mk-muted)', textDecoration: 'none', fontSize: '0.88rem', marginBottom: '10px', transition: 'color 0.2s' }}>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+          <div style={{ borderTop: '1px solid var(--mk-border)', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <p style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', fontFamily: 'var(--mk-font-m)' }}>
+              © {new Date().getFullYear()} OPAI — Todos los derechos reservados
+            </p>
+            <div style={{ display: 'flex', gap: '20px' }}>
+              <Link href="/privacidad" style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>Privacidad</Link>
+              <Link href="/terminos" style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>Términos</Link>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
-  );
+  )
 }
