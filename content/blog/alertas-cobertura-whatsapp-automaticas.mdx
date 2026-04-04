@@ -1,0 +1,91 @@
+---
+title: "Alertas de cobertura WhatsApp: cómo automatizar el reemplazo de guardias"
+description: "Cuando un guardia no se presenta, cada minuto cuenta. Descubre cómo las alertas WhatsApp en oleadas automatizan el proceso de reemplazo."
+date: "2026-02-05"
+category: "Operaciones"
+tags: ["WhatsApp", "alertas", "cobertura", "reemplazos", "automatización", "guardias"]
+author: "Equipo OPAI"
+featured: false
+---
+
+## El minuto más caro de la seguridad privada
+
+Son las 22:00 horas. El guardia del turno nocturno en una planta industrial no se presenta. El guardia saliente espera, pero tiene derecho a retirarse. El cliente llama preguntando por la cobertura. El supervisor busca en su agenda quién podría cubrir. Empieza a llamar uno por uno. El primero no contesta. El segundo no puede. El tercero vive demasiado lejos. Van 45 minutos y el puesto sigue descubierto.
+
+Este escenario se repite cientos de veces al mes en empresas de seguridad privada de todo Chile. Cada minuto sin cobertura es un riesgo de seguridad para el cliente, un potencial incumplimiento contractual y un daño a la reputación de la empresa. El proceso manual de búsqueda de reemplazo es lento, desordenado y depende completamente de la memoria y disponibilidad del supervisor.
+
+## Cómo funcionan las alertas WhatsApp en oleadas
+
+OPAI implementa un sistema de alertas WhatsApp que automatiza completamente el proceso de búsqueda y confirmación de reemplazos. El sistema opera en oleadas progresivas, ampliando el radio de búsqueda si las primeras opciones no responden.
+
+### Detección del evento disparador
+
+El sistema detecta automáticamente situaciones que requieren cobertura urgente:
+
+- **No-show detectado**: el guardia no registra marcación de entrada dentro del margen de tolerancia configurado (típicamente 15 minutos)
+- **Licencia médica de última hora**: el guardia reporta enfermedad a través de la app y el sistema activa la búsqueda inmediatamente
+- **Abandono de puesto**: el guardia marca salida antes de la hora programada sin autorización
+- **Desvinculación inmediata**: cuando se desvincula a un guardia que tiene turnos programados en los próximos días
+
+### Oleada 1: guardias prioritarios
+
+La primera oleada se envía inmediatamente al detectarse la necesidad de cobertura. El sistema identifica guardias disponibles según estos criterios de prioridad:
+
+- Guardias que están en su día libre y conocen el puesto de servicio
+- Guardias con experiencia previa en el mismo sitio del cliente
+- Guardias que viven en un radio cercano al puesto descubierto
+- Guardias que no tienen restricciones de horas acumuladas en la semana
+
+El mensaje WhatsApp que recibe cada guardia es claro y directo. Incluye el nombre del puesto, la dirección, el horario a cubrir y el monto adicional que percibirá. El guardia responde directamente en el chat con un simple "Acepto" o "No puedo".
+
+### Oleada 2: ampliación del radio
+
+Si ningún guardia de la primera oleada acepta dentro de los 10 minutos siguientes, el sistema dispara una segunda oleada. Esta vez amplía los criterios:
+
+- Se incluyen guardias que no conocen el puesto pero tienen las credenciales requeridas
+- Se amplía el radio geográfico de búsqueda
+- Se incluyen guardias de otras áreas operativas que podrían cubrir
+
+### Oleada 3: escalamiento a supervisión
+
+Si la segunda oleada no produce resultados en 10 minutos adicionales, el sistema escala automáticamente al jefe de operaciones y al supervisor de zona con un resumen de la situación: qué puesto está descubierto, hace cuánto tiempo, cuántos guardias fueron contactados y por qué ninguno aceptó.
+
+En esta etapa, el supervisor tiene toda la información necesaria para tomar decisiones manuales con contexto completo, en lugar de empezar de cero.
+
+## El tracking de aceptación en tiempo real
+
+Cada mensaje enviado genera un registro completo en el sistema. El supervisor puede ver en tiempo real un dashboard que muestra:
+
+- Cuántos mensajes se enviaron en cada oleada
+- Quiénes recibieron el mensaje (confirmación de entrega de WhatsApp)
+- Quiénes lo leyeron (doble check azul)
+- Quiénes respondieron y qué respondieron
+- Quién aceptó primero y a qué hora se confirmó la cobertura
+
+Esta trazabilidad es invaluable para dos fines. Primero, permite medir la tasa de respuesta de los guardias y detectar quiénes nunca aceptan coberturas, lo cual es información relevante para evaluaciones de desempeño. Segundo, documenta que la empresa actuó diligentemente ante el evento de no-cobertura, lo cual es importante si el cliente reclama.
+
+## Casos reales de uso
+
+### Caso: Licencia médica nocturna
+
+Un guardia reporta fiebre a las 20:00 para un turno que comienza a las 22:00. El sistema dispara la oleada 1 inmediatamente. En 6 minutos, un guardia que vive a 15 minutos del puesto acepta la cobertura. A las 21:45 el reemplazo está en posición y marca su entrada con Face ID. El cliente no percibió ninguna interrupción en el servicio.
+
+### Caso: No-show en fin de semana
+
+Un guardia no se presenta un sábado a las 06:00. La oleada 1 contacta a 8 guardias disponibles. Ninguno responde en los primeros 10 minutos porque es temprano en un fin de semana. La oleada 2 amplía a 15 guardias. A los 7 minutos de la segunda oleada, un guardia acepta y llega al puesto a las 06:40. El sistema registra 40 minutos de no-cobertura, que se documentan automáticamente en el reporte mensual al cliente.
+
+### Caso: Desvinculación con turnos pendientes
+
+Se desvincula a un guardia un miércoles. Tenía turnos programados jueves, viernes y sábado. El sistema no espera al no-show: inmediatamente busca reemplazos para los tres turnos y envía oleadas específicas para cada uno. Los tres turnos se cubren antes de las 24 horas siguientes, sin que ningún puesto quede descubierto.
+
+## Configuración inteligente por cliente
+
+No todos los puestos de servicio tienen la misma urgencia. Un puesto en una residencial puede tolerar 30 minutos de demora en el reemplazo, pero un puesto en una planta minera con acceso restringido no puede estar ni un minuto sin guardia.
+
+OPAI permite configurar por cliente y por puesto los tiempos de cada oleada, la cantidad de guardias contactados en cada ronda y las reglas de escalamiento. Los clientes de alta criticidad pueden tener oleadas más agresivas con tiempos más cortos, mientras que los puestos de menor riesgo operan con configuraciones estándar.
+
+## El impacto en la operación
+
+Las empresas que implementan alertas WhatsApp automatizadas reportan mejoras consistentes en sus métricas operativas. El tiempo promedio de cobertura de un puesto descubierto baja de 60 a 90 minutos en el proceso manual a menos de 25 minutos con el sistema automatizado. La carga de trabajo del supervisor nocturno se reduce drásticamente porque ya no necesita hacer llamadas manuales. Y los guardias prefieren recibir ofertas de cobertura por WhatsApp en lugar de llamadas telefónicas a deshora.
+
+Automatizar el reemplazo de guardias no es un lujo tecnológico. Es una necesidad operativa que impacta directamente en la satisfacción del cliente, el cumplimiento contractual y la rentabilidad del servicio.

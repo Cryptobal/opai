@@ -1,0 +1,87 @@
+---
+title: "Geo-fencing en seguridad privada: guía completa para implementarlo correctamente"
+description: "Todo lo que necesitas saber sobre geo-fencing para empresas de seguridad privada. Accuracy-aware, Haversine y cómo reducir falsos positivos."
+date: "2026-01-20"
+category: "Operaciones"
+tags: ["geo-fencing", "GPS", "Haversine", "accuracy", "geolocalización", "supervisión"]
+author: "Equipo OPAI"
+featured: false
+---
+
+## Qué es geo-fencing y por qué importa en seguridad privada
+
+El geo-fencing es una tecnología que define perímetros virtuales alrededor de ubicaciones físicas. Cuando un dispositivo entra o sale de ese perímetro, el sistema puede disparar acciones automáticas: registrar una marcación, enviar una alerta o iniciar un protocolo operativo.
+
+Para las empresas de seguridad privada, el geo-fencing es la base tecnológica que permite verificar que los guardias están donde deben estar. Sin geo-fencing, el GPS es solo un dato de ubicación sin contexto. Con geo-fencing, cada coordenada GPS se convierte en una respuesta binaria con significado operativo: el guardia está en su puesto o no lo está.
+
+Sin embargo, implementar geo-fencing correctamente en seguridad privada es más complejo de lo que parece. Las condiciones del mundo real como edificios, subterráneos, zonas rurales y la variabilidad inherente del GPS generan desafíos que una implementación básica no resuelve.
+
+## La fórmula de Haversine: calculando distancias en la Tierra
+
+El primer paso técnico del geo-fencing es calcular la distancia entre dos puntos geográficos. Esto parece trivial, pero la Tierra no es plana y las coordenadas GPS son ángulos sobre una esfera. Usar una fórmula de distancia euclidiana genera errores significativos, especialmente en distancias mayores a unos pocos kilómetros.
+
+La fórmula de Haversine calcula la distancia sobre la superficie de una esfera, considerando la curvatura terrestre. Para las distancias típicas en geo-fencing de seguridad privada (menos de 1 km), el error de la fórmula euclidiana podría ser tolerable, pero hay una razón adicional para usar Haversine: la consistencia.
+
+### Por qué Haversine y no Vincenty
+
+Existe una fórmula más precisa llamada Vincenty que considera que la Tierra es un elipsoide, no una esfera perfecta. Sin embargo, para geo-fencing de seguridad privada, la diferencia de precisión entre Haversine y Vincenty es de centímetros, mientras que la diferencia en costo computacional es significativa. Cuando el sistema debe evaluar miles de marcaciones diarias contra cientos de geo-fences, Haversine ofrece el equilibrio óptimo entre precisión y rendimiento.
+
+OPAI utiliza Haversine para todos los cálculos de distancia en geo-fencing y rondas GPS, garantizando consistencia en los resultados independientemente de la latitud. En Chile, donde las operaciones pueden abarcar desde Arica hasta Punta Arenas, esta consistencia es especialmente relevante.
+
+## El problema del accuracy del GPS
+
+Aquí es donde la mayoría de las implementaciones de geo-fencing fallan. Un geo-fence estándar define un radio fijo, por ejemplo 50 metros, alrededor de un punto central. Si la coordenada GPS del guardia cae dentro de ese radio, la marcación es válida. Si cae fuera, es inválida. Simple y elegante, pero fundamentalmente incompleto.
+
+El problema es que el GPS no entrega una posición exacta. Entrega una posición estimada con un margen de error llamado accuracy. Un celular al aire libre puede tener un accuracy de 5 metros, lo que significa que la posición real del dispositivo está dentro de un radio de 5 metros alrededor de la coordenada reportada. Pero ese mismo celular dentro de un edificio puede tener un accuracy de 80 o incluso 150 metros.
+
+### Los falsos negativos que frustran a los guardias
+
+Un guardia está físicamente parado en la recepción del edificio que custodia. Su celular reporta una coordenada GPS con accuracy de 70 metros. La coordenada reportada cae a 55 metros del centro del geo-fence, que tiene un radio de 50 metros. Resultado: marcación rechazada. El guardia está exactamente donde debe estar, pero el sistema dice lo contrario.
+
+Este escenario genera frustración en los guardias, llamadas al supervisor, marcaciones manuales de excepción y pérdida de confianza en el sistema. Si ocurre repetidamente, los guardias dejan de usar la marcación digital y vuelven al papel.
+
+### Los falsos positivos que engañan al supervisor
+
+El caso inverso: un guardia no está en su puesto pero su celular reporta una coordenada con accuracy de 100 metros que casualmente cae dentro del geo-fence. El sistema registra una marcación válida para un guardia que no está presente.
+
+## Geo-fencing accuracy-aware: la solución
+
+La implementación accuracy-aware incorpora la precisión del GPS como variable activa en la evaluación del geo-fence, en lugar de ignorarla. OPAI implementa este enfoque con las siguientes reglas:
+
+### Regla 1: Accuracy buena, evaluación estándar
+
+Cuando el accuracy del GPS es menor o igual al 30% del radio del geo-fence, se aplica la evaluación estándar. Si el geo-fence tiene un radio de 50 metros y el accuracy es de 10 metros, la posición es suficientemente confiable para una evaluación directa.
+
+### Regla 2: Accuracy moderada, evaluación con penalización
+
+Cuando el accuracy está entre el 30% y el 100% del radio del geo-fence, la marcación puede aceptarse pero con una penalización en el Trust Score. El sistema amplía dinámicamente el radio de aceptación en proporción al accuracy, pero documenta la incertidumbre.
+
+Por ejemplo, con un geo-fence de 50 metros y un accuracy de 40 metros, el radio de aceptación se amplía a 70 metros, pero el Trust Score de esa marcación se reduce proporcionalmente. El supervisor puede ver que la marcación fue aceptada con baja confianza.
+
+### Regla 3: Accuracy pobre, rechazo con reintento
+
+Cuando el accuracy supera el 100% del radio del geo-fence, la lectura se descarta. El sistema notifica al guardia que la señal GPS es insuficiente y le solicita que se mueva a un área con mejor recepción o que espere unos segundos para que el GPS se estabilice. Se permiten hasta tres reintentos antes de escalar al supervisor.
+
+### Regla 4: Accuracy persistentemente pobre
+
+Si un puesto de servicio genera consistentemente lecturas con accuracy pobre, lo cual es común en subterráneos, centros comerciales o zonas con interferencia, el sistema lo detecta y sugiere al administrador configurar soluciones alternativas como beacons Bluetooth o puntos NFC.
+
+## Configuración práctica por tipo de puesto
+
+No todos los puestos de servicio requieren la misma configuración de geo-fence. OPAI permite personalizar los parámetros por puesto:
+
+- **Puestos en exteriores**: radio de 30-50 metros, umbral de accuracy de 20 metros. La señal GPS suele ser buena y se puede ser más estricto.
+- **Puestos en edificios**: radio de 50-80 metros, umbral de accuracy de 50 metros. La señal GPS se degrada en interiores y el radio debe compensar.
+- **Puestos en subterráneos o zonas industriales**: radio de 100-150 metros o complemento con beacons. El GPS es poco confiable y se necesitan métodos alternativos.
+- **Puestos rurales o en carreteras**: radio de 100-200 metros. La posición es más dispersa y los puntos de referencia son amplios.
+
+## Buenas prácticas de implementación
+
+Para obtener buenos resultados con geo-fencing en seguridad privada, considera estas recomendaciones basadas en la experiencia operativa:
+
+- **Calibrar el centro del geo-fence in situ**: no uses la dirección de Google Maps. Visita el puesto, párate en el punto exacto donde el guardia debe estar y registra esa coordenada.
+- **Monitorear la tasa de rechazo**: si un puesto tiene más del 15% de marcaciones rechazadas por GPS, revisa la configuración del geo-fence o la infraestructura del lugar.
+- **No reducir el radio para ser más estricto**: un radio demasiado pequeño genera más falsos negativos que detecciones legítimas de ausencia. Es preferible un radio adecuado combinado con Trust Score que un radio restrictivo con excepciones manuales constantes.
+- **Documentar las excepciones**: cuando un guardia no puede marcar por GPS y se hace una marcación manual, el motivo debe quedar registrado para análisis posterior.
+
+El geo-fencing bien implementado es invisible para el guardia y valioso para el supervisor. Cuando el guardia marca sin problemas y el supervisor confía en los datos, el sistema cumple su función. Cuando genera fricción y excepciones constantes, algo en la configuración necesita ajustarse.

@@ -1,0 +1,103 @@
+---
+title: "Face ID para marcaciones de guardias: ventajas sobre tarjeta, PIN y GPS"
+description: "Comparativa completa entre métodos de marcación para guardias de seguridad. Por qué Face ID con AWS Rekognition es la opción más confiable."
+date: "2026-02-20"
+category: "Operaciones"
+tags: ["Face ID", "marcaciones", "AWS Rekognition", "biometría", "buddy punching", "guardias"]
+author: "Equipo OPAI"
+featured: false
+---
+
+## El desafío de verificar identidad en terreno
+
+Controlar la asistencia de guardias de seguridad no es como controlar la asistencia en una oficina. Los guardias trabajan en las instalaciones de los clientes, muchas veces en ubicaciones remotas, en turnos nocturnos y sin supervisión directa. El método de marcación que elijas determina qué tan confiable es tu información de asistencia y, en consecuencia, qué tan precisas son tus liquidaciones de sueldo, tus cobros a clientes y tus métricas operativas.
+
+Analicemos los cuatro métodos principales de marcación y sus ventajas y desventajas en el contexto específico de la seguridad privada.
+
+## Tarjeta de proximidad o magnética
+
+La tarjeta fue el primer paso hacia la digitalización del control de asistencia. El guardia pasa una tarjeta por un lector instalado en el punto de acceso y el sistema registra la hora.
+
+### Ventajas
+
+- Bajo costo por unidad
+- Tecnología madura y simple
+- No requiere capacitación compleja
+
+### Problemas en seguridad privada
+
+El problema fundamental de la tarjeta es que **verifica la tarjeta, no a la persona**. Esto abre la puerta al buddy punching, donde un compañero marca por otro guardia que no se ha presentado. En una industria con alta rotación y turnos nocturnos sin supervisión, el buddy punching puede representar pérdidas significativas.
+
+Además, las tarjetas se pierden, se dañan y requieren reposición constante. Instalar lectores en cada sitio de cliente es costoso e impráctico cuando se tienen docenas o cientos de puestos de servicio. Cualquier cambio de ubicación implica reinstalar equipos.
+
+## PIN o clave numérica
+
+El PIN elimina el objeto físico, ya que el guardia digita un código personal en un terminal o aplicación. Es más económico que las tarjetas porque no hay costo de emisión ni reposición.
+
+### Ventajas
+
+- Sin costo de tarjetas físicas
+- Funciona en cualquier dispositivo con teclado
+- Fácil de implementar
+
+### Problemas en seguridad privada
+
+El PIN comparte el problema central de la tarjeta: **verifica un conocimiento, no una identidad**. Un guardia puede compartir su PIN con un compañero para que marque por él. De hecho, es aún más fácil que el buddy punching con tarjeta porque no requiere entregar un objeto físico, basta con enviar cuatro dígitos por WhatsApp.
+
+Los PINs también se olvidan con frecuencia, generando llamadas al área de soporte y marcaciones manuales que ensucian los datos. En turnos nocturnos, la tasa de olvido de PIN aumenta considerablemente.
+
+## GPS como método único
+
+Algunas empresas optaron por usar solo la geolocalización del celular como método de marcación: si el guardia está dentro del radio del puesto de servicio a la hora correcta, se registra la asistencia automáticamente.
+
+### Ventajas
+
+- No requiere hardware adicional
+- Registro automático sin acción del guardia
+- Datos de ubicación útiles para otros fines operativos
+
+### Problemas en seguridad privada
+
+El GPS solo verifica que **un dispositivo está en una ubicación**, no que una persona específica esté ahí. Un guardia puede dejar su celular en el puesto y ausentarse. Aplicaciones de GPS falso permiten simular ubicaciones con relativa facilidad.
+
+Además, la precisión del GPS varía enormemente según el entorno. En interiores, subterráneos o zonas con edificios altos, el accuracy puede degradarse a más de 100 metros, haciendo inviable una verificación confiable. Los falsos positivos y negativos generan conflictos constantes entre guardias y supervisores.
+
+## Face ID con AWS Rekognition: verificación real de identidad
+
+Face ID resuelve el problema de raíz: **verifica que la persona correcta está en el lugar correcto a la hora correcta**. No importa si alguien tiene la tarjeta, sabe el PIN o lleva el celular de otro. La cara del guardia es intransferible.
+
+### Cómo funciona en OPAI
+
+El proceso de marcación con Face ID en OPAI sigue estos pasos:
+
+1. El guardia abre la app móvil y selecciona la opción de marcación
+2. La cámara frontal captura una imagen del rostro en tiempo real
+3. La imagen se envía a AWS Rekognition, que la compara contra la foto de registro del guardia
+4. Si el nivel de similitud supera el **umbral del 95%**, la marcación se registra como válida
+5. Simultáneamente, el sistema captura la coordenada GPS y el accuracy para validación de ubicación
+
+El umbral del 95% en AWS Rekognition es deliberadamente alto. Esto significa que la tasa de falsos positivos (aceptar a alguien que no es el guardia) es extremadamente baja. AWS Rekognition también incluye detección de vivacidad (liveness detection), que impide el uso de fotografías impresas o pantallas para engañar al sistema.
+
+### Ventajas específicas para seguridad privada
+
+**Eliminación del buddy punching**: es el único método que verifica la identidad biológica del guardia. No hay forma práctica de falsificar un rostro ante un sistema con umbral del 95% y detección de vivacidad.
+
+**Sin hardware adicional**: el guardia usa la cámara de su propio celular. No hay tarjetas que reponer, lectores que instalar ni terminales que mantener en cada sitio de cliente.
+
+**Evidencia ante el cliente**: la imagen de marcación sirve como evidencia visual de que el guardia estaba presente. Algunos clientes solicitan este tipo de verificación como parte de sus estándares de servicio.
+
+**Doble validación biométrica + GPS**: al combinar Face ID con geolocalización, se obtiene una marcación que verifica tanto identidad como ubicación en un solo paso.
+
+### Consideraciones importantes
+
+La implementación de Face ID requiere atención a aspectos legales y operativos:
+
+- **Cumplimiento de la Resolución N°38 DT**: los datos biométricos faciales están regulados y deben gestionarse con consentimiento informado y plazos de destrucción definidos
+- **Conectividad**: la verificación contra AWS Rekognition requiere conexión a internet, aunque OPAI implementa un modo offline con cola de sincronización para zonas sin cobertura
+- **Iluminación**: las marcaciones nocturnas requieren que el guardia active el flash frontal del celular, lo cual el sistema solicita automáticamente cuando detecta baja luminosidad
+
+## La combinación ganadora
+
+El método ideal no es usar una sola tecnología, sino combinarlas inteligentemente. OPAI utiliza Face ID como verificación primaria de identidad, GPS como verificación de ubicación y el Trust Score como capa de análisis que integra ambas señales con datos de rondas y patrones históricos.
+
+Esta combinación convierte cada marcación en un dato multidimensional que es significativamente más confiable que cualquier método individual. Para las empresas de seguridad privada que buscan datos operativos confiables y auditables, Face ID con respaldo de geolocalización es la opción que ofrece el mejor equilibrio entre seguridad, practicidad y costo.
