@@ -26,8 +26,8 @@ const plans = [
     priceSub: '30 días · luego plan Esencial',
     cta: 'Crear cuenta gratis',
     ctaStyle: 'outline' as const,
-    ctaHref: 'https://opai.gard.cl/registro',
-    external: true,
+    ctaHref: '/registrarse',
+    external: false,
     features: [
       { label: 'Acceso completo al plan Esencial', included: true },
       { label: 'Hasta 20 guardias durante el trial', included: true },
@@ -48,8 +48,8 @@ const plans = [
     priceSub: 'por mes · facturación mensual',
     cta: 'Comenzar gratis 30 días',
     ctaStyle: 'outline' as const,
-    ctaHref: 'https://opai.gard.cl/registro?plan=esencial',
-    external: true,
+    ctaHref: '/registrarse?plan=esencial',
+    external: false,
     features: [
       { label: 'Gestión de guardias (fichas OS10)', included: true },
       { label: 'Pautas mensuales drag-drop', included: true },
@@ -74,8 +74,8 @@ const plans = [
     priceSub: 'por mes · facturación mensual',
     cta: 'Comenzar gratis 30 días',
     ctaStyle: 'primary' as const,
-    ctaHref: 'https://opai.gard.cl/registro?plan=profesional',
-    external: true,
+    ctaHref: '/registrarse?plan=profesional',
+    external: false,
     features: [
       { label: 'Todo lo del plan Esencial', included: true },
       { label: 'CRM + CPQ con PDF profesional', included: true },

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { MobileNav } from '@/components/marketing/MobileNav'
 import './marketing.css'
 
 export const metadata: Metadata = {
@@ -82,15 +83,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <a href="https://opai.gard.cl" target="_blank" rel="noopener" className="mk-btn-ghost mk-hide-mobile" style={{ padding: '9px 18px', fontSize: '0.85rem' }}>
               Iniciar sesión
             </a>
-            <a
-              href="https://opai.gard.cl/registro"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mk-btn-primary"
+            <Link
+              href="/registrarse"
+              className="mk-btn-primary mk-hide-mobile"
               style={{ padding: '10px 20px', fontSize: '0.85rem' }}
             >
               Comenzar gratis →
-            </a>
+            </Link>
+            <MobileNav />
           </div>
         </div>
       </nav>

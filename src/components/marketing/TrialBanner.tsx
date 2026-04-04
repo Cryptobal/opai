@@ -52,15 +52,13 @@ export function TrialBanner({
           {subtitle}
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
-          <a
-            href="https://opai.gard.cl/registro"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/registrarse"
             className="mk-btn-primary"
             style={{ padding: '16px 32px', fontSize: '1rem' }}
           >
             Crear cuenta gratis →
-          </a>
+          </Link>
           {showContactLink && (
             <Link href="/contacto" className="mk-btn-ghost">
               ¿Tienes preguntas?

@@ -71,9 +71,9 @@ export default function FaceIdPage() {
             Identidad verificada con AWS Rekognition y cumplimiento normativo integrado.
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
-            <a href="https://opai.gard.cl/registro" target="_blank" rel="noopener noreferrer" className="mk-btn-primary">
+            <Link href="/registrarse" className="mk-btn-primary">
               Probar gratis 30 días →
-            </a>
+            </Link>
             <Link href="/funcionalidades" className="mk-btn-ghost">
               ← Todas las funcionalidades
             </Link>

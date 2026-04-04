@@ -292,15 +292,13 @@ export default function MarketingPage() {
               marginBottom: '14px',
             }}
           >
-            <a
-              href="https://opai.gard.cl/registro"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/registrarse"
               className="mk-btn-primary"
               style={{ padding: '16px 32px', fontSize: '1rem' }}
             >
               Comenzar gratis — 30 días →
-            </a>
+            </Link>
             <Link href="/planes" className="mk-btn-ghost">
               Ver planes y precios
             </Link>
