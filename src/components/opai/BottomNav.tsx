@@ -10,6 +10,7 @@ import {
   Landmark, Wallet, FolderOpen, FileBarChart, Clock,
   Settings, Monitor, Eye, Sun, Moon, User, LogOut,
   Check, Receipt, Calculator, FileText, SlidersHorizontal,
+  Linkedin,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,8 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+
+const OPAI_LINKEDIN_URL = 'https://www.linkedin.com/company/opai-ai';
 
 /** Tracks BottomNav real height and exposes it as --bottom-nav-height CSS variable */
 function useBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
@@ -209,6 +212,17 @@ export function BottomNav({ userRole }: BottomNavProps) {
         ) : (
           <MainNav pathname={pathname} userRole={userRole} navConfig={navConfig} />
         )}
+      </div>
+      <div className="flex justify-center border-t border-border/20 py-1">
+        <a
+          href={OPAI_LINKEDIN_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:text-[#0A66C2] active:scale-95"
+          aria-label="Opai AI en LinkedIn"
+        >
+          <Linkedin className="h-5 w-5" aria-hidden />
+        </a>
       </div>
     </nav>
   );
