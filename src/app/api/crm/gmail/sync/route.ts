@@ -6,7 +6,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { decryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import { extractEmailAddresses, normalizeEmailAddress } from "@/lib/email-address";
@@ -32,7 +31,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+    const tenantId = session.user.tenantId;
+    if (!tenantId) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado" },
+        { status: 401 }
+      );
+    }
     const maxResults = Math.min(
       Math.max(Number(request.nextUrl.searchParams.get("max") || "20"), 1),
       100

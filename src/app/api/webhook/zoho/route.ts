@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getDefaultTenantId } from '@/lib/tenant';
+import { getSystemTenantId } from '@/lib/tenant';
 import { nanoid } from 'nanoid';
 import { createHmac } from 'crypto';
 
@@ -157,8 +157,10 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
-    // 6. Guardar sesión en base de datos (con tenant por defecto)
-    const tenantId = await getDefaultTenantId();
+    // 6. Guardar sesión en base de datos
+    // TODO: resolve tenant from Zoho payload when multi-tenant Zoho integration is
+    // needed. For now this webhook is single-tenant (Gard), so getSystemTenantId() is correct.
+    const tenantId = await getSystemTenantId();
     const webhookSession = await prisma.webhookSession.create({
       data: {
         sessionId,

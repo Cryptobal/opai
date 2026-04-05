@@ -8,13 +8,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { getDefaultTenantId } from '@/lib/tenant';
 
 // GET /api/templates
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
-    const tenantId = session?.user?.tenantId ?? await getDefaultTenantId();
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+    const tenantId = session.user.tenantId;
 
     const { searchParams } = new URL(request.url);
     const active = searchParams.get('active');
@@ -73,7 +75,10 @@ export async function POST(request: NextRequest) {
     }
 
     const session = await auth();
-    const tenantId = session?.user?.tenantId ?? await getDefaultTenantId();
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+    const tenantId = session.user.tenantId;
     const template = await prisma.template.create({
       data: {
         name,

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { startOfDayChile, endOfDayChile } from "@/lib/rondas/timezone";
 
@@ -8,7 +7,8 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
+  if (!tenantId) return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");

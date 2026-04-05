@@ -8,7 +8,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getDefaultTenantId } from '@/lib/tenant';
 import { resend, EMAIL_CONFIG } from '@/lib/resend';
 import { PresentationEmail } from '@/emails/PresentationEmail';
 import { nanoid } from 'nanoid';
@@ -75,9 +74,14 @@ export async function POST(req: NextRequest) {
     }
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://opai.gard.cl';
-    // Use the tenantId from the webhook session (set during create-draft with auth context)
-    // instead of getDefaultTenantId() which returns a hardcoded value and causes tenant mismatch
-    const tenantId = webhookSession.tenantId || await getDefaultTenantId();
+    // Use the tenantId stored in the webhook session (set during create-draft with auth context).
+    const tenantId = webhookSession.tenantId;
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Sesión sin tenant — vuelva a crear la sesión desde el contexto autenticado' },
+        { status: 400 }
+      );
+    }
 
     // 4. Si ya existe una presentación draft para esta sesión (flujo CPQ), usar su uniqueId
     //    para el enlace del email. Así el link del correo y el de WhatsApp apuntan a la misma página.

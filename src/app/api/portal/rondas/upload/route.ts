@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFile } from "@/lib/storage";
-import { getDefaultTenantId } from "@/lib/tenant";
+import { auth } from "@/lib/auth";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -12,6 +12,12 @@ const ALLOWED_MIME = new Set([
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+    const tenantId = session.user.tenantId;
+
     const formData = await request.formData();
     const file = formData.get("file");
 
@@ -34,7 +40,6 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const tenantId = await getDefaultTenantId();
     const result = await uploadFile(buffer, file.name, file.type, "rondas", tenantId);
 
     return NextResponse.json({ success: true, data: { url: result.publicUrl, key: result.storageKey } });

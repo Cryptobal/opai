@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 
 export async function POST(
@@ -17,7 +16,10 @@ export async function POST(
   try {
     const { id: quoteId, positionId } = await params;
     const session = await auth();
-    const tenantId = session?.user?.tenantId ?? (await getDefaultTenantId());
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+    const tenantId = session.user.tenantId;
 
     // Verify quote belongs to tenant
     const quote = await prisma.cpqQuote.findFirst({

@@ -7,7 +7,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { getDefaultTenantId } from "@/lib/tenant";
 
 export async function PATCH(
   request: NextRequest,
@@ -17,7 +16,10 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
     const session = await auth();
-    const tenantId = session?.user?.tenantId ?? (await getDefaultTenantId());
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+    const tenantId = session.user.tenantId;
 
     const data: any = {};
     if (body?.name !== undefined) data.name = body.name?.trim();
@@ -67,7 +69,10 @@ export async function DELETE(
   try {
     const { id } = await params;
     const session = await auth();
-    const tenantId = session?.user?.tenantId ?? (await getDefaultTenantId());
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+    const tenantId = session.user.tenantId;
 
     const existing = await prisma.cpqCatalogItem.findFirst({
       where: {

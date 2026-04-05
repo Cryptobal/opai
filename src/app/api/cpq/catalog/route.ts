@@ -7,7 +7,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { getDefaultTenantId } from "@/lib/tenant";
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +14,10 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type");
     const active = searchParams.get("active");
     const session = await auth();
-    const tenantId = session?.user?.tenantId ?? (await getDefaultTenantId());
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+    const tenantId = session.user.tenantId;
 
     const items = await prisma.cpqCatalogItem.findMany({
       where: {
@@ -44,7 +46,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
-    const tenantId = session?.user?.tenantId ?? (await getDefaultTenantId());
+    if (!session?.user?.tenantId) {
+      return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
+    }
+    const tenantId = session.user.tenantId;
     const body = await request.json();
     const name = body?.name?.trim();
     const type = body?.type?.trim();

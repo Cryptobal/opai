@@ -16,7 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Webhook } from "svix";
 import { resend } from "@/lib/resend";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
+import { getSystemTenantId } from "@/lib/tenant";
 import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
 import { extractLeadFromEmail, parseFromHeader, isGarbageEmail } from "@/lib/email-lead-extractor";
 
@@ -101,7 +101,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, skipped: "wrong_recipient" });
     }
 
-    const tenantId = await getDefaultTenantId();
+    // TODO: resolve tenant from the recipient address (INBOUND_LEADS_EMAIL) when
+    // multi-tenant inbound routing is implemented. For now this webhook is
+    // single-tenant (Gard), so getSystemTenantId() is correct.
+    const tenantId = await getSystemTenantId();
 
     const emailResponse = await resend.emails.receiving.get(emailId);
     if (emailResponse.error || !emailResponse.data) {

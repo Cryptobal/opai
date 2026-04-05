@@ -5,7 +5,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { getGmailOAuthClient, GMAIL_SCOPES } from "@/lib/gmail";
 import { createHmac } from "crypto";
 
@@ -23,7 +22,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/opai/login?callbackUrl=/crm/deals`);
   }
 
-  const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
+  if (!tenantId) {
+    return NextResponse.redirect(`${origin}/opai/login?callbackUrl=/crm/deals`);
+  }
   const payload = JSON.stringify({
     userId: session.user.id,
     tenantId,
