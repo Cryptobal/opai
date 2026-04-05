@@ -14,7 +14,7 @@ const navLinks = [
 const funcSubItems = [
   { href: '/funcionalidades/ia-operacional', label: 'IA Operacional' },
   { href: '/control-rondas-gps', label: 'Control de Rondas GPS' },
-  { href: '/funcionalidades/face-id', label: 'Face ID Biom\u00e9trico' },
+  { href: '/funcionalidades/face-id', label: 'Face ID Biométrico' },
   { href: '/funcionalidades/alertas-cobertura', label: 'Alertas de Cobertura' },
   { href: '/funcionalidades/portales', label: 'Portales de cliente' },
   { href: '/ia-seguridad-privada', label: 'IA en Seguridad' },
@@ -30,7 +30,7 @@ export function MobileNav() {
       <button
         onClick={() => setOpen(!open)}
         className="mk-hide-desktop"
-        aria-label="Abrir men\u00fa"
+        aria-label="Abrir menú"
         style={{
           background: 'none',
           border: '1px solid var(--mk-border-h)',
@@ -190,7 +190,7 @@ export function MobileNav() {
               className="mk-btn-ghost"
               style={{ justifyContent: 'center', width: '100%', textAlign: 'center' }}
             >
-              Iniciar sesi\u00f3n
+              Iniciar sesión
             </a>
             <Link
               href="/registrarse"
@@ -198,7 +198,7 @@ export function MobileNav() {
               className="mk-btn-primary"
               style={{ justifyContent: 'center', width: '100%', textAlign: 'center' }}
             >
-              Comenzar gratis \u2014 30 d\u00edas \u2192
+              Comenzar gratis — 30 días →
             </Link>
           </div>
         </div>

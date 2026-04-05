@@ -90,13 +90,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <a href="https://opai.gard.cl" target="_blank" rel="noopener" className="mk-btn-ghost mk-hide-mobile" style={{ padding: '9px 18px', fontSize: '0.85rem' }}>
               Iniciar sesión
             </a>
-            <Link
-              href="/registrarse"
-              className="mk-btn-primary mk-hide-mobile"
-              style={{ padding: '10px 20px', fontSize: '0.85rem' }}
-            >
-              Comenzar gratis →
-            </Link>
             <MobileNav />
           </div>
         </div>
