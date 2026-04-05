@@ -1,4 +1,6 @@
 /* OPAI Marketing Design System */
+
+/* Dark mode (default) */
 :root {
   --mk-bg:           #050A12;
   --mk-bg-card:      #0C1523;
@@ -13,11 +15,32 @@
   --mk-muted:        #657BA0;
   --mk-border:       #182438;
   --mk-border-h:     #243650;
+  --mk-nav-bg:       rgba(5,10,18,0.92);
+  --mk-grid-line:    rgba(0,212,176,0.025);
   --mk-font-h:       var(--font-exo2), 'Exo 2', 'Barlow', sans-serif;
   --mk-font-b:       var(--font-dm-sans), 'DM Sans', sans-serif;
   --mk-font-m:       var(--font-jetbrains), 'JetBrains Mono', monospace;
   --mk-max:          1200px;
   --mk-section:      clamp(64px, 10vw, 120px);
+}
+
+/* Light mode */
+[data-mk-theme="light"] {
+  --mk-bg:           #F8F9FC;
+  --mk-bg-card:      #FFFFFF;
+  --mk-bg-card-h:    #F0F2F7;
+  --mk-teal:         #00A88A;
+  --mk-teal-dim:     rgba(0,168,138,0.08);
+  --mk-teal-mid:     rgba(0,168,138,0.16);
+  --mk-teal-glow:    rgba(0,168,138,0.22);
+  --mk-orange:       #E04420;
+  --mk-orange-dim:   rgba(224,68,32,0.08);
+  --mk-text:         #1A202C;
+  --mk-muted:        #5A6578;
+  --mk-border:       #E2E6EE;
+  --mk-border-h:     #CBD2DE;
+  --mk-nav-bg:       rgba(248,249,252,0.92);
+  --mk-grid-line:    rgba(0,168,138,0.04);
 }
 
 /* Grid de fondo */
@@ -26,8 +49,8 @@
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(0,212,176,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,212,176,0.025) 1px, transparent 1px);
+    linear-gradient(var(--mk-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--mk-grid-line) 1px, transparent 1px);
   background-size: 48px 48px;
   pointer-events: none;
   z-index: 0;
@@ -115,6 +138,7 @@
   transition: all 0.25s;
 }
 .mk-card:hover { border-color: var(--mk-border-h); transform: translateY(-2px); }
+[data-mk-theme="light"] .mk-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 
 /* MDX Blog Prose */
 .mk-prose { max-width: 720px; line-height: 1.8; color: var(--mk-muted); }

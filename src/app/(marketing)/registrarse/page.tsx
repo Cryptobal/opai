@@ -228,7 +228,7 @@ export default function RegistrarsePage() {
                     marginBottom: '12px',
                   }}
                 >
-                  &ldquo;En 15 años operando Gard Security nunca encontré un software que
+                  &ldquo;En 15 años operando empresas de seguridad privada nunca encontramos un software que
                   realmente entendiera nuestro negocio. Por eso construimos OPAI.&rdquo;
                 </p>
                 <p
@@ -239,9 +239,9 @@ export default function RegistrarsePage() {
                     color: 'var(--mk-text)',
                   }}
                 >
-                  Carlos Irigoyen
+                  Equipo Fundador
                   <span style={{ color: 'var(--mk-muted)', fontWeight: 400, marginLeft: '8px' }}>
-                    Fundador, OPAI
+                    OPAI
                   </span>
                 </p>
               </div>

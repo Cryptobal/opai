@@ -140,7 +140,7 @@ const faqs = [
   },
   {
     q: '¿Quién desarrolló OPAI?',
-    a: 'OPAI fue creado por LX3.ai, liderado por Carlos Irigoyen, con más de 15 años de experiencia en la industria de seguridad privada a través de Gard Security (OS10). Es un producto probado en producción real.',
+    a: 'OPAI fue creado por LX3.ai, con un equipo fundador que tiene más de 15 años de experiencia operando empresas OS10 de seguridad privada en Chile. Es un producto probado en producción real.',
   },
 ]
 
@@ -242,8 +242,8 @@ export default function ERPSeguridadPrivadaPage() {
               marginBottom: '16px',
             }}
           >
-            OPAI nació de la experiencia real operando Gard Security, una empresa OS10 con
-            más de 15 años en la industria. Cada funcionalidad fue diseñada para resolver
+            OPAI nació de la experiencia real operando empresas OS10 de seguridad privada
+            por más de 15 años. Cada funcionalidad fue diseñada para resolver
             problemas reales: guardias que no llegan, rondas que no se cumplen, nóminas
             que no cuadran y clientes que no reciben información a tiempo.
           </p>

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { MobileNav } from '@/components/marketing/MobileNav'
+import { MarketingThemeToggle } from '@/components/marketing/ThemeToggle'
 import './marketing.css'
 
 export const metadata: Metadata = {
@@ -61,10 +62,12 @@ const navLinks = [
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="mk-grid-bg" style={{ background: 'var(--mk-bg)', color: 'var(--mk-text)', minHeight: '100vh', fontFamily: 'var(--mk-font-b)' }}>
+      {/* Prevent theme flash — static string, no user input */}
+      <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('mk-theme');if(t)document.documentElement.setAttribute('data-mk-theme',t)}catch(e){}})()` }} />
       {/* NAV */}
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        background: 'rgba(5,10,18,0.92)',
+        background: 'var(--mk-nav-bg)',
         backdropFilter: 'blur(16px)',
         borderBottom: '1px solid var(--mk-border)',
       }}>
@@ -80,6 +83,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             ))}
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <MarketingThemeToggle />
             <a href="https://opai.gard.cl" target="_blank" rel="noopener" className="mk-btn-ghost mk-hide-mobile" style={{ padding: '9px 18px', fontSize: '0.85rem' }}>
               Iniciar sesión
             </a>

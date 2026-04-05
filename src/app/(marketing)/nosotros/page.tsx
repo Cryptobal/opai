@@ -5,12 +5,12 @@ import { TrialBanner } from '@/components/marketing/TrialBanner'
 export const metadata: Metadata = {
   title: 'Nosotros — Quiénes construyeron OPAI | LX3.ai',
   description:
-    'OPAI fue creado por LX3.ai, liderado por Carlos Irigoyen, con más de 15 años de experiencia en seguridad privada a través de Gard Security (OS10). Construido desde la trinchera.',
+    'OPAI fue creado por un equipo fundador con más de 15 años de experiencia operando empresas OS10 de seguridad privada en Chile. Construido desde la trinchera.',
   alternates: { canonical: 'https://www.opai.cl/nosotros' },
   openGraph: {
     title: 'Nosotros — Quiénes construyeron OPAI | LX3.ai',
     description:
-      'La historia detrás de OPAI: 15+ años en seguridad privada, experiencia real y tecnología de clase mundial.',
+      'La historia detrás de OPAI: un equipo con 15+ años en seguridad privada, experiencia real y tecnología de clase mundial.',
     url: 'https://www.opai.cl/nosotros',
   },
 }
@@ -27,8 +27,8 @@ const stats = [
 const timeline = [
   {
     period: 'Los inicios',
-    title: 'Gard Security y la trinchera',
-    text: 'Carlos Irigoyen opera Gard Security, empresa OS10 de seguridad privada por más de 15 años. Vivió en carne propia los problemas de la industria: guardias que no llegan, rondas que no se cumplen, planillas en Excel, nóminas manuales y clientes sin visibilidad.',
+    title: 'La trinchera de la seguridad privada',
+    text: 'Nuestro equipo fundador viene de operar empresas OS10 de seguridad privada por más de 15 años. Vivimos en carne propia los problemas de la industria: guardias que no llegan, rondas que no se cumplen, planillas en Excel, nóminas manuales y clientes sin visibilidad.',
   },
   {
     period: 'La frustración',
@@ -193,7 +193,7 @@ export default function NosotrosPage() {
                   marginBottom: '4px',
                 }}
               >
-                Carlos Irigoyen
+                Equipo Fundador
               </h3>
               <p
                 style={{
@@ -204,12 +204,12 @@ export default function NosotrosPage() {
                   letterSpacing: '0.04em',
                 }}
               >
-                Fundador
+                Operadores de seguridad privada
               </p>
               <p style={{ color: 'var(--mk-muted)', fontSize: '0.9rem', lineHeight: 1.75 }}>
-                Más de 15 años en la industria de seguridad privada como operador de
-                Gard Security (OS10). Conoce cada dolor de la industria porque los vivió.
-                Decidió que el software que necesitaba no existía y lo construyó.
+                Más de 15 años operando empresas OS10 de seguridad privada en Chile.
+                Conocemos cada dolor de la industria porque los vivimos. Decidimos que
+                el software que necesitábamos no existía y lo construimos.
               </p>
             </div>
             <div className="mk-card" style={{ padding: 'clamp(28px, 3vw, 36px)' }}>
