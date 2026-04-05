@@ -10,37 +10,37 @@ import { SignatureCanvas } from "@/components/docs/SignatureCanvas";
 import { ConfigTabs } from "@/components/configuracion/ConfigTabs";
 
 const FIELDS = [
-  { key: "empresa.razonSocial", label: "Razón Social", placeholder: "Ej: Gard Seguridad Ltda." },
+  { key: "empresa.razonSocial", label: "Razón Social", placeholder: "Ej: Mi Empresa Seguridad Ltda." },
   { key: "empresa.rut", label: "RUT Empresa", placeholder: "Ej: 77.XXX.XXX-X" },
   { key: "empresa.direccion", label: "Dirección", placeholder: "Ej: Av. Providencia 1234, Of. 501" },
   { key: "empresa.comuna", label: "Comuna", placeholder: "Ej: Providencia" },
   { key: "empresa.ciudad", label: "Ciudad", placeholder: "Ej: Santiago" },
   { key: "empresa.telefono", label: "Teléfono empresa", placeholder: "Ej: +56 2 1234 5678" },
-  { key: "empresa.repLegalNombre", label: "Nombre Representante Legal", placeholder: "Ej: Jorge Andrés Montenegro Fuenzalida" },
+  { key: "empresa.repLegalNombre", label: "Nombre Representante Legal", placeholder: "Ej: Juan Pérez González" },
   { key: "empresa.repLegalRut", label: "RUT Representante Legal", placeholder: "Ej: 13.051.246-1" },
 ];
 
 const BRAND_FIELDS = [
-  { key: "empresa.companyName", label: "Nombre corto (razón social)", placeholder: "Ej: Gard SpA", help: "Para documentos legales y correos." },
-  { key: "empresa.commercialName", label: "Nombre comercial / marca", placeholder: "Ej: Gard Security", help: "Para presentaciones, PDFs y comunicaciones." },
-  { key: "empresa.brandNameUpper", label: "Marca (mayúsculas)", placeholder: "Ej: GARD", help: "Para headers y logos en mayúscula." },
-  { key: "empresa.website", label: "Sitio web", placeholder: "Ej: www.gard.cl" },
+  { key: "empresa.companyName", label: "Nombre corto (razón social)", placeholder: "Ej: Mi Empresa SpA", help: "Para documentos legales y correos." },
+  { key: "empresa.commercialName", label: "Nombre comercial / marca", placeholder: "Ej: Mi Empresa Security", help: "Para presentaciones, PDFs y comunicaciones." },
+  { key: "empresa.brandNameUpper", label: "Marca (mayúsculas)", placeholder: "Ej: MIEMPRESA", help: "Para headers y logos en mayúscula." },
+  { key: "empresa.website", label: "Sitio web", placeholder: "Ej: www.miempresa.cl" },
   { key: "empresa.logoUrl", label: "URL del logo", placeholder: "https://...", help: "URL pública del logo de la empresa." },
 ];
 
 const CONTACT_FIELDS = [
-  { key: "empresa.email", label: "Email comercial principal", placeholder: "Ej: comercial@gard.cl", help: "Email principal que se muestra en presentaciones y PDFs." },
-  { key: "empresa.emailOps", label: "Email operaciones", placeholder: "Ej: operaciones@gard.cl", help: "Recibe reportes de control nocturno y alertas operacionales." },
-  { key: "empresa.emailContact", label: "Email contacto / general", placeholder: "Ej: contacto@gard.cl", help: "Email genérico para footer de cotizaciones." },
-  { key: "empresa.phone", label: "Teléfono comercial", placeholder: "Ej: +56 98 230 7771", help: "Con formato, para mostrar en documentos." },
-  { key: "empresa.phoneRaw", label: "Teléfono WhatsApp (sin formato)", placeholder: "Ej: 56982307771", help: "Sin +, espacios ni guiones. Para links wa.me." },
-  { key: "empresa.whatsappLink", label: "Link WhatsApp", placeholder: "Ej: https://wa.me/56982307771", help: "Se deriva automáticamente del teléfono si no se configura." },
+  { key: "empresa.email", label: "Email comercial principal", placeholder: "Ej: comercial@miempresa.cl", help: "Email principal que se muestra en presentaciones y PDFs." },
+  { key: "empresa.emailOps", label: "Email operaciones", placeholder: "Ej: operaciones@miempresa.cl", help: "Recibe reportes de control nocturno y alertas operacionales." },
+  { key: "empresa.emailContact", label: "Email contacto / general", placeholder: "Ej: contacto@miempresa.cl", help: "Email genérico para footer de cotizaciones." },
+  { key: "empresa.phone", label: "Teléfono comercial", placeholder: "Ej: +56 9 1234 5678", help: "Con formato, para mostrar en documentos." },
+  { key: "empresa.phoneRaw", label: "Teléfono WhatsApp (sin formato)", placeholder: "Ej: 56912345678", help: "Sin +, espacios ni guiones. Para links wa.me." },
+  { key: "empresa.whatsappLink", label: "Link WhatsApp", placeholder: "Ej: https://wa.me/56912345678", help: "Se deriva automáticamente del teléfono si no se configura." },
 ];
 
 const EMAIL_FIELDS = [
   { key: "empresa.emailFromName", label: "Nombre del remitente", placeholder: "Ej: OPAI", help: "El nombre que aparece en el email (ej: 'OPAI')" },
-  { key: "empresa.emailFrom", label: "Correo de envío (From)", placeholder: "Ej: opai@gard.cl", help: "Dirección desde la cual se envían los correos. Debe estar verificada en Resend." },
-  { key: "empresa.emailReplyTo", label: "Correo de respuesta (Reply-To)", placeholder: "Ej: comercial@gard.cl", help: "Dirección a la que llegan las respuestas de los clientes." },
+  { key: "empresa.emailFrom", label: "Correo de envío (From)", placeholder: "Ej: notificaciones@miempresa.cl", help: "Dirección desde la cual se envían los correos. Debe estar verificada en Resend." },
+  { key: "empresa.emailReplyTo", label: "Correo de respuesta (Reply-To)", placeholder: "Ej: comercial@miempresa.cl", help: "Dirección a la que llegan las respuestas de los clientes." },
 ];
 
 const BRANDING_IMAGE_FIELDS = [
@@ -275,10 +275,10 @@ export function EmpresaConfigTabs() {
         <div className="rounded-md bg-muted/30 p-3 text-xs text-muted-foreground">
           <p className="font-medium mb-1">Ejemplo de cómo se ve:</p>
           <p>
-            De: <span className="text-foreground font-mono">{form["empresa.emailFromName"] || "OPAI"} &lt;{form["empresa.emailFrom"] || "opai@gard.cl"}&gt;</span>
+            De: <span className="text-foreground font-mono">{form["empresa.emailFromName"] || "OPAI"} &lt;{form["empresa.emailFrom"] || "correo@miempresa.cl"}&gt;</span>
           </p>
           <p>
-            Responder a: <span className="text-foreground font-mono">{form["empresa.emailReplyTo"] || "comercial@gard.cl"}</span>
+            Responder a: <span className="text-foreground font-mono">{form["empresa.emailReplyTo"] || "correo@miempresa.cl"}</span>
           </p>
         </div>
 

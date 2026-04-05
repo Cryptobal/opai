@@ -12,16 +12,7 @@ import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth
 import { createAccountSchema, updateAccountSchema } from "@/lib/validations/crm";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 
-const OWNER_OVERRIDE_EMAILS = new Set(["carlos.irigoyen@gard.cl", "carlos@gard.cl"]);
 type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
-
-function normalizeIdentity(value: string | null | undefined) {
-  return (value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
-}
 
 function normalizeLifecycle(input?: string | null): AccountLifecycle | null {
   if (input === "prospect" || input === "client_active" || input === "client_inactive") {
@@ -151,11 +142,7 @@ export async function PATCH(
           select: { role: true, email: true, name: true },
         });
 
-        const normalizedEmail = normalizeIdentity(admin?.email || ctx.userEmail);
-        const normalizedName = normalizeIdentity(admin?.name);
-        const canDowngrade =
-          admin?.role === "owner" &&
-          (OWNER_OVERRIDE_EMAILS.has(normalizedEmail) || normalizedName === "carlos irigoyen");
+        const canDowngrade = admin?.role === "owner";
 
         if (!canDowngrade) {
           throw new Error("FORBIDDEN_CLIENT_TO_PROSPECT");
@@ -208,7 +195,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           success: false,
-          error: "Solo Carlos Irigoyen (owner) puede revertir una cuenta cliente a prospecto.",
+          error: "Solo un owner puede revertir una cuenta cliente a prospecto.",
         },
         { status: 403 }
       );
