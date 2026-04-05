@@ -10,6 +10,6 @@ export default async function MarcacionPage({ params }: Props) {
 }
 
 export const metadata = {
-  title: "Marcación de Asistencia — Gard Security",
+  title: "Marcación de Asistencia — OPAI",
   description: "Sistema de marcación de asistencia digital",
 };

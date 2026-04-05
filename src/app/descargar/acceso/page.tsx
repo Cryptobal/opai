@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { DescargarPageClient } from '@/components/pwa/DescargarPageClient';
 
 export const metadata: Metadata = {
-  title: 'Descargar Gard Control de Acceso',
-  description: 'Control de acceso e ingreso — Gard Security',
+  title: 'Descargar OPAI Control de Acceso',
+  description: 'Control de acceso e ingreso — OPAI',
   manifest: '/manifest-acceso.json',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Control Acceso' },
   icons: { apple: '/icons/apple-touch-icon.png' },

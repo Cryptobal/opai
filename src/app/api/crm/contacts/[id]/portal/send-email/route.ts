@@ -34,7 +34,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: "El portal no está habilitado o no tiene PIN" }, { status: 400 });
     }
 
-    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/cliente`;
+    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/portal/cliente`;
     const ejecutivo = await prisma.admin.findUnique({
       where: { id: ctx.userId },
       select: { name: true },

@@ -5,6 +5,6 @@ export default function GuardPortalPage() {
 }
 
 export const metadata = {
-  title: "Portal del Guardia — Gard Security",
+  title: "Portal del Guardia — OPAI",
   description: "Portal de autoservicio para guardias de seguridad",
 };

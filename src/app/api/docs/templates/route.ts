@@ -34,11 +34,11 @@ const WA_SEEDS: {
     name: "WhatsApp — Nuevo lead (comercial al cliente)",
     category: "lead_commercial",
     description: "Mensaje prellenado al hacer clic en WhatsApp del email de nuevo lead (enviado al comercial).",
-    body: `Hola {nombre}, ¿cómo estás?\n\nRecibimos tu solicitud de cotización para {empresa}, ubicada en {direccion}.\n\nEstamos preparando una propuesta personalizada para ti. Si tienes alguna duda en el proceso, responde este mensaje y te ayudamos de inmediato.\n\nServicio: {servicio} | Dotación: {dotacion}\n\nhttp://gard.cl`,
+    body: `Hola {nombre}, ¿cómo estás?\n\nRecibimos tu solicitud de cotización para {empresa}, ubicada en {direccion}.\n\nEstamos preparando una propuesta personalizada para ti. Si tienes alguna duda en el proceso, responde este mensaje y te ayudamos de inmediato.\n\nServicio: {servicio} | Dotación: {dotacion}\n\n{website}`,
   },
   {
     slug: "lead_client",
-    name: "WhatsApp — Nuevo lead (cliente a Gard)",
+    name: "WhatsApp — Nuevo lead (cliente a empresa)",
     category: "lead_client",
     description: "Mensaje prellenado que el cliente ve al hacer clic en WhatsApp del email de confirmación.",
     body: `Hola, soy {nombre} {apellido} de la empresa {empresa}, les solicité una cotización por la página.\n\n{maps_link}`,

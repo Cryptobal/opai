@@ -62,7 +62,7 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
           type="email"
           autoComplete="email"
           required
-          placeholder="admin@gard.cl"
+          placeholder="admin@empresa.cl"
         />
 
         <div className="mb-4">

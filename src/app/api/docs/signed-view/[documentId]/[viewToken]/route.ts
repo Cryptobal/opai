@@ -111,7 +111,7 @@ export async function GET(
         })),
         completedAt: request?.completedAt ?? doc.signedAt,
         contentHash,
-        verificationUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl"}/signed/${documentId}/${viewToken}`,
+        verificationUrl: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ""}/signed/${documentId}/${viewToken}`,
       },
     });
   } catch (error) {

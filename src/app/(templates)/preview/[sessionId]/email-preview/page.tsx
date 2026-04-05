@@ -65,7 +65,7 @@ export default async function EmailPreviewPage({ params }: EmailPreviewPageProps
           <div className="bg-slate-50 border-b border-slate-200 p-4 space-y-2 text-sm">
             <div>
               <span className="text-slate-500 font-semibold">De:</span>
-              <span className="ml-2 text-slate-900">comercial@gard.cl</span>
+              <span className="ml-2 text-slate-900">comercial@opai.cl</span>
             </div>
             <div>
               <span className="text-slate-500 font-semibold">Para:</span>
@@ -73,7 +73,7 @@ export default async function EmailPreviewPage({ params }: EmailPreviewPageProps
             </div>
             <div>
               <span className="text-slate-500 font-semibold">Asunto:</span>
-              <span className="ml-2 text-slate-900">{quoteSubject} - Gard Security</span>
+              <span className="ml-2 text-slate-900">{quoteSubject} - OPAI</span>
             </div>
           </div>
 

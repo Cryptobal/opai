@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { RegistroDemoForm } from "./RegistroDemoForm";
 
 export const metadata: Metadata = {
-  title: "Registro Demo — Portal de Clientes Gard Security",
+  title: "Registro Demo — Portal de Clientes OPAI",
   description:
-    "Regístrese en 30 segundos y acceda a una demo del Portal de Clientes de Gard Security. Monitoree rondas, asistencia, incidencias y más.",
+    "Regístrese en 30 segundos y acceda a una demo del Portal de Clientes de OPAI. Monitoree rondas, asistencia, incidencias y más.",
   robots: { index: true, follow: true },
 };
 
@@ -22,7 +22,7 @@ export default async function RegistroDemoPage({
         <div className="mx-auto max-w-5xl px-6 py-4 flex items-center justify-between">
           <img
             src="/Logo%20Gard%20Blanco.png"
-            alt="Gard Security"
+            alt="OPAI"
             className="h-8"
           />
           <span className="text-xs text-slate-500 tracking-wider uppercase hidden sm:block">
@@ -46,7 +46,7 @@ export default async function RegistroDemoPage({
               Conozca el Portal de Clientes
             </h1>
             <p className="text-slate-400 text-sm sm:text-base max-w-md mx-auto leading-relaxed">
-              Regístrese en 30 segundos y explore cómo Gard le da control total
+              Regístrese en 30 segundos y explore cómo OPAI le da control total
               sobre la seguridad de sus instalaciones.
             </p>
           </div>
@@ -84,15 +84,7 @@ export default async function RegistroDemoPage({
       {/* Footer */}
       <footer className="border-t border-white/5 py-6 text-center">
         <p className="text-xs text-slate-600">
-          © {new Date().getFullYear()} Gard Security SpA · {" "}
-          <a
-            href="https://www.gard.cl"
-            className="text-slate-500 hover:text-teal-400 transition-colors"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            www.gard.cl
-          </a>
+          © {new Date().getFullYear()} OPAI
         </p>
       </footer>
     </div>

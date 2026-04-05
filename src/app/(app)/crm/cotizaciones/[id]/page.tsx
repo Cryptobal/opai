@@ -90,7 +90,7 @@ export default async function CrmCotizacionDetailPage({
     installationName: quote.installation?.name ?? null,
     tenantBrand: tenantCfg.commercialName,
   });
-  const tenantBrandName = tenantCfg.commercialName?.trim() || "Gard Security";
+  const tenantBrandName = tenantCfg.commercialName?.trim() || "OPAI";
 
   return (
     <>

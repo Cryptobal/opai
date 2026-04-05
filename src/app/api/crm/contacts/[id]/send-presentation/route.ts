@@ -156,7 +156,7 @@ export async function POST(
 
     // 6. Send email
     const tenantConfig = await getTenantCompanyConfig(ctx.tenantId);
-    const basePortalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/cliente`;
+    const basePortalUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/portal/cliente`;
     const portalUrl = `${basePortalUrl}?email=${encodeURIComponent(contact.email)}`;
     const contactName = `${contact.firstName} ${contact.lastName}`.trim();
 

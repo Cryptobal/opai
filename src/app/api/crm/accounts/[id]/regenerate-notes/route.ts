@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { openai } from "@/lib/openai";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 const ACCOUNT_LOGO_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_SUFFIX = "]]";
@@ -43,6 +44,7 @@ export async function POST(
       );
     }
 
+    const cfg = await getTenantCompanyConfig(ctx.tenantId);
     const currentNotes = stripLogoMarker(account.notes);
     const context = [
       `Empresa: ${account.name}`,
@@ -54,7 +56,7 @@ export async function POST(
       .filter(Boolean)
       .join("\n");
 
-    const prompt = `Eres el Gerente de Operaciones de Gard Security (https://gard.cl), empresa líder en seguridad privada profesional en Chile.
+    const prompt = `Eres el Gerente de Operaciones de ${cfg.commercialName}, empresa líder en seguridad privada profesional en Chile.
 
 Tu tarea: generar o reescribir la descripción de la empresa para usarla en propuestas comerciales (Resumen Ejecutivo). El texto debe ser breve, directo y útil para personalizar la propuesta.
 

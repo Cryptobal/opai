@@ -61,7 +61,7 @@ export default function EmailTemplatePreviewPage() {
           <div className="bg-slate-50 border-b border-slate-200 p-4 space-y-2 text-sm">
             <div className="flex gap-2">
               <span className="text-slate-500 font-semibold w-16">De:</span>
-              <span className="text-slate-900">comercial@gard.cl</span>
+              <span className="text-slate-900">comercial@opai.cl</span>
             </div>
             <div className="flex gap-2">
               <span className="text-slate-500 font-semibold w-16">Para:</span>
@@ -69,7 +69,7 @@ export default function EmailTemplatePreviewPage() {
             </div>
             <div className="flex gap-2">
               <span className="text-slate-500 font-semibold w-16">Asunto:</span>
-              <span className="text-slate-900">{exampleData.subject} - Gard Security</span>
+              <span className="text-slate-900">{exampleData.subject} - OPAI</span>
             </div>
           </div>
 

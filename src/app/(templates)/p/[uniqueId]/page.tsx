@@ -171,10 +171,10 @@ export default async function PublicPresentationPage({ params, searchParams }: P
             Esta presentación fue creada con
           </p>
           <p className="font-bold text-lg bg-gradient-to-r from-teal-400 to-blue-400 bg-clip-text text-transparent">
-            Gard Docs
+            OPAI Docs
           </p>
           <p className="text-white/40 text-xs mt-2">
-            © {new Date().getFullYear()} Gard Security. Todos los derechos reservados.
+            © {new Date().getFullYear()} OPAI. Todos los derechos reservados.
           </p>
         </div>
       </footer>
@@ -187,7 +187,7 @@ export default async function PublicPresentationPage({ params, searchParams }: P
 export async function generateMetadata({ params }: PublicPresentationPageProps) {
   const { uniqueId } = await params;
   const headersList = await headers();
-  const host = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'opai.gard.cl';
+  const host = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'opai.cl';
   const protocol = headersList.get('x-forwarded-proto') ?? 'https';
   const baseUrl = `${protocol}://${host}`;
   const publicUrl = `${baseUrl}/p/${uniqueId}`;
@@ -211,7 +211,7 @@ export async function generateMetadata({ params }: PublicPresentationPageProps) 
   const subject = isCpq
     ? (clientData?.quote?.subject || 'Propuesta')
     : (clientData?.quote?.Subject || 'Propuesta');
-  const title = `${subject} - ${companyName} | Gard Security`;
+  const title = `${subject} - ${companyName} | OPAI`;
   const description = `Propuesta comercial personalizada para ${companyName}`;
 
   return {
@@ -222,13 +222,13 @@ export async function generateMetadata({ params }: PublicPresentationPageProps) 
       description,
       type: 'website',
       url: publicUrl,
-      siteName: 'Gard Security',
+      siteName: 'OPAI',
       images: [
         {
           url: ogImageUrl,
           width: 1200,
           height: 630,
-          alt: `Propuesta de Gard Security para ${companyName}`,
+          alt: `Propuesta de OPAI para ${companyName}`,
         },
       ],
     },

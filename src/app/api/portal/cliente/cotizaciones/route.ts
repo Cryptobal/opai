@@ -50,7 +50,7 @@ export async function GET() {
       select: { quoteId: true, uniqueId: true, createdAt: true },
       orderBy: { createdAt: "desc" },
     });
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
     for (const p of presentations) {
       if (p.quoteId && !presentationMap.has(p.quoteId)) {
         presentationMap.set(p.quoteId, `${siteUrl}/p/${p.uniqueId}`);

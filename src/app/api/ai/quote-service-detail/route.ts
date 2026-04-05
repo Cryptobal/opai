@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { createCrmHistoryLog } from "@/lib/crm-history";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -161,7 +162,8 @@ export async function POST(request: NextRequest) {
       ? includedItems.map((i) => `- ${i}`).join("\n")
       : "- No hay ítems adicionales configurados";
 
-    const prompt = `Eres el Gerente Comercial de Gard Security, empresa de seguridad privada profesional en Chile.
+    const cfg = await getTenantCompanyConfig(ctx.tenantId);
+    const prompt = `Eres el Gerente Comercial de ${cfg.commercialName}, empresa de seguridad privada profesional en Chile.
 
 CONTEXTO: Necesitas crear un detalle profesional de lo que incluye el servicio de seguridad propuesto. Este texto irá en la propuesta económica, justo debajo de la descripción del servicio y antes del total.
 

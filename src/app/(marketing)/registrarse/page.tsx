@@ -95,7 +95,7 @@ export default function RegistrarsePage() {
       whatsapp: form.whatsapp,
       guardias: form.guardias,
     })
-    window.location.href = `https://opai.gard.cl/registro?${params.toString()}`
+    window.location.href = `${process.env.NEXT_PUBLIC_APP_URL || ""}/registro?${params.toString()}`
   }
 
   const inputStyle: React.CSSProperties = {

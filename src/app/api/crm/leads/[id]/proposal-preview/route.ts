@@ -360,14 +360,14 @@ export async function POST(
 
     /* ── Company config ── */
     const companyConfig = await getTenantCompanyConfig(ctx.tenantId);
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
     const abs = (url: string | undefined | null): string => {
       if (!url) return "";
       if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
       return `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
     };
 
-    const gardLogo = abs(companyConfig.brandingLogoWhite) || abs(companyConfig.brandingLogoFull) || abs(companyConfig.logoUrl) || `${baseUrl}/logo-gard-blanco.svg`;
+    const gardLogo = abs(companyConfig.brandingLogoWhite) || abs(companyConfig.brandingLogoFull) || abs(companyConfig.logoUrl) || "";
 
     /* ── Client logos from DB ── */
     const clientesConLogo = await prisma.crmAccount.findMany({

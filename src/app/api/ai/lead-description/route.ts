@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { aiService } from "@/lib/ai-service";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const cfg = await getTenantCompanyConfig(ctx.tenantId);
     const totalGuardias = positions.reduce(
       (sum: number, p: any) => sum + (Number(p.cantidad) || 1) * (Number(p.numPuestos) || 1),
       0
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
       : "";
 
     if (type === "company") {
-      const prompt = `Eres el Gerente de Operaciones de Gard Security (https://gard.cl), empresa líder en seguridad privada profesional en Chile.
+      const prompt = `Eres el Gerente de Operaciones de ${cfg.commercialName}, empresa líder en seguridad privada profesional en Chile.
 
 CONTEXTO: Este texto irá en la propuesta comercial, justo antes de la tabla de puestos.
 
@@ -119,7 +121,7 @@ Requisitos:
         includedItems.push(`Costos operativos incluidos: ${enabledCosts}`);
       }
 
-      const prompt = `Eres el Gerente de Operaciones de Gard Security. Genera el DETALLE DE SERVICIO para una propuesta comercial.
+      const prompt = `Eres el Gerente de Operaciones de ${cfg.commercialName}. Genera el DETALLE DE SERVICIO para una propuesta comercial.
 
 FORMATO: Texto plano, sin markdown. Párrafos separados por doble salto de línea.
 

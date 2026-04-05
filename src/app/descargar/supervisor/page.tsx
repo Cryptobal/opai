@@ -3,7 +3,7 @@ import { DescargarPageClient } from '@/components/pwa/DescargarPageClient';
 
 export const metadata: Metadata = {
   title: 'Descargar OPAI Supervisor',
-  description: 'Portal de supervisores — Gard Security',
+  description: 'Portal de supervisores — OPAI',
   manifest: '/manifest-supervisor.json',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'OPAI Supervisor' },
   icons: { apple: '/icons/apple-touch-icon.png' },

@@ -232,7 +232,7 @@ function pickBestLogoCandidate(candidates: LogoCandidate[]): string | null {
 async function downloadLogoToR2(logoUrl: string, tenantId?: string): Promise<string | null> {
   const response = await fetch(logoUrl, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; OPAI-Bot/1.0; +https://gard.cl)",
+      "User-Agent": `Mozilla/5.0 (compatible; OPAI-Bot/1.0; +${process.env.NEXT_PUBLIC_SITE_URL || ""})`,
       Accept: "image/svg+xml,image/png,image/webp,image/jpeg,image/*",
     },
     cache: "no-store",
@@ -299,7 +299,7 @@ async function fetchWithRetry(
   timeoutMs = 20000,
 ): Promise<string> {
   const userAgents = [
-    "Mozilla/5.0 (compatible; OPAI-Bot/1.0; +https://gard.cl)",
+    `Mozilla/5.0 (compatible; OPAI-Bot/1.0; +${process.env.NEXT_PUBLIC_SITE_URL || ""})`,
     BROWSER_UA,
   ];
 
@@ -454,7 +454,7 @@ async function fetchWebHints(companyName: string): Promise<string[]> {
   const url = `https://duckduckgo.com/html/?q=${query}`;
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; OPAI-Bot/1.0; +https://gard.cl)",
+      "User-Agent": `Mozilla/5.0 (compatible; OPAI-Bot/1.0; +${process.env.NEXT_PUBLIC_SITE_URL || ""})`,
       Accept: "text/html",
     },
     cache: "no-store",

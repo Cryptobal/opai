@@ -88,7 +88,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
           <img src="/icons/logo-horizontal-white.png" alt="OPAI" className="h-10 object-contain mx-auto" />
         </div>
         <h1 className="mt-3 text-2xl font-bold text-white">Control de Acceso</h1>
-        <p className="mt-1 text-sm text-gray-400">OPAI · Gard Security</p>
+        <p className="mt-1 text-sm text-gray-400">OPAI</p>
       </div>
 
       {/* Login form */}

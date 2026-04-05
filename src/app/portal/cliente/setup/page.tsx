@@ -75,7 +75,7 @@ function SetupContent() {
           <div className="flex justify-center mb-3">
             <Shield className="h-10 w-10 text-blue-400" />
           </div>
-          <CardTitle className="text-white text-xl">Portal Gard Security</CardTitle>
+          <CardTitle className="text-white text-xl">Portal de Clientes OPAI</CardTitle>
           <CardDescription className="text-zinc-400 text-sm">
             {state === 'loading' && 'Verificando enlace de acceso...'}
             {state === 'valid' && (firstName ? `Bienvenido, ${firstName}` : 'Crea tu PIN de acceso')}

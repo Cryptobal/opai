@@ -172,18 +172,15 @@ export async function POST(request: NextRequest) {
     });
 
     // 7. Construir URL de preview
-    // Prioridad: SITE_URL > dominio hardcoded
-    // En producción usar opai.gard.cl
+    // Prioridad: SITE_URL > NEXT_PUBLIC_SITE_URL
     let baseUrl: string;
-    
+
     if (process.env.SITE_URL) {
       baseUrl = process.env.SITE_URL;
-    } else if (process.env.VERCEL_ENV === 'production') {
-      baseUrl = 'https://opai.gard.cl';
     } else if (process.env.NEXT_PUBLIC_SITE_URL) {
       baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
     } else {
-      baseUrl = 'https://opai.gard.cl';
+      baseUrl = process.env.NEXT_PUBLIC_APP_URL || "";
     }
     
     const previewUrl = `${baseUrl}/preview/${sessionId}`;

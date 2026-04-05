@@ -10,7 +10,7 @@ export const contentType = 'image/png';
 
 export default async function OpenGraphImage() {
   const headersList = await headers();
-  const host = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'opai.gard.cl';
+  const host = headersList.get('x-forwarded-host') ?? headersList.get('host') ?? 'opai.cl';
   const protocol = headersList.get('x-forwarded-proto') ?? 'https';
   const logoUrl = `${protocol}://${host}/logos/logo-escudo-azul.svg`;
 
@@ -29,9 +29,9 @@ export default async function OpenGraphImage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <img src={logoUrl} width="120" height="120" alt="Escudo Gard Security" />
+          <img src={logoUrl} width="120" height="120" alt="OPAI" />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 34, fontWeight: 700 }}>Gard Security</span>
+            <span style={{ fontSize: 34, fontWeight: 700 }}>OPAI</span>
             <span style={{ fontSize: 24, color: '#334155' }}>Propuesta Comercial</span>
           </div>
         </div>

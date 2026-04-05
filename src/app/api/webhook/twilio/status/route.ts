@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
  *
  * Configure in Twilio Console:
  *   Messaging → WhatsApp Sender → Status callback URL:
- *   https://opai.gard.cl/api/webhook/twilio/status (POST)
+ *   {NEXT_PUBLIC_SITE_URL}/api/webhook/twilio/status (POST)
  */
 export async function POST(request: NextRequest) {
   try {

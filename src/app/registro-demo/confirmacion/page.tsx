@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Registro Exitoso — Portal de Clientes Gard Security",
+  title: "Registro Exitoso — Portal de Clientes OPAI",
   description: "Su cuenta demo ha sido creada. Revise su email para obtener sus credenciales de acceso.",
   robots: { index: false, follow: false },
 };
@@ -54,7 +54,7 @@ export default function ConfirmacionPage() {
         <div className="mx-auto max-w-5xl px-6 py-4 flex items-center justify-between">
           <img
             src="/Logo%20Gard%20Blanco.png"
-            alt="Gard Security"
+            alt="OPAI"
             className="h-8"
           />
           <span className="text-xs text-slate-500 tracking-wider uppercase hidden sm:block">
@@ -121,15 +121,7 @@ export default function ConfirmacionPage() {
       {/* Footer */}
       <footer className="border-t border-white/5 py-6 text-center">
         <p className="text-xs text-slate-600">
-          © {new Date().getFullYear()} Gard Security SpA · {" "}
-          <a
-            href="https://www.gard.cl"
-            className="text-slate-500 hover:text-teal-400 transition-colors"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            www.gard.cl
-          </a>
+          © {new Date().getFullYear()} OPAI
         </p>
       </footer>
     </div>

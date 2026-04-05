@@ -77,7 +77,7 @@ export async function requestPasswordReset(email: string) {
           </p>
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
           <p style="color: #94a3b8; font-size: 12px; text-align: center;">
-            OPAI · Gard Security
+            OPAI
           </p>
         </div>
       `,

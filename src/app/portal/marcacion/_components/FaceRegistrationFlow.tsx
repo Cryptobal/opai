@@ -73,7 +73,7 @@ export function FaceRegistrationFlow({
           </h2>
           <div className="text-sm text-white/60 space-y-3">
             <p>
-              Gard Security SpA utilizara tecnologia de reconocimiento facial
+              OPAI utilizara tecnologia de reconocimiento facial
               exclusivamente para verificar su identidad al momento de registrar
               asistencia laboral.
             </p>

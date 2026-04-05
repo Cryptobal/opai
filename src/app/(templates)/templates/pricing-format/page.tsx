@@ -34,7 +34,7 @@ export default async function PricingFormatPage(props: PricingFormatPageProps) {
             <div className="relative w-32 h-12">
               <Image
                 src="/Logo Gard Blanco.png"
-                alt="Gard Security"
+                alt="OPAI"
                 width={128}
                 height={48}
                 className="object-contain"
@@ -111,8 +111,8 @@ export default async function PricingFormatPage(props: PricingFormatPageProps) {
               <div>{contact.phone}</div>
             </div>
             <div className="text-right">
-              <div className="font-bold text-gray-800">Gard Security</div>
-              <div>www.gard.cl</div>
+              <div className="font-bold text-gray-800">OPAI</div>
+              <div>{contact.website || ""}</div>
             </div>
           </div>
         </div>

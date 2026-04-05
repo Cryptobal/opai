@@ -352,7 +352,7 @@ export function MarcacionClient({ code }: { code: string }) {
             <Shield className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-xl font-bold text-white">Marcación de Asistencia</h1>
-          <p className="text-slate-400 text-sm mt-1">Gard Security</p>
+          <p className="text-slate-400 text-sm mt-1">OPAI</p>
         </div>
 
         {/* Contenido */}

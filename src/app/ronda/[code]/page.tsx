@@ -10,6 +10,6 @@ export default async function RondaPage({ params }: Props) {
 }
 
 export const metadata = {
-  title: "Rondas de Seguridad — Gard Security",
+  title: "Rondas de Seguridad — OPAI",
   description: "Control de rondas por checkpoints QR",
 };

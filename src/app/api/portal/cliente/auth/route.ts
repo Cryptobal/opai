@@ -136,7 +136,7 @@ export async function GET() {
     }
 
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://opai.gard.cl';
+      const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
       let freshUrl: string | null = null;
 
       if (contact.email) {

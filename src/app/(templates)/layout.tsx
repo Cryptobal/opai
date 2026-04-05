@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Gard Security - Presentación Comercial",
-  description: "Presentación comercial interactiva de Gard Security",
+  title: "OPAI - Presentación Comercial",
+  description: "Presentación comercial interactiva",
 };
 
 /**

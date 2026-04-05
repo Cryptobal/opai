@@ -13,34 +13,34 @@ export async function generateMetadata({
   const { token } = await params;
   if (!isValidPostulacionToken(token)) {
     return {
-      title: "Postulación no disponible | Gard Security",
+      title: "Postulación no disponible | OPAI",
       description: "Este enlace de postulación no es válido.",
     };
   }
 
   return {
-    title: "Postulación Guardia | Gard Security",
+    title: "Postulación Guardia | OPAI",
     description:
-      "Completa el formulario de postulación de Gard Security para iniciar tu proceso.",
+      "Completa el formulario de postulación de OPAI para iniciar tu proceso.",
     openGraph: {
-      title: "Postulación Guardia | Gard Security",
+      title: "Postulación Guardia | OPAI",
       description:
-        "Completa el formulario de postulación de Gard Security para iniciar tu proceso.",
+        "Completa el formulario de postulación de OPAI para iniciar tu proceso.",
       type: "website",
       images: [
         {
           url: "/Logo%20Gard%20Blanco.png",
           width: 1200,
           height: 630,
-          alt: "Gard Security",
+          alt: "OPAI",
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
-      title: "Postulación Guardia | Gard Security",
+      title: "Postulación Guardia | OPAI",
       description:
-        "Completa el formulario de postulación de Gard Security para iniciar tu proceso.",
+        "Completa el formulario de postulación de OPAI para iniciar tu proceso.",
       images: ["/Logo%20Gard%20Blanco.png"],
     },
   };

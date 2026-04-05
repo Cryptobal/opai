@@ -289,7 +289,7 @@ export function PortalClienteClient() {
         portalName="Cliente"
         portalSubtitle="Portal de Servicios"
       >
-        <AuthFormHeader title="Portal Gard Security" subtitle="powered by OPAI" />
+        <AuthFormHeader title="Portal de Clientes" subtitle="powered by OPAI" />
         <p className="text-sm text-[#9ca3af] text-center max-w-xs mx-auto -mt-2 mb-4">
           El único sistema operativo integral de seguridad privada en Chile. Visibilidad total de tu servicio en tiempo real.
         </p>
@@ -368,13 +368,13 @@ export function PortalClienteClient() {
           ) : (
             <img
               src={headerGardLogo}
-              alt="Gard Security"
+              alt="OPAI"
               className="h-8 object-contain"
             />
           )}
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h1 className="text-base font-semibold truncate">Portal Gard</h1>
+              <h1 className="text-base font-semibold truncate">Portal OPAI</h1>
               <span className="text-xs font-medium bg-teal-500/15 text-teal-400 px-1.5 py-0.5 rounded shrink-0">OPAI</span>
             </div>
             <p className="text-sm text-zinc-400 truncate max-w-[200px] sm:max-w-none">{session?.accountName}</p>

@@ -31,7 +31,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
-          opai.gard.cl · Gard Security
+          OPAI
         </p>
       </div>
     </div>

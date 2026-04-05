@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
       if (admins.length > 0) {
         const { resend, getTenantEmailConfig } = await import("@/lib/resend");
         const emailConfig = await getTenantEmailConfig(tenantId);
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
         for (const admin of admins) {
           await resend.emails.send({
             from: emailConfig.from,

@@ -282,7 +282,7 @@ function generatePricingHTML(data: PricingRequest): string {
     <div class="header">
       <div class="header-top">
         <div class="logo-container">
-          <img src="${logoBase64}" alt="${companyName || 'Gard Security'}" class="logo" />
+          <img src="${logoBase64}" alt="${companyName || ''}" class="logo" />
         </div>
         <div class="page-number"></div>
       </div>

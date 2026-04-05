@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       data: { portalMagicToken: token, portalMagicTokenExp: exp },
     })
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? 'https://opai.gard.cl'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? ""
     const setupUrl = `${baseUrl}/portal/cliente/setup?token=${token}`
     const cfg = await getTenantCompanyConfig(contact.tenantId)
 
@@ -45,10 +45,10 @@ export async function POST(req: NextRequest) {
       from: cfg.emailFrom,
       replyTo: EMAIL_CONFIG.replyTo,
       to: contact.email,
-      subject: 'Restablecer PIN — Portal Gard Security',
+      subject: `Restablecer PIN — Portal ${cfg.commercialName}`,
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-          <h2 style="color: #1e40af;">Portal Gard Security</h2>
+          <h2 style="color: #1e40af;">Portal ${cfg.commercialName}</h2>
           <p>Hola${contact.firstName ? ` ${contact.firstName}` : ''},</p>
           <p>Recibimos una solicitud para restablecer tu PIN de acceso al portal.</p>
           <p style="margin: 24px 0;">

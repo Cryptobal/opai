@@ -21,8 +21,9 @@ import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
 import { extractLeadFromEmail, parseFromHeader, isGarbageEmail } from "@/lib/email-lead-extractor";
 
 import { toSentenceCaseWords, formatChileanPhone } from "@/lib/text-format";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
-const INBOUND_LEADS_TO = process.env.INBOUND_LEADS_EMAIL || "leads@inbound.gard.cl";
+const INBOUND_LEADS_TO = process.env.INBOUND_LEADS_EMAIL || process.env.INBOUND_LEADS_EMAIL_DEFAULT || "";
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB
 
 /** GET: health check para confirmar que la URL del webhook responde */
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
         cc: ccList,
         bcc: bccList,
         expected: INBOUND_LEADS_TO,
-        hint: "Si envías a 'Leads' como contacto, verifica que el email sea leads@inbound.gard.cl",
+        hint: `Si envías a 'Leads' como contacto, verifica que el email sea ${INBOUND_LEADS_TO}`,
       });
       return NextResponse.json({ success: true, skipped: "wrong_recipient" });
     }
@@ -105,6 +106,7 @@ export async function POST(request: NextRequest) {
     // multi-tenant inbound routing is implemented. For now this webhook is
     // single-tenant (Gard), so getSystemTenantId() is correct.
     const tenantId = await getSystemTenantId();
+    const tenantCfg = await getTenantCompanyConfig(tenantId);
 
     const emailResponse = await resend.emails.receiving.get(emailId);
     if (emailResponse.error || !emailResponse.data) {
@@ -135,8 +137,8 @@ export async function POST(request: NextRequest) {
         htmlBody: html,
         textBody: text,
         fromEmail: from,
-        ownDomain: "gard.cl",
-        ownCompanyName: "Gard Security",
+        ownDomain: tenantCfg.website || undefined,
+        ownCompanyName: tenantCfg.commercialName || undefined,
       });
     } catch (extractErr) {
       console.warn("[inbound-email] Extract failed, creating lead from envelope:", extractErr);

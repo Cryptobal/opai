@@ -3,7 +3,7 @@ import { DescargarPageClient } from '@/components/pwa/DescargarPageClient';
 
 export const metadata: Metadata = {
   title: 'Descargar OPAI',
-  description: 'Descarga la app de OPAI — Gard Security',
+  description: 'Descarga la app de OPAI',
   manifest: '/manifest.json',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'OPAI' },
   icons: { apple: '/icons/apple-touch-icon.png' },

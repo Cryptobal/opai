@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     // Company config
     const companyConfig = await getTenantCompanyConfig(ctx.tenantId);
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
     const portalUrl = `${baseUrl}/portal/cliente`;
 
     // Positions summary
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       ? "Una linea breve invitando a ingresar al portal de cliente (ej: 'Te invito tambien a ingresar a tu portal de cliente para revisar la propuesta de forma interactiva.'). NO incluir link ni PIN ni lista de beneficios."
       : "Una linea breve mencionando el portal (ej: 'Te invito a conocer nuestro Portal de Cliente cuando lo actives.').";
 
-    const prompt = `Eres ${senderName}${senderCargo ? `, ${senderCargo}` : ""} de ${companyConfig.commercialName || "Gard Security"}, empresa de seguridad privada en Chile.
+    const prompt = `Eres ${senderName}${senderCargo ? `, ${senderCargo}` : ""} de ${companyConfig.commercialName}, empresa de seguridad privada en Chile.
 
 Escribe SOLO el cuerpo del email para enviar una propuesta economica adjunta en PDF. El correo tiene un diseno visual que ya incluye saludo, credenciales de portal, beneficios y firma. Tu texto va en el centro.
 

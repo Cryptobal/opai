@@ -32,7 +32,7 @@ export default async function ResetPasswordPage({
         <ResetPasswordForm token={token} email={decodeURIComponent(email)} />
 
         <p className="text-center text-xs text-muted-foreground">
-          opai.gard.cl · Gard Security
+          OPAI
         </p>
       </div>
     </div>
