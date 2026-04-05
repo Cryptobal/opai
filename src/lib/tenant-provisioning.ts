@@ -22,7 +22,7 @@ export interface CreateTenantInput {
   ownerPassword: string; // Se hashea con bcrypt
 
   // Plan
-  plan: "trial" | "essential" | "professional" | "enterprise";
+  plan: "free" | "starter" | "profesional" | "enterprise" | "trial" | "essential" | "professional";
   trialDays?: number; // Default: 30
 }
 
@@ -46,6 +46,13 @@ export async function provisionTenant(
     plan,
     trialDays = 30,
   } = input;
+
+  // Normalize legacy plan names
+  const planSlug =
+    plan === 'trial' ? 'free' :
+    plan === 'essential' ? 'starter' :
+    plan === 'professional' ? 'profesional' :
+    plan;
 
   // ── Validaciones ──
 
@@ -96,41 +103,41 @@ export async function provisionTenant(
 
     // 3. Plan
     const maxGuards =
-      plan === "enterprise"
+      planSlug === "enterprise"
         ? 9999
-        : plan === "professional"
+        : planSlug === "profesional"
           ? 500
-          : plan === "essential"
+          : planSlug === "starter"
             ? 200
             : 50;
     const maxAdmins =
-      plan === "enterprise"
+      planSlug === "enterprise"
         ? 50
-        : plan === "professional"
+        : planSlug === "profesional"
           ? 10
-          : plan === "essential"
+          : planSlug === "starter"
             ? 5
             : 3;
 
     const tenantPlan = await tx.tenantPlan.create({
       data: {
         tenantId: tenant.id,
-        plan,
+        plan: planSlug,
         billingStatus: "trial",
         trialEndsAt: new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000),
         maxGuards,
         maxAdmins,
         maxStorageMb:
-          plan === "enterprise"
+          planSlug === "enterprise"
             ? 10000
-            : plan === "professional"
+            : planSlug === "profesional"
               ? 5000
               : 1000,
       },
     });
 
     // 4. Módulos según plan
-    const modules = PLAN_MODULES[plan] || PLAN_MODULES.trial;
+    const modules = PLAN_MODULES[planSlug] || PLAN_MODULES.free;
     for (const mod of modules) {
       await tx.tenantModule.create({
         data: {

@@ -31,13 +31,13 @@ export const ALL_MODULES = [
 export type TenantModuleKey = (typeof ALL_MODULES)[number];
 
 export const PLAN_MODULES: Record<string, TenantModuleKey[]> = {
-  trial: [
+  free: [
     "ops_asistencia",
     "ops_pauta",
     "portal_supervisor",
     "portal_guardia",
   ],
-  essential: [
+  starter: [
     "ops_asistencia",
     "ops_pauta",
     "ops_rondas",
@@ -45,7 +45,7 @@ export const PLAN_MODULES: Record<string, TenantModuleKey[]> = {
     "portal_supervisor",
     "portal_guardia",
   ],
-  professional: [
+  profesional: [
     "crm",
     "ops_asistencia",
     "ops_rondas",
@@ -76,6 +76,10 @@ export const PLAN_MODULES: Record<string, TenantModuleKey[]> = {
     "fiscalizacion",
   ],
 };
+// Backward compatibility aliases
+PLAN_MODULES.trial = PLAN_MODULES.free;
+PLAN_MODULES.essential = PLAN_MODULES.starter;
+PLAN_MODULES.professional = PLAN_MODULES.profesional;
 
 // ── Cache ──
 

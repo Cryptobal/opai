@@ -30,10 +30,14 @@ type SortDir = 'asc' | 'desc';
 const PAGE_SIZE = 20;
 
 const planBadgeVariant: Record<string, string> = {
-  trial: 'bg-amber-100 text-amber-700',
-  essential: 'bg-gray-100 text-gray-700',
-  professional: 'bg-blue-100 text-blue-700',
-  enterprise: 'bg-purple-100 text-purple-700',
+  free: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  starter: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  profesional: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300',
+  enterprise: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+  // Legacy
+  trial: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300',
+  essential: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
+  professional: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
 };
 
 const statusBadgeVariant: Record<string, string> = {

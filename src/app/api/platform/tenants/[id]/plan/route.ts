@@ -30,9 +30,15 @@ export async function PATCH(
     if (field in body) data[field] = body[field];
   }
 
+  // Normalize legacy plan names
+  if (body.plan) {
+    const nameMap: Record<string, string> = { trial: 'free', essential: 'starter', professional: 'profesional' };
+    data.plan = nameMap[body.plan] || body.plan;
+  }
+
   // If plan changed, auto-update modules
-  if (body.plan && body.plan !== existingPlan.plan) {
-    const newModules = PLAN_MODULES[body.plan] || [];
+  if (data.plan && data.plan !== existingPlan.plan) {
+    const newModules = PLAN_MODULES[data.plan as string] || [];
 
     await prisma.tenantModule.updateMany({
       where: { tenantId: id },

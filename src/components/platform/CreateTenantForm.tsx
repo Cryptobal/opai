@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 const generateSlug = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-type Plan = 'trial' | 'essential' | 'professional' | 'enterprise';
+type Plan = 'free' | 'starter' | 'profesional' | 'enterprise';
 
 export function CreateTenantForm() {
   const router = useRouter();
@@ -17,7 +17,7 @@ export function CreateTenantForm() {
   const [ownerName, setOwnerName] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
   const [ownerPassword, setOwnerPassword] = useState('');
-  const [plan, setPlan] = useState<Plan>('trial');
+  const [plan, setPlan] = useState<Plan>('starter');
   const [trialDays, setTrialDays] = useState(30);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -43,7 +43,7 @@ export function CreateTenantForm() {
         plan,
       };
       if (companyRut) body.companyRut = companyRut;
-      if (plan === 'trial') body.trialDays = trialDays;
+      if (trialDays !== 30) body.trialDays = trialDays;
 
       const res = await fetch('/api/platform/tenants', {
         method: 'POST',
@@ -200,29 +200,27 @@ export function CreateTenantForm() {
             onChange={(e) => setPlan(e.target.value as Plan)}
             className={inputClass}
           >
-            <option value="trial">Trial</option>
-            <option value="essential">Essential</option>
-            <option value="professional">Professional</option>
+            <option value="free">Free</option>
+            <option value="starter">Starter</option>
+            <option value="profesional">Profesional</option>
             <option value="enterprise">Enterprise</option>
           </select>
         </div>
 
-        {plan === 'trial' && (
-          <div>
-            <label htmlFor="trialDays" className={labelClass}>
-              Días de prueba
-            </label>
-            <input
-              id="trialDays"
-              type="number"
-              min={1}
-              max={365}
-              value={trialDays}
-              onChange={(e) => setTrialDays(Number(e.target.value))}
-              className={inputClass}
-            />
-          </div>
-        )}
+        <div>
+          <label htmlFor="trialDays" className={labelClass}>
+            Días de prueba
+          </label>
+          <input
+            id="trialDays"
+            type="number"
+            min={1}
+            max={365}
+            value={trialDays}
+            onChange={(e) => setTrialDays(Number(e.target.value))}
+            className={inputClass}
+          />
+        </div>
       </fieldset>
 
       <button
