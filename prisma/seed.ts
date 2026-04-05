@@ -18,6 +18,7 @@ import { seedConfigJornada } from './seeds/config-jornada-seed';
 import { seedOnboardingEmailTemplates } from './seeds/onboarding-email-templates';
 import { seedInventoryData } from './seeds/inventory-initial-data';
 import { seedTiposDocOperacional } from './seeds/docs-operacionales-tipos-seed';
+import { seedPricingCatalog } from './seeds/pricing-catalog-seed';
 
 const prisma = new PrismaClient();
 
@@ -133,6 +134,9 @@ async function main() {
 
   // 13. Seed Tipos de documentos operacionales (OS10 / DT)
   await seedTiposDocOperacional(prisma, tenant.id);
+
+  // 15. Pricing Catalog (plans, addons, packs)
+  await seedPricingCatalog(prisma);
 
   // 14. Platform Admin
   const platformPassword = await bcrypt.hash('OpaiPlatform2026!', 12);
