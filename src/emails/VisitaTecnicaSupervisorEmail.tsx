@@ -45,6 +45,8 @@ interface VisitaTecnicaSupervisorEmailProps {
   puestosDetail: PuestoItem[];
   portalUrl: string;
   solicitadoPor: string;
+  brandName?: string;
+  logoUrl?: string;
 }
 
 const WEEKDAY_LABELS: Record<string, string> = {
@@ -66,8 +68,10 @@ export const VisitaTecnicaSupervisorEmail = ({
   contactPhone = null,
   quoteCode = "CPQ-XXXX",
   puestosDetail = [],
-  portalUrl = "https://opai.gard.cl/portal/supervisor",
+  portalUrl = "",
   solicitadoPor = "equipo comercial",
+  brandName = "OPAI",
+  logoUrl = "",
 }: VisitaTecnicaSupervisorEmailProps) => {
   const fechaFormateada = scheduledAt.toLocaleDateString("es-CL", {
     weekday: "long",
@@ -94,9 +98,9 @@ export const VisitaTecnicaSupervisorEmail = ({
           {/* Header */}
           <Section style={header}>
             <Img
-              src="https://opai.gard.cl/Logo%20Gard%20Blanco.png"
+              src={logoUrl}
               width="140"
-              alt="Gard Security"
+              alt={brandName}
               style={logo}
             />
             <Text style={headerTagline}>Portal Supervisor · Visita Técnica</Text>
@@ -212,7 +216,7 @@ export const VisitaTecnicaSupervisorEmail = ({
               Si tienes dudas, responde este correo.
             </Text>
             <Text style={footerSmall}>
-              Gard Security · OPAI Suite · Portal de Operaciones
+              {brandName} · OPAI Suite · Portal de Operaciones
             </Text>
           </Section>
         </Container>

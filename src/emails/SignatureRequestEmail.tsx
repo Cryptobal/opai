@@ -25,7 +25,7 @@ export default function SignatureRequestEmail({
   recipientName,
   documentTitle,
   signingUrl,
-  senderName = "Equipo Gard",
+  senderName = "Equipo OPAI",
   expiresAt,
   message,
 }: SignatureRequestEmailProps) {

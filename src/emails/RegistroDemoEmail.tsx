@@ -30,6 +30,10 @@ interface RegistroDemoEmailProps {
   pin: string;
   portalUrl: string;
   industry: string;
+  brandName?: string;
+  logoUrl?: string;
+  website?: string;
+  emailContact?: string;
 }
 
 export const RegistroDemoEmail = ({
@@ -37,11 +41,15 @@ export const RegistroDemoEmail = ({
   companyName = 'Empresa Demo',
   email = 'cliente@empresa.com',
   pin = '123456',
-  portalUrl = 'https://opai.gard.cl/portal/cliente',
+  portalUrl = '',
   industry = 'Seguridad',
+  brandName = 'OPAI',
+  logoUrl = '',
+  website = '',
+  emailContact = '',
 }: RegistroDemoEmailProps) => {
   const firstName = contactName.split(/\s+/)[0] || contactName;
-  const previewText = `${firstName}, su cuenta demo en el Portal Gard está lista. Acceda con su correo y PIN.`;
+  const previewText = `${firstName}, su cuenta demo en el portal está lista. Acceda con su correo y PIN.`;
   const portalUrlWithEmail = `${portalUrl}?email=${encodeURIComponent(email)}`;
 
   return (
@@ -54,9 +62,9 @@ export const RegistroDemoEmail = ({
           {/* Header */}
           <Section style={header}>
             <Img
-              src="https://opai.gard.cl/Logo%20Gard%20Blanco.png"
+              src={logoUrl}
               width="160"
-              alt="Gard Security"
+              alt={brandName}
               style={logo}
             />
             <Text style={headerTagline}>Portal de Seguridad Empresarial</Text>
@@ -66,7 +74,7 @@ export const RegistroDemoEmail = ({
           <Section style={hero}>
             <Text style={heroEyebrow}>ACCESO DEMO</Text>
             <Heading style={h1}>
-              Bienvenido al Portal de<br />Clientes Gard, {firstName}
+              Bienvenido al Portal de<br />Clientes, {firstName}
             </Heading>
             <Text style={heroText}>
               Hemos creado una cuenta de demostración para{' '}
@@ -109,7 +117,7 @@ export const RegistroDemoEmail = ({
           <Section style={benefitsSection}>
             <Text style={benefitsTitle}>¿Qué encontrará en su portal?</Text>
             <Text style={benefitsSubtitle}>
-              Un espacio exclusivo para conocer cómo Gard gestiona la seguridad de sus clientes.
+              Un espacio exclusivo para conocer cómo {brandName} gestiona la seguridad de sus clientes.
             </Text>
 
             <Section style={benefitItem}>
@@ -192,7 +200,7 @@ export const RegistroDemoEmail = ({
 
           {/* Trust banner */}
           <Section style={trustSection}>
-            <Text style={trustTitle}>Por qué elegir Gard Security</Text>
+            <Text style={trustTitle}>Por qué elegirnos</Text>
             <Row>
               <Column style={trustCol}>
                 <Text style={trustStat}>+15 años</Text>
@@ -214,30 +222,32 @@ export const RegistroDemoEmail = ({
           {/* Signature */}
           <Section style={signatureSection}>
             <Text style={signatureText}>
-              Si desea conversar sobre cómo Gard puede ayudar a {companyName},
+              Si desea conversar sobre cómo {brandName} puede ayudar a {companyName},
               no dude en contactarnos.
             </Text>
             <Text style={signatureName}>
               <strong>Equipo Comercial</strong><br />
-              <span style={signatureRole}>Gard Security</span>
+              <span style={signatureRole}>{brandName}</span>
             </Text>
           </Section>
 
           {/* Footer */}
           <Section style={footer}>
             <Text style={footerLinks}>
-              <Link href="https://www.gard.cl" style={footerLink}>www.gard.cl</Link>
-              {' · '}
-              <Link href="mailto:comercial@gard.cl" style={footerLink}>comercial@gard.cl</Link>
-              {' · '}
-              <Link href="https://wa.me/56968727644" style={footerLink}>+56 9 6872 7644</Link>
+              {website && (
+                <Link href={website} style={footerLink}>{website.replace(/^https?:\/\//, '')}</Link>
+              )}
+              {website && emailContact && ' · '}
+              {emailContact && (
+                <Link href={`mailto:${emailContact}`} style={footerLink}>{emailContact}</Link>
+              )}
             </Text>
             <Text style={footerSmall}>
-              Este mensaje fue enviado a {email} porque se registró en el Portal de Clientes de Gard Security.
+              Este mensaje fue enviado a {email} porque se registró en el Portal de Clientes de {brandName}.
               Si no realizó este registro, puede ignorar este correo.
             </Text>
             <Text style={footerSmall}>
-              © {new Date().getFullYear()} Gard Security SpA. Todos los derechos reservados.
+              © {new Date().getFullYear()} {brandName}. Todos los derechos reservados.
             </Text>
           </Section>
 

@@ -35,6 +35,10 @@ interface PortalProspectoInviteEmailProps {
   quoteCode?: string;
   /** URL de WhatsApp con mensaje prellenado (wa.me/...?text=...) */
   whatsappUrl?: string | null;
+  brandName?: string;
+  logoUrl?: string;
+  website?: string;
+  emailContact?: string;
 }
 
 export const PortalProspectoInviteEmail = ({
@@ -42,11 +46,15 @@ export const PortalProspectoInviteEmail = ({
   companyName = 'Empresa Demo',
   email = 'cliente@empresa.com',
   pin = '1234',
-  portalUrl = 'https://opai.gard.cl/portal/cliente',
+  portalUrl = '',
   ejecutivoName = 'Ejecutivo Comercial',
   quoteName,
   quoteCode,
   whatsappUrl,
+  brandName = 'OPAI',
+  logoUrl = '',
+  website = '',
+  emailContact = '',
 }: PortalProspectoInviteEmailProps) => {
   const trimmedQuoteName = quoteName?.trim() || '';
   const idParts = [trimmedQuoteName ? `"${trimmedQuoteName}"` : '', quoteCode || ''].filter(Boolean);
@@ -66,9 +74,9 @@ export const PortalProspectoInviteEmail = ({
           {/* Header */}
           <Section style={header}>
             <Img
-              src="https://opai.gard.cl/Logo%20Gard%20Blanco.png"
+              src={logoUrl}
               width="160"
-              alt="Gard Security"
+              alt={brandName}
               style={logo}
             />
             <Text style={headerTagline}>Portal de Seguridad Empresarial</Text>
@@ -100,7 +108,7 @@ export const PortalProspectoInviteEmail = ({
               </Text>
             )}
             <Text style={heroText}>
-              <strong>{ejecutivoName}</strong> de Gard Security preparó una propuesta
+              <strong>{ejecutivoName}</strong> de {brandName} preparó una propuesta
               a medida para <strong>{companyName}</strong>. Accede ahora a tu portal
               privado para revisarla en detalle.
             </Text>
@@ -223,7 +231,7 @@ export const PortalProspectoInviteEmail = ({
 
           {/* Trust banner */}
           <Section style={trustSection}>
-            <Text style={trustTitle}>Por qué elegir Gard Security</Text>
+            <Text style={trustTitle}>Por qué elegirnos</Text>
             <Row>
               <Column style={trustCol}>
                 <Text style={trustStat}>+15 años</Text>
@@ -256,24 +264,28 @@ export const PortalProspectoInviteEmail = ({
             )}
             <Text style={signatureName}>
               <strong>{ejecutivoName}</strong><br />
-              <span style={signatureRole}>Ejecutivo Comercial · Gard Security</span>
+              <span style={signatureRole}>Ejecutivo Comercial · {brandName}</span>
             </Text>
           </Section>
 
           {/* Footer */}
           <Section style={footer}>
             <Text style={footerLinks}>
-              <Link href="https://www.gard.cl" style={footerLink}>www.gard.cl</Link>
-              {' · '}
-              <Link href="mailto:comercial@gard.cl" style={footerLink}>comercial@gard.cl</Link>
+              {website && (
+                <Link href={website} style={footerLink}>{website.replace(/^https?:\/\//, '')}</Link>
+              )}
+              {website && emailContact && ' · '}
+              {emailContact && (
+                <Link href={`mailto:${emailContact}`} style={footerLink}>{emailContact}</Link>
+              )}
               {quoteCode ? ` · Ref: ${quoteCode}` : ''}
             </Text>
             <Text style={footerSmall}>
-              Este mensaje fue enviado a {email} por la plataforma comercial de Gard Security.
+              Este mensaje fue enviado a {email} por la plataforma comercial de {brandName}.
               Si no esperabas esta comunicación, ignora este correo.
             </Text>
             <Text style={footerSmall}>
-              © {new Date().getFullYear()} Gard Security SpA. Todos los derechos reservados.
+              © {new Date().getFullYear()} {brandName}. Todos los derechos reservados.
             </Text>
           </Section>
 

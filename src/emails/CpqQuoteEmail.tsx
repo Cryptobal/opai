@@ -54,10 +54,10 @@ export const CpqQuoteEmail = ({
   serviceDetail = "",
   businessName = "",
   installationName = "",
-  brandName = "Gard Security",
-  logoUrl = "https://opai.gard.cl/Logo%20Gard%20Blanco.png",
-  website = "https://www.gard.cl",
-  emailContact = "comercial@gard.cl",
+  brandName = "OPAI",
+  logoUrl = "",
+  website = "",
+  emailContact = "",
   brandTagline = "Servicios de Seguridad Profesional",
   portalUrl,
 }: CpqQuoteEmailProps) => {
@@ -200,7 +200,7 @@ export const CpqQuoteEmail = ({
 
 export default CpqQuoteEmail;
 
-// Styles — Gard Security brand: navy #1e3a8a, dark slate #0f172a, teal #14b8a6
+// Styles — navy #1e3a8a, dark slate #0f172a, teal #14b8a6
 const main = { backgroundColor: "#f8fafc", fontFamily: "Arial, sans-serif" };
 const container = { maxWidth: "600px", margin: "0 auto", backgroundColor: "#ffffff" };
 const header = {

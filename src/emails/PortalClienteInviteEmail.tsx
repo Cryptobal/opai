@@ -30,6 +30,10 @@ interface PortalClienteInviteEmailProps {
   pin: string;
   portalUrl: string;
   ejecutivoName?: string;
+  brandName?: string;
+  logoUrl?: string;
+  website?: string;
+  emailContact?: string;
 }
 
 export const PortalClienteInviteEmail = ({
@@ -37,8 +41,12 @@ export const PortalClienteInviteEmail = ({
   companyName = 'Empresa',
   email = 'cliente@empresa.com',
   pin = '1234',
-  portalUrl = 'https://opai.gard.cl/portal/cliente',
+  portalUrl = '',
   ejecutivoName = 'tu ejecutivo',
+  brandName = 'OPAI',
+  logoUrl = '',
+  website = '',
+  emailContact = '',
 }: PortalClienteInviteEmailProps) => {
   const previewText = `${companyName} — Tu acceso al Portal de Cliente está activo.`;
 
@@ -52,9 +60,9 @@ export const PortalClienteInviteEmail = ({
           {/* Header */}
           <Section style={header}>
             <Img
-              src="https://opai.gard.cl/Logo%20Gard%20Blanco.png"
+              src={logoUrl}
               width="160"
-              alt="Gard Security"
+              alt={brandName}
               style={logo}
             />
             <Text style={headerTagline}>Portal de Seguridad Empresarial</Text>
@@ -69,7 +77,7 @@ export const PortalClienteInviteEmail = ({
             <Text style={heroText}>
               Se ha habilitado tu acceso al Portal de Seguridad para <strong>{companyName}</strong>.
               Desde aquí podrás gestionar el servicio de forma centralizada, consultar documentación
-              y comunicarte con tu equipo Gard.
+              y comunicarte con tu equipo.
             </Text>
           </Section>
 
@@ -171,7 +179,7 @@ export const PortalClienteInviteEmail = ({
                 <Column>
                   <Text style={benefitName}>Chat directo</Text>
                   <Text style={benefitDesc}>
-                    Comunicación con {ejecutivoName} y equipos Gard por instalación.
+                    Comunicación con {ejecutivoName} y el equipo por instalación.
                   </Text>
                 </Column>
               </Row>
@@ -224,7 +232,7 @@ export const PortalClienteInviteEmail = ({
 
           {/* Trust banner */}
           <Section style={trustSection}>
-            <Text style={trustTitle}>Por qué elegir Gard Security</Text>
+            <Text style={trustTitle}>Por qué elegirnos</Text>
             <Row>
               <Column style={trustCol}>
                 <Text style={trustStat}>+15 años</Text>
@@ -249,23 +257,27 @@ export const PortalClienteInviteEmail = ({
               Quedamos a tu disposición para cualquier consulta.
             </Text>
             <Text style={signatureName}>
-              <strong>Gard Security</strong>
+              <strong>{brandName}</strong>
             </Text>
           </Section>
 
           {/* Footer */}
           <Section style={footer}>
             <Text style={footerLinks}>
-              <Link href="https://www.gard.cl" style={footerLink}>www.gard.cl</Link>
-              {' · '}
-              <Link href="mailto:comercial@gard.cl" style={footerLink}>comercial@gard.cl</Link>
+              {website && (
+                <Link href={website} style={footerLink}>{website.replace(/^https?:\/\//, '')}</Link>
+              )}
+              {website && emailContact && ' · '}
+              {emailContact && (
+                <Link href={`mailto:${emailContact}`} style={footerLink}>{emailContact}</Link>
+              )}
             </Text>
             <Text style={footerSmall}>
-              Este mensaje fue enviado a {email} por la plataforma OPAI de Gard Security.
+              Este mensaje fue enviado a {email} por la plataforma OPAI de {brandName}.
               Si no esperabas esta comunicación, ignora este correo.
             </Text>
             <Text style={footerSmall}>
-              © {new Date().getFullYear()} Gard Security SpA. Todos los derechos reservados.
+              © {new Date().getFullYear()} {brandName}. Todos los derechos reservados.
             </Text>
           </Section>
 

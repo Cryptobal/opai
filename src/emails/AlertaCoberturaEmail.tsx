@@ -27,7 +27,7 @@ interface AlertaCoberturaEmailProps {
   tiempoRestanteMin: number;
 }
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || "";
 
 export default function AlertaCoberturaEmail({
   nombre,

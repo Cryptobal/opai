@@ -50,10 +50,10 @@ export const CpqPdfEmail = ({
   bodyText = "",
   senderName = "Equipo Comercial",
   senderCargo = "Director Comercial",
-  brandName = "Gard Security",
-  brandPhone = "+56 9 8230 7771",
-  brandEmail = "comercial@gard.cl",
-  logoUrl = "https://opai.gard.cl/Logo%20Gard%20Blanco.png",
+  brandName = "OPAI",
+  brandPhone = "",
+  brandEmail = "",
+  logoUrl = "",
   portalUrl,
   portalPin,
 }: CpqPdfEmailProps) => {
@@ -271,9 +271,9 @@ export const CpqPdfEmail = ({
 
           <Hr style={divider} />
 
-          {/* Trust banner — Por qué elegir Gard Security */}
+          {/* Trust banner */}
           <Section style={trustSection}>
-            <Text style={trustTitle}>Por qué elegir {brandName}</Text>
+            <Text style={trustTitle}>Por qué elegirnos</Text>
             <Row>
               <Column style={trustCol}>
                 <Text style={trustStat}>+15 años</Text>
@@ -313,16 +313,16 @@ export const CpqPdfEmail = ({
           {/* Footer */}
           <Section style={footer}>
             <Text style={footerLinks}>
-              <Link href="https://www.gard.cl" style={footerLink}>www.gard.cl</Link>
-              {" · "}
-              <Link href={`mailto:${brandEmail}`} style={footerLink}>{brandEmail}</Link>
+              {brandEmail && (
+                <Link href={`mailto:${brandEmail}`} style={footerLink}>{brandEmail}</Link>
+              )}
               {quoteCode ? ` · Ref: ${quoteCode}` : ""}
             </Text>
             <Text style={footerSmall}>
               Este mensaje fue enviado por la plataforma comercial de {brandName}.
             </Text>
             <Text style={footerSmall}>
-              © {new Date().getFullYear()} {brandName} SpA. Todos los derechos reservados.
+              © {new Date().getFullYear()} {brandName}. Todos los derechos reservados.
             </Text>
           </Section>
 

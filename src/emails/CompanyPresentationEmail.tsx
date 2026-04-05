@@ -31,6 +31,7 @@ interface CompanyPresentationEmailProps {
   ejecutivoName: string;
   notes?: string;
   brandName?: string;
+  logoUrl?: string;
 }
 
 export const CompanyPresentationEmail = ({
@@ -38,10 +39,11 @@ export const CompanyPresentationEmail = ({
   companyName = "Empresa Demo",
   email = "cliente@empresa.com",
   pin,
-  portalUrl = "https://opai.gard.cl/portal/cliente",
+  portalUrl = "",
   ejecutivoName = "Ejecutivo Comercial",
   notes,
-  brandName = "Gard Security",
+  brandName = "OPAI",
+  logoUrl = "",
 }: CompanyPresentationEmailProps) => {
   const previewText = `${companyName} — Presentación de servicios de ${brandName}`;
 
@@ -54,7 +56,7 @@ export const CompanyPresentationEmail = ({
           {/* Header */}
           <Section style={header}>
             <Img
-              src="https://opai.gard.cl/Logo%20Gard%20Blanco.png"
+              src={logoUrl}
               width="160"
               alt={brandName}
               style={logo}
