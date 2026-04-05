@@ -66,7 +66,7 @@ export function CreateTenantForm() {
   };
 
   const inputClass =
-    'w-full rounded-xl border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500';
+    'w-full rounded-xl border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 dark:placeholder-gray-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500';
   const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
 
   return (
@@ -107,12 +107,12 @@ export function CreateTenantForm() {
             type="text"
             required
             pattern="^[a-z0-9-]+$"
-            title="Solo letras minúsculas, números y guiones"
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
             placeholder="mi-empresa-spa"
-            className={inputClass}
+            className={`${inputClass} font-mono`}
           />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Solo letras minúsculas, números y guiones</p>
         </div>
 
         <div>
