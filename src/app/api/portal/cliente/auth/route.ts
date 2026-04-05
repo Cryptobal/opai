@@ -10,6 +10,7 @@ import { buildClienteSessionCookie, clearClienteSessionCookie } from "@/lib/port
 // Aliases for backward compatibility within this file
 const setSessionCookie = buildClienteSessionCookie;
 const clearPortalClienteSessionCookie = clearClienteSessionCookie;
+const PORTAL_CLIENTE_SESSION_COOKIE = "portal_cliente_session";
 
 export async function GET() {
   const cookieStore = await cookies();
