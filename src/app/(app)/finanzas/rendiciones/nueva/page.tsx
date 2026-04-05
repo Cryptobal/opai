@@ -6,7 +6,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { RendicionForm } from "@/components/finance/RendicionForm";
 
@@ -23,7 +22,7 @@ export default async function NuevaRendicionPage() {
     redirect("/finanzas/rendiciones");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const [items, costCenters, config] = await Promise.all([
     prisma.financeRendicionItem.findMany({

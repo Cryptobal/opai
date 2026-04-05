@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader, IntegrationsGmailClient } from "@/components/opai";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function IntegracionesPage() {
@@ -16,7 +15,7 @@ export default async function IntegracionesPage() {
     redirect("/opai/configuracion");
   }
 
-  const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const gmailAccount = await prisma.crmEmailAccount.findFirst({
     where: {
       tenantId,

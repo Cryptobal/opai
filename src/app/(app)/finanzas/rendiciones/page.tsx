@@ -6,7 +6,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { RendicionesClient } from "@/components/finance/RendicionesClient";
 
@@ -20,7 +19,7 @@ export default async function RendicionesPage() {
     redirect("/hub");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const canSubmit = hasCapability(perms, "rendicion_submit");
   const canViewAll = hasCapability(perms, "rendicion_view_all");

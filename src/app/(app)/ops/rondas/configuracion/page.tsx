@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { RondasConfiguracionClient } from "@/components/ops/rondas/RondasConfiguracionClient";
@@ -14,7 +13,7 @@ export default async function RondasConfiguracionPage() {
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "ops", "rondas")) redirect("/hub");
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const [installations, accounts, checkpointCounts] = await Promise.all([
     prisma.crmInstallation.findMany({
       where: { tenantId, status: "active" },

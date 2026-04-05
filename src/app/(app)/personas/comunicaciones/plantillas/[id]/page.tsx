@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { getDefaultTenantId } from "@/lib/tenant";
 import TemplateEditorClient from "@/components/comunicaciones/TemplateEditorClient";
 
 export default async function TemplateEditorPage({
@@ -18,7 +17,7 @@ export default async function TemplateEditorPage({
     redirect("/hub");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const { id } = await params;
 
   return (

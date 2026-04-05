@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { CrmConfigTabs } from "@/components/crm/CrmConfigTabs";
 import { FollowUpConfigSection } from "@/components/crm/FollowUpConfigSection";
@@ -18,7 +17,7 @@ export default async function CrmConfigPage() {
     redirect("/opai/configuracion");
   }
 
-  const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const [stages, fields] = await Promise.all([
     prisma.crmPipelineStage.findMany({
       where: { tenantId, isActive: true },

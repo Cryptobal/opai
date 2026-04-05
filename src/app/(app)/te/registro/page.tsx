@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { TeSubnav, TeTurnosClient } from "@/components/ops";
 
@@ -16,7 +15,7 @@ export default async function TeRegistroPage() {
     redirect("/hub");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const turnos = await prisma.opsTurnoExtra.findMany({
     where: { tenantId },
     include: {

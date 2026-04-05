@@ -7,7 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { CreditNoteForm } from "@/components/finance/CreditNoteForm";
 
@@ -29,7 +28,7 @@ export default async function NotaCreditoPage({ searchParams }: PageProps) {
     redirect("/finanzas/facturacion");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const params = await searchParams;
   const referenceDteId = params.referenceDteId;
 

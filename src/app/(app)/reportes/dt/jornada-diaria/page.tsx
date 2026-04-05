@@ -2,11 +2,10 @@ import { PageHeader } from "@/components/opai";
 import { JornadaDiariaClient } from "@/components/reportes-dt/JornadaDiariaClient";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { getDefaultTenantId } from "@/lib/tenant";
 
 export default async function JornadaDiariaPage() {
   const session = await auth();
-  const tenantId = session?.user?.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const installations = await prisma.crmInstallation.findMany({
     where: { tenantId, status: "active" },
     select: { id: true, name: true },

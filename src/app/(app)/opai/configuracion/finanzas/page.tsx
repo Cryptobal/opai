@@ -6,7 +6,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { ConfigClient } from "@/components/finance/ConfigClient";
 
@@ -23,7 +22,7 @@ export default async function FinanzasConfiguracionPage() {
     redirect("/opai/configuracion");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const [config, items, costCenters, approvers] = await Promise.all([
     prisma.financeRendicionConfig.findUnique({

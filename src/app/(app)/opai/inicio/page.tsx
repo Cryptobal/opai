@@ -13,7 +13,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { getDefaultTenantId } from '@/lib/tenant';
 import { resolvePagePerms, hasModuleAccess } from '@/lib/permissions-server';
 import { PageHeader, ReloadButton, DocumentosSubnav } from '@/components/opai';
 import { DocumentosContent } from '@/components/opai/DocumentosContent';
@@ -29,7 +28,7 @@ export default async function DashboardPage() {
   if (!hasModuleAccess(perms, 'docs')) {
     redirect('/hub');
   }
-  const tenantId = session.user.tenantId ?? await getDefaultTenantId();
+  const tenantId = session.user.tenantId;
 
   const presentations = await prisma.presentation.findMany({
     where: { tenantId, archivedAt: null },

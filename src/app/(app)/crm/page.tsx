@@ -5,7 +5,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { resolvePagePerms, canView, hasModuleAccess } from '@/lib/permissions-server';
-import { getDefaultTenantId } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
 import { PageHeader, KpiCard, KpiGrid } from '@/components/opai';
 import {
@@ -48,7 +47,7 @@ export default async function CRMPage() {
   if (!session?.user) redirect('/opai/login?callbackUrl=/crm');
   const perms = await resolvePagePerms(session.user);
   if (!hasModuleAccess(perms, 'crm')) redirect('/hub');
-  const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const now = new Date();
   const twelveMonthsAgo = new Date(now);
   twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);

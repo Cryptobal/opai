@@ -7,7 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { PagosProveedoresClient } from "@/components/finance/PagosProveedoresClient";
 
@@ -20,7 +19,7 @@ export default async function PagosProveedoresPage() {
   if (!hasModuleAccess(perms, "finance")) redirect("/hub");
   if (!canView(perms, "finance", "proveedores")) redirect("/finanzas/rendiciones");
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const canManage = hasCapability(perms, "rendicion_configure");
 
   const bankAccounts = await prisma.financeBankAccount.findMany({

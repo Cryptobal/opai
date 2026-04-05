@@ -7,7 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { AprobacionesClient } from "@/components/finance/AprobacionesClient";
 
@@ -25,7 +24,7 @@ export default async function AprobacionesPage() {
     redirect("/finanzas");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const userId = session.user.id;
 
   // Fetch rendiciones pending approval where current user is an approver

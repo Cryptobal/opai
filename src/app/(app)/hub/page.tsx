@@ -14,7 +14,6 @@
 
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { getDefaultTenantId } from '@/lib/tenant';
 import {
   resolvePagePerms,
   canView,
@@ -48,7 +47,7 @@ export default async function HubPage() {
   }
 
   const perms = await resolvePagePerms(session.user);
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const now = new Date();
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

@@ -6,7 +6,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { RendicionDetail } from "@/components/finance/RendicionDetail";
 interface PageProps {
@@ -24,7 +23,7 @@ export default async function RendicionDetailPage({ params }: PageProps) {
     redirect("/hub");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const rendicion = await prisma.financeRendicion.findFirst({
     where: { id, tenantId },

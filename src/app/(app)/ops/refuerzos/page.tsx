@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canDelete, canEdit, canView } from "@/lib/permissions-server";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
@@ -25,7 +24,7 @@ export default async function OpsRefuerzosPage() {
   const canManageRefuerzos = canEdit(perms, "ops", "turnos_extra");
   const canDeleteRefuerzos = canDelete(perms, "ops", "turnos_extra");
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const prismaAny = prisma as unknown as {
     opsRefuerzoSolicitud?: {
       findMany: (args: unknown) => Promise<

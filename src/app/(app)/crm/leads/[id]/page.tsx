@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { CrmLeadDetailClient } from "@/components/crm";
 export default async function CrmLeadDetailPage({
   params,
@@ -20,7 +19,7 @@ export default async function CrmLeadDetailPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "leads")) redirect("/crm");
-  const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const lead = await prisma.crmLead.findFirst({
     where: { id, tenantId },

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { Breadcrumb } from "@/components/opai";
 import ComunicacionesPageClient from "@/components/comunicaciones/ComunicacionesPageClient";
 
@@ -15,7 +14,7 @@ export default async function ComunicacionesPage() {
     redirect("/hub");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   return (
     <div className="space-y-6 min-w-0 overflow-x-hidden">

@@ -7,7 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { FacturacionClient } from "@/components/finance/FacturacionClient";
 
@@ -22,7 +21,7 @@ export default async function FacturacionPage() {
   }
   if (!canView(perms, "finance", "facturacion")) redirect("/finanzas/rendiciones");
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const canManage = hasCapability(perms, "facturacion_manage");
 
   const dtes = await prisma.financeDte.findMany({

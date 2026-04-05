@@ -1,7 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import Link from "next/link";
@@ -25,7 +24,7 @@ export default async function InventarioProductoPage({
   }
 
   const { id } = await params;
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const product = await prisma.inventoryProduct.findFirst({
     where: { id, tenantId },

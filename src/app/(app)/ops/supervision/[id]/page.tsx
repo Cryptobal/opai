@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { resolvePagePerms, canView, canEdit, canDelete, hasCapability } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,7 +47,7 @@ export default async function VisitaSupervisionDetailPage({
   }
 
   const { id } = await params;
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const canViewAll = hasCapability(perms, "supervision_view_all");
   const userCanEdit = canEdit(perms, "ops", "supervision");
   const userCanDelete = canDelete(perms, "ops", "supervision") || canViewAll;

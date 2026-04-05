@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { CrmAccountDetailClient } from "@/components/crm/CrmAccountDetailClient";
 export default async function CrmAccountDetailPage({
   params,
@@ -20,7 +19,7 @@ export default async function CrmAccountDetailPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "accounts")) redirect("/crm");
-  const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   let [account, quotes, activityLogs] = await Promise.all([
     prisma.crmAccount.findFirst({

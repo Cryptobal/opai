@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasModuleAccess, hasCapability, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader, ModuleCard } from "@/components/opai";
 import {
   Receipt,
@@ -32,7 +31,7 @@ export default async function FinanzasDashboardPage() {
     redirect("/finanzas/rendiciones");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const [pendingRendiciones, pendingApprovals, pendingPaymentAmount] =
     await Promise.all([

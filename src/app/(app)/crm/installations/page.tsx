@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canViewInstallations } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { CrmInstallationsListClient } from "@/components/crm";
 
@@ -17,7 +16,7 @@ export default async function CrmInstallationsPage() {
   }
   const perms = await resolvePagePerms(session.user);
   if (!canViewInstallations(perms)) redirect("/crm");
-  const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const canSeeDeals = canView(perms, "crm", "deals");
   const [installations, accounts, puestosData, asignacionesData] = await Promise.all([
     prisma.crmInstallation.findMany({

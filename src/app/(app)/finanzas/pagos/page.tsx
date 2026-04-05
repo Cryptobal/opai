@@ -7,7 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { PagosClient } from "@/components/finance/PagosClient";
 
@@ -25,7 +24,7 @@ export default async function PagosPage() {
     redirect("/finanzas");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const [payments, approvedRendiciones] = await Promise.all([
     prisma.financePayment.findMany({

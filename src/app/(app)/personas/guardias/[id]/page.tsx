@@ -2,7 +2,6 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
 import { getOperationalGuardDocSlots } from "@/lib/operational-guard-doc-slots";
 import { getPostulacionDocumentTypes } from "@/lib/postulacion-documentos";
@@ -24,7 +23,7 @@ export default async function GuardiaDetailPage({
   }
   const hasInventarioAccess = canView(perms, "ops", "inventario");
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const [guardia, asignaciones, adminUsers, guardiaDocConfig, operationalGuardDocSlots, postulacionDocs] = await Promise.all([
     prisma.opsGuardia.findFirst({
       where: { id, tenantId },

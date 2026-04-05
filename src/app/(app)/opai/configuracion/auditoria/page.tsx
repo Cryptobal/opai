@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader, DataTable, type DataTableColumn } from "@/components/opai";
 
 type AuditPageProps = {
@@ -50,7 +49,7 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
     redirect("/opai/configuracion");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const params = (await searchParams) ?? {};
   const q = (params.q || "").trim();
   const action = (params.action || "").trim();

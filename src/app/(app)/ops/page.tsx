@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, hasModuleAccess, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader, KpiCard, KpiGrid, ModuleCard } from "@/components/opai";
 import { OpsGlobalSearch } from "@/components/ops/OpsGlobalSearch";
 import {
@@ -30,7 +29,7 @@ export default async function OpsDashboardPage() {
     redirect("/hub");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const [totalSlots, assignedGuards, activeInstallations, teCount, ppcCount] = await Promise.all([
     prisma.opsPuestoOperativo.aggregate({

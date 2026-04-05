@@ -7,7 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { ReportesClient } from "@/components/finance/ReportesClient";
 
@@ -22,7 +21,7 @@ export default async function ReportesPage() {
   }
   if (!canView(perms, "finance", "reportes")) redirect("/finanzas/rendiciones");
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const canExport = hasCapability(perms, "rendicion_export");
 
   // Summary data

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { OpsPautaDiariaClient, PautasSubnav } from "@/components/ops";
@@ -18,7 +17,7 @@ export default async function OpsAsistenciaDiariaPage() {
 
   const role = session.user.role;
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const [clients, guardias] = await Promise.all([
     prisma.crmAccount.findMany({

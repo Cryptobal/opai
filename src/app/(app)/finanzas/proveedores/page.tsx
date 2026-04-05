@@ -7,7 +7,6 @@ import {
   canEdit,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { ProveedoresClient } from "@/components/finance/ProveedoresClient";
 
@@ -22,7 +21,7 @@ export default async function ProveedoresPage() {
   }
   if (!canView(perms, "finance", "proveedores")) redirect("/finanzas/rendiciones");
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const canManage = canEdit(perms, "finance", "proveedores");
 
   const suppliers = await prisma.financeSupplier.findMany({

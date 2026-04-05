@@ -7,7 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { JournalEntryForm } from "@/components/finance/JournalEntryForm";
 
@@ -25,7 +24,7 @@ export default async function NuevoAsientoPage() {
     redirect("/finanzas/contabilidad");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const [accounts, periods] = await Promise.all([
     prisma.financeAccountPlan.findMany({

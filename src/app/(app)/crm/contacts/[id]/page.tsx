@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { normalizeEmailAddress } from "@/lib/email-address";
 import { CrmContactDetailClient } from "@/components/crm/CrmContactDetailClient";
 export default async function CrmContactDetailPage({
@@ -21,7 +20,7 @@ export default async function CrmContactDetailPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "contacts")) redirect("/crm");
-  const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const contact = await prisma.crmContact.findFirst({
     where: { id, tenantId },

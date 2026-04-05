@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canEdit, canViewInstallations } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { CrmInstallationDetailClient } from "@/components/crm";
 export default async function CrmInstallationDetailPage({
   params,
@@ -20,7 +19,7 @@ export default async function CrmInstallationDetailPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canViewInstallations(perms)) redirect("/crm");
-  const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const prismaAny = prisma as unknown as {
     opsRefuerzoSolicitud?: {
       findMany: (args: unknown) => Promise<unknown[]>;

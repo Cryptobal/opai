@@ -7,7 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { DteForm } from "@/components/finance/DteForm";
 
@@ -25,7 +24,7 @@ export default async function EmitirDtePage() {
     redirect("/finanzas/facturacion");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const accounts = await prisma.financeAccountPlan.findMany({
     where: { tenantId, isActive: true, acceptsEntries: true },

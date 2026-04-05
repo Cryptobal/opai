@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { SignatureManagerClient } from "@/components/crm/SignatureManagerClient";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
@@ -17,7 +16,7 @@ export default async function FirmasPage() {
     redirect("/opai/configuracion");
   }
 
-  const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const signatures = await prisma.crmEmailSignature.findMany({
     where: { tenantId, isActive: true },

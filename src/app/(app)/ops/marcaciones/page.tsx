@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { OpsMarcacionesClient } from "@/components/ops/OpsMarcacionesClient";
@@ -16,7 +15,7 @@ export default async function OpsMarcacionesPage() {
     redirect("/hub");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   // Cargar clientes con instalaciones activas para el filtro
   const clients = await prisma.crmAccount.findMany({

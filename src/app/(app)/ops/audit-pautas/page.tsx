@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, DataTable, type DataTableColumn } from "@/components/opai";
 import { PautasSubnav } from "@/components/ops";
@@ -141,7 +140,7 @@ export default async function AuditPautasPage({ searchParams }: AuditPautasPageP
     redirect("/hub");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const params = (await searchParams) ?? {};
   const q = (params.q || "").trim();
   const actionFilter = (params.action || "").trim();

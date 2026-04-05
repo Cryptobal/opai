@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { CrmCotizacionesClient } from "@/components/crm/CrmCotizacionesClient";
 import { CpqIndicators } from "@/components/cpq/CpqIndicators";
@@ -20,7 +19,7 @@ export default async function CrmCotizacionesPage() {
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "quotes")) redirect("/crm");
-  const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const [quotes, accounts, ufValue] = await Promise.all([
     prisma.cpqQuote.findMany({

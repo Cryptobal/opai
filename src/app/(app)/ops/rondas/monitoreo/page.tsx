@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { RondasMonitoreoClient } from "@/components/ops/rondas";
 import { RondasSubnav } from "@/components/ops/RondasSubnav";
@@ -13,7 +12,7 @@ export default async function RondasMonitoreoPage() {
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "ops", "rondas")) redirect("/hub");
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
 
   const now = new Date();
   const sixHoursFromNow = new Date(now.getTime() + 6 * 60 * 60 * 1000);

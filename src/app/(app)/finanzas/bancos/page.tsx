@@ -7,7 +7,6 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
 import { BancosClient } from "@/components/finance/BancosClient";
 
@@ -22,7 +21,7 @@ export default async function BancosPage() {
   }
   if (!canView(perms, "finance", "contabilidad")) redirect("/finanzas/rendiciones");
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const canManage = hasCapability(perms, "rendicion_configure");
 
   const bankAccounts = await prisma.financeBankAccount.findMany({

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
 import { resolvePagePerms, canView, hasCapability } from "@/lib/permissions-server";
 import { PageHeader, KpiCard, KpiGrid } from "@/components/opai";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +25,7 @@ export default async function HistorialPage() {
     redirect("/hub");
   }
 
-  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const tenantId = session.user.tenantId;
   const canViewAll = hasCapability(perms, "supervision_view_all");
 
   // Supervisor filter: admins see all, supervisors only their own
