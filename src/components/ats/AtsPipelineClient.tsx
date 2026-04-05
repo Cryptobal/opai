@@ -230,7 +230,7 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
                         </a>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <Input
                         type="url"
                         value={currentUrl}
@@ -238,12 +238,12 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
                           setChannelUrls((prev) => ({ ...prev, [key]: e.target.value }))
                         }
                         placeholder="Pega la URL del aviso publicado..."
-                        className="text-xs h-8"
+                        className="text-xs h-8 min-w-0 flex-1"
                       />
                       <Button
                         size="sm"
                         variant="outline"
-                        className="shrink-0 h-8 text-xs"
+                        className="shrink-0 h-8 text-xs w-full sm:w-auto"
                         disabled={!currentUrl || savingUrl === key}
                         onClick={() => saveChannelUrl(key, currentUrl)}
                       >
@@ -258,8 +258,73 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
         </Card>
       )}
 
-      {/* Kanban columns */}
-      <div className="grid grid-cols-5 gap-3 min-h-[400px]">
+      {/* Kanban: en móvil scroll horizontal (5 columnas fijas eran ilegibles en vertical) */}
+      <div className="md:hidden -mx-4 px-4">
+        <p className="text-[11px] text-muted-foreground mb-2">
+          Desliza horizontalmente para ver todas las etapas del pipeline.
+        </p>
+        <div className="flex gap-3 overflow-x-auto pb-3 snap-x snap-mandatory [-webkit-overflow-scrolling:touch] scrollbar-hide min-h-[min(70vh,520px)]">
+          {ETAPAS.map((etapa) => {
+            const apps = pipeline.get(etapa) ?? [];
+            return (
+              <div
+                key={etapa}
+                className={`rounded-lg p-3 shrink-0 w-[min(100%,18rem)] snap-start ${ETAPA_COLORS[etapa]}`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold">{ETAPA_LABELS[etapa]}</h4>
+                  <Badge variant="secondary" className="text-xs">{apps.length}</Badge>
+                </div>
+                <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+                  {apps.map((app) => (
+                    <Card
+                      key={app.id}
+                      className="p-3 cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => setSelected(app)}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold shrink-0">
+                          {app.guardia.persona.firstName[0]}
+                          {app.guardia.persona.lastName[0]}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {app.guardia.persona.firstName} {app.guardia.persona.lastName}
+                          </p>
+                          <div className="flex items-center gap-1 mt-1">
+                            {app.guardia.os10 ? (
+                              <ShieldCheck className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <ShieldX className="h-3 w-3 text-red-400" />
+                            )}
+                            {app.guardia.persona.commune && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                                <MapPin className="h-3 w-3" />
+                                {app.guardia.persona.commune}
+                              </span>
+                            )}
+                          </div>
+                          {app.matchScore !== null && (
+                            <div className="mt-1.5">
+                              <Progress value={app.matchScore} className="h-1.5" />
+                              <span className="text-xs text-muted-foreground">{app.matchScore}%</span>
+                            </div>
+                          )}
+                          <Badge className={`text-[10px] mt-1 ${FUENTE_COLORS[app.fuente] ?? "bg-gray-100"}`} variant="secondary">
+                            {app.fuente.replace("_", " ")}
+                          </Badge>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="hidden md:grid md:grid-cols-5 gap-3 min-h-[400px]">
         {ETAPAS.map((etapa) => {
           const apps = pipeline.get(etapa) ?? [];
           return (
@@ -327,7 +392,7 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
             Descartados ({descartados.length}) {showDescartados ? "▲" : "▼"}
           </Button>
           {showDescartados && (
-            <div className="grid grid-cols-5 gap-2 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 mt-2">
               {descartados.map((app) => (
                 <Card
                   key={app.id}
@@ -346,7 +411,7 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
 
       {/* Detail Sheet */}
       <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <SheetContent className="w-[400px] sm:w-[540px]">
+        <SheetContent className="w-full max-w-full sm:max-w-[540px] sm:w-[540px] p-4 sm:p-6 overflow-y-auto">
           {selected && (
             <>
               <SheetHeader>
@@ -357,7 +422,7 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
               </SheetHeader>
 
               <div className="mt-6 space-y-4">
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                   <div>
                     <span className="text-muted-foreground">RUT:</span>{" "}
                     {selected.guardia.persona.rut ?? "Sin RUT"}
@@ -419,12 +484,12 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
                   </div>
                 )}
 
-                <div className="flex gap-2 pt-4 border-t">
+                <div className="flex flex-col gap-2 pt-4 border-t sm:flex-row sm:flex-wrap">
                   {NEXT_ETAPA[selected.etapa] && (
                     <Button
                       onClick={() => moveEtapa(selected.id, NEXT_ETAPA[selected.etapa])}
                       disabled={moving}
-                      className="flex-1"
+                      className="w-full sm:flex-1"
                     >
                       Mover a {ETAPA_LABELS[NEXT_ETAPA[selected.etapa]]}
                       <ChevronRight className="h-4 w-4 ml-1" />
@@ -435,6 +500,7 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
                       variant="destructive"
                       onClick={() => moveEtapa(selected.id, "DESCARTADO")}
                       disabled={moving}
+                      className="w-full sm:w-auto"
                     >
                       Descartar
                     </Button>
@@ -444,7 +510,7 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
                       variant="outline"
                       onClick={() => moveEtapa(selected.id, "POSTULADO")}
                       disabled={moving}
-                      className="flex-1"
+                      className="w-full sm:flex-1"
                     >
                       Reactivar
                     </Button>

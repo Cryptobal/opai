@@ -95,28 +95,81 @@ export function AtsDashboardClient({
       </div>
 
       {/* Actions bar */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 sm:flex-wrap sm:overflow-visible scrollbar-hide">
           {["all", "ACTIVO", "BORRADOR", "PAUSADO", "CERRADO"].map((estado) => (
             <Button
               key={estado}
               variant={filterEstado === estado ? "default" : "outline"}
               size="sm"
+              className="shrink-0"
               onClick={() => setFilterEstado(estado)}
             >
               {estado === "all" ? "Todos" : estado.charAt(0) + estado.slice(1).toLowerCase()}
             </Button>
           ))}
         </div>
-        <Link href="/ops/ats/nuevo">
-          <Button size="sm">
+        <Link href="/ops/ats/nuevo" className="shrink-0 w-full sm:w-auto">
+          <Button size="sm" className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-1" /> Nuevo aviso
           </Button>
         </Link>
       </div>
 
-      {/* Table */}
-      <Card>
+      {/* Móvil: tarjetas (evita tabla ancha ilegible) */}
+      <div className="space-y-3 md:hidden">
+        {jobs.length === 0 && (
+          <Card className="p-8 text-center text-muted-foreground text-sm">No hay avisos</Card>
+        )}
+        {jobs.map((job) => (
+          <Card key={job.id} className="p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-medium text-sm leading-snug line-clamp-2">{job.titulo}</h3>
+              <Badge className={`shrink-0 ${ESTADO_COLORS[job.estado] ?? ""}`} variant="secondary">
+                {job.estado}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span>{TURNO_LABELS[job.turno] ?? job.turno}</span>
+              <span>·</span>
+              <span>{job.commune ?? job.region}</span>
+              <span>·</span>
+              <span>{new Date(job.createdAt).toLocaleDateString("es-CL")}</span>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-border">
+              <div className="flex flex-wrap gap-1">
+                {job.channels
+                  .filter((c) => c.activo)
+                  .slice(0, 4)
+                  .map((c) => (
+                    <Badge key={c.canal} variant="outline" className="text-[10px]">
+                      {c.canal.replace("_", " ")}
+                    </Badge>
+                  ))}
+                {job.channels.filter((c) => c.activo).length > 4 && (
+                  <Badge variant="outline" className="text-[10px]">
+                    +{job.channels.filter((c) => c.activo).length - 4}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-muted-foreground">
+                  <Users className="h-3.5 w-3.5 inline mr-0.5" />
+                  {job._count.applications}
+                </span>
+                <Button variant="default" size="sm" className="h-8 text-xs" asChild>
+                  <Link href={`/ops/ats/${job.id}`}>
+                    <Eye className="h-3.5 w-3.5 mr-1" /> Pipeline
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Desktop: tabla */}
+      <Card className="hidden md:block overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

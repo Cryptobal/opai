@@ -169,9 +169,9 @@ export function AtsCreateJobClient({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0">
       {/* Left column: Job info */}
-      <div className="lg:col-span-2 space-y-6">
+      <div className="lg:col-span-2 space-y-6 min-w-0">
         <Card className="p-6 space-y-4">
           <h3 className="font-semibold">Información del cargo</h3>
 
@@ -204,7 +204,7 @@ export function AtsCreateJobClient({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Turno *</Label>
               <Select value={form.turno} onValueChange={(v) => setForm((f) => ({ ...f, turno: v }))}>
@@ -229,7 +229,7 @@ export function AtsCreateJobClient({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Instalación (opcional)</Label>
               <Select
@@ -257,7 +257,7 @@ export function AtsCreateJobClient({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Renta mínima (CLP)</Label>
               <Input
@@ -282,7 +282,7 @@ export function AtsCreateJobClient({
         <Card className="p-6 space-y-4">
           <h3 className="font-semibold">Requisitos</h3>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex items-center gap-3">
               <Switch
                 checked={form.requiereOS10}
@@ -299,7 +299,7 @@ export function AtsCreateJobClient({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Género</Label>
               <Select value={form.genero} onValueChange={(v) => setForm((f) => ({ ...f, genero: v }))}>
@@ -346,8 +346,8 @@ export function AtsCreateJobClient({
         </Card>
       </div>
 
-      {/* Right column: Channels + Actions */}
-      <div className="space-y-6">
+      {/* Right column: Channels + Actions (barra fija en móvil para publicar sin scroll infinito) */}
+      <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
         <Card className="p-6 space-y-4">
           <h3 className="font-semibold">Canales de publicación</h3>
           <div className="space-y-3">
@@ -373,7 +373,7 @@ export function AtsCreateJobClient({
           </div>
         </Card>
 
-        <Card className="p-6 space-y-3">
+        <Card className="p-6 space-y-3 hidden lg:block">
           <Button className="w-full" onClick={() => submit(true)} disabled={saving}>
             Activar y publicar
           </Button>
@@ -386,6 +386,23 @@ export function AtsCreateJobClient({
             Guardar como borrador
           </Button>
         </Card>
+      </div>
+
+      {/* Móvil: acciones siempre visibles abajo */}
+      <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 px-4 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
+        <div className="mx-auto max-w-lg flex flex-col gap-2">
+          <Button className="w-full" onClick={() => submit(true)} disabled={saving}>
+            Activar y publicar
+          </Button>
+          <Button
+            className="w-full"
+            variant="outline"
+            onClick={() => submit(false)}
+            disabled={saving}
+          >
+            Guardar como borrador
+          </Button>
+        </div>
       </div>
     </div>
   );
