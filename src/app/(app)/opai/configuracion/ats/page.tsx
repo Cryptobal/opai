@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PageHeader } from "@/components/opai";
 import { getAtsConfig } from "@/lib/ats/config";
+import { getAtsSnippets } from "@/lib/ats/snippets";
 import { AtsConfigClient } from "@/components/ats/AtsConfigClient";
 
 export default async function AtsConfigPage() {
@@ -16,11 +17,15 @@ export default async function AtsConfigPage() {
     redirect("/hub");
   }
 
-  const config = await getAtsConfig(session.user.tenantId);
-  const tenantRow = await prisma.tenant.findUnique({
-    where: { id: session.user.tenantId },
-    select: { slug: true },
-  });
+  const tenantId = session.user.tenantId;
+  const [config, snippets, tenantRow] = await Promise.all([
+    getAtsConfig(tenantId),
+    getAtsSnippets(tenantId),
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true },
+    }),
+  ]);
 
   return (
     <div className="space-y-6 min-w-0">
@@ -30,7 +35,11 @@ export default async function AtsConfigPage() {
         backHref="/opai/configuracion"
         backLabel="Configuración"
       />
-      <AtsConfigClient initialConfig={config} tenantSlug={tenantRow?.slug || ""} />
+      <AtsConfigClient
+        initialConfig={config}
+        tenantSlug={tenantRow?.slug || ""}
+        initialSnippets={snippets}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
 import { AtsCreateJobClient } from "@/components/ats/AtsCreateJobClient";
+import { getAtsSnippets } from "@/lib/ats/snippets";
 
 export default async function AtsNuevoPage() {
   const session = await auth();
@@ -17,11 +18,14 @@ export default async function AtsNuevoPage() {
 
   const tenantId = session.user.tenantId;
 
-  const installations = await prisma.crmInstallation.findMany({
-    where: { tenantId, isActive: true },
-    select: { id: true, name: true, commune: true, lat: true, lng: true },
-    orderBy: { name: "asc" },
-  });
+  const [installations, snippets] = await Promise.all([
+    prisma.crmInstallation.findMany({
+      where: { tenantId, isActive: true },
+      select: { id: true, name: true, commune: true, lat: true, lng: true },
+      orderBy: { name: "asc" },
+    }),
+    getAtsSnippets(tenantId),
+  ]);
 
   return (
     <div className="space-y-6 min-w-0">
@@ -33,6 +37,7 @@ export default async function AtsNuevoPage() {
       />
       <AtsCreateJobClient
         installations={JSON.parse(JSON.stringify(installations))}
+        snippets={snippets}
       />
     </div>
   );

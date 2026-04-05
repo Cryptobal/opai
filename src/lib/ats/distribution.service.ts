@@ -12,7 +12,8 @@ export type Canal =
   | "base_opai"
   | "laborum"
   | "linkedin"
-  | "bne";
+  | "bne"
+  | "jooble";
 
 export async function publicarEnCanal(
   jobPostingId: string,
@@ -58,6 +59,10 @@ export async function publicarEnCanal(
           externalId: `${feedSiteUrl}/api/public/${feedTenant?.slug}/ats/feed.xml`,
         };
       }
+      case "jooble":
+        // Jooble is a search aggregator — jobs are automatically indexed
+        // via the public JSON-LD pages (same as Google Jobs).
+        return { success: true, externalId: `auto:jooble` };
       case "indeed":
       case "computrabajo":
       case "bumeran":

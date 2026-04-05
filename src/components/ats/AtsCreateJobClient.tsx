@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import type { AtsSnippetsConfig, Snippet } from "@/lib/ats/snippets";
 
 interface Installation {
   id: string;
@@ -24,6 +25,34 @@ interface Installation {
   commune: string | null;
   lat: number | null;
   lng: number | null;
+}
+
+function SnippetPicker({
+  snippets,
+  onSelect,
+  mode = "replace",
+}: {
+  snippets: Snippet[];
+  onSelect: (text: string) => void;
+  /** "replace" sets the field value; "append" appends to existing */
+  mode?: "replace" | "append";
+}) {
+  if (!snippets.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1.5">
+      {snippets.map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          onClick={() => onSelect(s.text)}
+          className="inline-flex items-center rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors"
+          title={mode === "append" ? `Agregar: ${s.text.slice(0, 80)}...` : s.text.slice(0, 80)}
+        >
+          {mode === "append" ? "+ " : ""}{s.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 const TURNOS = [
@@ -47,13 +76,16 @@ const CANALES = [
   { value: "bumeran", label: "Bumeran Chile", desc: "ATS API · Requiere partner" },
   { value: "talent", label: "Talent.com", desc: "XML feed · Requiere partner" },
   { value: "base_opai", label: "Base Opai", desc: "Push a guardias con match · Gratis" },
+  { value: "jooble", label: "Jooble", desc: "Buscador de empleo · Gratis · Automático" },
   { value: "yapo", label: "Yapo.cl", desc: "Manual · Solo trazabilidad" },
 ];
 
 export function AtsCreateJobClient({
   installations,
+  snippets,
 }: {
   installations: Installation[];
+  snippets: AtsSnippetsConfig;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -73,7 +105,7 @@ export function AtsCreateJobClient({
     genero: "",
     experienciaMinAnios: "0",
     funciones: "",
-    canales: ["google_jobs", "base_opai"] as string[],
+    canales: ["google_jobs", "base_opai", "jooble"] as string[],
   });
 
   function toggleCanal(canal: string) {
@@ -151,6 +183,10 @@ export function AtsCreateJobClient({
               onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
               placeholder="Guardia de seguridad — Santiago Centro"
             />
+            <SnippetPicker
+              snippets={snippets.titulo}
+              onSelect={(text) => setForm((f) => ({ ...f, titulo: text }))}
+            />
           </div>
 
           <div>
@@ -161,6 +197,10 @@ export function AtsCreateJobClient({
               onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
               rows={4}
               placeholder="Describe las funciones, horario y condiciones del cargo..."
+            />
+            <SnippetPicker
+              snippets={snippets.descripcion}
+              onSelect={(text) => setForm((f) => ({ ...f, descripcion: text }))}
             />
           </div>
 
@@ -289,6 +329,18 @@ export function AtsCreateJobClient({
               onChange={(e) => setForm((f) => ({ ...f, funciones: e.target.value }))}
               rows={3}
               placeholder="Detalla las funciones específicas del cargo..."
+            />
+            <SnippetPicker
+              snippets={snippets.funciones}
+              mode="append"
+              onSelect={(text) =>
+                setForm((f) => ({
+                  ...f,
+                  funciones: f.funciones
+                    ? `${f.funciones}\n${text}`
+                    : text,
+                }))
+              }
             />
           </div>
         </Card>

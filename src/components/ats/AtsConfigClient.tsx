@@ -16,7 +16,11 @@ import {
   Zap,
   Rss,
   MousePointerClick,
+  Plus,
+  Trash2,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import type { AtsSnippetsConfig, Snippet, SnippetField } from "@/lib/ats/snippets";
 
 interface AtsChannelCfg {
   enabled: boolean;
@@ -88,6 +92,7 @@ const CHANNEL_DESCRIPTIONS: Record<string, string> = {
   laborum: "Publicacion manual en Laborum para cada aviso.",
   linkedin: "Publicacion manual en LinkedIn Jobs para cada aviso.",
   yapo: "Publicacion manual en Yapo para cada aviso.",
+  jooble: "Buscador de empleo internacional. Indexa automaticamente tus avisos publicos con JSON-LD.",
 };
 
 const FEED_INSTRUCTIONS: Record<string, string[]> = {
@@ -104,19 +109,29 @@ const FEED_INSTRUCTIONS: Record<string, string[]> = {
 };
 
 
+const SNIPPET_FIELD_LABELS: Record<SnippetField, string> = {
+  titulo: "Títulos",
+  descripcion: "Descripciones",
+  funciones: "Funciones",
+};
+
 export function AtsConfigClient({
   initialConfig,
   tenantSlug,
+  initialSnippets,
 }: {
   initialConfig: AtsConfig;
   tenantSlug: string;
+  initialSnippets: AtsSnippetsConfig;
 }) {
   const [config, setConfig] = useState<AtsConfig>(initialConfig);
   const [channels, setChannels] = useState<Record<string, AtsChannelCfg>>(
     initialConfig.channelConfigs ?? {},
   );
+  const [snippets, setSnippets] = useState<AtsSnippetsConfig>(initialSnippets);
   const [saving, setSaving] = useState(false);
   const [savingChannels, setSavingChannels] = useState(false);
+  const [savingSnippets, setSavingSnippets] = useState(false);
 
   const siteUrl =
     typeof window !== "undefined"
@@ -197,6 +212,49 @@ export function AtsConfigClient({
       toast.error("Error de red");
     } finally {
       setSavingChannels(false);
+    }
+  }
+
+  function updateSnippet(field: SnippetField, index: number, updates: Partial<Snippet>) {
+    setSnippets((prev) => ({
+      ...prev,
+      [field]: prev[field].map((s, i) => (i === index ? { ...s, ...updates } : s)),
+    }));
+  }
+
+  function addSnippet(field: SnippetField) {
+    const id = `${field[0]}${Date.now()}`;
+    setSnippets((prev) => ({
+      ...prev,
+      [field]: [...prev[field], { id, label: "", text: "" }],
+    }));
+  }
+
+  function removeSnippet(field: SnippetField, index: number) {
+    setSnippets((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== index),
+    }));
+  }
+
+  async function saveSnippets() {
+    setSavingSnippets(true);
+    try {
+      const res = await fetch("/api/ops/ats/snippets", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(snippets),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        toast.error(json.error);
+        return;
+      }
+      toast.success("Fragmentos guardados");
+    } catch {
+      toast.error("Error de red");
+    } finally {
+      setSavingSnippets(false);
     }
   }
 
@@ -381,9 +439,10 @@ export function AtsConfigClient({
 
   return (
     <Tabs defaultValue="match" className="w-full">
-      <TabsList className="w-full grid grid-cols-2">
+      <TabsList className="w-full grid grid-cols-3">
         <TabsTrigger value="match">Match Score</TabsTrigger>
         <TabsTrigger value="canales">Canales</TabsTrigger>
+        <TabsTrigger value="snippets">Fragmentos</TabsTrigger>
       </TabsList>
 
       <TabsContent value="match" className="space-y-4 mt-4">
@@ -576,6 +635,88 @@ export function AtsConfigClient({
           className="w-full sm:w-auto"
         >
           Guardar canales
+        </Button>
+      </TabsContent>
+
+      <TabsContent value="snippets" className="space-y-4 mt-4">
+        <p className="text-xs text-muted-foreground">
+          Fragmentos predefinidos que aparecen como botones rápidos al crear un aviso de empleo. Puedes agregar, editar o eliminar fragmentos para cada campo.
+        </p>
+
+        {(["titulo", "descripcion", "funciones"] as SnippetField[]).map((field) => (
+          <Card key={field} className="p-4 sm:p-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-sm sm:text-base">
+                {SNIPPET_FIELD_LABELS[field]}
+              </h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addSnippet(field)}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Agregar
+              </Button>
+            </div>
+
+            {snippets[field].length === 0 && (
+              <p className="text-xs text-muted-foreground italic">
+                Sin fragmentos. Agrega uno para agilizar la creación de avisos.
+              </p>
+            )}
+
+            <div className="space-y-3">
+              {snippets[field].map((snippet, idx) => (
+                <div
+                  key={snippet.id}
+                  className="flex gap-2 items-start rounded-md border border-border p-3"
+                >
+                  <div className="flex-1 space-y-2">
+                    <Input
+                      value={snippet.label}
+                      onChange={(e) => updateSnippet(field, idx, { label: e.target.value })}
+                      placeholder="Nombre corto (ej: Guardia OS10)"
+                      className="text-xs h-8"
+                    />
+                    {field === "titulo" ? (
+                      <Input
+                        value={snippet.text}
+                        onChange={(e) => updateSnippet(field, idx, { text: e.target.value })}
+                        placeholder="Texto del fragmento..."
+                        className="text-xs h-8"
+                      />
+                    ) : (
+                      <Textarea
+                        value={snippet.text}
+                        onChange={(e) => updateSnippet(field, idx, { text: e.target.value })}
+                        placeholder="Texto del fragmento..."
+                        rows={field === "descripcion" ? 4 : 3}
+                        className="text-xs"
+                      />
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeSnippet(field, idx)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </Card>
+        ))}
+
+        <Button
+          onClick={saveSnippets}
+          disabled={savingSnippets}
+          className="w-full sm:w-auto"
+        >
+          Guardar fragmentos
         </Button>
       </TabsContent>
     </Tabs>

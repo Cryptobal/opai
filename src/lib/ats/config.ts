@@ -41,6 +41,7 @@ export const CHANNEL_DEFAULTS: Record<string, AtsChannelCfg> = {
   laborum: { enabled: false, label: "Laborum", tipo: "manual_link" },
   linkedin: { enabled: false, label: "LinkedIn Jobs", tipo: "manual_link" },
   bne: { enabled: false, label: "BNE (Bolsa Nacional de Empleo)", tipo: "feed" },
+  jooble: { enabled: true, label: "Jooble", tipo: "automatico" },
 };
 
 const DEFAULTS: AtsMatchConfig = {
