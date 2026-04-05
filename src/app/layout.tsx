@@ -39,8 +39,23 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "OPAI - Presentaciones Comerciales",
-  description: "Suite de aplicaciones inteligentes",
+  metadataBase: new URL('https://www.opai.cl'),
+  title: {
+    default: 'OPAI — ERP para Empresas de Seguridad Privada | Chile',
+    template: '%s | OPAI',
+  },
+  description:
+    'El único ERP diseñado exclusivamente para empresas de seguridad privada ' +
+    'en Chile. Operaciones, CRM, Finanzas y Nómina con IA operacional real. ' +
+    'Face ID, GPS en tiempo real, alertas WhatsApp automáticas.',
+  keywords: [
+    'ERP seguridad privada Chile',
+    'software gestión guardias seguridad',
+    'control rondas GPS tiempo real',
+    'marcaciones biométricas guardias',
+    'nómina guardias Chile',
+    'sistema OS10 seguridad privada',
+  ],
   icons: {
     icon: [
       { url: '/icons/favicon.svg', type: 'image/svg+xml' },

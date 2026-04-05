@@ -29,6 +29,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       publishedTime: post.date,
       authors: [post.author],
       url: `https://www.opai.cl/blog/${post.slug}`,
+      images: [{
+        url: `/blog/${post.slug}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: post.title,
+      }],
     },
   }
 }
@@ -52,6 +58,7 @@ export default async function BlogPostPage({ params }: Props) {
     author: { '@type': 'Person', name: post.author },
     publisher: { '@type': 'Organization', name: 'OPAI', url: 'https://www.opai.cl' },
     url: `https://www.opai.cl/blog/${post.slug}`,
+    image: `https://www.opai.cl/blog/${post.slug}/opengraph-image`,
   }
 
   const breadcrumbJsonLd = {
