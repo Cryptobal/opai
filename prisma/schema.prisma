@@ -7624,6 +7624,7 @@ model OpsAlertaCobertura {
   confirmadaAt          DateTime? @map("confirmada_at") @db.Timestamptz(6)
   confirmadaPorId       String?   @map("confirmada_por_id")
   asignacionPauta       String?   @map("asignacion_pauta")
+  confirmacionNotificadaAt DateTime? @map("confirmacion_notificada_at") @db.Timestamptz(6)
 
   // Turno extra generado
   turnoExtraId          String?  @unique @map("turno_extra_id") @db.Uuid

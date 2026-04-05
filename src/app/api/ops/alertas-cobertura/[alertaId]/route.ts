@@ -272,6 +272,7 @@ export async function PATCH(
           aceptadaPorGuardiaId: null,
           aceptadaAt: null,
           esInternoAceptacion: null,
+          confirmacionNotificadaAt: null,
           reAlertaCount: alerta.reAlertaCount + 1,
           reAlertaMotivo: parsed.data.motivo ?? null,
           proximaOleadaAt,

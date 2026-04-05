@@ -29,7 +29,7 @@ export interface AlertaCobertura {
   cancelMotivo: string | null;
   confirmadaAt: string | null;
   confirmadaPorId: string | null;
-  asignacionPauta: boolean | null;
+  asignacionPauta: "AUTOMATICA" | "MANUAL" | null;
   reAlertaCount: number;
   reAlertaMotivo: string | null;
   createdAt: string;
