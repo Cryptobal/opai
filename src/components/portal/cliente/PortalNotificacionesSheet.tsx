@@ -17,7 +17,7 @@ const ALERT_LABELS: Record<string, { label: string; desc: string }> = {
   checkpoint_missed: { label: "Checkpoint sin marcar", desc: "Cuando un checkpoint no fue marcado" },
   incident: { label: "Incidente reportado", desc: "Cuando un guardia reporta un incidente" },
   new_document: { label: "Nuevo documento", desc: "Cuando se sube un documento a tu portal" },
-  ticket_replied: { label: "Respuesta en ticket", desc: "Cuando el equipo Gard responde tu ticket" },
+  ticket_replied: { label: "Respuesta en ticket", desc: "Cuando el equipo de soporte responde tu ticket" },
   quote_pending: { label: "Cotización pendiente", desc: "Cuando hay una cotización esperando tu revisión" },
   contract_expiring: { label: "Contrato por vencer", desc: "Cuando un contrato está próximo a expirar" },
 };

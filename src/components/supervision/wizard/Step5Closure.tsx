@@ -63,7 +63,7 @@ type Props = {
   saving: boolean;
 };
 
-// GARD Client Survey — 9 questions
+// Client Survey — 9 questions
 const SURVEY_QUESTIONS: {
   key: "serviceQuality" | "scheduleCompliance" | "personalPresentation" | "professionalism" | "supervisionPresence" | "incidentResponse";
   question: string;
@@ -91,12 +91,12 @@ const SURVEY_QUESTIONS: {
   },
   {
     key: "supervisionPresence",
-    question: "Percibe presencia y supervision adecuada por parte de GARD?",
+    question: "Percibe presencia y supervision adecuada por parte del equipo de seguridad?",
     labels: ["Muy insuficiente", "Insuficiente", "Aceptable", "Buena", "Excelente"],
   },
   {
     key: "incidentResponse",
-    question: "Cuando ocurre un problema o incidente, la respuesta de GARD es oportuna y eficaz?",
+    question: "Cuando ocurre un problema o incidente, la respuesta del equipo de seguridad es oportuna y eficaz?",
     labels: ["Muy deficiente", "Deficiente", "Regular", "Buena", "Excelente"],
   },
 ];
@@ -334,7 +334,7 @@ export function Step5Closure({
 
         {/* Client survey section */}
         <div className="rounded-lg border p-3 space-y-3">
-          <p className="text-sm font-medium">Encuesta cliente GARD</p>
+          <p className="text-sm font-medium">Encuesta de satisfacción cliente</p>
 
           <div className="space-y-2">
             <Label className="text-xs">Contacto al cliente?</Label>

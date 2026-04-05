@@ -2,7 +2,7 @@
 
 /**
  * Section06CostoReal - El verdadero costo de la seguridad
- * Comparación de modelos tradicional vs GARD con costos en UF
+ * Comparación de modelos tradicional vs tecnológico con costos en UF
  */
 
 import { useState } from 'react';
@@ -105,7 +105,7 @@ export function Section06CostoReal({ data }: Section06CostoRealProps) {
             </div>
           </StaggerItem>
           
-          {/* GARD Model */}
+          {/* Technology Model */}
           <StaggerItem>
             <div className={cn(
               'p-8 rounded-xl border-2 border-green-500/50 h-full',
@@ -123,7 +123,7 @@ export function Section06CostoReal({ data }: Section06CostoRealProps) {
                   <h3 className={cn('text-2xl font-bold', theme.text)}>
                     Costo Controlado + Bajo Riesgo
                   </h3>
-                  <p className="text-sm text-green-400">Modelo GARD</p>
+                  <p className="text-sm text-green-400">Modelo Tecnológico</p>
                 </div>
               </div>
               

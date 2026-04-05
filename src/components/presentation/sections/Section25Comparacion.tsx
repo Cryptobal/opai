@@ -14,7 +14,7 @@ import { motion } from 'framer-motion';
 
 interface Section25ComparacionProps {
   data: Section25_Comparacion;
-  /** Tenant brand name in uppercase for headings (e.g. "GARD") */
+  /** Tenant brand name in uppercase for headings (e.g. "ACME") */
   brandNameUpper?: string;
   /** Tenant commercial email for CTA mailto link */
   contactEmail?: string;

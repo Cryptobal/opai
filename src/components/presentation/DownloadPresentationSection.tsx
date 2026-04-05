@@ -39,7 +39,7 @@ export function DownloadPresentationSection({ uniqueId, className }: DownloadPre
       // Obtener nombre del archivo del header
       const disposition = response.headers.get('Content-Disposition');
       const fileNameMatch = disposition?.match(/filename="(.+)"/);
-      const fileName = fileNameMatch?.[1] || `Presentacion_Gard.pdf`;
+      const fileName = fileNameMatch?.[1] || `Presentacion.pdf`;
 
       // Descargar el blob
       const blob = await response.blob();

@@ -190,7 +190,7 @@ export function ChatClienteSection({ session, isProspect }: ChatClienteSectionPr
             <div className="border-t border-zinc-800 my-3" />
           )}
           <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2 px-1">
-            Grupos Gard
+            Grupos
           </h3>
           {groupChannels.map(renderChannelButton)}
         </>
@@ -488,7 +488,7 @@ function ClienteChatConversation({
         <div>
           <h3 className="text-sm font-semibold text-zinc-100">{channel.name}</h3>
           <p className="text-[10px] text-zinc-500">
-            {channel.channelType === "GROUP" ? "Grupo Gard" : "Chat de instalación"}
+            {channel.channelType === "GROUP" ? "Grupo" : "Chat de instalación"}
           </p>
         </div>
       </div>

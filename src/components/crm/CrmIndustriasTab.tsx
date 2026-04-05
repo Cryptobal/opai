@@ -97,7 +97,7 @@ export function CrmIndustriasTab() {
       <CardHeader>
         <CardTitle>Industrias</CardTitle>
         <CardDescription>
-          Opciones del campo Industria en Clientes. También aparecen en el cotizador de Gard Web.
+          Opciones del campo Industria en Clientes. También aparecen en el cotizador web.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">

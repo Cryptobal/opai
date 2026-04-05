@@ -66,7 +66,7 @@ type PhoneLine = {
 };
 
 type Installation = { id: string; name: string };
-type GardUser = { id: string; name: string; email: string };
+type SystemUser = { id: string; name: string; email: string };
 
 // ── Constants ──────────────────────────────────────────
 const CARRIERS = ["movistar", "entel", "wom", "claro", "otro"];
@@ -104,7 +104,7 @@ const emptyForm = {
 export function InventarioLineasClient() {
   const [lines, setLines] = useState<PhoneLine[]>([]);
   const [installations, setInstallations] = useState<Installation[]>([]);
-  const [users, setUsers] = useState<GardUser[]>([]);
+  const [users, setUsers] = useState<SystemUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -753,7 +753,7 @@ export function InventarioLineasClient() {
             <DialogHeader>
               <DialogTitle>Asignar línea</DialogTitle>
               <DialogDescription>
-                Elige si asignas a una instalación o a un usuario de Gard. Si ya está asignada, se reasignará.
+                Elige si asignas a una instalación o a un usuario del sistema. Si ya está asignada, se reasignará.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -784,7 +784,7 @@ export function InventarioLineasClient() {
                       }}
                       className="rounded"
                     />
-                    Usuario de Gard
+                    Usuario del sistema
                   </label>
                 </div>
               </div>
@@ -807,7 +807,7 @@ export function InventarioLineasClient() {
               )}
               {assignTargetType === "user" && (
                 <div>
-                  <Label>Usuario de Gard *</Label>
+                  <Label>Usuario del sistema *</Label>
                   <div className="mt-1">
                     <SearchableSelect
                       value={assignUserId}

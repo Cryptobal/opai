@@ -65,7 +65,7 @@ export function HiddenCostsModal({
                 <div className="p-1.5 rounded-lg bg-green-500/20 border border-green-500/50">
                   <Shield className="w-5 h-5 text-green-500" />
                 </div>
-                <span>Desglose de Costos Ocultos - Modelo GARD</span>
+                <span>Desglose de Costos Ocultos - Modelo Tecnológico</span>
               </>
             )}
           </DialogTitle>
@@ -151,7 +151,7 @@ export function HiddenCostsModal({
               <p className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-400" />
                 <span className="leading-relaxed">
-                  <strong className="text-white">Nota:</strong> Valores estimados basados en experiencia de GARD Security. 
+                  <strong className="text-white">Nota:</strong> Valores estimados basados en experiencia del sector.
                   Costos reales varían según instalación, ubicación, riesgo y características del servicio. 
                   Puesto 4x4 (24/7): ~105 UF mensuales.
                 </span>

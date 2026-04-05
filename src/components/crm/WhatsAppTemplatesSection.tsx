@@ -5,7 +5,7 @@ import { MessageSquare, ChevronRight, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 const USOS_RESUMEN = [
-  "Nuevo lead (email al cliente y a Gard), propuesta enviada (modal y compartir), 1.er y 2.º seguimiento automático.",
+  "Nuevo lead (email al cliente y al equipo), propuesta enviada (modal y compartir), 1.er y 2.º seguimiento automático.",
   "Las plantillas con «Uso en el sistema» asignado se usan en esos flujos; el resto son plantillas personalizadas que puedes elegir al enviar WhatsApp desde un contacto o negocio.",
 ];
 

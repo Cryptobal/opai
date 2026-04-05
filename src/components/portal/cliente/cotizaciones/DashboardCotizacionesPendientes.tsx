@@ -55,7 +55,7 @@ export function DashboardCotizacionesPendientes({
               </h3>
             </div>
             <p className="text-xs text-zinc-400">
-              Gard ha preparado una propuesta exclusiva para tu empresa. Revísala y comienza a operar
+              Se ha preparado una propuesta exclusiva para tu empresa. Revísala y comienza a operar
               con el sistema de seguridad más completo de Chile.
             </p>
           </div>

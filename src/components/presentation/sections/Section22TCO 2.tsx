@@ -113,7 +113,7 @@ export function Section22TCO({ data }: Section22TCOProps) {
                   Costo Controlado + Bajo Riesgo
                 </h3>
                 <p className={cn('text-sm', theme.textMuted)}>
-                  Modelo GARD
+                  Modelo Tecnológico
                 </p>
               </div>
             </div>

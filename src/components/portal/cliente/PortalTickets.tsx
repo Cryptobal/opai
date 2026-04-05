@@ -93,7 +93,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
           <ul className="space-y-2 text-xs text-zinc-400">
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Crea solicitudes y reporta incidencias</li>
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Seguimiento en tiempo real del estado</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Comunicación directa con el equipo Gard</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Comunicación directa con el equipo de seguridad</li>
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Historial completo de todas tus solicitudes</li>
             <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Prioridades y SLA automáticos</li>
           </ul>

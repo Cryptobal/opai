@@ -339,7 +339,7 @@ export function PortalRondas({ session, selectedInstallation, isProspect }: Prop
           <span className="text-xs text-zinc-500 ml-auto">{rondas.length} registros</span>
         </div>
         {isProspect ? (
-          <p className="text-xs text-zinc-500 mt-1 ml-6">Monitoreo GPS con geofencing automático — Solo con Gard</p>
+          <p className="text-xs text-zinc-500 mt-1 ml-6">Monitoreo GPS con geofencing automático</p>
         ) : (
           <p className="text-xs text-zinc-500 mt-1 ml-6">Monitoreo GPS en vivo de tus instalaciones</p>
         )}

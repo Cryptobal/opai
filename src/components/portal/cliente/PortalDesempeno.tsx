@@ -25,7 +25,7 @@ interface GuardRanking {
 
 interface DesempenoData {
   trustScore: number;
-  promedioGard: number;
+  promedioIndustria: number;
   kpis: {
     guardiasActivos: number;
     asistenciaMes: number;
@@ -43,7 +43,7 @@ interface Props {
 
 const DEMO_GAMIFICATION: DesempenoData = {
   trustScore: 8.6,
-  promedioGard: 7.8,
+  promedioIndustria: 7.8,
   kpis: {
     guardiasActivos: 3,
     asistenciaMes: 95.3,
@@ -83,7 +83,7 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
         const avgScore = apiData.trustScoreAvg ?? 0;
         setData({
           trustScore: avgScore,
-          promedioGard: avgScore > 0 ? Math.max(avgScore - 0.8, 0) : 0,
+          promedioIndustria: avgScore > 0 ? Math.max(avgScore - 0.8, 0) : 0,
           kpis: {
             guardiasActivos: ranking.length,
             asistenciaMes: ranking.length > 0
@@ -140,7 +140,7 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
 
   /* ── Derived values ── */
 
-  const diff = data.trustScore - data.promedioGard;
+  const diff = data.trustScore - data.promedioIndustria;
   const diffSign = diff >= 0 ? "+" : "";
   const diffColor = diff >= 0 ? "text-emerald-400" : "text-red-400";
   const sortedGuards = [...data.guardias].sort((a, b) => b.trustScore - a.trustScore);
@@ -176,7 +176,7 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
           <p className="text-sm text-muted-foreground text-center">
             <span className="font-semibold text-foreground">{data.trustScore.toFixed(1)}</span>
             {" vs "}
-            <span>{data.promedioGard.toFixed(1)} promedio Gard</span>
+            <span>{data.promedioIndustria.toFixed(1)} promedio industria</span>
             {" "}
             <span className={diffColor}>
               ({diffSign}{diff.toFixed(1)})

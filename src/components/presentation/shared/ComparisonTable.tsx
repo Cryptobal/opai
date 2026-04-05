@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * ComparisonTable - Tabla de comparación Mercado vs GARD
+ * ComparisonTable - Tabla de comparación Mercado vs empresa
  * Usado en sección S25 (Comparación Competitiva)
  */
 
@@ -13,9 +13,10 @@ import { Check, X } from 'lucide-react';
 interface ComparisonTableProps {
   rows: ComparisonRow[];
   className?: string;
+  brandLabel?: string;
 }
 
-export function ComparisonTable({ rows, className }: ComparisonTableProps) {
+export function ComparisonTable({ rows, className, brandLabel = 'Nosotros' }: ComparisonTableProps) {
   const theme = useThemeClasses();
   
   const renderValue = (value: string | boolean) => {
@@ -50,7 +51,7 @@ export function ComparisonTable({ rows, className }: ComparisonTableProps) {
               'px-3 py-2 sm:px-6 sm:py-4 text-center font-semibold',
               theme.accent.replace('bg-', 'text-')
             )}>
-              GARD
+              {brandLabel}
             </th>
           </tr>
         </thead>
@@ -93,7 +94,7 @@ export function ComparisonTable({ rows, className }: ComparisonTableProps) {
 /**
  * Versión mobile-friendly con cards
  */
-export function ComparisonCards({ rows, className }: ComparisonTableProps) {
+export function ComparisonCards({ rows, className, brandLabel = 'Nosotros' }: ComparisonTableProps) {
   const theme = useThemeClasses();
   
   return (
@@ -125,7 +126,7 @@ export function ComparisonCards({ rows, className }: ComparisonTableProps) {
             </div>
             <div>
               <div className={cn('text-sm mb-1', theme.accent.replace('bg-', 'text-'))}>
-                GARD
+                {brandLabel}
               </div>
               <div className={cn('font-semibold', theme.text)}>
                 {typeof row.gard === 'boolean' ? (

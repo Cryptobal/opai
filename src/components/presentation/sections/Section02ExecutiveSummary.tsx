@@ -113,9 +113,9 @@ export function Section02ExecutiveSummary({
           </motion.div>
         )}
         
-        {/* Por Qué GARD vs Modelo Tradicional - SIMÉTRICAS */}
+        {/* Por Qué Nosotros vs Modelo Tradicional - SIMÉTRICAS */}
         <div className="grid lg:grid-cols-2 gap-8 mb-16 items-stretch">
-          {/* GARD - MÁS FUERTE */}
+          {/* Nosotros - MÁS FUERTE */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -131,7 +131,7 @@ export function Section02ExecutiveSummary({
                   <CheckCircle className="w-7 h-7 text-white" strokeWidth={3} />
                 </div>
                 <h3 className="text-2xl font-black text-white">
-                  Por qué GARD
+                  Por qué nosotros
                 </h3>
               </div>
               

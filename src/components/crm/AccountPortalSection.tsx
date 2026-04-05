@@ -46,7 +46,7 @@ const MODULE_LABELS: Record<keyof PortalConfig, string> = {
   documentacion: 'Documentación',
   cotizaciones: 'Cotizaciones',
   chat_instalacion: 'Chat por instalación',
-  chat_grupos: 'Chat grupos Gard',
+  chat_grupos: 'Chat grupos',
   tickets: 'Tickets',
   encuestas: 'Encuestas',
   reportes: 'Reportes',

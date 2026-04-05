@@ -78,7 +78,7 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
       >
         <div className="shrink-0 flex items-center gap-3 h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
           <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">
-            Chat con tu equipo Gard
+            Chat con tu equipo
           </h3>
         </div>
         <ChatPortalChannelList

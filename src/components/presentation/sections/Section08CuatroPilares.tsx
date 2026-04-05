@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Section08CuatroPilares - 4 Pilares del modelo GARD
+ * Section08CuatroPilares - 4 Pilares del modelo de servicio
  * Framework estructurado del servicio
  */
 

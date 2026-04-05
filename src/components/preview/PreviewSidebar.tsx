@@ -109,7 +109,7 @@ export function PreviewSidebar({ sessionId, zohoData, onTabChange }: PreviewSide
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-white/60 font-semibold">Asunto:</span>
-                    <span className="text-white">{quoteSubject} - Gard Security</span>
+                    <span className="text-white">{quoteSubject}</span>
                   </div>
                 </div>
 

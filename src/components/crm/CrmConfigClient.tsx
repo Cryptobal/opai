@@ -936,7 +936,7 @@ export function CrmConfigClient({
         )}
       </Card>
 
-      {/* Industrias (para campo Industria en Clientes y cotizador Gard Web) */}
+      {/* Industrias (para campo Industria en Clientes y cotizador web) */}
       <Card className="lg:col-span-2">
         <button
           type="button"
@@ -947,7 +947,7 @@ export function CrmConfigClient({
             <div>
               <CardTitle>Industrias</CardTitle>
               <CardDescription>
-                Opciones del campo Industria en Clientes. También aparecen en el cotizador de Gard Web.
+                Opciones del campo Industria en Clientes. También aparecen en el cotizador web.
               </CardDescription>
             </div>
             {industriasOpen ? (

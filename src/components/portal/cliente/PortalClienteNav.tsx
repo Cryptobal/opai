@@ -52,7 +52,7 @@ const ALL_NAV_ITEMS: Array<{
   { id: 'empresa', label: 'Empresa', icon: Briefcase, group: 'administracion' },
   { id: 'control-acceso', label: 'Accesos', icon: ShieldCheck, group: 'administracion' },
   { id: 'propuesta', label: 'Propuesta', icon: FileCheck2, prospectOnly: true },
-  { id: 'nosotros', label: 'Gard', icon: Building, prospectOnly: true },
+  { id: 'nosotros', label: 'Nosotros', icon: Building, prospectOnly: true },
 ]
 
 interface Props {

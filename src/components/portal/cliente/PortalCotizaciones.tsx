@@ -246,7 +246,7 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
             <>
               <p className="text-sm font-medium">Aún no tienes propuestas</p>
               <p className="text-xs text-center max-w-xs">
-                Tu ejecutivo Gard está preparando una propuesta personalizada para tu empresa.
+                Tu ejecutivo comercial está preparando una propuesta personalizada para tu empresa.
               </p>
             </>
           ) : (

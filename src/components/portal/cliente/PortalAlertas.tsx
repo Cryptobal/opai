@@ -63,7 +63,7 @@ const ALERT_LABELS: Record<string, { label: string; desc: string }> = {
   },
   ticket_replied: {
     label: "Respuesta en ticket",
-    desc: "Cuando el equipo Gard responde tu ticket",
+    desc: "Cuando el equipo de soporte responde tu ticket",
   },
   quote_pending: {
     label: "Cotización pendiente",
