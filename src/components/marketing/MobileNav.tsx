@@ -184,7 +184,7 @@ export function MobileNav() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px', paddingBottom: '8px' }}>
             <a
-              href="https://opai.gard.cl"
+              href="/opai/login"
               target="_blank"
               rel="noopener"
               className="mk-btn-ghost"
@@ -192,14 +192,6 @@ export function MobileNav() {
             >
               Iniciar sesión
             </a>
-            <Link
-              href="/registrarse"
-              onClick={() => setOpen(false)}
-              className="mk-btn-primary"
-              style={{ justifyContent: 'center', width: '100%', textAlign: 'center' }}
-            >
-              Comenzar gratis — 30 días →
-            </Link>
           </div>
         </div>
       </div>
