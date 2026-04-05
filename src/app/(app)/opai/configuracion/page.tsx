@@ -25,6 +25,7 @@ import {
   Sparkles,
   Trophy,
   Siren,
+  Briefcase,
 } from "lucide-react";
 
 type ConfigItem = {
@@ -206,6 +207,13 @@ const CONFIG_SECTIONS: ConfigSection[] = [
         title: "Alertas de Cobertura",
         description: "Oleadas, tiempos, canales y parámetros de alertas",
         icon: Siren,
+      },
+      {
+        submodule: "ats",
+        href: "/opai/configuracion/ats",
+        title: "ATS — Reclutamiento",
+        description: "Pesos de match score, canales de distribución y criterios de selección",
+        icon: Briefcase,
       },
     ],
   },

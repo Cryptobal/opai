@@ -556,8 +556,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   // LEGACY
   reclutamiento: {
     modules: { hub: "view", ops: "edit", crm: "none", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "none" },
-    submodules: { "ops.rondas": "none", "crm.installations": "view", "crm.dotacion": "edit", "ops.installations": "view" },
-    capabilities: {},
+    submodules: { "ops.rondas": "none", "crm.installations": "view", "crm.dotacion": "edit", "ops.installations": "view", "ops.ats": "full", "ops.ats_config": "edit" },
+    capabilities: { ats_publicar: true, ats_config: true },
   },
 
   // LEGACY

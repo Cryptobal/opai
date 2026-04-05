@@ -16,6 +16,7 @@ import {
   ClipboardCheck,
   Shield,
   Siren,
+  Briefcase,
 } from "lucide-react";
 
 const OPS_ITEMS: (SubNavItem & { subKey?: string })[] = [
@@ -32,6 +33,7 @@ const OPS_ITEMS: (SubNavItem & { subKey?: string })[] = [
   { href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
   { href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
   { href: "/ops/alertas-cobertura", label: "Alertas Cobertura", icon: Siren, subKey: "alertas_cobertura" },
+  { href: "/ops/ats", label: "ATS", icon: Briefcase, subKey: "ats" },
   { href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];
 

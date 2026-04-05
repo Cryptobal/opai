@@ -37,6 +37,12 @@ const modules = [
     description: 'Alertas WhatsApp automáticas por oleadas para que ningún puesto quede sin guardia.',
   },
   {
+    href: '/funcionalidades/ats',
+    label: 'ATS — Reclutamiento',
+    icon: '🎯',
+    description: 'Publica empleos en Google, Indeed y más. Match score inteligente. La mayor base de guardias de Chile.',
+  },
+  {
     href: '/funcionalidades/ia-operacional',
     label: 'IA Operacional',
     icon: '🤖',
