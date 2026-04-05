@@ -30,6 +30,7 @@ declare module 'next-auth' {
       tenantId: string;
     };
     portal?: string;
+    impersonating?: boolean;
   }
 }
 
@@ -41,6 +42,10 @@ declare module '@auth/core/jwt' {
     tenantId: string;
     /** Portal context: 'opai' | 'supervisor' — prevents cross-portal session leaks */
     portal?: string;
+    /** True when a platform admin is impersonating this user */
+    impersonating?: boolean;
+    /** Email of the platform admin who initiated the impersonation */
+    impersonatingFrom?: string;
     /** Epoch ms — última vez que se refrescó role desde BD */
     roleRefreshedAt?: number;
   }
@@ -65,6 +70,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const portal = credentials.portal ? String(credentials.portal) : 'opai';
 
         const { prisma } = await import('@/lib/prisma');
+
+        // 0. Impersonate flow (platform admin → tenant owner)
+        if (credentials.__impersonate === 'true') {
+          const impersonateSecret = process.env.PLATFORM_IMPERSONATE_SECRET;
+          if (!impersonateSecret || credentials.__secret !== impersonateSecret) {
+            return null;
+          }
+          const adminId = String(credentials.__adminId);
+          const admin = await prisma.admin.findUnique({
+            where: { id: adminId },
+            include: { tenant: true },
+          });
+          if (!admin) return null;
+          return {
+            id: admin.id,
+            email: admin.email,
+            name: admin.name,
+            role: admin.role,
+            roleTemplateId: admin.roleTemplateId,
+            tenantId: admin.tenantId,
+            portal: 'opai',
+            impersonating: true,
+            impersonatingFrom: String(credentials.__fromEmail || ''),
+          } as any;
+        }
 
         // 1. Intentar login como inspector DT (credenciales temporales)
         if (email.startsWith("dt_")) {
@@ -136,6 +166,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.tenantId = user.tenantId;
         token.portal = user.portal || 'opai';
         token.roleRefreshedAt = Date.now();
+        token.impersonating = (user as any).impersonating || false;
+        token.impersonatingFrom = (user as any).impersonatingFrom || undefined;
         return token;
       }
 
@@ -182,6 +214,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.tenantId = token.tenantId;
       }
       session.portal = token.portal;
+      session.impersonating = token.impersonating || false;
       return session;
     },
   },

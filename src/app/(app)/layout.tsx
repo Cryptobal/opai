@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { AppLayoutClient } from '@/components/opai/AppLayoutClient';
 import { resolvePermissions } from '@/lib/permissions-server';
 import { PermissionsProvider } from '@/lib/permissions-context';
+import { ImpersonateBanner } from '@/components/platform/ImpersonateBanner';
 
 /** Evita pre-render en build; todas las rutas requieren auth/DB */
 export const dynamic = 'force-dynamic';
@@ -48,19 +49,24 @@ export default async function AppLayout({
     }),
   ]);
 
+  const isImpersonating = (session as any).impersonating === true;
+
   // Delegar UI al Client Component con permisos resueltos
   return (
-    <PermissionsProvider permissions={permissions}>
-      <AppLayoutClient
-        userName={dbUser?.name ?? session.user?.name}
-        userEmail={dbUser?.email ?? session.user?.email}
-        userRole={session.user.role}
-        permissions={permissions}
-        currentUserId={session.user.id}
-        tenantId={session.user.tenantId}
-      >
-        {children}
-      </AppLayoutClient>
-    </PermissionsProvider>
+    <>
+      {isImpersonating && <ImpersonateBanner />}
+      <PermissionsProvider permissions={permissions}>
+        <AppLayoutClient
+          userName={dbUser?.name ?? session.user?.name}
+          userEmail={dbUser?.email ?? session.user?.email}
+          userRole={session.user.role}
+          permissions={permissions}
+          currentUserId={session.user.id}
+          tenantId={session.user.tenantId}
+        >
+          {children}
+        </AppLayoutClient>
+      </PermissionsProvider>
+    </>
   );
 }
