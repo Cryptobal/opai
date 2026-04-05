@@ -86,8 +86,8 @@ export default function PlatformDashboardPage() {
         method: 'POST',
       });
       if (!res.ok) throw new Error('Impersonate failed');
-      const { redirectUrl } = await res.json();
-      window.location.href = redirectUrl || '/';
+      const data = await res.json();
+      window.location.href = data.redirectTo || '/hub';
     } catch {
       alert('No se pudo iniciar la sesion como este tenant.');
     }

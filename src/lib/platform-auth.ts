@@ -68,6 +68,52 @@ export async function platformLogin(
   return { success: true, session };
 }
 
+/**
+ * Login by email only (for Google OAuth flow).
+ * No password check — the email must match a PlatformAdmin record.
+ */
+export async function platformLoginByEmail(
+  email: string,
+): Promise<{ success: true; session: PlatformSession } | { success: false; error: string }> {
+  const { prisma } = await import('@/lib/prisma');
+
+  const admin = await prisma.platformAdmin.findUnique({
+    where: { email: email.trim().toLowerCase() },
+  });
+
+  if (!admin || admin.status !== 'active') {
+    return { success: false, error: 'No tiene acceso de Platform Admin' };
+  }
+
+  await prisma.platformAdmin.update({
+    where: { id: admin.id },
+    data: { lastLoginAt: new Date() },
+  });
+
+  const session: PlatformSession = {
+    platformAdminId: admin.id,
+    email: admin.email,
+    name: admin.name,
+  };
+
+  const token = await new SignJWT({ ...session })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(`${EXPIRY_SECONDS}s`)
+    .sign(getSecret());
+
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: EXPIRY_SECONDS,
+  });
+
+  return { success: true, session };
+}
+
 export async function getPlatformSession(): Promise<PlatformSession | null> {
   try {
     const cookieStore = await cookies();

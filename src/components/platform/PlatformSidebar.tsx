@@ -2,11 +2,11 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   LayoutDashboard,
   Building2,
   Receipt,
-  Settings,
   LogOut,
 } from 'lucide-react';
 
@@ -32,14 +32,17 @@ export function PlatformSidebar({ adminName, adminEmail }: PlatformSidebarProps)
   return (
     <aside className="flex h-screen w-64 flex-col bg-[#0a1628] text-white">
       {/* Logo */}
-      <div className="flex items-center gap-2 border-b border-white/10 px-6 py-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500 text-sm font-bold">
-          O
-        </div>
-        <div>
-          <div className="text-sm font-semibold">OPAI</div>
-          <div className="text-xs text-teal-400">Platform Admin</div>
-        </div>
+      <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
+        <Image
+          src="/icons/logo-horizontal-white.png"
+          alt="OPAI"
+          width={100}
+          height={28}
+          className="h-7 w-auto"
+        />
+        <span className="rounded-md bg-teal-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-teal-400">
+          Admin
+        </span>
       </div>
 
       {/* Navigation */}

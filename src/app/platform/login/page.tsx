@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function PlatformLoginPage() {
   const router = useRouter();
@@ -9,6 +10,7 @@ export default function PlatformLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,64 +39,120 @@ export default function PlatformLoginPage() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setError('');
+    setGoogleLoading(true);
+
+    try {
+      const res = await fetch('/api/platform/auth/google', { method: 'POST' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Error al iniciar sesión con Google');
+        return;
+      }
+
+      router.push('/platform/dashboard');
+    } catch {
+      setError('Error de conexión');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0a1628]">
-      <div className="w-full max-w-sm">
+    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#0a1628' }}>
+      <div className="w-full max-w-sm px-4">
         {/* Logo */}
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-teal-500 text-lg font-bold text-white">
-            O
-          </div>
-          <h1 className="text-2xl font-bold text-white">OPAI</h1>
-          <p className="text-sm text-teal-400">Platform Admin</p>
+          <Image
+            src="/icons/logo-stacked-white.png"
+            alt="OPAI"
+            width={120}
+            height={60}
+            className="mx-auto mb-3"
+            priority
+          />
+          <p className="text-sm" style={{ color: '#2dd4bf' }}>Platform Admin</p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="rounded-xl bg-white p-6 shadow-lg">
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                placeholder="admin@opai.cl"
-                required
-              />
+        <div className="rounded-xl p-6 shadow-lg" style={{ backgroundColor: '#ffffff' }}>
+          {/* Google Login Button */}
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={googleLoading}
+            className="mb-4 flex w-full items-center justify-center gap-3 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-gray-50 disabled:opacity-50"
+            style={{ borderColor: '#d1d5db', color: '#374151' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+              <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+              <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+            </svg>
+            {googleLoading ? 'Conectando...' : 'Continuar con Google'}
+          </button>
+
+          <div className="relative mb-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t" style={{ borderColor: '#e5e7eb' }} />
             </div>
-            <div>
-              <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700">
-                Contraseña
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                required
-              />
+            <div className="relative flex justify-center text-xs">
+              <span className="px-2 text-gray-500" style={{ backgroundColor: '#ffffff' }}>o</span>
             </div>
           </div>
 
-          {error && (
-            <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-              {error}
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="email" className="mb-1 block text-sm font-medium" style={{ color: '#374151' }}>
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                  style={{ borderColor: '#d1d5db', color: '#111827', backgroundColor: '#ffffff' }}
+                  placeholder="admin@opai.cl"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className="mb-1 block text-sm font-medium" style={{ color: '#374151' }}>
+                  Contraseña
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                  style={{ borderColor: '#d1d5db', color: '#111827', backgroundColor: '#ffffff' }}
+                  required
+                />
+              </div>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-6 w-full rounded-lg bg-teal-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-teal-600 disabled:opacity-50"
-          >
-            {loading ? 'Ingresando...' : 'Ingresar'}
-          </button>
-        </form>
+            {error && (
+              <div className="mt-4 rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-6 w-full rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
+              style={{ backgroundColor: '#14b8a6' }}
+            >
+              {loading ? 'Ingresando...' : 'Ingresar'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
