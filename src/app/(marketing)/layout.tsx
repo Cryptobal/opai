@@ -51,6 +51,10 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: 'https://www.opai.cl',
+    languages: {
+      'es-CL': 'https://www.opai.cl',
+      'es': 'https://www.opai.cl',
+    },
   },
 }
 
@@ -61,9 +65,73 @@ const navLinks = [
   { href: '/nosotros', label: 'Nosotros' },
 ]
 
+const orgJsonLd = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'OPAI',
+  url: 'https://www.opai.cl',
+  logo: {
+    '@type': 'ImageObject',
+    url: 'https://www.opai.cl/icons/favicon.svg',
+    width: 512,
+    height: 512,
+  },
+  description:
+    'ERP con inteligencia artificial para empresas de seguridad privada en Chile. ' +
+    'Gestión de guardias, rondas GPS, Face ID, alertas WhatsApp y nómina especializada.',
+  foundingDate: '2024',
+  areaServed: {
+    '@type': 'Country',
+    name: 'Chile',
+    sameAs: 'https://www.wikidata.org/wiki/Q298',
+  },
+  sameAs: ['https://www.linkedin.com/company/opai-cl'],
+  contactPoint: {
+    '@type': 'ContactPoint',
+    contactType: 'customer support',
+    email: 'contacto@opai.cl',
+    telephone: '+56982307771',
+    areaServed: 'CL',
+    availableLanguage: 'Spanish',
+    hoursAvailable: {
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+      opens: '09:00',
+      closes: '18:00',
+    },
+  },
+  parentOrganization: {
+    '@type': 'Organization',
+    name: 'LX3.ai',
+    url: 'https://lx3.ai',
+  },
+})
+
+const websiteJsonLd = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'OPAI',
+  url: 'https://www.opai.cl',
+  description: 'ERP para empresas de seguridad privada en Chile',
+  inLanguage: 'es-CL',
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: 'https://www.opai.cl/blog?q={search_term_string}',
+    },
+    'query-input': 'required name=search_term_string',
+  },
+})
+
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="mk-grid-bg" style={{ background: 'var(--mk-bg)', color: 'var(--mk-text)', minHeight: '100vh', fontFamily: 'var(--mk-font-b)' }}>
+      {/* Organization + WebSite structured data — static constants, no user input */}
+      {/* eslint-disable-next-line react/no-danger -- Static JSON-LD, no user input */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: orgJsonLd }} />
+      {/* eslint-disable-next-line react/no-danger -- Static JSON-LD, no user input */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: websiteJsonLd }} />
       {/* Prevent theme flash — static string, no user input */}
       <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('mk-theme');if(t)document.documentElement.setAttribute('data-mk-theme',t)}catch(e){}})()` }} />
       {/* NAV */}

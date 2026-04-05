@@ -16,7 +16,7 @@ const JSON_LD_CONTENT = JSON.stringify({
   operatingSystem: 'Web, iOS, Android',
   description:
     'ERP con inteligencia artificial para empresas de seguridad privada en Chile. Gestión de guardias, rondas GPS, marcaciones, payroll y portal del cliente.',
-  url: 'https://opai.cl',
+  url: 'https://www.opai.cl',
   offers: [
     { '@type': 'Offer', name: 'Starter', price: '0.12', priceCurrency: 'CLF', description: 'Por guardia activo/mes' },
     { '@type': 'Offer', name: 'Operaciones Pro', price: '0.28', priceCurrency: 'CLF', description: 'Por guardia activo/mes' },

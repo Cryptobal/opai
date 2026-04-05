@@ -1,0 +1,192 @@
+---
+title: "Control de asistencia para guardias de seguridad: GPS, biométrico, QR y libro de firmas"
+description: "Comparativa de métodos de control de asistencia para guardias: papel, QR, GPS con geofence y Face ID. Cuál conviene según tu operación."
+date: "2026-04-26"
+category: "Operaciones"
+tags: ["control asistencia", "guardias seguridad", "GPS", "geofence", "Face ID", "QR", "biometría", "buddy punching"]
+author: "Equipo OPAI"
+featured: false
+---
+
+## Por qué el control de asistencia es crítico en seguridad privada
+
+En la mayoría de las industrias, un error en el control de asistencia se traduce en una diferencia de horas en la liquidación de sueldo. En seguridad privada, un error en la asistencia puede significar un puesto descubierto, un cliente desprotegido y una responsabilidad legal que recae directamente sobre la empresa.
+
+La asistencia de guardias tiene implicaciones que van mucho más allá de la nómina:
+
+- **Cobertura contractual**: cada contrato de servicio especifica una cantidad de guardias por turno. Un puesto descubierto es un incumplimiento contractual que puede derivar en multas, descuentos o la pérdida del contrato.
+- **Responsabilidad civil y penal**: si ocurre un incidente de seguridad en un sitio que debería haber tenido vigilancia y no la tuvo porque el guardia no se presentó sin que nadie lo detectara, la empresa enfrenta una exposición legal seria.
+- **Costos de sobretiempo**: cuando la asistencia no se registra con precisión, las horas extras se calculan mal. Esto puede resultar en pagos insuficientes (riesgo de demanda laboral) o en sobrepagos que erosionan el margen operativo.
+- **Facturación a clientes**: muchas empresas facturan por hora-guardia efectiva. Sin datos de asistencia confiables, la facturación se basa en estimaciones, no en hechos.
+
+La pregunta no es si necesitas un sistema de control de asistencia robusto, sino cuál de los métodos disponibles se adapta mejor a tu operación.
+
+## Método 1: Libro de firmas o planilla en papel
+
+El método más antiguo y aún sorprendentemente común en empresas pequeñas y medianas. El guardia firma una planilla al llegar y al retirarse. El supervisor recoge las planillas y alguien las transcribe para calcular horas.
+
+### Cómo funciona
+
+Cada puesto de servicio tiene un libro o cuaderno donde el guardia registra su nombre, RUT, hora de llegada y firma. Al final del período, las planillas se envían a la oficina central para procesamiento.
+
+### Problemas concretos
+
+El libro de firmas tiene deficiencias estructurales que lo hacen inadecuado para una operación profesional:
+
+- **Fraude simple**: un guardia puede firmar por otro. No hay manera de verificar quién realmente estampó la firma sin presencia de un supervisor.
+- **Pérdida y deterioro**: los libros se mojan, se pierden, las páginas se arrancan. Cada planilla extraviada es información de asistencia irrecuperable.
+- **Transcripción manual**: alguien debe digitar las horas de cada guardia en una planilla digital o sistema de remuneraciones. Este proceso es lento y propenso a errores de digitación que terminan afectando las liquidaciones.
+- **Sin verificación de ubicación**: el libro solo acredita que alguien firmó. No hay evidencia de que el guardia estuvo efectivamente en el puesto asignado y no en otro lugar.
+- **Fiscalización laboral**: la Dirección del Trabajo exige registros de asistencia confiables. Un libro de firmas difícilmente cumple con los estándares probatorios que un inspector espera encontrar.
+
+## Método 2: Código QR por puesto de servicio
+
+Una evolución digital del libro de firmas. Se instala un código QR impreso en cada puesto de servicio y el guardia lo escanea con su celular al llegar y al retirarse.
+
+### Cómo funciona
+
+La empresa genera un código QR único para cada puesto. El guardia abre una aplicación en su celular, escanea el código y el sistema registra la hora y la identificación del guardia. Algunos sistemas también capturan la geolocalización al momento del escaneo.
+
+### Ventajas
+
+- **Digitalización inmediata**: las marcaciones se registran directamente en el sistema, eliminando la transcripción manual.
+- **Bajo costo de implementación**: imprimir un código QR es prácticamente gratuito.
+- **Facilidad de uso**: cualquier guardia con un smartphone puede escanear un QR sin capacitación especial.
+
+### Limitaciones
+
+- **El QR es transferible**: un guardia puede fotografiar el código QR y enviarlo a un compañero para que marque desde otra ubicación. Aunque la captura de GPS mitiga este riesgo, no lo elimina si el sistema no valida la ubicación rigurosamente.
+- **Vandalismo y deterioro**: los códigos impresos se dañan con lluvia, sol o manipulación intencional. Un QR ilegible implica que los guardias no pueden marcar.
+- **Dependencia del dispositivo**: si el guardia no tiene celular con cámara funcional o se queda sin batería, no puede registrar la asistencia.
+
+## Método 3: GPS con geofence
+
+El control basado en geolocalización verifica que el dispositivo del guardia se encuentra dentro de un perímetro definido alrededor del puesto de servicio. En lugar de escanear un código o firmar un libro, la ubicación del guardia se convierte en la evidencia de presencia.
+
+### Cómo funciona
+
+Se define un geofence, un perímetro virtual circular o poligonal, alrededor de cada puesto de servicio. Cuando el guardia inicia su marcación desde la app móvil, el sistema obtiene la coordenada GPS del dispositivo y verifica si se encuentra dentro del geofence configurado. Si la posición está dentro del perímetro y la precisión del GPS es aceptable, la marcación se valida.
+
+Algunos sistemas más avanzados incorporan el concepto de Trust Score: una puntuación que combina la precisión del GPS (accuracy), la consistencia con marcaciones anteriores, la velocidad de desplazamiento entre marcaciones y otros factores para generar un índice de confiabilidad de cada registro.
+
+### Precisión y sus límites
+
+La precisión del GPS depende del entorno:
+
+- **Exterior con cielo despejado**: 3 a 5 metros de precisión. Ideal para puestos en estacionamientos, perímetros industriales o accesos de condominios.
+- **Zonas urbanas con edificios altos**: 10 a 30 metros. Aceptable para la mayoría de los puestos, pero puede generar falsos negativos en geofences muy ajustados.
+- **Interiores y subterráneos**: 50 a 200+ metros. Inaceptable para validación de ubicación. En estos casos, el GPS solo no es un método confiable.
+
+La configuración del radio del geofence es un equilibrio: un radio demasiado pequeño genera falsos rechazos que frustran a los guardias; un radio demasiado amplio permite que alguien marque desde una ubicación cercana pero fuera del puesto.
+
+### Trust Score: más allá de la coordenada
+
+El Trust Score es un enfoque que OPAI utiliza para ir más allá de la validación binaria de "está dentro o fuera del geofence". En lugar de aceptar o rechazar una marcación basándose únicamente en la coordenada, el sistema evalúa múltiples señales:
+
+- ¿La precisión del GPS reportada por el dispositivo es razonable (menor a 30 metros)?
+- ¿La velocidad de desplazamiento entre la marcación anterior y la actual es físicamente posible?
+- ¿El guardia ha marcado consistentemente en ubicaciones similares en turnos anteriores?
+- ¿El dispositivo reporta señales de GPS simulado (mock location)?
+
+Cada señal aporta o resta puntos al Trust Score. Una marcación con Trust Score bajo no necesariamente se rechaza, pero se marca para revisión por parte del supervisor, quien puede validarla o cuestionarla con información adicional.
+
+## Método 4: Face ID biométrico
+
+La verificación facial utiliza la cámara del celular del guardia para confirmar su identidad mediante comparación biométrica. No basta con estar en el lugar correcto: el sistema verifica que la persona correcta está en el lugar correcto.
+
+### Cómo funciona
+
+El guardia abre la aplicación, selecciona la opción de marcación y la cámara frontal captura una imagen de su rostro. Esta imagen se envía a un servicio de reconocimiento facial, en el caso de OPAI se utiliza AWS Rekognition, que la compara contra la foto de registro del guardia almacenada en el sistema.
+
+Si el nivel de similitud supera el umbral configurado (típicamente 95%), la marcación se registra como válida. Simultáneamente, el sistema captura la coordenada GPS, logrando una doble validación: identidad y ubicación.
+
+### Resolución N°38 de la Dirección del Trabajo
+
+Un aspecto regulatorio que no puede ignorarse: la Resolución Exenta N°38 de la Dirección del Trabajo regula el uso de datos biométricos en el ámbito laboral. Las empresas que implementan Face ID deben cumplir con requisitos de consentimiento informado, proporcionalidad en el tratamiento de datos y plazos estrictos de destrucción de registros biométricos, especialmente de guardias desvinculados.
+
+Implementar Face ID sin atender estos requisitos expone a la empresa a sanciones de la DT. Un sistema bien diseñado automatiza el ciclo de cumplimiento: consentimiento al momento del enrolamiento, almacenamiento seguro durante la relación laboral y destrucción certificada posterior a la desvinculación.
+
+## Comparativa: papel vs QR vs GPS vs Face ID
+
+| Criterio | Libro de firmas | QR por puesto | GPS con geofence | Face ID biométrico |
+|---|---|---|---|---|
+| **Costo de implementación** | Muy bajo | Bajo | Bajo (usa celular) | Bajo (usa celular + AWS) |
+| **Fraude posible** | Alto (firma por otro) | Medio (QR transferible) | Medio (GPS falso, celular prestado) | Muy bajo (rostro intransferible) |
+| **Precisión del registro** | Baja (hora manual) | Media (hora digital) | Alta (hora + coordenada) | Muy alta (hora + coordenada + identidad) |
+| **Cumplimiento legal** | Débil ante fiscalización | Aceptable | Bueno | Excelente (con Res. N°38) |
+| **Tiempo de setup por puesto** | Minutos (dejar un cuaderno) | Minutos (imprimir QR) | 5-10 min (configurar geofence) | 5-10 min (geofence + enrolamiento facial) |
+| **Funciona sin internet** | Sí | Depende del sistema | Parcial (GPS funciona, envío no) | Requiere conexión (o cola offline) |
+| **Evidencia ante cliente** | Firma escaneada | Registro digital | Coordenada + mapa | Foto + coordenada + mapa |
+
+## Cuándo usar cada método
+
+No existe un método universal. La elección depende del tipo de puesto de servicio, el tamaño de la empresa y el nivel de riesgo que el cliente está dispuesto a asumir.
+
+### Libro de firmas
+
+Únicamente justificable como respaldo físico complementario en puestos donde el cliente lo exige contractualmente. No debería ser el método principal de ninguna operación que aspire a estándares profesionales.
+
+### QR por puesto
+
+Adecuado para empresas que están dando el primer paso hacia la digitalización y tienen puestos fijos con bajo riesgo de fraude. Funciona bien en edificios corporativos donde el acceso al QR ya implica presencia física en el sitio.
+
+### GPS con geofence
+
+La mejor opción para puestos en exterior, especialmente en operaciones con muchos puntos de servicio donde instalar hardware es impracticable. Ideal cuando se combina con otro método de verificación de identidad.
+
+### Face ID biométrico
+
+El método más robusto para operaciones que requieren certeza de identidad: puestos de alta seguridad, contratos con clientes que exigen evidencia visual, empresas con problemas detectados de buddy punching o que operan con guardias en turnos nocturnos sin supervisión directa.
+
+En la práctica, las operaciones más maduras combinan Face ID con GPS, obteniendo verificación de identidad y ubicación en un solo paso.
+
+## El problema del buddy punching y cómo Face ID lo resuelve
+
+El buddy punching, la práctica de que un compañero marque la asistencia por otro guardia ausente, es uno de los problemas más persistentes de la industria de seguridad privada. Las estimaciones de la industria sugieren que entre un 2% y un 5% de las marcaciones en sistemas sin verificación biométrica pueden ser fraudulentas [VERIFICAR estadística].
+
+El impacto económico es directo: la empresa paga horas a un guardia que no estuvo presente y factura al cliente por un servicio que no se prestó. Si el cliente descubre la situación, la pérdida de confianza puede costar un contrato completo.
+
+### Por qué otros métodos no lo resuelven
+
+- **Libro de firmas**: cualquiera puede firmar con el nombre de otro.
+- **QR**: basta fotografiar el código y enviarlo.
+- **GPS solo**: el guardia puede dejar su celular en el puesto y ausentarse, o prestar el dispositivo a un compañero.
+- **PIN o tarjeta**: se comparten con facilidad.
+
+### Por qué Face ID sí lo resuelve
+
+La cara del guardia es intransferible. No puede prestarse, fotografiarse (los sistemas con detección de vivacidad rechazan imágenes de pantallas o fotos impresas) ni delegarse. AWS Rekognition, con un umbral de similitud del 95% y liveness detection, hace que falsificar una identidad facial sea técnicamente inviable en un contexto operativo normal.
+
+Cuando una empresa implementa Face ID y comunica claramente a su dotación que las marcaciones ahora verifican identidad biométrica, el buddy punching desaparece como práctica. El efecto disuasivo es inmediato: los guardias saben que el sistema detectará cualquier intento de suplantación.
+
+## Integración con liquidación de remuneraciones
+
+El control de asistencia no termina con el registro de marcaciones. El valor real de un sistema robusto se materializa cuando las horas trabajadas fluyen automáticamente hacia el cálculo de remuneraciones.
+
+En una empresa de seguridad, el cálculo de horas es particularmente complejo:
+
+- **Turnos de más de 8 horas** (comunes en seguridad: turnos de 12 horas en formato 4x4 o 7x7)
+- **Horas nocturnas** con recargo
+- **Sobretiempo** cuando un guardia cubre un turno adicional por ausencia de un compañero
+- **Feriados irrenunciables** con recargo legal
+- **Descuentos por atrasos** según política de la empresa
+
+Cuando las marcaciones se registran digitalmente con hora exacta y se validan automáticamente, el sistema puede calcular las horas ordinarias, extraordinarias y nocturnas de cada guardia sin intervención manual. Este cálculo alimenta directamente el proceso de liquidación de remuneraciones conforme al Libro de Remuneraciones Electrónico (LRE) exigido por la normativa chilena.
+
+El ciclo completo es:
+
+1. El guardia marca con Face ID + GPS al inicio y término de cada turno
+2. El sistema valida identidad y ubicación en tiempo real
+3. Las horas trabajadas se calculan automáticamente considerando tipo de turno, horario y recargos aplicables
+4. El módulo de remuneraciones genera las liquidaciones de sueldo con las horas ya validadas
+5. Los datos se exportan al formato LRE para presentación ante la Dirección del Trabajo
+
+Esta automatización elimina el cuello de botella más costoso del proceso de remuneraciones: la conciliación manual entre planillas de asistencia y horas pagadas, un proceso que en empresas con cientos de guardias puede consumir días de trabajo administrativo cada mes.
+
+## Elegir el método correcto para tu operación
+
+La decisión sobre qué método de control de asistencia implementar no es puramente tecnológica. Depende de la realidad operativa de cada empresa: cantidad de puestos, dispersión geográfica, tipo de clientes, presupuesto y nivel de madurez digital.
+
+Lo que sí es claro es que el libro de firmas ya no es una opción viable para empresas que quieran competir por contratos profesionales. Los clientes corporativos e institucionales exigen trazabilidad, evidencia digital y métricas de cumplimiento que un cuaderno no puede ofrecer.
+
+Si tu empresa está evaluando opciones de control de asistencia, puedes revisar cómo OPAI combina [Face ID biométrico](/funcionalidades/face-id) con [gestión operativa](/funcionalidades/operaciones) para construir un sistema de marcaciones confiable y auditable.
