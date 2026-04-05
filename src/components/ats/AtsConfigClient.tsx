@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AtsChannelCfg {
   enabled: boolean;
@@ -59,9 +60,45 @@ const TIPO_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline"> = 
 
 const TIPO_LABELS: Record<string, string> = {
   api: "API",
-  feed: "Feed",
+  feed: "Feed XML",
   manual: "Manual",
-  builtin: "Builtin",
+  builtin: "Automático",
+};
+
+const CHANNEL_SUBTITLE: Record<string, string> = {
+  google_jobs: "Se genera una URL pública indexable automáticamente",
+  base_opai: "Notifica guardias con match alto en la plataforma",
+  indeed: "Publica avisos via API de Indeed",
+  computrabajo: "Publica avisos via API de Computrabajo",
+  bumeran: "Publica avisos via API de Búmeran",
+  talent: "Genera un feed XML que Talent.com consume",
+  yapo: "Publicación manual con trazabilidad",
+  laborum: "Publica avisos via API de Laborum",
+  linkedin: "Publica avisos via LinkedIn Jobs API",
+  bne: "Genera un feed XML para la Bolsa Nacional de Empleo",
+};
+
+const CHANNEL_HELP: Record<string, string> = {
+  google_jobs:
+    "Automático. Al activar un aviso se genera una página pública con datos estructurados (JSON-LD) que Google indexa. No requiere credenciales.",
+  base_opai:
+    "Automático. Notifica a los guardias registrados en OPAI que tienen match alto con el aviso. No requiere configuración.",
+  indeed:
+    "Requiere cuenta de empleador en Indeed. Ingresa tu API Key y Employer ID desde indeed.com/hiring → Integraciones → API.",
+  computrabajo:
+    "Requiere contrato con Computrabajo Chile. Solicita tus credenciales de API a tu ejecutivo de cuenta Computrabajo.",
+  bumeran:
+    "Requiere contrato con Búmeran. Solicita tus credenciales de API a tu ejecutivo de cuenta Búmeran.",
+  talent:
+    "Integración por Feed XML. OPAI genera una URL con tus avisos activos en formato XML. Copia esta URL y regístrala en tu panel de Talent.com → Feed de empleos.",
+  yapo:
+    "Publicación manual. Al activar un aviso se marca como pendiente en Yapo. Debes publicarlo manualmente en yapo.cl y anotar el enlace aquí para trazabilidad.",
+  laborum:
+    "Requiere contrato con Laborum. Solicita tu API Key a tu ejecutivo de cuenta Laborum.",
+  linkedin:
+    "Requiere LinkedIn Recruiter o cuenta de empresa. Ingresa las credenciales de tu app de LinkedIn Jobs desde linkedin.com/talent → Integraciones.",
+  bne:
+    "Integración por Feed XML con la Bolsa Nacional de Empleo (bne.cl). OPAI genera una URL con tus avisos. Regístrala en tu panel BNE para sincronización automática.",
 };
 
 export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig }) {
@@ -264,6 +301,7 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
       </TabsContent>
 
       <TabsContent value="canales" className="space-y-6 mt-4">
+        <TooltipProvider delayDuration={200}>
         {Object.entries(channels).map(([key, ch]) => (
           <Card key={key} className="p-6 space-y-4">
             <div className="flex items-center justify-between">
@@ -272,12 +310,27 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
                 <Badge variant={TIPO_BADGE_VARIANT[ch.tipo] ?? "outline"}>
                   {TIPO_LABELS[ch.tipo] ?? ch.tipo}
                 </Badge>
+                {CHANNEL_HELP[key] && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground">
+                        <Info className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs text-sm">
+                      {CHANNEL_HELP[key]}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               <Switch
                 checked={ch.enabled}
                 onCheckedChange={(v) => updateChannel(key, { enabled: v })}
               />
             </div>
+            {CHANNEL_SUBTITLE[key] && (
+              <p className="text-xs text-muted-foreground -mt-2">{CHANNEL_SUBTITLE[key]}</p>
+            )}
 
             {ch.tipo === "api" && ch.enabled && (
               <div className="space-y-3 pl-1">
@@ -382,6 +435,8 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
             )}
           </Card>
         ))}
+
+        </TooltipProvider>
 
         <Button onClick={saveChannels} disabled={savingChannels}>
           Guardar canales
