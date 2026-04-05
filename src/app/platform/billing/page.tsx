@@ -9,22 +9,18 @@ interface BillingTenant {
   slug: string;
   plan: string;
   billingStatus: string;
-  basePrice: number;
-  pricePerGuard: number;
   activeGuards: number;
+  planPrice: number;
+  addons: { name: string; price: number }[];
+  addonsTotal: number;
+  packDiscount: number;
   monthlyTotal: number;
-  trialEndsAt: string | null;
-}
-
-interface BillingTotals {
-  mrr: number;
-  totalGuards: number;
-  activeTenants: number;
+  currency: string;
 }
 
 interface BillingData {
   tenants: BillingTenant[];
-  totals: BillingTotals;
+  totals: { mrr: number; totalGuards: number; activeTenants: number };
 }
 
 type StatusFilter = 'all' | 'trial' | 'active' | 'past_due' | 'suspended';
@@ -76,11 +72,11 @@ function exportCsv(tenants: BillingTenant[]) {
     'Slug',
     'Plan',
     'Estado',
-    'Base Price',
-    '$/Guard',
     'Guardias',
-    'Total Mensual',
-    'Trial Ends At',
+    'Plan (UF)',
+    'Add-ons (UF)',
+    'Descuentos (UF)',
+    'Total (UF)',
   ];
 
   const rows = tenants.map((t) => [
@@ -88,11 +84,11 @@ function exportCsv(tenants: BillingTenant[]) {
     t.slug,
     t.plan,
     t.billingStatus,
-    t.basePrice.toFixed(2),
-    t.pricePerGuard.toFixed(2),
     t.activeGuards.toString(),
+    t.planPrice.toFixed(2),
+    t.addonsTotal.toFixed(2),
+    t.packDiscount.toFixed(2),
     t.monthlyTotal.toFixed(2),
-    t.trialEndsAt || '',
   ]);
 
   const csv = [headers, ...rows].map((r) => r.join(',')).join('\n');
@@ -195,11 +191,11 @@ export default function PlatformBillingPage() {
             <tr>
               <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Tenant</th>
               <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Plan</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Estado</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Base Price</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">$/Guard</th>
               <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Guardias</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Total Mensual</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Plan (UF)</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Add-ons (UF)</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Descuentos (UF)</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Total (UF)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -207,31 +203,47 @@ export default function PlatformBillingPage() {
               <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                 <td className="px-4 py-3">
                   <div className="font-medium text-gray-900 dark:text-gray-100">{t.name}</div>
-                  <div className="text-xs text-gray-400 dark:text-gray-400">{t.slug}</div>
+                  <div className="text-xs text-gray-400">{t.slug}</div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                  <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                     {t.plan}
                   </span>
-                </td>
-                <td className="px-4 py-3">
                   <span
-                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClass(t.billingStatus)}`}
+                    className={`ml-2 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadgeClass(t.billingStatus)}`}
                   >
                     {t.billingStatus}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
-                  {formatCurrency(t.basePrice)}
-                </td>
-                <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
-                  {formatCurrency(t.pricePerGuard)}
-                </td>
-                <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
                   {t.activeGuards}
                 </td>
-                <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
-                  {formatCurrency(t.monthlyTotal)}
+                <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
+                  {t.planPrice.toFixed(2)}
+                </td>
+                <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
+                  {t.addonsTotal > 0 ? (
+                    <span
+                      title={t.addons.map((a) => `${a.name}: ${a.price.toFixed(2)} UF`).join('\n')}
+                      className="cursor-help border-b border-dashed border-gray-400 dark:border-gray-500"
+                    >
+                      {t.addonsTotal.toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-500">&mdash;</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {t.packDiscount > 0 ? (
+                    <span className="text-red-600 dark:text-red-400">
+                      -{t.packDiscount.toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-500">&mdash;</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-gray-100">
+                  {t.monthlyTotal.toFixed(2)}
                 </td>
               </tr>
             ))}
@@ -250,11 +262,19 @@ export default function PlatformBillingPage() {
                 {data.totals.activeTenants} tenants activos
               </td>
               <td className="px-4 py-3" />
-              <td className="px-4 py-3" />
-              <td className="px-4 py-3" />
-              <td className="px-4 py-3" />
               <td className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">
                 {data.totals.totalGuards}
+              </td>
+              <td className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">
+                {filtered.reduce((sum, t) => sum + t.planPrice, 0).toFixed(2)}
+              </td>
+              <td className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">
+                {filtered.reduce((sum, t) => sum + t.addonsTotal, 0).toFixed(2)}
+              </td>
+              <td className="px-4 py-3 text-right font-medium text-red-600 dark:text-red-400">
+                {filtered.reduce((sum, t) => sum + t.packDiscount, 0) > 0
+                  ? `-${filtered.reduce((sum, t) => sum + t.packDiscount, 0).toFixed(2)}`
+                  : '\u2014'}
               </td>
               <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-gray-100">
                 MRR: {formatCurrency(data.totals.mrr)}
