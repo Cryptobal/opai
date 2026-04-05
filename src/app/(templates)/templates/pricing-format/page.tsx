@@ -112,7 +112,7 @@ export default async function PricingFormatPage(props: PricingFormatPageProps) {
             </div>
             <div className="text-right">
               <div className="font-bold text-gray-800">OPAI</div>
-              <div>{contact.website || ""}</div>
+              <div>www.opai.cl</div>
             </div>
           </div>
         </div>
