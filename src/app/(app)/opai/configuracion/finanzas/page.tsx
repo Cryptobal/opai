@@ -6,8 +6,9 @@ import {
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { ConfigClient } from "@/components/finance/ConfigClient";
+import { Receipt } from "lucide-react";
 
 export default async function FinanzasConfiguracionPage() {
   const session = await auth();
@@ -88,19 +89,17 @@ export default async function FinanzasConfiguracionPage() {
   }));
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Configuración de Finanzas"
-        description="Administra ítems de rendición, parámetros de kilometraje, aprobadores y reglas."
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
+    <ConfigPageLayout
+      title="Finanzas"
+      description="Administra ítems de rendición, parámetros de kilometraje, aprobadores y reglas."
+      icon={Receipt}
+    >
       <ConfigClient
         config={configData}
         items={itemsData}
         costCenters={costCentersData}
         approverOptions={approverOptions}
       />
-    </div>
+    </ConfigPageLayout>
   );
 }

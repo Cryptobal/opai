@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -20,7 +20,7 @@ import {
   Shield,
   Users,
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ConfigTabs, type ConfigTab } from "@/components/configuracion/ConfigTabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,9 +63,10 @@ interface Props {
 
 export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab") || "activas";
   const [alertas, setAlertas] = useState<AlertaCobertura[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("activas");
   const [crearOpen, setCrearOpen] = useState(false);
 
   // Historial filters
@@ -207,6 +208,198 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
     }
   };
 
+  const configTabs: ConfigTab[] = useMemo(() => [
+    {
+      id: "activas",
+      label: `Activas${activas.length > 0 ? ` (${activas.length})` : ""}`,
+      icon: Siren,
+      content: loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : activas.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <Shield className="h-12 w-12 text-muted-foreground/40 mb-3" />
+            <p className="text-sm text-muted-foreground">No hay alertas activas en este momento</p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => setCrearOpen(true)}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Crear Alerta
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {activas.map((alerta) => (
+            <AlertaActivaCard
+              key={alerta.id}
+              alerta={alerta}
+              onCancel={() => handleCancelar(alerta.id)}
+              onViewDetail={() => router.push(`/ops/alertas-cobertura/${alerta.id}`)}
+            />
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "aceptadas",
+      label: `Aceptadas${aceptadas.length > 0 ? ` (${aceptadas.length})` : ""}`,
+      icon: CheckCircle2,
+      content: loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : aceptadas.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <CheckCircle2 className="h-12 w-12 text-muted-foreground/40 mb-3" />
+            <p className="text-sm text-muted-foreground">No hay alertas esperando confirmacion</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {aceptadas.map((alerta) => (
+            <AlertaAceptadaCard
+              key={alerta.id}
+              alerta={alerta}
+              onConfirmar={(si) => handleConfirmar(alerta.id, si)}
+              onViewDetail={() => router.push(`/ops/alertas-cobertura/${alerta.id}`)}
+            />
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "historial",
+      label: "Historial",
+      icon: History,
+      content: (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los estados</SelectItem>
+                <SelectItem value="ACTIVA">Activa</SelectItem>
+                <SelectItem value="ACEPTADA">Aceptada</SelectItem>
+                <SelectItem value="CONFIRMADA">Confirmada</SelectItem>
+                <SelectItem value="ASIGNADA_PAUTA">Asignada Pauta</SelectItem>
+                <SelectItem value="CANCELADA">Cancelada</SelectItem>
+                <SelectItem value="EXPIRADA">Expirada</SelectItem>
+                <SelectItem value="NO_CUBIERTA">No Cubierta</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              type="date"
+              value={filtroFechaDesde}
+              onChange={(e) => setFiltroFechaDesde(e.target.value)}
+              className="w-[160px]"
+              placeholder="Desde"
+            />
+            <Input
+              type="date"
+              value={filtroFechaHasta}
+              onChange={(e) => setFiltroFechaHasta(e.target.value)}
+              className="w-[160px]"
+              placeholder="Hasta"
+            />
+          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <>
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Instalacion</TableHead>
+                      <TableHead>Modalidad</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Guardia</TableHead>
+                      <TableHead className="text-right">Monto</TableHead>
+                      <TableHead className="text-center">Oleadas</TableHead>
+                      <TableHead>Creada por</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {alertas.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                          Sin resultados
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      alertas.map((a) => {
+                        const estadoBadge = ESTADO_BADGE[a.estado] ?? { label: a.estado, className: "bg-gray-500/20 text-gray-400" };
+                        return (
+                          <TableRow
+                            key={a.id}
+                            className="cursor-pointer hover:bg-muted/40"
+                            onClick={() => router.push(`/ops/alertas-cobertura/${a.id}`)}
+                          >
+                            <TableCell className="text-xs">
+                              {format(new Date(a.createdAt), "dd MMM yyyy HH:mm", { locale: es })}
+                            </TableCell>
+                            <TableCell className="font-medium text-sm">
+                              {a.installation.name}
+                            </TableCell>
+                            <TableCell className="text-xs">{a.modalidad}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={estadoBadge.className}>
+                                {estadoBadge.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {a.aceptadaPorGuardia
+                                ? `${a.aceptadaPorGuardia.persona.firstName} ${a.aceptadaPorGuardia.persona.lastName}`
+                                : "—"}
+                            </TableCell>
+                            <TableCell className="text-right text-xs font-mono">
+                              {formatClp(a.montoOfrecido)}
+                            </TableCell>
+                            <TableCell className="text-center text-xs">
+                              {a.oleadaActual + 1}/{(a.oleadasConfig?.length || 0)}
+                            </TableCell>
+                            <TableCell className="text-xs">{a.creadaPor.name}</TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              {historialTotal > 20 && (
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">{historialTotal} alertas totales</p>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={historialPage <= 1} onClick={() => setHistorialPage((p) => p - 1)}>
+                      Anterior
+                    </Button>
+                    <Button variant="outline" size="sm" disabled={historialPage * 20 >= historialTotal} onClick={() => setHistorialPage((p) => p + 1)}>
+                      Siguiente
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "geografico",
+      label: "Geo",
+      icon: MapPin,
+      content: <IndiceGeografico />,
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [activas, aceptadas, alertas, loading, filtroEstado, filtroFechaDesde, filtroFechaHasta, historialPage, historialTotal]);
+
   return (
     <div className="space-y-4">
       {stats && stats.totalAlertas > 0 && (
@@ -244,234 +437,10 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
         Nueva Alerta
       </Button>
 
-      <Tabs value={tab} onValueChange={setTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-4">
-            <TabsTrigger value="activas" className="gap-1 text-xs sm:text-sm">
-              <Siren className="h-3.5 w-3.5 hidden sm:block" />
-              Activas
-              {activas.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-                  {activas.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="aceptadas" className="gap-1 text-xs sm:text-sm">
-              <CheckCircle2 className="h-3.5 w-3.5 hidden sm:block" />
-              Aceptadas
-              {aceptadas.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-                  {aceptadas.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="historial" className="gap-1 text-xs sm:text-sm">
-              <History className="h-3.5 w-3.5 hidden sm:block" />
-              Historial
-            </TabsTrigger>
-            <TabsTrigger value="geografico" className="gap-1 text-xs sm:text-sm">
-              <MapPin className="h-3.5 w-3.5 hidden sm:block" />
-              Geo
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Tab Activas */}
-          <TabsContent value="activas" className="mt-4">
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : activas.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <Shield className="h-12 w-12 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    No hay alertas activas en este momento
-                  </p>
-                  <Button variant="outline" size="sm" className="mt-4" onClick={() => setCrearOpen(true)}>
-                    <Plus className="h-3.5 w-3.5 mr-1.5" />
-                    Crear Alerta
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {activas.map((alerta) => (
-                  <AlertaActivaCard
-                    key={alerta.id}
-                    alerta={alerta}
-                    onCancel={() => handleCancelar(alerta.id)}
-                    onViewDetail={() => router.push(`/ops/alertas-cobertura/${alerta.id}`)}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Tab Aceptadas */}
-          <TabsContent value="aceptadas" className="mt-4">
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : aceptadas.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <CheckCircle2 className="h-12 w-12 text-muted-foreground/40 mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    No hay alertas esperando confirmacion
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {aceptadas.map((alerta) => (
-                  <AlertaAceptadaCard
-                    key={alerta.id}
-                    alerta={alerta}
-                    onConfirmar={(si) => handleConfirmar(alerta.id, si)}
-                    onViewDetail={() => router.push(`/ops/alertas-cobertura/${alerta.id}`)}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Tab Historial */}
-          <TabsContent value="historial" className="mt-4 space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos los estados</SelectItem>
-                  <SelectItem value="ACTIVA">Activa</SelectItem>
-                  <SelectItem value="ACEPTADA">Aceptada</SelectItem>
-                  <SelectItem value="CONFIRMADA">Confirmada</SelectItem>
-                  <SelectItem value="ASIGNADA_PAUTA">Asignada Pauta</SelectItem>
-                  <SelectItem value="CANCELADA">Cancelada</SelectItem>
-                  <SelectItem value="EXPIRADA">Expirada</SelectItem>
-                  <SelectItem value="NO_CUBIERTA">No Cubierta</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="date"
-                value={filtroFechaDesde}
-                onChange={(e) => setFiltroFechaDesde(e.target.value)}
-                className="w-[160px]"
-                placeholder="Desde"
-              />
-              <Input
-                type="date"
-                value={filtroFechaHasta}
-                onChange={(e) => setFiltroFechaHasta(e.target.value)}
-                className="w-[160px]"
-                placeholder="Hasta"
-              />
-            </div>
-
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <>
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Instalacion</TableHead>
-                        <TableHead>Modalidad</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>Guardia</TableHead>
-                        <TableHead className="text-right">Monto</TableHead>
-                        <TableHead className="text-center">Oleadas</TableHead>
-                        <TableHead>Creada por</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {alertas.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                            Sin resultados
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        alertas.map((a) => {
-                          const estadoBadge = ESTADO_BADGE[a.estado] ?? { label: a.estado, className: "bg-gray-500/20 text-gray-400" };
-                          return (
-                            <TableRow
-                              key={a.id}
-                              className="cursor-pointer hover:bg-muted/40"
-                              onClick={() => router.push(`/ops/alertas-cobertura/${a.id}`)}
-                            >
-                              <TableCell className="text-xs">
-                                {format(new Date(a.createdAt), "dd MMM yyyy HH:mm", { locale: es })}
-                              </TableCell>
-                              <TableCell className="font-medium text-sm">
-                                {a.installation.name}
-                              </TableCell>
-                              <TableCell className="text-xs">{a.modalidad}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={estadoBadge.className}>
-                                  {estadoBadge.label}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-xs">
-                                {a.aceptadaPorGuardia
-                                  ? `${a.aceptadaPorGuardia.persona.firstName} ${a.aceptadaPorGuardia.persona.lastName}`
-                                  : "—"}
-                              </TableCell>
-                              <TableCell className="text-right text-xs font-mono">
-                                {formatClp(a.montoOfrecido)}
-                              </TableCell>
-                              <TableCell className="text-center text-xs">
-                                {a.oleadaActual + 1}/{(a.oleadasConfig?.length || 0)}
-                              </TableCell>
-                              <TableCell className="text-xs">{a.creadaPor.name}</TableCell>
-                            </TableRow>
-                          );
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {historialTotal > 20 && (
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">
-                      {historialTotal} alertas totales
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={historialPage <= 1}
-                        onClick={() => setHistorialPage((p) => p - 1)}
-                      >
-                        Anterior
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={historialPage * 20 >= historialTotal}
-                        onClick={() => setHistorialPage((p) => p + 1)}
-                      >
-                        Siguiente
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </TabsContent>
-
-          {/* Tab Geografico */}
-          <TabsContent value="geografico" className="mt-4">
-            <IndiceGeografico />
-          </TabsContent>
-        </Tabs>
+      <ConfigTabs
+        tabs={configTabs}
+        defaultTab="activas"
+      />
 
       <CrearAlertaDialog open={crearOpen} onOpenChange={setCrearOpen} onCreated={fetchAlertas} />
     </div>

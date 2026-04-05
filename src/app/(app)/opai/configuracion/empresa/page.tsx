@@ -1,18 +1,17 @@
 "use client";
 
-import { PageHeader } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { EmpresaConfigTabs } from "@/components/configuracion/EmpresaConfigTabs";
+import { Building } from "lucide-react";
 
 export default function EmpresaConfigPage() {
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Configuración · Empresa"
-        description="Datos de la empresa empleadora. Estos datos se usan como tokens en contratos, finiquitos, cartas de aviso y otros documentos laborales."
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
+    <ConfigPageLayout
+      title="Empresa"
+      description="Datos de la empresa empleadora. Estos datos se usan como tokens en contratos, finiquitos, cartas de aviso y otros documentos laborales."
+      icon={Building}
+    >
       <EmpresaConfigTabs />
-    </div>
+    </ConfigPageLayout>
   );
 }

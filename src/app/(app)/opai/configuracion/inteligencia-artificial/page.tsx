@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader, ConfigBackLink } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { AiProvidersConfigClient } from "@/components/opai/AiProvidersConfigClient";
+import { Sparkles } from "lucide-react";
 
 export default async function InteligenciaArtificialPage() {
   const session = await auth();
@@ -22,13 +23,12 @@ export default async function InteligenciaArtificialPage() {
   }
 
   return (
-    <>
-      <ConfigBackLink />
-      <PageHeader
-        title="Inteligencia Artificial"
-        description="Configura el proveedor de IA, API key y modelo para las funciones inteligentes de OPAI"
-      />
+    <ConfigPageLayout
+      title="Inteligencia Artificial"
+      description="Configura el proveedor de IA, API key y modelo para las funciones inteligentes de OPAI"
+      icon={Sparkles}
+    >
       <AiProvidersConfigClient />
-    </>
+    </ConfigPageLayout>
   );
 }

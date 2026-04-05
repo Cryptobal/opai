@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ConfigTabs, type ConfigTab } from "@/components/configuracion/ConfigTabs";
 import { toast } from "sonner";
 import {
   Copy,
@@ -437,15 +437,8 @@ export function AtsConfigClient({
     }
   }
 
-  return (
-    <Tabs defaultValue="match" className="w-full">
-      <TabsList className="w-full grid grid-cols-3">
-        <TabsTrigger value="match">Match Score</TabsTrigger>
-        <TabsTrigger value="canales">Canales</TabsTrigger>
-        <TabsTrigger value="snippets">Fragmentos</TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="match" className="space-y-4 mt-4">
+  const matchContent = (
+      <div className="space-y-4">
         {/* Match Score Weights */}
         <Card className="p-4 sm:p-6 space-y-5">
           <div className="flex items-center justify-between gap-2">
@@ -588,9 +581,11 @@ export function AtsConfigClient({
         >
           Guardar configuracion
         </Button>
-      </TabsContent>
+      </div>
+  );
 
-      <TabsContent value="canales" className="space-y-3 mt-4">
+  const canalesContent = (
+      <div className="space-y-3">
         {/* Section: Automatico */}
         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
           Automaticos
@@ -636,9 +631,11 @@ export function AtsConfigClient({
         >
           Guardar canales
         </Button>
-      </TabsContent>
+      </div>
+  );
 
-      <TabsContent value="snippets" className="space-y-4 mt-4">
+  const snippetsContent = (
+      <div className="space-y-4">
         <p className="text-xs text-muted-foreground">
           Fragmentos predefinidos que aparecen como botones rápidos al crear un aviso de empleo. Puedes agregar, editar o eliminar fragmentos para cada campo.
         </p>
@@ -718,7 +715,14 @@ export function AtsConfigClient({
         >
           Guardar fragmentos
         </Button>
-      </TabsContent>
-    </Tabs>
+      </div>
   );
+
+  const configTabs: ConfigTab[] = [
+    { id: "match", label: "Match Score", content: matchContent },
+    { id: "canales", label: "Canales", content: canalesContent },
+    { id: "snippets", label: "Fragmentos", content: snippetsContent },
+  ];
+
+  return <ConfigTabs tabs={configTabs} defaultTab="match" />;
 }

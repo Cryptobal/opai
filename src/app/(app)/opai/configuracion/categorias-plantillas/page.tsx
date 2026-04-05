@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { DocCategoriesClient } from "@/components/docs/DocCategoriesClient";
+import { FolderTree } from "lucide-react";
 
 export default async function CategoriasPlantillasPage() {
   const session = await auth();
@@ -16,14 +17,12 @@ export default async function CategoriasPlantillasPage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Categorías de plantillas"
-        description="Gestiona las categorías por módulo para Gestión Documental (documentos y mails)"
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
+    <ConfigPageLayout
+      title="Categorías de Plantillas"
+      description="Gestiona las categorías por módulo para Gestión Documental (documentos y mails)"
+      icon={FolderTree}
+    >
       <DocCategoriesClient />
-    </div>
+    </ConfigPageLayout>
   );
 }

@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader, ConfigBackLink } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { GlobalDocumentsClient } from "@/components/opai/GlobalDocumentsClient";
+import { FileText } from "lucide-react";
 
 export const metadata = { title: "Documentos Globales — Configuración" };
 
@@ -17,13 +18,12 @@ export default async function GlobalDocumentsPage() {
   }
 
   return (
-    <>
-      <ConfigBackLink />
-      <PageHeader
-        title="Documentos Globales"
-        description="Documentos compartidos en todas las instalaciones (OS10, manuales de seguridad, etc.)"
-      />
+    <ConfigPageLayout
+      title="Documentos Globales"
+      description="Documentos compartidos en todas las instalaciones (OS10, manuales de seguridad, etc.)"
+      icon={FileText}
+    >
       <GlobalDocumentsClient />
-    </>
+    </ConfigPageLayout>
   );
 }

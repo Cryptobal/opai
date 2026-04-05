@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
 import { AiHelpChatConfigClient } from "@/components/opai/AiHelpChatConfigClient";
+import { Bot } from "lucide-react";
 
 export default async function AsistenteIaConfigPage() {
   const session = await auth();
@@ -14,14 +15,12 @@ export default async function AsistenteIaConfigPage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Asistente IA"
-        description="Configura acceso por roles y alcance del chat conversacional en la aplicación"
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
+    <ConfigPageLayout
+      title="Asistente IA"
+      description="Configura acceso por roles y alcance del chat conversacional en la aplicación"
+      icon={Bot}
+    >
       <AiHelpChatConfigClient />
-    </div>
+    </ConfigPageLayout>
   );
 }

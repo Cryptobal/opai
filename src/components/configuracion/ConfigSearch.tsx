@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X, Settings2, ArrowRight } from "lucide-react";
+import { Search, X, ArrowRight, Command } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   searchConfig,
@@ -18,14 +18,12 @@ export function ConfigSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Search on query change
   useEffect(() => {
     const r = searchConfig(query);
     setResults(r);
     setSelectedIndex(0);
   }, [query]);
 
-  // Global keyboard shortcut ⌘K / Ctrl+K
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -35,6 +33,7 @@ export function ConfigSearch() {
       }
       if (e.key === "Escape") {
         setOpen(false);
+        setQuery("");
         inputRef.current?.blur();
       }
     }
@@ -42,13 +41,9 @@ export function ConfigSearch() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Close on click outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }
@@ -65,11 +60,9 @@ export function ConfigSearch() {
     [router],
   );
 
-  // Keyboard navigation in results
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!open || results.length === 0) return;
-
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setSelectedIndex((i) => Math.min(i + 1, results.length - 1));
@@ -84,7 +77,6 @@ export function ConfigSearch() {
     [open, results, selectedIndex, navigate],
   );
 
-  // Group results by type
   const sectionResults = results.filter((r) => r.type === "section");
   const settingResults = results.filter((r) => r.type === "setting");
   const hasResults = results.length > 0;
@@ -92,8 +84,13 @@ export function ConfigSearch() {
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div
+        className={cn(
+          "relative flex items-center rounded-xl border bg-card/80 transition-all duration-200",
+          open ? "border-primary/30 ring-2 ring-primary/10" : "border-border hover:border-border/80",
+        )}
+      >
+        <Search className="absolute left-3.5 h-4 w-4 text-muted-foreground" />
         <input
           ref={inputRef}
           type="text"
@@ -102,90 +99,63 @@ export function ConfigSearch() {
             setQuery(e.target.value);
             if (e.target.value.length >= 2) setOpen(true);
           }}
-          onFocus={() => {
-            if (query.length >= 2) setOpen(true);
-          }}
+          onFocus={() => { if (query.length >= 2) setOpen(true); }}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar configuración... (ej: pipeline, feriados, QR, firma)"
-          className="w-full rounded-lg border border-border bg-card/70 py-2.5 pl-9 pr-20 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
+          placeholder="Buscar configuración..."
+          className="w-full bg-transparent py-2.5 pl-10 pr-20 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
         />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+        <div className="absolute right-2.5 flex items-center gap-1.5">
           {query && (
             <button
-              onClick={() => {
-                setQuery("");
-                setOpen(false);
-                inputRef.current?.focus();
-              }}
+              onClick={() => { setQuery(""); setOpen(false); inputRef.current?.focus(); }}
               className="p-1 rounded-md hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-            ⌘K
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded-md border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <Command className="h-2.5 w-2.5" />K
           </kbd>
         </div>
       </div>
 
-      {/* Dropdown */}
       {showDropdown && (
-        <div className="absolute z-50 mt-1.5 w-full rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+        <div className="absolute z-50 mt-2 w-full rounded-xl border border-border bg-card shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
           {!hasResults ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
-              No se encontraron resultados para &quot;{query}&quot;
+              Sin resultados para &quot;{query}&quot;
             </div>
           ) : (
             <div className="max-h-[360px] overflow-y-auto py-1">
               {sectionResults.length > 0 && (
                 <div>
-                  <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Secciones
-                  </p>
-                  {sectionResults.map((result, i) => {
-                    const globalIndex = i;
-                    return (
-                      <button
-                        key={`section-${result.sectionId}`}
-                        onClick={() => navigate(result)}
-                        onMouseEnter={() => setSelectedIndex(globalIndex)}
-                        className={cn(
-                          "flex w-full items-center gap-3 px-3 py-2 text-left transition-colors",
-                          selectedIndex === globalIndex
-                            ? "bg-accent/60"
-                            : "hover:bg-accent/40",
-                        )}
-                      >
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                          <Settings2 className="h-3.5 w-3.5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {result.label}
-                          </p>
-                          {result.description && (
-                            <p className="text-xs text-muted-foreground truncate">
-                              {result.description}
-                            </p>
-                          )}
-                        </div>
-                        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                          {result.group}
-                        </span>
-                      </button>
-                    );
-                  })}
+                  <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Secciones</p>
+                  {sectionResults.map((result, i) => (
+                    <button
+                      key={`section-${result.sectionId}`}
+                      onClick={() => navigate(result)}
+                      onMouseEnter={() => setSelectedIndex(i)}
+                      className={cn(
+                        "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
+                        selectedIndex === i ? "bg-primary/8" : "hover:bg-accent/40",
+                      )}
+                    >
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Search className="h-3 w-3" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{result.label}</p>
+                        {result.description && <p className="text-xs text-muted-foreground truncate">{result.description}</p>}
+                      </div>
+                      <span className="shrink-0 rounded-full bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground">{result.group}</span>
+                    </button>
+                  ))}
                 </div>
               )}
-
               {settingResults.length > 0 && (
                 <div>
-                  {sectionResults.length > 0 && (
-                    <div className="mx-3 border-t border-border" />
-                  )}
-                  <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Configuraciones específicas
-                  </p>
+                  {sectionResults.length > 0 && <div className="mx-3 border-t border-border/50" />}
+                  <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">Configuraciones</p>
                   {settingResults.map((result, i) => {
                     const globalIndex = sectionResults.length + i;
                     return (
@@ -194,27 +164,18 @@ export function ConfigSearch() {
                         onClick={() => navigate(result)}
                         onMouseEnter={() => setSelectedIndex(globalIndex)}
                         className={cn(
-                          "flex w-full items-center gap-3 px-3 py-2 text-left transition-colors",
-                          selectedIndex === globalIndex
-                            ? "bg-accent/60"
-                            : "hover:bg-accent/40",
+                          "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
+                          selectedIndex === globalIndex ? "bg-primary/8" : "hover:bg-accent/40",
                         )}
                       >
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                          <ArrowRight className="h-3.5 w-3.5" />
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground">
+                          <ArrowRight className="h-3 w-3" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {result.label}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {result.sectionLabel}
-                            {result.tab ? ` → ${result.tab}` : ""}
-                          </p>
+                          <p className="text-sm font-medium truncate">{result.label}</p>
+                          <p className="text-xs text-muted-foreground truncate">{result.sectionLabel}{result.tab ? ` → ${result.tab}` : ""}</p>
                         </div>
-                        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                          {result.group}
-                        </span>
+                        <span className="shrink-0 rounded-full bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground">{result.group}</span>
                       </button>
                     );
                   })}

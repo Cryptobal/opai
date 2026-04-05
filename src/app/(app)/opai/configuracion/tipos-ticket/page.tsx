@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
 import { TicketTypesConfigTabs } from "@/components/config/TicketTypesConfigTabs";
+import { Ticket } from "lucide-react";
 
 export default async function TiposTicketConfigPage() {
   const session = await auth();
@@ -14,14 +15,12 @@ export default async function TiposTicketConfigPage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Tipos de Ticket"
-        description="Define tipos de solicitud (vacaciones, desvinculaciones, etc.), su origen y cadena de aprobación"
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
+    <ConfigPageLayout
+      title="Tipos de Ticket"
+      description="Define tipos de solicitud (vacaciones, desvinculaciones, etc.), su origen y cadena de aprobación"
+      icon={Ticket}
+    >
       <TicketTypesConfigTabs userRole={role} />
-    </div>
+    </ConfigPageLayout>
   );
 }

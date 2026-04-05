@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { prisma } from "@/lib/prisma";
 import { SignatureManagerClient } from "@/components/crm/SignatureManagerClient";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { PenLine } from "lucide-react";
 
 export default async function FirmasPage() {
   const session = await auth();
@@ -26,14 +27,12 @@ export default async function FirmasPage() {
   const initialSignatures = JSON.parse(JSON.stringify(signatures));
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Firmas de email"
-        description="Gestiona las firmas que se incluyen al final de los correos enviados desde el CRM"
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
+    <ConfigPageLayout
+      title="Firmas"
+      description="Gestiona las firmas que se incluyen al final de los correos enviados desde el CRM"
+      icon={PenLine}
+    >
       <SignatureManagerClient initialSignatures={initialSignatures} />
-    </div>
+    </ConfigPageLayout>
   );
 }

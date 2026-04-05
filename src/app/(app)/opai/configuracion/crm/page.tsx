@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { CrmConfigTabs } from "@/components/crm/CrmConfigTabs";
 import { FollowUpConfigSection } from "@/components/crm/FollowUpConfigSection";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { TrendingUp } from "lucide-react";
 
 export default async function CrmConfigPage() {
   const session = await auth();
@@ -30,18 +31,16 @@ export default async function CrmConfigPage() {
   ]);
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Configuración CRM"
-        description="Pipeline, campos y automatizaciones"
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
+    <ConfigPageLayout
+      title="CRM"
+      description="Pipeline, campos y automatizaciones"
+      icon={TrendingUp}
+    >
       <CrmConfigTabs
         initialStages={stages}
         initialFields={fields}
         followUpSection={<FollowUpConfigSection />}
       />
-    </div>
+    </ConfigPageLayout>
   );
 }

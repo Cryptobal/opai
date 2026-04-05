@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { NotificationConfigClient } from "@/components/opai/NotificationConfigClient";
 import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import { Bell } from "lucide-react";
 
 export default async function NotificacionesConfigPage() {
   const session = await auth();
@@ -14,14 +15,12 @@ export default async function NotificacionesConfigPage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Notificaciones"
-        description="Parámetros globales. Cada usuario configura sus preferencias en Perfil → Mis notificaciones"
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
+    <ConfigPageLayout
+      title="Notificaciones"
+      description="Parámetros globales. Cada usuario configura sus preferencias en Perfil → Mis notificaciones"
+      icon={Bell}
+    >
       <NotificationConfigClient />
-    </div>
+    </ConfigPageLayout>
   );
 }
