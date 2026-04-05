@@ -156,7 +156,7 @@ export interface CaseStudy {
 export interface ComparisonRow {
   criterion: string;
   market: string | boolean;
-  gard: string | boolean;
+  provider: string | boolean;
   highlight?: boolean;
 }
 

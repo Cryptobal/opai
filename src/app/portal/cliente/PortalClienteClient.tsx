@@ -48,7 +48,7 @@ import { useBranding } from "@/lib/branding/useBranding";
 
 /* ══════════════════════════════════════════════════════ */
 
-const GARD_HEADER_LOGO_FALLBACK = "/logo-gard-blanco.svg";
+const HEADER_LOGO_FALLBACK = "/tenants/gard/logo-blanco.svg";
 
 export function PortalClienteClient() {
   const router = useRouter();
@@ -76,7 +76,7 @@ export function PortalClienteClient() {
   const [headerLogoBroken, setHeaderLogoBroken] = useState(false);
 
   // Logo versión oscura (blanco) para header — viene de Imagen Corporativa
-  const headerGardLogo = branding.logoDark || branding.logoIcon || branding.logoWhite || GARD_HEADER_LOGO_FALLBACK;
+  const headerGardLogo = branding.logoDark || branding.logoIcon || branding.logoWhite || HEADER_LOGO_FALLBACK;
 
   /* ── Restaurar sesión desde cookie al montar ── */
   useEffect(() => {

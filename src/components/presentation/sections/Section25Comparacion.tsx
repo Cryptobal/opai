@@ -148,7 +148,7 @@ export function Section25Comparacion({
                         row.highlight && 'relative',
                         row.highlight && 'after:absolute after:inset-0 after:bg-teal-400/5 after:rounded-lg after:-z-10'
                       )}>
-                        {renderValue(row.gard)}
+                        {renderValue(row.provider)}
                       </div>
                     </td>
                   </motion.tr>
@@ -183,7 +183,7 @@ export function Section25Comparacion({
                 <div>
                   <div className="text-sm text-teal-400 mb-2 font-semibold">{brandNameUpper}</div>
                   <div className="text-white font-bold">
-                    {typeof row.gard === 'boolean' ? (row.gard ? '✓' : '✗') : row.gard}
+                    {typeof row.provider === 'boolean' ? (row.provider ? '✓' : '✗') : row.provider}
                   </div>
                 </div>
               </div>

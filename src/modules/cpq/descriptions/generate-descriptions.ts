@@ -94,7 +94,7 @@ export async function generateQuoteDescription(
   const installationName = quote.installation?.name || "";
   const customInstruction = options?.customInstruction;
 
-  const prompt = `Eres el Gerente de Operaciones de Gard Security (https://gard.cl), empresa líder en seguridad privada profesional en Chile.
+  const prompt = `Eres un experto en seguridad privada profesional en Chile.
 
 CONTEXTO: Este texto irá en la propuesta comercial, justo antes de la tabla de puestos. Debe ser breve, directo y contundente.
 

@@ -367,7 +367,7 @@ export async function POST(
       return `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
     };
 
-    const gardLogo = abs(companyConfig.brandingLogoWhite) || abs(companyConfig.brandingLogoFull) || abs(companyConfig.logoUrl) || "";
+    const companyLogo = abs(companyConfig.brandingLogoWhite) || abs(companyConfig.brandingLogoFull) || abs(companyConfig.logoUrl) || "";
 
     /* ── Client logos from DB ── */
     const clientesConLogo = await prisma.crmAccount.findMany({
@@ -489,7 +489,7 @@ export async function POST(
       ufValue: ufValue ?? undefined,
       paymentTerms,
 
-      gardLogo,
+      companyLogo,
       opaiLogo: `${baseUrl}/opai-logo.png`,
       lx3Logo: `${baseUrl}/lx3-logo.png`,
       clientLogos: clientesConLogo.filter((c) => c.logoUrl).map((c) => c.logoUrl!),

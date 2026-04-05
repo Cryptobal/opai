@@ -33,7 +33,7 @@ export default async function PricingFormatPage(props: PricingFormatPageProps) {
           <div className="flex items-center justify-between mb-6">
             <div className="relative w-32 h-12">
               <Image
-                src="/Logo Gard Blanco.png"
+                src="/tenants/gard/logo-blanco.png"
                 alt="OPAI"
                 width={128}
                 height={48}

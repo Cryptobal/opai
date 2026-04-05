@@ -81,7 +81,7 @@ export function ComparisonTable({ rows, className, brandLabel = 'Nosotros' }: Co
                 'px-3 py-2 sm:px-6 sm:py-4 text-center font-semibold',
                 theme.text
               )}>
-                {renderValue(row.gard)}
+                {renderValue(row.provider)}
               </td>
             </tr>
           ))}
@@ -129,10 +129,10 @@ export function ComparisonCards({ rows, className, brandLabel = 'Nosotros' }: Co
                 {brandLabel}
               </div>
               <div className={cn('font-semibold', theme.text)}>
-                {typeof row.gard === 'boolean' ? (
-                  row.gard ? '✓' : '✗'
+                {typeof row.provider === 'boolean' ? (
+                  row.provider ? '✓' : '✗'
                 ) : (
-                  row.gard
+                  row.provider
                 )}
               </div>
             </div>

@@ -25,7 +25,7 @@ interface HiddenCost {
 interface HiddenCostsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  modelType: 'traditional' | 'gard';
+  modelType: 'traditional' | 'provider';
   costs: HiddenCost[];
   totalImpact: string;
 }

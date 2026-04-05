@@ -25,7 +25,7 @@ export async function POST() {
   }
 
   webPush.setVapidDetails(
-    "mailto:soporte@gardsecurity.cl",
+    "mailto:soporte@opai.cl",
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY,
   );

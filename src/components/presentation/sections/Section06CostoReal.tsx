@@ -21,9 +21,9 @@ interface Section06CostoRealProps {
 export function Section06CostoReal({ data }: Section06CostoRealProps) {
   const theme = useThemeClasses();
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'traditional' | 'gard'>('traditional');
+  const [modalType, setModalType] = useState<'traditional' | 'provider'>('traditional');
   
-  const openModal = (type: 'traditional' | 'gard') => {
+  const openModal = (type: 'traditional' | 'provider') => {
     setModalType(type);
     setModalOpen(true);
   };
@@ -146,7 +146,7 @@ export function Section06CostoReal({ data }: Section06CostoRealProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => openModal('gard')}
+                      onClick={() => openModal('provider')}
                       className="h-8 px-2 text-green-400 hover:text-green-300 hover:bg-green-500/20"
                     >
                       <Info className="w-4 h-4 mr-1" />

@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const uniqueId = `gard-${nanoid(12)}`;
+    const uniqueId = `opai-${nanoid(12)}`;
 
     // Crear presentación (con tenant)
     const presentation = await prisma.presentation.create({

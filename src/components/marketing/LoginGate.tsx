@@ -60,7 +60,7 @@ export default function LoginGate() {
                 Ingresar
               </button>
               <p className="text-xs text-[#94A3B8] text-center">
-                Ej: gard.opai.cl, prosegur.opai.cl
+                Ej: empresa1.opai.cl, empresa2.opai.cl
               </p>
             </form>
           </div>

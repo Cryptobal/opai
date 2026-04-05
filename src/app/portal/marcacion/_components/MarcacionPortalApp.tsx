@@ -69,7 +69,14 @@ export function MarcacionPortalApp() {
         }
       } catch {
         // Offline with existing token — go active with cached data
-        const cachedDevice = safeStorage.getItem("gard_marcacion_device");
+        const DEVICE_CACHE_KEY = "opai_marcacion_device";
+        const LEGACY_DEVICE_CACHE_KEY = "gard_marcacion_device";
+        // Migration: move old key to new key
+        if (!safeStorage.getItem(DEVICE_CACHE_KEY) && safeStorage.getItem(LEGACY_DEVICE_CACHE_KEY)) {
+          safeStorage.setItem(DEVICE_CACHE_KEY, safeStorage.getItem(LEGACY_DEVICE_CACHE_KEY)!);
+          safeStorage.removeItem(LEGACY_DEVICE_CACHE_KEY);
+        }
+        const cachedDevice = safeStorage.getItem(DEVICE_CACHE_KEY);
         if (cachedDevice) {
           try {
             setDevice(JSON.parse(cachedDevice));
@@ -107,7 +114,7 @@ export function MarcacionPortalApp() {
     safeStorage.setItem(DEVICE_TOKEN_KEY, data.deviceToken);
     const deviceInfo: DeviceInfo = { ...data };
     setDevice(deviceInfo);
-    safeStorage.setItem("gard_marcacion_device", JSON.stringify(deviceInfo));
+    safeStorage.setItem("opai_marcacion_device", JSON.stringify(deviceInfo));
     setAppState("active");
     requestWakeLock();
   }

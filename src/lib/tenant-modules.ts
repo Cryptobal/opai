@@ -95,7 +95,7 @@ export function clearTenantModuleCache(tenantId?: string): void {
 /**
  * Obtiene los módulos habilitados para un tenant.
  * Si el tenant no tiene registros en TenantModule, retorna todos
- * los módulos (backward compatibility con tenant "gard" existente).
+ * los módulos (backward compatibility con tenants existentes).
  */
 export async function getTenantEnabledModules(
   tenantId: string,

@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
       logoDataUrl = tenantCfg.logoUrl;
     } else {
       // Fallback: read default SVG from public dir
-      const logoSvgPath = path.join(process.cwd(), "public", "logo-gard.svg");
+      const logoSvgPath = path.join(process.cwd(), "public", "tenants", "gard", "logo.svg");
       const logoSvg = await readFile(logoSvgPath, "utf-8");
       logoDataUrl = `data:image/svg+xml;base64,${Buffer.from(logoSvg).toString("base64")}`;
     }
