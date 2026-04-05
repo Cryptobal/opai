@@ -57,15 +57,15 @@ function BillingSkeleton() {
   return (
     <div className="animate-pulse space-y-6">
       <div className="flex items-center justify-between">
-        <div className="h-8 w-48 rounded bg-gray-200" />
-        <div className="h-10 w-32 rounded bg-gray-200" />
+        <div className="h-8 w-48 rounded bg-gray-200 dark:bg-gray-700" />
+        <div className="h-10 w-32 rounded bg-gray-200 dark:bg-gray-700" />
       </div>
       <div className="flex gap-2">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-9 w-20 rounded-full bg-gray-200" />
+          <div key={i} className="h-9 w-20 rounded-full bg-gray-200 dark:bg-gray-700" />
         ))}
       </div>
-      <div className="h-96 rounded-xl border border-gray-200 bg-white" />
+      <div className="h-96 rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900" />
     </div>
   );
 }
@@ -162,7 +162,7 @@ export default function PlatformBillingPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Facturaci&oacute;n</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Facturaci&oacute;n</h1>
         <button
           onClick={() => exportCsv(filtered)}
           className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
@@ -179,8 +179,8 @@ export default function PlatformBillingPage() {
             onClick={() => setFilter(key)}
             className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
               filter === key
-                ? 'bg-gray-900 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
             }`}
           >
             {label}
@@ -189,25 +189,25 @@ export default function PlatformBillingPage() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <table className="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">Tenant</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">Plan</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">Estado</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-500">Base Price</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-500">$/Guard</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-500">Guardias</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-500">Total Mensual</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Tenant</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Plan</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">Estado</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Base Price</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">$/Guard</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Guardias</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400">Total Mensual</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {filtered.map((t) => (
-              <tr key={t.id} className="hover:bg-gray-50">
+              <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                 <td className="px-4 py-3">
-                  <div className="font-medium text-gray-900">{t.name}</div>
-                  <div className="text-xs text-gray-400">{t.slug}</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">{t.name}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-400">{t.slug}</div>
                 </td>
                 <td className="px-4 py-3">
                   <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
@@ -221,16 +221,16 @@ export default function PlatformBillingPage() {
                     {t.billingStatus}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right text-gray-700">
+                <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
                   {formatCurrency(t.basePrice)}
                 </td>
-                <td className="px-4 py-3 text-right text-gray-700">
+                <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
                   {formatCurrency(t.pricePerGuard)}
                 </td>
-                <td className="px-4 py-3 text-right text-gray-700">
+                <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
                   {t.activeGuards}
                 </td>
-                <td className="px-4 py-3 text-right font-medium text-gray-900">
+                <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">
                   {formatCurrency(t.monthlyTotal)}
                 </td>
               </tr>
@@ -244,19 +244,19 @@ export default function PlatformBillingPage() {
             )}
           </tbody>
           {/* Footer totals */}
-          <tfoot className="border-t-2 border-gray-200 bg-gray-50">
+          <tfoot className="border-t-2 border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
             <tr>
-              <td className="px-4 py-3 font-medium text-gray-700">
+              <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">
                 {data.totals.activeTenants} tenants activos
               </td>
               <td className="px-4 py-3" />
               <td className="px-4 py-3" />
               <td className="px-4 py-3" />
               <td className="px-4 py-3" />
-              <td className="px-4 py-3 text-right font-medium text-gray-700">
+              <td className="px-4 py-3 text-right font-medium text-gray-700 dark:text-gray-300">
                 {data.totals.totalGuards}
               </td>
-              <td className="px-4 py-3 text-right font-bold text-gray-900">
+              <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-gray-100">
                 MRR: {formatCurrency(data.totals.mrr)}
               </td>
             </tr>

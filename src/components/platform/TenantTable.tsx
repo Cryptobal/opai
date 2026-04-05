@@ -77,14 +77,14 @@ function SortHeader({
 }) {
   const isActive = currentSort === sortKey;
   return (
-    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
       <button
         type="button"
-        className="group inline-flex items-center gap-1 hover:text-gray-700"
+        className="group inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-300"
         onClick={() => onSort(sortKey)}
       >
         {label}
-        <span className={isActive ? 'text-gray-900' : 'text-gray-300'}>
+        <span className={isActive ? 'text-gray-900 dark:text-gray-100' : 'text-gray-300 dark:text-gray-600'}>
           {isActive && currentDir === 'desc' ? '\u2193' : '\u2191'}
         </span>
       </button>
@@ -158,9 +158,9 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
   ];
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
       {/* Filters */}
-      <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
+      <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
         {filters.map((f) => (
           <button
             key={f.value}
@@ -171,8 +171,8 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
             }}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               statusFilter === f.value
-                ? 'bg-gray-900 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
+                ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                : 'text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
             }`}
           >
             {f.label}
@@ -186,7 +186,7 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="border-b border-gray-100 bg-gray-50/50">
+          <thead className="border-b border-gray-100 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800">
             <tr>
               <SortHeader
                 label="Empresa"
@@ -216,7 +216,7 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
                 currentDir={sortDir}
                 onSort={handleSort}
               />
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Uso 30d
               </th>
               <SortHeader
@@ -226,18 +226,18 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
                 currentDir={sortDir}
                 onSort={handleSort}
               />
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 Acciones
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
             {paginated.map((t) => (
-              <tr key={t.id} className="hover:bg-gray-50/50">
+              <tr key={t.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800">
                 {/* Empresa */}
                 <td className="px-4 py-3">
-                  <div className="font-medium text-gray-900">{t.name}</div>
-                  <div className="text-xs text-gray-400">{t.slug}</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100">{t.name}</div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500">{t.slug}</div>
                 </td>
                 {/* Plan */}
                 <td className="px-4 py-3">
@@ -265,11 +265,11 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
                   )}
                 </td>
                 {/* Guardias */}
-                <td className="px-4 py-3 text-gray-700">{t.activeGuards}</td>
+                <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{t.activeGuards}</td>
                 {/* Uso 30d */}
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-2 w-20 overflow-hidden rounded-full bg-gray-100">
+                    <div className="h-2 w-20 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
                       <div
                         className={`h-full rounded-full ${
                           t.usagePct > 80 ? 'bg-red-500' : 'bg-blue-500'
@@ -277,11 +277,11 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
                         style={{ width: `${Math.min(t.usagePct, 100)}%` }}
                       />
                     </div>
-                    <span className="text-xs text-gray-500">{t.usagePct}%</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{t.usagePct}%</span>
                   </div>
                 </td>
                 {/* Ultimo login */}
-                <td className="px-4 py-3 text-gray-500">
+                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
                   {timeAgo(t.lastLoginAt)}
                 </td>
                 {/* Acciones */}
@@ -326,8 +326,8 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
-          <span className="text-sm text-gray-500">
+        <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 dark:border-gray-800">
+          <span className="text-sm text-gray-500 dark:text-gray-400">
             Pagina {page + 1} de {totalPages}
           </span>
           <div className="flex gap-2">
@@ -335,7 +335,7 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
               type="button"
               disabled={page === 0}
               onClick={() => setPage((p) => p - 1)}
-              className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent"
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent dark:text-gray-400 dark:hover:bg-gray-700"
             >
               Anterior
             </button>
@@ -343,7 +343,7 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
               type="button"
               disabled={page >= totalPages - 1}
               onClick={() => setPage((p) => p + 1)}
-              className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent"
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent dark:text-gray-400 dark:hover:bg-gray-700"
             >
               Siguiente
             </button>

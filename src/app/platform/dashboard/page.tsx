@@ -38,16 +38,16 @@ interface DashboardData {
 function DashboardSkeleton() {
   return (
     <div className="animate-pulse space-y-8">
-      <div className="h-8 w-48 rounded bg-gray-200" />
+      <div className="h-8 w-48 rounded bg-gray-200 dark:bg-gray-700" />
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-28 rounded-xl border border-gray-200 bg-white p-6">
-            <div className="h-4 w-24 rounded bg-gray-200" />
-            <div className="mt-4 h-8 w-16 rounded bg-gray-200" />
+          <div key={i} className="h-28 rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+            <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
+            <div className="mt-4 h-8 w-16 rounded bg-gray-200 dark:bg-gray-700" />
           </div>
         ))}
       </div>
-      <div className="h-96 rounded-xl border border-gray-200 bg-white" />
+      <div className="h-96 rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900" />
     </div>
   );
 }
@@ -95,7 +95,7 @@ export default function PlatformDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <PlatformKpiCard

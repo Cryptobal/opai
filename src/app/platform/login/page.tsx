@@ -31,7 +31,7 @@ export default function PlatformLoginPage() {
         return;
       }
 
-      router.push('/platform/dashboard');
+      window.location.href = '/platform/dashboard';
     } catch {
       setError('Error de conexión');
     } finally {
@@ -52,7 +52,7 @@ export default function PlatformLoginPage() {
         return;
       }
 
-      router.push('/platform/dashboard');
+      window.location.href = '/platform/dashboard';
     } catch {
       setError('Error de conexión');
     } finally {
@@ -61,7 +61,7 @@ export default function PlatformLoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#0a1628' }}>
+    <div className="flex min-h-screen items-center justify-center bg-[#0a1628]">
       <div className="w-full max-w-sm px-4">
         {/* Logo */}
         <div className="mb-8 text-center">
@@ -73,18 +73,17 @@ export default function PlatformLoginPage() {
             className="mx-auto mb-3"
             priority
           />
-          <p className="text-sm" style={{ color: '#2dd4bf' }}>Platform Admin</p>
+          <p className="text-sm text-teal-400">Platform Admin</p>
         </div>
 
-        {/* Form */}
-        <div className="rounded-xl p-6 shadow-lg" style={{ backgroundColor: '#ffffff' }}>
+        {/* Form card — always light regardless of theme */}
+        <div className="rounded-xl bg-white p-6 shadow-lg">
           {/* Google Login Button */}
           <button
             type="button"
             onClick={handleGoogleLogin}
             disabled={googleLoading}
-            className="mb-4 flex w-full items-center justify-center gap-3 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-gray-50 disabled:opacity-50"
-            style={{ borderColor: '#d1d5db', color: '#374151' }}
+            className="mb-4 flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
               <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
@@ -97,17 +96,17 @@ export default function PlatformLoginPage() {
 
           <div className="relative mb-4">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t" style={{ borderColor: '#e5e7eb' }} />
+              <div className="w-full border-t border-gray-200" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="px-2 text-gray-500" style={{ backgroundColor: '#ffffff' }}>o</span>
+              <span className="bg-white px-2 text-gray-500">o</span>
             </div>
           </div>
 
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div>
-                <label htmlFor="email" className="mb-1 block text-sm font-medium" style={{ color: '#374151' }}>
+                <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700">
                   Email
                 </label>
                 <input
@@ -115,14 +114,13 @@ export default function PlatformLoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-                  style={{ borderColor: '#d1d5db', color: '#111827', backgroundColor: '#ffffff' }}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
                   placeholder="admin@opai.cl"
                   required
                 />
               </div>
               <div>
-                <label htmlFor="password" className="mb-1 block text-sm font-medium" style={{ color: '#374151' }}>
+                <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700">
                   Contraseña
                 </label>
                 <input
@@ -130,15 +128,14 @@ export default function PlatformLoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-                  style={{ borderColor: '#d1d5db', color: '#111827', backgroundColor: '#ffffff' }}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
                   required
                 />
               </div>
             </div>
 
             {error && (
-              <div className="mt-4 rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}>
+              <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
                 {error}
               </div>
             )}
@@ -146,8 +143,7 @@ export default function PlatformLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-6 w-full rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:opacity-50"
-              style={{ backgroundColor: '#14b8a6' }}
+              className="mt-6 w-full rounded-lg bg-teal-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-teal-600 disabled:opacity-50"
             >
               {loading ? 'Ingresando...' : 'Ingresar'}
             </button>

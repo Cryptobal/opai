@@ -97,9 +97,9 @@ function EditableField({
   if (!editing) {
     return (
       <div>
-        <dt className="text-sm font-medium text-gray-500">{label}</dt>
+        <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</dt>
         <dd className="mt-1 flex items-center gap-2">
-          <span className="text-sm text-gray-900">{value || '—'}</span>
+          <span className="text-sm text-gray-900 dark:text-gray-100">{value || '—'}</span>
           <button
             onClick={() => setEditing(true)}
             className="text-xs text-blue-600 hover:text-blue-800"
@@ -113,11 +113,11 @@ function EditableField({
 
   return (
     <div>
-      <dt className="text-sm font-medium text-gray-500">{label}</dt>
+      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</dt>
       <dd className="mt-1 space-y-2">
         {multiline ? (
           <textarea
-            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+            className="w-full rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-2 py-1 text-sm"
             rows={3}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -125,7 +125,7 @@ function EditableField({
         ) : (
           <input
             type="text"
-            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+            className="w-full rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-2 py-1 text-sm"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
@@ -139,7 +139,7 @@ function EditableField({
           </button>
           <button
             onClick={handleCancel}
-            className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+            className="rounded border border-gray-300 dark:border-gray-700 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             Cancelar
           </button>
@@ -181,9 +181,9 @@ function EditableNumberField({
   if (!editing) {
     return (
       <div>
-        <dt className="text-sm font-medium text-gray-500">{label}</dt>
+        <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</dt>
         <dd
-          className="mt-1 cursor-pointer text-sm text-gray-900 hover:text-blue-600"
+          className="mt-1 cursor-pointer text-sm text-gray-900 dark:text-gray-100 hover:text-blue-600"
           onClick={() => setEditing(true)}
         >
           {value}
@@ -194,11 +194,11 @@ function EditableNumberField({
 
   return (
     <div>
-      <dt className="text-sm font-medium text-gray-500">{label}</dt>
+      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</dt>
       <dd className="mt-1">
         <input
           type="number"
-          className="w-24 rounded border border-gray-300 px-2 py-1 text-sm"
+          className="w-24 rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-2 py-1 text-sm"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -230,12 +230,12 @@ function ProgressBar({
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-sm">
-        <span className="font-medium text-gray-700">{label}</span>
-        <span className="text-gray-500">
+        <span className="font-medium text-gray-700 dark:text-gray-300">{label}</span>
+        <span className="text-gray-500 dark:text-gray-400">
           {value} / {max}
         </span>
       </div>
-      <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200">
+      <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
         <div
           className={`h-full rounded-full ${color} transition-all`}
           style={{ width: `${pct}%` }}
@@ -359,8 +359,8 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
               onClick={() => setActiveTab(tab.key)}
               className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.key
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  ? 'border-blue-600 text-blue-600 dark:text-teal-400'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
               }`}
             >
               {tab.label}
@@ -387,7 +387,7 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
         />
       )}
       {activeTab === 'plan' && !plan && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500">
+        <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6 text-center text-gray-500 dark:text-gray-400">
           Este tenant no tiene un plan configurado.
         </div>
       )}
@@ -396,7 +396,7 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
         <MetricsTab metrics={metrics} plan={plan} admins={admins} />
       )}
       {activeTab === 'metrics' && !plan && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500">
+        <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6 text-center text-gray-500 dark:text-gray-400">
           No hay plan configurado para mostrar metricas.
         </div>
       )}
@@ -420,19 +420,19 @@ function InfoTab({
   return (
     <div className="space-y-6">
       {/* Read-only fields */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Datos generales</h3>
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Datos generales</h3>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
-            <dt className="text-sm font-medium text-gray-500">Nombre</dt>
-            <dd className="mt-1 text-sm text-gray-900">{tenant.name}</dd>
+            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Nombre</dt>
+            <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{tenant.name}</dd>
           </div>
           <div>
-            <dt className="text-sm font-medium text-gray-500">Slug</dt>
-            <dd className="mt-1 text-sm font-mono text-gray-900">{tenant.slug}</dd>
+            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Slug</dt>
+            <dd className="mt-1 text-sm font-mono text-gray-900 dark:text-gray-100">{tenant.slug}</dd>
           </div>
           <div>
-            <dt className="text-sm font-medium text-gray-500">Estado</dt>
+            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Estado</dt>
             <dd className="mt-1">
               <span
                 className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -446,27 +446,27 @@ function InfoTab({
             </dd>
           </div>
           <div>
-            <dt className="text-sm font-medium text-gray-500">Creado</dt>
-            <dd className="mt-1 text-sm text-gray-900">
+            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Creado</dt>
+            <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
               {new Date(tenant.createdAt).toLocaleDateString('es-CL')}
             </dd>
           </div>
           {tenant.suspendedReason && (
             <div>
-              <dt className="text-sm font-medium text-gray-500">Razon de suspension</dt>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Razon de suspension</dt>
               <dd className="mt-1 text-sm text-red-600">{tenant.suspendedReason}</dd>
             </div>
           )}
           <div>
-            <dt className="text-sm font-medium text-gray-500">Onboarded por</dt>
-            <dd className="mt-1 text-sm text-gray-900">{tenant.onboardedBy || '—'}</dd>
+            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Onboarded por</dt>
+            <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{tenant.onboardedBy || '—'}</dd>
           </div>
         </dl>
       </div>
 
       {/* Editable fields */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Contacto y notas</h3>
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Contacto y notas</h3>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <EditableField
             label="Email de facturacion"
@@ -490,8 +490,8 @@ function InfoTab({
       </div>
 
       {/* Actions */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Acciones</h3>
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Acciones</h3>
         <div className="flex gap-3">
           {tenant.active ? (
             <button
@@ -534,8 +534,8 @@ function PlanTab({
   return (
     <div className="space-y-6">
       {/* Plan */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Plan actual</h3>
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Plan actual</h3>
         <div className="mb-4">
           <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
             {plan.plan}
@@ -549,8 +549,8 @@ function PlanTab({
               disabled={plan.plan === p}
               className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                 plan.plan === p
-                  ? 'cursor-default bg-gray-100 text-gray-400'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'cursor-default bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
               }`}
             >
               {p}
@@ -560,8 +560,8 @@ function PlanTab({
       </div>
 
       {/* Limits */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Limites</h3>
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Limites</h3>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <EditableNumberField
             label="Max guardias"
@@ -582,8 +582,8 @@ function PlanTab({
       </div>
 
       {/* Pricing */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Precios</h3>
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Precios</h3>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <EditableNumberField
             label="Precio base"
@@ -596,22 +596,22 @@ function PlanTab({
             onSave={(v) => onPatchPlan({ pricePerGuard: v })}
           />
           <div>
-            <dt className="text-sm font-medium text-gray-500">Moneda</dt>
-            <dd className="mt-1 text-sm text-gray-900">{plan.currency}</dd>
+            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Moneda</dt>
+            <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{plan.currency}</dd>
           </div>
         </dl>
       </div>
 
       {/* Modules */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Modulos</h3>
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Modulos</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {ALL_MODULES.map((mod) => {
             const enabled = moduleMap.get(mod) ?? false;
             return (
               <label
                 key={mod}
-                className="flex items-center gap-2 rounded-lg border border-gray-100 px-3 py-2 hover:bg-gray-50"
+                className="flex items-center gap-2 rounded-lg border border-gray-100 dark:border-gray-800 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 <input
                   type="checkbox"
@@ -619,7 +619,7 @@ function PlanTab({
                   onChange={() => onToggleModule(mod, !enabled)}
                   className="h-4 w-4 rounded border-gray-300 text-blue-600"
                 />
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-gray-700 dark:text-gray-300">
                   {mod.replace(/_/g, ' ')}
                 </span>
               </label>
@@ -636,41 +636,41 @@ function PlanTab({
 function AdminsTab({ admins }: { admins: TenantAdmin[] }) {
   if (admins.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-gray-500">
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6 text-center text-gray-500 dark:text-gray-400">
         No hay administradores registrados.
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-800">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
               Nombre
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
               Email
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
               Rol
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
               Estado
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
               Ultimo login
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200">
+        <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
           {admins.map((admin) => (
-            <tr key={admin.id} className="hover:bg-gray-50">
-              <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+            <tr key={admin.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+              <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                 {admin.name}
               </td>
-              <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+              <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                 {admin.email}
               </td>
               <td className="whitespace-nowrap px-6 py-4">
@@ -683,13 +683,13 @@ function AdminsTab({ admins }: { admins: TenantAdmin[] }) {
                   className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                     admin.status === 'active'
                       ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-gray-100 text-gray-600'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
                   }`}
                 >
                   {admin.status}
                 </span>
               </td>
-              <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+              <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                 {admin.lastLoginAt
                   ? new Date(admin.lastLoginAt).toLocaleDateString('es-CL')
                   : '—'}
@@ -716,8 +716,8 @@ function MetricsTab({
   return (
     <div className="space-y-6">
       {/* Progress bars */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Uso de recursos</h3>
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Uso de recursos</h3>
         <div className="space-y-4">
           <ProgressBar
             label="Guardias activos"
@@ -733,26 +733,26 @@ function MetricsTab({
       </div>
 
       {/* Activity stats */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
           Actividad (ultimos 30 dias)
         </h3>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-gray-100 p-4 text-center">
-            <dt className="text-sm font-medium text-gray-500">Marcaciones</dt>
-            <dd className="mt-1 text-2xl font-bold text-gray-900">
+          <div className="rounded-lg border border-gray-100 dark:border-gray-800 p-4 text-center">
+            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Marcaciones</dt>
+            <dd className="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">
               {metrics.marcaciones30d.toLocaleString()}
             </dd>
           </div>
-          <div className="rounded-lg border border-gray-100 p-4 text-center">
-            <dt className="text-sm font-medium text-gray-500">Documentos</dt>
-            <dd className="mt-1 text-2xl font-bold text-gray-900">
+          <div className="rounded-lg border border-gray-100 dark:border-gray-800 p-4 text-center">
+            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Documentos</dt>
+            <dd className="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">
               {metrics.documentos30d.toLocaleString()}
             </dd>
           </div>
-          <div className="rounded-lg border border-gray-100 p-4 text-center">
-            <dt className="text-sm font-medium text-gray-500">Rondas</dt>
-            <dd className="mt-1 text-2xl font-bold text-gray-900">
+          <div className="rounded-lg border border-gray-100 dark:border-gray-800 p-4 text-center">
+            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Rondas</dt>
+            <dd className="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">
               {metrics.rondas30d.toLocaleString()}
             </dd>
           </div>

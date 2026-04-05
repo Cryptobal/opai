@@ -66,20 +66,20 @@ export function CreateTenantForm() {
   };
 
   const inputClass =
-    'w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500';
-  const labelClass = 'block text-sm font-medium text-gray-700 mb-1';
+    'w-full rounded-xl border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500';
+  const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
 
   return (
     <form onSubmit={handleSubmit} className="max-w-2xl space-y-8">
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-700 dark:text-red-400">
           {error}
         </div>
       )}
 
       {/* Empresa */}
-      <fieldset className="space-y-4 rounded-xl border border-gray-200 p-6">
-        <legend className="px-2 text-base font-semibold text-gray-900">
+      <fieldset className="space-y-4 rounded-xl border border-gray-200 dark:border-gray-800 dark:bg-gray-900 p-6">
+        <legend className="px-2 text-base font-semibold text-gray-900 dark:text-gray-100">
           Empresa
         </legend>
 
@@ -131,8 +131,8 @@ export function CreateTenantForm() {
       </fieldset>
 
       {/* Administrador Owner */}
-      <fieldset className="space-y-4 rounded-xl border border-gray-200 p-6">
-        <legend className="px-2 text-base font-semibold text-gray-900">
+      <fieldset className="space-y-4 rounded-xl border border-gray-200 dark:border-gray-800 dark:bg-gray-900 p-6">
+        <legend className="px-2 text-base font-semibold text-gray-900 dark:text-gray-100">
           Administrador Owner
         </legend>
 
@@ -184,8 +184,8 @@ export function CreateTenantForm() {
       </fieldset>
 
       {/* Plan */}
-      <fieldset className="space-y-4 rounded-xl border border-gray-200 p-6">
-        <legend className="px-2 text-base font-semibold text-gray-900">
+      <fieldset className="space-y-4 rounded-xl border border-gray-200 dark:border-gray-800 dark:bg-gray-900 p-6">
+        <legend className="px-2 text-base font-semibold text-gray-900 dark:text-gray-100">
           Plan
         </legend>
 
