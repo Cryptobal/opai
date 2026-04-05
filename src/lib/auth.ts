@@ -8,6 +8,7 @@
 
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import Google from 'next-auth/providers/google';
 import * as bcrypt from 'bcryptjs';
 
 declare module 'next-auth' {
@@ -56,6 +57,15 @@ const ROLE_REFRESH_INTERVAL = 60 * 1000;
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "select_account",
+        },
+      },
+    }),
     Credentials({
       name: 'credentials',
       credentials: {
@@ -158,6 +168,37 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      // Google provider: verify email exists as active Admin
+      if (account?.provider === 'google') {
+        const { prisma } = await import('@/lib/prisma');
+        const admin = await prisma.admin.findFirst({
+          where: {
+            email: user.email!.toLowerCase(),
+            status: 'active',
+          },
+        });
+        if (!admin) {
+          return '/opai/login?error=google_not_registered';
+        }
+        // Link googleId if not already linked
+        if (!admin.googleId) {
+          await prisma.admin.update({
+            where: { id: admin.id },
+            data: { googleId: account.providerAccountId },
+          });
+        }
+        // Inject admin data into the NextAuth user object
+        user.id = admin.id;
+        user.name = admin.name;
+        user.email = admin.email;
+        user.role = admin.role;
+        user.roleTemplateId = admin.roleTemplateId;
+        user.tenantId = admin.tenantId;
+        return true;
+      }
+      return true; // Credentials flow continues unchanged
+    },
     async jwt({ token, user }) {
       // Login inicial: guardar datos del usuario
       if (user) {

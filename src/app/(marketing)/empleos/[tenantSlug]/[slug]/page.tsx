@@ -156,7 +156,7 @@ export default async function TenantJobDetailPage({
 
           {/* Company header */}
           <div className="mb-8 flex items-center gap-4">
-            {logoUrl && (
+            {logoUrl ? (
               <Image
                 src={logoUrl}
                 alt={companyName}
@@ -164,6 +164,10 @@ export default async function TenantJobDetailPage({
                 height={40}
                 className="h-10 w-auto object-contain"
               />
+            ) : (
+              <div className="h-10 w-10 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-bold text-white">
+                {companyName.charAt(0)}
+              </div>
             )}
             <span className="text-sm text-slate-400">{companyName}</span>
           </div>
@@ -236,7 +240,7 @@ export default async function TenantJobDetailPage({
           {/* CTA */}
           <div className="text-center">
             <Link
-              href="/portal/guardia-postulante/ofertas"
+              href="/portal/guardia"
               className="inline-flex items-center rounded-lg bg-emerald-500 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-emerald-600"
             >
               Postular ahora
