@@ -227,13 +227,23 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               ))}
             </div>
           </div>
-          <div style={{ borderTop: '1px solid var(--mk-border)', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ borderTop: '1px solid var(--mk-border)', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
             <p style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', fontFamily: 'var(--mk-font-m)' }}>
               © {new Date().getFullYear()} OPAI — Todos los derechos reservados
             </p>
-            <div style={{ display: 'flex', gap: '20px' }}>
-              <Link href="/privacidad" style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>Privacidad</Link>
-              <Link href="/terminos" style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>Términos</Link>
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <Link
+                href="/privacidad"
+                style={{ color: 'var(--mk-text)', fontSize: '0.85rem', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+              >
+                Política de privacidad
+              </Link>
+              <Link
+                href="/terminos"
+                style={{ color: 'var(--mk-text)', fontSize: '0.85rem', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+              >
+                Términos y condiciones
+              </Link>
             </div>
           </div>
         </div>
