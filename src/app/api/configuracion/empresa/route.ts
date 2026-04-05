@@ -3,6 +3,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { clearTenantEmailConfigCache } from "@/lib/resend";
 import { clearTenantCompanyConfigCache } from "@/lib/tenant-config";
+import { clearTenantTwilioConfigCache, twilioSettingKey } from "@/lib/twilio-config";
 
 const EMPRESA_KEYS = [
   "empresa.razonSocial",
@@ -49,6 +50,27 @@ function settingKey(tenantId: string, key: string): string {
   return `empresa:${tenantId}:${key}`;
 }
 
+/** Claves virtuales en GET/PATCH que mapean a `Setting` `twilio:<tenantId>:*` */
+const TWILIO_UI = {
+  whatsappFrom: "empresa.twilioWhatsappFrom",
+  contentSid: "empresa.twilioContentSid",
+  whatsappEnabled: "empresa.twilioWhatsappEnabled",
+} as const;
+
+function displayWhatsappFrom(stored: string | null | undefined): string {
+  if (!stored?.trim()) return "";
+  return stored.trim().replace(/^whatsapp:/i, "");
+}
+
+function normalizeTwilioWhatsappFrom(input: string): string {
+  const t = input.trim();
+  if (!t) return "";
+  if (t.toLowerCase().startsWith("whatsapp:")) return t;
+  const digits = t.replace(/[\s\-]/g, "");
+  const withPlus = digits.startsWith("+") ? digits : `+${digits.replace(/^\+/, "")}`;
+  return `whatsapp:${withPlus}`;
+}
+
 /**
  * GET /api/configuracion/empresa — Get company settings (por tenant)
  * Soporta keys nuevas (empresa:tenantId:empresa.xxx) y antiguas (empresa.xxx) para migración.
@@ -74,6 +96,23 @@ export async function GET() {
       const shortKey = s.key.includes(":") ? s.key.replace(`empresa:${ctx.tenantId}:`, "") : s.key;
       data[shortKey] = s.value;
     }
+
+    const tid = ctx.tenantId;
+    const twilioKeys = [
+      twilioSettingKey(tid, "whatsappFrom"),
+      twilioSettingKey(tid, "contentSid"),
+      twilioSettingKey(tid, "whatsappEnabled"),
+    ];
+    const twilioRows = await prisma.setting.findMany({
+      where: { tenantId: tid, key: { in: twilioKeys } },
+    });
+    const twByKey = new Map(twilioRows.map((r) => [r.key, r.value]));
+    data[TWILIO_UI.whatsappFrom] = displayWhatsappFrom(
+      twByKey.get(twilioSettingKey(tid, "whatsappFrom")),
+    );
+    data[TWILIO_UI.contentSid] = twByKey.get(twilioSettingKey(tid, "contentSid"))?.trim() ?? "";
+    data[TWILIO_UI.whatsappEnabled] =
+      twByKey.get(twilioSettingKey(tid, "whatsappEnabled")) ?? "true";
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
@@ -120,6 +159,66 @@ export async function PATCH(request: NextRequest) {
           },
         });
       }
+    }
+
+    let twilioUpdated = false;
+    const tid = ctx.tenantId;
+
+    if (body[TWILIO_UI.whatsappFrom] !== undefined) {
+      const normalized = normalizeTwilioWhatsappFrom(String(body[TWILIO_UI.whatsappFrom]));
+      const key = twilioSettingKey(tid, "whatsappFrom");
+      await prisma.setting.upsert({
+        where: { key },
+        create: {
+          key,
+          value: normalized,
+          type: "string",
+          category: "twilio",
+          tenantId: tid,
+        },
+        update: { value: normalized },
+      });
+      twilioUpdated = true;
+    }
+
+    if (body[TWILIO_UI.contentSid] !== undefined) {
+      const key = twilioSettingKey(tid, "contentSid");
+      const v = String(body[TWILIO_UI.contentSid]).trim();
+      await prisma.setting.upsert({
+        where: { key },
+        create: {
+          key,
+          value: v,
+          type: "string",
+          category: "twilio",
+          tenantId: tid,
+        },
+        update: { value: v },
+      });
+      twilioUpdated = true;
+    }
+
+    if (body[TWILIO_UI.whatsappEnabled] !== undefined) {
+      const raw = body[TWILIO_UI.whatsappEnabled];
+      const boolStr =
+        raw === true || raw === "true" || raw === "1" ? "true" : "false";
+      const key = twilioSettingKey(tid, "whatsappEnabled");
+      await prisma.setting.upsert({
+        where: { key },
+        create: {
+          key,
+          value: boolStr,
+          type: "string",
+          category: "twilio",
+          tenantId: tid,
+        },
+        update: { value: boolStr },
+      });
+      twilioUpdated = true;
+    }
+
+    if (twilioUpdated) {
+      clearTenantTwilioConfigCache(tid);
     }
 
     clearTenantEmailConfigCache(ctx.tenantId);

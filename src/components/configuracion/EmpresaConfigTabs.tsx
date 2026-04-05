@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Building, FileSignature, Globe, Loader2, Mail, Paintbrush, Phone, Save, Smartphone, Upload, X } from "lucide-react";
+import { Building, FileSignature, Globe, Loader2, Mail, MessageCircle, Paintbrush, Phone, Save, Smartphone, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -290,6 +290,82 @@ export function EmpresaConfigTabs() {
               <Save className="h-4 w-4" />
             )}
             Guardar correo de envío y respuesta
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const whatsappTab = (
+    <div className="max-w-2xl space-y-6">
+      <div className="rounded-lg border border-border p-6 space-y-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">WhatsApp automático (alertas)</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Los mensajes automáticos (por ejemplo alertas de cobertura) se envían con la cuenta WhatsApp de OPAI en Twilio. Aquí defines{" "}
+            <strong className="text-foreground font-medium">desde qué número</strong> salen esos envíos para tu empresa.
+          </p>
+        </div>
+
+        <label className="flex items-center justify-between rounded-lg border border-border p-4 cursor-pointer hover:bg-muted/30 transition-colors">
+          <div>
+            <span className="text-sm font-medium">Enviar mensajes automáticos por WhatsApp</span>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Si está desactivado, no se intentará WhatsApp para alertas aunque el canal esté en la pauta.
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={form["empresa.twilioWhatsappEnabled"] !== "false"}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                "empresa.twilioWhatsappEnabled": e.target.checked ? "true" : "false",
+              }))
+            }
+            className="h-4 w-4 rounded border-border"
+          />
+        </label>
+
+        <div className="space-y-2">
+          <Label className="text-xs mb-1.5">Número remitente (WhatsApp Business)</Label>
+          <Input
+            value={form["empresa.twilioWhatsappFrom"] ?? ""}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, "empresa.twilioWhatsappFrom": e.target.value }))
+            }
+            placeholder="Ej: +56912345678"
+            className="text-sm font-mono"
+            autoComplete="off"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Formato E.164 con código de país. Es el número que verá el guardia como remitente. Si lo dejas vacío, se usa el número por defecto de la plataforma (variable de entorno).
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs mb-1.5">Content SID del template (opcional)</Label>
+          <Input
+            value={form["empresa.twilioContentSid"] ?? ""}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, "empresa.twilioContentSid": e.target.value }))
+            }
+            placeholder="Ej: HXxxxxxxxx..."
+            className="text-sm font-mono"
+            autoComplete="off"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Solo si tu empresa usa un template aprobado distinto en Twilio. Si está vacío, se usa el de la plataforma.
+          </p>
+        </div>
+
+        <div className="pt-2">
+          <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Guardar WhatsApp
           </Button>
         </div>
       </div>
@@ -610,6 +686,12 @@ export function EmpresaConfigTabs() {
       label: "Correo Electrónico",
       icon: Mail,
       content: correoTab,
+    },
+    {
+      id: "whatsapp",
+      label: "WhatsApp",
+      icon: MessageCircle,
+      content: whatsappTab,
     },
     {
       id: "firma",

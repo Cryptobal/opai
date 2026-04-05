@@ -188,6 +188,15 @@ export const CONFIG_SEARCH_INDEX: ConfigSearchItem[] = [
     group: "General",
     keywords: "firma representante legal imagen dibujar token contrato",
   },
+  {
+    type: "setting",
+    sectionId: "empresa",
+    tab: "whatsapp",
+    label: "Número WhatsApp automático (alertas)",
+    group: "General",
+    keywords:
+      "whatsapp twilio remitente numero alertas cobertura mensajes automaticos template content sid",
+  },
 
   // CRM
   {
