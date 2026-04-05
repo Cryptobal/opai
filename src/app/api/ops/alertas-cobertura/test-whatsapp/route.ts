@@ -4,7 +4,7 @@ import { ensureOpsAccess } from "@/lib/ops";
 import { hasCapability } from "@/lib/permissions";
 import {
   enviarAlertaWhatsApp,
-  isWhatsAppConfigured,
+  isTenantWhatsAppSendConfigured,
 } from "@/lib/alertas-cobertura/whatsapp.service";
 
 /**
@@ -39,14 +39,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!isWhatsAppConfigured()) {
+    if (!(await isTenantWhatsAppSendConfigured(ctx.tenantId))) {
       return NextResponse.json(
-        { success: false, error: "Twilio WhatsApp no está configurado (faltan env vars)" },
+        { success: false, error: "Twilio WhatsApp no está configurado (faltan env vars o desactivado)" },
         { status: 503 },
       );
     }
 
     const resultado = await enviarAlertaWhatsApp({
+      tenantId: ctx.tenantId,
       telefono,
       instalacion: "Edificio Corporate",
       direccion: "Av. Providencia 1234, Providencia",

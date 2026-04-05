@@ -18,7 +18,10 @@ import AlertaCoberturaEmail from "@/emails/AlertaCoberturaEmail";
 import AlertaAceptadaEmail from "@/emails/AlertaAceptadaEmail";
 import { generarTokenExterno } from "@/lib/alertas-cobertura/token.service";
 import { getAlertaCoberturaConfig } from "@/lib/alertas-cobertura/config";
-import { enviarAlertaWhatsApp, isWhatsAppConfigured } from "@/lib/alertas-cobertura/whatsapp.service";
+import {
+  enviarAlertaWhatsApp,
+  isTenantWhatsAppSendConfigured,
+} from "@/lib/alertas-cobertura/whatsapp.service";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
@@ -145,8 +148,8 @@ export async function notificarGuardiaAlerta(params: {
 
   // === WHATSAPP (Twilio Content API) ===
   if (canalesConfig.includes("WHATSAPP")) {
-    if (!isWhatsAppConfigured()) {
-      errores.WHATSAPP = "Twilio no configurado";
+    if (!(await isTenantWhatsAppSendConfigured(params.tenantId))) {
+      errores.WHATSAPP = "Twilio no configurado o WhatsApp desactivado";
     } else {
       try {
         if (persona?.phone) {
@@ -164,6 +167,7 @@ export async function notificarGuardiaAlerta(params: {
           }
 
           const waResult = await enviarAlertaWhatsApp({
+            tenantId: params.tenantId,
             telefono: persona.phone,
             instalacion: params.instalacionNombre,
             direccion: params.instalacionDireccion,

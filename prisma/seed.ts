@@ -107,6 +107,28 @@ async function main() {
 
   console.log('✅ Settings created');
 
+  // Twilio WhatsApp por tenant (Gard): una sola cuenta; número y template en Setting
+  const gardTwilioSettings: { suffix: string; value: string }[] = [
+    { suffix: 'whatsappFrom', value: 'whatsapp:+56968727644' },
+    { suffix: 'contentSid', value: 'HXaff73d6389a99dbd7748706261a8a7bf' },
+    { suffix: 'whatsappEnabled', value: 'true' },
+  ];
+  for (const { suffix, value } of gardTwilioSettings) {
+    const key = `twilio:${tenant.id}:${suffix}`;
+    await prisma.setting.upsert({
+      where: { key },
+      update: { value, tenantId: tenant.id },
+      create: {
+        key,
+        value,
+        type: 'string',
+        category: 'twilio',
+        tenantId: tenant.id,
+      },
+    });
+  }
+  console.log('✅ Gard Twilio WhatsApp settings (twilio:<tenantId>.*)');
+
   // 4. Seed Payroll data
   await seedPayrollData();
   // 5. Seed CPQ data

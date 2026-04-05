@@ -3,31 +3,18 @@
  *
  * Envía alertas de turno extra via WhatsApp.
  * Estrategia: Content Template si está configurado, sino texto plano.
+ * Una sola cuenta Twilio; remitente y template opcional por tenant (getTenantTwilioConfig).
  */
 
-import Twilio from "twilio";
-
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const fromNumber = process.env.TWILIO_WHATSAPP_FROM;
-const contentSid = process.env.TWILIO_WHATSAPP_CONTENT_SID; // Optional
+import {
+  getTenantTwilioConfig,
+  isTenantWhatsAppSendConfigured,
+} from "@/lib/twilio-config";
 
 const SITE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
 
-let twilioClient: Twilio.Twilio | null = null;
-
-function getClient(): Twilio.Twilio | null {
-  if (!accountSid || !authToken) {
-    console.warn("[WhatsApp] Twilio credentials not configured");
-    return null;
-  }
-  if (!twilioClient) {
-    twilioClient = Twilio(accountSid, authToken);
-  }
-  return twilioClient;
-}
-
 interface EnviarAlertaWhatsAppParams {
+  tenantId: string;
   telefono: string;
   instalacion: string;
   direccion: string;
@@ -41,10 +28,19 @@ interface EnviarAlertaWhatsAppParams {
 export async function enviarAlertaWhatsApp(
   params: EnviarAlertaWhatsAppParams,
 ): Promise<{ success: boolean; messageSid?: string; error?: string }> {
-  const client = getClient();
+  const twilio = await getTenantTwilioConfig(params.tenantId);
+  const client = twilio.client;
+  const fromNumber = twilio.from;
+  const contentSid = twilio.contentSid;
+
   if (!client || !fromNumber) {
     console.warn("[WhatsApp] Twilio not configured, skipping");
     return { success: false, error: "Twilio not configured" };
+  }
+
+  if (!twilio.enabled) {
+    console.warn("[WhatsApp] WhatsApp disabled for tenant, skipping");
+    return { success: false, error: "WhatsApp desactivado para el tenant" };
   }
 
   const telefonoNormalizado = normalizarTelefonoChileno(params.telefono);
@@ -58,10 +54,6 @@ export async function enviarAlertaWhatsApp(
   // Estrategia 1: Content Template (si está configurado y aprobado)
   if (contentSid) {
     try {
-      // Template turno_extra_notif_v2 (UTILITY, 7 vars):
-      //   {{1}} = JWT token (button URL only: /alerta/t/{{1}})
-      //   {{2}} = Instalación, {{3}} = Dirección
-      //   {{4}} = Horario, {{5}} = Monto, {{6}} = Modalidad, {{7}} = Funciones
       const buttonToken = params.urlPath.includes("?token=")
         ? params.urlPath.split("?token=")[1]
         : params.urlPath;
@@ -83,8 +75,14 @@ export async function enviarAlertaWhatsApp(
 
       console.log(`[WhatsApp] Template enviado a ${telefonoNormalizado}: SID=${message.sid}`);
       return { success: true, messageSid: message.sid };
-    } catch (templateError: any) {
-      console.warn(`[WhatsApp] Template falló (${templateError?.code || templateError?.message}), intentando texto plano...`);
+    } catch (templateError: unknown) {
+      const code =
+        templateError && typeof templateError === "object" && "code" in templateError
+          ? String((templateError as { code?: unknown }).code)
+          : "";
+      const msg =
+        templateError instanceof Error ? templateError.message : String(templateError);
+      console.warn(`[WhatsApp] Template falló (${code || msg}), intentando texto plano...`);
       // Fall through to plain text
     }
   }
@@ -114,9 +112,10 @@ export async function enviarAlertaWhatsApp(
 
     console.log(`[WhatsApp] Texto plano enviado a ${telefonoNormalizado}: SID=${message.sid}`);
     return { success: true, messageSid: message.sid };
-  } catch (error: any) {
-    console.error(`[WhatsApp] Error enviando a ${telefonoNormalizado}:`, error?.message || error);
-    return { success: false, error: error?.message || "Error desconocido" };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Error desconocido";
+    console.error(`[WhatsApp] Error enviando a ${telefonoNormalizado}:`, msg);
+    return { success: false, error: msg };
   }
 }
 
@@ -139,5 +138,11 @@ function normalizarTelefonoChileno(telefono: string): string | null {
 }
 
 export function isWhatsAppConfigured(): boolean {
-  return !!(accountSid && authToken && fromNumber);
+  return !!(
+    process.env.TWILIO_ACCOUNT_SID &&
+    process.env.TWILIO_AUTH_TOKEN &&
+    process.env.TWILIO_WHATSAPP_FROM
+  );
 }
+
+export { isTenantWhatsAppSendConfigured };

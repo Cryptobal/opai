@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { findTenantIdByTwilioWhatsAppFrom } from "@/lib/twilio-config";
 
 /**
  * Twilio WhatsApp status callback webhook.
@@ -17,9 +18,12 @@ export async function POST(request: NextRequest) {
     const status = formData.get("MessageStatus") as string;
     const errorCode = formData.get("ErrorCode") as string | null;
     const to = formData.get("To") as string | null;
+    const from = formData.get("From") as string | null;
+
+    const tenantId = await findTenantIdByTwilioWhatsAppFrom(from);
 
     console.log(
-      `[WhatsApp:Webhook] SID=${messageSid}, Status=${status}, To=${to || "?"}, Error=${errorCode || "none"}`,
+      `[WhatsApp:Webhook] tenantId=${tenantId ?? "unknown"} SID=${messageSid}, Status=${status}, From=${from || "?"}, To=${to || "?"}, Error=${errorCode || "none"}`,
     );
 
     // Future: update OpsAlertaNotificacion with delivery status
