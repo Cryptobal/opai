@@ -136,17 +136,19 @@ async function main() {
 
   // 14. Platform Admin
   const platformPassword = await bcrypt.hash('OpaiPlatform2026!', 12);
-  const platformAdmin = await prisma.platformAdmin.upsert({
-    where: { email: 'carlos.irigoyen@opai.cl' },
-    update: {},
-    create: {
-      email: 'carlos.irigoyen@opai.cl',
-      password: platformPassword,
-      name: 'Carlos Irigoyen',
-      status: 'active',
-    },
-  });
-  console.log('✅ Platform Admin ready:', platformAdmin.email);
+  for (const email of ['carlos.irigoyen@opai.cl', 'carlos.irigoyen@gard.cl']) {
+    await prisma.platformAdmin.upsert({
+      where: { email },
+      update: {},
+      create: {
+        email,
+        password: platformPassword,
+        name: 'Carlos Irigoyen',
+        status: 'active',
+      },
+    });
+  }
+  console.log('✅ Platform Admins ready');
 
   console.log('🎉 Seeding completed!');
 }
