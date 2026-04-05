@@ -496,10 +496,15 @@ export async function POST(
       portalScreenshots: {},
 
       companyConfig: {
-        commercialName: companyConfig?.commercialName || "GARD SECURITY",
+        commercialName: companyConfig?.commercialName || "OPAI",
+        companyName: companyConfig?.companyName || "",
+        brandNameUpper: companyConfig?.brandNameUpper || (companyConfig?.commercialName || "OPAI").toUpperCase(),
         website: companyConfig?.website || "",
         phone: companyConfig?.phone || "",
         email: companyConfig?.email || "",
+        brandingLogoWhite: companyConfig?.brandingLogoWhite || undefined,
+        brandingLogoFull: companyConfig?.brandingLogoFull || undefined,
+        brandingLogoIcon: companyConfig?.brandingLogoIcon || undefined,
       },
       clientLogosWithNames: clientesConLogo
         .filter((c) => c.logoUrl)
