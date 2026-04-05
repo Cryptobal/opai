@@ -17,6 +17,7 @@ interface PricingPDFProps {
   contactPhone?: string;
   companyName?: string;
   website?: string;
+  logoUrl?: string;
 }
 
 // Estilos branded - ACTUALIZADO para match con preview
@@ -162,6 +163,7 @@ export function PricingPDF({
   contactPhone,
   companyName,
   website,
+  logoUrl,
 }: PricingPDFProps) {
   // Calcular paginación
   const ITEMS_PER_PAGE = 12;
@@ -188,11 +190,8 @@ export function PricingPDF({
           {/* Header con gradiente teal (simulado con color sólido) */}
           <View style={styles.header}>
             <View style={styles.headerTop}>
-              {/* Logo Gard Blanco */}
-              <PDFImage 
-                src="/Logo Gard Blanco.png"
-                style={styles.logo}
-              />
+                  {/* Tenant logo */}
+              {logoUrl && <PDFImage src={logoUrl} style={styles.logo} />}
               <Text style={styles.pageNumber}>Página {pageIndex + 1} de {totalPages}</Text>
             </View>
             

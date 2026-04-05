@@ -171,7 +171,7 @@ interface Props {
 
 export function PortalNosotros({ onNavigate }: Props) {
   const { branding } = useBranding();
-  const logoClara = branding.logoWhite || branding.logoFull || "/logo-gard-blanco.svg";
+  const logoClara = branding.logoWhite || branding.logoFull || "";
 
   return (
     <div className="space-y-8 pb-24 px-4 py-4">
@@ -186,7 +186,7 @@ export function PortalNosotros({ onNavigate }: Props) {
               boxShadow: "0 0 60px rgba(45,212,191,0.15), inset 0 0 30px rgba(45,212,191,0.05)",
             }}
           >
-            <img src={logoClara} alt={branding.companyName || "Gard Security"} className="w-full h-full object-contain relative z-10" />
+            <img src={logoClara} alt={branding.companyName} className="w-full h-full object-contain relative z-10" />
           </div>
           <h1
             className="text-2xl font-bold mb-2"
@@ -197,7 +197,7 @@ export function PortalNosotros({ onNavigate }: Props) {
               fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
             }}
           >
-            {branding.companyName || "Gard Security"}
+            {branding.companyName}
           </h1>
           <p className="text-zinc-400 text-sm mb-2">El único sistema operativo completo de seguridad en Chile</p>
           <OpaiBadge text="19 capacidades integradas" />

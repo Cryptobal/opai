@@ -219,7 +219,7 @@ function MarcacionAsistenciaSection({ installation }: { installation: Installati
   const [loading, setLoading] = useState(false);
   const [code, setCode] = useState(installation.marcacionCode || "");
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://opai.gard.cl";
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   const marcacionUrl = code ? `${baseUrl}/marcar/${code}` : "";
   const handleGenerar = async () => {
     setLoading(true);
@@ -312,7 +312,7 @@ function MarcacionRondasSection({ installation }: { installation: InstallationDe
   const [loading, setLoading] = useState(false);
   const [code, setCode] = useState(installation.marcacionCode || "");
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://opai.gard.cl";
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   const rondaUrl = code ? `${baseUrl}/ronda/${code}` : "";
 
   const handleGenerar = async () => {

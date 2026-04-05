@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import {
   Shield, Cpu, Scale, Award, BadgeCheck, Monitor,
 } from 'lucide-react'
+import { useBranding } from '@/lib/branding/useBranding'
 
 const SECTIONS = [
   {
@@ -98,6 +99,7 @@ interface Props {
 }
 
 export function CompanyPresentationView({ contactId }: Props) {
+  const { branding } = useBranding()
   useEffect(() => {
     if (!contactId) return
     fetch('/api/portal/cliente/presentation-view', {
@@ -111,16 +113,18 @@ export function CompanyPresentationView({ contactId }: Props) {
     <div className="px-4 py-6 pb-24 max-w-4xl mx-auto w-full space-y-8">
       {/* Hero */}
       <div className="text-center space-y-3">
-        <img
-          src="/logo-gard-blanco.svg"
-          alt="Gard Security"
-          className="h-10 mx-auto opacity-90"
-        />
+        {branding.logoWhite && (
+          <img
+            src={branding.logoWhite}
+            alt={branding.companyName}
+            className="h-10 mx-auto opacity-90"
+          />
+        )}
         <h1
           className="text-2xl sm:text-3xl font-bold text-white"
           style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}
         >
-          Gard Security
+          {branding.companyName}
         </h1>
         <p className="text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
           Seguridad privada con tecnología propia. El único sistema operativo integral
@@ -175,7 +179,7 @@ export function CompanyPresentationView({ contactId }: Props) {
         style={{ background: 'linear-gradient(145deg, rgba(30,41,59,0.8), rgba(26,35,50,0.8))' }}
       >
         <p className="text-xs text-zinc-400 leading-relaxed">
-          Gard Security · Plataforma{' '}
+          {branding.companyName} · Plataforma{' '}
           <span className="font-medium text-zinc-300">OPAI</span> · Desarrollado por{' '}
           <a
             href="https://lx3.ai"

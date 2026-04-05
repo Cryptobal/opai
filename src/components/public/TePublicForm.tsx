@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
+import { useBranding } from "@/lib/branding/useBranding";
 import { toast } from "sonner";
 import { FilePlus2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ interface TePublicFormProps {
 }
 
 export function TePublicForm({ tenantSlug = "gard" }: TePublicFormProps) {
+  const { branding } = useBranding();
   const [documentTypes, setDocumentTypes] = useState<DocTypeConfig[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -252,15 +254,17 @@ export function TePublicForm({ tenantSlug = "gard" }: TePublicFormProps) {
     <div className="mx-auto max-w-3xl p-4 md:p-6">
       <div className="mb-4 rounded-xl border border-border bg-[#0f2847] px-6 py-4 flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-wide text-white/70">Gard Security</p>
+          <p className="text-xs uppercase tracking-wide text-white/70">{branding.companyName}</p>
           <p className="text-base text-white font-semibold">Ingreso Turno Extra</p>
         </div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/Logo%20Gard%20Blanco.png"
-          alt="Logo Gard Security"
-          className="h-8 w-auto"
-        />
+        {branding.logoWhite && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={branding.logoWhite}
+            alt={`Logo ${branding.companyName}`}
+            className="h-8 w-auto"
+          />
+        )}
       </div>
       <Card>
         <CardHeader>

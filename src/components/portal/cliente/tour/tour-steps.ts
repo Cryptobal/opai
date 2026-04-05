@@ -10,16 +10,18 @@ interface PersonalizationData {
   contactName?: string;
   accountName?: string;
   ejecutivoName?: string | null;
+  companyName?: string;
 }
 
 export function buildTourSteps(data?: PersonalizationData): TourStep[] {
   const name = data?.contactName || "";
   const company = data?.accountName || "";
   const ejecutivo = data?.ejecutivoName || "su ejecutivo";
+  const tenantName = data?.companyName || "";
 
   return [
     {
-      title: name ? `Bienvenido, ${name}` : "Bienvenido a Gard Security",
+      title: name ? `Bienvenido, ${name}` : tenantName ? `Bienvenido a ${tenantName}` : "Bienvenido",
       subtitle: "El único portal con tecnología propia en Chile",
       icon: "Shield",
       content:
@@ -31,8 +33,8 @@ export function buildTourSteps(data?: PersonalizationData): TourStep[] {
       subtitle: "Revisa los detalles de tu servicio",
       icon: "FileCheck",
       content: company
-        ? `Revisa tu propuesta de seguridad para ${company}. Incluye todos los servicios exclusivos que Gard ofrece gracias a la plataforma OPAI.`
-        : "Revisa tu propuesta de seguridad. Incluye todos los servicios exclusivos que Gard ofrece gracias a la plataforma OPAI.",
+        ? `Revisa tu propuesta de seguridad para ${company}. Incluye todos los servicios exclusivos gracias a la plataforma OPAI.`
+        : "Revisa tu propuesta de seguridad. Incluye todos los servicios exclusivos gracias a la plataforma OPAI.",
       accent: "from-blue-500/20 to-blue-600/5",
     },
     {
@@ -56,7 +58,7 @@ export function buildTourSteps(data?: PersonalizationData): TourStep[] {
       subtitle: "Comunicación sin intermediarios",
       icon: "MessageSquare",
       content:
-        "Comunícate directamente con tu equipo Gard sin salir del portal. Sin WhatsApps personales, sin correos perdidos.",
+        "Comunícate directamente con tu equipo sin salir del portal. Sin WhatsApps personales, sin correos perdidos.",
       accent: "from-sky-500/20 to-sky-600/5",
     },
     {

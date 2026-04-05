@@ -10,6 +10,7 @@ import {
   MessageSquare, ArrowRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useBranding } from '@/lib/branding/useBranding'
 import { ClienteSession } from '@/lib/portal-cliente-types'
 import { DEMO_SUMMARY, DEMO_CHART_DATA, DEMO_GUARDIAS_RANKING, DEMO_ACTIVITY } from '@/lib/portal/demo-data'
 import { PreviewBadge } from './PreviewBadge'
@@ -148,7 +149,7 @@ const CAPABILITY_CARDS = [
   {
     icon: MessageSquare,
     title: 'Chat directo',
-    desc: 'Habla con tu equipo Gard 24/7 sin salir del portal',
+    desc: 'Habla con tu equipo 24/7 sin salir del portal',
     section: 'chat',
     color: 'text-teal-400',
     bg: 'bg-teal-500/10',
@@ -166,6 +167,7 @@ interface Props {
 }
 
 export function PortalDashboard({ session, selectedInstallation, isProspect, onNavigate }: Props) {
+  const { branding } = useBranding()
   const [summary, setSummary] = useState<Summary | null>(null)
   const [compliance, setCompliance] = useState<DailyPoint[]>([])
   const [guards, setGuards] = useState<Guard[]>([])
@@ -270,7 +272,7 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
                 📋 Presentación personalizada
               </div>
               <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
-                Conoce Gard Security
+                Conoce {branding.companyName}
               </div>
               <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
                 Descubre nuestros servicios, tecnología y diferenciadores →
@@ -310,13 +312,13 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
         {/* Hero Section */}
         <div className="text-center py-6">
           <h1 className="text-2xl font-bold text-white mb-2">
-            {session.firstName ? `Bienvenido, ${session.firstName}` : 'Bienvenido a Gard Security'}
+            {session.firstName ? `Bienvenido, ${session.firstName}` : `Bienvenido a ${branding.companyName}`}
           </h1>
           <p className="text-sm text-zinc-400 mb-3">
             Este es tu centro de comando de seguridad
           </p>
           <p className="text-xs text-zinc-500 max-w-md mx-auto leading-relaxed">
-            Gard es la única empresa en Chile con un sistema operativo completo de seguridad.
+            {branding.companyName} es la única empresa en Chile con un sistema operativo completo de seguridad.
           </p>
           <div className="mt-3">
             <OpaiBadge text="19 capacidades integradas" />
@@ -347,7 +349,7 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
 
         {/* Preview de capacidades */}
         <div>
-          <h3 className="text-sm font-semibold mb-3">Lo que incluye tu servicio con Gard</h3>
+          <h3 className="text-sm font-semibold mb-3">Lo que incluye tu servicio</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {CAPABILITY_CARDS.map((card) => {
               const Icon = card.icon
@@ -382,7 +384,7 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
             ¿Por qué ninguna otra empresa tiene esto?
           </h3>
           <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed mb-5">
-            Porque Gard desarrolló su propia tecnología. No usamos software genérico.
+            {branding.companyName} desarrolló su propia tecnología. No usamos software genérico.
             OPAI fue diseñado exclusivamente para seguridad privada.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -411,7 +413,7 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
         {/* Footer */}
         <footer className="text-center text-xs text-zinc-500 pt-4 pb-8 space-y-1">
           <p>
-            Gard Security · Plataforma{' '}
+            {branding.companyName} · Plataforma{' '}
             <span className="font-medium text-zinc-400">OPAI</span> · Desarrollado por{' '}
             <a href="https://lx3.ai" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-zinc-300 transition-colors">
               LX3.ai
@@ -442,7 +444,7 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
               📋 Presentación personalizada
             </div>
             <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
-              Conoce Gard Security
+              Conoce {branding.companyName}
             </div>
             <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
               Descubre nuestros servicios, tecnología y diferenciadores →
@@ -626,7 +628,7 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">{session.ejecutivoName || 'Equipo Gard'}</p>
+                <p className="text-sm font-medium">{session.ejecutivoName || `Equipo ${branding.companyName}`}</p>
                 <p className="text-xs text-zinc-500">Ejecutivo asignado</p>
               </div>
               <div className="flex items-center gap-2">
@@ -648,7 +650,7 @@ export function PortalDashboard({ session, selectedInstallation, isProspect, onN
               Estás usando el sistema operativo de seguridad más completo de Chile
             </p>
             <p>
-              Gard Security · Plataforma{' '}
+              {branding.companyName} · Plataforma{' '}
               <span className="font-medium text-zinc-400">OPAI</span> · Desarrollado por{' '}
               <a href="https://lx3.ai" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-zinc-300 transition-colors">
                 LX3.ai

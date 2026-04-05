@@ -262,7 +262,7 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
 
       ctx.fillStyle = "#94a3b8";
       ctx.font = "12px -apple-system, sans-serif";
-      ctx.fillText("Gard Security — Res. Exenta N°38 DT Chile", centerX, textY + 92);
+      ctx.fillText("Res. Exenta N°38 DT Chile", centerX, textY + 92);
 
       // Descargar como PNG
       const dataUrl = printCanvas.toDataURL("image/png");

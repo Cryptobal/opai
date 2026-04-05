@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AuthBackground } from "./AuthBackground";
 import { AuthNavBar } from "./AuthNavBar";
 import type { PortalId } from "./auth-config";
+import { useBranding } from "@/lib/branding/useBranding";
 
 interface AuthShellProps {
   children: ReactNode;
@@ -28,6 +29,7 @@ export function AuthShell({
   showPortalBadge = true,
   showBackLink = true,
 }: AuthShellProps) {
+  const { branding } = useBranding();
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
@@ -93,7 +95,7 @@ export function AuthShell({
             className="text-[11px] text-[#4b5563] mt-1.5"
             style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}
           >
-            by Gard Security
+            {branding.companyName}
           </div>
         </motion.div>
 

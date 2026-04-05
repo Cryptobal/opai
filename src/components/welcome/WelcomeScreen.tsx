@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useBranding } from "@/lib/branding/useBranding";
 import { motion, AnimatePresence } from "framer-motion";
 import { AuthBackground } from "@/components/auth/AuthBackground";
 import { AuthNavBar } from "@/components/auth/AuthNavBar";
@@ -72,6 +73,7 @@ const PORTALS: PortalDef[] = [
 
 export function WelcomeScreen() {
   const router = useRouter();
+  const { branding } = useBranding();
   const [lastPortal, setLastPortal] = useState<LastPortal | null>(null);
 
   useEffect(() => {
@@ -157,7 +159,7 @@ export function WelcomeScreen() {
             className="text-[11px] text-[#4b5563] mt-1.5"
             style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}
           >
-            by Gard Security
+            {branding.companyName}
           </div>
         </motion.div>
 

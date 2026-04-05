@@ -158,11 +158,11 @@ export function PresentationRenderer({ payload, showTokens = false, pdfMode = fa
   const dealName: string = payloadAny._dealName || '';
   const installationName: string = payloadAny._installationName || payload.service?.sites?.[0]?.name || '';
 
-  // Tenant brand defaults (fallback to Gard values for legacy presentations)
+  // Tenant brand defaults (fallback to generic values for legacy presentations)
   const brand = payload._tenantBrand ?? {
-    brandNameUpper: 'GARD',
-    commercialName: 'Gard Security',
-    website: 'www.gard.cl',
+    brandNameUpper: '',
+    commercialName: '',
+    website: '',
   };
 
   // Contact info from payload (already tenant-aware via cpq-mapper)

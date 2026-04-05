@@ -2,15 +2,16 @@
 
 /**
  * Dashboard Header
- * 
+ *
  * Header principal del dashboard con:
- * - Logo de Gard Security
+ * - Logo del tenant
  * - Campana de notificaciones
  * - Modal selector de templates
  * - Responsive mobile-first
  */
 
 import { useState, useMemo } from 'react';
+import { useBranding } from '@/lib/branding/useBranding';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -28,6 +29,7 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ presentations, userRole }: DashboardHeaderProps) {
+  const { branding } = useBranding();
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const pathname = usePathname();
@@ -78,16 +80,16 @@ export function DashboardHeader({ presentations, userRole }: DashboardHeaderProp
           <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo + Dashboard */}
             <Link href="/opai/inicio" className="flex items-center gap-2 sm:gap-3">
-              <Image 
-                src="/icons/logo-horizontal-white.png" 
-                alt="Gard Security" 
-                width={32} 
+              <Image
+                src={branding.logoFull || branding.logoWhite || "/icons/logo-horizontal-white.png"}
+                alt={branding.companyName}
+                width={32}
                 height={32}
                 className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
               />
               <div className="flex items-center gap-2">
                 <span className="text-base sm:text-lg font-bold text-foreground">
-                  Gard Security
+                  {branding.companyName}
                 </span>
                 <span className="hidden sm:inline text-foreground/40">|</span>
                 <span className="text-sm sm:text-base font-medium text-foreground/80">

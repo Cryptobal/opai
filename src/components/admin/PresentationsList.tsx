@@ -196,7 +196,7 @@ export function PresentationsList({ presentations: initialPresentations, initial
     const companyName = clientData?.account?.Account_Name || 'Cliente';
     const contactName = `${clientData?.contact?.First_Name || ''} ${clientData?.contact?.Last_Name || ''}`.trim();
 
-    let template = waProposalTemplate || `Hola {contactName}, te envío la propuesta de Gard Security para {companyName}:\n\n{proposalUrl}`;
+    let template = waProposalTemplate || `Hola {contactName}, te envío la propuesta para {companyName}:\n\n{proposalUrl}`;
     template = template
       .replaceAll("{contactName}", contactName)
       .replaceAll("{companyName}", companyName)

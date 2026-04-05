@@ -20,11 +20,11 @@ interface PresentationHeaderProps {
   installationName?: string;
   showTokens?: boolean;
   className?: string;
-  website?: string; // Tenant website (e.g. "www.gard.cl")
+  website?: string; // Tenant website (e.g. "www.example.cl")
 }
 
 export function PresentationHeader({
-  logo = '/Logo%20Gard%20Blanco.png',
+  logo = '',
   clientLogoUrl = null,
   cta,
   contactName = 'Interesado',
@@ -35,13 +35,13 @@ export function PresentationHeader({
   installationName = '',
   showTokens = false,
   className,
-  website = 'www.gard.cl',
+  website = '',
 }: PresentationHeaderProps) {
   // Build WhatsApp link from cta (tenant-aware) with personalized message
   const whatsappMessage = `Hola, soy ${contactName} de ${companyName}, vi ${quoteName} y me gustaría conversar`;
   const whatsappLink = cta.whatsapp_link
     ? `${cta.whatsapp_link}?text=${encodeURIComponent(whatsappMessage)}`
-    : `https://wa.me/56982307771?text=${encodeURIComponent(whatsappMessage)}`;
+    : `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
   const websiteUrl = website.startsWith('http') ? website : `https://${website}`;
   
   return (
@@ -113,9 +113,9 @@ export function PresentationHeader({
           </div>
         )}
         
-        {/* Main header - MINIMALISTA con Gard + logo cliente */}
+        {/* Main header - MINIMALISTA con logo tenant + logo cliente */}
         <div className="flex items-center justify-between h-14 sm:h-16 gap-4">
-          {/* Logos: Gard siempre + cliente si existe */}
+          {/* Logos: tenant siempre + cliente si existe */}
           <div className="flex items-center gap-4 flex-shrink-0">
             <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="group">
               <div className="w-28 h-10 sm:w-32 sm:h-12 transition-transform group-hover:scale-110 flex items-center">

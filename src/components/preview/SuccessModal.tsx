@@ -56,7 +56,7 @@ export function SuccessModal({ publicUrl, recipientEmail, companyName, recipient
   };
 
   const handleWhatsApp = () => {
-    const template = waTemplate || `Hola {contactName}, te envío la propuesta de Gard Security para {companyName}:\n\n{proposalUrl}`;
+    const template = waTemplate || `Hola {contactName}, te envío la propuesta para {companyName}:\n\n{proposalUrl}`;
     const resolved = resolveTokens(template, {
       contactName: contactName || "",
       companyName,

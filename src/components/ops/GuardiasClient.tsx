@@ -618,7 +618,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             <DropdownMenuItem
               onClick={() => {
                 const url = `${window.location.origin}/ingreso-te`;
-                const msg = `Hola, te invitamos a completar tu registro como guardia de Turno Extra en Gard Security. Ingresa aquí: ${url}`;
+                const msg = `Hola, te invitamos a completar tu registro como guardia de Turno Extra. Ingresa aquí: ${url}`;
                 window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
               }}
             >
@@ -632,7 +632,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                   const payload = await response.json();
                   if (!response.ok || !payload.success) throw new Error(payload.error);
                   const url = payload.data?.url || `${window.location.origin}${payload.data?.path}`;
-                  const msg = `Hola, te invitamos a postularte como guardia en Gard Security. Completa el formulario aquí: ${url}`;
+                  const msg = `Hola, te invitamos a postularte como guardia. Completa el formulario aquí: ${url}`;
                   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
                 } catch {
                   toast.error("No se pudo generar el link de postulación");

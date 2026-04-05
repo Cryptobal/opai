@@ -22,7 +22,7 @@ interface Section25ComparacionProps {
 
 export function Section25Comparacion({
   data,
-  brandNameUpper = 'GARD',
+  brandNameUpper = '',
   contactEmail = '',
 }: Section25ComparacionProps) {
   const theme = useThemeClasses();

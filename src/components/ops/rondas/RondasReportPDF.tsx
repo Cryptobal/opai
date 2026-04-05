@@ -251,7 +251,7 @@ export function RondasReportPDF({ totals, rows, dateRange, chartImageBase64, com
         ))}
 
         <View style={styles.footer} fixed>
-          <Text>OPAI — {companyName || "Gard Security"}</Text>
+          <Text>OPAI — {companyName || ""}</Text>
           <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
         </View>
       </Page>
@@ -289,7 +289,7 @@ export function RondasReportPDF({ totals, rows, dateRange, chartImageBase64, com
           ))}
 
           <View style={styles.footer} fixed>
-            <Text>OPAI — {companyName || "Gard Security"}</Text>
+            <Text>OPAI — {companyName || ""}</Text>
             <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
           </View>
         </Page>

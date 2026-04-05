@@ -83,7 +83,7 @@ function newBlock(tipo: EmailBlockType, orden: number): EmailBlock {
       ],
     },
     pin: { textoAntes: "Tu PIN de acceso es:", textoDespues: "" },
-    footer: { texto: "OPAI — Gard Security" },
+    footer: { texto: "OPAI" },
   };
   return { id: crypto.randomUUID(), tipo, contenido: defaults[tipo], orden };
 }
