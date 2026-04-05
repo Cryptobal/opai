@@ -54,6 +54,26 @@ export function PostulacionPublicForm({ token, tenantSlug = "gard" }: Postulacio
   const [docFileName, setDocFileName] = useState("");
   const [healthSystem, setHealthSystem] = useState("fonasa");
 
+  // Pre-fill from Google OAuth pending registration
+  useEffect(() => {
+    fetch("/api/portal/guardia/auth/google/pending-data")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.googleData) {
+          const nameParts = (data.googleData.name || "").split(" ");
+          const firstName = nameParts[0] || "";
+          const lastName = nameParts.slice(1).join(" ") || "";
+          setForm((prev) => ({
+            ...prev,
+            firstName: prev.firstName || firstName,
+            lastName: prev.lastName || lastName,
+            email: prev.email || data.googleData.googleEmail || "",
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     fetch(`/api/public/${tenantSlug}/postulacion/document-types?token=${encodeURIComponent(token)}`)

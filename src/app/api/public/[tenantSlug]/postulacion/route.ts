@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { resolveTenantFromSlug } from "@/lib/tenant";
 import {
@@ -309,6 +310,25 @@ export async function POST(
         const duplicateCodeError =
           error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
         if (!duplicateCodeError || attempt === 3) throw error;
+      }
+    }
+
+    // Link Google OAuth data if this came from a Google sign-in flow
+    if (createdGuardia) {
+      try {
+        const cookieStore = await cookies();
+        const pendingCookie = cookieStore.get("google_pending_registration");
+        if (pendingCookie?.value) {
+          const pending = JSON.parse(pendingCookie.value);
+          if (pending.googleId) {
+            await prisma.opsGuardia.update({
+              where: { id: createdGuardia.id },
+              data: { googleAuthId: pending.googleId, googleEmail: pending.googleEmail },
+            });
+          }
+        }
+      } catch {
+        // Cookie parsing or update failed — non-critical
       }
     }
 

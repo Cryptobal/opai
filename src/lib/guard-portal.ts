@@ -21,6 +21,8 @@ export interface GuardSession {
   currentInstallationName: string | null;
   authenticatedAt: string;
   faceIdRegistered: boolean;
+  lifecycleStatus: string;
+  isPostulante: boolean;
 }
 
 export interface GuardScheduleDay {

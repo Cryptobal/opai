@@ -135,6 +135,8 @@ export async function POST(request: NextRequest) {
       currentInstallationName: guardia.currentInstallation?.name ?? null,
       authenticatedAt: new Date().toISOString(),
       faceIdRegistered: guardia.faceIdRegistered ?? false,
+      lifecycleStatus: guardia.lifecycleStatus,
+      isPostulante: ["postulante", "inactivo"].includes(guardia.lifecycleStatus),
     };
 
     const response = NextResponse.json({ success: true, data: session });

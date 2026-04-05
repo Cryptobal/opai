@@ -360,6 +360,7 @@ model Admin {
   companyPresentationsSent CrmCompanyPresentation[]
   guardiasPlanSeleccionUpdates   OpsGuardia[] @relation("ops_guardia_intended_plan_updated_by")
   alertasCoberturaCreadas        OpsAlertaCobertura[] @relation("alertas_cobertura_creador")
+  googleId                       String?              @unique @map("google_id") // Google OAuth sub
 
   @@index([email])
   @@index([status])
@@ -1818,6 +1819,7 @@ model CrmContact {
   portalMagicTokenExp  DateTime? @map("portal_magic_token_exp") @db.Timestamptz(6) // Expiración del magic link (48h)
   portalLoginAttempts  Int       @default(0) @map("portal_login_attempts")
   portalLockedUntil    DateTime? @map("portal_locked_until") @db.Timestamptz(6)   // Bloqueo por intentos fallidos (15 min)
+  googleId             String?   @unique @map("google_id") // Google OAuth sub
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
