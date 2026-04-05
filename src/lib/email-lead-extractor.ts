@@ -279,8 +279,8 @@ export async function extractLeadFromEmail(params: {
 }): Promise<ExtractedLeadData> {
   let textBody = params.textBody?.trim() || stripHtml(params.htmlBody || "");
 
-  const ownDomain = params.ownDomain || process.env.TENANT_DOMAIN || "gard.cl";
-  const ownCompanyName = params.ownCompanyName || process.env.TENANT_NAME || "Gard Security";
+  const ownDomain = params.ownDomain || process.env.TENANT_DOMAIN || "";
+  const ownCompanyName = params.ownCompanyName || process.env.TENANT_NAME || "";
 
   // Detectar reenvío: por dominio del remitente O por marcadores en el cuerpo
   const fromDomainIsOwn = params.fromEmail

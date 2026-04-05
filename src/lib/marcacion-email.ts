@@ -272,7 +272,7 @@ export interface AvisoModificacionMarcacion {
   timestampNuevo: Date;
   motivo: string;
   registradoPor: string;
-  oppositionUrl: string; // https://opai.gard.cl/marcacion/oposicion/[token]
+  oppositionUrl: string; // {baseUrl}/marcacion/oposicion/[token]
 }
 
 /**

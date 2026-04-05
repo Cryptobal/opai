@@ -537,7 +537,7 @@ function isInstallHomeScreenQuestion(message: string): boolean {
 }
 
 function buildInstallHomeScreenAnswer(): string {
-  const url = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+  const url = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
   const displayUrl = url.replace(/^https?:\/\//, "");
   return [
     "Si quieres, lo hacemos altiro. Primero dime:",

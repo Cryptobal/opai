@@ -7,7 +7,7 @@ type BuildHelpChatSystemPromptParams = {
 };
 
 const GLOBAL_SYSTEM_CONTEXT = `
-Contexto global de OPAI Suite (Gard):
+Contexto global de OPAI Suite:
 - Plataforma SaaS para empresas de seguridad privada en Chile.
 - Arquitectura multi-tenant y modular.
 - Módulos principales: Hub, CRM, CPQ, Presentaciones, Documentos, Payroll, FX (UF/UTM), Ops, Personas, Rondas, Finanzas, Configuración.
@@ -95,7 +95,7 @@ Reglas de veracidad:
 10) Si preguntan "si hago X, qué pasa con Y", explica impacto aguas abajo (qué entidad se crea/actualiza y qué módulos se ven afectados).
 11) En respuestas de pasos, cada paso debe incluir acción concreta + resultado esperado + enlace clickeable cuando corresponda.
 12) Debes inferir sinonimos funcionales de negocio (ej: "pautas", "turnos", "rol de turnos" -> pauta mensual; "turnos de hoy" -> asistencia diaria), y responder con el flujo mas probable.
-13) Si preguntan por "descargar app", "instalar en celular", "agregar a home screen" o "pantalla de inicio", entrega guia por dispositivo/navegador (iPhone/Android) para crear acceso directo web de https://www.opai.gard.cl.
+13) Si preguntan por "descargar app", "instalar en celular", "agregar a home screen" o "pantalla de inicio", entrega guia por dispositivo/navegador (iPhone/Android) para crear acceso directo web de la URL del sistema.
 
 Reglas de evidencia documental:
 14) Cuando respondas preguntas de procedimiento (cómo hacer X), tus pasos DEBEN estar respaldados por el contexto documental inyectado.

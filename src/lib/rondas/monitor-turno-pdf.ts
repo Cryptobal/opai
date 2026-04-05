@@ -83,6 +83,8 @@ export interface MonitorTurnoPdfData {
   }[];
   // Day labels for the 7-day matrix columns
   dayLabels: { label: string; isToday: boolean }[];
+  // Optional company name for the cover page header
+  companyName?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +169,7 @@ function buildCoverPage(d: MonitorTurnoPdfData): string {
   <div style="margin-bottom:24px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
       <div>
-        <h1 style="font-size:22px;font-weight:800;color:#1e293b;margin-bottom:2px">Gard Security</h1>
+        <h1 style="font-size:22px;font-weight:800;color:#1e293b;margin-bottom:2px">${escapeHtml(d.companyName || "")}</h1>
         <h2 style="font-size:15px;font-weight:600;color:#475569;margin-bottom:2px">Reporte Monitor de Turno</h2>
         <p style="font-size:11px;color:#64748b">Operador: <strong>${escapeHtml(d.operatorName)}</strong></p>
       </div>

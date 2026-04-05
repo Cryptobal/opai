@@ -168,7 +168,7 @@ function renderBlock(block: EmailBlock, variables: Record<string, string>): stri
     }
 
     case "footer": {
-      const texto = escapeHtml(r(c.texto ?? "OPAI — Gard Security"));
+      const texto = escapeHtml(r(c.texto ?? "OPAI"));
       return `
         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:32px;padding-top:24px;border-top:1px solid #333;">
           <tr>

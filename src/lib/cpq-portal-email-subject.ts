@@ -19,7 +19,7 @@ export function buildDefaultPortalInviteEmailSubject(opts: {
   const subjectDisplayLabel = quoteNameForEmail
     ? truncateForEmailSubject(quoteNameForEmail, MAX_LABEL)
     : null;
-  const tenantBrand = opts.tenantBrand?.trim() || "Gard Security";
+  const tenantBrand = opts.tenantBrand?.trim() || "";
   return subjectDisplayLabel
     ? `${subjectDisplayLabel} · ${opts.quoteCode} — ${tenantBrand}`
     : `Propuesta · ${opts.quoteCode} — ${tenantBrand}`;

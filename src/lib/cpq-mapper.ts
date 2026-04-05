@@ -324,7 +324,7 @@ export function mapCpqDataToPresentation(
 // ─── Defaults genéricos de presentación (sin datos de clientes ficticios) ───
 
 const TENANT_ASSETS_DEFAULTS = {
-  logo: "/Logo%20Gard%20Blanco.png",
+  logo: "",
   guard_photos: [
     "/guardia_hero.jpg",
     "/guardia_entrada.jpg",
@@ -674,11 +674,11 @@ function buildSectionsDefaults(cfg: TenantCompanyConfig) { return {
     email: cfg.email,
     phone: cfg.phone,
     website: cfg.website,
-    address: cfg.direccion ? `${cfg.direccion}${cfg.comuna ? `, ${cfg.comuna}` : ""}${cfg.ciudad ? `, ${cfg.ciudad}` : ""}` : "Lo Fontecilla 201, Las Condes, Chile",
+    address: cfg.direccion ? `${cfg.direccion}${cfg.comuna ? `, ${cfg.comuna}` : ""}${cfg.ciudad ? `, ${cfg.ciudad}` : ""}` : "",
     social_media: {
-      linkedin: "https://www.linkedin.com/company/gard-security",
-      instagram: "https://www.instagram.com/gardsecuritycl/",
-      x: "https://x.com/gard_cl?lang=es",
+      linkedin: "",
+      instagram: "",
+      x: "",
     },
   },
 }; }

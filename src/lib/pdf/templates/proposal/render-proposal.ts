@@ -94,7 +94,7 @@ export async function renderProposalToBufferFromProps(
   };
   const F = { sans: 'PlusJakartaSans', mono: 'JetBrainsMono' };
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://opai.gard.cl';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || '';
   const publicDir = path.join(process.cwd(), 'public');
 
   const loadLocalImage = (relativePath: string): string | null => {
@@ -314,7 +314,7 @@ export async function renderProposalToBufferFromProps(
     ai, serviceType, installationName, installationAddress, coverageSchedule,
     staffingCount, staffingRegime, supervisionFrequency,
     items, totalNetoFormatted, paymentTerms, regimeExplanation,
-    companyConfig, companyStats, clientLogosWithNames, gardLogo,
+    companyConfig, companyStats, clientLogosWithNames, providerLogo,
     breakdown, resourceBreakdown, includedItems,
   } = props;
 
@@ -331,7 +331,7 @@ export async function renderProposalToBufferFromProps(
     return STATIC_CLIENT_LOGOS;
   })();
 
-  const gardLogoUri = gardLogo ? await fetchImageAsDataUri(gardLogo) : null;
+  const providerLogoUri = providerLogo ? await fetchImageAsDataUri(providerLogo) : null;
   const companyLogoUri = companyLogo ? await fetchImageAsDataUri(companyLogo) : null;
 
   /* ─── Reusable sub-trees ─── */
@@ -342,8 +342,8 @@ export async function renderProposalToBufferFromProps(
     e(Path, { d: 'M10 15.5l-3.5-3.5 1.41-1.41L10 12.67l5.59-5.59L17 8.5l-7 7z', fill: C.white }),
   );
 
-  const headerLogo = gardLogoUri
-    ? e(PDFImage, { src: gardLogoUri, style: s.headerLogo })
+  const headerLogo = providerLogoUri
+    ? e(PDFImage, { src: providerLogoUri, style: s.headerLogo })
     : shieldSvg;
 
   const header = e(
@@ -351,7 +351,7 @@ export async function renderProposalToBufferFromProps(
     e(View, { style: s.headerBand },
       e(View, { style: s.headerBrandRow },
         headerLogo,
-        e(Text, { style: s.headerBrandName }, 'GARD'),
+        e(Text, { style: s.headerBrandName }, companyConfig.brandNameUpper || ''),
       ),
       e(Text, { style: s.headerRight }, `PROPUESTA TÉCNICA · ${companyName}`),
     ),
@@ -361,7 +361,7 @@ export async function renderProposalToBufferFromProps(
   const pageFooter = e(
     View, { style: s.footer, fixed: true },
     e(Text, { style: s.footerText }, `Confidencial · N° ${quotationCode}`),
-    e(Text, { style: s.footerText }, 'Gard Security · www.gard.cl'),
+    e(Text, { style: s.footerText }, `${companyConfig.commercialName}${companyConfig.website ? ` · ${companyConfig.website}` : ''}`),
     e(Text, {
       style: s.footerText,
       render: ({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) =>
@@ -385,9 +385,9 @@ export async function renderProposalToBufferFromProps(
   const coverPage = e(
     Page, { key: 'cover', size: 'A4', style: s.coverPage },
     e(View, { style: s.coverContent },
-      gardLogoUri
-        ? e(PDFImage, { src: gardLogoUri, style: s.coverLogo })
-        : e(Text, { style: { fontFamily: F.sans, fontSize: 24, fontWeight: 800, color: C.white, letterSpacing: 3 } }, 'GARD'),
+      providerLogoUri
+        ? e(PDFImage, { src: providerLogoUri, style: s.coverLogo })
+        : e(Text, { style: { fontFamily: F.sans, fontSize: 24, fontWeight: 800, color: C.white, letterSpacing: 3 } }, companyConfig.brandNameUpper || ''),
       e(View, { style: s.coverAccentLine }),
       e(Text, { style: s.coverTitle }, 'PROPUESTA TÉCNICA'),
       e(Text, { style: s.coverSubtitle }, 'DE SERVICIO DE SEGURIDAD INTEGRAL'),
@@ -443,15 +443,15 @@ export async function renderProposalToBufferFromProps(
       sectionTitle('Ecosistema'),
       e(View, { style: s.twoCol },
         e(View, { style: s.col },
-          e(Text, { style: s.sectionSubtitle }, 'Gard Security'),
+          e(Text, { style: s.sectionSubtitle }, companyConfig.commercialName),
           e(Text, { style: s.para }, 'Empresa de seguridad privada integral con operaciones en múltiples regiones de Chile. Combinamos personal altamente capacitado con tecnología de última generación para entregar un servicio preventivo, documentado y medible.'),
         ),
         e(View, { style: s.col },
           e(Text, { style: s.sectionSubtitle }, 'LX3.ai'),
-          e(Text, { style: s.para }, 'Brazo tecnológico de Gard. Desarrolla OPAI, la plataforma de inteligencia operacional que integra rondas GPS, control de acceso biométrico, reportes automáticos e inteligencia artificial para análisis predictivo de riesgos.'),
+          e(Text, { style: s.para }, 'Brazo tecnológico desarrollador de OPAI, la plataforma de inteligencia operacional que integra rondas GPS, control de acceso biométrico, reportes automáticos e inteligencia artificial para análisis predictivo de riesgos.'),
         ),
       ),
-      e(Text, { style: [s.sectionSubtitle, { marginTop: 12 }] }, 'Gard en números'),
+      e(Text, { style: [s.sectionSubtitle, { marginTop: 12 }] }, `${companyConfig.commercialName} en números`),
       e(View, { style: s.metricRow },
         e(View, { style: s.metricBadge }, e(Text, { style: s.metricValue }, companyStats.yearsInOperation), e(Text, { style: s.metricLabel }, 'Años operando')),
         e(View, { style: s.metricBadge }, e(Text, { style: s.metricValue }, companyStats.activeGuards), e(Text, { style: s.metricLabel }, 'Guardias activos')),
@@ -465,7 +465,7 @@ export async function renderProposalToBufferFromProps(
   sections.push(
     e(View, { key: 'sec3', wrap: false },
       sectionTitle('Nuestra Gente'),
-      e(Text, { style: s.para }, 'Cada guardia de Gard pasa por un riguroso proceso de selección, capacitación continua y evaluación de desempeño. Nuestro equipo se especializa en seguridad preventiva con enfoque en servicio al cliente.'),
+      e(Text, { style: s.para }, 'Cada guardia pasa por un riguroso proceso de selección, capacitación continua y evaluación de desempeño. Nuestro equipo se especializa en seguridad preventiva con enfoque en servicio al cliente.'),
       e(View, { style: s.photoGrid },
         ...guardPhotos.map((gp, i) =>
           e(View, { key: i, style: s.photoCell },
@@ -611,7 +611,7 @@ export async function renderProposalToBufferFromProps(
       e(View, { style: s.compRow },
         e(Text, { style: [s.compCellLabel, { fontWeight: 700 }] }, 'Aspecto'),
         e(Text, { style: [s.compCellBad, { fontWeight: 700, color: C.navy }] }, 'Mercado Tradicional'),
-        e(Text, { style: [s.compCellGood, { fontWeight: 700, color: C.navy }] }, 'Gard + OPAI'),
+        e(Text, { style: [s.compCellGood, { fontWeight: 700, color: C.navy }] }, `${companyConfig.commercialName} + OPAI`),
       ),
       ...compRows.map((r, i) =>
         e(View, { key: i, style: s.compRow },
@@ -819,7 +819,7 @@ export async function renderProposalToBufferFromProps(
   /* ── 17. FAQ ── */
   const faqs = [
     { q: '¿Cuánto demora la implementación del servicio?', a: 'Entre 5 y 10 días hábiles desde la aprobación, dependiendo de la complejidad. Incluye selección de personal, capacitación específica, instalación tecnológica y puesta en marcha supervisada.' },
-    { q: '¿Los guardias son personal propio de Gard?', a: 'Sí, 100% de nuestra dotación es contratada directamente por Gard con contrato indefinido, prestaciones completas y capacitación certificada.' },
+    { q: '¿Los guardias son personal propio?', a: 'Sí, 100% de nuestra dotación es contratada directamente con contrato indefinido, prestaciones completas y capacitación certificada.' },
     { q: '¿Qué pasa si un guardia falta?', a: 'Contamos con un equipo de respaldo permanente. El reemplazo se activa en menos de 2 horas sin costo adicional.' },
     { q: '¿Puedo ver el servicio en tiempo real?', a: 'Sí, a través del Portal de Clientes OPAI puede ver rondas, asistencia, incidentes y KPIs las 24 horas del día.' },
     { q: '¿Hay permanencia mínima?', a: 'Ofrecemos contratos flexibles. El período mínimo sugerido es de 12 meses para optimizar costos de implementación, pero podemos adaptar la duración a sus necesidades.' },

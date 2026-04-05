@@ -306,7 +306,7 @@ export const GUARDIA_COMM_TEMPLATES: GuardiaCommunicationTemplate[] = [
     channel: "email",
     name: "Solicitud de documentos",
     subject: "Documentos pendientes para tu postulación",
-    body: "Hola {nombre}, por favor sube tus documentos pendientes para continuar tu proceso en Gard Security.",
+    body: "Hola {nombre}, por favor sube tus documentos pendientes para continuar tu proceso de selección.",
   },
   {
     id: "entrevista_email",

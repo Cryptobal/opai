@@ -24,7 +24,7 @@ import { es } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 
 const TZ = "America/Santiago";
-const SITE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+const SITE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
 
 // ======================================
 // 1. NOTIFICAR GUARDIA — Nueva alerta disponible

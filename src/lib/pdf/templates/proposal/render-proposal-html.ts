@@ -10,8 +10,8 @@ function esc(s: string): string {
 }
 
 export interface ProposalAssets {
-  gardLogoUrl: string;
-  gardEscudoUrl: string;
+  logoUrl: string;
+  escudoUrl: string;
   clientLogos: Array<{ name: string; url: string }>;
   guardPhotos: Array<{ label: string; url: string }>;
 }
@@ -26,7 +26,7 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
     companyConfig, companyStats, regimeExplanation,
   } = props;
 
-  const { gardLogoUrl: logo, gardEscudoUrl, clientLogos, guardPhotos } = assets;
+  const { logoUrl: logo, escudoUrl, clientLogos, guardPhotos } = assets;
   const clientLogoImg = companyLogo
     ? `<img src="${esc(companyLogo)}" style="height:56px;max-width:180px;border-radius:6px;background:white;padding:6px;object-fit:contain;" />`
     : '';
@@ -60,7 +60,7 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
     { fn: 'Portal web exclusivo', q: 'Acceso con RUT + PIN a su panel personalizado', ben: 'Ve todo sin depender de nadie' },
     { fn: 'Dashboard tiempo real', q: 'KPIs, rondas, incidentes, asistencia', ben: 'Información ejecutiva cuando la necesite' },
     { fn: 'Reportes automáticos', q: 'Diarios, semanales y mensuales', ben: 'Llegan a su correo, sin pedirlos' },
-    { fn: 'Chat directo', q: 'Canal de comunicación con su equipo Gard', ben: 'Respuesta inmediata, todo trazado' },
+    { fn: 'Chat directo', q: 'Canal de comunicación con su equipo de seguridad', ben: 'Respuesta inmediata, todo trazado' },
     { fn: 'Control de rondas', q: 'Mapa con recorridos verificados', ben: 'Evidencia de que sí se están haciendo' },
     { fn: 'Registro de incidentes', q: 'Foto + GPS + timestamp + seguimiento', ben: 'Trazabilidad legal completa' },
     { fn: 'Notificaciones push', q: 'Alertas de incidentes y novedades', ben: 'Se entera primero, sin filtros' },
@@ -144,7 +144,7 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
     { q: '¿Qué pasa si necesito más guardias un día puntual?', a: 'Refuerzo disponible con 24 horas de aviso previo. Para eventos planificados, coordinamos dotación adicional según sus necesidades.' },
     { q: '¿Puedo cambiar horarios o dotación?', a: 'Sí, con coordinación previa de 72 horas. La flexibilidad operativa es parte de nuestro servicio.' },
     { q: '¿Qué pasa si hoy tengo otro proveedor?', a: 'Gestionamos la transición completa. Realizamos inducción específica de su instalación, relevamos protocolos existentes y garantizamos que el cambio sea imperceptible para su operación.' },
-    { q: '¿Cómo me aseguro de que Gard cumple lo que promete?', a: 'Pida a su proveedor actual un reporte de rondas de ayer. Si no puede entregárselo en 5 minutos, ahí está la diferencia. Nosotros se lo mostramos en tiempo real desde su Portal.' },
+    { q: '¿Cómo me aseguro de que se cumple lo prometido?', a: 'Pida a su proveedor actual un reporte de rondas de ayer. Si no puede entregárselo en 5 minutos, ahí está la diferencia. Nosotros se lo mostramos en tiempo real desde su Portal.' },
     { q: '¿Qué incluye la inversión mensual?', a: 'Todo: personal, supervisión, tecnología (Portal, dashboard, app), reportes, equipamiento (celulares, radios, linternas, uniformes), seguros y cumplimiento legal. Sin costos ocultos ni licencias adicionales.' },
     { q: '¿Y si no quedo conforme?', a: 'Ofrecemos un período de evaluación durante los primeros 30 días. Si el servicio no cumple sus expectativas, puede desvincularse sin penalidad.' },
   ];
@@ -169,9 +169,9 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
   const clienteProvee = ['Caseta o espacio físico para guardia', 'Acceso a agua potable y baños', 'Lockers o espacio para pertenencias', 'Iluminación adecuada'];
   const servicioIncluye = ['Celulares corporativos, radios, linternas', 'Uniformes y credenciales', 'Reportes digitales', 'Supervisión 24/7', 'Control remoto de rondas', 'Seguros y cumplimiento legal'];
 
-  const gardText1 = 'Empresa de seguridad privada autorizada (OS-10 vigente), con operación activa en múltiples regiones de Chile. Especializada en servicios de seguridad para entornos industriales, logísticos, de salud, retail y corporativos.';
-  const gardText2 = 'Pero lo que nos hace diferentes no es solo nuestra gente — es cómo la gestionamos. Gard opera 100% sobre OPAI, nuestra plataforma tecnológica propietaria que convierte la seguridad en un servicio medible, trazable y transparente.';
-  const lx3Text1 = 'OPAI es desarrollado y mantenido por LX3.ai, nuestro Software Studio especializado en aplicaciones con inteligencia artificial. LX3 forma parte del mismo holding, lo que significa que Gard no depende de proveedores externos para su tecnología: la construimos nosotros.';
+  const companyText1 = 'Empresa de seguridad privada autorizada (OS-10 vigente), con operación activa en múltiples regiones de Chile. Especializada en servicios de seguridad para entornos industriales, logísticos, de salud, retail y corporativos.';
+  const companyText2 = `Pero lo que nos hace diferentes no es solo nuestra gente — es cómo la gestionamos. ${esc(companyConfig.commercialName)} opera 100% sobre OPAI, nuestra plataforma tecnológica propietaria que convierte la seguridad en un servicio medible, trazable y transparente.`;
+  const lx3Text1 = `OPAI es desarrollado y mantenido por LX3.ai, nuestro Software Studio especializado en aplicaciones con inteligencia artificial. LX3 forma parte del mismo holding, lo que significa que ${esc(companyConfig.commercialName)} no depende de proveedores externos para su tecnología: la construimos nosotros.`;
   const lx3Text2 = 'Esto nos permite adaptar, escalar y desarrollar funcionalidades a medida para cada cliente. Si su operación necesita un módulo específico — control de acceso vehicular, gestión de visitas, integración con su ERP — lo construimos.';
 
   const chainItems = [
@@ -219,10 +219,10 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 .section-subtitle { font-size: 11pt; color: var(--text-light); font-style: italic; margin-bottom: 16px; }
 .body-text { font-size: 10pt; color: var(--text); line-height: 1.5; margin-bottom: 8px; }
 .highlight-box { border-left: 4px solid var(--accent); background: var(--highlight-bg); padding: 12px 16px; font-weight: 600; font-size: 10pt; margin: 16px 0; break-inside: avoid; }
-.table-gard { width: 100%; border-collapse: collapse; font-size: 9pt; }
-.table-gard th { background: var(--navy); color: white; padding: 8px 12px; text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; }
-.table-gard td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
-.table-gard tr:nth-child(even) td { background: var(--bg-light); }
+.table-proposal { width: 100%; border-collapse: collapse; font-size: 9pt; }
+.table-proposal th { background: var(--navy); color: white; padding: 8px 12px; text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; }
+.table-proposal td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.table-proposal tr:nth-child(even) td { background: var(--bg-light); }
 .table-compare .col-bad { background: var(--danger-bg); }
 .table-compare .col-good { background: var(--success-bg); font-weight: 600; color: var(--success); }
 .table-compare th.th-bad { background: var(--danger); }
@@ -285,7 +285,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 </head>
 <body>
 
-<div class="watermark"><img src="${esc(gardEscudoUrl)}" style="width:100%;height:100%;" /></div>
+<div class="watermark"><img src="${esc(escudoUrl)}" style="width:100%;height:100%;" /></div>
 
 <!-- PÁG 1: PORTADA -->
 <div class="cover-page">
@@ -332,10 +332,10 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 <div class="section-wrap">
   ${sectionTitle('Más que una empresa de seguridad. Un ecosistema tecnológico.')}
   <div class="two-col">
-    <div><p class="body-text" style="font-weight:600;">Gard Security</p><p class="body-text">${esc(gardText1)}</p><p class="body-text">${esc(gardText2)}</p></div>
-    <div><p class="body-text" style="font-weight:600;">LX3.ai</p><p class="body-text">${esc(lx3Text1)}</p><p class="body-text">${esc(lx3Text2)}</p></div>
+    <div><p class="body-text" style="font-weight:600;">${esc(companyConfig.commercialName)}</p><p class="body-text">${esc(companyText1)}</p><p class="body-text">${companyText2}</p></div>
+    <div><p class="body-text" style="font-weight:600;">LX3.ai</p><p class="body-text">${lx3Text1}</p><p class="body-text">${esc(lx3Text2)}</p></div>
   </div>
-  <p class="body-text" style="font-weight:600;margin-top:16px;">Gard en números:</p>
+  <p class="body-text" style="font-weight:600;margin-top:16px;">${esc(companyConfig.commercialName)} en números:</p>
   <div style="display:flex;gap:32px;margin-top:8px;">
     <div style="text-align:center;"><div style="font-size:18pt;font-weight:700;color:var(--accent);">${esc(companyStats.yearsInOperation)}</div><div style="font-size:8pt;color:var(--text-light);">años de operación</div></div>
     <div style="text-align:center;"><div style="font-size:18pt;font-weight:700;color:var(--accent);">${esc(companyStats.activeGuards)}</div><div style="font-size:8pt;color:var(--text-light);">guardias activos</div></div>
@@ -348,7 +348,7 @@ ${guardPhotos.length > 0 ? `
 <!-- NUESTRA GENTE -->
 <div class="section-wrap">
   ${sectionTitle('Nuestra gente: profesionales comprometidos con su seguridad')}
-  <p class="body-text">Cada guardia de Gard pasa por un riguroso proceso de selección (de cada 100 postulantes, solo 12 son contratados), evaluación psicológica, verificación de antecedentes y capacitación continua. No son vigilantes genéricos — son profesionales entrenados y gestionados con tecnología.</p>
+  <p class="body-text">Cada guardia pasa por un riguroso proceso de selección (de cada 100 postulantes, solo 12 son contratados), evaluación psicológica, verificación de antecedentes y capacitación continua. No son vigilantes genéricos — son profesionales entrenados y gestionados con tecnología.</p>
   <div class="guard-grid">
     ${guardPhotos.map(g => `<div class="guard-card"><img src="${esc(g.url)}" alt="${esc(g.label)}" /><div class="guard-label">${esc(g.label)}</div></div>`).join('')}
   </div>
@@ -357,7 +357,7 @@ ${guardPhotos.length > 0 ? `
 
 <!-- ORGANIGRAMA -->
 <div class="section-wrap">
-  ${sectionTitle('Estructura corporativa Gard Security')}
+  ${sectionTitle(`Estructura corporativa ${companyConfig.commercialName}`)}
   <div class="org-chart" style="text-align:center;margin-top:16px;">
     <div class="org-box level-1">GERENCIA GENERAL<br/><span style="font-weight:400;font-size:7pt;opacity:0.8;">Dirección estratégica</span></div>
     <div class="org-connector"></div>
@@ -396,7 +396,7 @@ ${guardPhotos.length > 0 ? `
   ${sectionTitle('OPAI — La única plataforma integral de gestión de seguridad privada en Chile')}
   <p class="section-subtitle">Cada guardia, cada ronda, cada incidente, cada reporte — todo en un solo sistema.</p>
   <p class="body-text">OPAI no es un software genérico adaptado a seguridad. Es una plataforma diseñada desde cero para operar empresas de seguridad privada, con más de 20 módulos en producción y 6 aplicaciones especializadas que trabajan en tiempo real.</p>
-  <p class="body-text">Cuando usted contrata Gard, no recibe solo guardias. Recibe acceso a un ecosistema tecnológico que le da visibilidad total de lo que ocurre en sus instalaciones, en todo momento.</p>
+  <p class="body-text">Cuando usted contrata ${esc(companyConfig.commercialName)}, no recibe solo guardias. Recibe acceso a un ecosistema tecnológico que le da visibilidad total de lo que ocurre en sus instalaciones, en todo momento.</p>
   <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;">
     ${modulos.map(m => `<div style="width:48%;" class="bullet-item"><span class="bullet-dot">•</span><span style="font-size:9pt;">${esc(m)}</span></div>`).join('')}
   </div>
@@ -415,7 +415,7 @@ ${guardPhotos.length > 0 ? `
 <!-- TECNOLOGÍA INCLUIDA -->
 <div class="section-wrap">
   ${sectionTitle('Todo esto está incluido. Sin costo adicional. Sin licencias.')}
-  <table class="table-gard">
+  <table class="table-proposal">
     <thead><tr><th style="width:28%;">Funcionalidad</th><th style="width:36%;">Qué es</th><th style="width:36%;">Beneficio para usted</th></tr></thead>
     <tbody>${techRows.map(r => `<tr><td>${esc(r.fn)}</td><td>${esc(r.q)}</td><td>${esc(r.ben)}</td></tr>`).join('')}</tbody>
   </table>
@@ -425,7 +425,7 @@ ${guardPhotos.length > 0 ? `
 <!-- DESARROLLO A MEDIDA -->
 <div class="section-wrap">
   ${sectionTitle('¿Necesita algo que no existe? Lo construimos.')}
-  <p class="body-text">Gracias a LX3.ai, nuestro Software Studio con capacidad de desarrollo full-stack e inteligencia artificial, Gard puede construir módulos y aplicaciones a medida para complementar su servicio de seguridad.</p>
+  <p class="body-text">Gracias a LX3.ai, nuestro Software Studio con capacidad de desarrollo full-stack e inteligencia artificial, podemos construir módulos y aplicaciones a medida para complementar su servicio de seguridad.</p>
   <p class="body-text">Si su operación requiere integraciones específicas, automatizaciones, o herramientas que hoy no existen en el mercado — podemos diseñarlas, desarrollarlas e integrarlas directamente en OPAI.</p>
   ${bullet(devItems)}
   ${highlight('No somos una empresa de seguridad que compró un software. Somos una empresa de seguridad que construye su propia tecnología.')}
@@ -435,8 +435,8 @@ ${guardPhotos.length > 0 ? `
 <div class="section-wrap">
   ${sectionTitle('El verdadero riesgo no es la ausencia de seguridad. Es la falsa sensación de control.')}
   <p class="section-subtitle">73% de las empresas descubre fallas solo después de un incidente grave.</p>
-  <table class="table-gard table-compare">
-    <thead><tr><th class="th-bad" style="width:50%;">MERCADO TRADICIONAL</th><th class="th-good" style="width:50%;">GARD + OPAI</th></tr></thead>
+  <table class="table-proposal table-compare">
+    <thead><tr><th class="th-bad" style="width:50%;">MERCADO TRADICIONAL</th><th class="th-good" style="width:50%;">${esc(companyConfig.commercialName).toUpperCase()} + OPAI</th></tr></thead>
     <tbody>${compRows.map(r => `<tr><td class="col-bad">${esc(r.m)}</td><td class="col-good">${esc(r.g)}</td></tr>`).join('')}</tbody>
   </table>
 </div>
@@ -467,7 +467,7 @@ ${guardPhotos.length > 0 ? `
     <div class="report-card"><h4>3. Acción</h4><p style="font-size:8pt;color:var(--text-light);">≤2 horas: Respuesta coordinada</p></div>
   </div>
   <p class="body-text" style="font-weight:600;">Compromisos SLA:</p>
-  <table class="table-gard">
+  <table class="table-proposal">
     <tbody>${slaRows.map(r => `<tr><td style="width:60%;">${esc(r.label)}</td><td style="font-weight:600;color:var(--navy);">${esc(r.value)}</td></tr>`).join('')}</tbody>
   </table>
   <div style="margin-top:20px;">
@@ -501,7 +501,7 @@ ${guardPhotos.length > 0 ? `
 <!-- CONTINGENCIA -->
 <div class="section-wrap">
   ${sectionTitle('Planes de contingencia para cualquier escenario')}
-  <table class="table-gard">
+  <table class="table-proposal">
     <thead><tr><th style="width:35%;">Escenario</th><th>Respuesta</th></tr></thead>
     <tbody>${contRows.map(r => `<tr><td>${esc(r.e)}</td><td>${esc(r.r)}</td></tr>`).join('')}</tbody>
   </table>
@@ -521,7 +521,7 @@ ${guardPhotos.length > 0 ? `
   <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:24px;">
     ${ai.sectoresRelevantes.map(s => `<span style="background:var(--bg-alt);padding:4px 8px;border-radius:4px;font-size:8pt;">${esc(s)}</span>`).join('')}
   </div>
-  <p class="body-text" style="font-weight:600;margin-bottom:12px;">Clientes que confían en Gard:</p>
+  <p class="body-text" style="font-weight:600;margin-bottom:12px;">Clientes que confían en ${esc(companyConfig.commercialName)}:</p>
   ${clientLogos.length > 0 ? `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px 16px;margin:8px 0 16px 0;">
     ${clientLogos.map(l => `<div style="height:60px;display:flex;align-items:center;justify-content:center;background:var(--bg-light);border-radius:6px;padding:8px;"><img src="${esc(l.url)}" alt="${esc(l.name)}" style="max-height:44px;max-width:130px;object-fit:contain;" /></div>`).join('')}
   </div>` : `<p class="body-text" style="font-size:9pt;color:var(--text-light);">Polpaico · International Paper · Tritec · Sparta · Tattersall · Transmat · BBosch · Embajada de Brasil · GL Events · y más</p>`}
@@ -539,7 +539,7 @@ ${guardPhotos.length > 0 ? `
 <div>
   ${sectionTitle(`Propuesta de servicio para ${esc(companyName)}`)}
   ${analisisParrafos.map(p => `<p class="body-text">${esc(p)}</p>`).join('')}
-  <table class="table-gard" style="margin-top:12px;">
+  <table class="table-proposal" style="margin-top:12px;">
     <tbody>${propRows.map(r => `<tr><td style="width:35%;">${esc(r.label)}</td><td style="font-weight:600;color:var(--navy);">${esc(r.value)}</td></tr>`).join('')}</tbody>
   </table>
   ${regimeExplanation ? highlight(regimeExplanation) : ''}
@@ -549,7 +549,7 @@ ${guardPhotos.length > 0 ? `
 <div class="page-break"></div>
 <div>
   ${sectionTitle('Inversión Mensual')}
-  <table class="table-gard">
+  <table class="table-proposal">
     <thead><tr><th style="width:6%;">#</th><th style="width:44%;">Descripción</th><th style="width:10%;">Cant.</th><th style="width:20%;">P. Unitario</th><th style="width:20%;">Subtotal</th></tr></thead>
     <tbody>
       ${items.map(it => `<tr><td>${it.index}</td><td>${esc(it.description)}</td><td>${it.quantity}</td><td>${esc(it.unitPriceFormatted)}</td><td style="font-weight:600;color:var(--navy);">${esc(it.subtotalFormatted)}</td></tr>`).join('')}
@@ -566,7 +566,7 @@ ${guardPhotos.length > 0 ? `
 <div>
   ${sectionTitle('De la firma al servicio operativo en ≤15 días')}
   <p class="body-text" style="font-weight:600;">¿Viene de otro proveedor? Transición sin interrupciones.</p>
-  <p class="body-text">Si hoy trabaja con otra empresa de seguridad, Gard gestiona la transición completa. Relevamos planos, puntos críticos, protocolos existentes y realizamos inducción específica de su instalación antes del día 1. El cambio es imperceptible para su operación.</p>
+  <p class="body-text">Si hoy trabaja con otra empresa de seguridad, ${esc(companyConfig.commercialName)} gestiona la transición completa. Relevamos planos, puntos críticos, protocolos existentes y realizamos inducción específica de su instalación antes del día 1. El cambio es imperceptible para su operación.</p>
   <div class="impl-grid" style="margin-top:12px;">
     ${implSteps.map(st => `<div class="impl-card"><h4 style="font-size:9pt;font-weight:700;margin:0 0 4px;">${st.n}. ${esc(st.title)}</h4><p style="font-size:9pt;">${esc(st.desc)}</p></div>`).join('')}
   </div>
@@ -587,7 +587,7 @@ ${guardPhotos.length > 0 ? `
       ${bullet(servicioIncluye)}
     </div>
   </div>
-  ${highlight('Garantía Gard: Si durante los primeros 30 días de operación el servicio no cumple con los estándares comprometidos en esta propuesta, puede desvincularse sin penalidad. Así de seguros estamos de nuestro nivel de servicio.')}
+  ${highlight(`Garantía ${companyConfig.commercialName}: Si durante los primeros 30 días de operación el servicio no cumple con los estándares comprometidos en esta propuesta, puede desvincularse sin penalidad. Así de seguros estamos de nuestro nivel de servicio.`)}
 </div>
 
 <!-- PÁG 22: CTA + FIRMAS -->
@@ -602,7 +602,7 @@ ${guardPhotos.length > 0 ? `
     ${sectionTitle('Aceptación de Propuesta')}
     <div style="display:flex;gap:40px;">
       <div class="signature-block">
-        <p style="font-weight:600;font-size:9pt;">Por Gard Security:</p>
+        <p style="font-weight:600;font-size:9pt;">Por ${esc(companyConfig.commercialName)}:</p>
         <div class="signature-line"></div>
         <p class="signature-label">Nombre: ____________________</p>
         <p class="signature-label">Cargo: Gerente Comercial</p>

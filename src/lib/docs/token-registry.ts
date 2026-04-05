@@ -24,7 +24,7 @@ export interface TokenModule {
 export const TOKEN_MODULES: TokenModule[] = [
   {
     key: "empresa",
-    label: "Empresa (Gard)",
+    label: "Empresa",
     icon: "Building",
     description: "Datos de la empresa empleadora (configurados en Configuración > Empresa)",
     tokens: [
@@ -309,7 +309,7 @@ export const DOC_CATEGORIES: Record<string, { key: string; label: string }[]> = 
   ],
   whatsapp: [
     { key: "lead_commercial", label: "Nuevo lead — Comercial al cliente" },
-    { key: "lead_client", label: "Nuevo lead — Cliente a Gard" },
+    { key: "lead_client", label: "Nuevo lead — Cliente al proveedor" },
     { key: "proposal_sent", label: "Propuesta enviada" },
     { key: "followup_first", label: "1er seguimiento" },
     { key: "followup_second", label: "2do seguimiento" },
@@ -335,7 +335,7 @@ export const WA_USAGE_SLUGS: Record<
   lead_commercial:
     { label: "Nuevo lead — Comercial al cliente", usedIn: "Email al cliente cuando envía solicitud desde el formulario público (botón WhatsApp)." },
   lead_client:
-    { label: "Nuevo lead — Cliente a Gard", usedIn: "Email que tú recibes por nuevo lead (botón para enviar WhatsApp a Gard)." },
+    { label: "Nuevo lead — Cliente al proveedor", usedIn: "Email que tú recibes por nuevo lead (botón para enviar WhatsApp al proveedor)." },
   proposal_sent:
     { label: "Propuesta enviada", usedIn: "Modal tras enviar propuesta por email y botón «Compartir por WhatsApp» en lista de presentaciones." },
   followup_first:

@@ -245,7 +245,7 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
 
       let commercialPresentationUrl: string | null = null
       try {
-        const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://opai.gard.cl'
+        const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || ''
 
         // First: try by recipientEmail (direct match)
         if (contact.email) {

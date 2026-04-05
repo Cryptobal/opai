@@ -301,7 +301,7 @@ export async function sendMonitorTurnoEmail(
   try {
     const cfg = await getTenantCompanyConfig(data.tenantId);
 
-    const defaultEmail = cfg.emailOps || "operaciones@gard.cl";
+    const defaultEmail = cfg.emailOps || "";
     const to = [...new Set([defaultEmail, ...(recipients ?? [])])];
     const dateStr = data.startedAt.toLocaleDateString("es-CL", { day: "2-digit", month: "short", timeZone: "America/Santiago" });
     const subject = `📋 Reporte Turno ${dateStr} - ${esc(data.operatorName)}`;

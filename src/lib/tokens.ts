@@ -62,16 +62,16 @@ export function buildTokenMap(data: PresentationPayload): Record<string, string>
     '[CURRENT_DATE]': formatDate(now),
     '[CURRENT_YEAR]': now.getFullYear().toString(),
     '[PRESENTATION_ID]': data.id || '',
-    '[PRESENTATION_URL]': `https://opai.gard.cl/p/${data.id}`,
+    '[PRESENTATION_URL]': `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || ''}/p/${data.id}`,
     '[TEMPLATE_ID]': data.template_id || '',
     
     // ===== Contacto y CTA =====
     '[CTA_MEETING_LINK]': data.cta.meeting_link || '',
     '[CTA_WHATSAPP_LINK]': data.cta.whatsapp_link || '',
-    '[CONTACT_NAME_GARD]': data.contact.name || '',
-    '[CONTACT_EMAIL_GARD]': data.contact.email || '',
-    '[CONTACT_PHONE_GARD]': data.contact.phone || '',
-    '[CONTACT_POSITION_GARD]': data.contact.position || '',
+    '[CONTACT_NAME_PROVIDER]': data.contact.name || '',
+    '[CONTACT_EMAIL_PROVIDER]': data.contact.email || '',
+    '[CONTACT_PHONE_PROVIDER]': data.contact.phone || '',
+    '[CONTACT_POSITION_PROVIDER]': data.contact.position || '',
   };
 }
 

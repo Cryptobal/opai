@@ -24,7 +24,7 @@ interface ControlNocturnoEmailData {
     mtd: { current: { cumplimiento: number; omitidas: number; alertCount: number }; deltaCumplimiento: number };
     ytd: { current: { cumplimiento: number; omitidas: number; alertCount: number }; deltaCumplimiento: number };
   };
-  /** Base URL del sistema (ej: https://opai.gard.cl) */
+  /** Base URL del sistema (ej: https://app.example.com) */
   baseUrl: string;
 }
 

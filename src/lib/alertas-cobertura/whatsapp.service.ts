@@ -12,7 +12,7 @@ const authToken = process.env.TWILIO_AUTH_TOKEN;
 const fromNumber = process.env.TWILIO_WHATSAPP_FROM;
 const contentSid = process.env.TWILIO_WHATSAPP_CONTENT_SID; // Optional
 
-const SITE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+const SITE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
 
 let twilioClient: Twilio.Twilio | null = null;
 

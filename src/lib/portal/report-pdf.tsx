@@ -67,7 +67,7 @@ export function ReportePDF({ data }: { data: ReporteData }) {
             <Text style={styles.kpiValue}>{data.tickets}</Text>
           </View>
         </View>
-        <Text style={styles.footer}>Generado por OPAI · Gard Security</Text>
+        <Text style={styles.footer}>Generado por OPAI</Text>
       </Page>
     </Document>
   );

@@ -25,6 +25,8 @@ export interface ProposalAIInput {
     specifications?: string;
   }>;
   existingAiDescription?: string;
+  /** Nombre comercial del tenant para usar en el prompt (ej: "Mi Empresa Security") */
+  providerName?: string;
 }
 
 export interface ProposalAIContent {
@@ -55,7 +57,9 @@ function buildPrompt(input: ProposalAIInput): string {
     )
     .join('\n');
 
-  return `Eres un asesor comercial senior de Gard Security, empresa chilena de seguridad privada que opera con OPAI (plataforma tecnológica propietaria desarrollada por LX3.ai).
+  const providerName = input.providerName || 'el proveedor de seguridad';
+
+  return `Eres un asesor comercial senior de ${providerName}, empresa chilena de seguridad privada que opera con OPAI (plataforma tecnológica propietaria desarrollada por LX3.ai).
 
 DATOS DEL CLIENTE:
 - Empresa: ${input.companyName}
@@ -82,8 +86,8 @@ GENERA (en español chileno formal, directo, con autoridad pero sin ser pomposo)
 
 2. RESUMEN_EJECUTIVO (4 párrafos, ~250 palabras total):
    Párrafo 1: Contexto de la empresa — a qué se dedica, por qué su operación es sensible o crítica, qué riesgos específicos enfrenta en su sector.
-   Párrafo 2: Qué servicio propone Gard — dotación, horarios, por qué este esquema es el adecuado para sus necesidades específicas. Ser concreto.
-   Párrafo 3: Mencionar que Gard opera con OPAI, su plataforma tecnológica propietaria desarrollada por LX3.ai. Qué significa esto para el cliente: visibilidad total, control en tiempo real, reportes automáticos, portal exclusivo. No es solo vigilancia — es un sistema de seguridad gestionado.
+   Párrafo 2: Qué servicio propone ${providerName} — dotación, horarios, por qué este esquema es el adecuado para sus necesidades específicas. Ser concreto.
+   Párrafo 3: Mencionar que ${providerName} opera con OPAI, su plataforma tecnológica propietaria desarrollada por LX3.ai. Qué significa esto para el cliente: visibilidad total, control en tiempo real, reportes automáticos, portal exclusivo. No es solo vigilancia — es un sistema de seguridad gestionado.
    Párrafo 4: Cierre con la inversión mensual y el valor que representa. Posicionar como inversión (no gasto), comparar implícitamente con el costo de no tenerlo (incidentes, pérdidas, multas DT).
 
 3. ANALISIS_NECESIDADES (2 párrafos, ~150 palabras total):

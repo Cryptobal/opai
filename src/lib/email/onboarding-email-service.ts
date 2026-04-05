@@ -33,7 +33,7 @@ export async function sendOnboardingEmail(
 ) {
   const config =
     params.from || !tenantId
-      ? { from: params.from ?? "OPAI <opai@gard.cl>", replyTo: "" }
+      ? { from: params.from ?? process.env.EMAIL_FROM ?? "OPAI <noreply@opai.cl>", replyTo: "" }
       : await getTenantEmailConfig(tenantId);
 
   const { data, error } = await resend.emails.send({

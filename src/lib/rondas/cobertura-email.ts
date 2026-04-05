@@ -2,7 +2,7 @@
  * Email template for coverage snapshot.
  *
  * Sends a per-turno summary of guard coverage per installation
- * to the ops email (operaciones@gard.cl).
+ * to the ops email configured for the tenant.
  */
 
 /* ------------------------------------------------------------------ */

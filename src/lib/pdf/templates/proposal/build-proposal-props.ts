@@ -48,7 +48,7 @@ export interface ProposalProps {
   paymentTerms: string;
   validUntil?: string;
 
-  gardLogo: string;
+  providerLogo: string;
   opaiLogo: string;
   lx3Logo: string;
   clientLogos: string[];
@@ -56,6 +56,8 @@ export interface ProposalProps {
 
   companyConfig: {
     commercialName: string;
+    companyName: string;
+    brandNameUpper: string;
     website: string;
     phone: string;
     email: string;
@@ -256,13 +258,13 @@ export async function buildProposalProps(
 
   const companyConfig = await getTenantCompanyConfig(tenantId);
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://opai.gard.cl';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || '';
   const abs = (url: string | undefined | null): string => {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
     return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   };
-  const gardLogo = abs(companyConfig.brandingLogoWhite) || abs(companyConfig.brandingLogoFull) || abs(companyConfig.logoUrl) || `${baseUrl}/logo-gard-blanco.svg`;
+  const providerLogo = abs(companyConfig.brandingLogoWhite) || abs(companyConfig.brandingLogoFull) || abs(companyConfig.logoUrl) || '';
   const companyLogo = companyLogoRaw ? abs(companyLogoRaw) : undefined;
   const opaiLogo = `${baseUrl}/opai-logo.png`;
   const lx3Logo = `${baseUrl}/lx3-logo.png`;
@@ -315,6 +317,7 @@ export async function buildProposalProps(
         specifications: i.specifications,
       })),
       existingAiDescription: quote.aiDescription ?? undefined,
+      providerName: companyConfig.commercialName || undefined,
     });
 
     await prisma.cpqQuote.update({
@@ -699,7 +702,7 @@ export async function buildProposalProps(
     paymentTerms,
     validUntil,
 
-    gardLogo,
+    providerLogo,
     opaiLogo,
     lx3Logo,
     clientLogos,
@@ -707,6 +710,8 @@ export async function buildProposalProps(
 
     companyConfig: {
       commercialName: companyConfig.commercialName,
+      companyName: companyConfig.companyName,
+      brandNameUpper: companyConfig.brandNameUpper,
       website: companyConfig.website,
       phone: companyConfig.phone,
       email: companyConfig.email,
