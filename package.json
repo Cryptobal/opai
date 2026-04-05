@@ -7,7 +7,7 @@
     "dev:watch": "node ./node_modules/next/dist/bin/next dev --webpack",
     "dev:watch:turbo": "node ./node_modules/next/dist/bin/next dev",
     "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && node ./node_modules/next/dist/bin/next dev",
-    "build": "prisma generate && (prisma migrate resolve --rolled-back 20260514000000_add_company_presentations || true) && prisma migrate deploy && NODE_OPTIONS='--max-old-space-size=8192' next build",
+    "build": "prisma generate && (prisma migrate resolve --rolled-back 20260514000000_add_company_presentations || true) && (prisma migrate resolve --rolled-back 20260605000000_add_google_id_admin_contact || true) && prisma migrate deploy && NODE_OPTIONS='--max-old-space-size=8192' next build",
     "start": "next start",
     "start:dev": "npm run build && npm run start",
     "lint": "next lint",
