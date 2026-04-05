@@ -49,3 +49,17 @@ export async function getSystemTenantId(): Promise<string> {
 export function clearTenantCache(): void {
   cachedTenantId = null;
 }
+
+/**
+ * Resolve a tenant by its URL slug. Used by public API routes.
+ * Returns null if tenant not found or inactive.
+ */
+export async function resolveTenantFromSlug(
+  slug: string,
+): Promise<{ id: string; name: string; slug: string } | null> {
+  if (!slug) return null;
+  return prisma.tenant.findUnique({
+    where: { slug, active: true },
+    select: { id: true, name: true, slug: true },
+  });
+}

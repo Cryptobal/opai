@@ -6,9 +6,9 @@
  *
  * Uso:
  *   const cfg = await getTenantCompanyConfig(tenantId);
- *   cfg.companyName     // "Gard SpA"
- *   cfg.commercialName  // "Gard Security"
- *   cfg.email           // "comercial@gard.cl"
+ *   cfg.companyName     // "Mi Empresa SpA"
+ *   cfg.commercialName  // "Mi Empresa Security"
+ *   cfg.email           // "comercial@miempresa.cl"
  */
 
 /* ------------------------------------------------------------------ */

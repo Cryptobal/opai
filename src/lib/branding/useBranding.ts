@@ -27,7 +27,7 @@ const DEFAULTS: Branding = {
   accentColor: "#2dd4bf",
   appName: "OPAI",
   tagline: "Plataforma de Operaciones",
-  companyName: "Gard Security",
+  companyName: "OPAI",
 };
 
 let cachedBranding: Branding | null = null;
