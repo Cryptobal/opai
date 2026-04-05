@@ -1,7 +1,7 @@
 /**
- * API Route: /api/public/leads
+ * API Route: /api/public/[tenantSlug]/leads
  * POST - Crear lead desde formulario web (público, sin auth)
- * 
+ *
  * Este endpoint es público y está diseñado para recibir datos
  * del formulario de cotización de la página web de Gard Security.
  * Crea un lead en el CRM, genera una notificación y envía un email.
@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
+import { resolveTenantFromSlug } from "@/lib/tenant";
 import { resend } from "@/lib/resend";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
@@ -68,7 +68,20 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ tenantSlug: string }> },
+) {
+  const { tenantSlug } = await params;
+  const tenant = await resolveTenantFromSlug(tenantSlug);
+  if (!tenant) {
+    return NextResponse.json(
+      { success: false, error: "Tenant not found" },
+      { status: 404, headers: corsHeaders },
+    );
+  }
+  const tenantId = tenant.id;
+
   try {
     const raw = await request.json();
     const result = publicLeadSchema.safeParse(raw);
@@ -87,7 +100,6 @@ export async function POST(request: NextRequest) {
     const emailOnly = (raw as { emailOnly?: boolean }).emailOnly === true;
 
     const totalGuards = data.dotacion?.reduce((sum, d) => sum + d.cantidad, 0) || 0;
-    const tenantId = await getDefaultTenantId();
     const tenantCfg = await getTenantCompanyConfig(tenantId);
 
     let leadId: string | null = null;

@@ -1,16 +1,28 @@
 /**
- * GET /api/public/ingreso-te/document-types
+ * GET /api/public/[tenantSlug]/ingreso-te/document-types
  * Devuelve la lista de documentos configurados como visibles en el formulario TE.
  * Endpoint público, sin autenticación.
  */
 
-import { NextResponse } from "next/server";
-import { getDefaultTenantId } from "@/lib/tenant";
+import { NextRequest, NextResponse } from "next/server";
+import { resolveTenantFromSlug } from "@/lib/tenant";
 import { getPostulacionDocumentTypesVisibleOnTeForm } from "@/lib/postulacion-documentos";
 
-export async function GET() {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ tenantSlug: string }> },
+) {
+  const { tenantSlug } = await params;
+  const tenant = await resolveTenantFromSlug(tenantSlug);
+  if (!tenant) {
+    return NextResponse.json(
+      { success: false, error: "Tenant not found" },
+      { status: 404 },
+    );
+  }
+  const tenantId = tenant.id;
+
   try {
-    const tenantId = await getDefaultTenantId();
     const documents = await getPostulacionDocumentTypesVisibleOnTeForm(tenantId);
     return NextResponse.json({ success: true, data: documents });
   } catch (error) {

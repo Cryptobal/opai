@@ -39,9 +39,11 @@ type UploadedDoc = {
 
 interface PostulacionPublicFormProps {
   token: string;
+  // TODO: propagate tenantSlug from URL/server context instead of hardcoding
+  tenantSlug?: string;
 }
 
-export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
+export function PostulacionPublicForm({ token, tenantSlug = "gard" }: PostulacionPublicFormProps) {
   const [documentTypes, setDocumentTypes] = useState<DocTypeConfig[]>(DEFAULT_POSTULACION_DOCUMENTS);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -52,7 +54,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
 
   useEffect(() => {
     let mounted = true;
-    fetch(`/api/public/postulacion/document-types?token=${encodeURIComponent(token)}`)
+    fetch(`/api/public/${tenantSlug}/postulacion/document-types?token=${encodeURIComponent(token)}`)
       .then((res) => res.json())
       .then((data) => {
         if (mounted && data.success && Array.isArray(data.data) && data.data.length > 0) {
@@ -136,7 +138,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
       const body = new FormData();
       body.append("token", token);
       body.append("file", file);
-      const response = await fetch("/api/public/postulacion/upload", {
+      const response = await fetch(`/api/public/${tenantSlug}/postulacion/upload`, {
         method: "POST",
         body,
       });
@@ -217,7 +219,7 @@ export function PostulacionPublicForm({ token }: PostulacionPublicFormProps) {
 
     setSaving(true);
     try {
-      const response = await fetch("/api/public/postulacion", {
+      const response = await fetch(`/api/public/${tenantSlug}/postulacion`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

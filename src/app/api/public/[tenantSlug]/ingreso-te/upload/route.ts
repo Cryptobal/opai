@@ -1,12 +1,12 @@
 /**
- * POST /api/public/ingreso-te/upload
+ * POST /api/public/[tenantSlug]/ingreso-te/upload
  * Subida de archivos para el formulario público de Turno Extra.
  * Endpoint público, sin autenticación.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFile } from "@/lib/storage";
-import { getDefaultTenantId } from "@/lib/tenant";
+import { resolveTenantFromSlug } from "@/lib/tenant";
 
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const ALLOWED_MIME = new Set([
@@ -17,7 +17,20 @@ const ALLOWED_MIME = new Set([
   "image/gif",
 ]);
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ tenantSlug: string }> },
+) {
+  const { tenantSlug } = await params;
+  const tenant = await resolveTenantFromSlug(tenantSlug);
+  if (!tenant) {
+    return NextResponse.json(
+      { success: false, error: "Tenant not found" },
+      { status: 404 },
+    );
+  }
+  const tenantId = tenant.id;
+
   try {
     const formData = await request.formData();
 
@@ -45,7 +58,6 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const tenantId = await getDefaultTenantId();
     const result = await uploadFile(buffer, file.name, mimeType, "guardias", tenantId);
 
     return NextResponse.json({

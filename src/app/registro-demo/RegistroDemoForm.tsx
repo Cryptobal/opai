@@ -24,9 +24,11 @@ const GUARD_OPTIONS = [
 interface RegistroDemoFormProps {
   utmSource: string;
   utmCampaign: string;
+  // TODO: propagate tenantSlug from URL/server context instead of hardcoding
+  tenantSlug?: string;
 }
 
-export function RegistroDemoForm({ utmSource, utmCampaign }: RegistroDemoFormProps) {
+export function RegistroDemoForm({ utmSource, utmCampaign, tenantSlug = "gard" }: RegistroDemoFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -62,7 +64,7 @@ export function RegistroDemoForm({ utmSource, utmCampaign }: RegistroDemoFormPro
       // Get honeypot value
       const honeypot = (document.getElementById("website_url") as HTMLInputElement)?.value || "";
 
-      const res = await fetch("/api/public/registro-demo", {
+      const res = await fetch(`/api/public/${tenantSlug}/registro-demo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

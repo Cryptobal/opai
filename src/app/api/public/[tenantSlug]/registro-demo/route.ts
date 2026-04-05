@@ -1,5 +1,5 @@
 /**
- * API Route: /api/public/registro-demo
+ * API Route: /api/public/[tenantSlug]/registro-demo
  * POST - Auto-registro de prospecto desde link público
  *
  * Crea CrmAccount (prospect) + CrmContact (con PIN) + envía email de bienvenida.
@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
+import { resolveTenantFromSlug } from "@/lib/tenant";
 import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { render } from "@react-email/render";
@@ -76,7 +76,20 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204 });
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ tenantSlug: string }> },
+) {
+  const { tenantSlug } = await params;
+  const tenant = await resolveTenantFromSlug(tenantSlug);
+  if (!tenant) {
+    return NextResponse.json(
+      { success: false, error: "Tenant not found" },
+      { status: 404 },
+    );
+  }
+  const tenantId = tenant.id;
+
   try {
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
@@ -110,7 +123,6 @@ export async function POST(request: NextRequest) {
     }
 
     const emailNorm = data.email.trim().toLowerCase();
-    const tenantId = await getDefaultTenantId();
 
     // Verificar que el email no exista ya como contacto con portal habilitado
     const existingContact = await prisma.crmContact.findFirst({
@@ -280,6 +292,9 @@ export async function POST(request: NextRequest) {
     } catch (e) {
       console.error("[registro-demo] Failed to send email:", e);
     }
+
+    // Suppress unused variable warning
+    void contact;
 
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {

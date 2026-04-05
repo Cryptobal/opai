@@ -34,7 +34,12 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   cuenta_rut: "Cuenta RUT",
 };
 
-export function TePublicForm() {
+interface TePublicFormProps {
+  // TODO: propagate tenantSlug from URL/server context instead of hardcoding
+  tenantSlug?: string;
+}
+
+export function TePublicForm({ tenantSlug = "gard" }: TePublicFormProps) {
   const [documentTypes, setDocumentTypes] = useState<DocTypeConfig[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -63,7 +68,7 @@ export function TePublicForm() {
 
   useEffect(() => {
     let mounted = true;
-    fetch("/api/public/ingreso-te/document-types")
+    fetch(`/api/public/${tenantSlug}/ingreso-te/document-types`)
       .then((res) => res.json())
       .then((data) => {
         if (mounted && data.success && Array.isArray(data.data)) {
@@ -108,7 +113,7 @@ export function TePublicForm() {
     try {
       const body = new FormData();
       body.append("file", file);
-      const response = await fetch("/api/public/ingreso-te/upload", {
+      const response = await fetch(`/api/public/${tenantSlug}/ingreso-te/upload`, {
         method: "POST",
         body,
       });
@@ -180,7 +185,7 @@ export function TePublicForm() {
 
     setSaving(true);
     try {
-      const response = await fetch("/api/public/ingreso-te", {
+      const response = await fetch(`/api/public/${tenantSlug}/ingreso-te`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

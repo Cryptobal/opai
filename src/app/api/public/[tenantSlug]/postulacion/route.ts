@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
+import { resolveTenantFromSlug } from "@/lib/tenant";
 import {
   AFP_CHILE,
   BANK_ACCOUNT_TYPES,
@@ -130,7 +130,20 @@ async function generateUniqueGuardiaCode(
   return buildNextGuardiaCode(rows[0]?.code ?? null);
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ tenantSlug: string }> },
+) {
+  const { tenantSlug } = await params;
+  const tenant = await resolveTenantFromSlug(tenantSlug);
+  if (!tenant) {
+    return NextResponse.json(
+      { success: false, error: "Tenant not found" },
+      { status: 404 },
+    );
+  }
+  const tenantId = tenant.id;
+
   try {
     const raw = await request.json();
     const parsed = postulacionSchema.safeParse(raw);
@@ -144,7 +157,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Token de postulación inválido" }, { status: 403 });
     }
 
-    const tenantId = await getDefaultTenantId();
     const docConfig = await getPostulacionDocumentTypesVisibleOnGuardForm(tenantId);
     const allowedTypes = new Set(docConfig.map((d) => d.code));
     const requiredTypes = new Set(docConfig.filter((d) => d.required).map((d) => d.code));

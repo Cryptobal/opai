@@ -1,5 +1,5 @@
 /**
- * POST /api/public/ingreso-te
+ * POST /api/public/[tenantSlug]/ingreso-te
  * Ingreso público de guardia Turno Extra.
  * Endpoint público, sin autenticación.
  */
@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getDefaultTenantId } from "@/lib/tenant";
+import { resolveTenantFromSlug } from "@/lib/tenant";
 import {
   BANK_ACCOUNT_TYPES,
   CHILE_BANKS,
@@ -87,7 +87,20 @@ async function generateUniqueGuardiaCode(
   return buildNextGuardiaCode(rows[0]?.code ?? null);
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ tenantSlug: string }> },
+) {
+  const { tenantSlug } = await params;
+  const tenant = await resolveTenantFromSlug(tenantSlug);
+  if (!tenant) {
+    return NextResponse.json(
+      { success: false, error: "Tenant not found" },
+      { status: 404 },
+    );
+  }
+  const tenantId = tenant.id;
+
   try {
     const raw = await request.json();
     const parsed = teSchema.safeParse(raw);
@@ -97,7 +110,6 @@ export async function POST(request: NextRequest) {
     }
 
     const body = parsed.data;
-    const tenantId = await getDefaultTenantId();
 
     // Validate documents against TE-visible config
     const docConfig = await getPostulacionDocumentTypesVisibleOnTeForm(tenantId);
