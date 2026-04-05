@@ -490,6 +490,7 @@ export async function POST(
       paymentTerms,
 
       companyLogo,
+      providerLogo: companyLogo,
       opaiLogo: `${baseUrl}/opai-logo.png`,
       lx3Logo: `${baseUrl}/lx3-logo.png`,
       clientLogos: clientesConLogo.filter((c) => c.logoUrl).map((c) => c.logoUrl!),
