@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ALL_MODULES } from '@/lib/tenant-modules';
 import { TenantAddonsSection } from './TenantAddonsSection';
 
 // ── Types ──
@@ -499,123 +498,6 @@ function InfoTab({
               Reactivar tenant
             </button>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Tab: Plan y Modulos ──
-
-const PLAN_OPTIONS = ['trial', 'essential', 'professional', 'enterprise'] as const;
-
-function PlanTab({
-  plan,
-  modules,
-  onPatchPlan,
-  onToggleModule,
-}: {
-  plan: TenantPlan;
-  modules: TenantModule[];
-  onPatchPlan: (fields: Record<string, unknown>) => Promise<void>;
-  onToggleModule: (module: string, enabled: boolean) => Promise<void>;
-}) {
-  const moduleMap = new Map(modules.map((m) => [m.module, m.enabled]));
-
-  return (
-    <div className="space-y-6">
-      {/* Plan */}
-      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Plan actual</h3>
-        <div className="mb-4">
-          <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
-            {plan.plan}
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {PLAN_OPTIONS.map((p) => (
-            <button
-              key={p}
-              onClick={() => onPatchPlan({ plan: p })}
-              disabled={plan.plan === p}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                plan.plan === p
-                  ? 'cursor-default bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-              }`}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Limits */}
-      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Limites</h3>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <EditableNumberField
-            label="Max guardias"
-            value={plan.maxGuards}
-            onSave={(v) => onPatchPlan({ maxGuards: v })}
-          />
-          <EditableNumberField
-            label="Max admins"
-            value={plan.maxAdmins}
-            onSave={(v) => onPatchPlan({ maxAdmins: v })}
-          />
-          <EditableNumberField
-            label="Max storage (MB)"
-            value={plan.maxStorageMb}
-            onSave={(v) => onPatchPlan({ maxStorageMb: v })}
-          />
-        </dl>
-      </div>
-
-      {/* Pricing */}
-      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Precios</h3>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <EditableNumberField
-            label="Precio base"
-            value={plan.basePrice}
-            onSave={(v) => onPatchPlan({ basePrice: v })}
-          />
-          <EditableNumberField
-            label="Precio por guardia"
-            value={plan.pricePerGuard}
-            onSave={(v) => onPatchPlan({ pricePerGuard: v })}
-          />
-          <div>
-            <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Moneda</dt>
-            <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{plan.currency}</dd>
-          </div>
-        </dl>
-      </div>
-
-      {/* Modules */}
-      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Modulos</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {ALL_MODULES.map((mod) => {
-            const enabled = moduleMap.get(mod) ?? false;
-            return (
-              <label
-                key={mod}
-                className="flex items-center gap-2 rounded-lg border border-gray-100 dark:border-gray-800 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  onChange={() => onToggleModule(mod, !enabled)}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  {mod.replace(/_/g, ' ')}
-                </span>
-              </label>
-            );
-          })}
         </div>
       </div>
     </div>
