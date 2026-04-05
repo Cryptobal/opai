@@ -179,7 +179,7 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
         const res = await fetch(`/api/ops/alertas-cobertura/${alertaId}?action=confirmar`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ asignacionPauta: true }),
+          body: JSON.stringify({ asignacionPauta: "AUTOMATICA" }),
         });
         const json = await res.json();
         if (json.success) {

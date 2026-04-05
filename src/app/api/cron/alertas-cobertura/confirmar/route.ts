@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
         estado: "ACEPTADA",
         aceptadaAt: { not: null },
         confirmadaAt: null,
+        confirmacionNotificadaAt: null,
       },
       select: {
         id: true,
@@ -63,6 +64,12 @@ export async function GET(request: NextRequest) {
         creadaPorId: alerta.creadaPorId,
         guardiaNombre: nombreGuardia,
         instalacionNombre: nombreInstalacion,
+      });
+
+      // Marcar como notificada para evitar duplicados en próximas ejecuciones del cron
+      await prisma.opsAlertaCobertura.update({
+        where: { id: alerta.id },
+        data: { confirmacionNotificadaAt: ahora },
       });
 
       console.log(
