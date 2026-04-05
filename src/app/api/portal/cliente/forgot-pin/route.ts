@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { resend, EMAIL_CONFIG } from '@/lib/resend'
+import { getTenantCompanyConfig } from '@/lib/tenant-config'
 import crypto from 'crypto'
-
-// Dominio verificado en Resend es gard.cl (no gardsecurity.cl). Forzamos from con gard.cl.
-const FROM_PORTAL_PIN = 'OPAI Portal <opai@gard.cl>'
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,7 +24,7 @@ export async function POST(req: NextRequest) {
           isActive: true,
         },
       },
-      select: { id: true, email: true, firstName: true },
+      select: { id: true, email: true, firstName: true, tenantId: true },
     })
 
     if (!contact?.email) return SUCCESS
@@ -41,9 +39,10 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? 'https://opai.gard.cl'
     const setupUrl = `${baseUrl}/portal/cliente/setup?token=${token}`
+    const cfg = await getTenantCompanyConfig(contact.tenantId)
 
     const emailResult = await resend.emails.send({
-      from: FROM_PORTAL_PIN,
+      from: cfg.emailFrom,
       replyTo: EMAIL_CONFIG.replyTo,
       to: contact.email,
       subject: 'Restablecer PIN — Portal Gard Security',

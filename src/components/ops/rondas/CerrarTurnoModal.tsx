@@ -211,7 +211,7 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
             <label className="text-xs text-muted-foreground mb-1 block">Enviar reporte a</label>
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 mb-2">
               <span className="text-xs text-teal-400">&#9993;</span>
-              <span className="text-sm text-slate-200">operaciones@gard.cl</span>
+              <span className="text-sm text-slate-200">Operaciones (configurado en empresa)</span>
               <span className="text-[9px] text-slate-500 ml-auto">Siempre se envía</span>
             </div>
             <div className="flex gap-1.5 mb-2 flex-wrap">

@@ -17,7 +17,7 @@ interface SendEmailModalProps {
   onSuccess: (result: { uniqueId: string; publicUrl: string; recipientEmail: string; recipientPhone?: string }) => void;
 }
 
-const DEFAULT_BCC = 'comercial@gard.cl';
+const DEFAULT_BCC = '';
 
 export function SendEmailModal({ sessionId, companyName, contactName, contactEmail, onClose, onSuccess }: SendEmailModalProps) {
   const [recipientEmail, setRecipientEmail] = useState(contactEmail);
@@ -195,7 +195,7 @@ export function SendEmailModal({ sessionId, companyName, contactName, contactEma
                   type="email"
                   value={email}
                   onChange={(e) => updateBccEmail(index, e.target.value)}
-                  placeholder="comercial@gard.cl"
+                  placeholder="cco@ejemplo.cl"
                   className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
                 {bccEmails.length > 1 && (

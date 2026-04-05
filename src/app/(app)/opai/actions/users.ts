@@ -7,6 +7,7 @@ import { ROLE_TEMPLATE_SEEDS } from '@/lib/permissions';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { Resend } from 'resend';
+import { getTenantCompanyConfig } from '@/lib/tenant-config';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -70,10 +71,11 @@ export async function inviteUser(email: string, roleTemplateSlug: string) {
   });
 
   const activationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/activate?token=${token}`;
-  
+  const cfg = await getTenantCompanyConfig(session.user.tenantId);
+
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'OPAI <opai@gard.cl>',
+      from: cfg.emailFrom,
       to: emailLower,
       subject: 'Invitación a Gard Docs',
       html: `

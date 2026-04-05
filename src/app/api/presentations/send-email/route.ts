@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { resend, EMAIL_CONFIG } from '@/lib/resend';
+import { getTenantCompanyConfig } from '@/lib/tenant-config';
 import { PresentationEmail } from '@/emails/PresentationEmail';
 import { nanoid } from 'nanoid';
 import { render } from '@react-email/render';
@@ -18,13 +19,6 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { sessionId, recipientEmail: customEmail, recipientName: customName, ccEmails = [], bccEmails: customBccEmails = [] } = body;
-
-    // BCC: siempre incluir comercial@gard.cl + los adicionales del usuario
-    const defaultBcc = 'comercial@gard.cl';
-    const validCustomBcc = (Array.isArray(customBccEmails) ? customBccEmails : [])
-      .map((e: string) => (e || '').trim())
-      .filter((e: string) => e && e.includes('@'));
-    const bccEmails = [...new Set([defaultBcc, ...validCustomBcc])];
 
     // 1. Validar sessionId
     if (!sessionId) {
@@ -82,6 +76,15 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // BCC: siempre incluir el email comercial del tenant + los adicionales del usuario
+    const cfg = await getTenantCompanyConfig(tenantId);
+    const validCustomBcc = (Array.isArray(customBccEmails) ? customBccEmails : [])
+      .map((e: string) => (e || '').trim())
+      .filter((e: string) => e && e.includes('@'));
+    const bccEmails = cfg.email
+      ? [...new Set([cfg.email, ...validCustomBcc])]
+      : validCustomBcc.length ? [...new Set(validCustomBcc)] : [];
 
     // 4. Si ya existe una presentación draft para esta sesión (flujo CPQ), usar su uniqueId
     //    para el enlace del email. Así el link del correo y el de WhatsApp apuntan a la misma página.

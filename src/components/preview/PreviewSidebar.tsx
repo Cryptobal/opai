@@ -101,7 +101,7 @@ export function PreviewSidebar({ sessionId, zohoData, onTabChange }: PreviewSide
                 <div className="p-4 space-y-2 text-xs bg-slate-800/50 flex-shrink-0">
                   <div className="flex items-center gap-2">
                     <span className="text-white/60 font-semibold">De:</span>
-                    <span className="text-white">comercial@gard.cl</span>
+                    <span className="text-white">Equipo Comercial</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-white/60 font-semibold">Para:</span>

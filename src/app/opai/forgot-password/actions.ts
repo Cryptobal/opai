@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { Resend } from 'resend';
+import { getTenantCompanyConfig } from '@/lib/tenant-config';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -44,10 +45,11 @@ export async function requestPasswordReset(email: string) {
 
   // Enviar email
   const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/opai/reset-password?token=${token}&email=${encodeURIComponent(emailLower)}`;
-  
+  const cfg = await getTenantCompanyConfig(user.tenantId);
+
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'OPAI <opai@gard.cl>',
+      from: cfg.emailFrom,
       to: emailLower,
       subject: 'Restablecer contraseña - OPAI',
       html: `

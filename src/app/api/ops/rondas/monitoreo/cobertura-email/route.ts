@@ -202,7 +202,7 @@ export async function POST(request: Request) {
 
     const response = await resend.emails.send({
       from: cfg.emailFrom,
-      to: cfg.emailOps || "operaciones@gard.cl",
+      to: cfg.emailOps,
       replyTo: cfg.emailReplyTo,
       subject: `Cobertura ${turnoLabel} ${timeStr} - Monitoreo`,
       html,
