@@ -70,7 +70,7 @@ export default async function UsuariosConfigPage() {
         <CardContent className="border-t border-border">
           <p className="text-xs text-muted-foreground">
             <strong className="text-foreground">Rol:</strong> haz clic en el rol para cambiarlo.{" "}
-            <strong className="text-foreground">Acciones:</strong> menú (&lsaquo;) para activar/desactivar.{" "}
+            <strong className="text-foreground">Acciones:</strong> menú (⋮) para activar/desactivar.{" "}
             <strong className="text-foreground">Permisos:</strong> usa &quot;Ver permisos&quot; arriba.
           </p>
         </CardContent>
