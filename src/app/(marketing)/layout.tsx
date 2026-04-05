@@ -155,7 +155,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <MarketingThemeToggle />
-            <a href={process.env.NEXT_PUBLIC_APP_URL || "/opai/login"} target="_blank" rel="noopener" className="mk-btn-ghost mk-hide-mobile" style={{ padding: '9px 18px', fontSize: '0.85rem' }}>
+            <a href="/opai/login" className="mk-btn-ghost mk-hide-mobile" style={{ padding: '9px 18px', fontSize: '0.85rem' }}>
               Iniciar sesión
             </a>
             <MobileNav />
