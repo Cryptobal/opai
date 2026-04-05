@@ -75,22 +75,33 @@ export function AuthShell({
           className="text-center mb-9"
         >
           <div className="inline-flex mb-3">
-            <div
-              className="w-[52px] h-[52px] rounded-[15px] flex items-center justify-center"
-              style={{
-                background: "linear-gradient(135deg, #f43f5e, #e11d48, #be123c)",
-                boxShadow: "0 0 40px rgba(244,63,94,0.15), 0 0 80px rgba(244,63,94,0.05)",
-              }}
-            >
-              {/* Zap icon */}
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-              </svg>
-            </div>
+            {branding.logoIcon ? (
+              <img
+                src={branding.logoIcon}
+                alt={branding.appName}
+                className="w-[52px] h-[52px] rounded-[15px] object-contain"
+              />
+            ) : (
+              <img
+                src="/brand/opai/isotipo/isotipo-white.png"
+                alt="OPAI"
+                className="w-[52px] h-[52px] rounded-[15px] object-contain"
+              />
+            )}
           </div>
-          <div className="text-[28px] font-extrabold text-[#f9fafb]" style={{ letterSpacing: "-0.03em" }}>
-            OPAI
-          </div>
+          {branding.logoFull ? (
+            <img
+              src={branding.logoFull}
+              alt={branding.appName}
+              className="h-8 object-contain mx-auto"
+            />
+          ) : (
+            <img
+              src="/brand/opai/logotipo/logo-stacked-white.png"
+              alt="OPAI"
+              className="h-8 object-contain mx-auto"
+            />
+          )}
           <div
             className="text-[11px] text-[#4b5563] mt-1.5"
             style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getAtsConfig } from "@/lib/ats/config";
+import { requestGoogleIndexing } from "@/lib/ats/google-indexing";
 
 export type Canal =
   | "google_jobs"
@@ -31,21 +32,30 @@ export async function publicarEnCanal(
         return await publicarGoogleJobs(jobPostingId);
       case "base_opai":
         return await notificarBaseInterna(jobPostingId);
-      case "talent":
+      case "talent": {
+        // Unified feed across all tenants — registered once with talent.com
+        const feedSiteUrl =
+          process.env.NEXT_PUBLIC_SITE_URL ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          "https://opai.cl";
+        return {
+          success: true,
+          externalId: `${feedSiteUrl}/api/public/ats/feed.xml`,
+        };
+      }
       case "bne": {
-        // Feed-based channels — the feed URL serves all active postings
+        // Per-tenant feed for Bolsa Nacional de Empleo
         const feedTenant = await prisma.tenant.findFirst({
           where: { id: tenantId },
           select: { slug: true },
         });
-        const siteUrl =
+        const feedSiteUrl =
           process.env.NEXT_PUBLIC_SITE_URL ||
           process.env.NEXT_PUBLIC_APP_URL ||
           "https://opai.cl";
-        const feedUrl = `${siteUrl}/api/public/${feedTenant?.slug}/ats/feed.xml`;
         return {
           success: true,
-          externalId: feedUrl,
+          externalId: `${feedSiteUrl}/api/public/${feedTenant?.slug}/ats/feed.xml`,
         };
       }
       case "indeed":
@@ -83,10 +93,13 @@ async function publicarGoogleJobs(
     select: { slug: true },
   });
 
-  const url = `${process.env.NEXT_PUBLIC_SITE_URL || "https://opai.cl"}/empleos/${tenant?.slug}/${job.jsonLdSlug}`;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://opai.cl";
+  const url = `${siteUrl}/empleos/${tenant?.slug}/${job.jsonLdSlug}`;
 
-  // TODO: Implementar Google Indexing API con service account
-  console.log(`[ATS] Google Jobs: URL lista para indexar: ${url}`);
+  const result = await requestGoogleIndexing(url, "URL_UPDATED");
+  if (!result.success) {
+    return { success: false, externalId: url, error: result.error };
+  }
 
   return { success: true, externalId: url };
 }
