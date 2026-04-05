@@ -237,8 +237,18 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               >
                 <Linkedin size={22} strokeWidth={1.75} aria-hidden />
               </a>
-              <Link href="/privacidad" style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>Privacidad</Link>
-              <Link href="/terminos" style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>Términos</Link>
+              <Link
+                href="/privacidad"
+                style={{ color: 'var(--mk-text)', fontSize: '0.85rem', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+              >
+                Política de privacidad
+              </Link>
+              <Link
+                href="/terminos"
+                style={{ color: 'var(--mk-text)', fontSize: '0.85rem', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+              >
+                Términos y condiciones
+              </Link>
             </div>
           </div>
         </div>
