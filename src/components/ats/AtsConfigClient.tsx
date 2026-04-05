@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Copy,
-  ExternalLink,
   Lock,
   Zap,
   Rss,
@@ -83,14 +82,12 @@ const CHANNEL_DESCRIPTIONS: Record<string, string> = {
   base_opai: "Notifica automaticamente a guardias con match alto.",
   talent: "Genera un feed XML con tus avisos activos para Talent.com.",
   bne: "Genera un feed XML con tus avisos activos para la Bolsa Nacional de Empleo.",
-  indeed: "Publica el aviso manualmente en Indeed y pega el enlace aqui.",
-  computrabajo:
-    "Publica el aviso manualmente en Computrabajo y pega el enlace aqui.",
-  bumeran: "Publica el aviso manualmente en Bumeran y pega el enlace aqui.",
-  laborum: "Publica el aviso manualmente en Laborum y pega el enlace aqui.",
-  linkedin:
-    "Publica el aviso manualmente en LinkedIn Jobs y pega el enlace aqui.",
-  yapo: "Publica el aviso manualmente en Yapo y pega el enlace aqui.",
+  indeed: "Publicacion manual en Indeed para cada aviso de empleo.",
+  computrabajo: "Publicacion manual en Computrabajo para cada aviso.",
+  bumeran: "Publicacion manual en Bumeran para cada aviso.",
+  laborum: "Publicacion manual en Laborum para cada aviso.",
+  linkedin: "Publicacion manual en LinkedIn Jobs para cada aviso.",
+  yapo: "Publicacion manual en Yapo para cada aviso.",
 };
 
 const FEED_INSTRUCTIONS: Record<string, string[]> = {
@@ -106,20 +103,6 @@ const FEED_INSTRUCTIONS: Record<string, string[]> = {
   ],
 };
 
-const MANUAL_LINK_PORTALS: Record<string, { url: string; label: string }> = {
-  indeed: { url: "https://indeed.com/hiring", label: "Ir a Indeed" },
-  computrabajo: {
-    url: "https://www.computrabajo.cl",
-    label: "Ir a Computrabajo",
-  },
-  bumeran: { url: "https://www.bumeran.com", label: "Ir a Bumeran" },
-  laborum: { url: "https://www.laborum.com", label: "Ir a Laborum" },
-  linkedin: {
-    url: "https://www.linkedin.com/talent",
-    label: "Ir a LinkedIn",
-  },
-  yapo: { url: "https://www.yapo.cl", label: "Ir a Yapo" },
-};
 
 export function AtsConfigClient({
   initialConfig,
@@ -317,9 +300,8 @@ export function AtsConfigClient({
   }
 
   function renderManualLinkCard(key: string, ch: AtsChannelCfg) {
-    const portal = MANUAL_LINK_PORTALS[key];
     return (
-      <Card key={key} className="p-4 sm:p-6 space-y-3">
+      <Card key={key} className="p-4 sm:p-6 space-y-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
@@ -342,37 +324,10 @@ export function AtsConfigClient({
             onCheckedChange={(v) => updateChannel(key, { enabled: v })}
           />
         </div>
-
         {ch.enabled && (
-          <div className="space-y-3">
-            {portal && (
-              <a
-                href={portal.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
-              >
-                {portal.label}
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            )}
-
-            <div className="space-y-1.5">
-              <Label className="text-xs sm:text-sm">
-                URL del aviso publicado{" "}
-                <span className="text-muted-foreground">(opcional, para trazabilidad)</span>
-              </Label>
-              <Input
-                type="url"
-                value={ch.externalUrl ?? ""}
-                onChange={(e) =>
-                  updateChannel(key, { externalUrl: e.target.value })
-                }
-                placeholder="https://..."
-                className="text-sm"
-              />
-            </div>
-          </div>
+          <p className="text-xs text-muted-foreground italic">
+            Los enlaces se registran desde cada aviso de empleo.
+          </p>
         )}
       </Card>
     );
