@@ -36,7 +36,7 @@ export function useExternalJobs(
 
   const keywordsRef = useRef("");
   const locationRef = useRef("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const fetchJobs = useCallback(async (kw: string, loc: string, pg: number) => {
     if (!kw.trim()) {
