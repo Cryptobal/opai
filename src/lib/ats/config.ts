@@ -1,0 +1,164 @@
+import { prisma } from "@/lib/prisma";
+
+export interface AtsChannelCfg {
+  enabled: boolean;
+  label: string;
+  tipo: "api" | "feed" | "manual" | "builtin";
+  apiKey?: string;
+  apiSecret?: string;
+  employerId?: string;
+  feedUrl?: string;
+  notas?: string;
+}
+
+export interface AtsMatchConfig {
+  pesoOS10: number;
+  pesoDistancia: number;
+  pesoDisponibilidad: number;
+  pesoExperiencia: number;
+  pesoRenta: number;
+  pesoEvaluacion: number;
+  radioMaxKm: number;
+  habilitado: boolean;
+  mostrarScoreAlGuardia: boolean;
+  filtrosObligatorios: string[];
+  notificarBaseInterna: boolean;
+  canalesDefault: string[];
+  autoPublicarAlActivar: boolean;
+  expiracionDias: number;
+  channelConfigs: Record<string, AtsChannelCfg>;
+}
+
+export const CHANNEL_DEFAULTS: Record<string, AtsChannelCfg> = {
+  google_jobs: { enabled: true, label: "Google Jobs", tipo: "builtin" },
+  base_opai: { enabled: true, label: "Base interna OPAI", tipo: "builtin" },
+  indeed: { enabled: false, label: "Indeed", tipo: "api", apiKey: "", employerId: "" },
+  computrabajo: { enabled: false, label: "Computrabajo", tipo: "api", apiKey: "", apiSecret: "" },
+  bumeran: { enabled: false, label: "Búmeran", tipo: "api", apiKey: "", apiSecret: "" },
+  talent: { enabled: false, label: "Talent.com", tipo: "feed" },
+  yapo: { enabled: false, label: "Yapo", tipo: "manual" },
+  laborum: { enabled: false, label: "Laborum", tipo: "api", apiKey: "" },
+  linkedin: { enabled: false, label: "LinkedIn Jobs", tipo: "api", apiKey: "", apiSecret: "" },
+  bne: { enabled: false, label: "BNE (Bolsa Nacional de Empleo)", tipo: "feed" },
+};
+
+const DEFAULTS: AtsMatchConfig = {
+  pesoOS10: 30,
+  pesoDistancia: 20,
+  pesoDisponibilidad: 20,
+  pesoExperiencia: 15,
+  pesoRenta: 10,
+  pesoEvaluacion: 5,
+  radioMaxKm: 30,
+  habilitado: true,
+  mostrarScoreAlGuardia: false,
+  filtrosObligatorios: [],
+  notificarBaseInterna: true,
+  canalesDefault: ["google_jobs", "indeed", "computrabajo", "bumeran"],
+  autoPublicarAlActivar: true,
+  expiracionDias: 30,
+  channelConfigs: CHANNEL_DEFAULTS,
+};
+
+const CONFIG_PREFIX = "ats_match";
+
+let cache: { config: AtsMatchConfig; tenantId: string; expiresAt: number } | null = null;
+const CACHE_TTL = 5 * 60 * 1000;
+
+export async function getAtsConfig(tenantId: string): Promise<AtsMatchConfig> {
+  if (cache && cache.tenantId === tenantId && cache.expiresAt > Date.now()) {
+    return cache.config;
+  }
+
+  const settings = await prisma.setting.findMany({
+    where: {
+      key: { startsWith: `${CONFIG_PREFIX}.` },
+      OR: [{ tenantId }, { tenantId: null }],
+    },
+  });
+
+  const config = { ...DEFAULTS };
+
+  const byKey = new Map<string, string>();
+  for (const s of settings) {
+    if (s.tenantId === tenantId || !byKey.has(s.key)) {
+      byKey.set(s.key, s.value);
+    }
+  }
+
+  for (const [key, value] of byKey) {
+    const field = key.replace(`${CONFIG_PREFIX}.`, "") as keyof AtsMatchConfig;
+    if (field in config) {
+      try {
+        (config as Record<string, unknown>)[field] = JSON.parse(value);
+      } catch {
+        (config as Record<string, unknown>)[field] = value;
+      }
+    }
+  }
+
+  // Read channel config (single JSON blob)
+  const channelSetting = await prisma.setting.findFirst({
+    where: { key: "ats_channels", tenantId },
+  });
+  config.channelConfigs = channelSetting
+    ? { ...CHANNEL_DEFAULTS, ...JSON.parse(channelSetting.value) }
+    : { ...CHANNEL_DEFAULTS };
+
+  cache = { config, tenantId, expiresAt: Date.now() + CACHE_TTL };
+  return config;
+}
+
+export function invalidateAtsCache() {
+  cache = null;
+}
+
+export async function updateAtsConfig(
+  tenantId: string,
+  updates: Partial<AtsMatchConfig>,
+): Promise<AtsMatchConfig> {
+  for (const [key, value] of Object.entries(updates)) {
+    const settingKey = `${CONFIG_PREFIX}.${key}`;
+    const existing = await prisma.setting.findFirst({
+      where: { key: settingKey, tenantId },
+    });
+
+    if (existing) {
+      await prisma.setting.update({
+        where: { id: existing.id },
+        data: { value: JSON.stringify(value) },
+      });
+    } else {
+      await prisma.setting.create({
+        data: {
+          key: settingKey,
+          value: JSON.stringify(value),
+          type: "json",
+          category: "ats",
+          tenantId,
+        },
+      });
+    }
+  }
+
+  invalidateAtsCache();
+  return getAtsConfig(tenantId);
+}
+
+export async function updateAtsChannelConfigs(
+  tenantId: string,
+  channels: Record<string, AtsChannelCfg>,
+): Promise<void> {
+  const existing = await prisma.setting.findFirst({
+    where: { key: "ats_channels", tenantId },
+  });
+  const value = JSON.stringify(channels);
+  if (existing) {
+    await prisma.setting.update({ where: { id: existing.id }, data: { value } });
+  } else {
+    await prisma.setting.create({
+      data: { key: "ats_channels", value, type: "json", category: "ats", tenantId },
+    });
+  }
+  invalidateAtsCache();
+}
