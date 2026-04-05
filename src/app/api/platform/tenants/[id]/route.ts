@@ -60,6 +60,8 @@ export async function GET(
       maxAdmins: tenant.plan.maxAdmins, maxStorageMb: tenant.plan.maxStorageMb,
       basePrice: Number(tenant.plan.basePrice),
       pricePerGuard: Number(tenant.plan.pricePerGuard),
+      customPricePerGuard: tenant.plan.customPricePerGuard ? Number(tenant.plan.customPricePerGuard) : null,
+      customBaseMinimum: tenant.plan.customBaseMinimum ? Number(tenant.plan.customBaseMinimum) : null,
       currency: tenant.plan.currency, billingStatus: tenant.plan.billingStatus,
       trialEndsAt: tenant.plan.trialEndsAt?.toISOString() || null,
     } : null,

@@ -25,6 +25,7 @@ export async function PATCH(
   const fields = [
     'plan', 'maxGuards', 'maxAdmins', 'maxStorageMb',
     'basePrice', 'pricePerGuard', 'currency', 'billingStatus', 'trialEndsAt',
+    'customPricePerGuard', 'customBaseMinimum',
   ];
   for (const field of fields) {
     if (field in body) data[field] = body[field];
@@ -65,6 +66,8 @@ export async function PATCH(
       plan: updated.plan, maxGuards: updated.maxGuards,
       maxAdmins: updated.maxAdmins, maxStorageMb: updated.maxStorageMb,
       basePrice: Number(updated.basePrice), pricePerGuard: Number(updated.pricePerGuard),
+      customPricePerGuard: updated.customPricePerGuard ? Number(updated.customPricePerGuard) : null,
+      customBaseMinimum: updated.customBaseMinimum ? Number(updated.customBaseMinimum) : null,
       currency: updated.currency, billingStatus: updated.billingStatus,
       trialEndsAt: updated.trialEndsAt?.toISOString() || null,
     },

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ALL_MODULES } from '@/lib/tenant-modules';
+import { TenantAddonsSection } from './TenantAddonsSection';
 
 // ── Types ──
 
@@ -251,7 +252,7 @@ type TabKey = 'info' | 'plan' | 'admins' | 'metrics';
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'info', label: 'Informacion' },
-  { key: 'plan', label: 'Plan y Modulos' },
+  { key: 'plan', label: 'Plan y Add-ons' },
   { key: 'admins', label: 'Administradores' },
   { key: 'metrics', label: 'Metricas' },
 ];
@@ -378,18 +379,8 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
           onReactivate={reactivateTenant}
         />
       )}
-      {activeTab === 'plan' && plan && (
-        <PlanTab
-          plan={plan}
-          modules={modules}
-          onPatchPlan={patchPlan}
-          onToggleModule={toggleModule}
-        />
-      )}
-      {activeTab === 'plan' && !plan && (
-        <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6 text-center text-gray-500 dark:text-gray-400">
-          Este tenant no tiene un plan configurado.
-        </div>
+      {activeTab === 'plan' && (
+        <TenantAddonsSection tenantId={tenantId} />
       )}
       {activeTab === 'admins' && <AdminsTab admins={admins} />}
       {activeTab === 'metrics' && plan && (
