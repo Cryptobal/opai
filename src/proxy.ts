@@ -8,6 +8,7 @@
  * Placeholders públicos: /hub, /crm
  */
 
+import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import {
   getDefaultPermissions,
@@ -148,6 +149,21 @@ const DEFAULT_ROLE_PERMISSIONS_MAP: Record<string, true> = {
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
+
+  // ── Platform Admin portal ──
+  // Uses its own auth (platform-session cookie), not Auth.js.
+  // Redirect to platform login if cookie is missing (except login page itself).
+  if (pathname.startsWith('/platform') && !pathname.startsWith('/platform/login')) {
+    const platformSession = req.cookies.get('platform-session');
+    if (!platformSession?.value) {
+      return NextResponse.redirect(new URL('/platform/login', req.url));
+    }
+    return NextResponse.next();
+  }
+  // Platform login page: always accessible
+  if (pathname.startsWith('/platform/login')) {
+    return NextResponse.next();
+  }
 
   // Marketing landing: si el host es opai.cl, dejar pasar la landing page
   const host = req.headers.get('host') || '';
