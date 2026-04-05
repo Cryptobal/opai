@@ -47,6 +47,7 @@ import {
   Phone,
   Brain,
   Siren,
+  Briefcase,
   // TE
   CheckCircle2,
   Layers,
@@ -122,6 +123,7 @@ const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
   { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
   { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
   { key: "ops-alertas-cobertura", href: "/ops/alertas-cobertura", label: "Alertas", icon: Siren, subKey: "alertas_cobertura" },
+  { key: "ops-ats", href: "/ops/ats", label: "ATS", icon: Briefcase, subKey: "ats" },
   { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];
 
