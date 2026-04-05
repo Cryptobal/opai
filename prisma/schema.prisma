@@ -14,6 +14,13 @@ model Tenant {
   slug                        String                       @unique
   name                        String
   active                      Boolean                      @default(true)
+  billingEmail                String?                      @map("billing_email")
+  supportEmail                String?                      @map("support_email")
+  notes                       String?
+  suspendedAt                 DateTime?                    @map("suspended_at")
+  suspendedReason             String?                      @map("suspended_reason")
+  onboardedBy                 String?                      @map("onboarded_by")
+  lastActivityAt              DateTime?                    @map("last_activity_at")
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
   admins                      Admin[]
@@ -108,6 +115,21 @@ model TenantPlan {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("tenant_plans")
+  @@schema("public")
+}
+
+model PlatformAdmin {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  name        String
+  status      String    @default("active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  lastLoginAt DateTime? @map("last_login_at")
+
+  @@index([email])
+  @@map("platform_admins")
   @@schema("public")
 }
 

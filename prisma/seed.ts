@@ -134,6 +134,20 @@ async function main() {
   // 13. Seed Tipos de documentos operacionales (OS10 / DT)
   await seedTiposDocOperacional(prisma, tenant.id);
 
+  // 14. Platform Admin
+  const platformPassword = await bcrypt.hash('OpaiPlatform2026!', 12);
+  const platformAdmin = await prisma.platformAdmin.upsert({
+    where: { email: 'carlos.irigoyen@opai.cl' },
+    update: {},
+    create: {
+      email: 'carlos.irigoyen@opai.cl',
+      password: platformPassword,
+      name: 'Carlos Irigoyen',
+      status: 'active',
+    },
+  });
+  console.log('✅ Platform Admin ready:', platformAdmin.email);
+
   console.log('🎉 Seeding completed!');
 }
 
