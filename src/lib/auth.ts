@@ -72,12 +72,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const { prisma } = await import('@/lib/prisma');
 
         // 0. Impersonate flow (platform admin → tenant owner)
-        if (credentials.__impersonate === 'true') {
+        const creds = credentials as Record<string, unknown>;
+        if (creds.__impersonate === 'true') {
           const impersonateSecret = process.env.PLATFORM_IMPERSONATE_SECRET;
-          if (!impersonateSecret || credentials.__secret !== impersonateSecret) {
+          if (!impersonateSecret || creds.__secret !== impersonateSecret) {
             return null;
           }
-          const adminId = String(credentials.__adminId);
+          const adminId = String(creds.__adminId);
           const admin = await prisma.admin.findUnique({
             where: { id: adminId },
             include: { tenant: true },
@@ -92,7 +93,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             tenantId: admin.tenantId,
             portal: 'opai',
             impersonating: true,
-            impersonatingFrom: String(credentials.__fromEmail || ''),
+            impersonatingFrom: String(creds.__fromEmail || ''),
           } as any;
         }
 

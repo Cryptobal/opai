@@ -40,7 +40,7 @@ export async function GET(
       prisma.opsRondaEjecucion.count({ where: { tenantId: id, startedAt: { gte: thirtyDaysAgo } } }),
     ]);
 
-  const activePuestos = await prisma.opsPuesto.count({
+  const activePuestos = await prisma.opsPuestoOperativo.count({
     where: { tenantId: id, active: true },
   });
 
