@@ -69,6 +69,8 @@ model Tenant {
   tenantAddons                TenantAddon[]
   modules                     TenantModule[]
   plan                        TenantPlan?
+  atsJobPostings              AtsJobPosting[]   @relation("ats_job_tenant")
+  atsApplications             AtsApplication[]  @relation("ats_application_tenant")
 
   @@index([slug])
   @@index([active])
@@ -81,7 +83,7 @@ model TenantModule {
   module    String   // Valores posibles: "crm", "cpq", "ops_asistencia", "ops_rondas",
                      // "ops_pauta", "ops_supervision", "ops_inventario", "documentos",
                      // "payroll", "finanzas", "portal_cliente", "portal_supervisor",
-                     // "portal_guardia", "gamificacion", "chat", "fiscalizacion"
+                     // "portal_guardia", "gamificacion", "chat", "fiscalizacion", "ats"
   enabled   Boolean  @default(true)
   config    Json?    @db.JsonB
   createdAt DateTime @default(now()) @map("created_at")
@@ -1785,6 +1787,7 @@ model CrmInstallation {
   gamificacionDesafios        GamificacionDesafio[]         @relation("gamificacion_desafio_installation")
   docsOperacionales           DocOperacional[]
   alertasCobertura            OpsAlertaCobertura[] @relation("alertas_cobertura_installation")
+  atsJobPostings              AtsJobPosting[]      @relation("ats_job_installation")
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -2707,6 +2710,16 @@ model OpsGuardia {
   maxHorasSemanales     Float     @default(42) @map("max_horas_semanales") // Configurable (Ley 40h)
   personalEmail         String?   @map("personal_email") // Email PERSONAL del guardia (obligatorio Res. 38)
 
+  // ── ATS — Guardia Postulante (auto-registro externo) ──
+  googleAuthId        String?   @unique @map("google_auth_id")
+  googleEmail         String?   @map("google_email")
+  atsRegisteredAt     DateTime? @map("ats_registered_at") @db.Timestamptz(6)
+  atsProfileComplete  Boolean   @default(false) @map("ats_profile_complete")
+  experienciaAnios    Int?      @map("experiencia_anios")
+  turnosDisponibles   String[]  @map("turnos_disponibles") @db.Text
+  pretensionRentaMin  Int?      @map("pretension_renta_min")
+  pretensionRentaMax  Int?      @map("pretension_renta_max")
+
   // ── TE (Turno Extra) quick-entry fields ──
   estadoUniforme       String?  @map("estado_uniforme") // "completo" | "incompleto"
   prendasFaltantes     String?  @map("prendas_faltantes") @db.Text
@@ -2770,6 +2783,7 @@ model OpsGuardia {
   alertasCoberturaAceptadas    OpsAlertaCobertura[]                  @relation("alertas_cobertura_aceptada_por")
   alertasAceptacionIntentos    OpsAlertaAceptacion[]                 @relation("alerta_aceptacion_guardia")
   alertasNotificaciones        OpsAlertaNotificacion[]               @relation("alerta_notificacion_guardia")
+  atsApplications              AtsApplication[]                      @relation("ats_application_guardia")
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -7690,5 +7704,113 @@ model OpsAlertaOleadaLog {
   iniciadaAt          DateTime @default(now()) @map("iniciada_at") @db.Timestamptz(6)
 
   @@map("alerta_oleada_log")
+  @@schema("ops")
+}
+
+// ═══════════════════════════════════════════════════════
+//  ATS MODULE (Applicant Tracking System)
+// ═══════════════════════════════════════════════════════
+
+enum AtsJobEstado {
+  BORRADOR
+  ACTIVO
+  PAUSADO
+  CERRADO
+
+  @@schema("ops")
+}
+
+enum AtsEtapa {
+  POSTULADO
+  EN_REVISION
+  ENTREVISTA
+  OFERTA
+  CONTRATADO
+  DESCARTADO
+
+  @@schema("ops")
+}
+
+model AtsJobPosting {
+  id                   String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId             String          @map("tenant_id")
+  titulo               String
+  descripcion          String          @db.Text
+  turno                String
+  region               String
+  commune              String?
+  installationId       String?         @map("installation_id") @db.Uuid
+  rentaMin             Int?            @map("renta_min")
+  rentaMax             Int?            @map("renta_max")
+  vacantes             Int             @default(1)
+  requiereOS10         Boolean         @default(true)  @map("requiere_os10")
+  requiereMovilizacion Boolean         @default(false) @map("requiere_movilizacion")
+  genero               String?
+  experienciaMinAnios  Int?            @default(0) @map("experiencia_min_anios")
+  funciones            String?         @db.Text
+  estado               AtsJobEstado    @default(BORRADOR)
+  jsonLdSlug           String?         @unique @map("json_ld_slug")
+  expiraAt             DateTime?       @map("expira_at") @db.Timestamptz(6)
+  matchScoreConfig     Json?           @map("match_score_config") @db.JsonB
+  notasInternas        String?         @map("notas_internas") @db.Text
+  createdById          String          @map("created_by_id")
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant               Tenant          @relation("ats_job_tenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  installation         CrmInstallation? @relation("ats_job_installation", fields: [installationId], references: [id], onDelete: SetNull)
+  applications         AtsApplication[]
+  channels             AtsDistributionChannel[]
+
+  @@index([tenantId], map: "idx_ats_jobs_tenant")
+  @@index([estado], map: "idx_ats_jobs_estado")
+  @@index([tenantId, estado], map: "idx_ats_jobs_tenant_estado")
+  @@map("ats_job_postings")
+  @@schema("ops")
+}
+
+model AtsApplication {
+  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String          @map("tenant_id")
+  jobPostingId    String          @map("job_posting_id") @db.Uuid
+  guardiaId       String          @map("guardia_id") @db.Uuid
+  etapa           AtsEtapa        @default(POSTULADO)
+  matchScore      Int?            @map("match_score")
+  matchDetalle    Json?           @map("match_detalle") @db.JsonB
+  fuente          String          @default("directo")
+  notasInternas   String?         @map("notas_internas") @db.Text
+  etapaAt         DateTime        @default(now()) @map("etapa_at") @db.Timestamptz(6)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant          Tenant          @relation("ats_application_tenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  jobPosting      AtsJobPosting   @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  guardia         OpsGuardia      @relation("ats_application_guardia", fields: [guardiaId], references: [id], onDelete: Cascade)
+
+  @@unique([jobPostingId, guardiaId], map: "uq_ats_application_job_guardia")
+  @@index([tenantId], map: "idx_ats_applications_tenant")
+  @@index([jobPostingId], map: "idx_ats_applications_job")
+  @@index([guardiaId], map: "idx_ats_applications_guardia")
+  @@map("ats_applications")
+  @@schema("ops")
+}
+
+model AtsDistributionChannel {
+  id            String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  jobPostingId  String      @map("job_posting_id") @db.Uuid
+  canal         String
+  activo        Boolean     @default(true)
+  publicadoAt   DateTime?   @map("publicado_at") @db.Timestamptz(6)
+  externalId    String?     @map("external_id")
+  estado        String?
+  errorDetalle  String?     @map("error_detalle") @db.Text
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  jobPosting    AtsJobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@unique([jobPostingId, canal], map: "uq_ats_channel_job_canal")
+  @@index([jobPostingId], map: "idx_ats_channels_job")
+  @@map("ats_distribution_channels")
   @@schema("ops")
 }

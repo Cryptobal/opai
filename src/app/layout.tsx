@@ -26,6 +26,9 @@ const jetbrainsMono = JetBrains_Mono({
 
 /** Google Tag Manager (opai.cl) — override con NEXT_PUBLIC_GTM_ID en .env si hace falta */
 const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? "GTM-WNF9VD9B";
+/** Google Analytics 4 (gtag.js) — override con NEXT_PUBLIC_GA_MEASUREMENT_ID */
+const GA_MEASUREMENT_ID =
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-ZW32Q9SS52";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/opai/ThemeProvider";
 import { PWAProvider } from "@/components/pwa/PWAProvider";
@@ -91,6 +94,18 @@ export default function RootLayout({
             else document.documentElement.classList.add('dark');
           } catch(e) { document.documentElement.classList.add('dark'); }
         `}</Script>
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics-gtag" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_MEASUREMENT_ID}');
+          `}
+        </Script>
         <Script id="google-tag-manager" strategy="afterInteractive">
           {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],

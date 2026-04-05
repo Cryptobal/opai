@@ -70,6 +70,8 @@ export const SUBMODULE_KEYS = {
     "gamificacion",
     "installations",
     "alertas_cobertura",
+    "ats",
+    "ats_config",
   ] as const,
   crm: [
     "leads",
@@ -97,6 +99,7 @@ export const SUBMODULE_KEYS = {
     "tipos_ticket",
     "finanzas",
     "alertas_cobertura",
+    "ats",
   ] as const,
   finance: [
     "rendiciones",
@@ -153,6 +156,8 @@ export const CAPABILITY_KEYS = [
   "alerta_cobertura_crear",
   "alerta_cobertura_gestionar",
   "alerta_cobertura_config",
+  "ats_publicar",
+  "ats_config",
 ] as const;
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
 
@@ -235,6 +240,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "ops.gamificacion", module: "ops", submodule: "gamificacion", label: "Gamificación", href: "/ops/gamificacion" },
   { key: "ops.installations", module: "ops", submodule: "installations", label: "Instalaciones", href: "/crm/installations" },
   { key: "ops.alertas_cobertura", module: "ops", submodule: "alertas_cobertura", label: "Alertas de cobertura", href: "/ops/alertas-cobertura" },
+  { key: "ops.ats", module: "ops", submodule: "ats", label: "ATS — Reclutamiento", href: "/ops/ats" },
   // ── CRM ──
   { key: "crm.leads", module: "crm", submodule: "leads", label: "Leads", href: "/crm/leads" },
   { key: "crm.accounts", module: "crm", submodule: "accounts", label: "Cuentas", href: "/crm/accounts" },
@@ -315,6 +321,8 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "alerta_cobertura_crear", label: "Crear alertas de cobertura", description: "Puede crear alertas de cobertura nacional cuando falta un guardia", moduleKey: "ops", submoduleKey: "alertas_cobertura" },
   { key: "alerta_cobertura_gestionar", label: "Gestionar alertas de cobertura", description: "Puede cancelar, re-alertar y confirmar alertas de cobertura", moduleKey: "ops", submoduleKey: "alertas_cobertura" },
   { key: "alerta_cobertura_config", label: "Configurar alertas de cobertura", description: "Puede modificar oleadas, tiempos y parámetros del módulo de alertas", moduleKey: "ops", submoduleKey: "alertas_cobertura" },
+  { key: "ats_publicar", label: "Publicar avisos ATS", description: "Puede crear y publicar avisos de empleo en portales externos", moduleKey: "ops", submoduleKey: "ats" },
+  { key: "ats_config", label: "Configurar ATS", description: "Puede modificar pesos de match score y config del módulo ATS", moduleKey: "ops", submoduleKey: "ats_config" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
