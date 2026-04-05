@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+
 import { NextRequest, NextResponse } from "next/server";
 import { chromium } from "playwright-core";
 import chromiumPkg from "@sparticuz/chromium";
@@ -198,16 +197,7 @@ export async function GET(request: NextRequest) {
 
     // Tenant branding
     const tenantCfg = await getTenantCompanyConfig(ctx.tenantId);
-    let logoDataUrl: string;
-    if (tenantCfg.logoUrl) {
-      // Tenant has a custom logo URL configured
-      logoDataUrl = tenantCfg.logoUrl;
-    } else {
-      // Fallback: read default SVG from public dir
-      const logoSvgPath = path.join(process.cwd(), "public", "tenants", "gard", "logo.svg");
-      const logoSvg = await readFile(logoSvgPath, "utf-8");
-      logoDataUrl = `data:image/svg+xml;base64,${Buffer.from(logoSvg).toString("base64")}`;
-    }
+    const logoDataUrl = tenantCfg.brandingLogoFull || tenantCfg.logoUrl || "";
 
     const shiftClass = (code: string) => {
       if (code === "T") return "shift-t";
