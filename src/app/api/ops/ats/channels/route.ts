@@ -7,10 +7,8 @@ import { getAtsConfig, updateAtsChannelConfigs } from "@/lib/ats/config";
 const channelCfgSchema = z.object({
   enabled: z.boolean(),
   label: z.string(),
-  tipo: z.enum(["api", "feed", "manual", "builtin"]),
-  apiKey: z.string().optional(),
-  apiSecret: z.string().optional(),
-  employerId: z.string().optional(),
+  tipo: z.enum(["automatico", "feed", "manual_link", "partner_api"]),
+  externalUrl: z.string().optional(),
   feedUrl: z.string().optional(),
   notas: z.string().optional(),
 });
