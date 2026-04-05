@@ -2,10 +2,11 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { getAtsConfig } from "@/lib/ats/config";
 import { getAtsSnippets } from "@/lib/ats/snippets";
 import { AtsConfigClient } from "@/components/ats/AtsConfigClient";
+import { Briefcase } from "lucide-react";
 
 export default async function AtsConfigPage() {
   const session = await auth();
@@ -28,18 +29,16 @@ export default async function AtsConfigPage() {
   ]);
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Configuración ATS"
-        description="Ajusta los pesos del match score, canales y parámetros de distribución."
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
+    <ConfigPageLayout
+      title="ATS — Reclutamiento"
+      description="Ajusta los pesos del match score, canales y parámetros de distribución."
+      icon={Briefcase}
+    >
       <AtsConfigClient
         initialConfig={config}
         tenantSlug={tenantRow?.slug || ""}
         initialSnippets={snippets}
       />
-    </div>
+    </ConfigPageLayout>
   );
 }

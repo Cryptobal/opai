@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader, IntegrationsGmailClient } from "@/components/opai";
+import { IntegrationsGmailClient } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { prisma } from "@/lib/prisma";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { Plug } from "lucide-react";
 
 export default async function IntegracionesPage() {
   const session = await auth();
@@ -26,14 +28,12 @@ export default async function IntegracionesPage() {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Integraciones"
-        description="Configura conexiones globales para el CRM"
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
+    <ConfigPageLayout
+      title="Integraciones"
+      description="Configura conexiones globales para el CRM"
+      icon={Plug}
+    >
       <IntegrationsGmailClient connected={Boolean(gmailAccount)} />
-    </div>
+    </ConfigPageLayout>
   );
 }

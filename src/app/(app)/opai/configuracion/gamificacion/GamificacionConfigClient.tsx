@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PageHeader } from "@/components/opai/PageHeader";
+
 import { LoadingState } from "@/components/opai/LoadingState";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -83,14 +83,7 @@ export function GamificacionConfigClient() {
   );
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Configuración Gamificación"
-        description="Parámetros del Trust Score, pesos y configuración general"
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
-
+    <div className="space-y-6">
       {/* Kill Switch */}
       <Card className="border-red-500/20">
         <CardHeader>

@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { PayrollConfigTabs } from "@/components/payroll/PayrollConfigTabs";
+import { Calculator } from "lucide-react";
 
 export default async function PayrollConfigPage() {
   const session = await auth();
@@ -16,14 +17,12 @@ export default async function PayrollConfigPage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Configuración Payroll"
-        description="Parámetros, bonos y supuestos para remuneraciones"
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
+    <ConfigPageLayout
+      title="Payroll"
+      description="Parámetros, bonos y supuestos para remuneraciones"
+      icon={Calculator}
+    >
       <PayrollConfigTabs />
-    </div>
+    </ConfigPageLayout>
   );
 }

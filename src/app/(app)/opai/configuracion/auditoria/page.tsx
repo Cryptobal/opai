@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PageHeader, DataTable, type DataTableColumn } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { DataTable, type DataTableColumn } from "@/components/opai";
+import { ClipboardCheck } from "lucide-react";
 
 type AuditPageProps = {
   searchParams?: Promise<{
@@ -92,14 +94,11 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
   });
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Auditoría"
-        description="Historial consolidado de acciones de usuarios en tu tenant"
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
-
+    <ConfigPageLayout
+      title="Auditoría"
+      description="Historial consolidado de acciones de usuarios en tu tenant"
+      icon={ClipboardCheck}
+    >
       <form method="GET" className="rounded-xl border border-border bg-card p-4">
         <div className="grid gap-3 md:grid-cols-4">
           <input
@@ -147,6 +146,6 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
         compact
         emptyMessage="No hay registros de auditoría para los filtros seleccionados."
       />
-    </div>
+    </ConfigPageLayout>
   );
 }

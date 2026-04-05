@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { PageHeader } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { RoleTemplatesClient } from "@/components/opai/RoleTemplatesClient";
-import { resolvePermissions } from "@/lib/permissions-server";
-import { canView } from "@/lib/permissions";
+import { ShieldCheck } from "lucide-react";
 
 export default async function RolesConfigPage() {
   const session = await auth();
@@ -17,14 +16,12 @@ export default async function RolesConfigPage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Gestión de Roles"
-        description="Configura permisos por módulo y submódulo para cada rol"
-        backHref="/opai/configuracion"
-        backLabel="Configuración"
-      />
+    <ConfigPageLayout
+      title="Roles y Permisos"
+      description="Configura permisos por módulo y submódulo para cada rol"
+      icon={ShieldCheck}
+    >
       <RoleTemplatesClient isOwner={role === "owner"} />
-    </div>
+    </ConfigPageLayout>
   );
 }

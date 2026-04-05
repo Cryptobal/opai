@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { PageHeader } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { AlertasCoberturaConfig } from "@/components/opai/configuracion/AlertasCoberturaConfig";
+import { Siren } from "lucide-react";
 
 export default async function ConfigAlertasCoberturaPage() {
   const session = await auth();
@@ -15,12 +16,12 @@ export default async function ConfigAlertasCoberturaPage() {
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      <PageHeader
-        title="Alertas de Cobertura"
-        description="Configuración de oleadas, tiempos, canales de notificación y parámetros del módulo."
-      />
+    <ConfigPageLayout
+      title="Alertas de Cobertura"
+      description="Configuración de oleadas, tiempos, canales de notificación y parámetros del módulo."
+      icon={Siren}
+    >
       <AlertasCoberturaConfig />
-    </div>
+    </ConfigPageLayout>
   );
 }
