@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Eye, EyeOff, Info } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Eye, EyeOff, Info, ChevronDown, ChevronUp } from "lucide-react";
 
 interface AtsChannelCfg {
   enabled: boolean;
@@ -66,7 +65,7 @@ const TIPO_LABELS: Record<string, string> = {
 };
 
 const CHANNEL_SUBTITLE: Record<string, string> = {
-  google_jobs: "Se genera una URL pública indexable automáticamente",
+  google_jobs: "Página pública indexable con datos estructurados",
   base_opai: "Notifica guardias con match alto en la plataforma",
   indeed: "Publica avisos via API de Indeed",
   computrabajo: "Publica avisos via API de Computrabajo",
@@ -75,30 +74,30 @@ const CHANNEL_SUBTITLE: Record<string, string> = {
   yapo: "Publicación manual con trazabilidad",
   laborum: "Publica avisos via API de Laborum",
   linkedin: "Publica avisos via LinkedIn Jobs API",
-  bne: "Genera un feed XML para la Bolsa Nacional de Empleo",
+  bne: "Feed XML para la Bolsa Nacional de Empleo",
 };
 
 const CHANNEL_HELP: Record<string, string> = {
   google_jobs:
-    "Automático. Al activar un aviso se genera una página pública con datos estructurados (JSON-LD) que Google indexa. No requiere credenciales.",
+    "Automático. Al activar un aviso se genera una página pública con datos estructurados (JSON-LD) que Google indexa directamente. No requiere credenciales ni configuración adicional.",
   base_opai:
-    "Automático. Notifica a los guardias registrados en OPAI que tienen match alto con el aviso. No requiere configuración.",
+    "Automático. Notifica a los guardias registrados en OPAI que tienen match alto con el aviso. No requiere configuración adicional.",
   indeed:
-    "Requiere cuenta de empleador en Indeed. Ingresa tu API Key y Employer ID desde indeed.com/hiring → Integraciones → API.",
+    "Requiere cuenta de empleador en Indeed. Obtén tu API Key y Employer ID desde indeed.com/hiring → Integraciones → API. Ingresa ambos valores aquí.",
   computrabajo:
-    "Requiere contrato con Computrabajo Chile. Solicita tus credenciales de API a tu ejecutivo de cuenta Computrabajo.",
+    "Requiere contrato activo con Computrabajo Chile. Solicita tus credenciales de API (Key + Secret) a tu ejecutivo de cuenta en Computrabajo.",
   bumeran:
-    "Requiere contrato con Búmeran. Solicita tus credenciales de API a tu ejecutivo de cuenta Búmeran.",
+    "Requiere contrato activo con Búmeran. Solicita tus credenciales de API (Key + Secret) a tu ejecutivo de cuenta en Búmeran.",
   talent:
-    "Integración por Feed XML. OPAI genera una URL con tus avisos activos en formato XML. Copia esta URL y regístrala en tu panel de Talent.com → Feed de empleos.",
+    "Integración por Feed XML. OPAI genera automáticamente una URL con tus avisos activos en formato XML. Copia esa URL y regístrala en tu panel de Talent.com → Feed de empleos.",
   yapo:
-    "Publicación manual. Al activar un aviso se marca como pendiente en Yapo. Debes publicarlo manualmente en yapo.cl y anotar el enlace aquí para trazabilidad.",
+    "Publicación manual. Al activar un aviso, OPAI lo marca como pendiente en Yapo para trazabilidad. Debes publicarlo manualmente en yapo.cl y anotar el enlace aquí.",
   laborum:
-    "Requiere contrato con Laborum. Solicita tu API Key a tu ejecutivo de cuenta Laborum.",
+    "Requiere contrato activo con Laborum. Solicita tu API Key a tu ejecutivo de cuenta en Laborum e ingrésala aquí.",
   linkedin:
-    "Requiere LinkedIn Recruiter o cuenta de empresa. Ingresa las credenciales de tu app de LinkedIn Jobs desde linkedin.com/talent → Integraciones.",
+    "Requiere LinkedIn Recruiter o cuenta de empresa verificada. Crea una app en linkedin.com/talent → Integraciones e ingresa las credenciales (API Key + Secret) aquí.",
   bne:
-    "Integración por Feed XML con la Bolsa Nacional de Empleo (bne.cl). OPAI genera una URL con tus avisos. Regístrala en tu panel BNE para sincronización automática.",
+    "Integración por Feed XML con la Bolsa Nacional de Empleo (bne.cl). OPAI genera una URL con tus avisos activos. Regístrala en tu panel BNE para sincronización automática.",
 };
 
 export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig }) {
@@ -109,6 +108,7 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
   const [saving, setSaving] = useState(false);
   const [savingChannels, setSavingChannels] = useState(false);
   const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+  const [expandedHelp, setExpandedHelp] = useState<Record<string, boolean>>({});
 
   const pesoTotal =
     config.pesoOS10 +
@@ -133,6 +133,10 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
     setVisibleSecrets((prev) => ({ ...prev, [fieldId]: !prev[fieldId] }));
   }
 
+  function toggleHelp(key: string) {
+    setExpandedHelp((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
   async function save() {
     if (pesoTotal !== 100) {
       toast.error(`Los pesos deben sumar 100 (actual: ${pesoTotal})`);
@@ -152,7 +156,7 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
         toast.error(json.error);
         return;
       }
-      toast.success("Configuracion guardada");
+      toast.success("Configuración guardada");
     } catch {
       toast.error("Error de red");
     } finally {
@@ -182,29 +186,29 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
   }
 
   return (
-    <Tabs defaultValue="match" className="max-w-2xl">
-      <TabsList>
+    <Tabs defaultValue="match" className="w-full">
+      <TabsList className="w-full grid grid-cols-2">
         <TabsTrigger value="match">Match Score</TabsTrigger>
         <TabsTrigger value="canales">Canales</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="match" className="space-y-6 mt-4">
+      <TabsContent value="match" className="space-y-4 mt-4">
         {/* Match Score Weights */}
-        <Card className="p-6 space-y-5">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Pesos del Match Score</h3>
+        <Card className="p-4 sm:p-6 space-y-5">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-semibold text-sm sm:text-base">Pesos del Match Score</h3>
             <Badge variant={pesoTotal === 100 ? "default" : "destructive"}>
-              Total: {pesoTotal}/100
+              {pesoTotal}/100
             </Badge>
           </div>
 
           {PESO_FIELDS.map((field) => {
             const value = config[field.key] as number;
             return (
-              <div key={field.key} className="space-y-1">
+              <div key={field.key} className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm">{field.label}</Label>
-                  <span className="text-sm font-medium w-8 text-right">{value}</span>
+                  <Label className="text-xs sm:text-sm">{field.label}</Label>
+                  <span className="text-xs sm:text-sm font-medium tabular-nums w-8 text-right">{value}</span>
                 </div>
                 <Slider
                   value={[value]}
@@ -219,13 +223,13 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
         </Card>
 
         {/* Feature flags */}
-        <Card className="p-6 space-y-4">
-          <h3 className="font-semibold">Opciones</h3>
+        <Card className="p-4 sm:p-6 space-y-4">
+          <h3 className="font-semibold text-sm sm:text-base">Opciones</h3>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Modulo habilitado</Label>
-              <p className="text-xs text-muted-foreground">Activa o desactiva el modulo ATS completo</p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Label className="text-sm">Módulo habilitado</Label>
+              <p className="text-xs text-muted-foreground">Activa o desactiva el ATS completo</p>
             </div>
             <Switch
               checked={config.habilitado}
@@ -233,9 +237,9 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Mostrar score al guardia</Label>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Label className="text-sm">Mostrar score al guardia</Label>
               <p className="text-xs text-muted-foreground">El guardia ve su % de match en el portal</p>
             </div>
             <Switch
@@ -244,10 +248,10 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Notificar base interna al publicar</Label>
-              <p className="text-xs text-muted-foreground">Push a guardias con match alto</p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Label className="text-sm">Notificar base interna</Label>
+              <p className="text-xs text-muted-foreground">Push a guardias con match alto al publicar</p>
             </div>
             <Switch
               checked={config.notificarBaseInterna}
@@ -255,10 +259,10 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Auto-publicar al activar aviso</Label>
-              <p className="text-xs text-muted-foreground">Publica automaticamente en canales seleccionados</p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Label className="text-sm">Auto-publicar al activar</Label>
+              <p className="text-xs text-muted-foreground">Publica en canales habilitados automáticamente</p>
             </div>
             <Switch
               checked={config.autoPublicarAlActivar}
@@ -268,12 +272,11 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
         </Card>
 
         {/* Geography & expiration */}
-        <Card className="p-6 space-y-4">
-          <h3 className="font-semibold">Distribucion</h3>
-
-          <div className="grid grid-cols-2 gap-4">
+        <Card className="p-4 sm:p-6 space-y-4">
+          <h3 className="font-semibold text-sm sm:text-base">Distribución</h3>
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Radio maximo (km)</Label>
+              <Label className="text-sm">Radio máximo (km)</Label>
               <Input
                 type="number"
                 min={1}
@@ -283,7 +286,7 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
               />
             </div>
             <div>
-              <Label>Dias de expiracion</Label>
+              <Label className="text-sm">Días de expiración</Label>
               <Input
                 type="number"
                 min={1}
@@ -295,32 +298,25 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
           </div>
         </Card>
 
-        <Button onClick={save} disabled={saving || pesoTotal !== 100}>
-          Guardar configuracion
+        <Button onClick={save} disabled={saving || pesoTotal !== 100} className="w-full sm:w-auto">
+          Guardar configuración
         </Button>
       </TabsContent>
 
-      <TabsContent value="canales" className="space-y-6 mt-4">
-        <TooltipProvider delayDuration={200}>
+      <TabsContent value="canales" className="space-y-3 mt-4">
         {Object.entries(channels).map(([key, ch]) => (
-          <Card key={key} className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h3 className="font-semibold">{ch.label}</h3>
-                <Badge variant={TIPO_BADGE_VARIANT[ch.tipo] ?? "outline"}>
-                  {TIPO_LABELS[ch.tipo] ?? ch.tipo}
-                </Badge>
-                {CHANNEL_HELP[key] && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" className="text-muted-foreground hover:text-foreground">
-                        <Info className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs text-sm">
-                      {CHANNEL_HELP[key]}
-                    </TooltipContent>
-                  </Tooltip>
+          <Card key={key} className="p-4 sm:p-6 space-y-3">
+            {/* Header row */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-semibold text-sm sm:text-base">{ch.label}</h3>
+                  <Badge variant={TIPO_BADGE_VARIANT[ch.tipo] ?? "outline"} className="text-[10px] px-1.5 py-0">
+                    {TIPO_LABELS[ch.tipo] ?? ch.tipo}
+                  </Badge>
+                </div>
+                {CHANNEL_SUBTITLE[key] && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{CHANNEL_SUBTITLE[key]}</p>
                 )}
               </div>
               <Switch
@@ -328,80 +324,91 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
                 onCheckedChange={(v) => updateChannel(key, { enabled: v })}
               />
             </div>
-            {CHANNEL_SUBTITLE[key] && (
-              <p className="text-xs text-muted-foreground -mt-2">{CHANNEL_SUBTITLE[key]}</p>
+
+            {/* Expandable help — tap-friendly for mobile */}
+            {CHANNEL_HELP[key] && (
+              <button
+                type="button"
+                onClick={() => toggleHelp(key)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+              >
+                <Info className="h-3.5 w-3.5 shrink-0" />
+                <span>{expandedHelp[key] ? "Ocultar instrucciones" : "¿Cómo configurar este canal?"}</span>
+                {expandedHelp[key] ? (
+                  <ChevronUp className="h-3.5 w-3.5 shrink-0 ml-auto" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 ml-auto" />
+                )}
+              </button>
+            )}
+            {expandedHelp[key] && CHANNEL_HELP[key] && (
+              <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-3 leading-relaxed">
+                {CHANNEL_HELP[key]}
+              </div>
             )}
 
+            {/* API credential fields */}
             {ch.tipo === "api" && ch.enabled && (
-              <div className="space-y-3 pl-1">
+              <div className="space-y-3">
                 {ch.apiKey !== undefined && (
                   <div className="space-y-1">
-                    <Label className="text-sm">API Key</Label>
+                    <Label className="text-xs sm:text-sm">API Key</Label>
                     <div className="relative">
                       <Input
                         type={visibleSecrets[`${key}.apiKey`] ? "text" : "password"}
                         value={ch.apiKey ?? ""}
                         onChange={(e) => updateChannel(key, { apiKey: e.target.value })}
                         placeholder="Ingresa API Key"
+                        className="pr-10"
                       />
                       <button
                         type="button"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
                         onClick={() => toggleSecretVisibility(`${key}.apiKey`)}
                       >
-                        {visibleSecrets[`${key}.apiKey`] ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
+                        {visibleSecrets[`${key}.apiKey`] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>
                 )}
                 {ch.apiSecret !== undefined && (
                   <div className="space-y-1">
-                    <Label className="text-sm">API Secret</Label>
+                    <Label className="text-xs sm:text-sm">API Secret</Label>
                     <div className="relative">
                       <Input
                         type={visibleSecrets[`${key}.apiSecret`] ? "text" : "password"}
                         value={ch.apiSecret ?? ""}
                         onChange={(e) => updateChannel(key, { apiSecret: e.target.value })}
                         placeholder="Ingresa API Secret"
+                        className="pr-10"
                       />
                       <button
                         type="button"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
                         onClick={() => toggleSecretVisibility(`${key}.apiSecret`)}
                       >
-                        {visibleSecrets[`${key}.apiSecret`] ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
+                        {visibleSecrets[`${key}.apiSecret`] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>
                 )}
                 {ch.employerId !== undefined && (
                   <div className="space-y-1">
-                    <Label className="text-sm">Employer ID</Label>
+                    <Label className="text-xs sm:text-sm">Employer ID</Label>
                     <div className="relative">
                       <Input
                         type={visibleSecrets[`${key}.employerId`] ? "text" : "password"}
                         value={ch.employerId ?? ""}
                         onChange={(e) => updateChannel(key, { employerId: e.target.value })}
                         placeholder="Ingresa Employer ID"
+                        className="pr-10"
                       />
                       <button
                         type="button"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
                         onClick={() => toggleSecretVisibility(`${key}.employerId`)}
                       >
-                        {visibleSecrets[`${key}.employerId`] ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
+                        {visibleSecrets[`${key}.employerId`] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>
@@ -409,9 +416,10 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
               </div>
             )}
 
+            {/* Feed URL field */}
             {ch.tipo === "feed" && ch.enabled && (
-              <div className="space-y-1 pl-1">
-                <Label className="text-sm">Feed URL</Label>
+              <div className="space-y-1">
+                <Label className="text-xs sm:text-sm">Feed URL</Label>
                 <Input
                   type="url"
                   value={ch.feedUrl ?? ""}
@@ -421,24 +429,23 @@ export function AtsConfigClient({ initialConfig }: { initialConfig: AtsConfig })
               </div>
             )}
 
+            {/* Manual notes */}
             {ch.tipo === "manual" && ch.enabled && (
-              <div className="space-y-1 pl-1">
-                <Label className="text-sm">Notas</Label>
+              <div className="space-y-1">
+                <Label className="text-xs sm:text-sm">Notas</Label>
                 <textarea
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[72px]"
                   rows={3}
                   value={ch.notas ?? ""}
                   onChange={(e) => updateChannel(key, { notas: e.target.value })}
-                  placeholder="Instrucciones o notas para publicacion manual..."
+                  placeholder="Instrucciones o notas para publicación manual..."
                 />
               </div>
             )}
           </Card>
         ))}
 
-        </TooltipProvider>
-
-        <Button onClick={saveChannels} disabled={savingChannels}>
+        <Button onClick={saveChannels} disabled={savingChannels} className="w-full sm:w-auto">
           Guardar canales
         </Button>
       </TabsContent>
