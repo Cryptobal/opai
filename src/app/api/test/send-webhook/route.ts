@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     // Extraer datos
     const zohoQuoteId = zohoData.quote_id || zohoData.quote?.id || zohoData.quote?.Quote_Number;
     const quoteNumber = zohoData.quote?.Quote_Number;
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://opai.gard.cl';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || '';
     const presentationUrl = `${siteUrl}/p/${lastPresentation.uniqueId}`;
 
     const presentationInfo = {

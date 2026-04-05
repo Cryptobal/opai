@@ -174,7 +174,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   // Generate Presentation
   let presentationUniqueId: string | null = null;
   try {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
     const existingPresentation = await prisma.presentation.findFirst({
       where: { quoteId, status: "sent" },
       select: { uniqueId: true },
@@ -290,7 +290,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
 
   // Send email
   const tenantConfig = await getTenantCompanyConfig(tenantId);
-  const basePortalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/cliente`;
+  const basePortalUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/portal/cliente`;
   const portalUrl = contact.email ? `${basePortalUrl}?email=${encodeURIComponent(contact.email)}` : basePortalUrl;
   const contactName = `${contact.firstName} ${contact.lastName}`.trim();
 
@@ -300,7 +300,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
 
   const quoteNameForEmail =
     quote.name?.trim() || quote.installation?.name?.trim() || undefined;
-  const tenantBrand = tenantConfig.commercialName?.trim() || "Gard Security";
+  const tenantBrand = tenantConfig.commercialName?.trim() || "OPAI";
   const trimmedEmailSubject = emailSubjectOverride?.trim() ?? "";
   const emailSubject =
     trimmedEmailSubject.length > 0
@@ -469,7 +469,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     sentTo: contact.email,
     portalUrl,
     pinGenerated: !contact.portalPin,
-    proposalLink: presentationUniqueId ? `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/p/${presentationUniqueId}?mode=commercial` : null,
+    proposalLink: presentationUniqueId ? `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/p/${presentationUniqueId}?mode=commercial` : null,
     whatsappPhone: normalizePhone(contact.phone),
     whatsappMessage: buildWhatsAppMessage({ contactName, companyName: account.name, email: contact.email, pin, portalUrl, ejecutivoName, brandName: tenantConfig.commercialName }),
     contactName,

@@ -1,6 +1,6 @@
 /**
  * Middleware - Protección de rutas con Auth.js v5
- * OPAI: opai.gard.cl - Rutas bajo /opai/*
+ * OPAI: Rutas bajo /opai/*
  *
  * Protege: /opai/inicio, /opai/templates/*, /opai/preview/*, /opai/usuarios
  * Permite: /p/*, /api/*, /opai/login, /activate, assets

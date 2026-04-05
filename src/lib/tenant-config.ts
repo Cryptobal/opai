@@ -27,10 +27,10 @@ export interface TenantCompanyConfig {
   repLegalRut: string;
 
   /* Nombre comercial / branding */
-  companyName: string;       // razón social corta: "Gard SpA"
-  commercialName: string;    // marca comercial: "Gard Security"
-  brandNameUpper: string;    // para headers: "GARD"
-  website: string;           // "www.gard.cl"
+  companyName: string;       // razón social corta: "Mi Empresa SpA"
+  commercialName: string;    // marca comercial: "Mi Empresa Security"
+  brandNameUpper: string;    // para headers: "MIEMPRESA"
+  website: string;           // "www.miempresa.cl"
   logoUrl: string;           // URL del logo
 
   /* Branding / Imagen Corporativa */
@@ -46,18 +46,18 @@ export interface TenantCompanyConfig {
   brandingTagline: string;       // Subtítulo ("Plataforma de Operaciones")
 
   /* Contacto comercial */
-  email: string;             // comercial@gard.cl
-  emailOps: string;          // operaciones@gard.cl
-  emailContact: string;      // contacto@gard.cl
-  phone: string;             // "+56 98 230 7771"
-  phoneRaw: string;          // "56982307771" (sin formato, para wa.me links)
-  whatsappLink: string;      // "https://wa.me/56982307771"
+  email: string;             // comercial@miempresa.cl
+  emailOps: string;          // operaciones@miempresa.cl
+  emailContact: string;      // contacto@miempresa.cl
+  phone: string;             // "+56 9 1234 5678"
+  phoneRaw: string;          // "56912345678" (sin formato, para wa.me links)
+  whatsappLink: string;      // "https://wa.me/56912345678"
 
   /* Email config */
-  emailFrom: string;         // "OPAI <opai@gard.cl>"
+  emailFrom: string;         // "OPAI <noreply@miempresa.cl>"
   emailFromName: string;     // "OPAI"
-  emailFromAddress: string;  // "opai@gard.cl"
-  emailReplyTo: string;      // "comercial@gard.cl"
+  emailFromAddress: string;  // "noreply@miempresa.cl"
+  emailReplyTo: string;      // "comercial@miempresa.cl"
 }
 
 /* ------------------------------------------------------------------ */

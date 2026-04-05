@@ -472,9 +472,9 @@ export interface PresentationPayload {
 
   // Branding del tenant (populated by cpq-mapper / zoho-mapper)
   _tenantBrand?: {
-    brandNameUpper: string;   // "GARD" | "ACME SECURITY"
-    commercialName: string;   // "Gard Security" | "Acme Security"
-    website: string;          // "www.gard.cl"
+    brandNameUpper: string;   // "MI EMPRESA" | "ACME SECURITY"
+    commercialName: string;   // "Mi Empresa Security" | "Acme Security"
+    website: string;          // "www.miempresa.cl"
     logoUrl?: string;         // override de assets.logo
   };
 

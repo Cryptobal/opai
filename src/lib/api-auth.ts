@@ -6,7 +6,7 @@
  */
 
 import { auth } from "@/lib/auth";
-import { getDefaultTenantId } from "@/lib/tenant";
+
 
 export type AuthContext = {
   userId: string;
