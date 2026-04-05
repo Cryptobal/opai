@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Linkedin } from 'lucide-react'
 import { MobileNav } from '@/components/marketing/MobileNav'
 import { MarketingThemeToggle } from '@/components/marketing/ThemeToggle'
 import './marketing.css'
@@ -159,11 +160,20 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               ))}
             </div>
           </div>
-          <div style={{ borderTop: '1px solid var(--mk-border)', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ borderTop: '1px solid var(--mk-border)', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
             <p style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', fontFamily: 'var(--mk-font-m)' }}>
               © {new Date().getFullYear()} OPAI — Todos los derechos reservados
             </p>
-            <div style={{ display: 'flex', gap: '20px' }}>
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <a
+                href="https://www.linkedin.com/company/opai-ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mk-footer-linkedin"
+                aria-label="OPAI en LinkedIn"
+              >
+                <Linkedin size={22} strokeWidth={1.75} aria-hidden />
+              </a>
               <Link href="/privacidad" style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>Privacidad</Link>
               <Link href="/terminos" style={{ color: 'var(--mk-muted)', fontSize: '0.8rem', textDecoration: 'none' }}>Términos</Link>
             </div>
