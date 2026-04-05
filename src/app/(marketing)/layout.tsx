@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Linkedin } from 'lucide-react'
 import { MobileNav } from '@/components/marketing/MobileNav'
 import { MarketingThemeToggle } from '@/components/marketing/ThemeToggle'
+import { FuncionalidadesMegaMenu } from '@/components/marketing/FuncionalidadesMegaMenu'
 import './marketing.css'
 
 export const metadata: Metadata = {
@@ -77,7 +78,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             OP<span style={{ color: 'var(--mk-teal)' }}>AI</span>
           </Link>
           <div className="mk-hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-            {navLinks.map(l => (
+            <FuncionalidadesMegaMenu />
+            {navLinks.filter(l => l.href !== '/funcionalidades').map(l => (
               <Link key={l.href} href={l.href} style={{ color: 'var(--mk-muted)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 500, transition: 'color 0.2s' }}>
                 {l.label}
               </Link>
