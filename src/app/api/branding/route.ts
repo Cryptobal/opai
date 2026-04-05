@@ -1,15 +1,49 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
-import { getDefaultTenantId } from "@/lib/tenant";
+import { auth } from "@/lib/auth";
+import { resolveTenantFromSlug } from "@/lib/tenant";
 
 /**
- * GET /api/branding — Public branding config (no auth required)
- * Returns branding fields for the default tenant.
- * Used by /welcome and other public pages.
+ * GET /api/branding — Public branding config
+ * Resolves tenant from: ?tenant=slug > session.user.tenantId > generic OPAI defaults
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const tenantId = await getDefaultTenantId();
+    let tenantId: string | null = null;
+
+    // 1. Try tenant slug from query param
+    const slug = req.nextUrl.searchParams.get("tenant");
+    if (slug) {
+      const tenant = await resolveTenantFromSlug(slug);
+      if (tenant) tenantId = tenant.id;
+    }
+
+    // 2. Try session
+    if (!tenantId) {
+      const session = await auth();
+      tenantId = session?.user?.tenantId ?? null;
+    }
+
+    // 3. If no tenant resolved, return generic OPAI defaults
+    if (!tenantId) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          logoFull: "",
+          logoIcon: "",
+          logoWhite: "",
+          logoDark: "",
+          favicon: "",
+          primaryColor: "#0056E0",
+          secondaryColor: "#1DB990",
+          accentColor: "#FF6B35",
+          appName: "OPAI",
+          tagline: "Plataforma de Gestión de Seguridad",
+          companyName: "OPAI",
+        },
+      });
+    }
+
     const config = await getTenantCompanyConfig(tenantId);
 
     return NextResponse.json({
@@ -33,7 +67,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[BRANDING] Error loading public branding:", error);
-    // Return generic OPAI defaults on error so welcome screen always works
     return NextResponse.json({
       success: true,
       data: {
