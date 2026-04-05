@@ -31,18 +31,32 @@ export async function publicarEnCanal(
         return await publicarGoogleJobs(jobPostingId);
       case "base_opai":
         return await notificarBaseInterna(jobPostingId);
+      case "talent":
+      case "bne": {
+        // Feed-based channels — the feed URL serves all active postings
+        const feedTenant = await prisma.tenant.findFirst({
+          where: { id: tenantId },
+          select: { slug: true },
+        });
+        const siteUrl =
+          process.env.NEXT_PUBLIC_SITE_URL ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          "https://opai.cl";
+        const feedUrl = `${siteUrl}/api/public/${feedTenant?.slug}/ats/feed.xml`;
+        return {
+          success: true,
+          externalId: feedUrl,
+        };
+      }
       case "indeed":
       case "computrabajo":
       case "bumeran":
-      case "talent":
-        return {
-          success: false,
-          error: `Canal ${canal} requiere configuración de credenciales de partner. Registrado como pendiente.`,
-        };
       case "yapo":
+      case "laborum":
+      case "linkedin":
         return {
-          success: false,
-          error: "Yapo requiere publicación manual. Registrado para trazabilidad.",
+          success: true,
+          externalId: `manual:${canal}`,
         };
       default:
         return { success: false, error: `Canal desconocido: ${canal}` };

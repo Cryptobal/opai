@@ -3,11 +3,12 @@ import { prisma } from "@/lib/prisma";
 export interface AtsChannelCfg {
   enabled: boolean;
   label: string;
-  tipo: "api" | "feed" | "manual" | "builtin";
-  apiKey?: string;
-  apiSecret?: string;
-  employerId?: string;
+  tipo: "automatico" | "feed" | "manual_link" | "partner_api";
+  /** For manual_link channels — URL where user published the job */
+  externalUrl?: string;
+  /** For feed channels — auto-generated, read-only */
   feedUrl?: string;
+  /** Notes */
   notas?: string;
 }
 
@@ -30,15 +31,15 @@ export interface AtsMatchConfig {
 }
 
 export const CHANNEL_DEFAULTS: Record<string, AtsChannelCfg> = {
-  google_jobs: { enabled: true, label: "Google Jobs", tipo: "builtin" },
-  base_opai: { enabled: true, label: "Base interna OPAI", tipo: "builtin" },
-  indeed: { enabled: false, label: "Indeed", tipo: "api", apiKey: "", employerId: "" },
-  computrabajo: { enabled: false, label: "Computrabajo", tipo: "api", apiKey: "", apiSecret: "" },
-  bumeran: { enabled: false, label: "Búmeran", tipo: "api", apiKey: "", apiSecret: "" },
+  google_jobs: { enabled: true, label: "Google Jobs", tipo: "automatico" },
+  base_opai: { enabled: true, label: "Base interna OPAI", tipo: "automatico" },
+  indeed: { enabled: false, label: "Indeed", tipo: "manual_link" },
+  computrabajo: { enabled: false, label: "Computrabajo", tipo: "manual_link" },
+  bumeran: { enabled: false, label: "Bumeran", tipo: "manual_link" },
   talent: { enabled: false, label: "Talent.com", tipo: "feed" },
-  yapo: { enabled: false, label: "Yapo", tipo: "manual" },
-  laborum: { enabled: false, label: "Laborum", tipo: "api", apiKey: "" },
-  linkedin: { enabled: false, label: "LinkedIn Jobs", tipo: "api", apiKey: "", apiSecret: "" },
+  yapo: { enabled: false, label: "Yapo", tipo: "manual_link" },
+  laborum: { enabled: false, label: "Laborum", tipo: "manual_link" },
+  linkedin: { enabled: false, label: "LinkedIn Jobs", tipo: "manual_link" },
   bne: { enabled: false, label: "BNE (Bolsa Nacional de Empleo)", tipo: "feed" },
 };
 
