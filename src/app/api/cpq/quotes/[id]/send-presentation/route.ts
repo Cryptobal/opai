@@ -219,7 +219,8 @@ export async function POST(
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
       process.env.SITE_URL ||
-      "https://opai.gard.cl";
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "";
     const presentationUrl = `${siteUrl}/p/${uniqueId}`;
 
     // 7. Map CPQ data to PresentationPayload
@@ -342,7 +343,7 @@ export async function POST(
       to: recipientEmail,
       cc: ccEmails.filter((e: string) => e && e.trim()),
       replyTo: EMAIL_CONFIG.replyTo,
-      subject: `Propuesta de Servicio ${quote.code} - Gard Security`,
+      subject: `Propuesta de Servicio ${quote.code} - ${tenantCfg.commercialName}`,
       html: emailHtml,
       tags: [
         { name: "type", value: "cpq-presentation" },

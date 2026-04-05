@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Construir la URL de marcación
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || "https://opai.gard.cl";
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
     const marcacionUrl = `${baseUrl}/marcar/${code}`;
 
     return NextResponse.json({

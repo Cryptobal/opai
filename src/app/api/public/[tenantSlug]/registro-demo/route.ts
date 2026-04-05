@@ -247,7 +247,7 @@ export async function POST(
     // Enviar email de bienvenida con credenciales
     try {
       const tenantCfg = await getTenantCompanyConfig(tenantId);
-      const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl"}/portal/cliente`;
+      const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/portal/cliente`;
 
       const emailHtml = await render(
         RegistroDemoEmail({
@@ -285,7 +285,7 @@ export async function POST(
               ${data.utmSource ? `<tr><td style="color: #64748b; padding-right: 16px;">Fuente</td><td>${data.utmSource}</td></tr>` : ""}
               ${data.utmCampaign ? `<tr><td style="color: #64748b; padding-right: 16px;">Campaña</td><td>${data.utmCampaign}</td></tr>` : ""}
             </table>
-            <p style="margin-top: 20px;"><a href="${process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl"}/opai/crm" style="color: #1e3a8a;">Ver en OPAI →</a></p>
+            <p style="margin-top: 20px;"><a href="${process.env.NEXT_PUBLIC_SITE_URL || ""}/opai/crm" style="color: #1e3a8a;">Ver en OPAI →</a></p>
           </div>
         `,
       });

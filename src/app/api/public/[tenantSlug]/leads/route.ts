@@ -3,7 +3,7 @@
  * POST - Crear lead desde formulario web (público, sin auth)
  *
  * Este endpoint es público y está diseñado para recibir datos
- * del formulario de cotización de la página web de Gard Security.
+ * del formulario de cotización de la página web del tenant.
  * Crea un lead en el CRM, genera una notificación y envía un email.
  */
 
@@ -249,11 +249,11 @@ export async function POST(
           </table>`
         : "";
 
-      const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl";
+      const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
       // PNG para que el logo se vea en clientes de correo (muchos bloquean SVG)
-      const logoUrl = tenantCfg.logoUrl || `${baseUrl}/Logo%20Gard%20Blanco.png`;
-      const headerBg = "#0f2847"; // azul oscuro Gard
-      const ctaBg = "#0f2847"; // mismo azul Gard para CTA (sin verde)
+      const logoUrl = tenantCfg.logoUrl || tenantCfg.brandingLogoWhite || (baseUrl ? `${baseUrl}/logo.png` : "");
+      const headerBg = "#0f2847";
+      const ctaBg = "#0f2847";
 
       await resend.emails.send({
         from: tenantCfg.emailFrom,

@@ -205,7 +205,7 @@ export async function POST(
     });
 
     if (created) {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "https://opai.gard.cl";
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
       const signerOrders = created.recipients
         .filter((r) => r.role === "signer")
         .map((r) => r.signingOrder);

@@ -269,7 +269,7 @@ export async function POST(
     const userAgent = request.headers.get("user-agent");
 
     const now = new Date();
-    const publicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "https://opai.gard.cl";
+    const publicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
 
     const result = await prisma.$transaction(async (tx) => {
       const updatedRecipient = await tx.docSignatureRecipient.update({

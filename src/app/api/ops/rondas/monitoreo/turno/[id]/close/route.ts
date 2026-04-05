@@ -176,7 +176,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Always send email — ops email is always included by sendMonitorTurnoEmail
     const noRealizadas = roundsData.filter(r => r.status === "no_realizada").length;
-    const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
+    const baseUrl = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
 
     // Build enriched report data (7-day history, guard ranking, semáforo, deltas, reliability, PDF)
     let reportData: Awaited<ReturnType<typeof buildTurnoReportData>> | null = null;

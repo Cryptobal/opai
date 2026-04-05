@@ -464,7 +464,7 @@ export async function GET(
     const signedAt = fmtDate(completedRequest.completedAt ?? document.signedAt ?? new Date());
     const contentHash = createHash("sha256").update(JSON.stringify(resolvedContent)).digest("hex");
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "https://opai.gard.cl";
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
     const verificationUrl = document.signedViewToken
       ? `${siteUrl}/signed/${document.id}/${document.signedViewToken}`
       : `${siteUrl}/opai/documentos/${document.id}`;

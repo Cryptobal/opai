@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://opai.gard.cl';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || '';
     // Use the tenantId stored in the webhook session (set during create-draft with auth context).
     const tenantId = webhookSession.tenantId;
     if (!tenantId) {
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
       subject: quoteSubject,
       presentationUrl,
       quoteNumber,
-      senderName: 'Equipo Comercial Gard',
+      senderName: `Equipo Comercial ${cfg.commercialName}`,
       expiryDate: validUntil ? new Date(validUntil).toLocaleDateString('es-CL', {
         year: 'numeric',
         month: 'long',
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
 
     // 7. Renderizar email
     const emailHtml = await render(PresentationEmail(emailProps));
-    const emailSubject = `${quoteSubject} - Gard Security`;
+    const emailSubject = `${quoteSubject} - ${cfg.commercialName}`;
 
     // 8. Enviar email con Resend
     const ccList = ccEmails.filter((email: string) => email && email.trim());

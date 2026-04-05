@@ -85,7 +85,7 @@ export async function POST(
     });
     const companyConfig = await getTenantCompanyConfig(ctx.tenantId);
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
     const portalUrl = portalEnabled ? `${baseUrl}/portal/cliente` : undefined;
 
     // Generate PDF
@@ -109,7 +109,7 @@ export async function POST(
         bodyText: htmlBody,
         senderName: sender?.name || companyConfig.commercialName || "Equipo Comercial",
         senderCargo: sender?.cargo || "",
-        brandName: companyConfig.commercialName || "Gard Security",
+        brandName: companyConfig.commercialName,
         brandPhone: companyConfig.phone || "",
         brandEmail: companyConfig.email || "",
         portalUrl,

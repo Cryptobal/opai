@@ -21,9 +21,9 @@ export async function GET(req: NextRequest) {
       recipientName: 'Daniel Troncoso',
       companyName: 'Polpaico Soluciones',
       subject: 'Apoyo nocturno Coronel V1',
-      presentationUrl: 'https://opai.gard.cl/p/abc123xyz456',
+      presentationUrl: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/p/abc123xyz456`,
       quoteNumber: 'Q-615789',
-      senderName: 'Equipo Comercial Gard',
+      senderName: 'Equipo Comercial',
       expiryDate: '15 de marzo de 2026',
     };
 

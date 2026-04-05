@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: presentation,
-      url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://opai.gard.cl'}/p/${uniqueId}`,
+      url: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ''}/p/${uniqueId}`,
     }, { status: 201 });
   } catch (error) {
     console.error('Error creating presentation:', error);

@@ -184,7 +184,8 @@ export async function POST(request: Request) {
     const baseUrl =
       request.headers.get("origin") ||
       process.env.NEXT_PUBLIC_APP_URL ||
-      "https://opai.gard.cl";
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "";
 
     const html = buildCoberturaEmailHtml(snapshot, {
       operatorName: activeTurno.operatorName ?? "Operador",

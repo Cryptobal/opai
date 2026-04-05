@@ -1,7 +1,7 @@
 /**
  * Webhook: Resend Inbound Email (email.received)
  *
- * Cuando se reenvía un correo a la dirección configurada (ej. leads@inbound.gard.cl),
+ * Cuando se reenvía un correo a la dirección configurada (ej. la definida en INBOUND_LEADS_EMAIL),
  * Resend envía un POST con type "email.received". Aquí:
  * 1. Validamos destinatario
  * 2. Obtenemos contenido completo del email vía API Resend

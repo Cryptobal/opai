@@ -122,7 +122,7 @@ export async function POST(
         portalEnabled: true,
       },
     });
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "https://opai.gard.cl";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
     portalUrl = `${baseUrl}/portal/cliente/setup?token=${magicToken}`;
 
     const tenantConfig = await getTenantCompanyConfig(ctx.tenantId);

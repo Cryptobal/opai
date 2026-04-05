@@ -8,6 +8,7 @@ import {
   type GuardiaCommunicationChannel,
 } from "@/lib/personas";
 import { sendGuardiaCommunicationSchema } from "@/lib/validations/ops";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 
 type Params = { id: string };
 
@@ -91,6 +92,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Plantilla de comunicación inválida" }, { status: 400 });
     }
 
+    const tenantCfg = await getTenantCompanyConfig(ctx.tenantId);
     const vars = {
       nombre: toSafeString(guardia.persona.firstName),
       apellido: toSafeString(guardia.persona.lastName),
@@ -118,7 +120,7 @@ export async function POST(
           from: resendModule.EMAIL_CONFIG.from,
           to: targetEmail,
           replyTo: resendModule.EMAIL_CONFIG.replyTo,
-          subject: resolvedSubject || "Comunicación Gard Security",
+          subject: resolvedSubject || `Comunicación ${tenantCfg.commercialName}`,
           html: `<div style="font-family: Arial, sans-serif; white-space: pre-line;">${resolvedBody}</div>`,
           tags: [{ name: "type", value: "guardia_communication" }],
         });

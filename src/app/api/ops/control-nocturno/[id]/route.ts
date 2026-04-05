@@ -371,7 +371,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const baseUrl =
         process.env.VERCEL_URL
           ? `https://${process.env.VERCEL_URL}`
-          : process.env.NEXTAUTH_URL || "https://opai.gard.cl";
+          : process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
 
       // Generate AI summary (non-blocking, best-effort)
       const aiSummaryPromise = generateControlNocturnoSummary(

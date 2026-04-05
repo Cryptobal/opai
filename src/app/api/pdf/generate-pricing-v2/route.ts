@@ -27,7 +27,7 @@ interface PricingRequest {
 }
 
 // Logo SVG como base64 (generado dinámicamente con el nombre de la empresa)
-function buildLogoSvgBase64(brandName = "GARD", brandSubtitle = "SECURITY"): string {
+function buildLogoSvgBase64(brandName = "", brandSubtitle = "SECURITY"): string {
   return `data:image/svg+xml;base64,${Buffer.from(`<svg width="180" height="60" viewBox="0 0 180 60" xmlns="http://www.w3.org/2000/svg">
   <g transform="translate(0, 5)">
     <path d="M15 8 L25 3 L35 8 L35 20 C35 28 25 35 25 35 C25 35 15 28 15 20 Z" fill="white" opacity="0.95"/>
@@ -41,7 +41,7 @@ function buildLogoSvgBase64(brandName = "GARD", brandSubtitle = "SECURITY"): str
 // Función para generar el HTML del PDF
 function generatePricingHTML(data: PricingRequest): string {
   const { clientName, quoteNumber, quoteDate, pricing, contactEmail, contactPhone, companyName, website } = data;
-  const logoBase64 = buildLogoSvgBase64();
+  const logoBase64 = buildLogoSvgBase64(companyName || "");
   
   const formatPrice = (value: number) =>
     formatCurrency(value, pricing.currency as string, { ufSuffix: true });

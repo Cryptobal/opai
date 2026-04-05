@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     const now = new Date();
     const reminderCutoff = new Date(now.getTime() - REMINDER_INTERVAL_HOURS * 60 * 60 * 1000);
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "https://opai.gard.cl";
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
 
     let expiredRequestsCount = 0;
     let remindersSentCount = 0;

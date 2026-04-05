@@ -76,7 +76,7 @@ export async function POST(
       );
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "https://opai.gard.cl";
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
     const signingUrl = `${siteUrl}/sign/${recipient.token}`;
     const emailResult = await sendSignatureReminderEmail({
       to: recipient.email,

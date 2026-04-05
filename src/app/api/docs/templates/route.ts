@@ -48,7 +48,7 @@ const WA_SEEDS: {
     name: "WhatsApp — Propuesta enviada",
     category: "proposal_sent",
     description: "Mensaje al compartir la propuesta por WhatsApp después de enviarla por email.",
-    body: `Hola {contactName}, te envío la propuesta de Gard Security para {companyName}:\n\n{proposalUrl}`,
+    body: `Hola {contactName}, te envío la propuesta para {companyName}:\n\n{proposalUrl}`,
   },
   {
     slug: "followup_first",

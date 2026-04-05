@@ -108,7 +108,8 @@ export async function POST(
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
       process.env.SITE_URL ||
-      "https://opai.gard.cl";
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "";
     let account: {
       name: string;
       logoUrl?: string | null;

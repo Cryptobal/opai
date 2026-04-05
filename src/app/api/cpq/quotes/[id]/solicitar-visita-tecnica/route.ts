@@ -139,7 +139,7 @@ export async function POST(
         ? `https://www.google.com/maps?q=${installation.lat},${installation.lng}`
         : null;
 
-    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://opai.gard.cl"}/portal/supervisor`;
+    const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/portal/supervisor`;
 
     // Enviar email a todos los supervisores seleccionados
     const emailConfig = await getTenantEmailConfig(ctx.tenantId);

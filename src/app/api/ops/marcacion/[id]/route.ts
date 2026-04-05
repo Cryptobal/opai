@@ -118,7 +118,7 @@ export async function PATCH(
 
     // Generar token de oposición único para esta modificación
     const oppositionToken = crypto.randomUUID();
-    const baseUrl = process.env.NEXTAUTH_URL ?? "https://opai.gard.cl";
+    const baseUrl = process.env.NEXTAUTH_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
     const oppositionUrl = `${baseUrl}/marcacion/oposicion/${oppositionToken}`;
 
     const updateData: Record<string, unknown> = {
