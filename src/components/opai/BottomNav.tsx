@@ -591,12 +591,21 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
   // Re-sync when items change (permission-based filtering)
   useEffect(() => {
     const stored = getStoredOrder(activeModule);
+    const available = new Set(items.map((i) => i.key));
     if (stored) {
-      // Keep only keys that still exist in items, then add any new ones
-      const available = new Set(items.map((i) => i.key));
       const valid = stored.filter((k: string) => available.has(k));
-      const newKeys = items.filter((i) => !stored.includes(i.key)).map((i) => i.key);
-      setOrderedKeys([...valid, ...newKeys]);
+      const newKeys = items.filter((i) => !valid.includes(i.key)).map((i) => i.key);
+      // Insertar ítems nuevos (p. ej. ATS añadido al producto) junto a ops-ats, no al final
+      let merged = [...valid];
+      if (newKeys.length > 0) {
+        const atsIdx = merged.indexOf("ops-ats");
+        if (atsIdx >= 0) {
+          merged = [...merged.slice(0, atsIdx + 1), ...newKeys, ...merged.slice(atsIdx + 1)];
+        } else {
+          merged = [...newKeys, ...merged];
+        }
+      }
+      setOrderedKeys(merged);
     } else {
       setOrderedKeys(items.map((i) => i.key));
     }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,31 @@ import {
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ChevronRight, ShieldCheck, ShieldX, MapPin, User, ExternalLink, Globe } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ChevronRight,
+  ShieldCheck,
+  ShieldX,
+  MapPin,
+  User,
+  ExternalLink,
+  Globe,
+  Pencil,
+  Copy,
+  RefreshCw,
+  Pause,
+  Play,
+  XCircle,
+  Loader2,
+} from "lucide-react";
 
 interface Application {
   id: string;
@@ -47,17 +72,52 @@ interface Application {
 interface Job {
   id: string;
   titulo: string;
+  descripcion: string;
   estado: string;
   turno: string;
   region: string;
+  commune: string | null;
+  installationId: string | null;
+  jsonLdSlug: string | null;
+  rentaMin: number | null;
+  rentaMax: number | null;
+  vacantes: number;
+  requiereOS10: boolean;
+  requiereMovilizacion: boolean;
+  genero: string | null;
+  experienciaMinAnios: number | null;
+  funciones: string | null;
+  expiraAt: string | null;
+  updatedAt: string;
   applications: Application[];
-  channels: Array<{ id: string; canal: string; estado: string | null; activo: boolean; externalId: string | null }>;
+  channels: Array<{ id: string; canal: string; estado: string | null; activo: boolean; externalId: string | null; errorDetalle: string | null }>;
+  installation: { id: string; name: string } | null;
 }
 
 interface ManualChannel {
   key: string;
   label: string;
 }
+
+interface InstallationOption {
+  id: string;
+  name: string;
+  commune: string | null;
+}
+
+const TURNOS_EDIT = [
+  { value: "4x4_dia", label: "4×4 Día" },
+  { value: "4x4_noche", label: "4×4 Noche" },
+  { value: "5x2", label: "5×2" },
+  { value: "6x1", label: "6×1" },
+  { value: "otro", label: "Otro" },
+];
+
+const REGIONES_EDIT = [
+  "Arica y Parinacota", "Tarapacá", "Antofagasta", "Atacama", "Coquimbo",
+  "Valparaíso", "Metropolitana", "O'Higgins", "Maule", "Ñuble", "Biobío",
+  "La Araucanía", "Los Ríos", "Los Lagos", "Aysén", "Magallanes",
+];
 
 const ETAPAS = ["POSTULADO", "EN_REVISION", "ENTREVISTA", "OFERTA", "CONTRATADO"] as const;
 const ETAPA_LABELS: Record<string, string> = {
@@ -100,7 +160,24 @@ const NEXT_ETAPA: Record<string, string> = {
   OFERTA: "CONTRATADO",
 };
 
-export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manualChannels?: ManualChannel[] }) {
+function isHttpUrl(s: string | null | undefined): boolean {
+  if (!s) return false;
+  return /^https?:\/\//i.test(s.trim());
+}
+
+export function AtsPipelineClient({
+  job,
+  manualChannels = [],
+  publicJobUrl,
+  tenantSlug,
+  installations = [],
+}: {
+  job: Job;
+  manualChannels?: ManualChannel[];
+  publicJobUrl: string | null;
+  tenantSlug: string;
+  installations?: InstallationOption[];
+}) {
   const router = useRouter();
   const [selected, setSelected] = useState<Application | null>(null);
   const [moving, setMoving] = useState(false);
@@ -113,6 +190,52 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
     return initial;
   });
   const [savingUrl, setSavingUrl] = useState<string | null>(null);
+  const [jobAction, setJobAction] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    titulo: job.titulo,
+    descripcion: job.descripcion,
+    turno: job.turno,
+    region: job.region,
+    commune: job.commune ?? "",
+    installationId: job.installationId ?? "",
+    rentaMin: job.rentaMin != null ? String(job.rentaMin) : "",
+    rentaMax: job.rentaMax != null ? String(job.rentaMax) : "",
+    vacantes: String(job.vacantes ?? 1),
+    requiereOS10: job.requiereOS10,
+    requiereMovilizacion: job.requiereMovilizacion,
+    genero: job.genero ?? "",
+    experienciaMinAnios: String(job.experienciaMinAnios ?? 0),
+    funciones: job.funciones ?? "",
+  });
+
+  useEffect(() => {
+    setEditForm({
+      titulo: job.titulo,
+      descripcion: job.descripcion,
+      turno: job.turno,
+      region: job.region,
+      commune: job.commune ?? "",
+      installationId: job.installationId ?? "",
+      rentaMin: job.rentaMin != null ? String(job.rentaMin) : "",
+      rentaMax: job.rentaMax != null ? String(job.rentaMax) : "",
+      vacantes: String(job.vacantes ?? 1),
+      requiereOS10: job.requiereOS10,
+      requiereMovilizacion: job.requiereMovilizacion,
+      genero: job.genero ?? "",
+      experienciaMinAnios: String(job.experienciaMinAnios ?? 0),
+      funciones: job.funciones ?? "",
+    });
+  }, [job.id, job.updatedAt]);
+
+  const siteOrigin = useMemo(() => {
+    if (typeof window !== "undefined") return window.location.origin;
+    return "";
+  }, []);
+  const feedXmlUrl = tenantSlug
+    ? `${siteOrigin}/api/public/${tenantSlug}/ats/feed.xml`
+    : "";
 
   const pipeline = new Map<string, Application[]>();
   for (const e of ETAPAS) pipeline.set(e, []);
@@ -167,42 +290,231 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
     }
   }
 
+  async function runJobAction(
+    action: "pausar" | "cerrar" | "activar" | "republicar",
+    confirmMessage?: string,
+  ) {
+    if (confirmMessage && !window.confirm(confirmMessage)) return;
+    setJobAction(action);
+    try {
+      const path =
+        action === "pausar"
+          ? "pausar"
+          : action === "cerrar"
+            ? "cerrar"
+            : action === "activar"
+              ? "activar"
+              : "republicar";
+      const res = await fetch(`/api/ops/ats/jobs/${job.id}/${path}`, { method: "POST" });
+      const json = await res.json();
+      if (!json.success) {
+        toast.error(json.error || "Error");
+        return;
+      }
+      if (action === "republicar" && json.data?.results) {
+        const ok = (json.data.results as { ok: boolean }[]).some((r) => r.ok);
+        toast[ok ? "success" : "error"](json.data.message || (ok ? "Listo" : "Revisa los canales"));
+      } else {
+        toast.success(
+          action === "pausar"
+            ? "Aviso pausado"
+            : action === "cerrar"
+              ? "Aviso cerrado"
+              : action === "activar"
+                ? "Aviso activado"
+                : "Republicación enviada",
+        );
+      }
+      router.refresh();
+    } catch {
+      toast.error("Error de red");
+    } finally {
+      setJobAction(null);
+    }
+  }
+
+  async function submitEdit() {
+    if (!editForm.titulo.trim() || editForm.descripcion.trim().length < 10 || !editForm.turno || !editForm.region) {
+      toast.error("Completa título, descripción (mín. 10 caracteres), turno y región");
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`/api/ops/ats/jobs/${job.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          titulo: editForm.titulo.trim(),
+          descripcion: editForm.descripcion.trim(),
+          turno: editForm.turno,
+          region: editForm.region,
+          commune: editForm.commune.trim() || null,
+          installationId: editForm.installationId || null,
+          rentaMin: editForm.rentaMin ? parseInt(editForm.rentaMin, 10) : null,
+          rentaMax: editForm.rentaMax ? parseInt(editForm.rentaMax, 10) : null,
+          vacantes: parseInt(editForm.vacantes, 10) || 1,
+          requiereOS10: editForm.requiereOS10,
+          requiereMovilizacion: editForm.requiereMovilizacion,
+          genero: editForm.genero === "M" || editForm.genero === "F" ? editForm.genero : null,
+          experienciaMinAnios: parseInt(editForm.experienciaMinAnios, 10) || 0,
+          funciones: editForm.funciones.trim() || null,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        toast.error(json.error || "Error al guardar");
+        return;
+      }
+      toast.success("Cambios guardados");
+      setEditOpen(false);
+      router.refresh();
+    } catch {
+      toast.error("Error de red");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
   const descartados = pipeline.get("DESCARTADO") ?? [];
 
-  // Channels that are automatic (already published)
-  const autoChannels = job.channels.filter(
-    (ch) => ch.activo && ch.estado === "publicado",
+  // Canales con actividad reciente (publicado, error o pendiente) para mostrar enlaces y estado
+  const distributionChannels = job.channels.filter(
+    (ch) => ch.activo && (ch.estado === "publicado" || ch.estado === "error" || ch.estado === "pendiente"),
   );
 
   return (
     <div className="space-y-4">
+      {/* Enlaces públicos (cómo se ve en internet / feeds) */}
+      <Card className="p-4 sm:p-6 space-y-3">
+        <h3 className="font-semibold text-sm sm:text-base">Vista pública y feeds</h3>
+        <p className="text-xs text-muted-foreground">
+          Así indexan buscadores y agregadores el aviso. Copia el enlace o ábrelo para comprobarlo.
+        </p>
+        <div className="space-y-2 text-sm">
+          {publicJobUrl ? (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-muted/20 p-3">
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground mb-0.5">Página del empleo (JSON-LD / Google)</p>
+                <a
+                  href={publicJobUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary break-all hover:underline text-xs"
+                >
+                  {publicJobUrl}
+                </a>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(publicJobUrl).then(() => toast.success("Copiado"));
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5 mr-1" /> Copiar
+                </Button>
+                <Button size="sm" className="h-8" asChild>
+                  <a href={publicJobUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" /> Abrir
+                  </a>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              Activa el aviso para generar la URL pública indexable.
+            </p>
+          )}
+          {feedXmlUrl && tenantSlug && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border p-3">
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground mb-0.5">Feed XML del tenant (Talent / agregadores)</p>
+                <span className="text-xs break-all text-muted-foreground">{feedXmlUrl}</span>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-8 shrink-0"
+                onClick={() => {
+                  void navigator.clipboard.writeText(feedXmlUrl).then(() => toast.success("URL del feed copiada"));
+                }}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1" /> Copiar feed
+              </Button>
+            </div>
+          )}
+        </div>
+      </Card>
+
       {/* Distribution section — per job */}
-      {(manualChannels.length > 0 || autoChannels.length > 0) && (
+      {(manualChannels.length > 0 || distributionChannels.length > 0) && (
         <Card className="p-4 sm:p-6 space-y-4">
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-muted-foreground" />
             <h3 className="font-semibold text-sm sm:text-base">Distribución de este aviso</h3>
           </div>
 
-          {/* Auto-published channels */}
-          {autoChannels.length > 0 && (
+          {distributionChannels.length > 0 && (
             <div className="space-y-2">
-              {autoChannels.map((ch) => (
-                <div key={ch.canal} className="flex items-center gap-2 text-sm">
-                  <Badge variant="secondary" className="text-[10px]">Publicado</Badge>
-                  <span className="font-medium">{ch.canal.replace("_", " ")}</span>
-                  {ch.externalId && (
-                    <a
-                      href={ch.externalId}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline truncate"
-                    >
-                      Ver aviso
-                    </a>
-                  )}
-                </div>
-              ))}
+              {distributionChannels.map((ch) => {
+                const link = isHttpUrl(ch.externalId) ? ch.externalId! : publicJobUrl;
+                const label =
+                  ch.estado === "publicado"
+                    ? "Publicado"
+                    : ch.estado === "error"
+                      ? "Error"
+                      : "Pendiente";
+                return (
+                  <div
+                    key={ch.canal}
+                    className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-sm border rounded-lg p-2"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant="secondary"
+                        className={
+                          ch.estado === "error"
+                            ? "text-[10px] bg-red-100 text-red-800"
+                            : ch.estado === "pendiente"
+                              ? "text-[10px] bg-amber-100 text-amber-800"
+                              : "text-[10px]"
+                        }
+                      >
+                        {label}
+                      </Badge>
+                      <span className="font-medium capitalize">{ch.canal.replace(/_/g, " ")}</span>
+                    </div>
+                    <div className="flex flex-col items-start sm:items-end gap-1 min-w-0">
+                      {link && (
+                        <a
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline truncate max-w-full"
+                        >
+                          {ch.estado === "error" || !isHttpUrl(ch.externalId)
+                            ? "Ver página pública del empleo"
+                            : "Ver enlace / rastreo"}
+                        </a>
+                      )}
+                      {!link && ch.externalId && (
+                        <span className="text-[11px] text-muted-foreground truncate max-w-full" title={ch.externalId}>
+                          {ch.externalId}
+                        </span>
+                      )}
+                      {ch.estado === "error" && ch.errorDetalle && (
+                        <span className="text-[11px] text-red-600 dark:text-red-400 max-w-full">
+                          {ch.errorDetalle}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -255,6 +567,109 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
               })}
             </div>
           )}
+        </Card>
+      )}
+
+      {/* Acciones del aviso (editar, pausar, republicar indexación, cerrar) */}
+      {job.estado !== "CERRADO" && (
+        <Card className="p-4 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium">Estado: {job.estado}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Edita el texto y vuelve a publicar en canales; pausa sin cerrar; reindexa en Google tras cambios.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" className="h-9" onClick={() => setEditOpen(true)}>
+                <Pencil className="h-3.5 w-3.5 mr-1" /> Editar aviso
+              </Button>
+              {job.estado === "ACTIVO" && (
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="h-9"
+                    disabled={!!jobAction}
+                    onClick={() =>
+                      runJobAction(
+                        "republicar",
+                        "¿Volver a enviar a los canales activos (p. ej. indexación Google)?",
+                      )
+                    }
+                  >
+                    {jobAction === "republicar" ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    Reenviar a canales
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    disabled={!!jobAction}
+                    onClick={() => runJobAction("pausar", "¿Pausar este aviso?")}
+                  >
+                    {jobAction === "pausar" ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <Pause className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    Pausar
+                  </Button>
+                </>
+              )}
+              {(job.estado === "BORRADOR" || job.estado === "PAUSADO") && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9"
+                  disabled={!!jobAction}
+                  onClick={() => runJobAction("activar")}
+                >
+                  {jobAction === "activar" ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5 mr-1" />
+                  )}
+                  Activar
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="h-9"
+                disabled={!!jobAction}
+                onClick={() =>
+                  runJobAction("cerrar", "¿Cerrar definitivamente este aviso? Se desactivarán los canales.")
+                }
+              >
+                {jobAction === "cerrar" ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <XCircle className="h-3.5 w-3.5 mr-1" />
+                )}
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {job.estado === "CERRADO" && (
+        <Card className="p-4 border-dashed">
+          <p className="text-sm text-muted-foreground">
+            Este aviso está cerrado y no se puede editar desde aquí. Crea uno nuevo desde{" "}
+            <Link href="/ops/ats/nuevo" className="text-primary underline">
+              Nuevo aviso
+            </Link>
+            .
+          </p>
         </Card>
       )}
 
@@ -519,6 +934,192 @@ export function AtsPipelineClient({ job, manualChannels = [] }: { job: Job; manu
               </div>
             </>
           )}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={editOpen} onOpenChange={setEditOpen}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[92vh] overflow-y-auto rounded-t-2xl p-4 sm:p-6 z-[60]"
+        >
+          <SheetHeader>
+            <SheetTitle>Editar aviso</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div>
+              <Label htmlFor="edit-titulo">Título *</Label>
+              <Input
+                id="edit-titulo"
+                value={editForm.titulo}
+                onChange={(e) => setEditForm((f) => ({ ...f, titulo: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-desc">Descripción *</Label>
+              <Textarea
+                id="edit-desc"
+                rows={5}
+                value={editForm.descripcion}
+                onChange={(e) => setEditForm((f) => ({ ...f, descripcion: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Turno *</Label>
+                <Select value={editForm.turno} onValueChange={(v) => setEditForm((f) => ({ ...f, turno: v }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TURNOS_EDIT.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Región *</Label>
+                <Select value={editForm.region} onValueChange={(v) => setEditForm((f) => ({ ...f, region: v }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REGIONES_EDIT.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {r}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="edit-commune">Comuna</Label>
+              <Input
+                id="edit-commune"
+                value={editForm.commune}
+                onChange={(e) => setEditForm((f) => ({ ...f, commune: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Instalación</Label>
+              <Select
+                value={editForm.installationId || "__none__"}
+                onValueChange={(v) =>
+                  setEditForm((f) => ({ ...f, installationId: v === "__none__" ? "" : v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin instalación" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sin instalación</SelectItem>
+                  {installations.map((i) => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.name}
+                      {i.commune ? ` (${i.commune})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-renta-min">Renta mín. (CLP)</Label>
+                <Input
+                  id="edit-renta-min"
+                  type="number"
+                  value={editForm.rentaMin}
+                  onChange={(e) => setEditForm((f) => ({ ...f, rentaMin: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-renta-max">Renta máx. (CLP)</Label>
+                <Input
+                  id="edit-renta-max"
+                  type="number"
+                  value={editForm.rentaMax}
+                  onChange={(e) => setEditForm((f) => ({ ...f, rentaMax: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="edit-vac">Vacantes</Label>
+              <Input
+                id="edit-vac"
+                type="number"
+                min={1}
+                value={editForm.vacantes}
+                onChange={(e) => setEditForm((f) => ({ ...f, vacantes: e.target.value }))}
+              />
+            </div>
+            <div className="flex flex-wrap gap-6">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={editForm.requiereOS10}
+                  onCheckedChange={(v) => setEditForm((f) => ({ ...f, requiereOS10: v }))}
+                />
+                <Label>Requiere OS10</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={editForm.requiereMovilizacion}
+                  onCheckedChange={(v) => setEditForm((f) => ({ ...f, requiereMovilizacion: v }))}
+                />
+                <Label>Movilización</Label>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Género</Label>
+                <Select
+                  value={editForm.genero || "any"}
+                  onValueChange={(v) =>
+                    setEditForm((f) => ({ ...f, genero: v === "any" ? "" : v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Cualquiera</SelectItem>
+                    <SelectItem value="M">Masculino</SelectItem>
+                    <SelectItem value="F">Femenino</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-exp">Experiencia mín. (años)</Label>
+                <Input
+                  id="edit-exp"
+                  type="number"
+                  min={0}
+                  value={editForm.experienciaMinAnios}
+                  onChange={(e) => setEditForm((f) => ({ ...f, experienciaMinAnios: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="edit-func">Funciones</Label>
+              <Textarea
+                id="edit-func"
+                rows={3}
+                value={editForm.funciones}
+                onChange={(e) => setEditForm((f) => ({ ...f, funciones: e.target.value }))}
+              />
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setEditOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="button" className="w-full sm:flex-1" disabled={savingEdit} onClick={() => void submitEdit()}>
+                {savingEdit ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Guardar cambios
+              </Button>
+            </div>
+          </div>
         </SheetContent>
       </Sheet>
     </div>

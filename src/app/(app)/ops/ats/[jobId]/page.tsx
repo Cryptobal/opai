@@ -23,7 +23,7 @@ export default async function AtsPipelinePage({
   const { jobId } = await params;
   const tenantId = session.user.tenantId;
 
-  const [job, atsConfig] = await Promise.all([
+  const [job, atsConfig, tenantRow, installations] = await Promise.all([
     prisma.atsJobPosting.findFirst({
       where: { id: jobId, tenantId },
       include: {
@@ -58,9 +58,27 @@ export default async function AtsPipelinePage({
       },
     }),
     getAtsConfig(tenantId),
+    prisma.tenant.findFirst({
+      where: { id: tenantId },
+      select: { slug: true },
+    }),
+    prisma.crmInstallation.findMany({
+      where: { tenantId, isActive: true },
+      select: { id: true, name: true, commune: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   if (!job) notFound();
+
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://opai.cl";
+  const publicJobUrl =
+    tenantRow?.slug && job.jsonLdSlug
+      ? `${siteUrl.replace(/\/$/, "")}/empleos/${tenantRow.slug}/${job.jsonLdSlug}`
+      : null;
 
   // Build enabled manual channels list for the job distribution UI
   const enabledManualChannels = Object.entries(atsConfig.channelConfigs ?? {})
@@ -68,7 +86,7 @@ export default async function AtsPipelinePage({
     .map(([key, cfg]) => ({ key, label: cfg.label }));
 
   return (
-    <div className="space-y-6 min-w-0">
+    <div className="space-y-6 min-w-0 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
       <PageHeader
         title={job.titulo}
         description={`${job.turno} · ${job.region} · ${job.applications.length} postulantes`}
@@ -78,6 +96,9 @@ export default async function AtsPipelinePage({
       <AtsPipelineClient
         job={JSON.parse(JSON.stringify(job))}
         manualChannels={enabledManualChannels}
+        publicJobUrl={publicJobUrl}
+        tenantSlug={tenantRow?.slug ?? ""}
+        installations={JSON.parse(JSON.stringify(installations))}
       />
     </div>
   );

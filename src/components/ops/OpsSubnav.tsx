@@ -21,6 +21,7 @@ import {
 
 const OPS_ITEMS: (SubNavItem & { subKey?: string })[] = [
   { href: "/ops", label: "Inicio", icon: LayoutDashboard, exactMatch: true },
+  { href: "/ops/ats", label: "ATS", icon: Briefcase, subKey: "ats" },
   // ── Grupo Pautas ──
   { href: "/ops/pauta-mensual", label: "Pauta Mensual", icon: CalendarDays, subKey: "pauta_mensual" },
   { href: "/ops/pauta-diaria", label: "Pauta Diaria", icon: UserRoundCheck, subKey: "pauta_diaria" },
@@ -33,7 +34,6 @@ const OPS_ITEMS: (SubNavItem & { subKey?: string })[] = [
   { href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
   { href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
   { href: "/ops/alertas-cobertura", label: "Alertas Cobertura", icon: Siren, subKey: "alertas_cobertura" },
-  { href: "/ops/ats", label: "ATS", icon: Briefcase, subKey: "ats" },
   { href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];
 
