@@ -18,7 +18,7 @@ export default async function NotificacionesConfigPage() {
     <ConfigPageLayout
       title="Notificaciones"
       description="Parámetros globales. Cada usuario configura sus preferencias en Perfil → Mis notificaciones"
-      icon={Bell}
+      icon={<Bell className="h-[18px] w-[18px]" />}
     >
       <NotificationConfigClient />
     </ConfigPageLayout>

@@ -5,9 +5,7 @@
  * this service so switching providers is transparent.
  */
 
-import { prisma } from "@/lib/prisma";
-import { decryptApiKey } from "@/lib/ai-encryption";
-import { KNOWN_PROVIDERS } from "@/lib/ai-known-models";
+import { getPlatformAIConfig } from "@/lib/platform-ai-service";
 
 export type AIConfig = {
   providerType: string;
@@ -18,58 +16,20 @@ export type AIConfig = {
 
 export class AIService {
   /**
-   * Returns the currently active provider + default model config,
-   * or null if no provider is configured.
+   * Returns the currently active platform-level provider + default model
+   * config, or null if no provider is configured.
    */
   async getActiveConfig(): Promise<AIConfig | null> {
-    const activeProvider = await prisma.aiProvider.findFirst({
-      where: { isActive: true, apiKey: { not: null } },
-      include: {
-        models: {
-          where: { isDefault: true, isActive: true },
-          take: 1,
-        },
-      },
-    });
-
-    if (!activeProvider || !activeProvider.apiKey) {
-      console.warn("[ai-service] No active provider found with API key");
+    const cfg = await getPlatformAIConfig();
+    if (!cfg) {
+      console.warn("[ai-service] No platform AI provider configured");
       return null;
     }
-
-    let model: { modelId: string } | null = activeProvider.models[0] ?? null;
-
-    // Fallback: if no default+active model found, try first active model
-    if (!model) {
-      console.warn("[ai-service] No default model for provider, trying fallback");
-      model = await prisma.aiModel.findFirst({
-        where: { providerId: activeProvider.id, isActive: true },
-        orderBy: { costTier: "asc" },
-      });
-    }
-
-    // Last resort: any model from this provider
-    if (!model) {
-      console.warn("[ai-service] No active model, trying any model");
-      model = await prisma.aiModel.findFirst({
-        where: { providerId: activeProvider.id },
-        orderBy: { costTier: "asc" },
-      });
-    }
-
-    if (!model) {
-      console.warn("[ai-service] Provider has no models at all");
-      return null;
-    }
-
-    const fallbackUrl =
-      KNOWN_PROVIDERS.find((kp) => kp.providerType === activeProvider.providerType)?.defaultBaseUrl ?? "";
-
     return {
-      providerType: activeProvider.providerType,
-      modelId: model.modelId,
-      apiKey: decryptApiKey(activeProvider.apiKey),
-      baseUrl: activeProvider.baseUrl || fallbackUrl,
+      providerType: cfg.providerType,
+      modelId: cfg.modelId,
+      apiKey: cfg.apiKey,
+      baseUrl: cfg.baseUrl,
     };
   }
 

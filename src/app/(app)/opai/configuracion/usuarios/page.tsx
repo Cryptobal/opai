@@ -44,7 +44,7 @@ export default async function UsuariosConfigPage() {
     <ConfigPageLayout
       title="Usuarios"
       description="Administra los usuarios y permisos de tu equipo"
-      icon={Users}
+      icon={<Users className="h-[18px] w-[18px]" />}
       actions={
         <div className="flex items-center gap-3">
           <RolesHelpCard />

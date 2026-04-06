@@ -31,9 +31,8 @@ const CONFIG_SECTIONS: ConfigSection[] = [
       { submodule: "integraciones", href: "/opai/configuracion/integraciones", title: "Integraciones", description: "Gmail y conectores externos", icon: "plug" },
       { submodule: "notificaciones", href: "/opai/configuracion/notificaciones", title: "Notificaciones", description: "Parámetros globales", icon: "bell" },
       { submodule: "notificaciones", href: "/opai/configuracion/asistente-ia", title: "Asistente IA", description: "Control de roles, acceso y alcance del chat", icon: "bot", adminOnly: true },
-      { submodule: "inteligencia_artificial", href: "/opai/configuracion/inteligencia-artificial", title: "Inteligencia Artificial", description: "Proveedor de IA, API key y modelo", icon: "sparkles", adminOnly: true },
       { submodule: "usuarios", href: "/opai/configuracion/auditoria", title: "Auditoría", description: "Registro de acciones y cambios por usuario", icon: "clipboard-check", adminOnly: true },
-      { submodule: "inteligencia_artificial", href: "/opai/configuracion/documentos-globales", title: "Documentos Globales", description: "OS10, seguros, documentos normativos", icon: "file-text", adminOnly: true },
+      { submodule: "usuarios", href: "/opai/configuracion/documentos-globales", title: "Documentos Globales", description: "OS10, seguros, documentos normativos", icon: "file-text", adminOnly: true },
     ],
   },
   {

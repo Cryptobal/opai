@@ -34,7 +34,7 @@ export default async function CrmConfigPage() {
     <ConfigPageLayout
       title="CRM"
       description="Pipeline, campos y automatizaciones"
-      icon={TrendingUp}
+      icon={<TrendingUp className="h-[18px] w-[18px]" />}
     >
       <CrmConfigTabs
         initialStages={stages}

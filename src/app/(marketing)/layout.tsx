@@ -4,6 +4,7 @@ import { Linkedin } from 'lucide-react'
 import { MobileNav } from '@/components/marketing/MobileNav'
 import { MarketingThemeToggle } from '@/components/marketing/ThemeToggle'
 import { FuncionalidadesMegaMenu } from '@/components/marketing/FuncionalidadesMegaMenu'
+import { MarketingChatWidget } from '@/components/marketing/MarketingChatWidget'
 import './marketing.css'
 
 export const metadata: Metadata = {
@@ -36,13 +37,11 @@ export const metadata: Metadata = {
     title: 'OPAI — ERP para Empresas de Seguridad Privada',
     description:
       'Operaciones, CRM, Finanzas y Nómina con IA operacional real. Face ID, GPS en tiempo real, alertas WhatsApp automáticas.',
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'OPAI ERP Seguridad Privada' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'OPAI — ERP para Empresas de Seguridad Privada',
     description: 'El único ERP con IA operacional real para seguridad privada en Chile.',
-    images: ['/og-image.png'],
   },
   robots: {
     index: true,
@@ -134,6 +133,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: websiteJsonLd }} />
       {/* Prevent theme flash — static string, no user input */}
       <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('mk-theme');if(t)document.documentElement.setAttribute('data-mk-theme',t)}catch(e){}})()` }} />
+      {/* Skip to content */}
+      <a href="#main-content" className="mk-skip-link">
+        Saltar al contenido
+      </a>
+
       {/* NAV */}
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
@@ -164,7 +168,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       </nav>
 
       {/* CONTENT */}
-      <main style={{ paddingTop: '64px' }}>{children}</main>
+      <main id="main-content" style={{ paddingTop: '64px' }}>{children}</main>
 
       {/* FOOTER */}
       <footer style={{ borderTop: '1px solid var(--mk-border)', padding: 'clamp(40px,6vw,80px) 0 40px' }}>
@@ -253,6 +257,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </footer>
+
+      <MarketingChatWidget />
     </div>
   )
 }

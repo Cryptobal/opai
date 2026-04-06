@@ -31,7 +31,7 @@ export default async function IntegracionesPage() {
     <ConfigPageLayout
       title="Integraciones"
       description="Configura conexiones globales para el CRM"
-      icon={Plug}
+      icon={<Plug className="h-[18px] w-[18px]" />}
     >
       <IntegrationsGmailClient connected={Boolean(gmailAccount)} />
     </ConfigPageLayout>

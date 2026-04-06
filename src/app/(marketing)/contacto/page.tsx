@@ -40,16 +40,30 @@ export default function ContactoPage() {
     mensaje: '',
   })
   const [submitted, setSubmitted] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Placeholder: log form data
-    console.log('Formulario de contacto:', form)
-    setSubmitted(true)
+    setSending(true)
+    setError('')
+    try {
+      const res = await fetch('/api/marketing/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) throw new Error('Error al enviar')
+      setSubmitted(true)
+    } catch {
+      setError('No se pudo enviar el mensaje. Intenta de nuevo o escríbenos por WhatsApp.')
+    } finally {
+      setSending(false)
+    }
   }
 
   const inputStyle: React.CSSProperties = {
@@ -224,8 +238,18 @@ export default function ContactoPage() {
                       style={{ ...inputStyle, resize: 'vertical' }}
                     />
                   </div>
-                  <button type="submit" className="mk-btn-primary" style={{ alignSelf: 'flex-start' }}>
-                    Enviar mensaje →
+                  {error && (
+                    <p style={{ color: 'var(--mk-orange)', fontSize: '0.88rem', margin: 0 }}>
+                      {error}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    className="mk-btn-primary"
+                    disabled={sending}
+                    style={{ alignSelf: 'flex-start', opacity: sending ? 0.6 : 1 }}
+                  >
+                    {sending ? 'Enviando...' : 'Enviar mensaje →'}
                   </button>
                 </form>
               )}

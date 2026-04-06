@@ -20,7 +20,7 @@ export default async function CpqConfigPage() {
     <ConfigPageLayout
       title="Cotizaciones (CPQ)"
       description="Catálogo, puestos, cargos, roles y parámetros de pricing"
-      icon={DollarSign}
+      icon={<DollarSign className="h-[18px] w-[18px]" />}
     >
       <CpqConfigTabs />
     </ConfigPageLayout>

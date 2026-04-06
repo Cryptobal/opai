@@ -92,7 +92,7 @@ export default async function FinanzasConfiguracionPage() {
     <ConfigPageLayout
       title="Finanzas"
       description="Administra ítems de rendición, parámetros de kilometraje, aprobadores y reglas."
-      icon={Receipt}
+      icon={<Receipt className="h-[18px] w-[18px]" />}
     >
       <ConfigClient
         config={configData}

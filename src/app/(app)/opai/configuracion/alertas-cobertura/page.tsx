@@ -11,15 +11,15 @@ export default async function ConfigAlertasCoberturaPage() {
     redirect("/opai/login?callbackUrl=/opai/configuracion/alertas-cobertura");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "config")) {
-    redirect("/hub");
+  if (!canView(perms, "config", "alertas_cobertura")) {
+    redirect("/opai/configuracion");
   }
 
   return (
     <ConfigPageLayout
       title="Alertas de Cobertura"
       description="Configuración de oleadas, tiempos, canales de notificación y parámetros del módulo."
-      icon={Siren}
+      icon={<Siren className="h-[18px] w-[18px]" />}
     >
       <AlertasCoberturaConfig />
     </ConfigPageLayout>

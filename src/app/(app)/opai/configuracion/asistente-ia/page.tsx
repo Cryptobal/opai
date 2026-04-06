@@ -18,7 +18,7 @@ export default async function AsistenteIaConfigPage() {
     <ConfigPageLayout
       title="Asistente IA"
       description="Configura acceso por roles y alcance del chat conversacional en la aplicación"
-      icon={Bot}
+      icon={<Bot className="h-[18px] w-[18px]" />}
     >
       <AiHelpChatConfigClient />
     </ConfigPageLayout>

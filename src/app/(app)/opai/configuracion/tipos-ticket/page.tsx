@@ -18,7 +18,7 @@ export default async function TiposTicketConfigPage() {
     <ConfigPageLayout
       title="Tipos de Ticket"
       description="Define tipos de solicitud (vacaciones, desvinculaciones, etc.), su origen y cadena de aprobación"
-      icon={Ticket}
+      icon={<Ticket className="h-[18px] w-[18px]" />}
     >
       <TicketTypesConfigTabs userRole={role} />
     </ConfigPageLayout>

@@ -154,6 +154,51 @@ async function main() {
   }
   console.log('✅ Platform Admins ready');
 
+  // 15. Migrate AiProvider → PlatformAiProvider (if data exists and not yet migrated)
+  const existingPlatformProviders = await prisma.platformAiProvider.count();
+  if (existingPlatformProviders === 0) {
+    const tenantProviders = await prisma.aiProvider.findMany({
+      include: { models: true },
+    });
+    for (const tp of tenantProviders) {
+      const existing = await prisma.platformAiProvider.findFirst({
+        where: { providerType: tp.providerType },
+      });
+      if (existing) continue;
+
+      const created = await prisma.platformAiProvider.create({
+        data: {
+          name: tp.name,
+          providerType: tp.providerType,
+          apiKey: tp.apiKey,
+          baseUrl: tp.baseUrl,
+          isActive: tp.isActive,
+        },
+      });
+
+      for (const model of tp.models) {
+        await prisma.platformAiModel.create({
+          data: {
+            providerId: created.id,
+            modelId: model.modelId,
+            displayName: model.displayName,
+            description: model.description,
+            isDefault: model.isDefault,
+            costTier: model.costTier,
+            isActive: model.isActive,
+          },
+        });
+      }
+    }
+    if (tenantProviders.length > 0) {
+      console.log(`✅ Migrated ${tenantProviders.length} tenant AI providers to platform level`);
+    } else {
+      console.log('ℹ️  No tenant AI providers to migrate');
+    }
+  } else {
+    console.log('ℹ️  Platform AI providers already exist, skipping migration');
+  }
+
   console.log('🎉 Seeding completed!');
 }
 

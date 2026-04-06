@@ -24,24 +24,47 @@ const stats = [
   { value: '12', label: 'Integraciones tecnológicas' },
 ]
 
+const team = [
+  {
+    initials: 'CI',
+    name: 'Carlos Irigoyen',
+    role: 'Fundador & CEO',
+    desc: 'Más de 15 años operando empresas OS10 de seguridad privada en Chile. Diseñó OPAI desde la experiencia real de gestionar guardias, rondas y operaciones.',
+    linkedin: 'https://www.linkedin.com/in/carlosirigoyen/',
+  },
+]
+
+const techStack = [
+  { layer: 'Frontend', items: ['Next.js 16', 'React 19', 'TypeScript', 'Tailwind CSS'] },
+  { layer: 'Backend', items: ['Node.js', 'Prisma ORM', '801 API endpoints', 'NextAuth'] },
+  { layer: 'IA & ML', items: ['OpenAI GPT-4o', 'Anthropic Claude', 'pgvector', 'RAG'] },
+  { layer: 'Integraciones', items: ['AWS Rekognition', 'Twilio', 'Resend', 'Fintoc'] },
+  { layer: 'Infra', items: ['Vercel', 'PostgreSQL', 'Cloudflare R2', 'Sentry'] },
+  { layer: 'Mobile', items: ['Capacitor', 'PWA', 'Push Notifications', 'GPS nativo'] },
+]
+
 const timeline = [
   {
     period: 'Los inicios',
+    icon: '🏗️',
     title: 'La trinchera de la seguridad privada',
     text: 'Nuestro equipo fundador viene de operar empresas OS10 de seguridad privada por más de 15 años. Vivimos en carne propia los problemas de la industria: guardias que no llegan, rondas que no se cumplen, planillas en Excel, nóminas manuales y clientes sin visibilidad.',
   },
   {
     period: 'La frustración',
+    icon: '😤',
     title: 'ERPs genéricos no sirven',
     text: 'Probó SAP, Odoo, sistemas hechos a medida en Chile. Ninguno entendía la seguridad privada. Todos requerían meses de customización, costaban una fortuna y al final no resolvían el problema real: la operación diaria de una empresa de guardias.',
   },
   {
     period: 'La decisión',
+    icon: '🚀',
     title: 'Construirlo desde cero',
     text: 'Si ningún software entiende la seguridad privada, hay que construir uno que sí lo haga. Nace LX3.ai con una misión: crear el ERP que toda empresa de seguridad privada necesita pero que no existía.',
   },
   {
     period: 'Hoy',
+    icon: '✅',
     title: 'OPAI en producción',
     text: 'OPAI es un sistema probado en producción real con 259 modelos Prisma, 801 endpoints, 18 automatizaciones y 6 portales especializados. Face ID, GPS, IA, WhatsApp — todo lo que la industria necesita, en una sola plataforma.',
   },
@@ -121,17 +144,17 @@ export default function NosotrosPage() {
                   borderLeft: '3px solid var(--mk-teal)',
                 }}
               >
-                <div
-                  style={{
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '1.2rem' }} role="img" aria-label={t.period}>{t.icon}</span>
+                  <span style={{
                     fontFamily: 'var(--mk-font-m)',
                     fontSize: '0.75rem',
                     color: 'var(--mk-teal)',
                     letterSpacing: '0.1em',
                     textTransform: 'uppercase',
-                    marginBottom: '8px',
-                  }}
-                >
-                  {t.period}
+                  }}>
+                    {t.period}
+                  </span>
                 </div>
                 <h3
                   style={{
@@ -184,62 +207,181 @@ export default function NosotrosPage() {
               maxWidth: '700px',
             }}
           >
+            {team.map((m) => (
+              <div key={m.name} className="mk-card" style={{ padding: 'clamp(28px, 3vw, 36px)' }}>
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px' }}>
+                  {/* Avatar placeholder */}
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '4px',
+                    background: 'var(--mk-teal-dim)',
+                    border: '1px solid var(--mk-teal-glow)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: 'var(--mk-font-m)',
+                    fontSize: '18px',
+                    fontWeight: 700,
+                    color: 'var(--mk-teal)',
+                    flexShrink: 0,
+                  }}>
+                    {m.initials}
+                  </div>
+                  <div>
+                    <h3 style={{
+                      fontFamily: 'var(--mk-font-h)',
+                      fontSize: '1.1rem',
+                      fontWeight: 700,
+                      color: 'var(--mk-text)',
+                      marginBottom: '2px',
+                    }}>
+                      {m.name}
+                    </h3>
+                    <p style={{
+                      fontFamily: 'var(--mk-font-m)',
+                      fontSize: '0.8rem',
+                      color: 'var(--mk-teal)',
+                      letterSpacing: '0.04em',
+                      margin: 0,
+                    }}>
+                      {m.role}
+                    </p>
+                  </div>
+                </div>
+                <p style={{ color: 'var(--mk-muted)', fontSize: '0.9rem', lineHeight: 1.75, marginBottom: '16px' }}>
+                  {m.desc}
+                </p>
+                {m.linkedin && (
+                  <a
+                    href={m.linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontFamily: 'var(--mk-font-m)',
+                      fontSize: '0.8rem',
+                      color: 'var(--mk-teal)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    LinkedIn →
+                  </a>
+                )}
+              </div>
+            ))}
             <div className="mk-card" style={{ padding: 'clamp(28px, 3vw, 36px)' }}>
-              <h3
-                style={{
-                  fontFamily: 'var(--mk-font-h)',
-                  fontSize: '1.2rem',
-                  fontWeight: 700,
-                  marginBottom: '4px',
-                }}
-              >
-                Equipo Fundador
-              </h3>
-              <p
-                style={{
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px' }}>
+                <div style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '4px',
+                  background: 'var(--mk-teal-dim)',
+                  border: '1px solid var(--mk-teal-glow)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   fontFamily: 'var(--mk-font-m)',
-                  fontSize: '0.8rem',
-                  color: 'var(--mk-teal)',
-                  marginBottom: '16px',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                Operadores de seguridad privada
-              </p>
-              <p style={{ color: 'var(--mk-muted)', fontSize: '0.9rem', lineHeight: 1.75 }}>
-                Más de 15 años operando empresas OS10 de seguridad privada en Chile.
-                Conocemos cada dolor de la industria porque los vivimos. Decidimos que
-                el software que necesitábamos no existía y lo construimos.
-              </p>
-            </div>
-            <div className="mk-card" style={{ padding: 'clamp(28px, 3vw, 36px)' }}>
-              <h3
-                style={{
-                  fontFamily: 'var(--mk-font-h)',
-                  fontSize: '1.2rem',
+                  fontSize: '18px',
                   fontWeight: 700,
-                  marginBottom: '4px',
-                }}
-              >
-                LX3.ai
-              </h3>
-              <p
-                style={{
-                  fontFamily: 'var(--mk-font-m)',
-                  fontSize: '0.8rem',
                   color: 'var(--mk-teal)',
-                  marginBottom: '16px',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                Desarrollo tecnológico
-              </p>
+                  flexShrink: 0,
+                }}>
+                  L3
+                </div>
+                <div>
+                  <h3 style={{
+                    fontFamily: 'var(--mk-font-h)',
+                    fontSize: '1.1rem',
+                    fontWeight: 700,
+                    color: 'var(--mk-text)',
+                    marginBottom: '2px',
+                  }}>
+                    LX3.ai
+                  </h3>
+                  <p style={{
+                    fontFamily: 'var(--mk-font-m)',
+                    fontSize: '0.8rem',
+                    color: 'var(--mk-teal)',
+                    letterSpacing: '0.04em',
+                    margin: 0,
+                  }}>
+                    Desarrollo tecnológico
+                  </p>
+                </div>
+              </div>
               <p style={{ color: 'var(--mk-muted)', fontSize: '0.9rem', lineHeight: 1.75 }}>
                 Equipo de ingeniería especializado en productos de software con IA.
                 Responsable de la arquitectura, desarrollo, integraciones y evolución
                 continua de OPAI. Tecnología de clase mundial aplicada a problemas reales.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Tech Stack */}
+      <section className="mk-section" style={{ borderTop: '1px solid var(--mk-border)' }}>
+        <div className="mk-container">
+          <div className="mk-label">
+            <div className="mk-pulse" />
+            Stack tecnológico
+          </div>
+          <h2
+            style={{
+              fontFamily: 'var(--mk-font-h)',
+              fontSize: 'clamp(1.5rem, 3.5vw, 2.4rem)',
+              fontWeight: 700,
+              marginBottom: '48px',
+              lineHeight: 1.15,
+            }}
+          >
+            Nuestra tecnología
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
+            gap: '12px',
+            maxWidth: '900px',
+          }}>
+            {techStack.map((layer) => (
+              <div
+                key={layer.layer}
+                className="mk-card"
+                style={{ padding: '20px 24px' }}
+              >
+                <div style={{
+                  fontFamily: 'var(--mk-font-m)',
+                  fontSize: '10px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.12em',
+                  color: 'var(--mk-teal)',
+                  marginBottom: '12px',
+                }}>
+                  {layer.layer}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {layer.items.map((item) => (
+                    <span
+                      key={item}
+                      style={{
+                        fontFamily: 'var(--mk-font-m)',
+                        fontSize: '11px',
+                        color: 'var(--mk-muted)',
+                        background: 'var(--mk-teal-dim)',
+                        border: '1px solid var(--mk-border)',
+                        padding: '3px 8px',
+                        borderRadius: '2px',
+                      }}
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>

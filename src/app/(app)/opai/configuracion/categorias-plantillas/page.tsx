@@ -20,7 +20,7 @@ export default async function CategoriasPlantillasPage() {
     <ConfigPageLayout
       title="Categorías de Plantillas"
       description="Gestiona las categorías por módulo para Gestión Documental (documentos y mails)"
-      icon={FolderTree}
+      icon={<FolderTree className="h-[18px] w-[18px]" />}
     >
       <DocCategoriesClient />
     </ConfigPageLayout>

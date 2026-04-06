@@ -1,4 +1,4 @@
-type BuildHelpChatSystemPromptParams = {
+export type BuildHelpChatSystemPromptParams = {
   fallbackText: string;
   allowDataQuestions: boolean;
   todayLabel: string;

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { TrialBanner } from '@/components/marketing/TrialBanner'
+import { PricingCalculator } from '@/components/marketing/PricingCalculator'
 
 export const metadata: Metadata = {
   title: 'Planes y Precios — ERP para Seguridad Privada',
@@ -256,6 +257,20 @@ const faq = [
   { q: '\u00bfQu\u00e9 son las Rondas GPS?', a: 'Las rondas son recorridos que hace el guardia por checkpoints definidos en la instalaci\u00f3n. OPAI verifica con geo-fence que el guardia pas\u00f3 por cada punto, genera reportes autom\u00e1ticos, y alerta si hay anomal\u00edas. Incluye programaci\u00f3n, templates y un portal dedicado.' },
 ]
 
+const productJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'OPAI',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web, iOS, Android',
+  offers: [
+    { '@type': 'Offer', name: 'Gratis', price: '0', priceCurrency: 'CLP', description: 'Hasta 10 guardias, para siempre' },
+    { '@type': 'Offer', name: 'Starter', price: '0.5', priceCurrency: 'CLF', description: 'Por guardia activo/mes, mín UF 20', priceSpecification: { '@type': 'UnitPriceSpecification', referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitText: 'guardia/mes' } } },
+    { '@type': 'Offer', name: 'Profesional', price: '0.8', priceCurrency: 'CLF', description: 'Por guardia activo/mes, mín UF 45', priceSpecification: { '@type': 'UnitPriceSpecification', referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitText: 'guardia/mes' } } },
+    { '@type': 'Offer', name: 'Enterprise', price: '0', priceCurrency: 'CLF', description: 'Precio a convenir según número de guardias' },
+  ],
+}
+
 const faqJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
@@ -279,6 +294,7 @@ function renderCellValue(value: boolean | string) {
 export default function PlanesPage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
 
       {/* Hero */}
@@ -385,6 +401,25 @@ export default function PlanesPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Cotizador interactivo */}
+      <section className="mk-section" style={{ borderTop: '1px solid var(--mk-border)' }}>
+        <div className="mk-container">
+          <div style={{ textAlign: 'center', maxWidth: '560px', margin: '0 auto 48px' }}>
+            <div className="mk-label" style={{ margin: '0 auto 24px' }}>
+              <div className="mk-pulse" />
+              Cotizador
+            </div>
+            <h2 style={{ fontFamily: 'var(--mk-font-h)', fontSize: 'clamp(1.6rem,3.5vw,2.4rem)', fontWeight: 800, color: 'var(--mk-text)', marginBottom: '14px' }}>
+              Calcula tu precio en segundos
+            </h2>
+            <p style={{ color: 'var(--mk-muted)', fontSize: '0.95rem' }}>
+              Mueve el slider, activa los módulos que necesitas, y ve el precio actualizado al instante.
+            </p>
+          </div>
+          <PricingCalculator />
         </div>
       </section>
 

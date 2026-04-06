@@ -20,26 +20,40 @@ const TESTIMONIALS = [
     role: "Gerente Comercial",
     company: "Empresa de Seguridad, Concepción",
   },
-];
+]
 
 export default function TestimonialsSection() {
   return (
-    <section className="relative py-24 sm:py-32">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
+    <section className="mk-section" style={{ borderTop: '1px solid var(--mk-border)' }}>
+      <div className="mk-container">
+        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+          <div className="mk-label" style={{ margin: '0 auto 24px' }}>
+            <div className="mk-pulse" />
+            Testimonios
+          </div>
+          <h2 style={{
+            fontFamily: 'var(--mk-font-h)',
+            fontSize: 'clamp(1.6rem, 3.5vw, 2.4rem)',
+            fontWeight: 800,
+            color: 'var(--mk-text)',
+          }}>
             Lo que dicen nuestros clientes
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gap: '20px',
+        }}>
           {TESTIMONIALS.map((t) => (
             <div
               key={t.name}
-              className="rounded-2xl border border-white/[0.07] bg-[#141E30]/30 p-6 sm:p-8"
+              className="mk-card"
+              style={{ padding: 'clamp(24px, 3vw, 32px)' }}
             >
               {/* Stars */}
-              <div className="flex gap-1 mb-4">
+              <div style={{ display: 'flex', gap: '3px', marginBottom: '16px' }}>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <svg
                     key={i}
@@ -47,25 +61,55 @@ export default function TestimonialsSection() {
                     height="16"
                     viewBox="0 0 16 16"
                     fill="#F59E0B"
+                    aria-hidden="true"
                   >
                     <path d="M8 1.333l1.867 3.78 4.133.6-2.933 2.86.72 4.094L8 10.653l-3.787 1.987.72-4.094L1.933 5.72l4.134-.6L8 1.333z" />
                   </svg>
                 ))}
               </div>
 
-              <blockquote className="text-sm text-[#E2E8F0] leading-relaxed mb-6">
+              <blockquote style={{
+                color: 'var(--mk-text)',
+                fontSize: '0.9rem',
+                lineHeight: 1.7,
+                marginBottom: '20px',
+                fontStyle: 'normal',
+                margin: '0 0 20px 0',
+                padding: 0,
+                borderLeft: 'none',
+              }}>
                 &ldquo;{t.quote}&rdquo;
               </blockquote>
 
               <div>
-                <div className="text-sm font-semibold text-white">{t.name}</div>
-                <div className="text-xs text-[#94A3B8]">{t.role}</div>
-                <div className="text-xs text-[#94A3B8]">{t.company}</div>
+                <div style={{
+                  fontFamily: 'var(--mk-font-h)',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  color: 'var(--mk-text)',
+                  marginBottom: '2px',
+                }}>
+                  {t.name}
+                </div>
+                <div style={{
+                  fontFamily: 'var(--mk-font-m)',
+                  fontSize: '11px',
+                  color: 'var(--mk-muted)',
+                }}>
+                  {t.role}
+                </div>
+                <div style={{
+                  fontFamily: 'var(--mk-font-m)',
+                  fontSize: '11px',
+                  color: 'var(--mk-muted)',
+                }}>
+                  {t.company}
+                </div>
               </div>
             </div>
           ))}
         </div>
       </div>
     </section>
-  );
+  )
 }

@@ -32,7 +32,7 @@ export default async function AtsConfigPage() {
     <ConfigPageLayout
       title="ATS — Reclutamiento"
       description="Ajusta los pesos del match score, canales y parámetros de distribución."
-      icon={Briefcase}
+      icon={<Briefcase className="h-[18px] w-[18px]" />}
     >
       <AtsConfigClient
         initialConfig={config}

@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { TrialBanner } from '@/components/marketing/TrialBanner'
+import TestimonialsSection from '@/components/marketing/TestimonialsSection'
+import { ImpactStats } from '@/components/marketing/ImpactStats'
+import { ProductShowcase } from '@/components/marketing/ProductShowcase'
 
 export const metadata: Metadata = {
   title: 'OPAI — ERP con IA para Empresas de Seguridad Privada | Chile',
@@ -90,7 +93,7 @@ const MODULES = [
     title: 'CRM',
     desc: 'Pipeline de ventas, cotizaciones y seguimiento de clientes. Todo integrado con operaciones.',
     features: ['Pipeline visual', 'Cotizaciones rápidas', 'Historial de contacto', 'Conversión a contrato'],
-    slug: 'crm',
+    slug: 'crm-comercial',
   },
   {
     tag: 'Finanzas',
@@ -397,6 +400,9 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>
+
+      {/* ====== PRODUCT SHOWCASE ====== */}
+      <ProductShowcase />
 
       {/* ====== 2. PROBLEMS ====== */}
       <section
@@ -920,7 +926,13 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* ====== 8. TRIAL BANNER ====== */}
+      {/* ====== 8. TESTIMONIALS ====== */}
+      <TestimonialsSection />
+
+      {/* ====== 9. IMPACT STATS ====== */}
+      <ImpactStats />
+
+      {/* ====== 10. TRIAL BANNER ====== */}
       <TrialBanner />
     </>
   )

@@ -18,7 +18,7 @@ export default async function OpsConfigPage() {
     <ConfigPageLayout
       title="Operaciones"
       description="Configuración de marcaciones, rondas, emails automáticos y parámetros operativos"
-      icon={ClipboardList}
+      icon={<ClipboardList className="h-[18px] w-[18px]" />}
     >
       <OpsConfigTabs />
     </ConfigPageLayout>

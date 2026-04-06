@@ -9,6 +9,8 @@ import {
   Building2,
   Receipt,
   Tag,
+  Brain,
+  MessageSquare,
   LogOut,
   Menu,
   X,
@@ -27,8 +29,10 @@ interface PlatformSidebarProps {
 const navItems = [
   { href: '/platform/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/platform/tenants/new', label: 'Nuevo Tenant', icon: Building2 },
+  { href: '/platform/ai', label: 'IA / Providers', icon: Brain },
   { href: '/platform/pricing', label: 'Pricing', icon: Tag },
   { href: '/platform/billing', label: 'Facturación', icon: Receipt },
+  { href: '/platform/marketing', label: 'Marketing Chat', icon: MessageSquare },
 ];
 
 const COLLAPSED_KEY = 'opai-platform-sidebar-collapsed';

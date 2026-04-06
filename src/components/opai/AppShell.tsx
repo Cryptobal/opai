@@ -9,7 +9,7 @@ import { CommandPalette, CommandPaletteProvider, useCommandPalette } from './Com
 import { ThemeLogo } from './ThemeLogo';
 import { TopbarActions } from './TopbarActions';
 import { QuickCreateModal, type QuickCreateType } from './QuickCreateModal';
-import { AiHelpChatWidget } from './AiHelpChatWidget';
+import { AiHelpChatWidgetV2 as AiHelpChatWidget } from './AiHelpChatWidgetV2';
 import { NotificationPopover } from './NotificationPopover';
 import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { BottomNav } from './BottomNav';

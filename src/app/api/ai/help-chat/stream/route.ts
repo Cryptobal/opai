@@ -1,24 +1,27 @@
 import { NextRequest } from "next/server";
-import { openai } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { canUseAiHelpChat, getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
 import { retrieveDocsContext, retrieveTemplatesContext } from "@/lib/ai/help-chat-retrieval";
-import {
-  getGuardiasMetrics,
-  getPendingRendicionesForApproval,
-  getUfUtmIndicators,
-  searchGuardiasByNameOrRut,
-} from "@/lib/ai/help-chat-tools";
-import { buildHelpChatSystemPrompt } from "@/lib/ai/help-chat-system-prompt";
+import { getToolDefinitionsV2, executeToolCallV2 } from "@/lib/ai/help-chat-tools-v2";
+import { buildHelpChatSystemPromptV2 } from "@/lib/ai/help-chat-system-prompt-v2";
+import { parseVisualBlocks } from "@/lib/ai/help-chat-visual-types";
 import {
   resolveFunctionalIntent,
   shouldPreferFunctionalInference,
 } from "@/lib/ai/help-chat-intents";
 import { chooseModel, detectFrustration } from "@/lib/ai/help-chat-model-router";
+import {
+  getHelpChatAIConfig as getProviderConfig,
+  createStreamingCompletion,
+  createCompletion,
+  type HelpChatAIConfig,
+  type ToolCallInfo,
+} from "@/lib/ai/help-chat-provider";
+import { logAiUsage } from "@/lib/platform-ai-service";
 
-/* ── helpers (shared with main route) ── */
+/* ── helpers ── */
 
 function hasChatPersistence(): boolean {
   const db = prisma as unknown as Record<string, unknown>;
@@ -62,105 +65,17 @@ function clipTitle(text: string): string {
   return clean.length > 90 ? `${clean.slice(0, 87)}...` : clean;
 }
 
-/* ── tool definitions (same as main route) ── */
-
-function getToolDefinitions(allowDataQuestions: boolean) {
-  if (!allowDataQuestions) return [];
-  return [
-    {
-      type: "function" as const,
-      function: {
-        name: "search_guardias",
-        description: "Busca guardias por nombre, apellido, RUT o código para responder preguntas operativas puntuales.",
-        parameters: {
-          type: "object",
-          properties: {
-            query: { type: "string", description: "Texto de búsqueda (nombre, RUT o código)." },
-            limit: { type: "number", description: "Cantidad máxima de resultados (1-20)." },
-          },
-          required: ["query"],
-        },
-      },
-    },
-    {
-      type: "function" as const,
-      function: {
-        name: "get_guardias_metrics",
-        description: "Obtiene métricas agregadas de guardias del tenant actual.",
-        parameters: { type: "object", properties: {}, additionalProperties: false },
-      },
-    },
-    {
-      type: "function" as const,
-      function: {
-        name: "get_uf_utm",
-        description: "Obtiene UF y UTM actuales desde la base de datos interna del sistema.",
-        parameters: { type: "object", properties: {}, additionalProperties: false },
-      },
-    },
-    {
-      type: "function" as const,
-      function: {
-        name: "get_pending_rendiciones",
-        description: "Obtiene rendiciones pendientes por aprobar (del aprobador actual o de todo el tenant si tiene permiso).",
-        parameters: {
-          type: "object",
-          properties: {
-            scope: { type: "string", enum: ["mine", "all"], description: "mine: solo las mías por aprobar; all: todas las pendientes." },
-            limit: { type: "number", description: "Cantidad máxima de resultados (1-20)." },
-          },
-          additionalProperties: false,
-        },
-      },
-    },
-  ];
-}
-
-/* ── tool executor ── */
-
-async function executeToolCall(
-  toolName: string,
-  args: Record<string, unknown>,
-  tenantId: string,
-  userId: string,
-  canViewAllRendiciones: boolean,
-): Promise<unknown> {
-  if (toolName === "search_guardias") {
-    const query = typeof args.query === "string" ? args.query : "";
-    const limit = typeof args.limit === "number" ? args.limit : 8;
-    try {
-      return { ok: true, data: await searchGuardiasByNameOrRut(tenantId, query, limit) };
-    } catch {
-      return { ok: false, error: "No fue posible consultar guardias en este momento." };
-    }
-  }
-  if (toolName === "get_guardias_metrics") {
-    try {
-      return { ok: true, data: await getGuardiasMetrics(tenantId) };
-    } catch {
-      return { ok: false, error: "No fue posible consultar métricas en este momento." };
-    }
-  }
-  if (toolName === "get_uf_utm") {
-    try {
-      return { ok: true, data: await getUfUtmIndicators() };
-    } catch {
-      return { ok: false, error: "No fue posible consultar UF/UTM en este momento." };
-    }
-  }
-  if (toolName === "get_pending_rendiciones") {
-    const scope = args.scope === "all" && canViewAllRendiciones ? "all" : "mine";
-    const limit = typeof args.limit === "number" ? args.limit : 8;
-    try {
-      return {
-        ok: true,
-        data: await getPendingRendicionesForApproval({ tenantId, userId, includeAll: scope === "all", limit }),
-      };
-    } catch {
-      return { ok: false, error: "No fue posible consultar rendiciones pendientes en este momento." };
-    }
-  }
-  return { ok: false, error: "Herramienta no soportada" };
+/**
+ * Resolves the effective model to use.
+ * For tenant-configured providers we honour the tenant's chosen model.
+ * For the env-var fallback (OpenAI) we apply the dynamic model router.
+ */
+function resolveModel(
+  aiConfig: HelpChatAIConfig,
+  ctx: { retrievalMaxScore: number; recentFallbackCount: number; frustrated: boolean },
+): string {
+  if (aiConfig.source === "tenant") return aiConfig.model;
+  return chooseModel(ctx);
 }
 
 /* ── SSE POST handler ── */
@@ -180,6 +95,12 @@ export async function POST(request: NextRequest) {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  const adminRow = await prisma.admin.findUnique({
+    where: { id: ctx.userId },
+    select: { name: true },
+  });
+  const userDisplayName = adminRow?.name?.trim() || ctx.userEmail || "Usuario";
 
   /* parse body */
   const body = (await request.json().catch(() => ({}))) as {
@@ -237,7 +158,7 @@ export async function POST(request: NextRequest) {
     conversationHistory = historyMessages.slice(0, -1).map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
   }
 
-  /* retrieval: docs + plantillas de documentos (contratos, etc.) */
+  /* retrieval */
   const [docsChunks, templatesChunks] = await Promise.all([
     retrieveDocsContext(userMessage, 6),
     retrieveTemplatesContext(ctx.tenantId, userMessage, 4),
@@ -249,14 +170,28 @@ export async function POST(request: NextRequest) {
   const retrievalHasEvidence = allChunks.length > 0;
   const retrievalMaxScore = allChunks.length > 0 ? Math.max(...allChunks.map(c => c.score)) : 0;
 
-  /* model router */
+  /* resolve AI provider (tenant DB → env fallback) */
+  const aiConfig = await getProviderConfig(ctx.tenantId);
+  if (!aiConfig) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "No hay un proveedor de IA configurado. Contacta al administrador de la plataforma.",
+      }),
+      { status: 422, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  /* model router (only applies to env-var OpenAI fallback) */
   const recentFallbackCount = conversationHistory
     .slice(-6)
     .filter(m => m.role === "assistant" && m.content.includes("No tengo suficiente información")).length;
   const frustrated = detectFrustration(userMessage);
-  const model = chooseModel({ retrievalMaxScore, recentFallbackCount, frustrated });
+  const effectiveModel = resolveModel(aiConfig, { retrievalMaxScore, recentFallbackCount, frustrated });
 
-  /* build messages */
+  const configWithModel: HelpChatAIConfig = { ...aiConfig, model: effectiveModel };
+
+  /* build messages (kept in OpenAI format; provider layer converts) */
   const fallback = fallbackMessage(userMessage);
   const todayLabel = new Date().toLocaleString("es-CL", { dateStyle: "full", timeStyle: "short" });
 
@@ -268,12 +203,14 @@ export async function POST(request: NextRequest) {
     historySize = trimmedHistory.reduce((sum, m) => sum + m.content.length, 0);
   }
 
-  const systemPrompt = buildHelpChatSystemPrompt({
+  const systemPrompt = buildHelpChatSystemPromptV2({
     fallbackText: fallback,
     allowDataQuestions: cfg.allowDataQuestions,
     todayLabel,
     appBaseUrl,
     retrievalHasEvidence,
+    userName: userDisplayName,
+    userRole: ctx.userRole,
   });
 
   const messages: Array<Record<string, unknown>> = [
@@ -283,7 +220,7 @@ export async function POST(request: NextRequest) {
     { role: "user", content: userMessage },
   ];
 
-  const tools = getToolDefinitions(cfg.allowDataQuestions);
+  const tools = getToolDefinitionsV2(cfg.allowDataQuestions);
 
   /* SSE response */
   const encoder = new TextEncoder();
@@ -294,133 +231,102 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        /* send metadata immediately */
-        send("meta", { conversationId: conversation?.id ?? null, model, persistenceEnabled });
+        send("meta", {
+          conversationId: conversation?.id ?? null,
+          model: effectiveModel,
+          provider: aiConfig.providerType,
+          persistenceEnabled,
+        });
 
         let fullText = "";
         let toolCallsUsed = 0;
+        const completionParams = {
+          messages,
+          tools,
+          temperature: 0.2,
+          maxTokens: 1400,
+        };
 
         /* tool-calling loop (max 4 iterations) */
         for (let step = 0; step < 4; step += 1) {
-          const isLastOrTextStep = step > 0; // after first tool round, try streaming
+          const isLastOrTextStep = step > 0;
 
           if (isLastOrTextStep || tools.length === 0) {
-            /* streaming call */
-            const streamResponse = await openai.chat.completions.create({
-              model,
-              messages: messages as never,
-              tools: tools.length > 0 ? (tools as never) : undefined,
-              tool_choice: tools.length > 0 ? "auto" : undefined,
-              temperature: 0.2,
-              max_tokens: 1400,
-              stream: true,
-            });
-
-            let streamedToolCalls: Array<{
-              id: string;
-              type: string;
-              function: { name: string; arguments: string };
-            }> = [];
+            /* streaming call via provider */
+            let pendingToolCalls: ToolCallInfo[] = [];
             let hasToolCalls = false;
 
-            for await (const chunk of streamResponse) {
-              const delta = chunk.choices[0]?.delta;
-              if (!delta) continue;
-
-              /* handle tool calls in stream */
-              if (delta.tool_calls) {
-                hasToolCalls = true;
-                for (const tc of delta.tool_calls) {
-                  const idx = tc.index ?? 0;
-                  if (!streamedToolCalls[idx]) {
-                    streamedToolCalls[idx] = {
-                      id: tc.id || "",
-                      type: tc.type || "function",
-                      function: { name: tc.function?.name || "", arguments: "" },
-                    };
-                  }
-                  if (tc.id) streamedToolCalls[idx].id = tc.id;
-                  if (tc.function?.name) streamedToolCalls[idx].function.name = tc.function.name;
-                  if (tc.function?.arguments) streamedToolCalls[idx].function.arguments += tc.function.arguments;
-                }
-                continue;
+            for await (const event of createStreamingCompletion(configWithModel, completionParams)) {
+              if (event.type === "token") {
+                fullText += event.text;
+                send("token", { token: event.text });
               }
-
-              /* stream text tokens */
-              const token = delta.content;
-              if (token) {
-                fullText += token;
-                send("token", { token });
+              if (event.type === "tool_calls") {
+                hasToolCalls = true;
+                pendingToolCalls = event.calls;
               }
             }
 
-            /* if tool calls came back, execute them and continue loop */
-            if (hasToolCalls && streamedToolCalls.length > 0) {
-              toolCallsUsed += streamedToolCalls.length;
+            if (hasToolCalls && pendingToolCalls.length > 0) {
+              toolCallsUsed += pendingToolCalls.length;
               messages.push({
                 role: "assistant",
                 content: fullText || null,
-                tool_calls: streamedToolCalls,
+                tool_calls: pendingToolCalls.map(tc => ({
+                  id: tc.id,
+                  type: "function",
+                  function: { name: tc.name, arguments: tc.arguments },
+                })),
               });
 
-              for (const call of streamedToolCalls) {
+              for (const call of pendingToolCalls) {
                 let args: Record<string, unknown> = {};
-                try { args = JSON.parse(call.function.arguments || "{}"); } catch { args = {}; }
-                const result = await executeToolCall(
-                  call.function.name, args, ctx.tenantId, ctx.userId,
+                try { args = JSON.parse(call.arguments || "{}"); } catch { args = {}; }
+                const result = await executeToolCallV2(
+                  call.name, args, ctx.tenantId, ctx.userId,
                   hasCapability(perms, "rendicion_view_all"),
                 );
                 messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
               }
-              fullText = ""; // reset for next iteration
+              fullText = "";
               continue;
             }
 
-            /* no more tool calls — we're done */
             break;
           }
 
           /* first step: non-streaming call to check for tool calls */
-          const completion = await openai.chat.completions.create({
-            model,
-            messages: messages as never,
-            tools: tools.length > 0 ? (tools as never) : undefined,
-            tool_choice: tools.length > 0 ? "auto" : undefined,
-            temperature: 0.2,
-            max_tokens: 1400,
-          });
-
-          const choice = completion.choices[0]?.message;
-          const callList = choice?.tool_calls ?? [];
+          const result = await createCompletion(configWithModel, completionParams);
+          const callList = result.toolCalls;
 
           if (!callList.length) {
-            /* no tool calls, send the text */
-            fullText = choice?.content?.trim() || "";
+            fullText = result.text;
             for (const token of fullText) {
               send("token", { token });
             }
             break;
           }
 
-          /* execute tool calls */
           toolCallsUsed += callList.length;
           messages.push({
             role: "assistant",
-            content: choice?.content ?? "",
-            tool_calls: callList,
+            content: result.text || "",
+            tool_calls: callList.map(tc => ({
+              id: tc.id,
+              type: "function",
+              function: { name: tc.name, arguments: tc.arguments },
+            })),
           });
 
           for (const call of callList) {
-            if (call.type !== "function") continue;
             let args: Record<string, unknown> = {};
-            try { args = JSON.parse(call.function.arguments || "{}"); } catch { args = {}; }
-            const result = await executeToolCall(
-              call.function.name, args, ctx.tenantId, ctx.userId,
+            try { args = JSON.parse(call.arguments || "{}"); } catch { args = {}; }
+            const result2 = await executeToolCallV2(
+              call.name, args, ctx.tenantId, ctx.userId,
               hasCapability(perms, "rendicion_view_all"),
             );
-            messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
+            messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result2) });
           }
-          /* loop continues → next iteration will stream */
         }
 
         /* post-processing */
@@ -433,6 +339,9 @@ export async function POST(request: NextRequest) {
         ) {
           assistantText = normalizeAssistantLinks(inferredFunctionalAnswer, appBaseUrl);
         }
+
+        const { cleanText, visuals, suggestions } = parseVisualBlocks(assistantText);
+        assistantText = cleanText;
 
         /* save assistant message */
         let assistantMessageId = `ephemeral-${Date.now()}`;
@@ -448,24 +357,27 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        /* send final event with normalized text */
         send("done", {
           assistantText,
+          visuals,
+          suggestions,
           assistantMessageId,
-          model,
+          model: effectiveModel,
+          provider: aiConfig.providerType,
           toolCallsUsed,
           latencyMs: Date.now() - t0,
           retrievalTopScore: retrievalMaxScore,
           retrievalChunks: allChunks.length,
         });
 
-        /* observability log */
         console.log(
           JSON.stringify({
             event: "ai_help_chat_stream",
             tenantId: ctx.tenantId,
             userId: ctx.userId,
-            model,
+            provider: aiConfig.providerType,
+            providerSource: aiConfig.source,
+            model: effectiveModel,
             toolCallsUsed,
             retrievalChunks: allChunks.length,
             retrievalTopScore: retrievalMaxScore,
@@ -474,9 +386,18 @@ export async function POST(request: NextRequest) {
             latencyMs: Date.now() - t0,
           }),
         );
+        logAiUsage({
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
+          providerType: aiConfig.providerType,
+          model: effectiveModel,
+          feature: "help_chat",
+          durationMs: Date.now() - t0,
+        });
       } catch (error) {
-        console.error("Error in AI Help Chat Stream:", error);
-        send("error", { error: "No se pudo responder la consulta" });
+        const errMsg = error instanceof Error ? error.message : "Error desconocido";
+        console.error("Error in AI Help Chat Stream:", errMsg, error);
+        send("error", { error: `Error del asistente: ${errMsg.slice(0, 200)}` });
       } finally {
         controller.close();
       }

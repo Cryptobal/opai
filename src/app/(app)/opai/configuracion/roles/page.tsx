@@ -19,7 +19,7 @@ export default async function RolesConfigPage() {
     <ConfigPageLayout
       title="Roles y Permisos"
       description="Configura permisos por módulo y submódulo para cada rol"
-      icon={ShieldCheck}
+      icon={<ShieldCheck className="h-[18px] w-[18px]" />}
     >
       <RoleTemplatesClient isOwner={role === "owner"} />
     </ConfigPageLayout>

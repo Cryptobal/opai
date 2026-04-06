@@ -18,7 +18,7 @@ export default async function GruposConfigPage() {
     <ConfigPageLayout
       title="Grupos"
       description="Crea y administra grupos organizacionales (RRHH, Operaciones, etc.) para cadenas de aprobación y asignación de equipo"
-      icon={Users}
+      icon={<Users className="h-[18px] w-[18px]" />}
     >
       <GroupsConfigClient userRole={role} />
     </ConfigPageLayout>

@@ -198,6 +198,46 @@ model PackCatalog {
   @@schema("public")
 }
 
+model MarketingChatSession {
+  id          String    @id @default(cuid())
+  sessionId   String    @map("session_id")
+  visitorName String?   @map("visitor_name")
+  visitorEmail String?  @map("visitor_email")
+  referrer    String?
+  landingUrl  String?   @map("landing_url")
+  messageCount Int      @default(0) @map("message_count")
+  firstMessageAt DateTime? @map("first_message_at") @db.Timestamptz(6)
+  lastMessageAt  DateTime? @map("last_message_at") @db.Timestamptz(6)
+  contactCollectedAt DateTime? @map("contact_collected_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  events MarketingChatEvent[]
+
+  @@unique([sessionId])
+  @@index([createdAt])
+  @@index([visitorEmail])
+  @@map("marketing_chat_session")
+  @@schema("public")
+}
+
+model MarketingChatEvent {
+  id        String   @id @default(cuid())
+  sessionId String   @map("session_id")
+  event     String
+  url       String?
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  session MarketingChatSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([event])
+  @@index([createdAt])
+  @@map("marketing_chat_event")
+  @@schema("public")
+}
+
 model TenantAddon {
   id            String    @id @default(cuid())
   tenantId      String    @map("tenant_id")
@@ -590,6 +630,65 @@ model AiModel {
 
   @@index([providerId], map: "idx_ai_model_provider")
   @@map("ai_models")
+  @@schema("public")
+}
+
+// ── Platform-level AI Providers (centralized, no tenantId) ──
+
+model PlatformAiProvider {
+  id           String    @id @default(cuid())
+  name         String
+  providerType String    @unique @map("provider_type")
+  apiKey       String?   @map("api_key") @db.Text
+  baseUrl      String?   @map("base_url")
+  isActive     Boolean   @default(false) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  models PlatformAiModel[]
+
+  @@map("platform_ai_providers")
+  @@schema("public")
+}
+
+model PlatformAiModel {
+  id          String   @id @default(cuid())
+  providerId  String   @map("provider_id")
+  modelId     String   @map("model_id")
+  displayName String   @map("display_name")
+  description String?
+  isDefault   Boolean  @default(false) @map("is_default")
+  costTier    String   @map("cost_tier")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  provider PlatformAiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId], map: "idx_platform_ai_model_provider")
+  @@map("platform_ai_models")
+  @@schema("public")
+}
+
+model AiUsageLog {
+  id             String   @id @default(cuid())
+  tenantId       String?  @map("tenant_id")
+  userId         String?  @map("user_id")
+  providerType   String   @map("provider_type")
+  model          String
+  feature        String
+  inputTokens    Int      @default(0) @map("input_tokens")
+  outputTokens   Int      @default(0) @map("output_tokens")
+  totalTokens    Int      @default(0) @map("total_tokens")
+  estimatedCost  Float    @default(0) @map("estimated_cost_usd")
+  durationMs     Int?     @map("duration_ms")
+  metadata       Json?    @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt], map: "idx_ai_usage_tenant_date")
+  @@index([feature, createdAt], map: "idx_ai_usage_feature_date")
+  @@index([createdAt], map: "idx_ai_usage_date")
+  @@map("ai_usage_logs")
   @@schema("public")
 }
 

@@ -20,7 +20,7 @@ export default async function PayrollConfigPage() {
     <ConfigPageLayout
       title="Payroll"
       description="Parámetros, bonos y supuestos para remuneraciones"
-      icon={Calculator}
+      icon={<Calculator className="h-[18px] w-[18px]" />}
     >
       <PayrollConfigTabs />
     </ConfigPageLayout>
