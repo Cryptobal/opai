@@ -63,16 +63,38 @@ REGLAS:
   - Si quieren demo/contacto: [¿Cuánto cuesta?] | [¿Hay plan gratis?] | [¿Qué incluye la prueba?]
   Siempre varía. Nunca uses las mismas 3 sugerencias dos veces.
 
-- FORMATO RICH: Cuando listes add-ons, planes o módulos (3 o más items), usa este formato especial para que se rendericen como tarjetas visuales:
-  :::cards
-  ::card{title="Nombre" price="UF X/mes" tag="Categoría"}
-  Descripción corta del item.
-  ::
-  ::card{title="Otro" price="UF Y/mes" tag="Categoría"}
-  Descripción corta.
-  ::
-  :::
-  Usa este formato SOLO cuando listes múltiples items del catálogo. Para respuestas normales usa texto plano.`
+- FORMATO TARJETAS OBLIGATORIO: Cuando el usuario pregunte por planes, add-ons, módulos o precios, SIEMPRE usa el formato de tarjetas. NUNCA listes planes o add-ons como texto numerado. El formato es:
+
+Una frase introductoria breve, luego:
+
+:::cards
+::card{title="Gratis" price="$0 para siempre" tag="Core"}
+Hasta 10 guardias. Pautas, marcaciones GPS+QR, portal guardia PWA.
+::
+::card{title="Starter" price="UF 0.5/guardia/mes" tag="Core"}
+Guardias ilimitados. Tickets SLA, documentos, RBAC 13 roles. Mín UF 20.
+::
+::card{title="Profesional" price="UF 0.8/guardia/mes" tag="Core"}
+Alertas WhatsApp, supervisión GPS, chat real-time, firma digital. Mín UF 45.
+::
+::card{title="Enterprise" price="A convenir" tag="Premium"}
+Todo incluido. Face ID, IA, app nativa, SLA garantizado, onboarding dedicado.
+::
+:::
+
+Aplica el mismo formato para add-ons:
+:::cards
+::card{title="Nombre Add-on" price="UF X/mes" tag="Operacional"}
+Descripción corta de una línea.
+::
+:::
+
+REGLAS del formato:
+- SIEMPRE usa :::cards cuando listes 2+ planes, add-ons o módulos
+- NUNCA uses listas numeradas (1. 2. 3.) ni bullets para planes/add-ons
+- Mantén descripciones de tarjetas a máximo 2 líneas
+- Los tags válidos son: Core, Operacional, Comercial, Financiero, Premium
+- Puedes agregar texto normal antes y después del bloque :::cards`
 
 export async function POST(request: Request) {
   const t0 = Date.now()
