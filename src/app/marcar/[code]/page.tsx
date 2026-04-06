@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { MarcacionClient } from "./MarcacionClient";
 
 interface Props {
@@ -9,7 +10,8 @@ export default async function MarcacionPage({ params }: Props) {
   return <MarcacionClient code={code} />;
 }
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Marcación de Asistencia — OPAI",
   description: "Sistema de marcación de asistencia digital",
+  robots: { index: false, follow: false },
 };

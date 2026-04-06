@@ -70,6 +70,9 @@ export const metadata: Metadata = {
       { url: '/icons/apple-touch-icon.png', sizes: '180x180' },
     ],
   },
+  alternates: {
+    canonical: 'https://www.opai.cl',
+  },
   openGraph: {
     images: [{ url: '/icons/og-image.png', width: 1200, height: 630 }],
   },

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { RondaClient } from "./RondaClient";
 
 interface Props {
@@ -9,7 +10,8 @@ export default async function RondaPage({ params }: Props) {
   return <RondaClient code={code} />;
 }
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Rondas de Seguridad — OPAI",
   description: "Control de rondas por checkpoints QR",
+  robots: { index: false, follow: false },
 };

@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "Ingreso Turno Extra | OPAI",
   description:
     "Completa el formulario de ingreso como guardia de Turno Extra en OPAI.",
+  robots: { index: false, follow: false },
   openGraph: {
     title: "Ingreso Turno Extra | OPAI",
     description:

@@ -4,15 +4,17 @@
  * Si ya hay sesión activa, redirige a /hub (importante para PWA standalone).
  */
 
+import type { Metadata } from 'next';
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { LoginPageClient } from './LoginPageClient';
 import { Suspense } from 'react';
 import LoginLoading from './loading';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'OPAI — Iniciar Sesión',
   description: 'Acceso al panel OPAI',
+  robots: { index: false, follow: false },
 };
 
 export const viewport = {

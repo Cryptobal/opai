@@ -8,6 +8,7 @@ import { OpposicionMarcacionForm } from "@/components/ops/OpposicionMarcacionFor
 
 export const metadata: Metadata = {
   title: "Oposición a Modificación de Marcación",
+  robots: { index: false, follow: false },
 };
 
 type Props = { params: Promise<{ token: string }> };
