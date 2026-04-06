@@ -148,10 +148,17 @@ export async function DELETE(
 
     const existing = await prisma.atsJobPosting.findFirst({
       where: { id: jobId, tenantId: ctx.tenantId },
-      select: { id: true },
+      select: { id: true, _count: { select: { applications: true } } },
     });
     if (!existing) {
       return NextResponse.json({ success: false, error: "Aviso no encontrado" }, { status: 404 });
+    }
+
+    if (existing._count.applications > 0) {
+      return NextResponse.json(
+        { success: false, error: "El aviso tiene postulaciones. Ciérralo en lugar de eliminarlo." },
+        { status: 409 },
+      );
     }
 
     await prisma.atsJobPosting.delete({ where: { id: jobId } });
