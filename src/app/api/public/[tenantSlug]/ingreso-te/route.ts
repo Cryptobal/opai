@@ -60,6 +60,8 @@ const teSchema = z.object({
               value.startsWith("/uploads/guardias/") || /^https?:\/\//i.test(value),
             "Archivo inválido (URL o path /uploads/guardias/)"
           ),
+        fileName: z.string().trim().max(300).optional().nullable(),
+        mimeType: z.string().trim().max(120).optional().nullable(),
       })
     )
     .default([]),
@@ -211,6 +213,8 @@ export async function POST(
                 guardiaId: guardia.id,
                 type: doc.type,
                 fileUrl: doc.fileUrl,
+                fileName: doc.fileName ?? null,
+                mimeType: doc.mimeType ?? null,
                 status: "pendiente",
               })),
             });

@@ -3127,6 +3127,8 @@ model OpsDocumentoPersona {
   guardiaId      String    @map("guardia_id") @db.Uuid
   type           String
   fileUrl        String?   @map("file_url")
+  fileName       String?   @map("file_name")
+  mimeType       String?   @map("mime_type")
   status         String    @default("pending")
   issuedAt       DateTime? @map("issued_at") @db.Date
   expiresAt      DateTime? @map("expires_at") @db.Date

@@ -343,6 +343,8 @@ export const createGuardiaDocumentSchema = z.object({
     (value) => /^https?:\/\//i.test(value) || value.startsWith("/uploads/guardias/"),
     "fileUrl inválido (debe ser URL https o path /uploads/guardias/)"
   ),
+  fileName: z.string().trim().max(300).optional().nullable(),
+  mimeType: z.string().trim().max(120).optional().nullable(),
   status: z.enum(DOCUMENT_STATUS).default("pendiente"),
   issuedAt: z.string().regex(dateRegex, "issuedAt debe tener formato YYYY-MM-DD").optional().nullable(),
   expiresAt: z.string().regex(dateRegex, "expiresAt debe tener formato YYYY-MM-DD").optional().nullable(),

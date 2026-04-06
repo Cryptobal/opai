@@ -72,6 +72,8 @@ export async function POST(
         guardiaId: id,
         type: body.type,
         fileUrl: body.fileUrl,
+        fileName: normalizeNullable(body.fileName),
+        mimeType: normalizeNullable(body.mimeType),
         status: body.status,
         issuedAt: body.issuedAt ? parseDateOnly(body.issuedAt) : null,
         expiresAt: body.expiresAt ? parseDateOnly(body.expiresAt) : null,

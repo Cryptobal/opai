@@ -251,6 +251,8 @@ export async function POST(request: NextRequest) {
             guardiaId,
             type: doc.code,
             fileUrl: doc.fileUrl,
+            fileName: doc.fileName,
+            mimeType: doc.mimeType,
             status: "pendiente",
           })),
         });
@@ -402,6 +404,8 @@ async function createPersonaAndGuardia(
               guardiaId: g.id,
               type: doc.code,
               fileUrl: doc.fileUrl,
+              fileName: doc.fileName,
+              mimeType: doc.mimeType,
               status: "pendiente",
             })),
           });
