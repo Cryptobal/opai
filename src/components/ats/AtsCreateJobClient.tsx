@@ -80,31 +80,56 @@ const CANALES = [
   { value: "yapo", label: "Yapo.cl", desc: "Manual · Solo trazabilidad" },
 ];
 
+export interface AtsJobEditData {
+  titulo: string;
+  descripcion: string;
+  turno: string;
+  region: string;
+  commune: string | null;
+  installationId: string | null;
+  rentaMin: number | null;
+  rentaMax: number | null;
+  vacantes: number;
+  requiereOS10: boolean;
+  requiereMovilizacion: boolean;
+  genero: string | null;
+  experienciaMinAnios: number | null;
+  funciones: string | null;
+}
+
 export function AtsCreateJobClient({
   installations,
   snippets,
+  mode = "create",
+  jobId,
+  initialData,
 }: {
   installations: Installation[];
   snippets: AtsSnippetsConfig;
+  mode?: "create" | "edit";
+  jobId?: string;
+  initialData?: AtsJobEditData;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const isEdit = mode === "edit";
 
   const [form, setForm] = useState({
-    titulo: "",
-    descripcion: "",
-    turno: "",
-    region: "",
-    commune: "",
-    installationId: "",
-    rentaMin: "",
-    rentaMax: "",
-    vacantes: "1",
-    requiereOS10: true,
-    requiereMovilizacion: false,
-    genero: "",
-    experienciaMinAnios: "0",
-    funciones: "",
+    titulo: initialData?.titulo ?? "",
+    descripcion: initialData?.descripcion ?? "",
+    turno: initialData?.turno ?? "",
+    region: initialData?.region ?? "",
+    commune: initialData?.commune ?? "",
+    installationId: initialData?.installationId ?? "",
+    rentaMin: initialData?.rentaMin != null ? String(initialData.rentaMin) : "",
+    rentaMax: initialData?.rentaMax != null ? String(initialData.rentaMax) : "",
+    vacantes: initialData?.vacantes != null ? String(initialData.vacantes) : "1",
+    requiereOS10: initialData?.requiereOS10 ?? true,
+    requiereMovilizacion: initialData?.requiereMovilizacion ?? false,
+    genero: initialData?.genero ?? "",
+    experienciaMinAnios:
+      initialData?.experienciaMinAnios != null ? String(initialData.experienciaMinAnios) : "0",
+    funciones: initialData?.funciones ?? "",
     canales: ["google_jobs", "base_opai", "jooble"] as string[],
   });
 
@@ -125,30 +150,43 @@ export function AtsCreateJobClient({
 
     setSaving(true);
     try {
-      const res = await fetch("/api/ops/ats/jobs", {
-        method: "POST",
+      const generoValue = form.genero && form.genero !== "any" ? form.genero : null;
+      const payload = {
+        titulo: form.titulo,
+        descripcion: form.descripcion,
+        turno: form.turno,
+        region: form.region,
+        commune: form.commune || (isEdit ? null : undefined),
+        installationId: form.installationId || (isEdit ? null : undefined),
+        rentaMin: form.rentaMin ? parseInt(form.rentaMin) : isEdit ? null : undefined,
+        rentaMax: form.rentaMax ? parseInt(form.rentaMax) : isEdit ? null : undefined,
+        vacantes: parseInt(form.vacantes) || 1,
+        requiereOS10: form.requiereOS10,
+        requiereMovilizacion: form.requiereMovilizacion,
+        genero: generoValue,
+        experienciaMinAnios: parseInt(form.experienciaMinAnios) || 0,
+        funciones: form.funciones || (isEdit ? null : undefined),
+        ...(isEdit ? {} : { canales: form.canales }),
+      };
+
+      const url = isEdit ? `/api/ops/ats/jobs/${jobId}` : "/api/ops/ats/jobs";
+      const method = isEdit ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          titulo: form.titulo,
-          descripcion: form.descripcion,
-          turno: form.turno,
-          region: form.region,
-          commune: form.commune || undefined,
-          installationId: form.installationId || undefined,
-          rentaMin: form.rentaMin ? parseInt(form.rentaMin) : undefined,
-          rentaMax: form.rentaMax ? parseInt(form.rentaMax) : undefined,
-          vacantes: parseInt(form.vacantes) || 1,
-          requiereOS10: form.requiereOS10,
-          requiereMovilizacion: form.requiereMovilizacion,
-          genero: form.genero || null,
-          experienciaMinAnios: parseInt(form.experienciaMinAnios) || 0,
-          funciones: form.funciones || undefined,
-          canales: form.canales,
-        }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!json.success) {
-        toast.error(json.error || "Error al crear aviso");
+        toast.error(json.error || (isEdit ? "Error al guardar cambios" : "Error al crear aviso"));
+        return;
+      }
+
+      if (isEdit) {
+        toast.success("Cambios guardados");
+        router.push("/ops/ats");
+        router.refresh();
         return;
       }
 
@@ -348,6 +386,7 @@ export function AtsCreateJobClient({
 
       {/* Right column: Channels + Actions (barra fija en móvil para publicar sin scroll infinito) */}
       <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
+        {!isEdit && (
         <Card className="p-6 space-y-4">
           <h3 className="font-semibold">Canales de publicación</h3>
           <div className="space-y-3">
@@ -372,36 +411,73 @@ export function AtsCreateJobClient({
             ))}
           </div>
         </Card>
+        )}
 
         <Card className="p-6 space-y-3 hidden lg:block">
-          <Button className="w-full" onClick={() => submit(true)} disabled={saving}>
-            Activar y publicar
-          </Button>
-          <Button
-            className="w-full"
-            variant="outline"
-            onClick={() => submit(false)}
-            disabled={saving}
-          >
-            Guardar como borrador
-          </Button>
+          {isEdit ? (
+            <>
+              <Button className="w-full" onClick={() => submit(false)} disabled={saving}>
+                Guardar cambios
+              </Button>
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => router.push("/ops/ats")}
+                disabled={saving}
+              >
+                Cancelar
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button className="w-full" onClick={() => submit(true)} disabled={saving}>
+                Activar y publicar
+              </Button>
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => submit(false)}
+                disabled={saving}
+              >
+                Guardar como borrador
+              </Button>
+            </>
+          )}
         </Card>
       </div>
 
       {/* Móvil: acciones siempre visibles abajo */}
       <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 px-4 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
         <div className="mx-auto max-w-lg flex flex-col gap-2">
-          <Button className="w-full" onClick={() => submit(true)} disabled={saving}>
-            Activar y publicar
-          </Button>
-          <Button
-            className="w-full"
-            variant="outline"
-            onClick={() => submit(false)}
-            disabled={saving}
-          >
-            Guardar como borrador
-          </Button>
+          {isEdit ? (
+            <>
+              <Button className="w-full" onClick={() => submit(false)} disabled={saving}>
+                Guardar cambios
+              </Button>
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => router.push("/ops/ats")}
+                disabled={saving}
+              >
+                Cancelar
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button className="w-full" onClick={() => submit(true)} disabled={saving}>
+                Activar y publicar
+              </Button>
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => submit(false)}
+                disabled={saving}
+              >
+                Guardar como borrador
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>

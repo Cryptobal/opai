@@ -256,13 +256,10 @@ export function AtsDashboardClient({
                           <Eye className="h-4 w-4 mr-2" /> Ver pipeline
                         </Link>
                       </DropdownMenuItem>
-                      {/* TODO: enable when /ops/ats/[jobId]/editar route is implemented */}
-                      <DropdownMenuItem
-                        disabled
-                        title="En desarrollo"
-                        className="text-muted-foreground"
-                      >
-                        <Pencil className="h-4 w-4 mr-2" /> Editar aviso
+                      <DropdownMenuItem asChild>
+                        <Link href={`/ops/ats/${job.id}/editar`}>
+                          <Pencil className="h-4 w-4 mr-2" /> Editar aviso
+                        </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-red-600 focus:text-red-600"
