@@ -15,6 +15,9 @@ const createWarehouseSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('ops_inventario');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureInventarioAccess(ctx);
@@ -47,6 +50,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('ops_inventario');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureInventarioAccess(ctx);
