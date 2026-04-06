@@ -8,9 +8,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('chat');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
