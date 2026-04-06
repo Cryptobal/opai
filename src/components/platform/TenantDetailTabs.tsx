@@ -247,13 +247,14 @@ function ProgressBar({
 
 // ── Tab Definitions ──
 
-type TabKey = 'info' | 'plan' | 'admins' | 'metrics';
+type TabKey = 'info' | 'plan' | 'admins' | 'metrics' | 'history';
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'info', label: 'Informacion' },
   { key: 'plan', label: 'Plan y Add-ons' },
   { key: 'admins', label: 'Administradores' },
   { key: 'metrics', label: 'Metricas' },
+  { key: 'history', label: 'Historial' },
 ];
 
 // ── Main Component ──
@@ -390,6 +391,7 @@ export function TenantDetailTabs({ tenantId }: { tenantId: string }) {
           No hay plan configurado para mostrar metricas.
         </div>
       )}
+      {activeTab === 'history' && <HistoryTab tenantId={tenantId} />}
     </div>
   );
 }
@@ -631,6 +633,118 @@ function MetricsTab({
           </div>
         </dl>
       </div>
+    </div>
+  );
+}
+
+// ── Tab: Historial ──
+
+interface PlanChange {
+  id: string;
+  previousPlan: string;
+  newPlan: string;
+  previousPrice: number | null;
+  newPrice: number | null;
+  changedBy: string;
+  reason: string | null;
+  addonsSnapshot: { slug: string; name: string; price: number }[] | null;
+  createdAt: string;
+}
+
+function HistoryTab({ tenantId }: { tenantId: string }) {
+  const [logs, setLogs] = useState<PlanChange[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchHistory() {
+      try {
+        const res = await fetch(`/api/platform/tenants/${tenantId}/history`);
+        if (res.ok) {
+          const json = await res.json();
+          setLogs(json.logs ?? []);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchHistory();
+  }, [tenantId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (logs.length === 0) {
+    return (
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-6 text-center text-gray-500 dark:text-gray-400">
+        No hay cambios de plan registrados.
+      </div>
+    );
+  }
+
+  const planBadge: Record<string, string> = {
+    free: 'bg-gray-100 text-gray-600',
+    starter: 'bg-blue-100 text-blue-700',
+    profesional: 'bg-teal-100 text-teal-700',
+    enterprise: 'bg-purple-100 text-purple-700',
+  };
+
+  return (
+    <div className="space-y-4">
+      {logs.map((log) => (
+        <div
+          key={log.id}
+          className="rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 p-4"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${planBadge[log.previousPlan] || 'bg-gray-100 text-gray-700'}`}>
+                {log.previousPlan}
+              </span>
+              <span className="text-gray-400">&rarr;</span>
+              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${planBadge[log.newPlan] || 'bg-gray-100 text-gray-700'}`}>
+                {log.newPlan}
+              </span>
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {new Date(log.createdAt).toLocaleDateString('es-CL', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+          </div>
+          <div className="mt-2 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+            <span>Por: {log.changedBy}</span>
+            {log.previousPrice != null && log.newPrice != null && (
+              <span>
+                Precio: ${log.previousPrice} &rarr; ${log.newPrice} UF/guardia
+              </span>
+            )}
+          </div>
+          {log.reason && (
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">{log.reason}</p>
+          )}
+          {log.addonsSnapshot && log.addonsSnapshot.length > 0 && (
+            <div className="mt-2">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Add-ons activos al momento:</span>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {log.addonsSnapshot.map((a) => (
+                  <span key={a.slug} className="rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs text-gray-600 dark:text-gray-400">
+                    {a.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

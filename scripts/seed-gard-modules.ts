@@ -1,50 +1,38 @@
 /**
- * Seed Gard Tenant Modules
- *
- * Inserta todos los módulos habilitados para el tenant Gard,
- * de modo que Gard también quede bajo el sistema de TenantModule
- * en vez de depender del fallback "sin registros = todo habilitado".
- *
- * Uso:
- *   npx tsx scripts/seed-gard-modules.ts
+ * Seed ALL modules for Gard tenant.
+ * Run: npx tsx scripts/seed-gard-modules.ts
  */
+import { prisma } from '@/lib/prisma';
+import { ALL_MODULES } from '@/lib/tenant-modules';
 
-import { PrismaClient } from '@prisma/client';
-import { ALL_MODULES } from '../src/lib/tenant-modules';
+async function seedGardModules() {
+  const gard = await prisma.tenant.findFirst({
+    where: { slug: 'gard' },
+  });
 
-const prisma = new PrismaClient();
-
-async function main() {
-  const gard = await prisma.tenant.findUnique({ where: { slug: 'gard' } });
   if (!gard) {
-    console.log('Tenant "gard" not found. Nothing to do.');
-    return;
+    console.error('Tenant Gard not found');
+    process.exit(1);
   }
 
-  console.log(`Found tenant "gard" (${gard.id}). Seeding ${ALL_MODULES.length} modules...`);
+  console.log(`Seeding modules for Gard (${gard.id})...`);
 
   let created = 0;
-  let updated = 0;
-
   for (const mod of ALL_MODULES) {
-    const result = await prisma.tenantModule.upsert({
+    await prisma.tenantModule.upsert({
       where: { tenantId_module: { tenantId: gard.id, module: mod } },
       update: { enabled: true },
       create: { tenantId: gard.id, module: mod as string, enabled: true },
     });
-    if (result.createdAt.getTime() === result.updatedAt.getTime()) {
-      created++;
-    } else {
-      updated++;
-    }
+    created++;
   }
 
-  console.log(`Done. Created: ${created}, Updated: ${updated}`);
+  console.log(`Done: ${created} modules enabled for Gard`);
 }
 
-main()
+seedGardModules()
+  .then(() => process.exit(0))
   .catch((e) => {
     console.error(e);
     process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+  });

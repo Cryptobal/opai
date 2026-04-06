@@ -71,7 +71,7 @@ model Tenant {
   plan                        TenantPlan?
   atsJobPostings              AtsJobPosting[]   @relation("ats_job_tenant")
   atsApplications             AtsApplication[]  @relation("ats_application_tenant")
-  knowledgeBases              KnowledgeBase[]
+  planChangeLogs              PlanChangeLog[]
 
   @@index([slug])
   @@index([active])
@@ -81,10 +81,7 @@ model Tenant {
 model TenantModule {
   id        String   @id @default(cuid())
   tenantId  String   @map("tenant_id")
-  module    String   // Valores posibles: "crm", "cpq", "ops_asistencia", "ops_rondas",
-                     // "ops_pauta", "ops_supervision", "ops_inventario", "documentos",
-                     // "payroll", "finanzas", "portal_cliente", "portal_supervisor",
-                     // "portal_guardia", "gamificacion", "chat", "fiscalizacion", "ats"
+  module    String   // See ALL_MODULES in src/lib/tenant-modules.ts for full list
   enabled   Boolean  @default(true)
   config    Json?    @db.JsonB
   createdAt DateTime @default(now()) @map("created_at")
@@ -255,6 +252,25 @@ model TenantAddon {
   @@unique([tenantId, addonId])
   @@index([tenantId])
   @@map("tenant_addons")
+  @@schema("public")
+}
+
+model PlanChangeLog {
+  id             String   @id @default(cuid())
+  tenantId       String   @map("tenant_id")
+  previousPlan   String   @map("previous_plan")
+  newPlan        String   @map("new_plan")
+  previousPrice  Decimal? @map("previous_price") @db.Decimal(10, 4)
+  newPrice       Decimal? @map("new_price") @db.Decimal(10, 4)
+  changedBy      String   @map("changed_by")
+  reason         String?
+  addonsSnapshot Json?    @map("addons_snapshot") @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("plan_change_logs")
   @@schema("public")
 }
 
@@ -7916,50 +7932,4 @@ model AtsDistributionChannel {
   @@index([jobPostingId], map: "idx_ats_channels_job")
   @@map("ats_distribution_channels")
   @@schema("ops")
-}
-
-// ── Knowledge Base (RAG) ──
-
-model KnowledgeBase {
-  id          String   @id @default(cuid())
-  tenantId    String?  @map("tenant_id") // NULL = documento global (Platform Admin)
-  title       String
-  description String?
-  fileName    String   @map("file_name")
-  fileUrl     String   @map("file_url")
-  fileSize    Int      @map("file_size")
-  mimeType    String   @map("mime_type")
-  status      String   @default("processing") // processing | ready | error
-  chunkCount  Int      @default(0) @map("chunk_count")
-  category    String?
-  enabled     Boolean  @default(true)
-  metadata    Json?    @db.JsonB
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  createdBy   String?  @map("created_by")
-
-  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  chunks KnowledgeChunk[]
-
-  @@index([tenantId])
-  @@index([tenantId, enabled])
-  @@map("knowledge_bases")
-  @@schema("public")
-}
-
-model KnowledgeChunk {
-  id              String                       @id @default(cuid())
-  knowledgeBaseId String                       @map("knowledge_base_id")
-  content         String                       @db.Text
-  chunkIndex      Int                          @map("chunk_index")
-  embedding       Unsupported("vector(1536)")?
-  tokenCount      Int                          @default(0) @map("token_count")
-  metadata        Json?                        @db.JsonB
-  createdAt       DateTime                     @default(now()) @map("created_at")
-
-  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
-
-  @@index([knowledgeBaseId])
-  @@map("knowledge_chunks")
-  @@schema("public")
 }

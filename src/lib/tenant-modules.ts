@@ -10,96 +10,75 @@ import { prisma } from "@/lib/prisma";
 // ── Definición de módulos y planes ──
 
 export const ALL_MODULES = [
-  // Core (siempre disponible con cualquier plan)
+  // Core
   "hub",
   "config",
   "portal_guardia",
   "portal_marcacion",
-
-  // Operaciones core
-  "ops_asistencia",     // Marcaciones GPS + QR + foto
-  "ops_pauta",          // Pautas mensuales/diarias, drag & drop
-  "ops_pce",            // Puestos por cubrir
-  "ops_turnos_extra",   // Turnos extras + plantillas bancarias
-  "ops_refuerzos",      // Refuerzos sincronizados con facturación
-  "ops_onboarding",     // Onboarding de guardias
-  "ops_audit",          // Auditoría de pautas
-  "tickets",            // Tickets internos y externos + SLA
-  "documentos",         // Gestor documental + templates + firma
-  "personas",           // Fichas, comunicaciones, sueldos
-
-  // Supervisión y alertas (Plan Profesional)
-  "ops_supervision",    // Supervisión GPS, rutas, encuestas
-  "portal_supervisor",  // Portal del supervisor
-  "alertas_cobertura",  // Alertas push + email + WhatsApp
-  "chat",               // Chat interno + externo en tiempo real
-  "gamificacion",       // Sistema de puntos e incentivos
-  "protocolos_ia",      // Protocolos con IA + exámenes a guardias
-  "contratos",          // Contratos con control de cambios + firma digital
-
-  // Add-ons (compra separada o incluidos en Enterprise)
-  "crm",                // CRM completo: leads, cuentas, deals, contactos, prospección
-  "cpq",                // Cotizador + cálculo empleador + PDF + email tracking
-  "ops_rondas",         // Rondas GPS: checkpoints, monitoreo, centro IA, portal
-  "ops_inventario",     // Stock, bodegas, compras, entregas, activos, líneas
-  "portal_cliente",     // Portal del cliente
-  "payroll",            // Liquidaciones Chile, anticipos, bonos, simulador
-  "finanzas",           // Facturación SII, rendiciones, bancos, contabilidad
-  "ats",                // ATS reclutamiento + publicación multi-plataforma
-  "face_id",            // Face ID biométrico AWS Rekognition
-  "ia_operacional",     // IA: RAG, OCR, análisis, asistente, contenido CPQ
-  "control_acceso",     // Control de acceso QR, OCR patentes, portal
-  "fiscalizacion",      // Portal inspector DT + reportes DT
-  "reportes_dt",        // Reportes de asistencia DT (separado de fiscalización)
-  "control_nocturno",   // Control nocturno IA
-  "white_label",        // Dominio propio, marca personalizada
-  "app_nativa",         // App iOS/Android nativa
+  // Operaciones
+  "ops_asistencia",
+  "ops_pauta",
+  "ops_pce",
+  "ops_turnos_extra",
+  "ops_refuerzos",
+  "ops_onboarding",
+  "ops_audit",
+  "personas",
+  "tickets",
+  "documentos",
+  "contratos",
+  // Supervision (Profesional)
+  "ops_supervision",
+  "portal_supervisor",
+  "alertas_cobertura",
+  "chat",
+  "gamificacion",
+  "protocolos_ia",
+  "reportes_dt",
+  // Add-ons
+  "crm",
+  "cpq",
+  "ops_rondas",
+  "ops_inventario",
+  "portal_cliente",
+  "payroll",
+  "finanzas",
+  "ats",
+  "face_id",
+  "ia_operacional",
+  "control_acceso",
+  "fiscalizacion",
+  "control_nocturno",
+  "white_label",
+  "app_nativa",
 ] as const;
 
 export type TenantModuleKey = (typeof ALL_MODULES)[number];
 
 export const PLAN_MODULES: Record<string, TenantModuleKey[]> = {
   free: [
-    // Core siempre incluido
     "hub", "config", "portal_guardia", "portal_marcacion",
-    // Operaciones básicas
-    "ops_asistencia", "ops_pauta", "personas",
-    // Tickets básico
-    "tickets",
+    "ops_asistencia", "ops_pauta",
+    "personas", "tickets",
   ],
   starter: [
-    // Todo lo del free
     "hub", "config", "portal_guardia", "portal_marcacion",
-    "ops_asistencia", "ops_pauta", "personas", "tickets",
-    // + Operaciones completas
-    "ops_pce", "ops_turnos_extra", "ops_refuerzos", "ops_onboarding", "ops_audit",
-    // + Documentos y firma
-    "documentos",
-    // + Portal supervisor
+    "ops_asistencia", "ops_pauta", "ops_pce", "ops_turnos_extra",
+    "ops_refuerzos", "ops_onboarding", "ops_audit",
+    "personas", "tickets", "documentos", "contratos",
     "portal_supervisor",
-    // + Contratos
-    "contratos",
   ],
   profesional: [
-    // Todo lo del starter
     "hub", "config", "portal_guardia", "portal_marcacion",
-    "ops_asistencia", "ops_pauta", "personas", "tickets",
-    "ops_pce", "ops_turnos_extra", "ops_refuerzos", "ops_onboarding", "ops_audit",
-    "documentos", "portal_supervisor", "contratos",
-    // + Supervisión y alertas
+    "ops_asistencia", "ops_pauta", "ops_pce", "ops_turnos_extra",
+    "ops_refuerzos", "ops_onboarding", "ops_audit",
+    "personas", "tickets", "documentos", "contratos",
+    "portal_supervisor",
+    // Profesional extras
     "ops_supervision", "alertas_cobertura",
-    // + Comunicación
-    "chat",
-    // + Gamificación
-    "gamificacion",
-    // + Protocolos e IA básica
-    "protocolos_ia",
-    // + Reportes DT básicos
-    "reportes_dt",
+    "chat", "gamificacion", "protocolos_ia", "reportes_dt",
   ],
-  enterprise: [
-    ...(ALL_MODULES as unknown as TenantModuleKey[]),
-  ],
+  enterprise: ALL_MODULES.slice() as unknown as TenantModuleKey[],
 };
 // Backward compatibility aliases
 PLAN_MODULES.trial = PLAN_MODULES.free;

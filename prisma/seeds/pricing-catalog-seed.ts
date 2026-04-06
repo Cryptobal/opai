@@ -1,9 +1,9 @@
 import type { PrismaClient } from '@prisma/client';
 
 export async function seedPricingCatalog(prisma: PrismaClient) {
-  console.log('📦 Seeding pricing catalog...');
+  console.log('Seeding pricing catalog...');
 
-  // Plans
+  // Plans — aligned with PLAN_MODULES in src/lib/tenant-modules.ts
   const plans = [
     {
       slug: "free",
@@ -17,7 +17,8 @@ export async function seedPricingCatalog(prisma: PrismaClient) {
       maxStorageMb: 500,
       includedModules: [
         "hub", "config", "portal_guardia", "portal_marcacion",
-        "ops_asistencia", "ops_pauta", "personas", "tickets",
+        "ops_asistencia", "ops_pauta",
+        "personas", "tickets",
       ],
       trialDays: 0,
       sortOrder: 0,
@@ -35,9 +36,10 @@ export async function seedPricingCatalog(prisma: PrismaClient) {
       maxStorageMb: 2000,
       includedModules: [
         "hub", "config", "portal_guardia", "portal_marcacion",
-        "ops_asistencia", "ops_pauta", "personas", "tickets",
-        "ops_pce", "ops_turnos_extra", "ops_refuerzos", "ops_onboarding", "ops_audit",
-        "documentos", "portal_supervisor", "contratos",
+        "ops_asistencia", "ops_pauta", "ops_pce", "ops_turnos_extra",
+        "ops_refuerzos", "ops_onboarding", "ops_audit",
+        "personas", "tickets", "documentos", "contratos",
+        "portal_supervisor",
       ],
       trialDays: 30,
       sortOrder: 1,
@@ -55,9 +57,10 @@ export async function seedPricingCatalog(prisma: PrismaClient) {
       maxStorageMb: 5000,
       includedModules: [
         "hub", "config", "portal_guardia", "portal_marcacion",
-        "ops_asistencia", "ops_pauta", "personas", "tickets",
-        "ops_pce", "ops_turnos_extra", "ops_refuerzos", "ops_onboarding", "ops_audit",
-        "documentos", "portal_supervisor", "contratos",
+        "ops_asistencia", "ops_pauta", "ops_pce", "ops_turnos_extra",
+        "ops_refuerzos", "ops_onboarding", "ops_audit",
+        "personas", "tickets", "documentos", "contratos",
+        "portal_supervisor",
         "ops_supervision", "alertas_cobertura",
         "chat", "gamificacion", "protocolos_ia", "reportes_dt",
       ],
@@ -79,14 +82,14 @@ export async function seedPricingCatalog(prisma: PrismaClient) {
         "hub", "config", "portal_guardia", "portal_marcacion",
         "ops_asistencia", "ops_pauta", "ops_pce", "ops_turnos_extra",
         "ops_refuerzos", "ops_onboarding", "ops_audit",
-        "tickets", "documentos", "personas",
-        "ops_supervision", "portal_supervisor", "alertas_cobertura",
-        "chat", "gamificacion", "protocolos_ia", "contratos",
+        "personas", "tickets", "documentos", "contratos",
+        "portal_supervisor",
+        "ops_supervision", "alertas_cobertura",
+        "chat", "gamificacion", "protocolos_ia", "reportes_dt",
         "crm", "cpq", "ops_rondas", "ops_inventario",
-        "portal_cliente", "payroll", "finanzas", "ats",
-        "face_id", "ia_operacional", "control_acceso",
-        "fiscalizacion", "reportes_dt", "control_nocturno",
-        "white_label", "app_nativa",
+        "portal_cliente", "payroll", "finanzas",
+        "ats", "face_id", "ia_operacional", "control_acceso",
+        "fiscalizacion", "control_nocturno", "white_label", "app_nativa",
       ],
       trialDays: 30,
       sortOrder: 3,
@@ -97,13 +100,21 @@ export async function seedPricingCatalog(prisma: PrismaClient) {
   for (const p of plans) {
     await prisma.planCatalog.upsert({
       where: { slug: p.slug },
-      update: { name: p.name, pricePerGuard: p.pricePerGuard, baseMinimum: p.baseMinimum, includedModules: p.includedModules },
+      update: {
+        name: p.name,
+        pricePerGuard: p.pricePerGuard,
+        baseMinimum: p.baseMinimum,
+        maxGuards: p.maxGuards,
+        maxAdmins: p.maxAdmins,
+        maxStorageMb: p.maxStorageMb,
+        includedModules: p.includedModules,
+      },
       create: p,
     });
   }
-  console.log(`  ✅ ${plans.length} plans`);
+  console.log(`  ${plans.length} plans`);
 
-  // Add-ons
+  // Add-ons — moduleKey must match a key in ALL_MODULES
   const addons = [
     { slug: "rondas_gps", name: "Rondas GPS", pricingModel: "per_guard", priceAmount: 0.15, priceUnit: "guardia/mes", moduleKey: "ops_rondas", tag: "Operacional", sortOrder: 0 },
     { slug: "control_nocturno", name: "Control Nocturno IA", pricingModel: "per_guard", priceAmount: 0.10, priceUnit: "guardia/mes", moduleKey: "control_nocturno", tag: "Operacional", sortOrder: 1 },
@@ -119,7 +130,7 @@ export async function seedPricingCatalog(prisma: PrismaClient) {
     { slug: "fiscalizacion_dt", name: "Fiscalización DT", pricingModel: "flat", priceAmount: 5, priceUnit: "mes", moduleKey: "fiscalizacion", tag: "Premium", sortOrder: 11 },
     { slug: "white_label", name: "White-label", pricingModel: "flat", priceAmount: 15, priceUnit: "mes", moduleKey: "white_label", tag: "Premium", sortOrder: 12 },
     { slug: "app_nativa", name: "App iOS/Android", pricingModel: "flat", priceAmount: 10, priceUnit: "mes", moduleKey: "app_nativa", tag: "Premium", sortOrder: 13 },
-    { slug: "ats", name: "ATS Reclutamiento", pricingModel: "flat", priceAmount: 5, priceUnit: "mes", moduleKey: "ats", tag: "Comercial", sortOrder: 14 },
+    { slug: "ats", name: "ATS / Reclutamiento", pricingModel: "flat", priceAmount: 5, priceUnit: "mes", moduleKey: "ats", tag: "Comercial", sortOrder: 14, description: "Publicación automática en Google Empleos, Indeed, base OPAI" },
   ];
 
   for (const a of addons) {
@@ -129,7 +140,7 @@ export async function seedPricingCatalog(prisma: PrismaClient) {
       create: a,
     });
   }
-  console.log(`  ✅ ${addons.length} add-ons`);
+  console.log(`  ${addons.length} add-ons`);
 
   // Packs
   const packs = [
@@ -146,7 +157,7 @@ export async function seedPricingCatalog(prisma: PrismaClient) {
       create: p,
     });
   }
-  console.log(`  ✅ ${packs.length} packs`);
+  console.log(`  ${packs.length} packs`);
 
-  console.log('✅ Pricing catalog seeded');
+  console.log('Pricing catalog seeded');
 }

@@ -17,6 +17,7 @@ interface TenantRow {
   trialEndsAt: string | null;
   enabledModules: number;
   usagePct: number;
+  monthlyTotal?: number;
 }
 
 interface TenantTableProps {
@@ -252,6 +253,11 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
                   >
                     {t.plan}
                   </span>
+                  {t.plan === 'enterprise' && (t.monthlyTotal === 0 || t.monthlyTotal === undefined) && (
+                    <span className="ml-1 text-xs text-amber-500" title="Sin precio configurado">
+                      Sin precio
+                    </span>
+                  )}
                 </td>
                 {/* Estado */}
                 <td className="px-4 py-3">
@@ -290,23 +296,17 @@ export function TenantTable({ tenants, onImpersonate }: TenantTableProps) {
                 </td>
                 {/* Acciones */}
                 <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-end gap-3">
                     <Link
                       href={`/platform/tenants/${t.id}`}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                      className="rounded-md bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                     >
-                      Ver
-                    </Link>
-                    <Link
-                      href={`/platform/tenants/${t.id}?tab=plan`}
-                      className="text-xs font-medium text-gray-600 hover:text-gray-800"
-                    >
-                      Editar
+                      Gestionar
                     </Link>
                     <button
                       type="button"
                       onClick={() => onImpersonate(t.id)}
-                      className="text-xs font-medium text-purple-600 hover:text-purple-800"
+                      className="rounded-md bg-purple-100 dark:bg-purple-900/30 px-3 py-1.5 text-xs font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800/40 transition-colors"
                     >
                       Entrar
                     </button>
