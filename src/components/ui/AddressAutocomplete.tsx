@@ -139,6 +139,14 @@ function latLngFromUnknown(loc: unknown): { lat: number; lng: number } {
   return { lat, lng };
 }
 
+/** Prioriza calles y números (Table A); sin esto Google suele mostrar negocios/POI. Máx. 5 tipos. */
+const ADDRESS_PRIMARY_TYPES = [
+  "street_address",
+  "premise",
+  "subpremise",
+  "route",
+] as const;
+
 export function AddressAutocomplete({
   value,
   onChange,
@@ -148,6 +156,7 @@ export function AddressAutocomplete({
 }: AddressAutocompleteProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const acRef = useRef<HTMLElement | null>(null);
+  const [widgetReady, setWidgetReady] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const onChangeRef = useRef(onChange);
@@ -180,6 +189,12 @@ export function AddressAutocomplete({
       document.removeEventListener("pointerdown", handler, true);
       document.removeEventListener("mousedown", handler, true);
     };
+  }, []);
+
+  // Precarga el JS de Maps en cuanto hay key, para que el input aparezca antes al abrir modales/formularios.
+  useEffect(() => {
+    if (!GOOGLE_MAPS_API_KEY) return;
+    void loadGoogleMapsScript().catch(() => {});
   }, []);
 
   const handleNewPlaceSelect = useCallback(
@@ -238,8 +253,10 @@ export function AddressAutocomplete({
           requestedLanguage: "es",
           requestedRegion: "cl",
           placeholder,
+          includedPrimaryTypes: [...ADDRESS_PRIMARY_TYPES],
         });
-        el.className = `w-full min-h-10 text-sm ${className ?? ""}`.trim();
+        // Un solo borde: lo dibuja el contenedor; el widget Google trae borde propio.
+        el.className = `w-full min-h-10 border-0 bg-transparent text-sm shadow-none outline-none ${className ?? ""}`.trim();
         if (initialAddressValue !== undefined) {
           (el as { value: string }).value = initialAddressValue;
         }
@@ -256,17 +273,20 @@ export function AddressAutocomplete({
         el.addEventListener("gmp-select", onSelect);
         container.appendChild(el);
         acRef.current = el;
+        setWidgetReady(true);
 
         el.addEventListener("gmp-error", (ev) => {
           console.error("[AddressAutocomplete] Google Places:", ev);
         });
       } catch (err) {
         console.error("[AddressAutocomplete]", err);
+        setWidgetReady(true);
       }
     })();
 
     return () => {
       cancelled = true;
+      setWidgetReady(false);
       const el = acRef.current;
       if (el?.parentNode) {
         el.remove();
@@ -280,7 +300,7 @@ export function AddressAutocomplete({
     if (value === undefined || !acRef.current) return;
     const el = acRef.current as { value?: string };
     if (el.value !== value) el.value = value;
-  }, [value]);
+  }, [value, widgetReady]);
 
   const showMapImage = coords && showMap && GOOGLE_MAPS_API_KEY;
   const mapUrl = showMapImage
@@ -298,8 +318,21 @@ export function AddressAutocomplete({
   return (
     <div className="space-y-2">
       <div className="relative w-full">
-        <MapPin className="absolute left-3 top-1/2 z-[1] -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <div ref={wrapRef} className="w-full pl-9 [&>gmp-place-autocomplete]:w-full" />
+        <MapPin className="absolute left-3 top-1/2 z-[2] -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <div
+          className="relative min-h-[44px] w-full rounded-md border border-input bg-background pl-9 pr-2 shadow-sm transition-colors focus-within:ring-1 focus-within:ring-ring"
+          aria-busy={!widgetReady}
+        >
+          {!widgetReady ? (
+            <div className="pointer-events-none absolute inset-0 left-9 flex items-center text-sm text-muted-foreground">
+              Cargando buscador de direcciones…
+            </div>
+          ) : null}
+          <div
+            ref={wrapRef}
+            className="relative z-[1] flex min-h-[40px] w-full items-center [&>gmp-place-autocomplete]:min-h-10 [&>gmp-place-autocomplete]:w-full"
+          />
+        </div>
       </div>
       {mapUrl && (
         <a

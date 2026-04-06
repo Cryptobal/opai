@@ -451,11 +451,15 @@ export function PostulacionPublicForm({ token, tenantSlug = "gard" }: Postulacio
               </Button>
               <span className="shrink-0 text-muted-foreground">Fecha de nacimiento</span>
             </div>
-            <div className="md:col-span-2">
+            <div className="md:col-span-2 space-y-1.5">
+              <p className="text-sm font-medium text-foreground">Dirección *</p>
+              <p className="text-xs text-muted-foreground">
+                Escribe calle y número; elige una sugerencia de calle (no solo el nombre del sector).
+              </p>
               <AddressAutocomplete
                 value={form.addressFormatted}
                 onChange={onAddressChange}
-                placeholder="Dirección (Google Maps) *"
+                placeholder="Ej: Av. Principal 123, comuna…"
                 showMap
               />
             </div>
