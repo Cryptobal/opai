@@ -61,6 +61,12 @@ export default async function TenantEmpleosPage({
   const cfg = await getTenantCompanyConfig(tenant.id);
   const companyName = cfg.commercialName || cfg.companyName;
   const logoUrl = cfg.brandingLogoWhite || cfg.brandingLogoFull || cfg.logoUrl;
+  if (!logoUrl) {
+    console.warn(
+      `[empleos] Tenant ${tenantSlug} (${tenant.id}) has no logo configured in Settings ` +
+        `(empresa.branding.logoWhite | empresa.branding.logoFull | empresa.logoUrl)`
+    );
+  }
 
   const jobs = await prisma.atsJobPosting.findMany({
     where: { tenantId: tenant.id, estado: "ACTIVO" },
