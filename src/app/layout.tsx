@@ -1,6 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Exo_2, DM_Sans, JetBrains_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
+import { BadgeClear } from "@/components/pwa/BadgeClear";
+import { PWAProvider } from "@/components/pwa/PWAProvider";
+import { ThemeProvider } from "@/components/opai/ThemeProvider";
+import { Toaster } from "@/components/ui/toaster";
 import "../styles/globals.css";
 
 const exo2 = Exo_2({
@@ -29,10 +34,6 @@ const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? "GTM-WNF9VD9B";
 /** Google Analytics 4 (gtag.js) — override con NEXT_PUBLIC_GA_MEASUREMENT_ID */
 const GA_MEASUREMENT_ID =
   process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-ZW32Q9SS52";
-import { Toaster } from "@/components/ui/toaster";
-import { ThemeProvider } from "@/components/opai/ThemeProvider";
-import { PWAProvider } from "@/components/pwa/PWAProvider";
-import { BadgeClear } from "@/components/pwa/BadgeClear";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -131,6 +132,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
           </PWAProvider>
           <Toaster />
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
