@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
 import { decryptApiKey } from "@/lib/ai-encryption";
+import { getDefaultBaseUrlForProvider } from "@/lib/ai-known-models";
 import { AIService, type AIConfig } from "@/lib/ai-service";
 
 export async function POST(
@@ -73,11 +74,15 @@ export async function POST(
       );
     }
 
+    const resolvedBase =
+      (provider.baseUrl && provider.baseUrl.trim()) ||
+      getDefaultBaseUrlForProvider(provider.providerType);
+
     const testConfig: AIConfig = {
       providerType: provider.providerType,
       modelId,
       apiKey: apiKeyPlain,
-      baseUrl: provider.baseUrl ?? "",
+      baseUrl: resolvedBase,
     };
 
     const service = new AIService();

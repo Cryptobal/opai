@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { getDefaultBaseUrlForProvider } from "@/lib/ai-known-models";
 import {
   Eye,
   EyeOff,
@@ -327,7 +328,9 @@ function ProviderConfigDialog({
 }) {
   const [apiKey, setApiKey] = useState("");
   const [isEditingKey, setIsEditingKey] = useState(!provider.hasApiKey);
-  const [baseUrl, setBaseUrl] = useState(provider.baseUrl ?? "");
+  const [baseUrl, setBaseUrl] = useState(
+    () => provider.baseUrl?.trim() || getDefaultBaseUrlForProvider(provider.providerType),
+  );
   const [selectedModelId, setSelectedModelId] = useState(
     provider.models.find((m) => m.isDefault)?.id ?? provider.models[0]?.id ?? ""
   );
@@ -338,6 +341,16 @@ function ProviderConfigDialog({
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [addModelOpen, setAddModelOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setBaseUrl(provider.baseUrl?.trim() || getDefaultBaseUrlForProvider(provider.providerType));
+    setIsEditingKey(!provider.hasApiKey);
+    setApiKey("");
+    setTestResult(null);
+    setRevealedKey(null);
+    setShowKey(false);
+  }, [open, provider.id, provider.hasApiKey, provider.baseUrl, provider.providerType]);
 
   const handleRevealKey = async () => {
     if (revealedKey) {
@@ -419,14 +432,26 @@ function ProviderConfigDialog({
           ...(apiKey ? { apiKey } : {}),
         }),
       });
-      const json = await res.json();
+      const text = await res.text();
+      let json: { success?: boolean; error?: string } = {};
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch {
+        setTestResult({
+          ok: false,
+          msg: text ? `Error del servidor (${res.status}): ${text.slice(0, 280)}` : `HTTP ${res.status}`,
+        });
+        return;
+      }
       if (json.success) {
         setTestResult({ ok: true, msg: "Conexión exitosa" });
       } else {
-        setTestResult({ ok: false, msg: json.error ?? "Error desconocido" });
+        const err = json.error ?? "Error desconocido";
+        setTestResult({ ok: false, msg: err.length > 320 ? `${err.slice(0, 320)}…` : err });
       }
-    } catch {
-      setTestResult({ ok: false, msg: "No se pudo conectar" });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Error de red";
+      setTestResult({ ok: false, msg: msg.length > 200 ? `${msg.slice(0, 200)}…` : msg });
     } finally {
       setTesting(false);
     }

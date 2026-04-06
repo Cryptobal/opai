@@ -120,3 +120,8 @@ export function getAllKnownModelIds(): Set<string> {
   }
   return ids;
 }
+
+/** URL de API por defecto si en BD `baseUrl` está vacío (evita fetch a URL relativa inválida). */
+export function getDefaultBaseUrlForProvider(providerType: string): string {
+  return KNOWN_PROVIDERS.find((kp) => kp.providerType === providerType)?.defaultBaseUrl ?? "";
+}

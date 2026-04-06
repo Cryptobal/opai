@@ -7,7 +7,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { decryptApiKey } from "@/lib/ai-encryption";
-import { KNOWN_PROVIDERS } from "@/lib/ai-known-models";
+import { getDefaultBaseUrlForProvider, KNOWN_PROVIDERS } from "@/lib/ai-known-models";
 
 export type AIConfig = {
   providerType: string;
@@ -17,6 +17,13 @@ export type AIConfig = {
 };
 
 export class AIService {
+  /** Evita baseUrl vacío o con slash final que rompe el join con /v1/... */
+  private resolveApiBase(config: AIConfig): string {
+    const raw =
+      (config.baseUrl && config.baseUrl.trim()) || getDefaultBaseUrlForProvider(config.providerType);
+    return raw.replace(/\/+$/, "");
+  }
+
   /**
    * Returns the currently active provider + default model config,
    * or null if no provider is configured.
@@ -62,14 +69,13 @@ export class AIService {
       return null;
     }
 
-    const fallbackUrl =
-      KNOWN_PROVIDERS.find((kp) => kp.providerType === activeProvider.providerType)?.defaultBaseUrl ?? "";
+    const fallbackUrl = getDefaultBaseUrlForProvider(activeProvider.providerType);
 
     return {
       providerType: activeProvider.providerType,
       modelId: model.modelId,
       apiKey: decryptApiKey(activeProvider.apiKey),
-      baseUrl: activeProvider.baseUrl || fallbackUrl,
+      baseUrl: (activeProvider.baseUrl && activeProvider.baseUrl.trim()) || fallbackUrl,
     };
   }
 
@@ -207,7 +213,8 @@ export class AIService {
     prompt: string,
     maxTokens = 4096
   ): Promise<string> {
-    const res = await fetch(`${config.baseUrl}/v1/messages`, {
+    const base = this.resolveApiBase(config);
+    const res = await fetch(`${base}/v1/messages`, {
       method: "POST",
       headers: {
         "x-api-key": config.apiKey,
@@ -235,7 +242,8 @@ export class AIService {
     prompt: string,
     maxTokens = 4096
   ): Promise<string> {
-    const res = await fetch(`${config.baseUrl}/v1/chat/completions`, {
+    const base = this.resolveApiBase(config);
+    const res = await fetch(`${base}/v1/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
@@ -263,7 +271,8 @@ export class AIService {
     prompt: string,
     maxTokens = 4096
   ): Promise<string> {
-    const url = `${config.baseUrl}/v1beta/models/${config.modelId}:generateContent?key=${config.apiKey}`;
+    const base = this.resolveApiBase(config);
+    const url = `${base}/v1beta/models/${config.modelId}:generateContent?key=${config.apiKey}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -297,7 +306,8 @@ export class AIService {
     };
     if (temperature !== undefined) body.temperature = temperature;
 
-    const res = await fetch(`${config.baseUrl}/v1/messages`, {
+    const base = this.resolveApiBase(config);
+    const res = await fetch(`${base}/v1/messages`, {
       method: "POST",
       headers: {
         "x-api-key": config.apiKey,
@@ -330,7 +340,8 @@ export class AIService {
     if (temperature !== undefined) body.temperature = temperature;
     // NOTE: No response_format — returns free-form text
 
-    const res = await fetch(`${config.baseUrl}/v1/chat/completions`, {
+    const base = this.resolveApiBase(config);
+    const res = await fetch(`${base}/v1/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
@@ -357,7 +368,8 @@ export class AIService {
     const genConfig: Record<string, unknown> = { maxOutputTokens: maxTokens };
     if (temperature !== undefined) genConfig.temperature = temperature;
 
-    const url = `${config.baseUrl}/v1beta/models/${config.modelId}:generateContent?key=${config.apiKey}`;
+    const base = this.resolveApiBase(config);
+    const url = `${base}/v1beta/models/${config.modelId}:generateContent?key=${config.apiKey}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -384,7 +396,8 @@ export class AIService {
     prompt: string,
     maxTokens = 4096
   ): Promise<string> {
-    const res = await fetch(`${config.baseUrl}/v1/messages`, {
+    const base = this.resolveApiBase(config);
+    const res = await fetch(`${base}/v1/messages`, {
       method: "POST",
       headers: {
         "x-api-key": config.apiKey,
@@ -428,7 +441,8 @@ export class AIService {
     prompt: string,
     maxTokens = 4096
   ): Promise<string> {
-    const res = await fetch(`${config.baseUrl}/v1/chat/completions`, {
+    const base = this.resolveApiBase(config);
+    const res = await fetch(`${base}/v1/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
@@ -471,7 +485,8 @@ export class AIService {
     prompt: string,
     maxTokens = 4096
   ): Promise<string> {
-    const url = `${config.baseUrl}/v1beta/models/${config.modelId}:generateContent?key=${config.apiKey}`;
+    const base = this.resolveApiBase(config);
+    const url = `${base}/v1beta/models/${config.modelId}:generateContent?key=${config.apiKey}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
