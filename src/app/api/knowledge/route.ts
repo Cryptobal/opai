@@ -4,32 +4,47 @@ import { prisma } from '@/lib/prisma';
 import { uploadFile } from '@/lib/storage';
 import { extractText } from '@/lib/knowledge/extract';
 import { processDocument } from '@/lib/knowledge/processor';
+import { ensureKnowledgeTables } from '@/lib/knowledge/ensure-tables';
+import { resolveUploadedMime } from '@/lib/knowledge/upload-mime';
 
 export async function GET() {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
 
-  const items = await prisma.knowledgeBase.findMany({
-    where: { tenantId: ctx.tenantId },
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      fileName: true,
-      fileUrl: true,
-      fileSize: true,
-      mimeType: true,
-      status: true,
-      chunkCount: true,
-      category: true,
-      enabled: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  try {
+    await ensureKnowledgeTables();
+    const items = await prisma.knowledgeBase.findMany({
+      where: { tenantId: ctx.tenantId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        fileName: true,
+        fileUrl: true,
+        fileSize: true,
+        mimeType: true,
+        status: true,
+        chunkCount: true,
+        category: true,
+        enabled: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-  return NextResponse.json({ success: true, data: items });
+    return NextResponse.json({ success: true, data: items });
+  } catch (error) {
+    console.error('[Tenant Knowledge GET]', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          'No se pudo cargar las bases de conocimiento. Verifica la base de datos o los logs del servidor.',
+      },
+      { status: 500 },
+    );
+  }
 }
 
 const ALLOWED_TYPES = [
@@ -45,6 +60,7 @@ export async function POST(request: NextRequest) {
   if (!ctx) return unauthorized();
 
   try {
+    await ensureKnowledgeTables();
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const title = formData.get('title') as string | null;
@@ -58,7 +74,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const mimeType = resolveUploadedMime(file);
+    if (!ALLOWED_TYPES.includes(mimeType)) {
       return NextResponse.json(
         { success: false, error: 'Tipo de archivo no soportado. Usa PDF, Markdown, TXT o DOCX.' },
         { status: 400 },
@@ -74,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const upload = await uploadFile(buffer, file.name, file.type, 'knowledge', ctx.tenantId);
+    const upload = await uploadFile(buffer, file.name, mimeType, 'knowledge', ctx.tenantId);
 
     const kb = await prisma.knowledgeBase.create({
       data: {
@@ -84,7 +101,7 @@ export async function POST(request: NextRequest) {
         fileName: file.name,
         fileUrl: upload.publicUrl,
         fileSize: file.size,
-        mimeType: file.type,
+        mimeType,
         status: 'processing',
         category,
         enabled: true,
@@ -92,7 +109,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    extractText(buffer, file.type)
+    extractText(buffer, mimeType)
       .then((content) => processDocument({ knowledgeBaseId: kb.id, content }))
       .catch((err) => {
         console.error(`[Knowledge] Error processing ${kb.id}:`, err);

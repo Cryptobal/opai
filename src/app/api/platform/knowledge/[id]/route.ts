@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
+import { ensureKnowledgeTables } from '@/lib/knowledge/ensure-tables';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   const session = await requirePlatformAuth();
   if (!session) return platformUnauthorized();
+
+  try {
+    await ensureKnowledgeTables();
+  } catch (e) {
+    console.error('[Platform Knowledge GET] ensure', e);
+    return NextResponse.json({ success: false, error: 'Error de base de datos' }, { status: 500 });
+  }
 
   const { id } = await context.params;
 
@@ -33,6 +41,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const session = await requirePlatformAuth();
   if (!session) return platformUnauthorized();
+
+  await ensureKnowledgeTables();
 
   const { id } = await context.params;
 
@@ -71,6 +81,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   const session = await requirePlatformAuth();
   if (!session) return platformUnauthorized();
+
+  await ensureKnowledgeTables();
 
   const { id } = await context.params;
 

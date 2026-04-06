@@ -72,8 +72,16 @@ export default function PlatformKnowledgePage() {
   const fetchItems = useCallback(async () => {
     try {
       const res = await fetch('/api/platform/knowledge');
-      const data = await res.json();
-      if (data.success) setItems(data.data);
+      const text = await res.text();
+      let data: { success?: boolean; data?: KnowledgeBase[]; error?: string } = {};
+      try {
+        data = text ? (JSON.parse(text) as typeof data) : {};
+      } catch {
+        console.error('Respuesta inválida del servidor al listar bases de conocimiento');
+        return;
+      }
+      if (data.success && Array.isArray(data.data)) setItems(data.data);
+      else if (!res.ok) console.error('Error fetching knowledge bases:', data.error ?? res.status);
     } catch (err) {
       console.error('Error fetching knowledge bases:', err);
     } finally {
@@ -110,13 +118,25 @@ export default function PlatformKnowledgePage() {
         body: formData,
       });
 
-      if (res.ok) {
+      const text = await res.text();
+      let payload: { success?: boolean; error?: string } = {};
+      try {
+        payload = text ? (JSON.parse(text) as typeof payload) : {};
+      } catch {
+        alert('El servidor devolvió una respuesta inválida al subir el archivo.');
+        return;
+      }
+
+      if (res.ok && payload.success !== false) {
         setShowUpload(false);
         setTitle('');
         setDescription('');
         setCategory('');
         setFile(null);
         fetchItems();
+      } else {
+        console.error('Error al subir documento:', payload.error ?? res.status);
+        alert(payload.error ?? 'No se pudo subir el documento.');
       }
     } catch (err) {
       console.error('Upload error:', err);
