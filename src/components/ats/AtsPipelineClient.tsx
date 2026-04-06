@@ -50,6 +50,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+} from "@dnd-kit/core";
 
 const STAGE_TRANSITIONS: Record<string, string[]> = {
   POSTULADO: ["EN_REVISION", "DESCARTADO"],
@@ -232,6 +242,51 @@ function CardActions({
   );
 }
 
+function DraggableCard({
+  app,
+  children,
+}: {
+  app: Application;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: app.id,
+    data: { etapa: app.etapa },
+  });
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        opacity: isDragging ? 0.4 : 1,
+        zIndex: isDragging ? 50 : undefined,
+      }
+    : undefined;
+  return (
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+      {children}
+    </div>
+  );
+}
+
+function DroppableColumn({
+  etapa,
+  className,
+  children,
+}: {
+  etapa: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: etapa, data: { etapa } });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${className ?? ""} ${isOver ? "ring-2 ring-emerald-500/60 bg-emerald-50/60" : ""}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function AtsPipelineClient({
   job,
   manualChannels = [],
@@ -246,6 +301,10 @@ export function AtsPipelineClient({
   installations?: InstallationOption[];
 }) {
   const router = useRouter();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
   const [selected, setSelected] = useState<Application | null>(null);
   const [moving, setMoving] = useState(false);
   const [showDescartados, setShowDescartados] = useState(false);
@@ -334,6 +393,22 @@ export function AtsPipelineClient({
     } finally {
       setMoving(false);
     }
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over) return;
+    const fromEtapa = active.data.current?.etapa as string | undefined;
+    const toEtapa = (over.data.current?.etapa as string | undefined) ?? (over.id as string);
+    if (!fromEtapa || !toEtapa || fromEtapa === toEtapa) return;
+    const allowed = STAGE_TRANSITIONS[fromEtapa] ?? [];
+    if (!allowed.includes(toEtapa)) {
+      toast.error(
+        `No se puede mover de ${ETAPA_LABELS[fromEtapa] ?? fromEtapa} a ${ETAPA_LABELS[toEtapa] ?? toEtapa}`,
+      );
+      return;
+    }
+    void moveEtapa(String(active.id), toEtapa);
   }
 
   async function saveChannelUrl(canal: string, url: string) {
@@ -814,11 +889,12 @@ export function AtsPipelineClient({
         </div>
       </div>
 
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="hidden md:grid md:grid-cols-5 gap-3 min-h-[400px]">
         {ETAPAS.map((etapa) => {
           const apps = pipeline.get(etapa) ?? [];
           return (
-            <div key={etapa} className={`rounded-lg p-3 ${ETAPA_COLORS[etapa]}`}>
+            <DroppableColumn key={etapa} etapa={etapa} className={`rounded-lg p-3 ${ETAPA_COLORS[etapa]}`}>
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm font-semibold">{ETAPA_LABELS[etapa]}</h4>
                 <Badge variant="secondary" className="text-xs">{apps.length}</Badge>
@@ -830,8 +906,8 @@ export function AtsPipelineClient({
                   </div>
                 )}
                 {apps.map((app) => (
+                  <DraggableCard key={app.id} app={app}>
                   <Card
-                    key={app.id}
                     className="p-3 cursor-pointer hover:shadow-md transition-shadow"
                     onClick={() => setSelected(app)}
                   >
@@ -872,12 +948,14 @@ export function AtsPipelineClient({
                       </div>
                     </div>
                   </Card>
+                  </DraggableCard>
                 ))}
               </div>
-            </div>
+            </DroppableColumn>
           );
         })}
       </div>
+      </DndContext>
 
       {/* Descartados toggle */}
       {descartados.length > 0 && (
