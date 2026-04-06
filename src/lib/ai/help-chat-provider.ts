@@ -195,11 +195,13 @@ async function completeOpenAI(
   const choice = completion.choices[0]?.message;
   return {
     text: choice?.content?.trim() || "",
-    toolCalls: (choice?.tool_calls ?? []).map((tc) => ({
-      id: tc.id,
-      name: tc.function.name,
-      arguments: tc.function.arguments,
-    })),
+    toolCalls: (choice?.tool_calls ?? [])
+      .filter((tc): tc is typeof tc & { type: "function"; function: { name: string; arguments: string } } => tc.type === "function")
+      .map((tc) => ({
+        id: tc.id,
+        name: tc.function.name,
+        arguments: tc.function.arguments,
+      })),
   };
 }
 
