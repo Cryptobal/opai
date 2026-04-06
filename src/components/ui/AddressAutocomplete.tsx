@@ -156,11 +156,15 @@ export function AddressAutocomplete({
 }: AddressAutocompleteProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const acRef = useRef<HTMLElement | null>(null);
+  /** Evita pisar lo que el usuario escribe en gmp: solo sincronizar cuando el padre cambia `value` (p. ej. reset). */
+  const lastParentValueRef = useRef(value);
   const [widgetReady, setWidgetReady] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   // Sugerencias sobre modales (Radix): lista nueva (gmp) + legacy .pac por si acaso
   useEffect(() => {
@@ -177,9 +181,10 @@ export function AddressAutocomplete({
     `;
     document.head.appendChild(style);
 
+    // Solo .pac-container (legacy). No usar [class*="prediction"]: coincide con nodos internos de gmp y rompe foco/teclado.
     const handler = (e: PointerEvent | MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (target?.closest?.(".pac-container") || target?.closest?.('[class*="prediction"]')) {
+      if (target?.closest?.(".pac-container")) {
         e.stopPropagation();
       }
     };
@@ -229,7 +234,6 @@ export function AddressAutocomplete({
 
     let cancelled = false;
     const container = wrapRef.current;
-    const initialAddressValue = value;
 
     (async () => {
       try {
@@ -257,8 +261,9 @@ export function AddressAutocomplete({
         });
         // Un solo borde: lo dibuja el contenedor; el widget Google trae borde propio.
         el.className = `w-full min-h-10 border-0 bg-transparent text-sm shadow-none outline-none ${className ?? ""}`.trim();
-        if (initialAddressValue !== undefined) {
-          (el as { value: string }).value = initialAddressValue;
+        const latest = valueRef.current;
+        if (latest !== undefined) {
+          (el as { value: string }).value = latest;
         }
 
         const onSelect = async (event: Event) => {
@@ -273,6 +278,7 @@ export function AddressAutocomplete({
         el.addEventListener("gmp-select", onSelect);
         container.appendChild(el);
         acRef.current = el;
+        lastParentValueRef.current = latest;
         setWidgetReady(true);
 
         el.addEventListener("gmp-error", (ev) => {
@@ -297,9 +303,10 @@ export function AddressAutocomplete({
   }, []);
 
   useEffect(() => {
-    if (value === undefined || !acRef.current) return;
-    const el = acRef.current as { value?: string };
-    if (el.value !== value) el.value = value;
+    if (value === undefined || !acRef.current || !widgetReady) return;
+    if (lastParentValueRef.current === value) return;
+    lastParentValueRef.current = value;
+    (acRef.current as { value: string }).value = value;
   }, [value, widgetReady]);
 
   const showMapImage = coords && showMap && GOOGLE_MAPS_API_KEY;
