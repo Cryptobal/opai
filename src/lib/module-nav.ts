@@ -116,14 +116,15 @@ const CRM_ITEMS: (BottomNavItem & { subKey: string })[] = [
 
 /* ── Ops sub-items ── */
 
+/** ATS primero: en móvil solo caben 4 ítems visibles; si no, ATS quedaba en «Más» y parecía inaccesible. */
 const OPS_ITEMS: (BottomNavItem & { subKey: string })[] = [
+  { key: "ops-ats", href: "/ops/ats", label: "ATS", icon: Briefcase, subKey: "ats" },
   { key: "ops-pautas", href: "/ops/pauta-mensual", label: "Pautas", icon: CalendarDays, subKey: "pauta_mensual" },
   { key: "ops-installations", href: "/crm/installations", label: "Instalaciones", icon: MapPin, subKey: "installations" },
   { key: "ops-supervision", href: "/ops/supervision", label: "Supervisión", icon: ClipboardCheck, subKey: "supervision" },
   { key: "ops-tickets", href: "/ops/tickets", label: "Tickets", icon: Ticket, subKey: "tickets" },
   { key: "ops-rondas", href: "/ops/rondas", label: "Rondas", icon: Route, subKey: "rondas" },
   { key: "ops-alertas-cobertura", href: "/ops/alertas-cobertura", label: "Alertas", icon: Siren, subKey: "alertas_cobertura" },
-  { key: "ops-ats", href: "/ops/ats", label: "ATS", icon: Briefcase, subKey: "ats" },
   { key: "ops-inventario", href: "/ops/inventario", label: "Inventario", icon: Package, subKey: "inventario" },
 ];
 
