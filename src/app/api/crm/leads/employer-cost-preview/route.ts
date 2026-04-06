@@ -8,11 +8,15 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView } from "@/lib/api-auth-crm";
 import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
 import { buildCpqStyleEmployerCostInput } from "@/lib/cpq/cpq-employer-cost-input";
+import { requireTenantModule } from '@/lib/require-module';
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmView(ctx, "leads");

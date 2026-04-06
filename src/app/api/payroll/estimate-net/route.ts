@@ -7,10 +7,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { simulatePayslip } from "@/modules/payroll/engine/simulate-payslip";
+import { requireTenantModule } from '@/lib/require-module';
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const modCheck = await requireTenantModule('payroll');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

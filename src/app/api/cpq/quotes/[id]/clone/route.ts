@@ -9,12 +9,16 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { syncCrmDealQuoteLink } from "@/lib/crm-sync-quote-deal-link";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id } = await params;
     const session = await auth();
     if (!session?.user?.tenantId) {

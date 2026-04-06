@@ -9,6 +9,7 @@ import { openai } from "@/lib/openai";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { requireTenantModule } from '@/lib/require-module';
 
 const ACCOUNT_LOGO_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_SUFFIX = "]]";
@@ -23,6 +24,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx, "accounts");

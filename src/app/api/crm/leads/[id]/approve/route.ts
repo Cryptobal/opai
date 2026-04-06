@@ -18,6 +18,7 @@ import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-c
 import { buildCpqStyleEmployerCostInput } from "@/lib/cpq/cpq-employer-cost-input";
 import { computeCpqQuoteCosts, refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
 import { applyDefaultQuoteIncludes } from "@/lib/cpq/apply-default-quote-includes";
+import { requireTenantModule } from '@/lib/require-module';
 
 const CPQ_WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
 const WEEKDAY_ALIAS: Record<string, string> = {
@@ -145,6 +146,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx, "leads");

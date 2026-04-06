@@ -12,6 +12,7 @@ import { rejectLeadSchema } from "@/lib/validations/crm";
 import { decryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
+import { requireTenantModule } from '@/lib/require-module';
 
 function buildRawEmail({
   from,
@@ -94,6 +95,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx, "leads");

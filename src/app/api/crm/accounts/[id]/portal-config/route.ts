@@ -3,11 +3,15 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, unauthorized } from '@/lib/api-auth'
 import { requireCrmView, requireCrmEdit } from '@/lib/api-auth-crm'
 import { DEFAULT_PORTAL_CONFIG, PortalConfig } from '@/lib/portal-cliente'
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const modCheck = await requireTenantModule('crm');
+  if (!modCheck.authorized) return modCheck.response;
+
   const ctx = await requireAuth()
   if (!ctx) return unauthorized()
   const forbidden = await requireCrmView(ctx, "accounts")
@@ -35,6 +39,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const modCheck = await requireTenantModule('crm');
+  if (!modCheck.authorized) return modCheck.response;
+
   const ctx = await requireAuth()
   if (!ctx) return unauthorized()
   const forbidden = await requireCrmEdit(ctx, "accounts")

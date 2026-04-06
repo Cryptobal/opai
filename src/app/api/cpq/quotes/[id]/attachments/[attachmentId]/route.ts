@@ -8,12 +8,16 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { deleteFile } from "@/lib/storage";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; attachmentId: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 

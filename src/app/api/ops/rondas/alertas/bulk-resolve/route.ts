@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { z } from "zod";
+import { requireTenantModule } from '@/lib/require-module';
 
 const bulkResolveSchema = z.object({
   tipos: z.array(z.string()).min(1),
@@ -11,6 +12,9 @@ const bulkResolveSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

@@ -11,6 +11,7 @@ import { z } from "zod";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { requireCrmView } from "@/lib/api-auth-crm";
 import { searchOrganizations } from "@/lib/apollo-client";
+import { requireTenantModule } from '@/lib/require-module';
 
 const orgSearchSchema = z.object({
   q_organization_keyword_tags: z.array(z.string()).optional(),
@@ -23,6 +24,9 @@ const orgSearchSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmView(ctx, "leads");

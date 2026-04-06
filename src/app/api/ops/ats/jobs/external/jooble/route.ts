@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { searchExternalJobs } from "@/lib/ats/jooble.service";
+import { requireTenantModule } from '@/lib/require-module';
 
 const searchSchema = z.object({
   q: z.string().min(1, "Keyword requerido").max(200),
@@ -12,6 +13,9 @@ const searchSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
+  const modCheck = await requireTenantModule('ats');
+  if (!modCheck.authorized) return modCheck.response;
+
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
 

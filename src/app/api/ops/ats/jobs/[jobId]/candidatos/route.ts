@@ -4,12 +4,16 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { getAtsConfig } from "@/lib/ats/config";
 import { resolverTopCandidatos, type JobContext } from "@/lib/ats/match.service";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);

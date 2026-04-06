@@ -4,6 +4,7 @@ import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { prisma } from "@/lib/prisma";
 import { resolveDocument, buildEmpresaEntityData, buildQuoteEnrichedData, buildContractEntityData } from "@/lib/docs/token-resolver";
 import { uploadFile } from "@/lib/storage";
+import { requireTenantModule } from '@/lib/require-module';
 
 /** Contract-type categories in CRM module */
 const CONTRACT_CATEGORIES = [
@@ -22,6 +23,9 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const modCheck = await requireTenantModule('crm');
+  if (!modCheck.authorized) return modCheck.response;
+
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const forbidden = await requireCrmView(ctx, "accounts");
@@ -125,6 +129,9 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const modCheck = await requireTenantModule('crm');
+  if (!modCheck.authorized) return modCheck.response;
+
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const forbidden = await requireCrmEdit(ctx, "accounts");

@@ -14,12 +14,16 @@ import { mapCpqDataToPresentation } from "@/lib/cpq-mapper";
 import { getUfValue } from "@/lib/uf";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { nanoid } from "nanoid";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 

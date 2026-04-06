@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureInventarioAccess } from "@/lib/inventory";
+import { requireTenantModule } from '@/lib/require-module';
 import { z } from "zod";
 import { parseSizesInput } from "@/lib/inventory-product-catalog";
 

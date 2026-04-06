@@ -13,11 +13,15 @@ import {
   extractGmailMessageBodies,
   type GmailMessagePart,
 } from "@/lib/gmail-message-content";
+import { requireTenantModule } from '@/lib/require-module';
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, { params }: Params) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmView(ctx);

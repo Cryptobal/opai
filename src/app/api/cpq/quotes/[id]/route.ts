@@ -11,12 +11,16 @@ import { requireCpqView, requireCpqEdit, requireCpqDelete } from "@/lib/api-auth
 import { prisma } from "@/lib/prisma";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { syncCrmDealQuoteLink } from "@/lib/crm-sync-quote-deal-link";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -60,6 +64,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -234,6 +241,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

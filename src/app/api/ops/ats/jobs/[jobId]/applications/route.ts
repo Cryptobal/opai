@@ -5,6 +5,7 @@ import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { getAtsConfig } from "@/lib/ats/config";
 import { calcularMatchScore, type JobContext } from "@/lib/ats/match.service";
+import { requireTenantModule } from '@/lib/require-module';
 
 const createAppSchema = z.object({
   guardiaId: z.string().uuid(),
@@ -16,6 +17,9 @@ export async function GET(
   { params }: { params: Promise<{ jobId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);
@@ -79,6 +83,9 @@ export async function POST(
   { params }: { params: Promise<{ jobId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);

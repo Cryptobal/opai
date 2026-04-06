@@ -4,12 +4,16 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { getAtsConfig } from "@/lib/ats/config";
 import { publicarEnCanal, actualizarEstadoCanal, type Canal } from "@/lib/ats/distribution.service";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);

@@ -13,12 +13,16 @@ import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs"
 import { generateQuoteDescription } from "@/modules/cpq/descriptions/generate-descriptions";
 import { sendQuoteToPortal } from "@/modules/cpq/send/send-quote-to-portal";
 import { prisma } from "@/lib/prisma";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx);

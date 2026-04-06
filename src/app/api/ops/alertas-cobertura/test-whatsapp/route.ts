@@ -6,6 +6,7 @@ import {
   enviarAlertaWhatsApp,
   isWhatsAppConfigured,
 } from "@/lib/alertas-cobertura/whatsapp.service";
+import { requireTenantModule } from '@/lib/require-module';
 
 /**
  * POST — Send a test WhatsApp message to verify Twilio integration.
@@ -14,6 +15,9 @@ import {
  */
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('alertas_cobertura');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });

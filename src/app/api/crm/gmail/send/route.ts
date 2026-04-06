@@ -10,6 +10,7 @@ import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { decryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
+import { requireTenantModule } from '@/lib/require-module';
 
 function buildRawEmail({
   from,
@@ -49,6 +50,9 @@ function buildRawEmail({
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx);

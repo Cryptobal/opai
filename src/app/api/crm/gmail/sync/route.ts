@@ -10,6 +10,7 @@ import { decryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import { extractEmailAddresses, normalizeEmailAddress } from "@/lib/email-address";
 import { extractGmailMessageBodies, type GmailMessagePart } from "@/lib/gmail-message-content";
+import { requireTenantModule } from '@/lib/require-module';
 
 function getHeader(headers: { name?: string | null; value?: string | null }[], name: string) {
   return headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || "";
@@ -23,6 +24,9 @@ function parseDateHeader(value: string): Date {
 
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json(

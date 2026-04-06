@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
+import { requireTenantModule } from '@/lib/require-module';
 
 const schema = z.object({
   installationId: z.string().uuid(),
@@ -10,6 +11,9 @@ const schema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

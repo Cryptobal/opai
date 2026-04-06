@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit, hasCapability } from "@/lib/permissions";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function PUT(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const { id } = await params;
     const ctx = await requireAuth();
@@ -39,6 +43,9 @@ export async function PUT(_request: NextRequest, { params }: { params: Promise<{
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const { id } = await params;
     const ctx = await requireAuth();

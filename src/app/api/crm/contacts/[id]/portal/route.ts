@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { sendNotification } from "@/lib/notification-service";
+import { requireTenantModule } from '@/lib/require-module';
 
 function generatePin(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
@@ -14,6 +15,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx, "contacts");

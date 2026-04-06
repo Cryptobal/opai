@@ -9,6 +9,7 @@ import {
   executeCheck,
   listAsignaciones,
 } from "@/lib/ops/asignaciones-logic";
+import { requireTenantModule } from '@/lib/require-module';
 
 /**
  * GET /api/crm/installations/[id]/asignaciones
@@ -19,6 +20,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
@@ -58,6 +62,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx, "installations");

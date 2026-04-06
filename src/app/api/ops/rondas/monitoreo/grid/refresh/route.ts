@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { requireTenantModule } from '@/lib/require-module';
 
 /**
  * POST /api/ops/rondas/monitoreo/grid/refresh
@@ -10,6 +11,9 @@ import { canEdit } from "@/lib/permissions";
  * Only removes stale "pendiente" guards and adds new ones from pauta.
  */
 export async function POST() {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

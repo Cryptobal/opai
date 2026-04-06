@@ -21,12 +21,16 @@ import {
 } from "@/lib/alertas-cobertura/asignacion.service";
 import { notificarGuardiaConfirmacion, emitirEventoPusher } from "@/lib/alertas-cobertura/notificacion.service";
 import { sendSystemChatMessage } from "@/lib/chat-system-message";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ alertaId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('alertas_cobertura');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
@@ -115,6 +119,9 @@ export async function PATCH(
   { params }: { params: Promise<{ alertaId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('alertas_cobertura');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });

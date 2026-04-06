@@ -5,6 +5,7 @@ import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api
 import { canView, hasCapability } from "@/lib/permissions";
 import { z } from "zod";
 import { getActiveTurnoId } from "@/lib/rondas/get-active-turno";
+import { requireTenantModule } from '@/lib/require-module';
 
 const resolveSchema = z.object({
   id: z.string().uuid(),
@@ -12,6 +13,9 @@ const resolveSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -104,6 +108,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

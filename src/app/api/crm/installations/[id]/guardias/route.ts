@@ -4,6 +4,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView } from "@/lib/api-auth-crm";
 import { getPermissionsFromAuth } from "@/lib/permissions-server";
 import { canView } from "@/lib/permissions";
+import { requireTenantModule } from '@/lib/require-module';
 
 /**
  * GET /api/crm/installations/[id]/guardias
@@ -15,6 +16,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmView(ctx, "installations");

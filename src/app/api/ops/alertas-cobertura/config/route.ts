@@ -7,9 +7,13 @@ import {
   updateAlertaCoberturaConfig,
 } from "@/lib/alertas-cobertura/config";
 import { actualizarConfigSchema } from "@/lib/validations/alertas-cobertura";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('alertas_cobertura');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
@@ -36,6 +40,9 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('alertas_cobertura');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });

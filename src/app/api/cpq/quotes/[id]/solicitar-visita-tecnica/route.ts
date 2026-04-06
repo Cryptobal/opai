@@ -7,12 +7,16 @@ import { getTenantEmailConfig } from "@/lib/resend";
 import { resend } from "@/lib/resend";
 import { render } from "@react-email/render";
 import { VisitaTecnicaSupervisorEmail } from "@/emails/VisitaTecnicaSupervisorEmail";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id: quoteId } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

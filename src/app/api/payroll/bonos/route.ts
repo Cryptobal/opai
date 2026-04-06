@@ -6,10 +6,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
+import { requireTenantModule } from '@/lib/require-module';
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const modCheck = await requireTenantModule('payroll');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -35,6 +38,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const modCheck = await requireTenantModule('payroll');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

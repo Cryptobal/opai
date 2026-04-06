@@ -9,6 +9,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqEdit, requireCpqDelete } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { requireTenantModule } from '@/lib/require-module';
 
 const updateItemSchema = z.object({
   text: z.string().min(1).max(500).optional(),
@@ -21,6 +22,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id: quoteId, itemId } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -88,6 +92,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id: quoteId, itemId } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

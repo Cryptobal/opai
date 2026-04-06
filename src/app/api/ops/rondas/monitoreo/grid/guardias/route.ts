@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
 import { getOpsChannelId, sendSystemChatMessage } from "@/lib/chat-system-message";
+import { requireTenantModule } from '@/lib/require-module';
 
 interface GuardiaInput {
   id?: string;
@@ -35,6 +36,9 @@ function calculateCoberturaStatus(
 }
 
 export async function PATCH(request: Request) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -231,6 +235,9 @@ export async function PATCH(request: Request) {
 
 // ── POST: create a new guard ──
 export async function POST(request: Request) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

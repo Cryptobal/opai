@@ -246,8 +246,23 @@ const CONFIG_ITEMS: (BottomNavItem & { subKey: string })[] = [
 
 interface ModuleDetection {
   test: (path: string) => boolean;
-  getItems: (perms: RolePermissions) => BottomNavItem[];
+  getItems: (perms: RolePermissions, isModEnabled: (mod: string) => boolean) => BottomNavItem[];
 }
+
+/** Map of OPS bottom nav keys to their required tenant module */
+const OPS_MODULE_MAP: Record<string, string> = {
+  "ops-rondas": "ops_rondas",
+  "ops-supervision": "ops_supervision",
+  "ops-alertas-cobertura": "alertas_cobertura",
+  "ops-ats": "ats",
+  "ops-inventario": "ops_inventario",
+};
+
+/** Map of Personas bottom nav keys to their required tenant module */
+const PERSONAS_MODULE_MAP: Record<string, string> = {
+  "personas-gamificacion": "gamificacion",
+  "personas-onboarding": "ops_onboarding",
+};
 
 const MODULE_DETECTIONS: ModuleDetection[] = [
   {
@@ -257,12 +272,12 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   },
   {
     test: (p) => p.startsWith("/ops/rondas"),
-    getItems: () => RONDAS_ITEMS,
+    getItems: (_perms, isModEnabled) => isModEnabled("ops_rondas") ? RONDAS_ITEMS : [],
   },
   {
     test: (p) => p === "/ops/inventario" || p.startsWith("/ops/inventario/"),
-    getItems: (perms) =>
-      canView(perms, "ops", "inventario") ? INVENTARIO_ITEMS : [],
+    getItems: (perms, isModEnabled) =>
+      canView(perms, "ops", "inventario") && isModEnabled("ops_inventario") ? INVENTARIO_ITEMS : [],
   },
   {
     test: (p) => p === "/crm" || p.startsWith("/crm/"),
@@ -275,12 +290,16 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   },
   {
     test: (p) => p === "/ops" || p.startsWith("/ops/"),
-    getItems: (perms) =>
-      OPS_ITEMS.filter((item) =>
-        item.subKey === "installations"
+    getItems: (perms, isModEnabled) =>
+      OPS_ITEMS.filter((item) => {
+        const roleCheck = item.subKey === "installations"
           ? canViewInstallations(perms)
-          : canView(perms, "ops", item.subKey)
-      ),
+          : canView(perms, "ops", item.subKey);
+        if (!roleCheck) return false;
+        const requiredModule = OPS_MODULE_MAP[item.key];
+        if (requiredModule && !isModEnabled(requiredModule)) return false;
+        return true;
+      }),
   },
   {
     test: (p) => p === "/te" || p.startsWith("/te/"),
@@ -288,26 +307,28 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   },
   {
     test: (p) => p === "/personas" || p.startsWith("/personas/"),
-    getItems: () => PERSONAS_ITEMS,
+    getItems: (_perms, isModEnabled) =>
+      PERSONAS_ITEMS.filter((item) => {
+        const requiredModule = PERSONAS_MODULE_MAP[item.key];
+        if (requiredModule && !isModEnabled(requiredModule)) return false;
+        return true;
+      }),
   },
   {
     test: (p) => p === "/payroll" || p.startsWith("/payroll/"),
-    getItems: () => PAYROLL_ITEMS,
+    getItems: (_perms, isModEnabled) => isModEnabled("payroll") ? PAYROLL_ITEMS : [],
   },
   {
     test: (p) =>
       p.startsWith("/opai/inicio") ||
       p.startsWith("/opai/documentos") ||
       p.startsWith("/opai/templates"),
-    getItems: () => DOCS_ITEMS,
+    getItems: (_perms, isModEnabled) => isModEnabled("documentos") ? DOCS_ITEMS : [],
   },
   {
     test: (p) => p === "/finanzas" || p.startsWith("/finanzas/"),
-    getItems: (perms) =>
-      FINANCE_ITEMS.filter((item) => {
-        if (!canView(perms, "finance", item.subKey)) return false;
-        return true;
-      }),
+    getItems: (perms, isModEnabled) =>
+      isModEnabled("finanzas") ? FINANCE_ITEMS.filter((item) => canView(perms, "finance", item.subKey)) : [],
   },
   {
     test: (p) => p.startsWith("/opai/configuracion"),
@@ -318,7 +339,7 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   },
   {
     test: (p) => p.startsWith("/reportes/dt"),
-    getItems: () => REPORTES_DT_ITEMS,
+    getItems: (_perms, isModEnabled) => isModEnabled("reportes_dt") ? REPORTES_DT_ITEMS : [],
   },
 ];
 
@@ -390,11 +411,14 @@ function getCrmDetailSectionItems(pathname: string): BottomNavItem[] | null {
 export function getBottomNavItems(
   pathname: string,
   roleOrPerms: string | RolePermissions,
+  enabledModules?: Set<string>,
 ): BottomNavItem[] {
   const perms: RolePermissions =
     typeof roleOrPerms === "string"
       ? getDefaultPermissions(roleOrPerms)
       : roleOrPerms;
+
+  const isModEnabled = (mod: string) => !enabledModules || enabledModules.has(mod);
 
   // Prioridad 1: páginas de detalle CRM → secciones del registro
   const sectionItems = getCrmDetailSectionItems(pathname);
@@ -403,7 +427,7 @@ export function getBottomNavItems(
   // Prioridad 2: módulos → subcategorías
   for (const detection of MODULE_DETECTIONS) {
     if (detection.test(pathname)) {
-      const items = detection.getItems(perms);
+      const items = detection.getItems(perms, isModEnabled);
       if (items.length > 0) return items;
     }
   }

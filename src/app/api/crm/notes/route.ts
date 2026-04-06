@@ -14,6 +14,7 @@ import {
   type NoteMentionGroup,
   type NoteMentionUser,
 } from "@/lib/crm-note-utils";
+import { requireTenantModule } from '@/lib/require-module';
 
 const VALID_ENTITY_TYPES = [
   "account",
@@ -268,6 +269,9 @@ async function sendThreadReplyNotifications(input: {
 }
 
 export async function GET(request: NextRequest) {
+  const modCheck = await requireTenantModule('crm');
+  if (!modCheck.authorized) return modCheck.response;
+
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const forbidden = await requireCrmView(ctx);
@@ -317,6 +321,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx);

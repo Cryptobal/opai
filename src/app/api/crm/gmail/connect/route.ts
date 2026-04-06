@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getGmailOAuthClient, GMAIL_SCOPES } from "@/lib/gmail";
 import { createHmac } from "crypto";
+import { requireTenantModule } from '@/lib/require-module';
 
 const STATE_SECRET = process.env.GMAIL_TOKEN_SECRET || "dev-secret";
 
@@ -15,6 +16,9 @@ function signState(payload: string) {
 }
 
 export async function GET(request: NextRequest) {
+  const modCheck = await requireTenantModule('crm');
+  if (!modCheck.authorized) return modCheck.response;
+
   const origin = new URL(request.url).origin;
 
   const session = await auth();

@@ -3,6 +3,7 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit, hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getPusherServer } from "@/lib/chat";
+import { requireTenantModule } from '@/lib/require-module';
 
 /**
  * POST /api/ops/rondas/cerrar-huerfanas
@@ -14,6 +15,9 @@ import { getPusherServer } from "@/lib/chat";
  * Response: { success: true, data: { cerradas: number, ids: string[] } }
  */
 export async function POST(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

@@ -4,6 +4,7 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { formatPersonName } from "@/lib/personas";
 import ExcelJS from "exceljs";
+import { requireTenantModule } from '@/lib/require-module';
 
 /**
  * GET /api/ops/rondas/reportes/export-instalacion
@@ -14,6 +15,9 @@ import ExcelJS from "exceljs";
  *   3. Detalle Rondas — one row per ejecucion with full detail
  */
 export async function GET(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit, canView, hasCapability } from "@/lib/permissions";
 import { getAlertConfig, saveAlertConfig, type AlertConfig } from "@/lib/rondas/ia-config";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET() {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -21,6 +25,9 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

@@ -13,10 +13,13 @@ import {
   matchCRRowsToGuards,
   crRowToAttendanceData,
 } from "@/lib/payroll/parsers/cr-attendance-parser";
+import { requireTenantModule } from '@/lib/require-module';
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const modCheck = await requireTenantModule('payroll');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

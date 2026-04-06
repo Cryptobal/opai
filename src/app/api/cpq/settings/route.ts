@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
+import { requireTenantModule } from '@/lib/require-module';
 
 const KEY_PREFIX = "cpq.";
 const NUMERIC_DEFAULTS: Record<string, number> = {
@@ -28,6 +29,9 @@ const buildKey = (key: string) => `${KEY_PREFIX}${key}`;
 
 export async function GET() {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCpqView(ctx);
@@ -75,6 +79,9 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCpqEdit(ctx);

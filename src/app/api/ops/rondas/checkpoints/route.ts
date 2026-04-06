@@ -4,8 +4,12 @@ import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api
 import { canEdit, canView, hasCapability } from "@/lib/permissions";
 import { checkpointSchema } from "@/lib/validations/rondas";
 import { generateMarcacionCode } from "@/lib/marcacion";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -66,6 +70,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

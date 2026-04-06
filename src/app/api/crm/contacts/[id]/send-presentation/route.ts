@@ -18,12 +18,16 @@ import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { CompanyPresentationEmail } from "@/emails/CompanyPresentationEmail";
 import bcrypt from "bcryptjs";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx, "contacts");

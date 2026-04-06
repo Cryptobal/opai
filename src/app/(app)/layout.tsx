@@ -6,6 +6,8 @@ import { AppLayoutClient } from '@/components/opai/AppLayoutClient';
 import { resolvePermissions } from '@/lib/permissions-server';
 import { PermissionsProvider } from '@/lib/permissions-context';
 import { ImpersonateBanner } from '@/components/platform/ImpersonateBanner';
+import { getTenantModulesList } from '@/lib/tenant-modules';
+import { TenantModulesProvider } from '@/contexts/TenantModulesContext';
 
 /** Evita pre-render en build; todas las rutas requieren auth/DB */
 export const dynamic = 'force-dynamic';
@@ -37,8 +39,8 @@ export default async function AppLayout({
     redirect('/opai/login');
   }
 
-  // Resolver permisos y refrescar nombre/email desde BD.
-  const [permissions, dbUser] = await Promise.all([
+  // Resolver permisos, refrescar nombre/email desde BD, y cargar módulos del tenant.
+  const [permissions, dbUser, tenantModules] = await Promise.all([
     resolvePermissions({
       role: session.user.role,
       roleTemplateId: session.user.roleTemplateId,
@@ -47,6 +49,9 @@ export default async function AppLayout({
       where: { id: session.user.id },
       select: { name: true, email: true },
     }),
+    session.user.tenantId
+      ? getTenantModulesList(session.user.tenantId)
+      : Promise.resolve([] as string[]),
   ]);
 
   const isImpersonating = (session as any).impersonating === true;
@@ -56,16 +61,18 @@ export default async function AppLayout({
     <>
       {isImpersonating && <ImpersonateBanner />}
       <PermissionsProvider permissions={permissions}>
-        <AppLayoutClient
-          userName={dbUser?.name ?? session.user?.name}
-          userEmail={dbUser?.email ?? session.user?.email}
-          userRole={session.user.role}
-          permissions={permissions}
-          currentUserId={session.user.id}
-          tenantId={session.user.tenantId}
-        >
-          {children}
-        </AppLayoutClient>
+        <TenantModulesProvider initialModules={tenantModules}>
+          <AppLayoutClient
+            userName={dbUser?.name ?? session.user?.name}
+            userEmail={dbUser?.email ?? session.user?.email}
+            userRole={session.user.role}
+            permissions={permissions}
+            currentUserId={session.user.id}
+            tenantId={session.user.tenantId}
+          >
+            {children}
+          </AppLayoutClient>
+        </TenantModulesProvider>
       </PermissionsProvider>
     </>
   );

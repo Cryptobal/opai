@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { runMonthlyPayroll } from "@/lib/payroll/run-payroll";
+import { requireTenantModule } from '@/lib/require-module';
 
 export const dynamic = "force-dynamic";
 

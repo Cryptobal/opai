@@ -4,6 +4,7 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { formatPersonName } from "@/lib/personas";
 import { AIService } from "@/lib/ai-service";
+import { requireTenantModule } from '@/lib/require-module';
 
 interface Recommendation {
   type: "coverage" | "guard" | "schedule" | "template";
@@ -12,6 +13,9 @@ interface Recommendation {
 }
 
 export async function POST() {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

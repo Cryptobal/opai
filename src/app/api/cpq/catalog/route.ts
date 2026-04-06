@@ -7,9 +7,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");
     const active = searchParams.get("active");
@@ -45,6 +49,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const session = await auth();
     if (!session?.user?.tenantId) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });

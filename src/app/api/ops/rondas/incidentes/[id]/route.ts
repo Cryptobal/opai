@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView, hasCapability } from "@/lib/permissions";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const { id } = await params;
     const ctx = await requireAuth();
@@ -45,6 +49,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 const VALID_STATUSES = ["abierto", "asignado", "en_proceso", "resuelto", "descartado"];
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const { id } = await params;
     const ctx = await requireAuth();

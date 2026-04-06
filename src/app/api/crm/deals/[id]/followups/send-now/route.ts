@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { processFollowUpLog } from "@/lib/process-followup-log";
+import { requireTenantModule } from '@/lib/require-module';
 
 function scheduleAtChileHour(baseDate: Date, daysToAdd: number, hour: number): Date {
   const dateParts = new Intl.DateTimeFormat("en-CA", {
@@ -85,6 +86,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx, "deals");

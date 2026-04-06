@@ -6,10 +6,13 @@
 
 import { NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { requireTenantModule } from '@/lib/require-module';
 import { canView } from "@/lib/permissions";
 import { getInstalacionDocumentTypes } from "@/lib/instalacion-documentos";
 
 export async function GET() {
+  const modCheck = await requireTenantModule('ops_supervision');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
