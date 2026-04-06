@@ -8,6 +8,7 @@ import {
   FileText,
   X,
   RefreshCw,
+  RotateCw,
   Loader2,
 } from 'lucide-react';
 
@@ -62,6 +63,7 @@ export default function PlatformKnowledgePage() {
   const [showUpload, setShowUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [reprocessing, setReprocessing] = useState<string | null>(null);
 
   // Upload form state
   const [title, setTitle] = useState('');
@@ -152,6 +154,29 @@ export default function PlatformKnowledgePage() {
       body: JSON.stringify({ enabled: !enabled }),
     });
     fetchItems();
+  };
+
+  const handleReprocess = async (id: string) => {
+    setReprocessing(id);
+    try {
+      const res = await fetch(`/api/platform/knowledge/${id}/reprocess`, { method: 'POST' });
+      const text = await res.text();
+      let payload: { success?: boolean; error?: string; processed?: { chunks: number } } = {};
+      try {
+        payload = text ? JSON.parse(text) : {};
+      } catch {
+        alert('Respuesta inválida del servidor al reprocesar.');
+        return;
+      }
+      if (!res.ok || payload.success === false) {
+        alert(payload.error ?? 'No se pudo reprocesar el documento.');
+      } else if (payload.processed) {
+        alert(`Reprocesado: ${payload.processed.chunks} chunks generados.`);
+      }
+      fetchItems();
+    } finally {
+      setReprocessing(null);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -351,6 +376,18 @@ export default function PlatformKnowledgePage() {
                         title="Refrescar"
                       >
                         <RefreshCw className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleReprocess(item.id)}
+                        disabled={reprocessing === item.id}
+                        className="rounded p-1 text-gray-400 hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-teal-900/20 disabled:opacity-50"
+                        title="Reprocesar (regenerar embeddings)"
+                      >
+                        {reprocessing === item.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RotateCw className="h-4 w-4" />
+                        )}
                       </button>
                       <button
                         onClick={() => handleDelete(item.id)}
