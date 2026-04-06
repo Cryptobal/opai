@@ -98,11 +98,12 @@ async function main() {
   ];
 
   for (const setting of settings) {
-    await prisma.setting.upsert({
-      where: { key: setting.key },
-      update: { value: setting.value },
-      create: setting,
-    });
+    const existing = await prisma.setting.findFirst({ where: { key: setting.key, tenantId: null }, select: { id: true } });
+    if (existing) {
+      await prisma.setting.update({ where: { id: existing.id }, data: { value: setting.value } });
+    } else {
+      await prisma.setting.create({ data: setting });
+    }
   }
 
   console.log('✅ Settings created');

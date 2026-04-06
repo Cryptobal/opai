@@ -104,7 +104,7 @@ export async function PUT(request: NextRequest) {
     await prisma.$transaction(
       allEntries.map((entry) =>
         prisma.setting.upsert({
-          where: { key: buildKey(entry.key) },
+          where: { tenantId_key: { tenantId, key: buildKey(entry.key) } },
           update: {
             value: entry.value,
             type: entry.type,

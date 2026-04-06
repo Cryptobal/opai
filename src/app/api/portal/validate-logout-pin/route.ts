@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     const settingKey = `empresa:${device.tenantId}:portales.logoutPin`;
     const setting = await prisma.setting.findUnique({
-      where: { key: settingKey },
+      where: { tenantId_key: { tenantId: device.tenantId, key: settingKey } },
       select: { value: true },
     });
 

@@ -107,7 +107,7 @@ export async function PATCH(request: NextRequest) {
       if (body[shortKey] !== undefined) {
         const key = settingKey(ctx.tenantId, shortKey);
         await prisma.setting.upsert({
-          where: { key },
+          where: { tenantId_key: { tenantId: ctx.tenantId, key } },
           create: {
             key,
             value: String(body[shortKey]),

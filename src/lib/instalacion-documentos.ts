@@ -41,8 +41,8 @@ export async function getInstalacionDocumentTypes(
   tenantId?: string | null
 ): Promise<InstalacionDocumentItem[]> {
   const key = tenantId ? `${SETTING_KEY}:${tenantId}` : SETTING_KEY;
-  const setting = await prisma.setting.findUnique({
-    where: { key },
+  const setting = await prisma.setting.findFirst({
+    where: { key, tenantId: tenantId ?? null },
   });
   return parseDocuments(setting?.value ?? null);
 }
@@ -53,16 +53,13 @@ export async function setInstalacionDocumentTypes(
 ): Promise<InstalacionDocumentItem[]> {
   const key = tenantId ? `${SETTING_KEY}:${tenantId}` : SETTING_KEY;
   const value = JSON.stringify(items);
-  await prisma.setting.upsert({
-    where: { key },
-    create: {
-      key,
-      value,
-      type: "json",
-      category: "ops",
-      tenantId: tenantId ?? null,
-    },
-    update: { value },
-  });
+  const existing = await prisma.setting.findFirst({ where: { key, tenantId: tenantId ?? null }, select: { id: true } });
+  if (existing) {
+    await prisma.setting.update({ where: { id: existing.id }, data: { value } });
+  } else {
+    await prisma.setting.create({
+      data: { key, value, type: "json", category: "ops", tenantId: tenantId ?? null },
+    });
+  }
   return items;
 }

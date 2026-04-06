@@ -58,8 +58,8 @@ export function getEffectivePostulacionDocuments(stored: PostulacionDocumentItem
  */
 export async function getPostulacionDocumentTypes(tenantId?: string | null): Promise<PostulacionDocumentItem[]> {
   const key = tenantId ? `${SETTING_KEY}:${tenantId}` : SETTING_KEY;
-  const setting = await prisma.setting.findUnique({
-    where: { key },
+  const setting = await prisma.setting.findFirst({
+    where: { key, tenantId: tenantId ?? null },
   });
   const stored = parseStoredPostulacionDocumentsArray(setting?.value ?? null);
   return getEffectivePostulacionDocuments(stored);
@@ -70,7 +70,7 @@ export async function getStoredPostulacionDocumentTypesRaw(
   tenantId?: string | null
 ): Promise<PostulacionDocumentItem[]> {
   const key = tenantId ? `${SETTING_KEY}:${tenantId}` : SETTING_KEY;
-  const setting = await prisma.setting.findUnique({ where: { key } });
+  const setting = await prisma.setting.findFirst({ where: { key, tenantId: tenantId ?? null } });
   return parseStoredPostulacionDocumentsArray(setting?.value ?? null);
 }
 
@@ -134,16 +134,13 @@ export async function setPostulacionDocumentTypes(
 ): Promise<PostulacionDocumentItem[]> {
   const key = tenantId ? `${SETTING_KEY}:${tenantId}` : SETTING_KEY;
   const value = JSON.stringify(items);
-  await prisma.setting.upsert({
-    where: { key },
-    create: {
-      key,
-      value,
-      type: "json",
-      category: "ops",
-      tenantId: tenantId ?? null,
-    },
-    update: { value },
-  });
+  const existing = await prisma.setting.findFirst({ where: { key, tenantId: tenantId ?? null }, select: { id: true } });
+  if (existing) {
+    await prisma.setting.update({ where: { id: existing.id }, data: { value } });
+  } else {
+    await prisma.setting.create({
+      data: { key, value, type: "json", category: "ops", tenantId: tenantId ?? null },
+    });
+  }
   return items;
 }

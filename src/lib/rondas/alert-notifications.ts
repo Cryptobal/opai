@@ -315,7 +315,7 @@ async function updateCooldown(
   try {
     const now = new Date().toISOString();
     await prisma.setting.upsert({
-      where: { key },
+      where: { tenantId_key: { tenantId, key } },
       update: { value: now },
       create: {
         key,
