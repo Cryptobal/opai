@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { resolveTenantFromSlug } from "@/lib/tenant";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { FormularioPostulacionAts } from "@/components/ats/FormularioPostulacionAts";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -237,15 +238,14 @@ export default async function TenantJobDetailPage({
             )}
           </div>
 
-          {/* CTA */}
-          <div className="text-center">
-            <Link
-              href="/portal/guardia"
-              className="inline-flex items-center rounded-lg bg-emerald-500 px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-emerald-600"
-            >
-              Postular ahora
-            </Link>
-          </div>
+          {/* Formulario de postulación inline */}
+          <FormularioPostulacionAts
+            jobPostingId={job.id}
+            jobTitle={job.titulo}
+            requiereOS10={job.requiereOS10}
+            requiereMovilizacion={job.requiereMovilizacion}
+            tenantName={companyName}
+          />
         </div>
       </section>
     </>

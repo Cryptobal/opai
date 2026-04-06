@@ -22,6 +22,7 @@ const updateJobSchema = z.object({
   funciones: z.string().optional().nullable(),
   expiraAt: z.string().datetime().optional().nullable(),
   notasInternas: z.string().optional().nullable(),
+  estado: z.enum(["BORRADOR", "ACTIVO", "PAUSADO", "CERRADO"]).optional(),
 });
 
 export async function GET(
