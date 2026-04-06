@@ -71,29 +71,14 @@ export async function publicarEnCanal(
         };
       }
       case "indeed": {
-        // Try Indeed Job Sync API if a tenant integration is active.
-        try {
-          const integration = await (
-            prisma as unknown as {
-              indeedIntegration?: {
-                findUnique: (args: {
-                  where: { tenantId: string };
-                }) => Promise<{
-                  feedStatus: string;
-                  accessToken: string | null;
-                } | null>;
-              };
-            }
-          ).indeedIntegration?.findUnique({ where: { tenantId } });
-          if (
-            integration &&
-            integration.feedStatus === "active" &&
-            integration.accessToken
-          ) {
-            return await syncJobToIndeed(jobPostingId, tenantId);
-          }
-        } catch {
-          // Model may not yet be migrated; fall through to feed.
+        const integration = await prisma.indeedIntegration.findUnique({
+          where: { tenantId },
+        });
+        if (
+          integration?.feedStatus === "active" &&
+          integration.accessToken
+        ) {
+          return await syncJobToIndeed(jobPostingId, tenantId);
         }
         return {
           success: true,
