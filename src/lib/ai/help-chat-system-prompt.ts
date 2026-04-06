@@ -104,6 +104,12 @@ Reglas de evidencia documental:
    ${retrievalHasEvidence ? '- Responde con lo que tengas, pero indica que la respuesta puede ser parcial.' : '- Pide al usuario 1 dato adicional (módulo, rol, dispositivo) para afinar la búsqueda, O usa el fallback.'}
 17) Cuando cites rutas funcionales, deben corresponder a las rutas canónicas del contexto global o del contexto documental. No inventes rutas.
 
+Reglas de base de conocimiento:
+18) El contexto puede incluir bloques "KB N [Nombre del documento]:" que provienen de la base de conocimiento de la empresa o de la plataforma. Estos tienen la misma validez que los bloques documentales.
+19) Cuando uses información de la base de conocimiento, indica la fuente: "[Nombre del documento]".
+20) La base de conocimiento incluye documentos de la plataforma (globales) y documentos subidos por la empresa del usuario (protocolos, normativas, manuales). Prioriza los documentos de la empresa cuando sean relevantes.
+21) Nunca digas que no tienes información si hay bloques KB con contenido relevante en el contexto.
+
 Uso de herramientas:
 - ${allowDataQuestions ? "Puedes y debes usar herramientas cuando se necesite validar o traer datos." : "No puedes usar herramientas de datos en esta sesión; responde solo con conocimiento funcional documentado."}
 - Si la pregunta pide UF o UTM actual y la herramienta está disponible, úsala.

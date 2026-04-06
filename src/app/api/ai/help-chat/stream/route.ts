@@ -12,6 +12,7 @@ import {
   shouldPreferFunctionalInference,
 } from "@/lib/ai/help-chat-intents";
 import { chooseModel, detectFrustration } from "@/lib/ai/help-chat-model-router";
+import { searchKnowledge } from "@/lib/knowledge/search";
 import {
   getHelpChatAIConfig as getProviderConfig,
   createStreamingCompletion,
@@ -158,17 +159,39 @@ export async function POST(request: NextRequest) {
     conversationHistory = historyMessages.slice(0, -1).map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
   }
 
-  /* retrieval */
+  /* retrieval (docs + templates + knowledge bases) */
+  let knowledgeChunks: Array<{ content: string; score: number; knowledgeBaseTitle: string; chunkIndex: number }> = [];
   const [docsChunks, templatesChunks] = await Promise.all([
     retrieveDocsContext(userMessage, 6),
     retrieveTemplatesContext(ctx.tenantId, userMessage, 4),
   ]);
+  try {
+    knowledgeChunks = await searchKnowledge(userMessage, ctx.tenantId, 5);
+  } catch (e) {
+    console.warn("[KB Search] Error:", e);
+  }
+
   const allChunks = [...docsChunks, ...templatesChunks];
-  const docsContext = allChunks
+  let docsContext = allChunks
     .map((item, index) => `Bloque ${index + 1} (${item.title}):\n${item.body}`)
     .join("\n\n");
-  const retrievalHasEvidence = allChunks.length > 0;
-  const retrievalMaxScore = allChunks.length > 0 ? Math.max(...allChunks.map(c => c.score)) : 0;
+
+  // Append knowledge base RAG context
+  if (knowledgeChunks.length > 0) {
+    const kbContext = knowledgeChunks
+      .map((k, i) => `KB ${i + 1} [${k.knowledgeBaseTitle}]:\n${k.content}`)
+      .join("\n\n");
+    docsContext = docsContext
+      ? `${docsContext}\n\nBase de conocimiento de la empresa:\n${kbContext}`
+      : `Base de conocimiento de la empresa:\n${kbContext}`;
+  }
+
+  const retrievalHasEvidence = allChunks.length > 0 || knowledgeChunks.length > 0;
+  const kbMaxScore = knowledgeChunks.length > 0 ? Math.max(...knowledgeChunks.map(k => k.score)) * 10 : 0;
+  const retrievalMaxScore = Math.max(
+    allChunks.length > 0 ? Math.max(...allChunks.map(c => c.score)) : 0,
+    kbMaxScore,
+  );
 
   /* resolve AI provider (tenant DB → env fallback) */
   const aiConfig = await getProviderConfig(ctx.tenantId);
@@ -215,7 +238,7 @@ export async function POST(request: NextRequest) {
 
   const messages: Array<Record<string, unknown>> = [
     { role: "system", content: systemPrompt },
-    { role: "system", content: `Contexto documental relevante:\n${docsContext || "(sin bloques relevantes encontrados)"}` },
+    { role: "system", content: `Contexto documental y base de conocimiento relevante:\n${docsContext || "(sin bloques relevantes encontrados)"}` },
     ...trimmedHistory.map(m => ({ role: m.role, content: m.content })),
     { role: "user", content: userMessage },
   ];
@@ -368,6 +391,7 @@ export async function POST(request: NextRequest) {
           latencyMs: Date.now() - t0,
           retrievalTopScore: retrievalMaxScore,
           retrievalChunks: allChunks.length,
+          knowledgeBaseChunks: knowledgeChunks.length,
         });
 
         console.log(
@@ -380,6 +404,7 @@ export async function POST(request: NextRequest) {
             model: effectiveModel,
             toolCallsUsed,
             retrievalChunks: allChunks.length,
+            knowledgeBaseChunks: knowledgeChunks.length,
             retrievalTopScore: retrievalMaxScore,
             fallbackUsed: assistantUsedFallback,
             frustrated,
