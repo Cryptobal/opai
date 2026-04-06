@@ -73,6 +73,9 @@ export default function robots(): MetadataRoute.Robots {
         disallow: APP_DISALLOW,
       },
     ],
-    sitemap: 'https://www.opai.cl/sitemap.xml',
+    sitemap: [
+      'https://www.opai.cl/sitemap.xml',
+      'https://www.opai.cl/sitemap-empleos.xml',
+    ],
   }
 }

@@ -33,15 +33,21 @@ export interface AtsMatchConfig {
 export const CHANNEL_DEFAULTS: Record<string, AtsChannelCfg> = {
   google_jobs: { enabled: true, label: "Google Jobs", tipo: "automatico" },
   base_opai: { enabled: true, label: "Base interna OPAI", tipo: "automatico" },
-  indeed: { enabled: false, label: "Indeed", tipo: "manual_link" },
+  indeed: { enabled: false, label: "Indeed", tipo: "feed" },
   computrabajo: { enabled: false, label: "Computrabajo", tipo: "manual_link" },
   bumeran: { enabled: false, label: "Bumeran", tipo: "manual_link" },
   talent: { enabled: false, label: "Talent.com", tipo: "feed" },
   yapo: { enabled: false, label: "Yapo", tipo: "manual_link" },
   laborum: { enabled: false, label: "Laborum", tipo: "manual_link" },
-  linkedin: { enabled: false, label: "LinkedIn Jobs", tipo: "manual_link" },
+  linkedin: { enabled: false, label: "LinkedIn Jobs", tipo: "automatico" },
   bne: { enabled: false, label: "BNE (Bolsa Nacional de Empleo)", tipo: "feed" },
-  jooble: { enabled: true, label: "Jooble", tipo: "automatico" },
+  jooble: { enabled: true, label: "Jooble", tipo: "feed" },
+  jobrapido: { enabled: false, label: "Jobrapido", tipo: "feed" },
+  postjobfree: { enabled: false, label: "PostJobFree", tipo: "feed" },
+  whatjobs: { enabled: false, label: "WhatJobs", tipo: "automatico" },
+  expertini: { enabled: false, label: "Expertini", tipo: "feed" },
+  recruitnet: { enabled: false, label: "Recruit.net", tipo: "feed" },
+  tiptopjob: { enabled: false, label: "TipTopJob", tipo: "feed" },
 };
 
 const DEFAULTS: AtsMatchConfig = {

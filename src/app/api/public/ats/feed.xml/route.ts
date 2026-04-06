@@ -1,13 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { buildJobXml } from "@/lib/ats/feed-xml";
 
 /**
  * Unified XML feed for talent.com (and other feed-based job boards).
  * Aggregates all ACTIVO job postings across all tenants.
- * URL: /api/public/ats/feed.xml
+ * URL: /api/public/ats/feed.xml?source=talent
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const source = req.nextUrl.searchParams.get("source") || "feed";
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -35,41 +37,30 @@ export async function GET() {
     .map((job) => {
       const cfg = cfgMap.get(job.tenant.id);
       const companyName = cfg?.commercialName || cfg?.companyName || job.tenant.name;
-      const jobUrl = `${siteUrl}/empleos/${job.tenant.slug}/${job.jsonLdSlug}?utm_source=talent`;
-      const description =
-        job.descripcion +
-        (job.funciones ? `\n\nFunciones:\n${job.funciones}` : "");
       const logo = cfg?.brandingLogoFull || cfg?.logoUrl || "";
-
-      let salaryXml = "";
-      if (job.rentaMin) {
-        salaryXml = `
-      <salary>
-        <min><![CDATA[${job.rentaMin}]]></min>
-        <max><![CDATA[${job.rentaMax || job.rentaMin}]]></max>
-        <currency><![CDATA[CLP]]></currency>
-        <period><![CDATA[Monthly]]></period>
-        <type><![CDATA[gross]]></type>
-      </salary>`;
-      }
-
-      return `
-    <job>
-      <referencenumber><![CDATA[${job.id}]]></referencenumber>
-      <title><![CDATA[${job.titulo}]]></title>
-      <company><![CDATA[${companyName}]]></company>
-      <city><![CDATA[${job.commune || job.installation?.commune || ""}]]></city>
-      <state><![CDATA[${job.region}]]></state>
-      <country><![CDATA[CL]]></country>
-      <dateposted><![CDATA[${job.createdAt.toISOString()}]]></dateposted>
-      <url><![CDATA[${jobUrl}]]></url>
-      <description><![CDATA[${description}]]></description>
-      <jobtype><![CDATA[Full time]]></jobtype>
-      <category><![CDATA[Seguridad Privada]]></category>
-      <logo><![CDATA[${logo}]]></logo>
-      ${job.expiraAt ? `<expirationdate><![CDATA[${job.expiraAt.toISOString()}]]></expirationdate>` : ""}
-      ${salaryXml}
-    </job>`;
+      return buildJobXml(
+        {
+          id: job.id,
+          titulo: job.titulo,
+          descripcion: job.descripcion,
+          funciones: job.funciones,
+          turno: job.turno,
+          region: job.region,
+          commune: job.commune,
+          installationCommune: job.installation?.commune,
+          rentaMin: job.rentaMin,
+          rentaMax: job.rentaMax,
+          experienciaMinAnios: job.experienciaMinAnios,
+          jsonLdSlug: job.jsonLdSlug,
+          createdAt: job.createdAt,
+          updatedAt: job.updatedAt,
+          expiraAt: job.expiraAt,
+          tenantSlug: job.tenant.slug,
+          companyName,
+          logo,
+        },
+        { siteUrl, source },
+      );
     })
     .join("\n");
 
@@ -85,6 +76,7 @@ ${jobsXml}
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
       "Cache-Control": "public, max-age=3600",
+      "X-Feed-Version": "2.0",
     },
   });
 }

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getAtsConfig } from "@/lib/ats/config";
 import { requestGoogleIndexing } from "@/lib/ats/google-indexing";
+import { syncJobToIndeed } from "@/lib/ats/indeed.service";
 
 export type Canal =
   | "google_jobs"
@@ -13,7 +14,21 @@ export type Canal =
   | "laborum"
   | "linkedin"
   | "bne"
-  | "jooble";
+  | "jooble"
+  | "jobrapido"
+  | "postjobfree"
+  | "whatjobs"
+  | "expertini"
+  | "recruitnet"
+  | "tiptopjob";
+
+function feedSiteUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://opai.cl"
+  );
+}
 
 export async function publicarEnCanal(
   jobPostingId: string,
@@ -33,42 +48,66 @@ export async function publicarEnCanal(
         return await publicarGoogleJobs(jobPostingId);
       case "base_opai":
         return await notificarBaseInterna(jobPostingId);
-      case "talent": {
-        // Unified feed across all tenants — registered once with talent.com
-        const feedSiteUrl =
-          process.env.NEXT_PUBLIC_SITE_URL ||
-          process.env.NEXT_PUBLIC_APP_URL ||
-          "https://opai.cl";
+      case "talent":
+      case "jooble":
+      case "jobrapido":
+      case "postjobfree":
+      case "expertini":
+      case "recruitnet":
+      case "tiptopjob": {
         return {
           success: true,
-          externalId: `${feedSiteUrl}/api/public/ats/feed.xml`,
+          externalId: `${feedSiteUrl()}/api/public/ats/feed.xml?source=${canal}`,
         };
       }
       case "bne": {
-        // Per-tenant feed for Bolsa Nacional de Empleo
         const feedTenant = await prisma.tenant.findFirst({
           where: { id: tenantId },
           select: { slug: true },
         });
-        const feedSiteUrl =
-          process.env.NEXT_PUBLIC_SITE_URL ||
-          process.env.NEXT_PUBLIC_APP_URL ||
-          "https://opai.cl";
         return {
           success: true,
-          externalId: `${feedSiteUrl}/api/public/${feedTenant?.slug}/ats/feed.xml`,
+          externalId: `${feedSiteUrl()}/api/public/${feedTenant?.slug}/ats/feed.xml?source=bne`,
         };
       }
-      case "jooble":
-        // Jooble is a search aggregator — jobs are automatically indexed
-        // via the public JSON-LD pages (same as Google Jobs).
-        return { success: true, externalId: `auto:jooble` };
-      case "indeed":
+      case "indeed": {
+        // Try Indeed Job Sync API if a tenant integration is active.
+        try {
+          const integration = await (
+            prisma as unknown as {
+              indeedIntegration?: {
+                findUnique: (args: {
+                  where: { tenantId: string };
+                }) => Promise<{
+                  feedStatus: string;
+                  accessToken: string | null;
+                } | null>;
+              };
+            }
+          ).indeedIntegration?.findUnique({ where: { tenantId } });
+          if (
+            integration &&
+            integration.feedStatus === "active" &&
+            integration.accessToken
+          ) {
+            return await syncJobToIndeed(jobPostingId, tenantId);
+          }
+        } catch {
+          // Model may not yet be migrated; fall through to feed.
+        }
+        return {
+          success: true,
+          externalId: `${feedSiteUrl()}/api/public/ats/feed.xml?source=indeed`,
+        };
+      }
+      case "whatjobs":
+        return { success: true, externalId: "auto:whatjobs" };
+      case "linkedin":
+        return { success: true, externalId: "auto:linkedin" };
       case "computrabajo":
       case "bumeran":
       case "yapo":
       case "laborum":
-      case "linkedin":
         return {
           success: true,
           externalId: `manual:${canal}`,
