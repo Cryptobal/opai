@@ -5,13 +5,9 @@ import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { canUseAiHelpChat, getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
 import { retrieveDocsContext, retrieveTemplatesContext } from "@/lib/ai/help-chat-retrieval";
-import {
-  getGuardiasMetrics,
-  getPendingRendicionesForApproval,
-  getUfUtmIndicators,
-  searchGuardiasByNameOrRut,
-} from "@/lib/ai/help-chat-tools";
-import { buildHelpChatSystemPrompt } from "@/lib/ai/help-chat-system-prompt";
+import { getToolDefinitionsV2, executeToolCallV2 } from "@/lib/ai/help-chat-tools-v2";
+import { buildHelpChatSystemPromptV2 } from "@/lib/ai/help-chat-system-prompt-v2";
+import { parseVisualBlocks } from "@/lib/ai/help-chat-visual-types";
 import {
   resolveFunctionalIntent,
   shouldPreferFunctionalInference,
@@ -62,107 +58,6 @@ function clipTitle(text: string): string {
   return clean.length > 90 ? `${clean.slice(0, 87)}...` : clean;
 }
 
-/* ── tool definitions (same as main route) ── */
-
-function getToolDefinitions(allowDataQuestions: boolean) {
-  if (!allowDataQuestions) return [];
-  return [
-    {
-      type: "function" as const,
-      function: {
-        name: "search_guardias",
-        description: "Busca guardias por nombre, apellido, RUT o código para responder preguntas operativas puntuales.",
-        parameters: {
-          type: "object",
-          properties: {
-            query: { type: "string", description: "Texto de búsqueda (nombre, RUT o código)." },
-            limit: { type: "number", description: "Cantidad máxima de resultados (1-20)." },
-          },
-          required: ["query"],
-        },
-      },
-    },
-    {
-      type: "function" as const,
-      function: {
-        name: "get_guardias_metrics",
-        description: "Obtiene métricas agregadas de guardias del tenant actual.",
-        parameters: { type: "object", properties: {}, additionalProperties: false },
-      },
-    },
-    {
-      type: "function" as const,
-      function: {
-        name: "get_uf_utm",
-        description: "Obtiene UF y UTM actuales desde la base de datos interna del sistema.",
-        parameters: { type: "object", properties: {}, additionalProperties: false },
-      },
-    },
-    {
-      type: "function" as const,
-      function: {
-        name: "get_pending_rendiciones",
-        description: "Obtiene rendiciones pendientes por aprobar (del aprobador actual o de todo el tenant si tiene permiso).",
-        parameters: {
-          type: "object",
-          properties: {
-            scope: { type: "string", enum: ["mine", "all"], description: "mine: solo las mías por aprobar; all: todas las pendientes." },
-            limit: { type: "number", description: "Cantidad máxima de resultados (1-20)." },
-          },
-          additionalProperties: false,
-        },
-      },
-    },
-  ];
-}
-
-/* ── tool executor ── */
-
-async function executeToolCall(
-  toolName: string,
-  args: Record<string, unknown>,
-  tenantId: string,
-  userId: string,
-  canViewAllRendiciones: boolean,
-): Promise<unknown> {
-  if (toolName === "search_guardias") {
-    const query = typeof args.query === "string" ? args.query : "";
-    const limit = typeof args.limit === "number" ? args.limit : 8;
-    try {
-      return { ok: true, data: await searchGuardiasByNameOrRut(tenantId, query, limit) };
-    } catch {
-      return { ok: false, error: "No fue posible consultar guardias en este momento." };
-    }
-  }
-  if (toolName === "get_guardias_metrics") {
-    try {
-      return { ok: true, data: await getGuardiasMetrics(tenantId) };
-    } catch {
-      return { ok: false, error: "No fue posible consultar métricas en este momento." };
-    }
-  }
-  if (toolName === "get_uf_utm") {
-    try {
-      return { ok: true, data: await getUfUtmIndicators() };
-    } catch {
-      return { ok: false, error: "No fue posible consultar UF/UTM en este momento." };
-    }
-  }
-  if (toolName === "get_pending_rendiciones") {
-    const scope = args.scope === "all" && canViewAllRendiciones ? "all" : "mine";
-    const limit = typeof args.limit === "number" ? args.limit : 8;
-    try {
-      return {
-        ok: true,
-        data: await getPendingRendicionesForApproval({ tenantId, userId, includeAll: scope === "all", limit }),
-      };
-    } catch {
-      return { ok: false, error: "No fue posible consultar rendiciones pendientes en este momento." };
-    }
-  }
-  return { ok: false, error: "Herramienta no soportada" };
-}
-
 /* ── SSE POST handler ── */
 
 export async function POST(request: NextRequest) {
@@ -180,6 +75,12 @@ export async function POST(request: NextRequest) {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  const adminRow = await prisma.admin.findUnique({
+    where: { id: ctx.userId },
+    select: { name: true },
+  });
+  const userDisplayName = adminRow?.name?.trim() || ctx.userEmail || "Usuario";
 
   /* parse body */
   const body = (await request.json().catch(() => ({}))) as {
@@ -268,12 +169,14 @@ export async function POST(request: NextRequest) {
     historySize = trimmedHistory.reduce((sum, m) => sum + m.content.length, 0);
   }
 
-  const systemPrompt = buildHelpChatSystemPrompt({
+  const systemPrompt = buildHelpChatSystemPromptV2({
     fallbackText: fallback,
     allowDataQuestions: cfg.allowDataQuestions,
     todayLabel,
     appBaseUrl,
     retrievalHasEvidence,
+    userName: userDisplayName,
+    userRole: ctx.userRole,
   });
 
   const messages: Array<Record<string, unknown>> = [
@@ -283,7 +186,7 @@ export async function POST(request: NextRequest) {
     { role: "user", content: userMessage },
   ];
 
-  const tools = getToolDefinitions(cfg.allowDataQuestions);
+  const tools = getToolDefinitionsV2(cfg.allowDataQuestions);
 
   /* SSE response */
   const encoder = new TextEncoder();
@@ -294,6 +197,13 @@ export async function POST(request: NextRequest) {
       }
 
       try {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey || apiKey === "sk-build-placeholder") {
+          send("error", { error: "API key de OpenAI no configurada. Verifica las variables de entorno." });
+          controller.close();
+          return;
+        }
+
         /* send metadata immediately */
         send("meta", { conversationId: conversation?.id ?? null, model, persistenceEnabled });
 
@@ -366,7 +276,7 @@ export async function POST(request: NextRequest) {
               for (const call of streamedToolCalls) {
                 let args: Record<string, unknown> = {};
                 try { args = JSON.parse(call.function.arguments || "{}"); } catch { args = {}; }
-                const result = await executeToolCall(
+                const result = await executeToolCallV2(
                   call.function.name, args, ctx.tenantId, ctx.userId,
                   hasCapability(perms, "rendicion_view_all"),
                 );
@@ -414,7 +324,7 @@ export async function POST(request: NextRequest) {
             if (call.type !== "function") continue;
             let args: Record<string, unknown> = {};
             try { args = JSON.parse(call.function.arguments || "{}"); } catch { args = {}; }
-            const result = await executeToolCall(
+            const result = await executeToolCallV2(
               call.function.name, args, ctx.tenantId, ctx.userId,
               hasCapability(perms, "rendicion_view_all"),
             );
@@ -434,6 +344,9 @@ export async function POST(request: NextRequest) {
           assistantText = normalizeAssistantLinks(inferredFunctionalAnswer, appBaseUrl);
         }
 
+        const { cleanText, visuals, suggestions } = parseVisualBlocks(assistantText);
+        assistantText = cleanText;
+
         /* save assistant message */
         let assistantMessageId = `ephemeral-${Date.now()}`;
         if (persistenceEnabled && conversation) {
@@ -451,6 +364,8 @@ export async function POST(request: NextRequest) {
         /* send final event with normalized text */
         send("done", {
           assistantText,
+          visuals,
+          suggestions,
           assistantMessageId,
           model,
           toolCallsUsed,
@@ -475,8 +390,9 @@ export async function POST(request: NextRequest) {
           }),
         );
       } catch (error) {
-        console.error("Error in AI Help Chat Stream:", error);
-        send("error", { error: "No se pudo responder la consulta" });
+        const errMsg = error instanceof Error ? error.message : "Error desconocido";
+        console.error("Error in AI Help Chat Stream:", errMsg, error);
+        send("error", { error: `Error del asistente: ${errMsg.slice(0, 200)}` });
       } finally {
         controller.close();
       }

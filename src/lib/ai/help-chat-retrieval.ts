@@ -179,17 +179,23 @@ async function listMarkdownFiles(dir: string): Promise<string[]> {
 }
 
 async function loadDocsChunks(): Promise<DocChunk[]> {
-  const docsDir = path.join(process.cwd(), "docs");
-  const files = await listMarkdownFiles(docsDir);
-  const chunks: DocChunk[] = [];
+  try {
+    const docsDir = path.join(process.cwd(), "docs");
+    await fs.access(docsDir);
+    const files = await listMarkdownFiles(docsDir);
+    const chunks: DocChunk[] = [];
 
-  for (const file of files) {
-    const raw = await fs.readFile(file, "utf8");
-    const fileLabel = path.relative(docsDir, file).replace(/\\/g, "/");
-    chunks.push(...chunkMarkdown(raw, fileLabel));
+    for (const file of files) {
+      const raw = await fs.readFile(file, "utf8");
+      const fileLabel = path.relative(docsDir, file).replace(/\\/g, "/");
+      chunks.push(...chunkMarkdown(raw, fileLabel));
+    }
+
+    return chunks;
+  } catch (error) {
+    console.warn("loadDocsChunks: docs directory not available:", error);
+    return [];
   }
-
-  return chunks;
 }
 
 async function getChunks(): Promise<DocChunk[]> {

@@ -73,6 +73,8 @@ const nextConfig = {
       './public/fonts/**/*',
       ...sharpTraceGlobs,
     ],
+    '/api/ai/help-chat/stream': ['./docs/**/*'],
+    '/api/ai/help-chat': ['./docs/**/*'],
   },
   turbopack: {
     root: __dirname,
