@@ -92,7 +92,13 @@ const CHANNEL_DESCRIPTIONS: Record<string, string> = {
   laborum: "Publicacion manual en Laborum para cada aviso.",
   linkedin: "Publicacion manual en LinkedIn Jobs para cada aviso.",
   yapo: "Publicacion manual en Yapo para cada aviso.",
-  jooble: "Buscador de empleo internacional. Indexa automaticamente tus avisos publicos con JSON-LD.",
+  jooble: "Genera un feed XML para Jooble (buscador de empleo internacional).",
+  jobrapido: "Genera un feed XML para Jobrapido.",
+  postjobfree: "Genera un feed XML para PostJobFree.",
+  whatjobs: "WhatJobs indexa automaticamente tus avisos publicos.",
+  expertini: "Genera un feed XML para Expertini.",
+  recruitnet: "Genera un feed XML para Recruit.net.",
+  tiptopjob: "Genera un feed XML para TipTopJob.",
 };
 
 const FEED_INSTRUCTIONS: Record<string, string[]> = {
@@ -292,6 +298,12 @@ export function AtsConfigClient({
 
   function renderFeedCard(key: string, ch: AtsChannelCfg) {
     const instructions = FEED_INSTRUCTIONS[key] ?? [];
+    // Per-tenant feed for boards that require it; unified feed with source
+    // tracking for the rest.
+    const perTenantBoards = new Set(["bne"]);
+    const channelFeedUrl = perTenantBoards.has(key)
+      ? `${siteUrl}/api/public/${tenantSlug}/ats/feed.xml?source=${key}`
+      : `${siteUrl}/api/public/ats/feed.xml?source=${key}`;
     return (
       <Card key={key} className="p-4 sm:p-6 space-y-3">
         <div className="flex items-start justify-between gap-3">
@@ -324,7 +336,7 @@ export function AtsConfigClient({
               <div className="flex gap-2">
                 <Input
                   readOnly
-                  value={feedUrl}
+                  value={channelFeedUrl}
                   className="text-xs font-mono bg-muted/50"
                   onClick={(e) => (e.target as HTMLInputElement).select()}
                 />
@@ -333,10 +345,19 @@ export function AtsConfigClient({
                   variant="outline"
                   size="sm"
                   className="shrink-0"
-                  onClick={() => copyToClipboard(feedUrl)}
+                  onClick={() => copyToClipboard(channelFeedUrl)}
                 >
                   <Copy className="h-4 w-4 mr-1" />
                   Copiar
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => window.open(channelFeedUrl, "_blank")}
+                >
+                  Probar
                 </Button>
               </div>
             </div>

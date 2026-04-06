@@ -71,6 +71,7 @@ model Tenant {
   plan                        TenantPlan?
   atsJobPostings              AtsJobPosting[]   @relation("ats_job_tenant")
   atsApplications             AtsApplication[]  @relation("ats_application_tenant")
+  indeedIntegration           IndeedIntegration? @relation("indeed_integration_tenant")
   planChangeLogs              PlanChangeLog[]
   knowledgeBases              KnowledgeBase[]
 
@@ -7934,6 +7935,41 @@ model AtsJobPosting {
   @@index([estado], map: "idx_ats_jobs_estado")
   @@index([tenantId, estado], map: "idx_ats_jobs_tenant_estado")
   @@map("ats_job_postings")
+  @@schema("ops")
+}
+
+model IndeedIntegration {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @unique @map("tenant_id")
+
+  // OAuth
+  indeedAccountId String?  @map("indeed_account_id")
+  accessToken     String?  @map("access_token") @db.Text
+  refreshToken    String?  @map("refresh_token") @db.Text
+  tokenExpiresAt  DateTime? @map("token_expires_at") @db.Timestamptz(6)
+  scopes          String[] @default([])
+
+  // Feed config
+  feedSourceId    String?  @map("feed_source_id")
+  feedStatus      String   @default("pending") @map("feed_status")
+
+  // Indeed Apply config
+  indeedApplyEnabled Boolean @default(false) @map("indeed_apply_enabled")
+  apiTokenClientId   String? @map("api_token_client_id")
+  apiTokenSecret     String? @map("api_token_secret") @db.Text
+
+  // Tracking
+  lastSyncAt      DateTime? @map("last_sync_at") @db.Timestamptz(6)
+  lastErrorAt     DateTime? @map("last_error_at") @db.Timestamptz(6)
+  lastError       String?   @map("last_error") @db.Text
+  jobCount        Int       @default(0) @map("job_count")
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant          Tenant   @relation("indeed_integration_tenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("ats_indeed_integrations")
   @@schema("ops")
 }
 

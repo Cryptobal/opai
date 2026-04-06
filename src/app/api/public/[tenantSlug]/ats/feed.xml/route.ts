@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveTenantFromSlug } from "@/lib/tenant";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { buildJobXml } from "@/lib/ats/feed-xml";
 
 export async function GET(
   req: NextRequest,
@@ -13,6 +14,7 @@ export async function GET(
     return new NextResponse("Tenant not found", { status: 404 });
   }
 
+  const source = req.nextUrl.searchParams.get("source") || "feed";
   const cfg = await getTenantCompanyConfig(tenant.id);
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
@@ -25,46 +27,35 @@ export async function GET(
     orderBy: { createdAt: "desc" },
   });
 
+  const companyName = cfg.commercialName || cfg.companyName || tenant.name;
+  const logo = cfg.brandingLogoFull || cfg.logoUrl || "";
+
   const jobsXml = jobs
-    .map((job) => {
-      const jobUrl = `${siteUrl}/empleos/${tenantSlug}/${job.jsonLdSlug}?utm_source=feed`;
-      const description =
-        job.descripcion +
-        (job.funciones ? `\n\nFunciones:\n${job.funciones}` : "");
-
-      // Map turno to job type
-      const jobType = "Full time";
-
-      let salaryXml = "";
-      if (job.rentaMin) {
-        salaryXml = `
-      <salary>
-        <min><![CDATA[${job.rentaMin}]]></min>
-        <max><![CDATA[${job.rentaMax || job.rentaMin}]]></max>
-        <currency><![CDATA[CLP]]></currency>
-        <period><![CDATA[Monthly]]></period>
-        <type><![CDATA[gross]]></type>
-      </salary>`;
-      }
-
-      return `
-    <job>
-      <referencenumber><![CDATA[${job.id}]]></referencenumber>
-      <title><![CDATA[${job.titulo}]]></title>
-      <company><![CDATA[${cfg.commercialName || cfg.companyName || tenant.name}]]></company>
-      <city><![CDATA[${job.commune || job.installation?.commune || ""}]]></city>
-      <state><![CDATA[${job.region}]]></state>
-      <country><![CDATA[CL]]></country>
-      <dateposted><![CDATA[${job.createdAt.toISOString()}]]></dateposted>
-      <url><![CDATA[${jobUrl}]]></url>
-      <description><![CDATA[${description}]]></description>
-      <jobtype><![CDATA[${jobType}]]></jobtype>
-      <category><![CDATA[Seguridad Privada]]></category>
-      <logo><![CDATA[${cfg.brandingLogoFull || cfg.logoUrl || ""}]]></logo>
-      ${job.expiraAt ? `<expirationdate><![CDATA[${job.expiraAt.toISOString()}]]></expirationdate>` : ""}
-      ${salaryXml}
-    </job>`;
-    })
+    .map((job) =>
+      buildJobXml(
+        {
+          id: job.id,
+          titulo: job.titulo,
+          descripcion: job.descripcion,
+          funciones: job.funciones,
+          turno: job.turno,
+          region: job.region,
+          commune: job.commune,
+          installationCommune: job.installation?.commune,
+          rentaMin: job.rentaMin,
+          rentaMax: job.rentaMax,
+          experienciaMinAnios: job.experienciaMinAnios,
+          jsonLdSlug: job.jsonLdSlug,
+          createdAt: job.createdAt,
+          updatedAt: job.updatedAt,
+          expiraAt: job.expiraAt,
+          tenantSlug,
+          companyName,
+          logo,
+        },
+        { siteUrl, source },
+      ),
+    )
     .join("\n");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -79,6 +70,7 @@ ${jobsXml}
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
       "Cache-Control": "public, max-age=3600",
+      "X-Feed-Version": "2.0",
     },
   });
 }
