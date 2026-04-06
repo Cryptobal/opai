@@ -11,6 +11,7 @@ interface SearchResult {
 /**
  * Busca en las bases de conocimiento relevantes para un tenant.
  * Incluye documentos globales (tenantId IS NULL) + documentos del tenant.
+ * Returns results with score in 0-10 scale (consistent with help-chat-retrieval).
  */
 export async function searchKnowledge(
   query: string,
@@ -18,21 +19,42 @@ export async function searchKnowledge(
   limit: number = 5,
 ): Promise<SearchResult[]> {
   const queryEmbedding = await generateEmbedding(query);
+  const vectorLiteral = `[${queryEmbedding.join(",")}]`;
 
-  const results = await prisma.$queryRaw<SearchResult[]>`
-    SELECT
+  type RawRow = {
+    content: string;
+    distance: number;
+    knowledgeBaseTitle: string;
+    chunkIndex: number;
+  };
+
+  const results = await prisma.$queryRawUnsafe<RawRow[]>(
+    `SELECT
       kc.content,
-      1 - (kc.embedding <=> ${queryEmbedding}::vector) as score,
+      (kc.embedding <=> $1::vector) as distance,
       kb.title as "knowledgeBaseTitle",
       kc.chunk_index as "chunkIndex"
     FROM knowledge_chunks kc
     JOIN knowledge_bases kb ON kb.id = kc.knowledge_base_id
     WHERE kb.enabled = true
       AND kb.status = 'ready'
-      AND (kb.tenant_id IS NULL OR kb.tenant_id = ${tenantId})
-    ORDER BY kc.embedding <=> ${queryEmbedding}::vector
-    LIMIT ${limit}
-  `;
+      AND kc.embedding IS NOT NULL
+      AND (kb.tenant_id IS NULL OR kb.tenant_id = $2)
+    ORDER BY kc.embedding <=> $1::vector
+    LIMIT $3`,
+    vectorLiteral,
+    tenantId,
+    limit,
+  );
 
-  return results;
+  // Convert cosine distance to similarity score on 0-10 scale
+  // (consistent with help-chat-retrieval.ts semantic search scoring)
+  return results
+    .map((r) => ({
+      content: r.content,
+      score: Math.max(0, (1 - Number(r.distance)) * 10),
+      knowledgeBaseTitle: r.knowledgeBaseTitle,
+      chunkIndex: r.chunkIndex,
+    }))
+    .filter((r) => r.score >= 2); // Minimum relevance threshold
 }

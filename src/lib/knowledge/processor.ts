@@ -39,7 +39,7 @@ export function splitIntoChunks(text: string): string[] {
 
 export async function generateEmbedding(text: string): Promise<number[]> {
   const response = await openai.embeddings.create({
-    model: 'text-embedding-ada-002',
+    model: 'text-embedding-3-small',
     input: text,
   });
   return response.data[0].embedding;
@@ -52,19 +52,18 @@ export async function processDocument({ knowledgeBaseId, content }: ProcessDocum
     for (let i = 0; i < chunks.length; i++) {
       const embedding = await generateEmbedding(chunks[i]);
       const chunkId = `kc_${randomUUID().replace(/-/g, '').slice(0, 20)}`;
+      const vectorLiteral = `[${embedding.join(",")}]`;
 
-      await prisma.$executeRaw`
-        INSERT INTO knowledge_chunks (id, knowledge_base_id, content, chunk_index, embedding, token_count, created_at)
-        VALUES (
-          ${chunkId},
-          ${knowledgeBaseId},
-          ${chunks[i]},
-          ${i},
-          ${embedding}::vector,
-          ${Math.ceil(chunks[i].length / 4)},
-          NOW()
-        )
-      `;
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO knowledge_chunks (id, knowledge_base_id, content, chunk_index, embedding, token_count, created_at)
+         VALUES ($1, $2, $3, $4, $5::vector, $6, NOW())`,
+        chunkId,
+        knowledgeBaseId,
+        chunks[i],
+        i,
+        vectorLiteral,
+        Math.ceil(chunks[i].length / 4),
+      );
     }
 
     await prisma.knowledgeBase.update({

@@ -431,7 +431,7 @@ export async function POST(request: NextRequest) {
 
     /* ── Siempre ejecuta el modelo (ya tiene contexto funcional base + docs + plantillas + knowledge base si hay) ── */
     const retrievalHasEvidence = allChunks.length > 0 || knowledgeChunks.length > 0;
-    const kbMaxScore = knowledgeChunks.length > 0 ? Math.max(...knowledgeChunks.map(k => k.score)) * 10 : 0;
+    const kbMaxScore = knowledgeChunks.length > 0 ? Math.max(...knowledgeChunks.map(k => k.score)) : 0;
     const retrievalMaxScore = Math.max(
       allChunks.length > 0 ? Math.max(...allChunks.map(c => c.score)) : 0,
       kbMaxScore,
