@@ -19,6 +19,7 @@ interface AddressAutocompleteProps {
   placeholder?: string;
   className?: string;
   showMap?: boolean;
+  wrapperClassName?: string;
 }
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -156,6 +157,7 @@ export function AddressAutocomplete({
   placeholder = "Buscar dirección...",
   className,
   showMap = true,
+  wrapperClassName,
 }: AddressAutocompleteProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const acRef = useRef<PlaceAutocompleteWidget | null>(null);
@@ -324,12 +326,19 @@ export function AddressAutocomplete({
     );
   }
 
+  const wrapperBaseClasses = "relative min-h-[44px] w-full rounded-lg border pl-9 pr-2 shadow-sm transition-colors focus-within:ring-1";
+  const wrapperClasses = wrapperClassName
+    ? `${wrapperBaseClasses} ${wrapperClassName}`
+    : `${wrapperBaseClasses} border-input bg-background focus-within:ring-ring`;
+
+  const mapPinColor = wrapperClassName ? "text-slate-400" : "text-muted-foreground";
+
   return (
     <div className="space-y-2">
       <div className="relative w-full">
-        <MapPin className="absolute left-3 top-1/2 z-[2] -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <MapPin className={`absolute left-3 top-1/2 z-[2] -translate-y-1/2 h-4 w-4 pointer-events-none ${mapPinColor}`} />
         <div
-          className="relative min-h-[44px] w-full rounded-md border border-input bg-background pl-9 pr-2 shadow-sm transition-colors focus-within:ring-1 focus-within:ring-ring"
+          className={wrapperClasses}
           aria-busy={!widgetReady}
         >
           {!widgetReady ? (

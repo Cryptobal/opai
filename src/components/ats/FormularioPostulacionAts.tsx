@@ -396,6 +396,7 @@ function FieldRenderer({
           onChange={onAddressSelect}
           placeholder="Buscar dirección..."
           showMap={false}
+          wrapperClassName="border-slate-700 bg-slate-800 focus-within:border-emerald-500 focus-within:ring-emerald-500"
         />
       </label>
     );
