@@ -94,6 +94,13 @@ export async function saveAiHelpChatConfig(
   return merged;
 }
 
+export async function isAiModuleEnabled(tenantId: string): Promise<boolean> {
+  const mod = await prisma.tenantModule.findUnique({
+    where: { tenantId_module: { tenantId, module: "ai_intelligence" } },
+  })
+  return mod?.enabled !== false // enabled by default if record doesn't exist
+}
+
 export function canUseAiHelpChat(userRole: string, cfg: AiHelpChatConfig): boolean {
   if (!cfg.enabled) return false;
   const role = userRole.trim().toLowerCase();
