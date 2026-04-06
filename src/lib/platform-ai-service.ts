@@ -34,7 +34,8 @@ export async function getPlatformAIConfig(): Promise<PlatformAIConfig | null> {
     });
 
     if (provider?.apiKey) {
-      let model = provider.models[0] ?? null;
+      let model: { modelId: string; displayName: string } | null =
+        provider.models[0] ?? null;
 
       if (!model) {
         model = await prisma.platformAiModel.findFirst({
