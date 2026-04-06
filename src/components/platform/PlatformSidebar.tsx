@@ -11,6 +11,7 @@ import {
   Tag,
   Brain,
   MessageSquare,
+  BookOpen,
   LogOut,
   Menu,
   X,
@@ -32,6 +33,7 @@ const navItems = [
   { href: '/platform/ai', label: 'IA / Providers', icon: Brain },
   { href: '/platform/pricing', label: 'Pricing', icon: Tag },
   { href: '/platform/billing', label: 'Facturación', icon: Receipt },
+  { href: '/platform/knowledge', label: 'Base de Conocimiento', icon: BookOpen },
   { href: '/platform/marketing', label: 'Marketing Chat', icon: MessageSquare },
 ];
 
