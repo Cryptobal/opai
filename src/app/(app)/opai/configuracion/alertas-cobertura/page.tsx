@@ -11,8 +11,8 @@ export default async function ConfigAlertasCoberturaPage() {
     redirect("/opai/login?callbackUrl=/opai/configuracion/alertas-cobertura");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "config")) {
-    redirect("/hub");
+  if (!canView(perms, "config", "alertas_cobertura")) {
+    redirect("/opai/configuracion");
   }
 
   return (

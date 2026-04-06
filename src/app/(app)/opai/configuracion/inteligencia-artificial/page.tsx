@@ -18,7 +18,7 @@ export default async function InteligenciaArtificialPage() {
   }
 
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "config")) {
+  if (!canView(perms, "config", "inteligencia_artificial")) {
     redirect("/opai/configuracion");
   }
 
