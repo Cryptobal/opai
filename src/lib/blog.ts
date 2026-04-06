@@ -20,7 +20,7 @@ const POSTS_DIR = path.join(process.cwd(), 'content/blog')
 
 export function getAllPosts(): BlogPost[] {
   if (!fs.existsSync(POSTS_DIR)) return []
-  const files = fs.readdirSync(POSTS_DIR).filter(f => f.endsWith('.mdx'))
+  const files = fs.readdirSync(POSTS_DIR).filter(f => f.endsWith('.mdx') && !f.includes(' 2.'))
   return files
     .map(file => {
       const slug = file.replace('.mdx', '')

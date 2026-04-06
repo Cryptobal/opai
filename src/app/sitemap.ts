@@ -20,7 +20,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/control-rondas-gps`, lastModified: now, changeFrequency: 'monthly', priority: 0.85 },
     { url: `${baseUrl}/ia-seguridad-privada`, lastModified: now, changeFrequency: 'monthly', priority: 0.85 },
     { url: `${baseUrl}/integraciones`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
-    ...['operaciones', 'rondas-gps', 'face-id', 'alertas-cobertura', 'ia-operacional', 'crm-comercial', 'finanzas', 'portales'].map(f => ({
+    { url: `${baseUrl}/empleos`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
+    ...['operaciones', 'rondas-gps', 'face-id', 'alertas-cobertura', 'ia-operacional', 'crm-comercial', 'finanzas', 'portales', 'payroll', 'ats'].map(f => ({
       url: `${baseUrl}/funcionalidades/${f}`,
       lastModified: now,
       changeFrequency: 'monthly' as const,

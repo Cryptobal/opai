@@ -29,6 +29,13 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: 'OPAI', url: 'https://www.opai.cl' }],
   creator: 'OPAI — LX3.ai',
+  publisher: 'OPAI',
+  category: 'technology',
+  other: {
+    'citation_title': 'OPAI — ERP con IA para Empresas de Seguridad Privada',
+    'citation_author': 'OPAI',
+    'citation_language': 'es',
+  },
   openGraph: {
     type: 'website',
     locale: 'es_CL',

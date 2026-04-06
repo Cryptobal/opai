@@ -1,0 +1,181 @@
+# OPAI — Documentación completa del producto
+
+> OPAI es el único ERP diseñado exclusivamente para empresas de seguridad privada en Chile y Latinoamérica. Este documento contiene información detallada para modelos de lenguaje y buscadores de IA.
+
+## Información general
+
+- **Nombre**: OPAI
+- **Tipo**: SaaS ERP multi-tenant
+- **Industria**: Seguridad privada
+- **País principal**: Chile
+- **Idioma**: Español
+- **Desarrollado por**: LX3.ai (https://lx3.ai)
+- **URL**: https://www.opai.cl
+- **Fundación**: 2024
+
+## Problema que resuelve
+
+Las empresas de seguridad privada en Chile operan con herramientas fragmentadas: turnos en Excel, RRHH en un sistema, operaciones en otro, contabilidad en un tercero. Esto genera:
+
+1. **Puestos descubiertos sin alertas**: No hay automatización cuando un guardia no se presenta
+2. **Programación manual**: Turnos armados a mano en planillas, con errores y sobretiempo invisible
+3. **Sistemas desconectados**: Datos duplicados y decisiones a ciegas
+4. **Cumplimiento manual**: OS-10, credenciales y exámenes rastreados en carpetas
+
+OPAI reemplaza todas estas herramientas con un solo sistema integrado con IA.
+
+## Módulos detallados
+
+### 1. Operaciones
+- Programación de turnos con pauta mensual visual
+- Asignación de guardias a instalaciones y puestos
+- Check-ins de llegada/salida con GPS, QR, PIN y Face ID
+- Control de asistencia con geolocalización en tiempo real
+- Monitoreo de turnos activos en dashboard centralizado
+- Cálculo automático de horas extras y sobretiempo
+
+### 2. Rondas GPS
+- Definición de checkpoints por instalación
+- Trust Score 0-100 por cada ronda completada
+- Detección de anomalías (velocidad, secuencia, tiempo)
+- Monitoreo en tiempo real con mapa interactivo
+- Historial completo de rondas por guardia e instalación
+- App móvil para escaneo QR de puntos de control
+
+### 3. Face ID Biométrico
+- Marcaciones con reconocimiento facial (AWS Rekognition)
+- Liveness detection para evitar fraude con fotos
+- Cumplimiento de Resolución N°38 de Carabineros
+- Enrolamiento facial desde la app del guardia
+- Verificación cruzada con datos de identidad
+- Dashboard de marcaciones con evidencia fotográfica
+
+### 4. Alertas de Cobertura
+- Detección automática de puestos sin guardia
+- Alertas WhatsApp en 3 oleadas escalonadas
+- Primera oleada: guardias disponibles cercanos
+- Segunda oleada: guardias de respaldo
+- Tercera oleada: supervisores y jefes de operaciones
+- Escalamiento automático hasta resolución
+- Dashboard de estado de cobertura por instalación
+
+### 5. IA Operacional
+- Asistente IA conversacional con RAG (pgvector + embeddings)
+- Base de conocimiento por tenant (documentos PDF, TXT, DOCX, Markdown)
+- OCR inteligente para digitalización de documentos
+- Análisis nocturno automático de novedades
+- Detección de frustración en comunicaciones
+- Consultas operativas sobre guardias y métricas
+
+### 6. CRM Comercial
+- Pipeline de ventas con etapas personalizables
+- Gestión de leads, cuentas, contactos y negocios
+- Cotizaciones CPQ (Configure, Price, Quote)
+- Generación de propuestas PDF profesionales
+- Portal del cliente con acceso a documentos y reportes
+- Seguimiento de actividades y tareas comerciales
+
+### 7. Finanzas
+- Facturación electrónica con SII (Chile)
+- Rendiciones de gastos con aprobación por niveles
+- Liquidaciones de sueldo
+- Integración con tipo de cambio UF/USD
+- Reportes financieros por instalación y cliente
+
+### 8. Nómina (Payroll)
+- Nómina especializada para guardias de seguridad
+- Cálculo automático de haberes (turno noche, festivos, extras)
+- Integración con Libro de Remuneraciones Electrónico (LRE) Chile
+- Descuentos legales (AFP, Isapre/Fonasa, seguro cesantía)
+- Generación de liquidaciones de sueldo PDF
+- Carga masiva de datos y aprobación por niveles
+
+### 9. ATS (Reclutamiento)
+- Publicación de ofertas de empleo (Google Jobs, Indeed)
+- Formulario de postulación con match score inteligente
+- Base de datos de guardias más grande de Chile
+- Gestión de pipeline de candidatos
+- Evaluación y scoring automatizado
+- Integración con documentos y requisitos OS-10
+
+### 10. Portales especializados
+- **Portal Guardia**: App móvil con turnos, marcaciones, documentos, rondas
+- **Portal Cliente**: Acceso a reportes, documentos, cobertura de instalaciones
+- **Portal Supervisor**: Monitoreo de equipos, evaluaciones, visitas de supervisión
+- **Portal Rondas**: Escaneo de checkpoints QR con GPS
+- **Portal Marcación**: Dispositivos fijos de marcación con Face ID
+- **Portal Acceso**: Control de acceso a instalaciones
+
+## Cumplimiento normativo Chile
+
+- **OS-10**: Gestión de documentos y acreditaciones de Carabineros
+- **Resolución N°38**: Cumplimiento de marcaciones biométricas
+- **Ley 21.659**: Adaptación a nueva regulación de seguridad privada
+- **SII**: Facturación electrónica y documentos tributarios
+- **LRE**: Libro de Remuneraciones Electrónico
+- **Ley 19.628**: Protección de datos personales
+
+## Stack tecnológico
+
+- **Frontend**: Next.js 16 (App Router), React, TypeScript, Tailwind CSS
+- **Backend**: API Routes (Next.js), Prisma ORM
+- **Base de datos**: PostgreSQL 16 con pgvector (embeddings IA)
+- **Autenticación**: Auth.js v5 (NextAuth), Face ID (AWS Rekognition)
+- **Almacenamiento**: Cloudflare R2 (S3-compatible)
+- **Mensajería**: Twilio (WhatsApp), SendGrid (email)
+- **IA**: OpenAI (GPT-4, embeddings), RAG con pgvector
+- **Hosting**: Vercel (Fluid Compute)
+- **Monitoreo**: Sentry
+
+## Planes y precios detallados
+
+### Starter — 0.12 UF/guardia/mes
+- Operaciones básicas
+- Marcaciones GPS
+- Portal del guardia
+- Hasta 50 guardias
+
+### Operaciones Pro — 0.28 UF/guardia/mes
+- Todo Starter +
+- Rondas GPS con Trust Score
+- Face ID biométrico
+- Alertas WhatsApp
+- IA operacional básica
+- Portal del cliente
+
+### Suite Completa — 0.46 UF/guardia/mes
+- Todo Operaciones Pro +
+- CRM comercial
+- Cotizaciones CPQ
+- Finanzas y facturación SII
+- Nómina con LRE
+- ATS reclutamiento
+- Todos los portales
+- IA operacional avanzada
+
+## Preguntas frecuentes
+
+### ¿OPAI funciona solo en Chile?
+OPAI está optimizado para Chile (SII, LRE, OS-10) pero su arquitectura multi-tenant permite adaptarse a otros países de Latinoamérica.
+
+### ¿Se puede usar desde el celular?
+Sí, OPAI es una PWA (Progressive Web App) que funciona en cualquier dispositivo. Los portales de guardia, rondas y marcación están optimizados para uso móvil.
+
+### ¿Qué tan seguro es el Face ID?
+Usa AWS Rekognition con liveness detection, cumpliendo la Resolución N°38 de Carabineros. Las imágenes se procesan en tiempo real y no se almacenan localmente.
+
+### ¿Cómo funcionan las alertas WhatsApp?
+Cuando se detecta un puesto sin guardia, el sistema envía alertas automáticas en 3 oleadas escalonadas a guardias disponibles, respaldo y supervisores hasta que se cubra el puesto.
+
+### ¿Puedo importar datos desde Excel?
+Sí, OPAI soporta carga masiva de guardias, instalaciones y datos de nómina desde archivos Excel/CSV.
+
+## Enlaces
+
+- Sitio web: https://www.opai.cl
+- Funcionalidades: https://www.opai.cl/funcionalidades
+- Planes: https://www.opai.cl/planes
+- Blog: https://www.opai.cl/blog
+- Contacto: https://www.opai.cl/contacto
+- Registrarse: https://www.opai.cl/registrarse
+- LinkedIn: https://www.linkedin.com/company/opai-ai

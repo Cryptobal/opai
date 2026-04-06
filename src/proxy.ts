@@ -36,6 +36,11 @@ function isPublicPath(pathname: string): boolean {
     if (pathname === mp || pathname.startsWith(mp + '/')) return true;
   }
 
+  // SEO: sitemap, robots, y archivos para crawlers de IA
+  if (pathname === '/sitemap.xml' || pathname === '/robots.txt') return true;
+  if (pathname === '/llms.txt' || pathname === '/llms-full.txt') return true;
+  if (pathname.startsWith('/.well-known/')) return true;
+
   // Placeholders de módulos
   if (pathname === '/hub' || pathname === '/crm') return true;
 

@@ -7,6 +7,11 @@ export const metadata: Metadata = {
     'Términos y condiciones de uso de OPAI ERP para empresas de seguridad privada en Chile.',
   alternates: { canonical: 'https://www.opai.cl/terminos' },
   robots: { index: true, follow: true },
+  openGraph: {
+    title: 'Términos de Servicio | OPAI',
+    description: 'Términos y condiciones de uso de OPAI ERP para empresas de seguridad privada en Chile.',
+    url: 'https://www.opai.cl/terminos',
+  },
 }
 
 const sectionTitle: React.CSSProperties = {

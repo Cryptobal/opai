@@ -1,9 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /opai/
-Disallow: /portal/
-Disallow: /api/
-Disallow: /activate
-Disallow: /registro
-
-Sitemap: https://www.opai.cl/sitemap.xml

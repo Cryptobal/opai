@@ -7,6 +7,11 @@ export const metadata: Metadata = {
     'Política de privacidad de OPAI. Conoce cómo recopilamos, usamos y protegemos tus datos personales de acuerdo a la Ley 19.628 de Chile.',
   alternates: { canonical: 'https://www.opai.cl/privacidad' },
   robots: { index: true, follow: true },
+  openGraph: {
+    title: 'Política de Privacidad | OPAI',
+    description: 'Cómo OPAI recopila, usa y protege tus datos personales según la Ley 19.628 de Chile.',
+    url: 'https://www.opai.cl/privacidad',
+  },
 }
 
 const sectionTitle: React.CSSProperties = {

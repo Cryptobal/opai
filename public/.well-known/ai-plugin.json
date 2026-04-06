@@ -1,0 +1,16 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "OPAI — ERP Seguridad Privada",
+  "name_for_model": "opai_erp",
+  "description_for_human": "ERP con inteligencia artificial para empresas de seguridad privada en Chile. Operaciones, rondas GPS, Face ID, alertas WhatsApp, CRM, finanzas y nómina.",
+  "description_for_model": "OPAI is the only ERP designed exclusively for private security companies in Chile and Latin America. It integrates operations management (guard scheduling, shift control, GPS check-ins), patrol rounds with GPS tracking and Trust Score, biometric Face ID with AWS Rekognition, automatic WhatsApp coverage alerts, AI-powered operational assistant with RAG, CRM with CPQ quoting, finance with SII electronic invoicing, specialized payroll for security guards with LRE Chile, and ATS recruitment. It offers 6 specialized portals: Guard, Client, Supervisor, Rounds, Attendance, and Access Control. Pricing starts at 0.12 UF per active guard per month.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "none"
+  },
+  "logo_url": "https://www.opai.cl/icons/favicon.svg",
+  "contact_email": "contacto@opai.cl",
+  "legal_info_url": "https://www.opai.cl/terminos"
+}

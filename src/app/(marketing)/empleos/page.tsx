@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   title: "Empleos Guardias de Seguridad Chile | Opai",
   description: "Encuentra empleo como guardia de seguridad en Chile. Ofertas actualizadas de las principales empresas de seguridad privada.",
   alternates: { canonical: "https://www.opai.cl/empleos" },
+  openGraph: {
+    title: "Empleos Guardias de Seguridad Chile | OPAI",
+    description: "Ofertas de empleo actualizadas para guardias de seguridad en Chile. Postula directamente desde la plataforma.",
+    url: "https://www.opai.cl/empleos",
+  },
 };
 
 const TURNO_LABELS: Record<string, string> = {

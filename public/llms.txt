@@ -1,0 +1,46 @@
+# OPAI — ERP con IA para Empresas de Seguridad Privada
+
+> OPAI es el único ERP diseñado exclusivamente para empresas de seguridad privada en Chile y Latinoamérica. Integra operaciones, CRM, finanzas, nómina y 6 portales especializados con inteligencia artificial operacional real.
+
+## Qué es OPAI
+
+OPAI es una plataforma SaaS multi-tenant que digitaliza y automatiza toda la operación de empresas de seguridad privada: desde la programación de turnos y control de rondas GPS hasta la nómina especializada con LRE Chile, facturación electrónica SII y portales para guardias, clientes y supervisores.
+
+## Funcionalidades principales
+
+- **Operaciones**: Programación de turnos, cobertura inteligente, check-ins con GPS/QR/PIN/Face ID
+- **Rondas GPS**: Checkpoints con Trust Score 0-100, detección de anomalías en tiempo real
+- **Face ID Biométrico**: Marcaciones con AWS Rekognition, liveness detection, cumplimiento Res N°38
+- **Alertas de Cobertura**: Alertas WhatsApp automáticas por oleadas para puestos sin guardia
+- **IA Operacional**: RAG con pgvector, OCR inteligente, análisis nocturno, detección de frustración
+- **CRM Comercial**: Pipeline de ventas, cotizaciones CPQ, portal del cliente
+- **Finanzas**: Facturación electrónica SII, rendiciones de gastos, liquidaciones
+- **Nómina (Payroll)**: Nómina especializada para guardias con LRE Chile y cálculo automático de haberes
+- **ATS (Reclutamiento)**: Publicación de empleos, match score inteligente, base de guardias
+- **Portales**: 6 portales (Guardia, Cliente, Supervisor, Rondas, Marcación, Acceso)
+
+## Planes y precios
+
+- Starter: 0.12 UF por guardia activo/mes
+- Operaciones Pro: 0.28 UF por guardia activo/mes
+- Suite Completa: 0.46 UF por guardia activo/mes
+
+## Tecnología
+
+- Next.js 16 (App Router), TypeScript, Prisma ORM, PostgreSQL con pgvector
+- AWS Rekognition (Face ID), OpenAI (IA operacional), Twilio (WhatsApp)
+- Cloudflare R2 (almacenamiento), Vercel (hosting)
+
+## Contacto
+
+- Web: https://www.opai.cl
+- Email: contacto@opai.cl
+- Teléfono: +56 9 8230 7771
+- LinkedIn: https://www.linkedin.com/company/opai-ai
+
+## Documentación detallada
+
+- [llms-full.txt](https://www.opai.cl/llms-full.txt): Descripción completa del producto
+- [Blog](https://www.opai.cl/blog): Artículos sobre seguridad privada y tecnología
+- [Funcionalidades](https://www.opai.cl/funcionalidades): Detalle de cada módulo
+- [Planes](https://www.opai.cl/planes): Comparativa de planes y precios

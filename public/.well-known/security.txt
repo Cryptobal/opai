@@ -1,0 +1,4 @@
+Contact: mailto:contacto@opai.cl
+Preferred-Languages: es, en
+Canonical: https://www.opai.cl/.well-known/security.txt
+Expires: 2027-12-31T23:59:59Z
