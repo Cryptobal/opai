@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
+import { requireTenantModule } from '@/lib/require-module';
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME = new Set([
@@ -26,6 +27,9 @@ const ALLOWED_ENTITY_TYPES = ["lead", "deal", "account", "contact", "installatio
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx);

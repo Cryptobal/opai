@@ -3,11 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit, hasCapability } from "@/lib/permissions";
 import { checkpointTaskSchema } from "@/lib/validations/rondas";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> },
 ) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const { id, taskId } = await params;
     const ctx = await requireAuth();
@@ -55,6 +59,9 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> },
 ) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const { id, taskId } = await params;
     const ctx = await requireAuth();

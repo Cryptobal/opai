@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfDayChile, endOfDayChile } from "@/lib/rondas/timezone";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(req: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   const session = await auth();
   if (!session?.user) return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
 

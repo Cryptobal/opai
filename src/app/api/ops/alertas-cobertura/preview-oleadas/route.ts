@@ -5,6 +5,7 @@ import { ensureOpsAccess } from "@/lib/ops";
 import { hasCapability } from "@/lib/permissions";
 import { crearAlertaSchema } from "@/lib/validations/alertas-cobertura";
 import { generarOleadas } from "@/lib/alertas-cobertura/oleadas.service";
+import { requireTenantModule } from '@/lib/require-module';
 
 /**
  * POST — Preview de oleadas sin crear alerta.
@@ -14,6 +15,9 @@ import { generarOleadas } from "@/lib/alertas-cobertura/oleadas.service";
  */
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('alertas_cobertura');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });

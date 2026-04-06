@@ -11,6 +11,7 @@ import { z } from "zod";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { enrichPerson } from "@/lib/apollo-client";
+import { requireTenantModule } from '@/lib/require-module';
 
 const enrichSchema = z
   .object({
@@ -30,6 +31,9 @@ const enrichSchema = z
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx, "leads");

@@ -24,6 +24,7 @@ import {
   type LeadPositionLike,
 } from "@/lib/cpq/lead-labor-from-payroll";
 import { buildCpqQuotePdfFileName } from "@/lib/pdf/cpq-quote-pdf-filename";
+import { requireTenantModule } from '@/lib/require-module';
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -116,6 +117,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 

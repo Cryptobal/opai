@@ -8,11 +8,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
+import { requireTenantModule } from '@/lib/require-module';
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PUT(request: NextRequest, { params }: Params) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx);
@@ -62,6 +66,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmDelete(ctx);

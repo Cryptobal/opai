@@ -8,6 +8,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqEdit } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { requireTenantModule } from '@/lib/require-module';
 
 const reorderSchema = z.object({
   items: z.array(
@@ -23,6 +24,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id: quoteId } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

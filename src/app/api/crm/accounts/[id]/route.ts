@@ -11,6 +11,7 @@ import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth-crm";
 import { createAccountSchema, updateAccountSchema } from "@/lib/validations/crm";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
+import { requireTenantModule } from '@/lib/require-module';
 
 type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
 
@@ -43,6 +44,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmView(ctx, "accounts");
@@ -79,6 +83,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx, "accounts");
@@ -214,6 +221,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmDelete(ctx, "accounts");

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { getAtsConfig, updateAtsConfig } from "@/lib/ats/config";
+import { requireTenantModule } from '@/lib/require-module';
 
 const updateConfigSchema = z.object({
   pesoOS10: z.number().int().min(0).max(100).optional(),
@@ -23,6 +24,9 @@ const updateConfigSchema = z.object({
 
 export async function GET() {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);
@@ -38,6 +42,9 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);

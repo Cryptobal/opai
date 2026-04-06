@@ -11,6 +11,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { triggerChatEvent, getSenderId, truncatePreview, getPusherServer } from "@/lib/chat";
 import { sendChatPushNotifications, getChatChannelRecipients, filterRecipientsForInAppNotifications } from "@/lib/pwa/push-service";
 import type { ChatSenderType } from "@prisma/client";
+import { requireTenantModule } from '@/lib/require-module';
 
 // ── GET — List messages ──
 
@@ -19,6 +20,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('chat');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
@@ -217,6 +221,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('chat');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
@@ -507,6 +514,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('chat');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 

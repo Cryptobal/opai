@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqEdit, requireCpqDelete } from "@/lib/api-auth-cpq";
+import { requireTenantModule } from '@/lib/require-module';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -20,6 +21,9 @@ function normalizeColorHex(value: unknown): string | null {
 
 export async function PUT(request: NextRequest, { params }: Params) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCpqEdit(ctx);
@@ -83,6 +87,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCpqDelete(ctx);

@@ -10,6 +10,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { uploadFile } from "@/lib/storage";
 import { openai } from "@/lib/openai";
+import { requireTenantModule } from '@/lib/require-module';
 
 type ExtractedWebData = {
   websiteNormalized: string;
@@ -558,6 +559,9 @@ async function enrichCompanyWithAi(
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx);

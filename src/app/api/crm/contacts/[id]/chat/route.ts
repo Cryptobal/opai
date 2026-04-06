@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmEdit } from "@/lib/api-auth-crm";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const modCheck = await requireTenantModule('crm');
+  if (!modCheck.authorized) return modCheck.response;
+
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const forbidden = await requireCrmEdit(ctx, "contacts");

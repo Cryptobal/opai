@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { requireTenantModule } from '@/lib/require-module';
 import { canView, hasCapability } from "@/lib/permissions";
 
 /**
@@ -9,6 +10,8 @@ import { canView, hasCapability } from "@/lib/permissions";
  * Usado para poblar el selector de instalación en "Nueva visita".
  */
 export async function GET() {
+  const modCheck = await requireTenantModule('ops_supervision');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

@@ -3,6 +3,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqEdit } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { createOpsAuditLog } from "@/lib/ops";
+import { requireTenantModule } from '@/lib/require-module';
 
 type DotacionSnapshotItem = {
   positionId: string;
@@ -26,6 +27,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

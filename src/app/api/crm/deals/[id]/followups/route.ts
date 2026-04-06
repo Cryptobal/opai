@@ -19,6 +19,7 @@ import {
   pauseFollowUps,
   resumeFollowUps,
 } from "@/lib/followup-scheduler";
+import { requireTenantModule } from '@/lib/require-module';
 
 const VALID_ACTIONS = ["pause", "resume", "restart", "cancel"] as const;
 type FollowUpAction = (typeof VALID_ACTIONS)[number];
@@ -28,6 +29,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx, "deals");

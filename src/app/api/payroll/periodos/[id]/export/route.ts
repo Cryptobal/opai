@@ -10,12 +10,15 @@ import { generateLibroRemuneraciones } from "@/lib/payroll/exporters/libro-remun
 import { generatePreviredFile } from "@/lib/payroll/exporters/previred-exporter";
 import { generateBankFile } from "@/lib/payroll/exporters/bank-file-exporter";
 import { prisma } from "@/lib/prisma";
+import { requireTenantModule } from '@/lib/require-module';
 
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, { params }: Params) {
+  const modCheck = await requireTenantModule('payroll');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView } from "@/lib/api-auth-crm";
 import { resolvePermissionsById } from "@/lib/permissions-server";
+import { requireTenantModule } from '@/lib/require-module';
 
 type SearchResult = {
   id: string;
@@ -28,6 +29,9 @@ const QUOTE_STATUS_LABEL: Record<string, string> = {
 
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmView(ctx);

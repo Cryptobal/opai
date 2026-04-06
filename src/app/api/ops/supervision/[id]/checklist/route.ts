@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { requireTenantModule } from '@/lib/require-module';
 import { canEdit, canView, hasCapability } from "@/lib/permissions";
 
 type Params = { id: string };
@@ -20,6 +21,8 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<Params> },
 ) {
+  const modCheck = await requireTenantModule('ops_supervision');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -80,6 +83,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<Params> },
 ) {
+  const modCheck = await requireTenantModule('ops_supervision');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

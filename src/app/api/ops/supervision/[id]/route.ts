@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { requireTenantModule } from '@/lib/require-module';
 import { canDelete, canEdit, canView, hasCapability } from "@/lib/permissions";
 
 const updateVisitSchema = z.object({
@@ -77,6 +78,8 @@ async function canAccessVisit(userId: string, tenantId: string, visitId: string,
 }
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<Params> }) {
+  const modCheck = await requireTenantModule('ops_supervision');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -180,6 +183,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<P
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<Params> }) {
+  const modCheck = await requireTenantModule('ops_supervision');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -300,6 +305,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<Params> }) {
+  const modCheck = await requireTenantModule('ops_supervision');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

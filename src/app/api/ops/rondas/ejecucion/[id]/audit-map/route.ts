@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { asRouteSnapshot, asWalkRoute } from "@/lib/rondas/ejecucion-map-helpers";
+import { requireTenantModule } from '@/lib/require-module';
 
 const MAX_TRACKING_POINTS = 12_000;
 
@@ -15,6 +16,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

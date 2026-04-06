@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { getBottomNavItems, type BottomNavItem } from '@/lib/module-nav';
 import { usePermissions } from '@/lib/permissions-context';
 import { hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
+import { useTenantModules } from '@/contexts/TenantModulesContext';
 import { ChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
 import { useTheme } from './ThemeProvider';
@@ -160,6 +161,7 @@ function getActiveModule(pathname: string): string | null {
 export function BottomNav({ userRole }: BottomNavProps) {
   const pathname = usePathname();
   const permissions = usePermissions();
+  const { enabledModules } = useTenantModules();
   const navRef = useRef<HTMLElement>(null);
   const navConfig = useNavConfig();
   useBottomNavHeight(navRef);
@@ -187,7 +189,7 @@ export function BottomNav({ userRole }: BottomNavProps) {
 
   // Determine which mode to show
   const activeModule = getActiveModule(pathname);
-  const moduleItems = activeModule ? getBottomNavItems(pathname, permsOrRole) : [];
+  const moduleItems = activeModule ? getBottomNavItems(pathname, permsOrRole, enabledModules) : [];
   const isInModule = !forceMainNav && activeModule && moduleItems.length > 0;
 
   // Section-based nav (CRM detail pages)

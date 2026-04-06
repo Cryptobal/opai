@@ -10,6 +10,7 @@ import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { z } from "zod";
+import { requireTenantModule } from '@/lib/require-module';
 
 const createItemSchema = z.object({
   text: z.string().min(1, "El texto es requerido").max(500),
@@ -24,6 +25,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id: quoteId } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -62,6 +66,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id: quoteId } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

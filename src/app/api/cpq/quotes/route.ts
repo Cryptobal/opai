@@ -11,9 +11,13 @@ import { prisma } from "@/lib/prisma";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { applyDefaultQuoteIncludes } from "@/lib/cpq/apply-default-quote-includes";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCpqView(ctx);
@@ -46,6 +50,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbiddenCreate = await ensureCanCreateQuote(ctx);

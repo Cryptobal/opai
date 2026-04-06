@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
+import { requireTenantModule } from '@/lib/require-module';
 import { canView, hasCapability } from "@/lib/permissions";
 
 export async function GET(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_supervision');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

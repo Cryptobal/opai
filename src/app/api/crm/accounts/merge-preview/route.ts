@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView } from "@/lib/api-auth-crm";
+import { requireTenantModule } from '@/lib/require-module';
 
 function normalize(text: string): string {
   return text
@@ -47,6 +48,9 @@ type SimilarityAlert = {
 
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmView(ctx, "accounts");

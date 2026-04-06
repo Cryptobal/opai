@@ -8,10 +8,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
+import { requireTenantModule } from '@/lib/require-module';
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const modCheck = await requireTenantModule('payroll');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

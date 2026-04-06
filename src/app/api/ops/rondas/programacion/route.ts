@@ -6,8 +6,12 @@ import { rondaProgramacionSchema } from "@/lib/validations/rondas";
 import { buildScheduleSlots } from "@/lib/rondas/schedule-engine";
 import { pendingProgramadaEjecucion } from "@/lib/rondas/pending-programada-ejecucion";
 import { startOfDayChile } from "@/lib/rondas/timezone";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
@@ -35,6 +39,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

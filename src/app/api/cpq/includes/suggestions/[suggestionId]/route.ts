@@ -8,12 +8,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqEdit, requireCpqDelete } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ suggestionId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCpqEdit(ctx);
@@ -64,6 +68,9 @@ export async function DELETE(
   { params }: { params: Promise<{ suggestionId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCpqDelete(ctx);

@@ -10,12 +10,16 @@ import {
   buildCoberturaChatSummary,
 } from "@/lib/rondas/cobertura-email";
 import { getOpsChannelId, sendSystemChatMessage } from "@/lib/chat-system-message";
+import { requireTenantModule } from '@/lib/require-module';
 
 /* ── Simple rate limit: 1 email per 2 min per tenant+turnoFilter ── */
 const lastSentMap = new Map<string, number>();
 const MIN_INTERVAL_MS = 2 * 60 * 1000;
 
 export async function POST(request: Request) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

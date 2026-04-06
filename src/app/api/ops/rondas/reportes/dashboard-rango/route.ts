@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
+import { requireTenantModule } from '@/lib/require-module';
 
 /**
  * GET /api/ops/rondas/reportes/dashboard-rango
@@ -12,6 +13,9 @@ import { canView } from "@/lib/permissions";
  *   cicloInicio – operational cycle start hour (default 20)
  */
 export async function GET(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

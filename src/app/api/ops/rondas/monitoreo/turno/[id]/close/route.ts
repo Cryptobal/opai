@@ -5,11 +5,15 @@ import { canEdit, canDelete, hasCapability } from "@/lib/permissions";
 import { monitoreoTurnoCloseSchema } from "@/lib/validations/rondas";
 import { sendMonitorTurnoEmail } from "@/lib/rondas/monitor-email";
 import { buildTurnoReportData } from "@/lib/rondas/monitor-turno-report-data";
+import { requireTenantModule } from '@/lib/require-module';
 
 // PDF generation with Chromium needs more memory and time
 export const maxDuration = 120;
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const { id } = await params;
     const ctx = await requireAuth();
@@ -250,6 +254,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
  * Used for testing purposes.
  */
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const { id } = await params;
     const ctx = await requireAuth();

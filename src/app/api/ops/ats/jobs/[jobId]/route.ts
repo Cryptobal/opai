@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
+import { requireTenantModule } from '@/lib/require-module';
 
 const updateJobSchema = z.object({
   titulo: z.string().min(3).max(200).optional(),
@@ -28,6 +29,9 @@ export async function GET(
   { params }: { params: Promise<{ jobId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);
@@ -79,6 +83,9 @@ export async function PATCH(
   { params }: { params: Promise<{ jobId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);
@@ -128,6 +135,9 @@ export async function DELETE(
   { params }: { params: Promise<{ jobId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);

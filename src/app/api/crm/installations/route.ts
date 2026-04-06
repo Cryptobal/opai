@@ -11,9 +11,13 @@ import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { createInstallationSchema } from "@/lib/validations/crm";
 import { toSentenceCase } from "@/lib/text-format";
 import { createCrmHistoryLog } from "@/lib/crm-history";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmView(ctx, "installations");
@@ -59,6 +63,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx, "installations");

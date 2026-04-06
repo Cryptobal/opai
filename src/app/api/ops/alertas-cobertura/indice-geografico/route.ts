@@ -4,6 +4,7 @@ import { requireAuth, resolveApiPerms } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { canView } from "@/lib/permissions";
 import { haversineDistance } from "@/lib/marcacion";
+import { requireTenantModule } from '@/lib/require-module';
 
 /**
  * GET — Índice de optimización geográfica por instalación.
@@ -13,6 +14,9 @@ import { haversineDistance } from "@/lib/marcacion";
  */
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('alertas_cobertura');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });

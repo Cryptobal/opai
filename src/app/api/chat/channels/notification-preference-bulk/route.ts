@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireTenantModule } from '@/lib/require-module';
 import { z } from "zod";
 
 const VALID_PREFERENCES = ["ALL", "MENTIONS_ONLY", "MUTED"] as const;
@@ -17,6 +18,9 @@ const bodySchema = z.object({
 
 export async function PUT(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('chat');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 

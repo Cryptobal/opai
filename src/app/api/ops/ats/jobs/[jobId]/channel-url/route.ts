@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
+import { requireTenantModule } from '@/lib/require-module';
 
 const schema = z.object({
   canal: z.string().min(1),
@@ -17,6 +18,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ jobId: string }> },
 ) {
+  const modCheck = await requireTenantModule('ats');
+  if (!modCheck.authorized) return modCheck.response;
+
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   await ensureOpsAccess(ctx);

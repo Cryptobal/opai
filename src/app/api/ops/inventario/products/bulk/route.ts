@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureInventarioAccess } from "@/lib/inventory";
+import { requireTenantModule } from '@/lib/require-module';
 import { parseSizesInput } from "@/lib/inventory-product-catalog";
 
 const bulkSchema = z.object({
@@ -22,6 +23,9 @@ const bulkSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('ops_inventario');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureInventarioAccess(ctx);

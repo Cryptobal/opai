@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, unauthorized, ensureModuleAccess, parseBody } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
+import { requireTenantModule } from '@/lib/require-module';
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,8 @@ const CloseSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const modCheck = await requireTenantModule('payroll');
+  if (!modCheck.authorized) return modCheck.response;
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

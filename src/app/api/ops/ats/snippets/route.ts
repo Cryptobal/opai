@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { getAtsSnippets, updateAtsSnippets } from "@/lib/ats/snippets";
+import { requireTenantModule } from '@/lib/require-module';
 
 const snippetSchema = z.object({
   id: z.string(),
@@ -18,6 +19,9 @@ const updateSnippetsSchema = z.object({
 
 export async function GET() {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);
@@ -36,6 +40,9 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);

@@ -3,12 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/api-auth";
 import { notificarSupervisorAceptacion } from "@/lib/alertas-cobertura/notificacion.service";
 import { verificarTokenExterno } from "@/lib/alertas-cobertura/token.service";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ alertaId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('alertas_cobertura');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { alertaId } = await params;
 
     // Auth dual: session del portal guardia O token JWT externo

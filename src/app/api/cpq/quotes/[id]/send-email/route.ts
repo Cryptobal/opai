@@ -16,12 +16,16 @@ import { buildQuotationProps } from "@/lib/pdf/templates/quotation/build-quotati
 import { renderQuotationToBuffer } from "@/lib/pdf/templates/quotation/render-quotation";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { syncLeadOnProposalSent } from "@/lib/crm/sync-lead-on-proposal-sent";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 

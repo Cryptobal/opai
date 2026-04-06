@@ -40,6 +40,7 @@ import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, canViewInstallations, hasCapability } from '@/lib/permissions';
 import { RoleSimulationProvider, useRoleSimulation } from '@/contexts/RoleSimulationContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import { useTenantModules } from '@/contexts/TenantModulesContext';
 import { ChatSidePanelProvider } from '@/components/chat/ChatFloatingProvider';
 import { PushPermissionPrompt } from '@/components/pwa/PushPermissionPrompt';
 import { InAppNotificationProvider } from '@/components/notifications/InAppNotificationProvider';
@@ -78,6 +79,14 @@ function AppLayoutClientInner({
   // Use simulated permissions when active, otherwise real permissions
   const permissions = isSimulating ? effectivePermissions : realPermissions;
   const isAdmin = userRole === 'owner' || userRole === 'admin';
+  const { isModuleEnabled } = useTenantModules();
+
+  // Doble check: permiso de rol + módulo del tenant
+  const canAccessModule = (roleCheck: boolean, ...moduleKeys: string[]) => {
+    if (!roleCheck) return false;
+    if (moduleKeys.length === 0) return true; // módulo core, siempre visible
+    return moduleKeys.some(key => isModuleEnabled(key));
+  };
   const [unreadMentionNotesCount, setUnreadMentionNotesCount] = useState(0);
   const [notesByModule, setNotesByModule] = useState<Record<string, number>>({});
   const [activityUnreadTotal, setActivityUnreadTotal] = useState(0);
@@ -123,20 +132,20 @@ function AppLayoutClientInner({
       href: '/hub',
       label: 'Inicio',
       icon: Grid3x3,
-      show: hasModuleAccess(permissions, 'hub'),
+      show: canAccessModule(hasModuleAccess(permissions, 'hub')),
     },
     {
       href: '/crm',
       label: 'Comercial',
       icon: TrendingUp,
-      show: hasModuleAccess(permissions, 'crm'),
+      show: canAccessModule(hasModuleAccess(permissions, 'crm'), 'crm'),
       badge: crmNotesBadge || unreadMentionNotesCount,
       children: [
         canView(permissions, 'crm', 'leads') && { href: '/crm/leads', label: 'Leads', icon: Users, badge: notesByModule.lead },
         canView(permissions, 'crm', 'accounts') && { href: '/crm/accounts', label: 'Cuentas', icon: Building2, badge: notesByModule.account },
         canView(permissions, 'crm', 'deals') && { href: '/crm/deals', label: 'Negocios', icon: TrendingUp, badge: notesByModule.deal },
         canView(permissions, 'crm', 'contacts') && { href: '/crm/contacts', label: 'Contactos', icon: Contact, badge: notesByModule.contact },
-        canView(permissions, 'crm', 'quotes') && { href: '/crm/cotizaciones', label: 'Cotizaciones', icon: DollarSign, badge: notesByModule.quotation },
+        canView(permissions, 'crm', 'quotes') && isModuleEnabled('cpq') && { href: '/crm/cotizaciones', label: 'Cotizaciones', icon: DollarSign, badge: notesByModule.quotation },
         canView(permissions, 'crm', 'leads') && { href: '/crm/prospecting', label: 'Prospección', icon: Sparkles },
       ].filter(Boolean) as NavItem['children'],
     },
@@ -144,10 +153,10 @@ function AppLayoutClientInner({
       href: '/ops',
       label: 'Operaciones',
       icon: Activity,
-      show: hasModuleAccess(permissions, 'ops'),
+      show: canAccessModule(hasModuleAccess(permissions, 'ops')),
       badge: opsNotesBadge,
       children: [
-        // ── Subgrupo Pautas (Etapa 3) ──
+        // ── Subgrupo Pautas (core) ──
         (canView(permissions, 'ops', 'pauta_mensual') || canView(permissions, 'ops', 'pauta_diaria') || canView(permissions, 'ops', 'turnos_extra') || canView(permissions, 'ops', 'ppc')) && {
           href: '/ops/pautas',
           label: 'Pautas',
@@ -156,33 +165,33 @@ function AppLayoutClientInner({
         },
         // ── Ítems individuales ──
         canViewInstallations(permissions) && { href: '/crm/installations', label: 'Instalaciones', icon: MapPin, badge: notesByModule.installation },
-        canView(permissions, 'ops', 'supervision') && { href: '/ops/supervision', label: 'Supervisión', icon: ClipboardCheck, badge: notesByModule.supervision_visit },
+        canView(permissions, 'ops', 'supervision') && isModuleEnabled('ops_supervision') && { href: '/ops/supervision', label: 'Supervisión', icon: ClipboardCheck, badge: notesByModule.supervision_visit },
         canView(permissions, 'ops', 'tickets') && { href: '/ops/tickets', label: 'Tickets', icon: Ticket, badge: notesByModule.ticket },
-        canView(permissions, 'ops', 'rondas') && { href: '/ops/rondas', label: 'Rondas', icon: Route },
-        canView(permissions, 'ops', 'alertas_cobertura') && { href: '/ops/alertas-cobertura', label: 'Alertas Cobertura', icon: Siren },
-        canView(permissions, 'ops', 'ats') && { href: '/ops/ats', label: 'ATS — Reclutamiento', icon: Briefcase },
-        canView(permissions, 'ops', 'inventario') && { href: '/ops/inventario', label: 'Inventario', icon: Package },
+        canView(permissions, 'ops', 'rondas') && isModuleEnabled('ops_rondas') && { href: '/ops/rondas', label: 'Rondas', icon: Route },
+        canView(permissions, 'ops', 'alertas_cobertura') && isModuleEnabled('alertas_cobertura') && { href: '/ops/alertas-cobertura', label: 'Alertas Cobertura', icon: Siren },
+        canView(permissions, 'ops', 'ats') && isModuleEnabled('ats') && { href: '/ops/ats', label: 'ATS — Reclutamiento', icon: Briefcase },
+        canView(permissions, 'ops', 'inventario') && isModuleEnabled('ops_inventario') && { href: '/ops/inventario', label: 'Inventario', icon: Package },
       ].filter(Boolean) as NavItem['children'],
     },
     {
       href: '/personas/guardias',
       label: 'Personas',
       icon: User,
-      show: hasModuleAccess(permissions, 'ops'),
+      show: canAccessModule(hasModuleAccess(permissions, 'ops')),
       badge: personasNotesBadge,
       children: [
         { href: '/personas/guardias', label: 'Listado', icon: User, badge: notesByModule.guard },
-        { href: '/personas/onboarding', label: 'Onboarding', icon: UserRoundCheck },
+        isModuleEnabled('ops_onboarding') && { href: '/personas/onboarding', label: 'Onboarding', icon: UserRoundCheck },
         { href: '/personas/comunicaciones', label: 'Comunicaciones', icon: Bell },
         { href: '/personas/guardias/sueldos-rut', label: 'Sueldos por RUT', icon: DollarSign },
-        canView(permissions, 'ops', 'gamificacion') && { href: '/personas/gamificacion', label: 'Gamificación', icon: Trophy },
+        canView(permissions, 'ops', 'gamificacion') && isModuleEnabled('gamificacion') && { href: '/personas/gamificacion', label: 'Gamificación', icon: Trophy },
       ].filter(Boolean) as NavItem['children'],
     },
     {
       href: '/payroll',
       label: 'Payroll',
       icon: Wallet,
-      show: hasModuleAccess(permissions, 'payroll'),
+      show: canAccessModule(hasModuleAccess(permissions, 'payroll'), 'payroll'),
       badge: payrollNotesBadge,
       children: [
         { href: '/payroll/periodos', label: 'Períodos de Pago', icon: CalendarDays, badge: notesByModule.payroll_record },
@@ -195,7 +204,7 @@ function AppLayoutClientInner({
       href: '/finanzas',
       label: 'Finanzas',
       icon: Landmark,
-      show: hasModuleAccess(permissions, 'finance'),
+      show: canAccessModule(hasModuleAccess(permissions, 'finance'), 'finanzas'),
       badge: financeNotesBadge,
       children: [
         (canView(permissions, 'finance', 'reportes') || hasCapability(permissions, 'rendicion_view_all')) && { href: '/finanzas', label: 'Inicio', icon: Grid3x3 },
@@ -211,7 +220,7 @@ function AppLayoutClientInner({
       href: '/opai/inicio',
       label: 'Documentos',
       icon: FolderOpen,
-      show: hasModuleAccess(permissions, 'docs'),
+      show: canAccessModule(hasModuleAccess(permissions, 'docs'), 'documentos'),
       badge: docsNotesBadge,
       children: [
         { href: '/opai/inicio', label: 'Envíos', icon: FileText },
@@ -222,7 +231,7 @@ function AppLayoutClientInner({
       href: '/reportes/dt',
       label: 'Reportes DT',
       icon: FileBarChart,
-      show: canView(permissions, 'reportes_dt'),
+      show: canAccessModule(canView(permissions, 'reportes_dt'), 'reportes_dt'),
       children: [
         { href: '/reportes/dt/asistencia-diaria', label: 'Asistencia Diaria', icon: FileBarChart },
         { href: '/reportes/dt/jornada-diaria', label: 'Jornada Diaria', icon: FileBarChart },
@@ -237,15 +246,15 @@ function AppLayoutClientInner({
       icon: Monitor,
       show: isAdmin,
       children: [
-        { href: '/portal/guardia', label: 'Portal Guardia', icon: Shield },
-        { href: '/portal/rondas', label: 'Portal Rondas', icon: Route },
-        { href: '/portal/cliente', label: 'Portal Cliente', icon: Users },
-        { href: '/portal/supervisor', label: 'Portal Supervisor', icon: ClipboardCheck },
-        { href: '/portal/marcacion', label: 'Portal Marcación', icon: Fingerprint },
-        { href: '/portal/acceso', label: 'Control de Acceso', icon: ScanLine },
-      ],
+        isModuleEnabled('portal_guardia') && { href: '/portal/guardia', label: 'Portal Guardia', icon: Shield },
+        isModuleEnabled('ops_rondas') && { href: '/portal/rondas', label: 'Portal Rondas', icon: Route },
+        isModuleEnabled('portal_cliente') && { href: '/portal/cliente', label: 'Portal Cliente', icon: Users },
+        isModuleEnabled('portal_supervisor') && { href: '/portal/supervisor', label: 'Portal Supervisor', icon: ClipboardCheck },
+        isModuleEnabled('portal_marcacion') && { href: '/portal/marcacion', label: 'Portal Marcación', icon: Fingerprint },
+        isModuleEnabled('control_acceso') && { href: '/portal/acceso', label: 'Control de Acceso', icon: ScanLine },
+      ].filter(Boolean) as NavItem['children'],
     },
-  ], [permissions, isAdmin, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge]);
+  ], [permissions, isAdmin, isModuleEnabled, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge]);
 
   return (
     <InAppNotificationProvider

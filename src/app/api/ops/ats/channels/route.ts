@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { getAtsConfig, updateAtsChannelConfigs } from "@/lib/ats/config";
+import { requireTenantModule } from '@/lib/require-module';
 
 const channelCfgSchema = z.object({
   enabled: z.boolean(),
@@ -17,6 +18,9 @@ const updateChannelsSchema = z.record(z.string(), channelCfgSchema);
 
 export async function GET() {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);
@@ -35,6 +39,9 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);

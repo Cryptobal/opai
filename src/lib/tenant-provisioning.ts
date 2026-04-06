@@ -83,8 +83,18 @@ export async function provisionTenant(
 
   // ── Crear en transacción ──
   const result = await prisma.$transaction(async (tx) => {
-    // 1. Tenant
+    // Leer límites desde PlanCatalog en vez de hardcodear
+    const planCatalog = await tx.planCatalog.findUnique({ where: { slug: planSlug } });
 
+    // Fallback a defaults si el catálogo no existe aún
+    const maxGuards = planCatalog?.maxGuards ??
+      (planSlug === "enterprise" ? 9999 : planSlug === "profesional" ? 500 : planSlug === "starter" ? 200 : 50);
+    const maxAdmins = planCatalog?.maxAdmins ??
+      (planSlug === "enterprise" ? 50 : planSlug === "profesional" ? 10 : planSlug === "starter" ? 5 : 3);
+    const maxStorageMb = planCatalog?.maxStorageMb ??
+      (planSlug === "enterprise" ? 10000 : planSlug === "profesional" ? 5000 : 1000);
+
+    // 1. Tenant
     const tenant = await tx.tenant.create({
       data: { name, slug, active: true },
     });
@@ -102,23 +112,6 @@ export async function provisionTenant(
     });
 
     // 3. Plan
-    const maxGuards =
-      planSlug === "enterprise"
-        ? 9999
-        : planSlug === "profesional"
-          ? 500
-          : planSlug === "starter"
-            ? 200
-            : 50;
-    const maxAdmins =
-      planSlug === "enterprise"
-        ? 50
-        : planSlug === "profesional"
-          ? 10
-          : planSlug === "starter"
-            ? 5
-            : 3;
-
     const tenantPlan = await tx.tenantPlan.create({
       data: {
         tenantId: tenant.id,
@@ -127,17 +120,16 @@ export async function provisionTenant(
         trialEndsAt: new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000),
         maxGuards,
         maxAdmins,
-        maxStorageMb:
-          planSlug === "enterprise"
-            ? 10000
-            : planSlug === "profesional"
-              ? 5000
-              : 1000,
+        maxStorageMb,
       },
     });
 
-    // 4. Módulos según plan
-    const modules = PLAN_MODULES[planSlug] || PLAN_MODULES.free;
+    // 4. Módulos según plan (prefer catalog, fallback to PLAN_MODULES)
+    const catalogModules = planCatalog?.includedModules as string[] | undefined;
+    const modules: string[] = (catalogModules && catalogModules.length > 0)
+      ? catalogModules
+      : (PLAN_MODULES[planSlug] || PLAN_MODULES.free) as string[];
+
     for (const mod of modules) {
       await tx.tenantModule.create({
         data: {
@@ -180,7 +172,7 @@ export async function provisionTenant(
         plan: tenantPlan.plan,
         trialEndsAt: tenantPlan.trialEndsAt,
       },
-      modulesEnabled: modules as unknown as string[],
+      modulesEnabled: modules,
     };
   }, { timeout: 30000 });
 

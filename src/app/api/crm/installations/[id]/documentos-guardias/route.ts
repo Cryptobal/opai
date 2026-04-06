@@ -13,12 +13,16 @@ import { getPermissionsFromAuth } from "@/lib/permissions-server";
 import { canViewInstallations } from "@/lib/permissions";
 import { getPostulacionDocumentTypes } from "@/lib/postulacion-documentos";
 import { buildDocLabelMap } from "@/lib/personas";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmView(ctx, "installations");

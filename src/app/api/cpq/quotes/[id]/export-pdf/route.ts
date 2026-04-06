@@ -16,6 +16,7 @@ import {
 import { renderQuotationToBuffer } from '@/lib/pdf/templates/quotation/render-quotation';
 import { prisma } from '@/lib/prisma';
 import type { ProposalTemplateSections } from '@/types/cpq';
+import { requireTenantModule } from '@/lib/require-module';
 
 export const runtime = 'nodejs';
 
@@ -49,6 +50,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id } = await params;
     const session = await auth();
     if (!session?.user) {
@@ -90,6 +94,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id } = await params;
     const session = await auth();
     if (!session?.user) {

@@ -10,11 +10,15 @@ import { generarOleadas } from "@/lib/alertas-cobertura/oleadas.service";
 import { notificarOleada, emitirEventoPusher } from "@/lib/alertas-cobertura/notificacion.service";
 import { addHours, addMinutes } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
+import { requireTenantModule } from '@/lib/require-module';
 
 const TZ = "America/Santiago";
 
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('alertas_cobertura');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
@@ -90,6 +94,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('alertas_cobertura');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });

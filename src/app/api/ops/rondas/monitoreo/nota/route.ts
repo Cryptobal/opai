@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function POST(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();

@@ -11,6 +11,7 @@ import { auth } from '@/lib/auth';
 import { renderProposalToBufferFromProps } from '@/lib/pdf/templates/proposal/render-proposal';
 import { buildProposalProps } from '@/lib/pdf/templates/proposal/build-proposal-props';
 import { prisma } from '@/lib/prisma';
+import { requireTenantModule } from '@/lib/require-module';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -20,6 +21,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const modCheck = await requireTenantModule('cpq');
+    if (!modCheck.authorized) return modCheck.response;
+
     const { id } = await params;
     const session = await auth();
     if (!session?.user) {

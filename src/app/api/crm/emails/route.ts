@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView } from "@/lib/api-auth-crm";
 import { normalizeEmailAddress } from "@/lib/email-address";
+import { requireTenantModule } from '@/lib/require-module';
 
 function buildEmailCandidates(values: Array<string | null | undefined>): string[] {
   const candidates = values.flatMap((value) => {
@@ -41,6 +42,9 @@ function addMessageEmailFilters(
 
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmView(ctx);

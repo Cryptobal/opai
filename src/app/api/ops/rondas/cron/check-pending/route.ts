@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit, hasCapability } from "@/lib/permissions";
 import { checkPendingRounds } from "@/lib/rondas/alert-engine";
+import { requireTenantModule } from '@/lib/require-module';
 
 export async function POST(request: NextRequest) {
+  const modCheck = await requireTenantModule('ops_rondas');
+  if (!modCheck.authorized) return modCheck.response;
+
   try {
     // Support two auth methods:
     // 1. CRON_SECRET header (for Vercel Cron / automated calls)

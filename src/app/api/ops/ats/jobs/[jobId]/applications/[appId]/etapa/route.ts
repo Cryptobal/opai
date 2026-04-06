@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
+import { requireTenantModule } from '@/lib/require-module';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   POSTULADO: ["EN_REVISION", "DESCARTADO"],
@@ -22,6 +23,9 @@ export async function PATCH(
   { params }: { params: Promise<{ jobId: string; appId: string }> },
 ) {
   try {
+    const modCheck = await requireTenantModule('ats');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await ensureOpsAccess(ctx);

@@ -10,6 +10,7 @@ import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { createAccountSchema } from "@/lib/validations/crm";
 import { createCrmHistoryLog } from "@/lib/crm-history";
+import { requireTenantModule } from '@/lib/require-module';
 
 type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
 
@@ -45,6 +46,9 @@ function lifecycleToLegacyFields(lifecycle: AccountLifecycle) {
 
 export async function GET(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmView(ctx, "accounts");
@@ -79,6 +83,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const modCheck = await requireTenantModule('crm');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmEdit(ctx, "accounts");

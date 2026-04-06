@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canDelete } from "@/lib/permissions";
 import { triggerChatEvent, getSenderId } from "@/lib/chat";
+import { requireTenantModule } from '@/lib/require-module';
 
 type RouteParams = { params: Promise<{ id: string; messageId: string }> };
 
@@ -17,6 +18,9 @@ type RouteParams = { params: Promise<{ id: string; messageId: string }> };
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const modCheck = await requireTenantModule('chat');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
@@ -130,6 +134,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const modCheck = await requireTenantModule('chat');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
@@ -218,6 +225,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const modCheck = await requireTenantModule('chat');
+    if (!modCheck.authorized) return modCheck.response;
+
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
