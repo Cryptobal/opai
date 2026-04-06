@@ -1,7 +1,7 @@
 /**
  * Webhook: Resend Inbound Email (email.received)
  *
- * Cuando se reenvía un correo a la dirección configurada (ej. la definida en INBOUND_LEADS_EMAIL),
+ * Cuando se reenvía un correo a {tenantSlug}@{INBOUND_DOMAIN} (ej. gard@inbound.opai.cl),
  * Resend envía un POST con type "email.received". Aquí:
  * 1. Validamos destinatario
  * 2. Obtenemos contenido completo del email vía API Resend
@@ -16,14 +16,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { Webhook } from "svix";
 import { resend } from "@/lib/resend";
 import { prisma } from "@/lib/prisma";
-import { getSystemTenantId } from "@/lib/tenant";
 import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
 import { extractLeadFromEmail, parseFromHeader, isGarbageEmail } from "@/lib/email-lead-extractor";
 
 import { toSentenceCaseWords, formatChileanPhone } from "@/lib/text-format";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { resolveTenantFromSlug } from "@/lib/tenant";
 
-const INBOUND_LEADS_TO = process.env.INBOUND_LEADS_EMAIL || process.env.INBOUND_LEADS_EMAIL_DEFAULT || "";
+const INBOUND_DOMAIN = process.env.INBOUND_DOMAIN || "inbound.opai.cl";
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB
 
 /** GET: health check para confirmar que la URL del webhook responde */
@@ -31,7 +31,8 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     endpoint: "inbound-email",
-    expectedRecipient: INBOUND_LEADS_TO,
+    inboundDomain: INBOUND_DOMAIN,
+    pattern: `{tenantSlug}@${INBOUND_DOMAIN}`,
   });
 }
 
@@ -82,30 +83,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const targetEmail = INBOUND_LEADS_TO.toLowerCase().trim();
+    // Extract email address from "Name <email>" or plain "email" format
     const extractEmail = (addr: string): string => {
       const s = (addr || "").trim();
       const match = s.match(/<([^>]+)>/);
       return match ? match[1].toLowerCase().trim() : s.toLowerCase();
     };
-    const isForLeads = allRecipients.some(
-      (addr: string) => extractEmail(addr) === targetEmail
-    );
-    if (!isForLeads) {
-      console.log("[inbound-email] Skipped: recipient not matched", {
+
+    // Find recipient matching our inbound domain ({slug}@inbound.opai.cl)
+    const domainSuffix = `@${INBOUND_DOMAIN.toLowerCase()}`;
+    let tenantSlug: string | null = null;
+    for (const addr of allRecipients) {
+      const email = extractEmail(addr);
+      if (email.endsWith(domainSuffix)) {
+        tenantSlug = email.replace(domainSuffix, "");
+        break;
+      }
+    }
+
+    if (!tenantSlug) {
+      console.log("[inbound-email] Skipped: no recipient matching inbound domain", {
         to: toList,
         cc: ccList,
         bcc: bccList,
-        expected: INBOUND_LEADS_TO,
-        hint: `Si envías a 'Leads' como contacto, verifica que el email sea ${INBOUND_LEADS_TO}`,
+        expectedDomain: INBOUND_DOMAIN,
+        hint: `El correo debe enviarse a {slug}@${INBOUND_DOMAIN}`,
       });
       return NextResponse.json({ success: true, skipped: "wrong_recipient" });
     }
 
-    // TODO: resolve tenant from the recipient address (INBOUND_LEADS_EMAIL) when
-    // multi-tenant inbound routing is implemented. For now this webhook is
-    // single-tenant (Gard), so getSystemTenantId() is correct.
-    const tenantId = await getSystemTenantId();
+    // Resolve tenant from the slug in the recipient address
+    const tenant = await resolveTenantFromSlug(tenantSlug);
+    if (!tenant) {
+      console.log("[inbound-email] Skipped: tenant not found for slug", { tenantSlug });
+      return NextResponse.json({ success: true, skipped: "tenant_not_found" });
+    }
+    const tenantId = tenant.id;
     const tenantCfg = await getTenantCompanyConfig(tenantId);
 
     const emailResponse = await resend.emails.receiving.get(emailId);

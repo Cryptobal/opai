@@ -19,7 +19,8 @@ config({ path: ".env.local" });
 
 import { Resend } from "resend";
 
-const INBOUND_LEADS = process.env.INBOUND_LEADS_EMAIL || "leads@inbound.gard.cl";
+const INBOUND_DOMAIN = process.env.INBOUND_DOMAIN || "inbound.opai.cl";
+const INBOUND_LEADS = `gard@${INBOUND_DOMAIN}`;
 const FROM = process.env.EMAIL_FROM || "OPAI <opai@gard.cl>";
 
 const EMAIL_BODY = `---------- Forwarded message ----------
