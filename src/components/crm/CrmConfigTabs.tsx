@@ -5,7 +5,8 @@ import { ConfigTabs } from "@/components/configuracion/ConfigTabs";
 import { CrmPipelineTab } from "@/components/crm/CrmPipelineTab";
 import { CrmFieldsTab } from "@/components/crm/CrmFieldsTab";
 import { CrmIndustriasTab } from "@/components/crm/CrmIndustriasTab";
-import { BarChart3, LayoutList, Factory, Mail } from "lucide-react";
+import { CrmInboundEmailTab } from "@/components/crm/CrmInboundEmailTab";
+import { BarChart3, LayoutList, Factory, Mail, Inbox } from "lucide-react";
 
 type PipelineStage = {
   id: string;
@@ -30,12 +31,14 @@ interface CrmConfigTabsProps {
   initialStages: PipelineStage[];
   initialFields: CustomField[];
   followUpSection: ReactNode;
+  tenantSlug: string;
 }
 
 export function CrmConfigTabs({
   initialStages,
   initialFields,
   followUpSection,
+  tenantSlug,
 }: CrmConfigTabsProps) {
   const tabs = [
     {
@@ -61,6 +64,12 @@ export function CrmConfigTabs({
       label: "Seguimientos",
       icon: Mail,
       content: <div>{followUpSection}</div>,
+    },
+    {
+      id: "leads-email",
+      label: "Leads por Email",
+      icon: Inbox,
+      content: <CrmInboundEmailTab tenantSlug={tenantSlug} />,
     },
   ];
 

@@ -19,6 +19,10 @@ export default async function CrmConfigPage() {
   }
 
   const tenantId = session.user.tenantId;
+  const tenant = await prisma.tenant.findUniqueOrThrow({
+    where: { id: tenantId },
+    select: { slug: true },
+  });
   const [stages, fields] = await Promise.all([
     prisma.crmPipelineStage.findMany({
       where: { tenantId, isActive: true },
@@ -40,6 +44,7 @@ export default async function CrmConfigPage() {
         initialStages={stages}
         initialFields={fields}
         followUpSection={<FollowUpConfigSection />}
+        tenantSlug={tenant.slug}
       />
     </ConfigPageLayout>
   );
