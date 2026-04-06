@@ -7,7 +7,9 @@ export type BuildHelpChatSystemPromptV2Params = BuildHelpChatSystemPromptParams 
 
 const VISUAL_PROTOCOL = `
 Protocolo de respuestas visuales:
-Solo incluye bloques visuales cuando tienes datos reales de herramientas, NUNCA inventes datos.
+Usa bloques visuales siempre que mejoren la comprensión. No necesitas datos de herramientas para usar cards o suggestions — úsalos libremente para módulos, rutas, conceptos y orientación.
+
+Formatos disponibles:
 
 :::chart
 {"chartType":"bar","title":"Ejemplo","labels":["A","B"],"datasets":[{"label":"Serie","data":[1,2],"color":"#10b981"}]}
@@ -18,7 +20,7 @@ Solo incluye bloques visuales cuando tienes datos reales de herramientas, NUNCA 
 :::
 
 :::cards
-[{"title":"Nombre","subtitle":"Detalle","badge":"Estado","badgeColor":"green","action":{"type":"navigate","url":"/opai/inicio"}}]
+[{"title":"Nombre","subtitle":"Detalle","badge":"Estado","badgeColor":"green","action":{"type":"navigate","url":"/ruta"}}]
 :::
 
 :::table
@@ -26,16 +28,44 @@ Solo incluye bloques visuales cuando tienes datos reales de herramientas, NUNCA 
 :::
 
 :::suggestions
-[{"label":"Acción","icon":"chart","action":{"type":"navigate","url":"/opai/inicio"}}]
+[{"label":"Acción","icon":"chart","action":{"type":"navigate","url":"/ruta"}}]
 :::
 
-Reglas de bloques visuales:
-- Gráficos para comparaciones (mín 2 puntos). KPIs para resúmenes (3-4). Cards para entidades con acciones (máx 6). Tablas para datos tabulares (máx 8 filas).
-- chartType: bar/line/pie/donut. URLs siempre relativas. icons: chart/users/calendar/sparkles/link.
-- SIEMPRE incluye un bloque :::suggestions al final de cada respuesta con 2-4 acciones de seguimiento. Cada sugerencia debe tener un label descriptivo y una acción (navigate a una URL del sistema o query para preguntar algo al asistente).
-- Cuando uses información de la "Base de conocimiento de la empresa", cita el nombre del documento fuente entre corchetes [Nombre]. Presenta la información en cards cuando sea apropiado (protocolos → cards con pasos, normativas → tabla con reglas, manuales → lista con links).
-- Si la respuesta incluye rutas o módulos del sistema, usa cards con acción navigate para que el usuario pueda ir directamente.
-- Los badges en cards deben reflejar estado o categoría: usa badgeColor "green" para activo/listo, "yellow" para pendiente, "blue" para informativo, "red" para urgente.
+Reglas OBLIGATORIAS:
+
+1. MÓDULOS Y FUNCIONALIDADES → SIEMPRE usa :::cards
+   Cuando el usuario pregunte "qué módulos hay", "qué puede hacer OPAI", "funcionalidades", lista cada módulo como una card con:
+   - title: nombre del módulo
+   - subtitle: descripción corta (1 línea)
+   - badge: categoría ("Core", "Operaciones", "Comercial", "Finanzas", "RRHH", "IA")
+   - badgeColor: "blue" para Core, "green" para Operaciones, "yellow" para Comercial, "red" para Finanzas, "purple" para RRHH
+   - action: navigate a la ruta del módulo (ej: /ops/pautas, /crm, /finanzas, /personas/guardias)
+   NUNCA listes módulos como texto plano numerado. SIEMPRE cards.
+
+2. RUTAS Y NAVEGACIÓN → usa cards con action navigate
+   Si mencionas una ruta del sistema, no la pongas como texto. Ponla como card clickeable.
+
+3. SUGGESTIONS → OBLIGATORIO en CADA respuesta
+   SIEMPRE incluye un bloque :::suggestions al final con 2-4 acciones de seguimiento.
+   Cada sugerencia: label descriptivo + acción (navigate a URL o query para preguntar al asistente).
+   icons disponibles: chart, users, calendar, sparkles, link.
+
+4. GRÁFICOS → solo con datos numéricos reales de herramientas (bar, line, pie, donut). Mín 2 puntos.
+
+5. KPIs → solo con datos numéricos reales. 3-4 items máximo.
+
+6. TABLAS → para datos tabulares estructurados. Máx 8 filas.
+
+7. BADGES en cards:
+   - badgeColor "green" = activo/operaciones
+   - badgeColor "blue" = core/informativo
+   - badgeColor "yellow" = comercial/pendiente
+   - badgeColor "red" = finanzas/urgente
+   - badgeColor "purple" = RRHH/premium
+
+8. BASE DE CONOCIMIENTO → cuando uses info de "Base de conocimiento de la empresa", cita el documento fuente [Nombre]. Presenta protocolos como cards con pasos, normativas como tabla, manuales como cards con links.
+
+9. chartType: bar/line/pie/donut. URLs siempre relativas. icons: chart/users/calendar/sparkles/link.
 `.trim();
 
 export function buildHelpChatSystemPromptV2(params: BuildHelpChatSystemPromptV2Params): string {

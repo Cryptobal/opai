@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import { getPlatformAIConfig } from '@/lib/platform-ai-service'
 import { logAiUsage } from '@/lib/platform-ai-service'
+import { searchKnowledgeGlobal } from '@/lib/knowledge/search'
 
 const SYSTEM_PROMPT = `Eres el asistente virtual de OPAI, el único ERP diseñado exclusivamente para empresas de seguridad privada en Chile.
 
@@ -89,12 +90,48 @@ Descripción corta de una línea.
 ::
 :::
 
+Y TAMBIÉN para módulos/funcionalidades:
+:::cards
+::card{title="Hub" price="" tag="Core"}
+Dashboard central con KPIs en tiempo real y acceso a todos los módulos.
+::
+::card{title="Operaciones" price="" tag="Operacional"}
+Pautas, asistencia, puestos, supervisión, rondas GPS, tickets e inventario.
+::
+::card{title="CRM" price="" tag="Comercial"}
+Cuentas, prospectos, deals, instalaciones y cotizador CPQ.
+::
+::card{title="Finanzas" price="" tag="Financiero"}
+Rendiciones, facturación electrónica, contabilidad y bancos.
+::
+::card{title="Payroll" price="" tag="Financiero"}
+Liquidaciones, anticipos, simulador y parámetros legales.
+::
+::card{title="Personas" price="" tag="Operacional"}
+Guardias, onboarding, comunicaciones, gamificación.
+::
+::card{title="IA Operacional" price="" tag="Premium"}
+Asistente IA con base de conocimiento, análisis predictivo y detección de anomalías.
+::
+:::
+
 REGLAS del formato:
-- SIEMPRE usa :::cards cuando listes 2+ planes, add-ons o módulos
-- NUNCA uses listas numeradas (1. 2. 3.) ni bullets para planes/add-ons
+- SIEMPRE usa :::cards cuando listes 2+ planes, add-ons, módulos o funcionalidades
+- NUNCA uses listas numeradas (1. 2. 3.) ni bullets para planes/add-ons/módulos
 - Mantén descripciones de tarjetas a máximo 2 líneas
 - Los tags válidos son: Core, Operacional, Comercial, Financiero, Premium
 - Puedes agregar texto normal antes y después del bloque :::cards`
+
+async function getKnowledgeContext(query: string): Promise<string> {
+  try {
+    const results = await searchKnowledgeGlobal(query, 3)
+    if (results.length === 0) return ''
+    return '\n\nContexto adicional de la base de conocimiento:\n' +
+      results.map((r, i) => `[${r.knowledgeBaseTitle}]: ${r.content}`).join('\n\n')
+  } catch {
+    return ''
+  }
+}
 
 export async function POST(request: Request) {
   const t0 = Date.now()
@@ -114,6 +151,11 @@ export async function POST(request: Request) {
       return new Response('IA no configurada', { status: 503 })
     }
 
+    // Get knowledge base context for the latest user message
+    const lastUserMsg = [...messages].reverse().find((m: { role: string }) => m.role === 'user')
+    const kbContext = lastUserMsg ? await getKnowledgeContext(lastUserMsg.content) : ''
+    const systemWithKb = SYSTEM_PROMPT + kbContext
+
     const isOpenAI = aiConfig.providerType === 'openai'
 
     if (isOpenAI) {
@@ -126,10 +168,10 @@ export async function POST(request: Request) {
       const stream = await client.chat.completions.create({
         model: aiConfig.modelId,
         stream: true,
-        max_tokens: 600,
+        max_tokens: 800,
         temperature: 0.7,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemWithKb },
           ...messages.slice(-20).map((m: { role: string; content: string }) => ({
             role: m.role as 'user' | 'assistant',
             content: m.content,
@@ -173,9 +215,9 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           model: aiConfig.modelId,
-          max_tokens: 600,
+          max_tokens: 800,
           temperature: 0.7,
-          system: SYSTEM_PROMPT,
+          system: systemWithKb,
           messages: messages.slice(-20).map((m: { role: string; content: string }) => ({
             role: m.role,
             content: m.content,
@@ -214,12 +256,12 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        systemInstruction: { parts: [{ text: systemWithKb }] },
         contents: messages.slice(-20).map((m: { role: string; content: string }) => ({
           role: m.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: m.content }],
         })),
-        generationConfig: { maxOutputTokens: 600, temperature: 0.7 },
+        generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
       }),
     })
 
