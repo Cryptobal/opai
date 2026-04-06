@@ -48,7 +48,7 @@ export async function GET(
             turnosDisponibles: true,
             lifecycleStatus: true,
             persona: {
-              select: { firstName: true, lastName: true, rut: true, sex: true, commune: true, region: true },
+              select: { id: true, firstName: true, lastName: true, rut: true, sex: true, commune: true, region: true },
             },
           },
         },

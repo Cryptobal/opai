@@ -40,7 +40,25 @@ import {
   Play,
   XCircle,
   Loader2,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const STAGE_TRANSITIONS: Record<string, string[]> = {
+  POSTULADO: ["EN_REVISION", "DESCARTADO"],
+  EN_REVISION: ["ENTREVISTA", "DESCARTADO"],
+  ENTREVISTA: ["OFERTA", "DESCARTADO"],
+  OFERTA: ["CONTRATADO", "DESCARTADO"],
+  CONTRATADO: [],
+  DESCARTADO: ["POSTULADO"],
+};
 
 interface Application {
   id: string;
@@ -59,6 +77,7 @@ interface Application {
     turnosDisponibles: string[];
     lifecycleStatus: string;
     persona: {
+      id: string;
       firstName: string;
       lastName: string;
       rut: string | null;
@@ -163,6 +182,54 @@ const NEXT_ETAPA: Record<string, string> = {
 function isHttpUrl(s: string | null | undefined): boolean {
   if (!s) return false;
   return /^https?:\/\//i.test(s.trim());
+}
+
+function CardActions({
+  app,
+  jobId: _jobId,
+  onMove,
+}: {
+  app: Application;
+  jobId: string;
+  onMove: (appId: string, etapa: string) => void;
+}) {
+  const personaId = app.guardia.persona.id;
+  const transitions = STAGE_TRANSITIONS[app.etapa] ?? [];
+  return (
+    <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+      {personaId && (
+        <Link
+          href={`/personas/guardias/${personaId}`}
+          title="Abrir ficha del guardia"
+          className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Link>
+      )}
+      {transitions.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              title="Mover de etapa"
+              className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuLabel className="text-xs">Mover a</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {transitions.map((t) => (
+              <DropdownMenuItem key={t} onClick={() => onMove(app.id, t)}>
+                {ETAPA_LABELS[t] ?? t}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
 }
 
 export function AtsPipelineClient({
@@ -691,6 +758,11 @@ export function AtsPipelineClient({
                   <Badge variant="secondary" className="text-xs">{apps.length}</Badge>
                 </div>
                 <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+                  {apps.length === 0 && (
+                    <div className="rounded-md border border-dashed border-muted-foreground/30 p-4 text-center text-xs text-muted-foreground">
+                      Sin postulantes
+                    </div>
+                  )}
                   {apps.map((app) => (
                     <Card
                       key={app.id}
@@ -702,10 +774,13 @@ export function AtsPipelineClient({
                           {app.guardia.persona.firstName[0]}
                           {app.guardia.persona.lastName[0]}
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">
-                            {app.guardia.persona.firstName} {app.guardia.persona.lastName}
-                          </p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-1">
+                            <p className="text-sm font-medium truncate">
+                              {app.guardia.persona.firstName} {app.guardia.persona.lastName}
+                            </p>
+                            <CardActions app={app} jobId={job.id} onMove={moveEtapa} />
+                          </div>
                           <div className="flex items-center gap-1 mt-1">
                             {app.guardia.os10 ? (
                               <ShieldCheck className="h-3 w-3 text-green-600" />
@@ -749,6 +824,11 @@ export function AtsPipelineClient({
                 <Badge variant="secondary" className="text-xs">{apps.length}</Badge>
               </div>
               <div className="space-y-2">
+                {apps.length === 0 && (
+                  <div className="rounded-md border border-dashed border-muted-foreground/30 p-4 text-center text-xs text-muted-foreground">
+                    Sin postulantes
+                  </div>
+                )}
                 {apps.map((app) => (
                   <Card
                     key={app.id}
@@ -760,10 +840,13 @@ export function AtsPipelineClient({
                         {app.guardia.persona.firstName[0]}
                         {app.guardia.persona.lastName[0]}
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {app.guardia.persona.firstName} {app.guardia.persona.lastName}
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="text-sm font-medium truncate">
+                            {app.guardia.persona.firstName} {app.guardia.persona.lastName}
+                          </p>
+                          <CardActions app={app} jobId={job.id} onMove={moveEtapa} />
+                        </div>
                         <div className="flex items-center gap-1 mt-1">
                           {app.guardia.os10 ? (
                             <ShieldCheck className="h-3 w-3 text-green-600" />
