@@ -67,14 +67,14 @@ function clipTitle(text: string): string {
 
 /**
  * Resolves the effective model to use.
- * For tenant-configured providers we honour the tenant's chosen model.
+ * For platform-configured providers we honour the chosen model.
  * For the env-var fallback (OpenAI) we apply the dynamic model router.
  */
 function resolveModel(
   aiConfig: HelpChatAIConfig,
   ctx: { retrievalMaxScore: number; recentFallbackCount: number; frustrated: boolean },
 ): string {
-  if (aiConfig.source === "tenant") return aiConfig.model;
+  if (aiConfig.source === "platform") return aiConfig.model;
   return chooseModel(ctx);
 }
 
