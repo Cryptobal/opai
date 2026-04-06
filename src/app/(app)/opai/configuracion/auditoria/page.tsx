@@ -97,7 +97,7 @@ export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
     <ConfigPageLayout
       title="Auditoría"
       description="Historial consolidado de acciones de usuarios en tu tenant"
-      icon={ClipboardCheck}
+      icon={<ClipboardCheck className="h-[18px] w-[18px]" />}
     >
       <form method="GET" className="rounded-xl border border-border bg-card p-4">
         <div className="grid gap-3 md:grid-cols-4">

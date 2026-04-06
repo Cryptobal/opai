@@ -19,7 +19,7 @@ export default async function ConfigAlertasCoberturaPage() {
     <ConfigPageLayout
       title="Alertas de Cobertura"
       description="Configuración de oleadas, tiempos, canales de notificación y parámetros del módulo."
-      icon={Siren}
+      icon={<Siren className="h-[18px] w-[18px]" />}
     >
       <AlertasCoberturaConfig />
     </ConfigPageLayout>

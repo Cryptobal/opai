@@ -21,7 +21,7 @@ export default async function GlobalDocumentsPage() {
     <ConfigPageLayout
       title="Documentos Globales"
       description="Documentos compartidos en todas las instalaciones (OS10, manuales de seguridad, etc.)"
-      icon={FileText}
+      icon={<FileText className="h-[18px] w-[18px]" />}
     >
       <GlobalDocumentsClient />
     </ConfigPageLayout>

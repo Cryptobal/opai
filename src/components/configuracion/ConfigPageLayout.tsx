@@ -3,13 +3,13 @@
 import { type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConfigPageLayoutProps {
   title: string;
   description?: string;
-  icon?: LucideIcon;
+  /** Pasar elemento JSX (p. ej. `<Building className="h-[18px] w-[18px]" />`), no el componente en sí: los Server Components no pueden pasar referencias de función a Client Components. */
+  icon?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   backHref?: string;
@@ -20,7 +20,7 @@ interface ConfigPageLayoutProps {
 export function ConfigPageLayout({
   title,
   description,
-  icon: Icon,
+  icon,
   actions,
   children,
   backHref = "/opai/configuracion",
@@ -39,9 +39,9 @@ export function ConfigPageLayout({
         </Link>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            {Icon && (
+            {icon && (
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Icon className="h-[18px] w-[18px]" />
+                {icon}
               </div>
             )}
             <div className="min-w-0">

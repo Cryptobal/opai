@@ -20,7 +20,7 @@ export default async function GamificacionConfigPage() {
     <ConfigPageLayout
       title="Gamificación"
       description="Parámetros del Trust Score, pesos y configuración general"
-      icon={Trophy}
+      icon={<Trophy className="h-[18px] w-[18px]" />}
     >
       <GamificacionConfigClient />
     </ConfigPageLayout>

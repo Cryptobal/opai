@@ -9,7 +9,7 @@ export default function EmpresaConfigPage() {
     <ConfigPageLayout
       title="Empresa"
       description="Datos de la empresa empleadora. Estos datos se usan como tokens en contratos, finiquitos, cartas de aviso y otros documentos laborales."
-      icon={Building}
+      icon={<Building className="h-[18px] w-[18px]" />}
     >
       <EmpresaConfigTabs />
     </ConfigPageLayout>

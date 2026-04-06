@@ -26,7 +26,7 @@ export default async function InteligenciaArtificialPage() {
     <ConfigPageLayout
       title="Inteligencia Artificial"
       description="Configura el proveedor de IA, API key y modelo para las funciones inteligentes de OPAI"
-      icon={Sparkles}
+      icon={<Sparkles className="h-[18px] w-[18px]" />}
     >
       <AiProvidersConfigClient />
     </ConfigPageLayout>

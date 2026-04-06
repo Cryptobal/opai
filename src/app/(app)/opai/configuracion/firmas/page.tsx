@@ -30,7 +30,7 @@ export default async function FirmasPage() {
     <ConfigPageLayout
       title="Firmas"
       description="Gestiona las firmas que se incluyen al final de los correos enviados desde el CRM"
-      icon={PenLine}
+      icon={<PenLine className="h-[18px] w-[18px]" />}
     >
       <SignatureManagerClient initialSignatures={initialSignatures} />
     </ConfigPageLayout>
