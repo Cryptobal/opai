@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveTenantFromSlug } from "@/lib/tenant";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { FormularioPostulacionAts } from "@/components/ats/FormularioPostulacionAts";
+import { getPublicFormConfig } from "@/lib/ats/public-form-config";
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -99,6 +100,9 @@ export default async function TenantJobDetailPage({
   });
 
   if (!job) notFound();
+
+  const formConfig = await getPublicFormConfig(job.id);
+  if (!formConfig) notFound();
 
   /* ---- JSON-LD structured data ---- */
   const jsonLd = {
@@ -246,10 +250,7 @@ export default async function TenantJobDetailPage({
 
           {/* Formulario de postulación inline */}
           <FormularioPostulacionAts
-            jobPostingId={job.id}
-            jobTitle={job.titulo}
-            requiereOS10={job.requiereOS10}
-            requiereMovilizacion={job.requiereMovilizacion}
+            config={formConfig}
             tenantName={companyName}
           />
         </div>
