@@ -127,7 +127,7 @@ async function* streamOpenAI(
     >[0]["messages"],
     tools:
       params.tools.length > 0
-        ? (params.tools as Parameters<
+        ? (params.tools as unknown as Parameters<
             typeof client.chat.completions.create
           >[0]["tools"])
         : undefined,
@@ -183,7 +183,7 @@ async function completeOpenAI(
     >[0]["messages"],
     tools:
       params.tools.length > 0
-        ? (params.tools as Parameters<
+        ? (params.tools as unknown as Parameters<
             typeof client.chat.completions.create
           >[0]["tools"])
         : undefined,
