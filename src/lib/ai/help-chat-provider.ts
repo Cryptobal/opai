@@ -122,7 +122,7 @@ async function* streamOpenAI(
 
   const response = await client.chat.completions.create({
     model: config.model,
-    messages: params.messages as Parameters<
+    messages: params.messages as unknown as Parameters<
       typeof client.chat.completions.create
     >[0]["messages"],
     tools:
@@ -178,7 +178,7 @@ async function completeOpenAI(
 
   const completion = await client.chat.completions.create({
     model: config.model,
-    messages: params.messages as Parameters<
+    messages: params.messages as unknown as Parameters<
       typeof client.chat.completions.create
     >[0]["messages"],
     tools:
