@@ -31,7 +31,7 @@ const loadCallbacks: (() => void)[] = [];
 function loadGoogleMapsScript(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (typeof window === "undefined") return resolve();
-    if (scriptLoaded && window.google?.maps?.importLibrary) {
+    if (scriptLoaded && window.google?.maps) {
       resolve();
       return;
     }
@@ -221,7 +221,7 @@ export function AddressAutocomplete({
         await loadGoogleMapsScript();
         if (cancelled || !container) return;
         const maps = window.google?.maps;
-        if (!maps?.importLibrary) return;
+        if (!maps) return;
 
         const placesLib = (await maps.importLibrary("places")) as {
           PlaceAutocompleteElement?: new (opts?: Record<string, unknown>) => HTMLElement & {
