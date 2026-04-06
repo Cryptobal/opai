@@ -147,6 +147,9 @@ const ADDRESS_PRIMARY_TYPES = [
   "route",
 ] as const;
 
+/** Web component de Google; `value` no está en HTMLElement estándar. */
+type PlaceAutocompleteWidget = HTMLElement & { value: string };
+
 export function AddressAutocomplete({
   value,
   onChange,
@@ -155,7 +158,7 @@ export function AddressAutocomplete({
   showMap = true,
 }: AddressAutocompleteProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const acRef = useRef<HTMLElement | null>(null);
+  const acRef = useRef<PlaceAutocompleteWidget | null>(null);
   /** Evita pisar lo que el usuario escribe en gmp: solo sincronizar cuando el padre cambia `value` (p. ej. reset). */
   const lastParentValueRef = useRef(value);
   const [widgetReady, setWidgetReady] = useState(false);
@@ -243,8 +246,7 @@ export function AddressAutocomplete({
         if (!maps) return;
 
         const placesLib = (await maps.importLibrary("places")) as {
-          PlaceAutocompleteElement?: new (opts?: Record<string, unknown>) => HTMLElement & {
-            value: string;
+          PlaceAutocompleteElement?: new (opts?: Record<string, unknown>) => PlaceAutocompleteWidget & {
             addEventListener: (type: string, fn: (e: unknown) => void) => void;
           };
         };
@@ -263,7 +265,7 @@ export function AddressAutocomplete({
         el.className = `w-full min-h-10 border-0 bg-transparent text-sm shadow-none outline-none ${className ?? ""}`.trim();
         const latest = valueRef.current;
         if (latest !== undefined) {
-          (el as { value: string }).value = latest;
+          el.value = latest;
         }
 
         const onSelect = async (event: Event) => {
@@ -306,7 +308,7 @@ export function AddressAutocomplete({
     if (value === undefined || !acRef.current || !widgetReady) return;
     if (lastParentValueRef.current === value) return;
     lastParentValueRef.current = value;
-    (acRef.current as { value: string }).value = value;
+    acRef.current.value = value;
   }, [value, widgetReady]);
 
   const showMapImage = coords && showMap && GOOGLE_MAPS_API_KEY;
