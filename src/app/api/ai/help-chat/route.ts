@@ -17,6 +17,15 @@ import {
   shouldPreferFunctionalInference,
 } from "@/lib/ai/help-chat-intents";
 import { chooseModel, detectFrustration } from "@/lib/ai/help-chat-model-router";
+import { searchKnowledge } from "@/lib/knowledge/search";
+
+async function searchKnowledgeForChat(query: string, tenantId: string) {
+  try {
+    return await searchKnowledge(query, tenantId, 5);
+  } catch {
+    return [];
+  }
+}
 
 function hasChatPersistence(): boolean {
   const db = prisma as unknown as Record<string, unknown>;
@@ -397,17 +406,28 @@ export async function POST(request: NextRequest) {
         .map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
     }
 
-    const [docsChunks, templatesChunks] = await Promise.all([
+    const [docsChunks, templatesChunks, knowledgeChunks] = await Promise.all([
       retrieveDocsContext(userMessage, 6),
       retrieveTemplatesContext(ctx.tenantId, userMessage, 4),
+      searchKnowledgeForChat(userMessage, ctx.tenantId),
     ]);
     const allChunks = [...docsChunks, ...templatesChunks];
-    const docsContext = allChunks
+    let docsContext = allChunks
       .map(
         (item, index) =>
           `Bloque ${index + 1} (${item.title}):\n${item.body}`,
       )
       .join("\n\n");
+
+    // Append knowledge base RAG results
+    if (knowledgeChunks.length > 0) {
+      const kbContext = knowledgeChunks
+        .map((k, i) => `KB ${i + 1} [${k.knowledgeBaseTitle}]:\n${k.content}`)
+        .join("\n\n");
+      docsContext = docsContext
+        ? `${docsContext}\n\nBase de conocimiento:\n${kbContext}`
+        : `Base de conocimiento:\n${kbContext}`;
+    }
 
     /* ── Siempre ejecuta el modelo (ya tiene contexto funcional base + docs + plantillas si hay) ── */
     const retrievalHasEvidence = allChunks.length > 0;

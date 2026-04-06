@@ -182,6 +182,8 @@ const IA_FEATURES = [
   'Alertas inteligentes con contexto',
   'Asistente conversacional para operadores',
   'Reportes generados con lenguaje natural',
+  'Base de conocimiento personalizable por empresa',
+  'Búsqueda semántica inteligente (RAG) sobre tus documentos',
 ]
 
 const TERMINAL_LINES = [
@@ -801,6 +803,79 @@ export default function MarketingPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ====== 5b. BASE DE CONOCIMIENTO ====== */}
+      <section
+        className="mk-section"
+        style={{ borderTop: '1px solid var(--mk-border)' }}
+      >
+        <div className="mk-container" style={{ textAlign: 'center' }}>
+          <div className="mk-label" style={{ justifyContent: 'center' }}>
+            <div className="mk-pulse" />
+            Base de Conocimiento
+          </div>
+          <h2 style={sectionHeading}>
+            Asistente con IA y{' '}
+            <span style={{ color: 'var(--mk-teal)' }}>base de conocimiento</span>
+          </h2>
+          <p style={{ ...sectionSub, marginBottom: '40px', maxWidth: '680px', marginLeft: 'auto', marginRight: 'auto' }}>
+            Configura tu propio asistente IA que conoce tu empresa. Sube protocolos,
+            normativas, manuales y documentos operacionales. El chatbot aprende de tu
+            conocimiento y responde consultas de tu equipo con informacion real de tu empresa.
+          </p>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '16px',
+              maxWidth: '900px',
+              margin: '0 auto',
+              textAlign: 'left',
+            }}
+          >
+            {[
+              'Base de conocimiento personalizable por empresa',
+              'El chatbot aprende de tus protocolos y normativas',
+              'Respuestas basadas en documentos reales, no genericos',
+              'Soporta PDF, Word, Markdown y texto plano',
+              'Busqueda semantica inteligente (RAG)',
+            ].map((item) => (
+              <div
+                key={item}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '12px 16px',
+                  background: 'var(--mk-bg-card)',
+                  border: '1px solid var(--mk-border)',
+                  borderRadius: '8px',
+                  fontSize: '0.9rem',
+                  color: 'var(--mk-text)',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '50%',
+                    background: 'var(--mk-teal-dim)',
+                    color: 'var(--mk-teal)',
+                    fontSize: '11px',
+                    flexShrink: 0,
+                  }}
+                >
+                  ✓
+                </span>
+                {item}
+              </div>
+            ))}
           </div>
         </div>
       </section>

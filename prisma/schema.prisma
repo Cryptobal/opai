@@ -71,6 +71,7 @@ model Tenant {
   plan                        TenantPlan?
   atsJobPostings              AtsJobPosting[]   @relation("ats_job_tenant")
   atsApplications             AtsApplication[]  @relation("ats_application_tenant")
+  knowledgeBases              KnowledgeBase[]
 
   @@index([slug])
   @@index([active])
@@ -7915,4 +7916,50 @@ model AtsDistributionChannel {
   @@index([jobPostingId], map: "idx_ats_channels_job")
   @@map("ats_distribution_channels")
   @@schema("ops")
+}
+
+// ── Knowledge Base (RAG) ──
+
+model KnowledgeBase {
+  id          String   @id @default(cuid())
+  tenantId    String?  @map("tenant_id") // NULL = documento global (Platform Admin)
+  title       String
+  description String?
+  fileName    String   @map("file_name")
+  fileUrl     String   @map("file_url")
+  fileSize    Int      @map("file_size")
+  mimeType    String   @map("mime_type")
+  status      String   @default("processing") // processing | ready | error
+  chunkCount  Int      @default(0) @map("chunk_count")
+  category    String?
+  enabled     Boolean  @default(true)
+  metadata    Json?    @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdBy   String?  @map("created_by")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chunks KnowledgeChunk[]
+
+  @@index([tenantId])
+  @@index([tenantId, enabled])
+  @@map("knowledge_bases")
+  @@schema("public")
+}
+
+model KnowledgeChunk {
+  id              String                       @id @default(cuid())
+  knowledgeBaseId String                       @map("knowledge_base_id")
+  content         String                       @db.Text
+  chunkIndex      Int                          @map("chunk_index")
+  embedding       Unsupported("vector(1536)")?
+  tokenCount      Int                          @default(0) @map("token_count")
+  metadata        Json?                        @db.JsonB
+  createdAt       DateTime                     @default(now()) @map("created_at")
+
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@index([knowledgeBaseId])
+  @@map("knowledge_chunks")
+  @@schema("public")
 }
