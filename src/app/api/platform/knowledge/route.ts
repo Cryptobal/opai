@@ -7,6 +7,9 @@ import { processDocument } from '@/lib/knowledge/processor';
 import { ensureKnowledgeTables } from '@/lib/knowledge/ensure-tables';
 import { resolveUploadedMime } from '@/lib/knowledge/upload-mime';
 
+export const maxDuration = 300;
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const session = await requirePlatformAuth();
   if (!session) return platformUnauthorized();
@@ -111,14 +114,44 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Process async (extract text + generate chunks/embeddings)
-    extractText(buffer, mimeType)
-      .then((content) => processDocument({ knowledgeBaseId: kb.id, content }))
-      .catch((err) => {
-        console.error(`[Knowledge] Error processing ${kb.id}:`, err);
-      });
+    // Procesar SINCRÓNICAMENTE: en serverless las promesas fire-and-forget
+    // se cancelan cuando la request termina, dejando el documento atascado
+    // en `processing` para siempre. Mejor esperar el resultado y reportarlo.
+    let processed: { success: boolean; chunks: number } | null = null;
+    let processError: string | null = null;
+    try {
+      const content = await extractText(buffer, mimeType);
+      if (!content || !content.trim()) {
+        throw new Error('No se pudo extraer texto del archivo (contenido vacío).');
+      }
+      processed = await processDocument({ knowledgeBaseId: kb.id, content });
+    } catch (err) {
+      processError = err instanceof Error ? err.message : String(err);
+      console.error(`[Knowledge] Error processing ${kb.id}:`, err);
+      // Asegurar que el estado quede en 'error' incluso si falla extractText
+      // (processDocument ya hace esto por su cuenta, pero lo cubrimos por si
+      // el error ocurre antes de que processDocument llegue a ejecutarse).
+      await prisma.knowledgeBase
+        .update({
+          where: { id: kb.id },
+          data: { status: 'error', metadata: { error: processError } },
+        })
+        .catch((updateErr: unknown) => {
+          console.error(`[Knowledge] Error marking ${kb.id} as error:`, updateErr);
+        });
+    }
 
-    return NextResponse.json({ success: true, data: kb }, { status: 201 });
+    const finalKb = await prisma.knowledgeBase.findUnique({ where: { id: kb.id } });
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: finalKb ?? kb,
+        processed: processed ?? undefined,
+        processError: processError ?? undefined,
+      },
+      { status: 201 },
+    );
   } catch (error) {
     console.error('[Platform Knowledge] Error:', error);
     return NextResponse.json(

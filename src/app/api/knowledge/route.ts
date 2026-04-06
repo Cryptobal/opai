@@ -7,6 +7,9 @@ import { processDocument } from '@/lib/knowledge/processor';
 import { ensureKnowledgeTables } from '@/lib/knowledge/ensure-tables';
 import { resolveUploadedMime } from '@/lib/knowledge/upload-mime';
 
+export const maxDuration = 300;
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
@@ -109,13 +112,39 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    extractText(buffer, mimeType)
-      .then((content) => processDocument({ knowledgeBaseId: kb.id, content }))
-      .catch((err) => {
-        console.error(`[Knowledge] Error processing ${kb.id}:`, err);
-      });
+    // Procesar sincrónicamente para evitar que serverless mate la promesa.
+    let processed: { success: boolean; chunks: number } | null = null;
+    let processError: string | null = null;
+    try {
+      const content = await extractText(buffer, mimeType);
+      if (!content || !content.trim()) {
+        throw new Error('No se pudo extraer texto del archivo (contenido vacío).');
+      }
+      processed = await processDocument({ knowledgeBaseId: kb.id, content });
+    } catch (err) {
+      processError = err instanceof Error ? err.message : String(err);
+      console.error(`[Knowledge] Error processing ${kb.id}:`, err);
+      await prisma.knowledgeBase
+        .update({
+          where: { id: kb.id },
+          data: { status: 'error', metadata: { error: processError } },
+        })
+        .catch((updateErr: unknown) => {
+          console.error(`[Knowledge] Error marking ${kb.id} as error:`, updateErr);
+        });
+    }
 
-    return NextResponse.json({ success: true, data: kb }, { status: 201 });
+    const finalKb = await prisma.knowledgeBase.findUnique({ where: { id: kb.id } });
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: finalKb ?? kb,
+        processed: processed ?? undefined,
+        processError: processError ?? undefined,
+      },
+      { status: 201 },
+    );
   } catch (error) {
     console.error('[Tenant Knowledge] Error:', error);
     return NextResponse.json(
