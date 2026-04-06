@@ -117,7 +117,7 @@ export function logAiUsage(params: UsageLogParams): void {
         totalTokens: params.totalTokens ?? (params.inputTokens ?? 0) + (params.outputTokens ?? 0),
         estimatedCost: params.estimatedCost ?? 0,
         durationMs: params.durationMs ?? null,
-        metadata: params.metadata ?? undefined,
+        metadata: params.metadata ? JSON.parse(JSON.stringify(params.metadata)) : undefined,
       },
     })
     .catch((err) => {
