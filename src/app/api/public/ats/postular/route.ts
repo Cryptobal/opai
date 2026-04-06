@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import {
+  CHILE_BANKS,
   isChileanRutFormat,
   isValidChileanRut,
   isValidMobileNineDigits,
@@ -10,10 +11,30 @@ import {
   normalizeMobileNineDigits,
   normalizeRut,
 } from "@/lib/personas";
+import { getPublicFormConfig } from "@/lib/ats/public-form-config";
 
 /* ------------------------------------------------------------------ */
 /*  Schema — lightweight ATS application (no auth required)           */
 /* ------------------------------------------------------------------ */
+
+const atsDocumentoSchema = z.object({
+  code: z.string().min(1),
+  fileUrl: z.string().url(),
+  fileName: z.string().min(1),
+  mimeType: z.string().min(1),
+});
+
+const atsTallasSchema = z
+  .object({
+    calzado: z.string().trim().max(20).optional().nullable(),
+    pantalon: z.string().trim().max(20).optional().nullable(),
+    polera: z.string().trim().max(20).optional().nullable(),
+    camisa: z.string().trim().max(20).optional().nullable(),
+    polar: z.string().trim().max(20).optional().nullable(),
+    chaqueta: z.string().trim().max(20).optional().nullable(),
+  })
+  .optional()
+  .nullable();
 
 const atsPostulacionSchema = z.object({
   jobPostingId: z.string().uuid("ID de oferta inválido"),
@@ -31,11 +52,54 @@ const atsPostulacionSchema = z.object({
     .trim()
     .refine((v) => isValidMobileNineDigits(v), "Celular debe tener 9 dígitos (ej: 912345678)")
     .transform((v) => normalizeMobileNineDigits(v)),
-  tieneOS10: z.boolean(),
-  experienciaAnios: z.number().int().min(0).max(50),
-  tieneMovilizacion: z.boolean(),
+  tieneOS10: z.boolean().default(false),
+  experienciaAnios: z.number().int().min(0).max(50).default(0),
+  tieneMovilizacion: z.boolean().default(false),
   notas: z.string().trim().max(1000).optional().nullable(),
+
+  // ── Extended optional persona fields ──
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  sex: z.string().trim().max(10).optional().nullable(),
+  addressFormatted: z.string().trim().max(300).optional().nullable(),
+  googlePlaceId: z.string().trim().max(200).optional().nullable(),
+  commune: z.string().trim().max(120).optional().nullable(),
+  city: z.string().trim().max(120).optional().nullable(),
+  region: z.string().trim().max(120).optional().nullable(),
+  afp: z.string().trim().max(80).optional().nullable(),
+  healthSystem: z.string().trim().max(80).optional().nullable(),
+  bankCode: z.string().trim().max(50).optional().nullable(),
+  bankAccountType: z.string().trim().max(50).optional().nullable(),
+  bankAccountNumber: z.string().trim().max(100).optional().nullable(),
+  tallas: atsTallasSchema,
+  heightCm: z.number().min(120).max(230).optional().nullable(),
+  weightKg: z.number().min(35).max(250).optional().nullable(),
+  documentos: z.array(atsDocumentoSchema).optional().default([]),
 });
+
+type AtsPostulacionBody = z.infer<typeof atsPostulacionSchema>;
+
+/** Build the persona create/update payload for the optional extended fields. */
+function buildPersonaExtendedData(body: AtsPostulacionBody) {
+  return {
+    ...(body.birthDate ? { birthDate: new Date(`${body.birthDate}T00:00:00.000Z`) } : {}),
+    ...(body.sex ? { sex: body.sex } : {}),
+    ...(body.addressFormatted ? { addressFormatted: body.addressFormatted } : {}),
+    ...(body.googlePlaceId ? { googlePlaceId: body.googlePlaceId } : {}),
+    ...(body.commune ? { commune: body.commune } : {}),
+    ...(body.city ? { city: body.city } : {}),
+    ...(body.region ? { region: body.region } : {}),
+    ...(body.afp ? { afp: body.afp } : {}),
+    ...(body.healthSystem ? { healthSystem: body.healthSystem } : {}),
+    ...(body.tallas?.calzado ? { shoeSize: body.tallas.calzado } : {}),
+    ...(body.tallas?.pantalon ? { pantsSize: body.tallas.pantalon } : {}),
+    ...(body.tallas?.polera ? { tshirtSize: body.tallas.polera } : {}),
+    ...(body.tallas?.camisa ? { shirtSize: body.tallas.camisa } : {}),
+    ...(body.tallas?.polar ? { polarSize: body.tallas.polar } : {}),
+    ...(body.tallas?.chaqueta ? { jacketSize: body.tallas.chaqueta } : {}),
+    ...(body.heightCm != null ? { heightCm: new Prisma.Decimal(body.heightCm) } : {}),
+    ...(body.weightKg != null ? { weightKg: new Prisma.Decimal(body.weightKg) } : {}),
+  };
+}
 
 /* ------------------------------------------------------------------ */
 /*  Code generator (same logic as full postulacion)                   */
@@ -101,6 +165,20 @@ export async function POST(request: NextRequest) {
 
     const tenantId = job.tenantId;
 
+    // Validate required documents from tenant config
+    const formCfg = await getPublicFormConfig(body.jobPostingId);
+    if (formCfg) {
+      const requiredDocs = formCfg.documents.filter((d) => d.required).map((d) => d.code);
+      const providedDocs = new Set((body.documentos ?? []).map((d) => d.code));
+      const missing = requiredDocs.filter((c) => !providedDocs.has(c));
+      if (missing.length > 0) {
+        return NextResponse.json(
+          { success: false, error: `Faltan documentos obligatorios: ${missing.join(", ")}` },
+          { status: 400 },
+        );
+      }
+    }
+
     // Check if persona with this RUT already exists in this tenant
     const existingPersona = await prisma.opsPersona.findFirst({
       where: { tenantId, rut: body.rut },
@@ -139,14 +217,44 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Update persona contact info if changed
+      // Update persona contact info + any newly provided optional fields
       await prisma.opsPersona.update({
         where: { id: existingPersona.id },
         data: {
           email: body.email,
           phoneMobile: body.phoneMobile,
+          ...buildPersonaExtendedData(body),
         },
       });
+
+      // Optional: bank account + documents for existing persona
+      if (body.bankCode && body.bankAccountNumber && body.bankAccountType) {
+        await prisma.opsCuentaBancaria.create({
+          data: {
+            tenantId,
+            guardiaId,
+            bankCode: body.bankCode,
+            bankName:
+              CHILE_BANKS.find((b) => b.code === body.bankCode)?.name ?? body.bankCode,
+            accountType: body.bankAccountType,
+            accountNumber: body.bankAccountNumber,
+            holderName: `${body.firstName} ${body.lastName}`.trim(),
+            holderRut: body.rut,
+            isDefault: false,
+          },
+        });
+      }
+      if (body.documentos && body.documentos.length > 0) {
+        await prisma.opsDocumentoPersona.createMany({
+          data: body.documentos.map((doc) => ({
+            tenantId,
+            guardiaId,
+            type: doc.code,
+            fileUrl: doc.fileUrl,
+            status: "pendiente",
+          })),
+        });
+      }
     } else {
       // Create new persona + guardia in transaction
       const result = await createPersonaAndGuardia(tenantId, body);
@@ -253,6 +361,7 @@ async function createPersonaAndGuardia(
             phoneMobile: body.phoneMobile,
             hasMobilization: body.tieneMovilizacion,
             status: "active",
+            ...buildPersonaExtendedData(body),
           },
         });
 
@@ -268,6 +377,35 @@ async function createPersonaAndGuardia(
           },
           select: { id: true },
         });
+
+        if (body.bankCode && body.bankAccountNumber && body.bankAccountType) {
+          await tx.opsCuentaBancaria.create({
+            data: {
+              tenantId,
+              guardiaId: g.id,
+              bankCode: body.bankCode,
+              bankName:
+                CHILE_BANKS.find((b) => b.code === body.bankCode)?.name ?? body.bankCode,
+              accountType: body.bankAccountType,
+              accountNumber: body.bankAccountNumber,
+              holderName: `${body.firstName} ${body.lastName}`.trim(),
+              holderRut: body.rut,
+              isDefault: true,
+            },
+          });
+        }
+
+        if (body.documentos && body.documentos.length > 0) {
+          await tx.opsDocumentoPersona.createMany({
+            data: body.documentos.map((doc) => ({
+              tenantId,
+              guardiaId: g.id,
+              type: doc.code,
+              fileUrl: doc.fileUrl,
+              status: "pendiente",
+            })),
+          });
+        }
 
         await tx.opsGuardiaHistory.create({
           data: {
