@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Briefcase, Users, Clock, CheckCircle, Plus, Eye, MoreHorizontal } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Briefcase, Users, Clock, CheckCircle, Plus, Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -64,7 +66,24 @@ export function AtsDashboardClient({
   initialJobs: AtsJob[];
   metricas: Metricas;
 }) {
+  const router = useRouter();
   const [filterEstado, setFilterEstado] = useState<string>("all");
+
+  async function handleDelete(jobId: string, applications: number) {
+    if (applications > 0) {
+      toast.error("Este aviso tiene postulaciones. Usa 'Cerrar' en lugar de eliminar.");
+      return;
+    }
+    if (!confirm("¿Eliminar este aviso? Esta acción no se puede deshacer.")) return;
+    const res = await fetch(`/api/ops/ats/jobs/${jobId}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success("Aviso eliminado");
+      router.refresh();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data.error || "No se pudo eliminar");
+    }
+  }
   const jobs =
     filterEstado === "all"
       ? initialJobs
@@ -236,6 +255,23 @@ export function AtsDashboardClient({
                         <Link href={`/ops/ats/${job.id}`}>
                           <Eye className="h-4 w-4 mr-2" /> Ver pipeline
                         </Link>
+                      </DropdownMenuItem>
+                      {/* TODO: enable when /ops/ats/[jobId]/editar route is implemented */}
+                      <DropdownMenuItem
+                        disabled
+                        title="En desarrollo"
+                        className="text-muted-foreground"
+                      >
+                        <Pencil className="h-4 w-4 mr-2" /> Editar aviso
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-red-600 focus:text-red-600"
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          handleDelete(job.id, job._count.applications);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" /> Eliminar
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
