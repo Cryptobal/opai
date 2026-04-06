@@ -1,6 +1,12 @@
+import type { Metadata } from 'next';
 import { getPlatformSession } from '@/lib/platform-auth';
 import { PlatformSidebar } from '@/components/platform/PlatformSidebar';
 import { PlatformThemeForcer } from '@/components/platform/PlatformThemeForcer';
+
+export const metadata: Metadata = {
+  title: "OPAI Platform",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = 'force-dynamic';
 

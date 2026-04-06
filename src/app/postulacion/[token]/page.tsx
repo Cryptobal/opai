@@ -15,6 +15,7 @@ export async function generateMetadata({
     return {
       title: "Postulación no disponible | OPAI",
       description: "Este enlace de postulación no es válido.",
+      robots: { index: false, follow: false },
     };
   }
 
@@ -22,6 +23,7 @@ export async function generateMetadata({
     title: "Postulación Guardia | OPAI",
     description:
       "Completa el formulario de postulación de OPAI para iniciar tu proceso.",
+    robots: { index: false, follow: false },
     openGraph: {
       title: "Postulación Guardia | OPAI",
       description:
