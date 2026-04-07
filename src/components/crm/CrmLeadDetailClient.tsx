@@ -2298,7 +2298,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                     <Label className="text-[11px]">Nombre *</Label>
                     <Input value={inst.name} onChange={(e) => updateInstallation(inst._key, "name", e.target.value)} placeholder="Bodega central, Sucursal norte..." className={`h-9 text-sm ${inputClassName}`} />
                   </div>
-                  <div className="space-y-1">
+                  <div className="relative z-[5] space-y-1">
                     <div className="flex items-center justify-between">
                       <Label className="text-[11px]">Dirección (Google Maps)</Label>
                       {(inst.address || (inst.lat != null && inst.lng != null)) && (
@@ -2409,8 +2409,9 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
       </EntityDetailLayout>
 
       {/* ── Sticky action bar for editable leads ── */}
+      {/* pointer-events-none en el contenedor: si el scroll deja campos (p. ej. dirección Maps) bajo esta barra, los clics llegan al input y no se “comen” el overlay sticky. Los botones llevan pointer-events-auto. */}
       {isEditable && (
-        <div className="sticky bottom-14 lg:bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] z-10">
+        <div className="sticky bottom-14 lg:bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 xl:-mx-10 2xl:-mx-12 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] z-10 pointer-events-none">
           {!duplicateChecked && (
             <p className="text-xs text-muted-foreground mb-2 w-full text-center sm:text-left">
               Nada se crea hasta que hagas clic en &quot;Verificar y aprobar&quot; y luego confirmes.
@@ -2451,15 +2452,15 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
           )}
           {/* Mobile: Aprobar first (top, thumb-reachable), then others */}
           <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={saveLeadDraft} disabled={approving || savingLead} className="sm:order-1">
+            <Button variant="outline" size="sm" onClick={saveLeadDraft} disabled={approving || savingLead} className="pointer-events-auto sm:order-1">
               {savingLead ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Guardar en revisión
             </Button>
-            <Button variant="outline" size="sm" onClick={openRejectModal} disabled={approving || savingLead} className="text-destructive hover:text-destructive sm:order-2">
+            <Button variant="outline" size="sm" onClick={openRejectModal} disabled={approving || savingLead} className="pointer-events-auto text-destructive hover:text-destructive sm:order-2">
               <XCircle className="mr-2 h-4 w-4" />
               Rechazar
             </Button>
-            <Button onClick={approveLead} disabled={approving || savingLead || sendingExpress} className="sm:order-3">
+            <Button onClick={approveLead} disabled={approving || savingLead || sendingExpress} className="pointer-events-auto sm:order-3">
               {approving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
               {!duplicateChecked
                 ? "Verificar y aprobar"
@@ -2468,7 +2469,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   : "Confirmar aprobación"}
             </Button>
             {duplicateChecked && approveForm.email.trim() && installations.some((i) => i.dotacion.length > 0 || (cpqConfigs[i._key]?.positions?.length ?? 0) > 0) && (
-              <Button onClick={approveAndSend} disabled={approving || savingLead || sendingExpress} className="sm:order-4 bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Button onClick={approveAndSend} disabled={approving || savingLead || sendingExpress} className="pointer-events-auto sm:order-4 bg-emerald-600 hover:bg-emerald-700 text-white">
                 {sendingExpress ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Aprobar y Enviar
               </Button>

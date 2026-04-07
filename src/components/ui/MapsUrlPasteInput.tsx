@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isGoogleMapsUrl, parseGoogleMapsUrl } from "@/lib/google-maps-url";
 import type { AddressResult } from "@/components/ui/AddressAutocomplete";
 import { Link2, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /** Tipos mínimos para Geocoder API (sin @types/google.maps) */
 interface GeocoderAddressComponent {
@@ -116,6 +117,7 @@ export function MapsUrlPasteInput({
   disabled = false,
   className,
 }: MapsUrlPasteInputProps) {
+  const inputId = useId();
   const [urlInput, setUrlInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -177,28 +179,28 @@ export function MapsUrlPasteInput({
   };
 
   return (
-    <div className={className}>
-      <Label className="text-sm text-muted-foreground">
+    <div className={cn("relative z-10", className)}>
+      <Label htmlFor={inputId} className="text-sm text-muted-foreground">
         O pegar URL de Google Maps
       </Label>
       <div className="flex gap-2 mt-1">
-        <div className="relative flex-1">
-          <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <div className="relative z-10 flex-1 min-w-0">
+          <Link2 className="absolute left-3 top-1/2 z-0 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
+            id={inputId}
+            name="google-maps-url"
+            type="text"
+            inputMode="url"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
             value={urlInput}
             onChange={(e) => {
               setUrlInput(e.target.value);
               setError(null);
             }}
-            onPaste={(e) => {
-              const pasted = e.clipboardData?.getData("text")?.trim() || "";
-              if (isGoogleMapsUrl(pasted)) {
-                setUrlInput(pasted);
-                setError(null);
-              }
-            }}
             placeholder="https://www.google.com/maps/... o maps.app.goo.gl/..."
-            className="pl-9 bg-background text-foreground border-input text-sm"
+            className="relative z-[1] pl-9 bg-background text-foreground border-input text-sm"
             disabled={disabled || loading}
           />
         </div>
@@ -206,7 +208,7 @@ export function MapsUrlPasteInput({
           type="button"
           onClick={handleResolve}
           disabled={disabled || loading || !urlInput.trim()}
-          className="shrink-0 px-3 py-2 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted disabled:opacity-50 disabled:pointer-events-none flex items-center gap-1.5"
+          className="pointer-events-auto shrink-0 px-3 py-2 rounded-md border border-input bg-background text-foreground text-sm font-medium hover:bg-muted disabled:opacity-50 disabled:pointer-events-none flex items-center gap-1.5"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
