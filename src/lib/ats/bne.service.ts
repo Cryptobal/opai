@@ -157,6 +157,58 @@ export function invalidateBneToken(tenantId: string) {
 // API helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Try to extract a human-readable error message from a BNE error body.
+ *
+ * BNE returns Spring Boot ApiControllerAdvice payloads that look like:
+ *   { "cause": null, "stackTrace": [...lots...], "message": "Campo X invalido", ... }
+ * The stackTrace dwarfs the actual message and isn't useful in toasts. This
+ * helper hunts for the first informative `message` / `error` / `mensaje`
+ * field anywhere in the JSON tree, falling back to the raw text snippet.
+ */
+function extractBneErrorMessage(text: string): string {
+  if (!text) return "(sin cuerpo)";
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return text.slice(0, 300);
+  }
+  const candidates: string[] = [];
+  function walk(v: unknown, depth: number) {
+    if (depth > 4 || v == null) return;
+    if (Array.isArray(v)) {
+      for (const item of v.slice(0, 5)) walk(item, depth + 1);
+      return;
+    }
+    if (typeof v !== "object") return;
+    const obj = v as Record<string, unknown>;
+    for (const key of [
+      "descripcion",
+      "message",
+      "mensaje",
+      "error",
+      "errorMessage",
+      "detail",
+      "description",
+    ]) {
+      const val = obj[key];
+      if (typeof val === "string" && val.length > 0 && val.length < 500) {
+        candidates.push(val);
+      }
+    }
+    for (const key of Object.keys(obj)) {
+      if (key === "stackTrace" || key === "suppressed") continue;
+      walk(obj[key], depth + 1);
+    }
+  }
+  walk(parsed, 0);
+  if (candidates.length === 0) return text.slice(0, 300);
+  // Prefer the longest non-trivial message — usually the most descriptive.
+  candidates.sort((a, b) => b.length - a.length);
+  return candidates[0];
+}
+
 async function bneFetch<T>(
   tenantId: string,
   path: string,
@@ -180,7 +232,18 @@ async function bneFetch<T>(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`BNE ${res.status} ${path}: ${text.slice(0, 300)}`);
+    const message = extractBneErrorMessage(text);
+    // Always log the meaningful parts of the body server-side. We strip the
+    // huge `stackTrace` array because BNE returns Spring stack traces and they
+    // dwarf the descriptive fields.
+    let logBody: unknown = text.slice(0, 4000);
+    try {
+      const j = JSON.parse(text) as Record<string, unknown>;
+      const { stackTrace: _st, suppressed: _sp, ...rest } = j;
+      logBody = rest;
+    } catch {}
+    console.error(`[BNE] ${res.status} ${path}:`, logBody);
+    throw new Error(`BNE ${res.status} ${path}: ${message}`);
   }
   // Some endpoints (DELETE) may return empty body.
   const ct = res.headers.get("content-type") || "";
@@ -246,20 +309,166 @@ export async function testBneConnection(
 }
 
 // ---------------------------------------------------------------------------
+// Catalog cache (regiones, comunas, jornadas, ocupaciones, …)
+// ---------------------------------------------------------------------------
+
+interface BneCatalogRow {
+  id: number;
+  valor: string;
+}
+interface BneCatalogCache {
+  regiones?: BneCatalogRow[];
+  comunasByRegion?: Record<string, BneCatalogRow[]>;
+  jornadas?: BneCatalogRow[];
+  rangosSalariales?: BneCatalogRow[];
+  nivelesCargo?: BneCatalogRow[];
+  fetchedAt?: string;
+}
+
+const CATALOG_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
+async function getCatalogCache(tenantId: string): Promise<BneCatalogCache> {
+  const row = await prisma.bneIntegration.findUnique({
+    where: { tenantId },
+    select: { catalogCache: true, catalogCacheAt: true },
+  });
+  if (
+    row?.catalogCache &&
+    row.catalogCacheAt &&
+    Date.now() - row.catalogCacheAt.getTime() < CATALOG_TTL_MS
+  ) {
+    return row.catalogCache as BneCatalogCache;
+  }
+  // Refresh from BNE.
+  const cache: BneCatalogCache = { comunasByRegion: {} };
+  try {
+    cache.regiones = await bneFetch<BneCatalogRow[]>(
+      tenantId,
+      "/OfertasPublicas/v1/data/regiones",
+    );
+  } catch (e) {
+    console.warn("[BNE] catalog regiones failed:", e);
+  }
+  try {
+    cache.jornadas = await bneFetch<BneCatalogRow[]>(
+      tenantId,
+      "/OfertasPublicas/v1/data/ofertas/jornadas-trabajo",
+    );
+  } catch {}
+  try {
+    cache.rangosSalariales = await bneFetch<BneCatalogRow[]>(
+      tenantId,
+      "/OfertasPublicas/v1/data/ofertas/rangos-salariales",
+    );
+  } catch {}
+  try {
+    cache.nivelesCargo = await bneFetch<BneCatalogRow[]>(
+      tenantId,
+      "/OfertasPublicas/v1/data/ofertas/niveles-cargo",
+    );
+  } catch {}
+  cache.fetchedAt = new Date().toISOString();
+
+  await prisma.bneIntegration.update({
+    where: { tenantId },
+    data: {
+      catalogCache: cache as unknown as object,
+      catalogCacheAt: new Date(),
+    },
+  });
+  return cache;
+}
+
+async function getComunasForRegion(
+  tenantId: string,
+  regionId: number,
+): Promise<BneCatalogRow[]> {
+  const cache = await getCatalogCache(tenantId);
+  const map = cache.comunasByRegion || {};
+  if (map[String(regionId)]) return map[String(regionId)];
+  try {
+    const rows = await bneFetch<BneCatalogRow[]>(
+      tenantId,
+      `/OfertasPublicas/v1/data/regiones/${regionId}/comunas`,
+    );
+    map[String(regionId)] = rows;
+    await prisma.bneIntegration.update({
+      where: { tenantId },
+      data: {
+        catalogCache: { ...cache, comunasByRegion: map } as unknown as object,
+      },
+    });
+    return rows;
+  } catch (e) {
+    console.warn(`[BNE] comunas region ${regionId} failed:`, e);
+    return [];
+  }
+}
+
+/** Valid `diasPublicacion` values per BNE catalog (periodos-publicacion). */
+const BNE_PERIODOS_VALIDOS = [1, 3, 5, 7, 14, 21, 28, 35, 42, 49, 56, 63];
+function snapDiasPublicacion(dias: number): number {
+  if (BNE_PERIODOS_VALIDOS.includes(dias)) return dias;
+  // Snap to the closest valid value, preferring shorter duration on ties.
+  let best = BNE_PERIODOS_VALIDOS[0];
+  let bestDiff = Math.abs(dias - best);
+  for (const v of BNE_PERIODOS_VALIDOS) {
+    const d = Math.abs(dias - v);
+    if (d < bestDiff || (d === bestDiff && v < best)) {
+      best = v;
+      bestDiff = d;
+    }
+  }
+  return best;
+}
+
+/** Loose name match: ignores case, accents, parentheses content. */
+function normaliseName(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function findCatalogId(
+  rows: BneCatalogRow[] | undefined,
+  needle: string,
+): number | null {
+  if (!rows || !needle) return null;
+  const target = normaliseName(needle);
+  // exact first
+  const exact = rows.find((r) => normaliseName(r.valor) === target);
+  if (exact) return exact.id;
+  // contains either way
+  const partial = rows.find(
+    (r) =>
+      normaliseName(r.valor).includes(target) ||
+      target.includes(normaliseName(r.valor)),
+  );
+  return partial?.id ?? null;
+}
+
+// ---------------------------------------------------------------------------
 // Job mapping & publishing
 // ---------------------------------------------------------------------------
 
 /**
- * Build the BNE oferta payload from an AtsJobPosting + integration defaults.
- * Field mapping is intentionally conservative — when in doubt we use the
- * tenant's default catalog IDs (configured in ATS settings) so that publishing
- * never fails for missing optional fields. The advanced fields (region,
- * comuna numeric IDs) require name->id resolution against the BNE catalogs;
- * for now we send what we have and any missing IDs default to the integration
- * defaults.
+ * BNE oferta payload schema (subset of the manual section 4.3.2.1 used by us).
+ *
+ * All numeric IDs reference BNE catalogs:
+ *   - jornadaTrabajo:    /data/ofertas/jornadas-trabajo
+ *   - relacionContractual: /data/ofertas/relaciones-contractuales (1 = Contrato indefinido)
+ *   - rangoSalarios:     /data/ofertas/rangos-salariales
+ *   - ocupacion:         /data/ofertas/ocupaciones (8133 = "Guardia")
+ *   - nivelCargo:        /data/ofertas/niveles-cargo (12 = "Operario")
+ *   - region/comuna:     /data/regiones, /data/regiones/{id}/comunas
  */
 interface BneOfertaPayload {
   idEmpleador: number;
+  idUsuarioPublicador?: number;
   origen: "API";
   ofertaTercero: false;
   RutEmpleador: string;
@@ -279,16 +488,25 @@ interface BneOfertaPayload {
     relacionContractual: number;
     rangoSalarios: number;
     mostrarSueldo: boolean;
+    turnosTrabajo: {
+      nocturno: boolean;
+      soloManana: boolean;
+      soloTarde: boolean;
+      especiales: boolean;
+      finDeSemana: boolean;
+    };
   };
   vacantesRequeridas: {
     vacantesRequeridas: number;
-    fechaPrevistaIncorporacion?: string;
+    invitacionesAEnviar: number;
+    fechaPrevistaIncorporacion: string;
   };
-  ubicacion?: { region?: number; comuna?: number };
+  ubicacion: { region: number; comuna: number };
 }
 
 interface BneIntegrationLite {
   idEmpleador: number | null;
+  idUsuarioPublicador: number | null;
   rutEmpleador: string | null;
   mostrarNombreEmpresa: boolean;
   defaultJornadaTrabajo: number | null;
@@ -303,31 +521,98 @@ interface JobLite {
   titulo: string;
   descripcion: string;
   funciones: string | null;
+  turno: string;
+  region: string;
+  commune: string | null;
   vacantes: number;
   experienciaMinAnios: number | null;
   rentaMin: number | null;
   rentaMax: number | null;
 }
 
-function buildOfertaPayload(
+/** Map our internal `turno` enum to BNE's turnosTrabajo flags. */
+function mapTurnosTrabajo(turno: string) {
+  const t = (turno || "").toLowerCase();
+  return {
+    nocturno: t.includes("noche") || t.includes("nocturno"),
+    soloManana: t.includes("manana") || t.includes("mañana") || t.includes("dia"),
+    soloTarde: t.includes("tarde"),
+    especiales: t === "otro" || t.includes("especial"),
+    finDeSemana: t.includes("fds") || t.includes("fin de semana"),
+  };
+}
+
+/** Pick a salary range id from rentaMin/Max against the catalog. */
+function pickRangoSalarios(
+  rentaMin: number | null,
+  rangos: BneCatalogRow[] | undefined,
+): number | null {
+  if (!rangos || rangos.length === 0) return null;
+  if (rentaMin == null) return rangos[1]?.id ?? rangos[0]?.id ?? null;
+  // Catalog rows are ordered low → high; pick the first whose floor >= rentaMin
+  // OR fall back to the highest. We approximate by index since the API doesn't
+  // expose explicit numeric thresholds.
+  const idx = Math.min(
+    Math.max(0, Math.floor((rentaMin - 539000) / 150000) + 1),
+    rangos.length - 1,
+  );
+  return rangos[idx]?.id ?? rangos[0]?.id ?? null;
+}
+
+async function buildOfertaPayload(
+  tenantId: string,
   job: JobLite,
   integration: BneIntegrationLite,
-): BneOfertaPayload {
+): Promise<BneOfertaPayload> {
   if (!integration.idEmpleador || !integration.rutEmpleador) {
     throw new Error(
       "BNE: faltan idEmpleador o rutEmpleador — completa la configuracion antes de publicar",
     );
   }
-  // Sensible defaults if the tenant hasn't customised them yet. These are
-  // placeholders aligned with the manual examples — admins can override per
-  // tenant from the UI later (or via the catalogs lookup endpoints).
-  const ocupacion = integration.defaultOcupacion ?? 7543;
-  const nivelCargo = integration.defaultNivelCargo ?? 28;
-  const jornada = integration.defaultJornadaTrabajo ?? 9;
-  const relacion = integration.defaultRelacionContractual ?? 1;
-  const rango = integration.defaultRangoSalarios ?? 8;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const cache = await getCatalogCache(tenantId);
+
+  // Resolve region by name against the BNE catalog. If we can't, throw early
+  // with a helpful message instead of letting BNE 400 with a stack trace.
+  const regionId =
+    findCatalogId(cache.regiones, job.region) ??
+    findCatalogId(cache.regiones, "Metropolitana");
+  if (!regionId) {
+    throw new Error(`BNE: no se pudo resolver region "${job.region}"`);
+  }
+
+  // Resolve comuna inside that region. If the job has no comuna, fall back to
+  // a representative one (Santiago for Metropolitana, otherwise first).
+  const comunas = await getComunasForRegion(tenantId, regionId);
+  const comunaId =
+    findCatalogId(comunas, job.commune || "") ??
+    findCatalogId(comunas, "Santiago") ??
+    comunas[0]?.id;
+  if (!comunaId) {
+    throw new Error(
+      `BNE: no se pudo resolver comuna "${job.commune ?? "(vacia)"}" en region ${regionId}`,
+    );
+  }
+
+  // Defaults — prefer per-tenant overrides, then sensible BNE catalog values.
+  const ocupacion = integration.defaultOcupacion ?? 8133; // "Guardia"
+  const nivelCargo = integration.defaultNivelCargo ?? 12; // "Operario"
+  const jornada =
+    integration.defaultJornadaTrabajo ??
+    findCatalogId(cache.jornadas, "Jornada Completa") ??
+    9;
+  const relacion = integration.defaultRelacionContractual ?? 3; // 3 = "Contrato indefinido" (NO 1, que es "por obra o faena")
+  const rango =
+    integration.defaultRangoSalarios ??
+    pickRangoSalarios(job.rentaMin, cache.rangosSalariales) ??
+    2;
+
+  const today = new Date();
+  const fechaInicioPublicacion = today.toISOString().slice(0, 10);
+  const fechaIncorp = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
   const descripcion = [job.descripcion, job.funciones]
     .filter(Boolean)
     .join("\n\n")
@@ -335,13 +620,16 @@ function buildOfertaPayload(
 
   return {
     idEmpleador: integration.idEmpleador,
+    ...(integration.idUsuarioPublicador
+      ? { idUsuarioPublicador: integration.idUsuarioPublicador }
+      : {}),
     origen: "API",
     ofertaTercero: false,
     RutEmpleador: integration.rutEmpleador.replace(/[.\-\s]/g, ""),
     mostrarNombreEmpresa: integration.mostrarNombreEmpresa,
     duracionOferta: {
-      fechaInicioPublicacion: today,
-      diasPublicacion: integration.defaultDiasPublicacion,
+      fechaInicioPublicacion,
+      diasPublicacion: snapDiasPublicacion(integration.defaultDiasPublicacion),
     },
     lod: false,
     descripcionCargo: {
@@ -357,10 +645,14 @@ function buildOfertaPayload(
       relacionContractual: relacion,
       rangoSalarios: rango,
       mostrarSueldo: !!(job.rentaMin || job.rentaMax),
+      turnosTrabajo: mapTurnosTrabajo(job.turno),
     },
     vacantesRequeridas: {
       vacantesRequeridas: job.vacantes,
+      invitacionesAEnviar: Math.max(10, job.vacantes * 10),
+      fechaPrevistaIncorporacion: fechaIncorp,
     },
+    ubicacion: { region: regionId, comuna: comunaId },
   };
 }
 
@@ -382,6 +674,9 @@ export async function syncJobToBne(
           titulo: true,
           descripcion: true,
           funciones: true,
+          turno: true,
+          region: true,
+          commune: true,
           vacantes: true,
           experienciaMinAnios: true,
           rentaMin: true,
@@ -394,7 +689,10 @@ export async function syncJobToBne(
     if (!integration)
       return { success: false, error: "BNE no configurado para este tenant" };
 
-    const payload = buildOfertaPayload(job, integration);
+    const payload = await buildOfertaPayload(tenantId, job, integration);
+    if (process.env.BNE_DEBUG === "1") {
+      console.log("[BNE] payload →", JSON.stringify(payload));
+    }
 
     type OfertaResponse = { id?: number | string; idOferta?: number | string };
     const result = await bneFetch<OfertaResponse>(

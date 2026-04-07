@@ -18,14 +18,61 @@ import { google } from "googleapis";
 
 const SCOPES = ["https://www.googleapis.com/auth/indexing"];
 
+/**
+ * Normalise the GOOGLE_INDEXING_PRIVATE_KEY env var into a valid PEM string.
+ *
+ * Vercel/dotenv users hit a common set of malformations that all surface as
+ * `error:1E08010C:DECODER routines::unsupported` from Node's crypto layer:
+ *
+ * 1. The whole key is wrapped in `"..."` because the user pasted it inside
+ *    quotes in the Vercel UI.
+ * 2. Newlines are stored as the literal two-character sequence `\n` (the
+ *    classic case — already handled by .replace).
+ * 3. Newlines are CRLF (`\r\n`) instead of LF.
+ * 4. The user base64-encoded the whole PEM to avoid newline issues, expecting
+ *    the app to decode it.
+ * 5. Stray BOM / leading whitespace.
+ *
+ * This helper is intentionally defensive so a misconfigured env var doesn't
+ * silently break Google Jobs indexing.
+ */
+function normalisePrivateKey(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  let key = raw.trim();
+  // Strip BOM
+  if (key.charCodeAt(0) === 0xfeff) key = key.slice(1);
+  // Strip wrapping single or double quotes
+  if (
+    (key.startsWith('"') && key.endsWith('"')) ||
+    (key.startsWith("'") && key.endsWith("'"))
+  ) {
+    key = key.slice(1, -1);
+  }
+  // Replace literal \n with real newlines
+  key = key.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
+  // If it doesn't look like a PEM yet, try base64-decoding
+  if (!key.includes("-----BEGIN")) {
+    try {
+      const decoded = Buffer.from(key, "base64").toString("utf8");
+      if (decoded.includes("-----BEGIN")) key = decoded;
+    } catch {
+      // ignore
+    }
+  }
+  return key;
+}
+
 function getAuth() {
-  const clientEmail = process.env.GOOGLE_INDEXING_CLIENT_EMAIL;
-  const privateKey = process.env.GOOGLE_INDEXING_PRIVATE_KEY?.replace(
-    /\\n/g,
-    "\n",
-  );
+  const clientEmail = process.env.GOOGLE_INDEXING_CLIENT_EMAIL?.trim();
+  const privateKey = normalisePrivateKey(process.env.GOOGLE_INDEXING_PRIVATE_KEY);
 
   if (!clientEmail || !privateKey) {
+    return null;
+  }
+  if (!privateKey.includes("-----BEGIN")) {
+    console.error(
+      "[ATS] GOOGLE_INDEXING_PRIVATE_KEY no parece un PEM válido tras normalización; revisa el env var.",
+    );
     return null;
   }
 
