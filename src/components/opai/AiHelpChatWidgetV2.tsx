@@ -653,6 +653,10 @@ export function AiHelpChatWidgetV2() {
   const [activeToolName, setActiveToolName] = useState<string | null>(null);
   const pageContext = useChatPageContext();
   const clearPageContext = useClearChatPageContext();
+  // Cuando una conversación nueva se crea durante un streaming, guardamos su id
+  // aquí para que el useEffect que carga mensajes desde DB no clobere el estado
+  // local mientras la respuesta del asistente aún no se persiste.
+  const skipMessageFetchRef = useRef<string | null>(null);
   const scrollDesktopRef = useRef<HTMLDivElement | null>(null);
   const scrollMobileRef = useRef<HTMLDivElement | null>(null);
   const handleAction = (action: VisualCardItem["action"] | VisualSuggestionItem["action"] | undefined) => {
@@ -727,6 +731,13 @@ export function AiHelpChatWidgetV2() {
 
   useEffect(() => {
     if (!canAccess || !activeConversationId || !open) return;
+    // Si esta conversación se acaba de crear durante un streaming, no fetcheamos
+    // sus mensajes desde DB: aún no están persistidos y haríamos clobber del
+    // estado optimista (mensaje del usuario + asistente en streaming).
+    if (skipMessageFetchRef.current === activeConversationId) {
+      skipMessageFetchRef.current = null;
+      return;
+    }
     void (async () => {
       setLoadingMessages(true);
       try {
@@ -835,7 +846,13 @@ export function AiHelpChatWidgetV2() {
 
               if (eventType === "meta") {
                 if (data.conversationId) {
-                  setActiveConversationId(String(data.conversationId));
+                  const newId = String(data.conversationId);
+                  // Marcamos este id para que el useEffect no fetchee mensajes
+                  // desde DB y borre el estado optimista mientras streameamos.
+                  if (newId !== activeConversationId) {
+                    skipMessageFetchRef.current = newId;
+                  }
+                  setActiveConversationId(newId);
                   setIsNewConversation(false);
                 }
                 setPersistenceEnabled(data.persistenceEnabled !== false);
