@@ -67,6 +67,7 @@ import { CrmActivityTimeline } from "@/components/crm/CrmActivityTimeline";
 import { VisitaTecnicaSolicitudModal } from "@/components/cpq/VisitaTecnicaSolicitudModal";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
+import { resolveRolIdFromShiftPattern } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import { isCpqQuoteListedInClientPortal } from "@/lib/cpq-portal-visibility";
 import { buildDefaultPortalInviteEmailSubject } from "@/lib/cpq-portal-email-subject";
 
@@ -1024,6 +1025,7 @@ export function CpqQuoteDetail({
       const defaultPuesto = puestosRes?.data?.[0];
       const defaultCargo = cargosRes?.data?.[0];
       const defaultRol = rolesRes?.data?.[0];
+      const rolesList = (rolesRes?.data ?? []) as { id: string; name: string }[];
 
       if (!defaultPuesto?.id || !defaultCargo?.id || !defaultRol?.id) {
         toast.error("Faltan configuraciones CPQ (puesto, cargo o rol).");
@@ -1033,6 +1035,9 @@ export function CpqQuoteDetail({
 
       let createdCount = 0;
       for (const pos of template.positions) {
+        const patternForRol = pos.rolShiftPattern ?? pos.shiftPattern;
+        const rolId =
+          resolveRolIdFromShiftPattern(patternForRol, rolesList, defaultRol.id) ?? defaultRol.id;
         const res = await fetch(`/api/cpq/quotes/${quoteId}/positions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1045,7 +1050,7 @@ export function CpqQuoteDetail({
             numGuards: pos.guardsCount,
             numPuestos: 1,
             cargoId: defaultCargo.id,
-            rolId: defaultRol.id,
+            rolId,
             baseSalary: pos.baseSalary,
           }),
         });

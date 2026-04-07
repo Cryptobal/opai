@@ -3,6 +3,8 @@ export interface ServiceTemplatePosition {
   shiftStart: string;
   shiftEnd: string;
   shiftPattern: string;
+  /** Si se define, elige el rol en catálogo aunque `shiftPattern` sea otro (p. ej. turno 4x4 pero rol 2x5 para Control de Acceso). */
+  rolShiftPattern?: string;
   daysOfWeek: string[];
   guardsCount: number;
   baseSalary: number;

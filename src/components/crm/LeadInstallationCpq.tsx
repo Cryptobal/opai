@@ -24,6 +24,7 @@ import { FinancialCostsSection, type FinancialCostsData } from "@/components/cpq
 import { AdditionalLinesSection, type AdditionalLineItem } from "@/components/cpq/AdditionalLinesSection";
 import { CommercialConditionsSection, type CommercialConditionsData } from "@/components/cpq/CommercialConditionsSection";
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
+import { resolveRolIdFromShiftPattern } from "@/lib/cpq/resolve-cpq-role-from-shift-pattern";
 import type { MarginMode } from "@/types/cpq";
 
 /* ─── Types ─── */
@@ -448,19 +449,25 @@ export function LeadInstallationCpq({
   );
 
   const applyTemplate = (template: ServiceTemplate) => {
-    const newPositions: LeadPositionItem[] = template.positions.map((pos) => ({
-      puestoTrabajoId: catalogDefaults?.puestoId,
-      puesto: catalogDefaults?.puestoName || pos.name,
-      cargoId: catalogDefaults?.cargoId,
-      rolId: catalogDefaults?.rolId,
-      baseSalary: pos.baseSalary,
-      shiftType: pos.shiftStart === "20:00" ? "night" as const : "day" as const,
-      cantidad: pos.guardsCount,
-      numPuestos: 1,
-      horaInicio: pos.shiftStart,
-      horaFin: pos.shiftEnd,
-      dias: [...pos.daysOfWeek],
-    }));
+    const newPositions: LeadPositionItem[] = template.positions.map((pos) => {
+      const patternForRol = pos.rolShiftPattern ?? pos.shiftPattern;
+      const rolId =
+        resolveRolIdFromShiftPattern(patternForRol, cpqRoles, catalogDefaults?.rolId) ??
+        catalogDefaults?.rolId;
+      return {
+        puestoTrabajoId: catalogDefaults?.puestoId,
+        puesto: catalogDefaults?.puestoName || pos.name,
+        cargoId: catalogDefaults?.cargoId,
+        rolId,
+        baseSalary: pos.baseSalary,
+        shiftType: pos.shiftStart === "20:00" ? ("night" as const) : ("day" as const),
+        cantidad: pos.guardsCount,
+        numPuestos: 1,
+        horaInicio: pos.shiftStart,
+        horaFin: pos.shiftEnd,
+        dias: [...pos.daysOfWeek],
+      };
+    });
     update({ positions: newPositions });
   };
 
@@ -581,6 +588,7 @@ export function LeadInstallationCpq({
       JSON.stringify({
         uf: ufValue ?? null,
         salaries: config.positions.map((p) => Number(p.baseSalary) || 550000),
+        n: config.positions.length,
       }),
     [config.positions, ufValue]
   );
@@ -822,7 +830,7 @@ export function LeadInstallationCpq({
             netSalaryPerGuard:
               payrollPreview[idx]?.netSalary != null &&
               Number.isFinite(Number(payrollPreview[idx].netSalary)) &&
-              Number(payrollPreview[idx].netSalary) > 0
+              Number(payrollPreview[idx].netSalary) >= 0
                 ? Math.round(Number(payrollPreview[idx].netSalary))
                 : null,
             salePrice,
@@ -1112,7 +1120,7 @@ export function LeadInstallationCpq({
                           </div>
                         </div>
                       </div>
-                      {netG > 0 && (
+                      {Number.isFinite(netG) && netG >= 0 ? (
                         <div
                           className={cn(
                             "rounded-md border px-2 py-1.5",
@@ -1143,6 +1151,10 @@ export function LeadInstallationCpq({
                             </div>
                           )}
                         </div>
+                      ) : (
+                        <p className="text-[10px] text-amber-500/90">
+                          Sueldo líquido: sin estimación (motor nómina).
+                        </p>
                       )}
                     </div>
                   );
