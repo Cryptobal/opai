@@ -333,13 +333,28 @@ export function AddressAutocomplete({
 
   const mapPinColor = wrapperClassName ? "text-slate-400" : "text-muted-foreground";
 
+  const focusWidget = useCallback(() => {
+    const el = acRef.current;
+    if (!el) return;
+    // El web component de Google delega focus en su <input> interno (shadow DOM).
+    try {
+      el.focus();
+    } catch {}
+    // Fallback: busca cualquier input descendiente (incluye shadow root) y enfócalo.
+    const inner =
+      (el.shadowRoot?.querySelector?.("input") as HTMLInputElement | null) ??
+      (el.querySelector?.("input") as HTMLInputElement | null);
+    inner?.focus();
+  }, []);
+
   return (
     <div className="space-y-2">
       <div className="relative w-full">
         <MapPin className={`absolute left-3 top-1/2 z-[2] -translate-y-1/2 h-4 w-4 pointer-events-none ${mapPinColor}`} />
         <div
-          className={wrapperClasses}
+          className={`${wrapperClasses} cursor-text`}
           aria-busy={!widgetReady}
+          onClick={focusWidget}
         >
           {!widgetReady ? (
             <div className="pointer-events-none absolute inset-0 left-9 flex items-center text-sm text-muted-foreground">
@@ -348,7 +363,7 @@ export function AddressAutocomplete({
           ) : null}
           <div
             ref={wrapRef}
-            className="relative z-[1] flex min-h-[40px] w-full items-center [&>gmp-place-autocomplete]:min-h-10 [&>gmp-place-autocomplete]:w-full"
+            className="relative z-[1] flex min-h-[40px] w-full items-center [&>gmp-place-autocomplete]:min-h-10 [&>gmp-place-autocomplete]:w-full [&>gmp-place-autocomplete]:pointer-events-auto"
           />
         </div>
       </div>
