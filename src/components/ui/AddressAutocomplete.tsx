@@ -1,7 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+/**
+ * AddressAutocomplete — usa la API legacy google.maps.places.Autocomplete sobre un
+ * <input> HTML nativo para garantizar interactividad plena (sin shadow DOM ni web component).
+ */
+
+import { useEffect, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type AddressResult = {
   address: string;
@@ -28,7 +34,6 @@ let scriptLoaded = false;
 let scriptLoading = false;
 const loadCallbacks: (() => void)[] = [];
 
-/** Carga Maps JS API; luego `importLibrary("places")` usa Places API (New), no el Autocomplete legacy. */
 function loadGoogleMapsScript(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (typeof window === "undefined") return resolve();
@@ -41,7 +46,7 @@ function loadGoogleMapsScript(): Promise<void> {
     scriptLoading = true;
 
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&loading=async&language=es&region=CL&v=weekly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&loading=async&language=es&region=CL`;
     script.async = true;
     script.defer = true;
     script.onerror = () => {
@@ -57,40 +62,24 @@ function loadGoogleMapsScript(): Promise<void> {
   });
 }
 
-/**
- * En Chile el formatted_address suele ser: "Calle, Comuna, Región, Chile"
- */
 function parseComunaFromFormattedAddress(formatted: string): string {
   const parts = formatted.split(", ").map((p) => p.trim());
   if (parts.length >= 2 && parts[parts.length - 1] === "Chile") {
     const comuna = parts[1];
-    if (comuna && comuna.length < 50 && !/^\d+$/.test(comuna)) {
-      return comuna;
-    }
+    if (comuna && comuna.length < 50 && !/^\d+$/.test(comuna)) return comuna;
   }
   return "";
 }
 
 type LegacyComponent = { long_name: string; types: string[] };
 
-/** Convierte respuesta legacy (PlacesService) o nueva (Place.fetchFields) a componentes unificados. */
-function normalizeComponents(
-  raw: Array<{ long_name?: string; longText?: string; types: string[] }>,
-): LegacyComponent[] {
-  return raw.map((c) => ({
-    long_name: c.long_name ?? c.longText ?? "",
-    types: c.types,
-  }));
-}
-
 function extractFromComponents(
   formatted: string,
   placeId: string,
   lat: number,
   lng: number,
-  addressComponents: LegacyComponent[],
+  comps: LegacyComponent[],
 ): AddressResult {
-  const comps = addressComponents;
   const getByType = (types: string[]) =>
     comps.find((c) => types.some((t) => c.types.includes(t)))?.long_name ?? "";
 
@@ -121,35 +110,19 @@ function extractFromComponents(
     city = admin1 || admin2 || "";
   }
 
-  return {
-    address: formatted,
-    city,
-    commune,
-    region: admin1 || "",
-    placeId,
-    lat,
-    lng,
+  return { address: formatted, city, commune, region: admin1 || "", placeId, lat, lng };
+}
+
+/** Tipos mínimos para la API legacy de Places (sin @types/google.maps). */
+interface LegacyAutocomplete {
+  addListener: (event: string, handler: () => void) => { remove: () => void };
+  getPlace: () => {
+    formatted_address?: string;
+    address_components?: LegacyComponent[];
+    geometry?: { location: { lat: () => number; lng: () => number } };
+    place_id?: string;
   };
 }
-
-function latLngFromUnknown(loc: unknown): { lat: number; lng: number } {
-  if (!loc || typeof loc !== "object") return { lat: 0, lng: 0 };
-  const o = loc as { lat?: unknown; lng?: unknown };
-  const lat = typeof o.lat === "function" ? (o.lat as () => number)() : Number(o.lat ?? 0);
-  const lng = typeof o.lng === "function" ? (o.lng as () => number)() : Number(o.lng ?? 0);
-  return { lat, lng };
-}
-
-/** Prioriza calles y números (Table A); sin esto Google suele mostrar negocios/POI. Máx. 5 tipos. */
-const ADDRESS_PRIMARY_TYPES = [
-  "street_address",
-  "premise",
-  "subpremise",
-  "route",
-] as const;
-
-/** Web component de Google; `value` no está en HTMLElement estándar. */
-type PlaceAutocompleteWidget = HTMLElement & { value: string };
 
 export function AddressAutocomplete({
   value,
@@ -159,63 +132,37 @@ export function AddressAutocomplete({
   showMap = true,
   wrapperClassName,
 }: AddressAutocompleteProps) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const acRef = useRef<PlaceAutocompleteWidget | null>(null);
-  /** Evita pisar lo que el usuario escribe en gmp: solo sincronizar cuando el padre cambia `value` (p. ej. reset). */
-  const lastParentValueRef = useRef(value);
-  const [widgetReady, setWidgetReady] = useState(false);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-
+  const inputRef = useRef<HTMLInputElement>(null);
+  const acInstanceRef = useRef<LegacyAutocomplete | null>(null);
+  const listenerRef = useRef<{ remove: () => void } | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
-  const valueRef = useRef(value);
-  valueRef.current = value;
 
-  // Sugerencias sobre modales (Radix): lista nueva (gmp) + legacy .pac por si acaso
+  // Texto visible en el input; se sincroniza desde el padre solo cuando el padre cambia value
+  // (evita pisar lo que el usuario escribe).
+  const [inputValue, setInputValue] = useState(value ?? "");
+  const lastParentValueRef = useRef(value);
+
   useEffect(() => {
-    const styleId = "gmp-place-autocomplete-z";
-    if (document.getElementById(styleId)) return;
-    const style = document.createElement("style");
-    style.id = styleId;
-    style.textContent = `
-      gmp-place-autocomplete::part(prediction-list),
-      gmp-basic-place-autocomplete::part(prediction-list) {
-        z-index: 10000 !important;
-      }
-      .pac-container { z-index: 10000 !important; pointer-events: auto !important; }
-      /* Neutraliza el chrome propio del web component para que solo se vea el wrapper */
-      gmp-place-autocomplete,
-      gmp-basic-place-autocomplete {
-        border: 0 !important;
-        outline: 0 !important;
-        box-shadow: none !important;
-        background: transparent !important;
-        --gmpx-color-surface: transparent;
-        --gmpx-color-on-surface: inherit;
-        --gmpx-color-on-surface-variant: inherit;
-        --gmpx-color-primary: transparent;
-        --gmpx-font-family-base: inherit;
-        --gmpx-font-family-headings: inherit;
-      }
-      gmp-place-autocomplete::part(input),
-      gmp-place-autocomplete::part(input-container),
-      gmp-basic-place-autocomplete::part(input),
-      gmp-basic-place-autocomplete::part(input-container) {
-        border: 0 !important;
-        outline: 0 !important;
-        box-shadow: none !important;
-        background: transparent !important;
-        color: inherit !important;
-      }
-    `;
-    document.head.appendChild(style);
+    if (value === undefined) return;
+    if (value === lastParentValueRef.current) return;
+    lastParentValueRef.current = value;
+    setInputValue(value);
+  }, [value]);
 
-    // Solo .pac-container (legacy). No usar [class*="prediction"]: coincide con nodos internos de gmp y rompe foco/teclado.
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Inyectar z-index para el dropdown .pac-container una sola vez.
+  useEffect(() => {
+    const styleId = "pac-container-zfix";
+    if (document.getElementById(styleId)) return;
+    const s = document.createElement("style");
+    s.id = styleId;
+    s.textContent = `.pac-container { z-index: 10000 !important; pointer-events: auto !important; }`;
+    document.head.appendChild(s);
+
     const handler = (e: PointerEvent | MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target?.closest?.(".pac-container")) {
-        e.stopPropagation();
-      }
+      if ((e.target as HTMLElement)?.closest?.(".pac-container")) e.stopPropagation();
     };
     document.addEventListener("pointerdown", handler, true);
     document.addEventListener("mousedown", handler, true);
@@ -225,117 +172,57 @@ export function AddressAutocomplete({
     };
   }, []);
 
-  // Precarga el JS de Maps en cuanto hay key, para que el input aparezca antes al abrir modales/formularios.
+  // Montar el Autocomplete legacy sobre el input nativo.
   useEffect(() => {
-    if (!GOOGLE_MAPS_API_KEY) return;
-    void loadGoogleMapsScript().catch(() => {});
-  }, []);
-
-  const handleNewPlaceSelect = useCallback(
-    async (place: {
-      fetchFields: (o: { fields: string[] }) => Promise<void>;
-      formattedAddress?: string;
-      id?: string;
-      addressComponents?: Array<{ longText?: string; types: string[] }>;
-      location?: unknown;
-    }) => {
-      await place.fetchFields({
-        fields: ["formattedAddress", "addressComponents", "location", "id"],
-      });
-      const formatted = place.formattedAddress ?? "";
-      const { lat, lng } = latLngFromUnknown(place.location);
-      const comps = normalizeComponents(place.addressComponents ?? []);
-      const result = extractFromComponents(
-        formatted,
-        place.id ?? "",
-        lat,
-        lng,
-        comps,
-      );
-      setCoords({ lat: result.lat, lng: result.lng });
-      onChangeRef.current(result);
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (!GOOGLE_MAPS_API_KEY || !wrapRef.current) return;
-
+    if (!GOOGLE_MAPS_API_KEY || !inputRef.current) return;
     let cancelled = false;
-    const container = wrapRef.current;
 
-    (async () => {
+    void (async () => {
       try {
         await loadGoogleMapsScript();
-        if (cancelled || !container) return;
-        const maps = window.google?.maps;
-        if (!maps) return;
+        if (cancelled || !inputRef.current) return;
 
-        const placesLib = (await maps.importLibrary("places")) as {
-          PlaceAutocompleteElement?: new (opts?: Record<string, unknown>) => PlaceAutocompleteWidget & {
-            addEventListener: (type: string, fn: (e: unknown) => void) => void;
-          };
-        };
+        const places = (window.google?.maps as unknown as { places?: { Autocomplete: new (el: HTMLInputElement, opts?: Record<string, unknown>) => LegacyAutocomplete } })?.places;
+        if (!places?.Autocomplete) return;
 
-        const Ctor = placesLib.PlaceAutocompleteElement;
-        if (!Ctor) return;
-
-        const el = new Ctor({
-          includedRegionCodes: ["cl"],
-          requestedLanguage: "es",
-          requestedRegion: "cl",
-          placeholder,
-          includedPrimaryTypes: [...ADDRESS_PRIMARY_TYPES],
+        const ac = new places.Autocomplete(inputRef.current, {
+          componentRestrictions: { country: "cl" },
+          types: ["address"],
+          fields: ["formatted_address", "address_components", "geometry", "place_id"],
         });
-        // Un solo borde: lo dibuja el contenedor; el widget Google trae borde propio.
-        el.className = `w-full min-h-10 border-0 bg-transparent text-sm shadow-none outline-none ${className ?? ""}`.trim();
-        const latest = valueRef.current;
-        if (latest !== undefined) {
-          el.value = latest;
-        }
+        acInstanceRef.current = ac;
 
-        const onSelect = async (event: Event) => {
-          const e = event as unknown as {
-            placePrediction?: { toPlace: () => unknown };
-          };
-          const place = e.placePrediction?.toPlace() as Parameters<typeof handleNewPlaceSelect>[0] | undefined;
-          if (!place) return;
-          await handleNewPlaceSelect(place);
-        };
-
-        el.addEventListener("gmp-select", onSelect);
-        container.appendChild(el);
-        acRef.current = el;
-        lastParentValueRef.current = latest;
-        setWidgetReady(true);
-
-        el.addEventListener("gmp-error", (ev) => {
-          console.error("[AddressAutocomplete] Google Places:", ev);
+        listenerRef.current = ac.addListener("place_changed", () => {
+          const place = ac.getPlace();
+          if (!place.geometry?.location) return;
+          const lat = place.geometry.location.lat();
+          const lng = place.geometry.location.lng();
+          const comps: LegacyComponent[] = place.address_components ?? [];
+          const result = extractFromComponents(
+            place.formatted_address ?? "",
+            place.place_id ?? "",
+            lat,
+            lng,
+            comps,
+          );
+          setInputValue(result.address);
+          lastParentValueRef.current = result.address;
+          setCoords({ lat, lng });
+          onChangeRef.current(result);
         });
       } catch (err) {
         console.error("[AddressAutocomplete]", err);
-        setWidgetReady(true);
       }
     })();
 
     return () => {
       cancelled = true;
-      setWidgetReady(false);
-      const el = acRef.current;
-      if (el?.parentNode) {
-        el.remove();
-      }
-      acRef.current = null;
+      listenerRef.current?.remove();
+      listenerRef.current = null;
+      acInstanceRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- montaje único; placeholder/className vía re-mount si hiciera falta
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (value === undefined || !acRef.current || !widgetReady) return;
-    if (lastParentValueRef.current === value) return;
-    lastParentValueRef.current = value;
-    acRef.current.value = value;
-  }, [value, widgetReady]);
 
   const showMapImage = coords && showMap && GOOGLE_MAPS_API_KEY;
   const mapUrl = showMapImage
@@ -350,44 +237,32 @@ export function AddressAutocomplete({
     );
   }
 
-  const wrapperBaseClasses = "relative min-h-[44px] w-full rounded-lg border pl-9 pr-2 shadow-sm transition-colors focus-within:border-ring";
+  const wrapperBaseClasses =
+    "relative flex min-h-[44px] w-full items-center rounded-lg border pl-9 pr-2 shadow-sm transition-colors focus-within:border-ring";
   const wrapperClasses = wrapperClassName
     ? `${wrapperBaseClasses} ${wrapperClassName}`
     : `${wrapperBaseClasses} border-input bg-background`;
 
   const mapPinColor = wrapperClassName ? "text-slate-400" : "text-muted-foreground";
 
-  const focusWidget = useCallback(() => {
-    const el = acRef.current;
-    if (!el) return;
-    // El web component de Google delega focus en su <input> interno (shadow DOM).
-    try {
-      el.focus();
-    } catch {}
-    // Fallback: busca cualquier input descendiente (incluye shadow root) y enfócalo.
-    const inner =
-      (el.shadowRoot?.querySelector?.("input") as HTMLInputElement | null) ??
-      (el.querySelector?.("input") as HTMLInputElement | null);
-    inner?.focus();
-  }, []);
-
   return (
     <div className="space-y-2">
       <div className="relative w-full">
-        <MapPin className={`absolute left-3 top-1/2 z-[2] -translate-y-1/2 h-4 w-4 pointer-events-none ${mapPinColor}`} />
-        <div
-          className={`${wrapperClasses} cursor-text`}
-          aria-busy={!widgetReady}
-          onClick={focusWidget}
-        >
-          {!widgetReady ? (
-            <div className="pointer-events-none absolute inset-0 left-9 flex items-center text-sm text-muted-foreground">
-              Cargando buscador de direcciones…
-            </div>
-          ) : null}
-          <div
-            ref={wrapRef}
-            className="relative z-[1] flex min-h-[40px] w-full items-center [&>gmp-place-autocomplete]:min-h-10 [&>gmp-place-autocomplete]:w-full [&>gmp-place-autocomplete]:pointer-events-auto"
+        <MapPin
+          className={`absolute left-3 top-1/2 z-[2] -translate-y-1/2 h-4 w-4 pointer-events-none ${mapPinColor}`}
+        />
+        <div className={cn(wrapperClasses, "cursor-text")}>
+          <input
+            ref={inputRef}
+            type="text"
+            autoComplete="off"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder={placeholder}
+            className={cn(
+              "w-full min-h-[40px] bg-transparent border-0 outline-none text-sm text-foreground placeholder:text-muted-foreground",
+              className,
+            )}
           />
         </div>
       </div>
