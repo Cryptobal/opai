@@ -74,7 +74,7 @@ const TIPO_LABELS: Record<string, string> = {
   automatico: "Automatico",
   feed: "Feed XML",
   manual_link: "Manual",
-  partner_api: "Proximamente",
+  partner_api: "API REST",
 };
 
 const TIPO_ICONS: Record<string, typeof Zap> = {
@@ -648,7 +648,7 @@ export function AtsConfigClient({
         ) && (
           <>
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 pt-2">
-              Integraciones API (futuro)
+              Integraciones API
             </h4>
             {Object.entries(channels)
               .filter(([, ch]) => ch.tipo === "partner_api")

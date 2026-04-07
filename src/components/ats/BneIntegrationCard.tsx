@@ -171,9 +171,10 @@ export function BneIntegrationCard({
                 </button>
               </PopoverTrigger>
               <PopoverContent
-                side="right"
+                side="bottom"
                 align="start"
-                className="w-[360px] text-xs space-y-3"
+                sideOffset={8}
+                className="!min-w-[340px] !max-w-[380px] p-4 text-xs space-y-3"
               >
                 <div className="space-y-1">
                   <p className="font-semibold text-sm text-foreground">
