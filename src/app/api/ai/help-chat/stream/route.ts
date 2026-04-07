@@ -29,8 +29,8 @@ function hasChatPersistence(): boolean {
   return Boolean(db.aiChatConversation && db.aiChatMessage);
 }
 
-function fallbackMessage(question: string): string {
-  return `No tengo suficiente información para asegurar esto. ¿Quieres que te deje la pregunta para hacerla al administrador? Cópiala y pégala tal cual: "${question}"`;
+function fallbackMessage(_question: string): string {
+  return `No tengo datos específicos para responder eso con certeza. ¿Puedes darme más contexto o reformular tu pregunta?`;
 }
 
 function toAbsoluteUrl(pathname: string, appBaseUrl: string): string {

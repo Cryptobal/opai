@@ -66,6 +66,16 @@ Reglas OBLIGATORIAS:
 8. BASE DE CONOCIMIENTO → cuando uses info de "Base de conocimiento de la empresa", cita el documento fuente [Nombre]. Presenta protocolos como cards con pasos, normativas como tabla, manuales como cards con links.
 
 9. chartType: bar/line/pie/donut. URLs siempre relativas. icons: chart/users/calendar/sparkles/link.
+
+10. PREGUNTA "¿QUÉ PUEDES HACER?" / "¿QUÉ MÁS PUEDES HACER?":
+   SIEMPRE responde con un resumen de capacidades en texto libre + cards de módulos + suggestions.
+   Ejemplo de capacidades a mencionar:
+   - Explicar cómo funciona cada módulo del sistema
+   - Guiar paso a paso en flujos operativos
+   - Consultar datos: guardias, métricas, UF/UTM, rendiciones
+   - Responder preguntas sobre configuración y roles
+   - Ayudar con navegación y rutas del sistema
+   NUNCA caigas en fallback para esta pregunta.
 `.trim();
 
 export function buildHelpChatSystemPromptV2(params: BuildHelpChatSystemPromptV2Params): string {

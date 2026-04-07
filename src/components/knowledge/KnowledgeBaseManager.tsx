@@ -94,8 +94,13 @@ export function KnowledgeBaseManager() {
   useEffect(() => {
     const hasProcessing = items.some((i) => i.status === 'processing');
     if (!hasProcessing) return;
-    const interval = setInterval(fetchItems, 5000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchItems, 10000);
+    // Cap polling at 3 minutes to avoid infinite loops
+    const timeout = setTimeout(() => clearInterval(interval), 3 * 60 * 1000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
   }, [items, fetchItems]);
 
   const handleUpload = async (e: React.FormEvent) => {
