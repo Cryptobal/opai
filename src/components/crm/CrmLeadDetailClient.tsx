@@ -2299,19 +2299,22 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                     <Input value={inst.name} onChange={(e) => updateInstallation(inst._key, "name", e.target.value)} placeholder="Bodega central, Sucursal norte..." className={`h-9 text-sm ${inputClassName}`} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[11px]">Dirección (Google Maps)</Label>
-                    <div className="flex gap-2 items-center">
-                      <div className="flex-1 min-w-0">
-                        <AddressAutocomplete value={inst.address} onChange={(result) => handleAddressChange(inst._key, result)} placeholder="Buscar dirección..." showMap={false} />
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px]">Dirección (Google Maps)</Label>
                       {(inst.address || (inst.lat != null && inst.lng != null)) && (
-                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" title="Abrir en Google Maps" asChild>
-                          <a href={inst.lat != null && inst.lng != null ? `https://www.google.com/maps/@${inst.lat},${inst.lng},17z` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inst.address)}`} target="_blank" rel="noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </Button>
+                        <a
+                          href={inst.lat != null && inst.lng != null ? `https://www.google.com/maps/@${inst.lat},${inst.lng},17z` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inst.address)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-1"
+                          title="Abrir en Google Maps"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Abrir en Maps
+                        </a>
                       )}
                     </div>
+                    <AddressAutocomplete value={inst.address} onChange={(result) => handleAddressChange(inst._key, result)} placeholder="Buscar dirección..." showMap={false} />
                     <MapsUrlPasteInput onResolve={(result) => handleAddressChange(inst._key, result)} className="mt-1.5" />
                   </div>
                 </div>
