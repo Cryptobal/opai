@@ -16,7 +16,6 @@ import { searchKnowledge } from "@/lib/knowledge/search";
 import {
   getHelpChatAIConfig as getProviderConfig,
   createStreamingCompletion,
-  createCompletion,
   type HelpChatAIConfig,
   type ToolCallInfo,
 } from "@/lib/ai/help-chat-provider";
@@ -270,86 +269,47 @@ export async function POST(request: NextRequest) {
           maxTokens: 1400,
         };
 
-        /* tool-calling loop (max 4 iterations) */
+        /* tool-calling loop (max 4 iterations) — always streaming */
         for (let step = 0; step < 4; step += 1) {
-          const isLastOrTextStep = step > 0;
+          let pendingToolCalls: ToolCallInfo[] = [];
+          let hasToolCalls = false;
 
-          if (isLastOrTextStep || tools.length === 0) {
-            /* streaming call via provider */
-            let pendingToolCalls: ToolCallInfo[] = [];
-            let hasToolCalls = false;
-
-            for await (const event of createStreamingCompletion(configWithModel, completionParams)) {
-              if (event.type === "token") {
-                fullText += event.text;
-                send("token", { token: event.text });
-              }
-              if (event.type === "tool_calls") {
-                hasToolCalls = true;
-                pendingToolCalls = event.calls;
-              }
+          for await (const event of createStreamingCompletion(configWithModel, completionParams)) {
+            if (event.type === "token") {
+              fullText += event.text;
+              send("token", { token: event.text });
             }
-
-            if (hasToolCalls && pendingToolCalls.length > 0) {
-              toolCallsUsed += pendingToolCalls.length;
-              messages.push({
-                role: "assistant",
-                content: fullText || null,
-                tool_calls: pendingToolCalls.map(tc => ({
-                  id: tc.id,
-                  type: "function",
-                  function: { name: tc.name, arguments: tc.arguments },
-                })),
-              });
-
-              for (const call of pendingToolCalls) {
-                let args: Record<string, unknown> = {};
-                try { args = JSON.parse(call.arguments || "{}"); } catch { args = {}; }
-                const result = await executeToolCallV2(
-                  call.name, args, ctx.tenantId, ctx.userId,
-                  hasCapability(perms, "rendicion_view_all"),
-                );
-                messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
-              }
-              fullText = "";
-              continue;
+            if (event.type === "tool_calls") {
+              hasToolCalls = true;
+              pendingToolCalls = event.calls;
             }
+          }
 
+          if (!hasToolCalls || pendingToolCalls.length === 0) {
             break;
           }
 
-          /* first step: non-streaming call to check for tool calls */
-          const result = await createCompletion(configWithModel, completionParams);
-          const callList = result.toolCalls;
-
-          if (!callList.length) {
-            fullText = result.text;
-            for (const token of fullText) {
-              send("token", { token });
-            }
-            break;
-          }
-
-          toolCallsUsed += callList.length;
+          toolCallsUsed += pendingToolCalls.length;
           messages.push({
             role: "assistant",
-            content: result.text || "",
-            tool_calls: callList.map(tc => ({
+            content: fullText || null,
+            tool_calls: pendingToolCalls.map(tc => ({
               id: tc.id,
               type: "function",
               function: { name: tc.name, arguments: tc.arguments },
             })),
           });
 
-          for (const call of callList) {
+          for (const call of pendingToolCalls) {
             let args: Record<string, unknown> = {};
             try { args = JSON.parse(call.arguments || "{}"); } catch { args = {}; }
-            const result2 = await executeToolCallV2(
+            const result = await executeToolCallV2(
               call.name, args, ctx.tenantId, ctx.userId,
               hasCapability(perms, "rendicion_view_all"),
             );
-            messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result2) });
+            messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
           }
+          fullText = "";
         }
 
         /* post-processing */

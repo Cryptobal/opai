@@ -337,6 +337,18 @@ export function KnowledgeBaseManager() {
                       >
                         <RefreshCw className="h-4 w-4" />
                       </button>
+                      {item.status === 'error' && (
+                        <button
+                          onClick={async () => {
+                            await fetch(`/api/knowledge/${item.id}/reprocess`, { method: 'POST' }).catch(() => {});
+                            fetchItems();
+                          }}
+                          className="rounded p-1 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                          title="Reintentar procesamiento"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(item.id)}
                         disabled={deleting === item.id}
