@@ -40,7 +40,7 @@ export const CHANNEL_DEFAULTS: Record<string, AtsChannelCfg> = {
   yapo: { enabled: false, label: "Yapo", tipo: "manual_link" },
   laborum: { enabled: false, label: "Laborum", tipo: "manual_link" },
   linkedin: { enabled: false, label: "LinkedIn Jobs", tipo: "automatico" },
-  bne: { enabled: false, label: "BNE (Bolsa Nacional de Empleo)", tipo: "feed" },
+  bne: { enabled: false, label: "BNE (Bolsa Nacional de Empleo)", tipo: "partner_api" },
   jooble: { enabled: true, label: "Jooble", tipo: "feed" },
   jobrapido: { enabled: false, label: "Jobrapido", tipo: "feed" },
   postjobfree: { enabled: false, label: "PostJobFree", tipo: "feed" },

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getAtsConfig } from "@/lib/ats/config";
 import { requestGoogleIndexing } from "@/lib/ats/google-indexing";
 import { syncJobToIndeed } from "@/lib/ats/indeed.service";
+import { syncJobToBne } from "@/lib/ats/bne.service";
 
 export type Canal =
   | "google_jobs"
@@ -61,6 +62,22 @@ export async function publicarEnCanal(
         };
       }
       case "bne": {
+        // Prefer the BNE Ofertas Publicas REST API when the tenant has
+        // configured its own credentials. Falls back to the public feed XML
+        // (read by BNE crawler) when no integration row exists yet.
+        const integration = await prisma.bneIntegration
+          .findUnique({
+            where: { tenantId },
+            select: { consumerKey: true, idEmpleador: true, status: true },
+          })
+          .catch(() => null);
+        if (
+          integration?.consumerKey &&
+          integration?.idEmpleador &&
+          integration?.status !== "error"
+        ) {
+          return await syncJobToBne(jobPostingId, tenantId);
+        }
         const feedTenant = await prisma.tenant.findFirst({
           where: { id: tenantId },
           select: { slug: true },

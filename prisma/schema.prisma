@@ -72,6 +72,7 @@ model Tenant {
   atsJobPostings              AtsJobPosting[]   @relation("ats_job_tenant")
   atsApplications             AtsApplication[]  @relation("ats_application_tenant")
   indeedIntegration           IndeedIntegration? @relation("indeed_integration_tenant")
+  bneIntegration              BneIntegration? @relation("bne_integration_tenant")
   planChangeLogs              PlanChangeLog[]
   knowledgeBases              KnowledgeBase[]
 
@@ -7970,6 +7971,56 @@ model IndeedIntegration {
   tenant          Tenant   @relation("indeed_integration_tenant", fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("ats_indeed_integrations")
+  @@schema("ops")
+}
+
+model BneIntegration {
+  id                       String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId                 String    @unique @map("tenant_id")
+
+  // Credentials issued by BNE (per empleador). Stored encrypted at rest with AES-256-GCM.
+  // Plaintext is never returned by APIs; only a masked preview.
+  consumerKey              String?   @map("consumer_key") @db.Text
+  consumerSecretEncrypted  String?   @map("consumer_secret_enc") @db.Text
+  environment              String    @default("prod") @map("environment") // "prod" | "test"
+
+  // Empleador identity (used as idEmpleador / RutEmpleador in payloads).
+  // idEmpleador is the numeric BNE ID; discovered via GET /empresas?rut={rut}.
+  rutEmpleador             String?   @map("rut_empleador")
+  idEmpleador              Int?      @map("id_empleador")
+  idUsuarioPublicador      Int?      @map("id_usuario_publicador")
+  mostrarNombreEmpresa     Boolean   @default(true) @map("mostrar_nombre_empresa")
+
+  // Cached OAuth2 token (Client Credentials flow). Refreshed automatically.
+  accessToken              String?   @map("access_token") @db.Text
+  tokenExpiresAt           DateTime? @map("token_expires_at") @db.Timestamptz(6)
+
+  // Default catalog IDs for BNE payload (so each tenant can override). Sensible
+  // defaults seeded for security-guard postings; advanced UI can edit later.
+  defaultJornadaTrabajo    Int?      @map("default_jornada_trabajo")
+  defaultRelacionContractual Int?    @map("default_relacion_contractual")
+  defaultRangoSalarios     Int?      @map("default_rango_salarios")
+  defaultOcupacion         Int?      @map("default_ocupacion")
+  defaultNivelCargo        Int?      @map("default_nivel_cargo")
+  defaultDiasPublicacion   Int       @default(30) @map("default_dias_publicacion")
+
+  // Cached BNE catalogs (regiones, comunas, jornadas, etc.) for name->id lookup.
+  catalogCache             Json?     @map("catalog_cache") @db.JsonB
+  catalogCacheAt           DateTime? @map("catalog_cache_at") @db.Timestamptz(6)
+
+  // Status / observability
+  status                   String    @default("pending") @map("status") // pending | active | error
+  lastSyncAt               DateTime? @map("last_sync_at") @db.Timestamptz(6)
+  lastErrorAt              DateTime? @map("last_error_at") @db.Timestamptz(6)
+  lastError                String?   @map("last_error") @db.Text
+  jobCount                 Int       @default(0) @map("job_count")
+
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant                   Tenant    @relation("bne_integration_tenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("ats_bne_integrations")
   @@schema("ops")
 }
 

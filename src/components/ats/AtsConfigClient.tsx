@@ -21,6 +21,10 @@ import {
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { AtsSnippetsConfig, Snippet, SnippetField } from "@/lib/ats/snippets";
+import {
+  BneIntegrationCard,
+  type BneIntegrationConfig,
+} from "@/components/ats/BneIntegrationCard";
 
 interface AtsChannelCfg {
   enabled: boolean;
@@ -85,7 +89,7 @@ const CHANNEL_DESCRIPTIONS: Record<string, string> = {
     "Se genera automaticamente una pagina publica con JSON-LD que Google indexa.",
   base_opai: "Notifica automaticamente a guardias con match alto.",
   talent: "Genera un feed XML con tus avisos activos para Talent.com.",
-  bne: "Genera un feed XML con tus avisos activos para la Bolsa Nacional de Empleo.",
+  bne: "Publica avisos directamente a BNE vía API OAuth2 (cada empresa usa sus propias credenciales).",
   indeed: "Publicacion manual en Indeed para cada aviso de empleo.",
   computrabajo: "Publicacion manual en Computrabajo para cada aviso.",
   bumeran: "Publicacion manual en Bumeran para cada aviso.",
@@ -107,11 +111,6 @@ const FEED_INSTRUCTIONS: Record<string, string[]> = {
     "Ve a talent.com -> Panel de empleador -> Integracion de feeds",
     "Pega la URL y guarda",
   ],
-  bne: [
-    "Copia la URL de arriba",
-    "Ve a bne.cl -> Panel de empleador -> Integracion XML",
-    "Pega la URL y guarda",
-  ],
 };
 
 
@@ -125,10 +124,12 @@ export function AtsConfigClient({
   initialConfig,
   tenantSlug,
   initialSnippets,
+  initialBneConfig,
 }: {
   initialConfig: AtsConfig;
   tenantSlug: string;
   initialSnippets: AtsSnippetsConfig;
+  initialBneConfig?: BneIntegrationConfig;
 }) {
   const [config, setConfig] = useState<AtsConfig>(initialConfig);
   const [channels, setChannels] = useState<Record<string, AtsChannelCfg>>(
@@ -413,6 +414,16 @@ export function AtsConfigClient({
   }
 
   function renderPartnerApiCard(key: string, ch: AtsChannelCfg) {
+    if (key === "bne") {
+      return (
+        <BneIntegrationCard
+          key={key}
+          initial={initialBneConfig ?? { configured: false }}
+          channelEnabled={ch.enabled}
+          onToggleChannel={(v) => updateChannel(key, { enabled: v })}
+        />
+      );
+    }
     return (
       <Card
         key={key}
