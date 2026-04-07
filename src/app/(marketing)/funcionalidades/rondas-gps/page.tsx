@@ -9,6 +9,20 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.opai.cl/funcionalidades/rondas-gps',
   },
+  openGraph: {
+    title: 'Control de Rondas GPS con IA | OPAI',
+    description:
+      'Rondas GPS inteligentes con checkpoints QR, geo-fence adaptativo, Trust Score 0-100, detección de anomalías y resúmenes nocturnos con IA.',
+    url: 'https://www.opai.cl/funcionalidades/rondas-gps',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Control de Rondas GPS con IA | OPAI',
+    description: 'Checkpoints QR, geo-fence adaptativo, Trust Score y resúmenes nocturnos.',
+    images: ['/icons/og-image.png'],
+  },
 }
 
 const features = [

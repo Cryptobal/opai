@@ -12,6 +12,8 @@ export const metadata: Metadata = {
     description:
       'La historia detrás de OPAI: un equipo con 15+ años en seguridad privada, experiencia real y tecnología de clase mundial.',
     url: 'https://www.opai.cl/nosotros',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
   },
 }
 

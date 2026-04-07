@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/Logo%20Gard%20Blanco.png",
+        url: "/icons/og-image.png",
         width: 1200,
         height: 630,
         alt: "OPAI",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     title: "Ingreso Turno Extra | OPAI",
     description:
       "Completa el formulario de ingreso como guardia de Turno Extra en OPAI.",
-    images: ["/Logo%20Gard%20Blanco.png"],
+    images: ["/icons/og-image.png"],
   },
 };
 

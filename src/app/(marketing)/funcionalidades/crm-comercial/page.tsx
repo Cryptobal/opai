@@ -9,6 +9,20 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.opai.cl/funcionalidades/crm-comercial',
   },
+  openGraph: {
+    title: 'CRM para Empresas de Seguridad | OPAI',
+    description:
+      'CRM diseñado para vender servicios de seguridad privada: pipeline visual, cotizaciones PDF, propuestas interactivas y enriquecimiento con IA.',
+    url: 'https://www.opai.cl/funcionalidades/crm-comercial',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'CRM para Empresas de Seguridad | OPAI',
+    description: 'Pipeline visual, cotizaciones PDF, propuestas interactivas y enriquecimiento con IA.',
+    images: ['/icons/og-image.png'],
+  },
 }
 
 const features = [

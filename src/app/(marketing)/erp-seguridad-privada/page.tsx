@@ -12,6 +12,8 @@ export const metadata: Metadata = {
     description:
       'El único ERP construido exclusivamente para empresas de seguridad privada. Face ID, GPS, IA, WhatsApp y compliance chileno.',
     url: 'https://www.opai.cl/erp-seguridad-privada',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
   },
 }
 

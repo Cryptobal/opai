@@ -65,7 +65,6 @@ export async function generateMetadata({
   const title = `${job.titulo} — ${companyName} | OPAI`;
   const description = job.descripcion.slice(0, 160);
   const url = `https://www.opai.cl/empleos/${tenantSlug}/${slug}`;
-  const ogImage = cfg.brandingLogoFull || cfg.logoUrl || undefined;
 
   return {
     title,
@@ -77,13 +76,11 @@ export async function generateMetadata({
       url,
       siteName: "OPAI",
       type: "article",
-      images: ogImage ? [{ url: ogImage, alt: companyName }] : undefined,
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: ogImage ? [ogImage] : undefined,
     },
   };
 }

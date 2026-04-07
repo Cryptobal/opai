@@ -12,6 +12,8 @@ export const metadata: Metadata = {
     title: 'Blog | OPAI',
     description: 'Recursos y guías para empresas de seguridad privada.',
     url: 'https://www.opai.cl/blog',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
   },
 }
 

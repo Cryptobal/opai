@@ -31,6 +31,7 @@ function isPublicPath(pathname: string): boolean {
     '/funcionalidades', '/planes', '/blog', '/nosotros', '/contacto',
     '/registrarse', '/erp-seguridad-privada', '/control-rondas-gps',
     '/ia-seguridad-privada', '/integraciones', '/privacidad', '/terminos',
+    '/empleos',
   ];
   for (const mp of marketingPaths) {
     if (pathname === mp || pathname.startsWith(mp + '/')) return true;

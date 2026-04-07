@@ -6,6 +6,21 @@ export const metadata: Metadata = {
   description:
     "Regístrese en 30 segundos y acceda a una demo del Portal de Clientes de OPAI. Monitoree rondas, asistencia, incidencias y más.",
   robots: { index: true, follow: true },
+  openGraph: {
+    title: "Registro Demo — Portal de Clientes OPAI",
+    description:
+      "Regístrese en 30 segundos y acceda a una demo del Portal de Clientes de OPAI.",
+    url: "https://www.opai.cl/registro-demo",
+    type: "website",
+    images: [{ url: "/icons/og-image.png", width: 1200, height: 630, alt: "OPAI" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Registro Demo — Portal de Clientes OPAI",
+    description:
+      "Regístrese en 30 segundos y acceda a una demo del Portal de Clientes de OPAI.",
+    images: ["/icons/og-image.png"],
+  },
 };
 
 export default async function RegistroDemoPage({

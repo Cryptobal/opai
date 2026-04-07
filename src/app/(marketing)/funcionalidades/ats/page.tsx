@@ -9,6 +9,20 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.opai.cl/funcionalidades/ats',
   },
+  openGraph: {
+    title: 'ATS — Sistema de Reclutamiento para Guardias de Seguridad | OPAI',
+    description:
+      'Publica empleos en Google, Indeed, Computrabajo y más. Gestiona candidatos con match score inteligente. La mayor base de guardias de Chile.',
+    url: 'https://www.opai.cl/funcionalidades/ats',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ATS — Sistema de Reclutamiento para Guardias | OPAI',
+    description: 'Publica empleos en Google, Indeed, Computrabajo y más. Match score inteligente.',
+    images: ['/icons/og-image.png'],
+  },
 }
 
 const features = [

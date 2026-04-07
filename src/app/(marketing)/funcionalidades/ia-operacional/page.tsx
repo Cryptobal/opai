@@ -9,6 +9,20 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.opai.cl/funcionalidades/ia-operacional',
   },
+  openGraph: {
+    title: 'IA Operacional para Seguridad Privada | OPAI',
+    description:
+      'Inteligencia artificial integrada en operaciones reales: RAG con pgvector, OCR con OpenAI y Claude, análisis nocturno, detección de frustración y enriquecimiento CRM.',
+    url: 'https://www.opai.cl/funcionalidades/ia-operacional',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'IA Operacional para Seguridad Privada | OPAI',
+    description: 'RAG, OCR, análisis nocturno y enriquecimiento CRM con IA.',
+    images: ['/icons/og-image.png'],
+  },
 }
 
 const features = [

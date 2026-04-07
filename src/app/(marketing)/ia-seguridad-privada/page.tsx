@@ -12,6 +12,8 @@ export const metadata: Metadata = {
     description:
       'IA que trabaja 24/7: help chat con RAG, OCR, detección de anomalías y enriquecimiento automático de CRM.',
     url: 'https://www.opai.cl/ia-seguridad-privada',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
   },
 }
 

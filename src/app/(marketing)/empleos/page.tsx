@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     title: "Empleos Guardias de Seguridad Chile | OPAI",
     description: "Ofertas de empleo actualizadas para guardias de seguridad en Chile. Postula directamente desde la plataforma.",
     url: "https://www.opai.cl/empleos",
+    type: "website",
   },
 };
 
