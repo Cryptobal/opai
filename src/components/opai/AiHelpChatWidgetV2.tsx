@@ -28,6 +28,10 @@ import type {
   VisualTable,
   SuggestionIcon,
 } from "@/lib/ai/help-chat-visual-types";
+import {
+  useChatPageContext,
+  useClearChatPageContext,
+} from "./ChatPageContextProvider";
 
 type ConversationItem = {
   id: string;
@@ -320,34 +324,88 @@ function CardsBlock({
   items: VisualCardItem[];
   onAction: (a: VisualCardItem["action"] | undefined) => void;
 }) {
+  const visible = items.slice(0, 12);
+  // Un solo item: layout vertical full-width (comportamiento anterior).
+  // 2+ items: carrusel horizontal con snap y CTA explícito.
+  if (visible.length <= 1) {
+    return (
+      <div className="mt-2 space-y-1.5">
+        {visible.map((item, i) => (
+          <button
+            key={`${item.title}-${i}`}
+            type="button"
+            onClick={() => item.action && onAction(item.action)}
+            className="flex w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-left transition hover:bg-white/[0.07]"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-white truncate">{item.title}</p>
+              {item.subtitle ? <p className="text-xs text-white/50 truncate">{item.subtitle}</p> : null}
+              {item.meta ? <p className="text-xs text-white/70 truncate mt-0.5">{item.meta}</p> : null}
+            </div>
+            {item.badge ? (
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                  item.badgeColor === "green" && "bg-emerald-500/20 text-emerald-300",
+                  item.badgeColor === "red" && "bg-rose-500/20 text-rose-300",
+                  item.badgeColor === "blue" && "bg-sky-500/20 text-sky-300",
+                  item.badgeColor === "purple" && "bg-violet-500/20 text-violet-300",
+                  (!item.badgeColor || item.badgeColor === "amber" || item.badgeColor === "yellow") && "bg-amber-500/20 text-amber-200",
+                )}
+              >
+                {item.badge}
+              </span>
+            ) : null}
+            <ChevronRight className="h-4 w-4 shrink-0 text-white/30" />
+          </button>
+        ))}
+      </div>
+    );
+  }
   return (
-    <div className="mt-2 space-y-1.5">
-      {items.slice(0, 6).map((item, i) => (
-        <button
-          key={`${item.title}-${i}`}
-          type="button"
-          onClick={() => item.action && onAction(item.action)}
-          className="flex w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-left transition hover:bg-white/[0.07]"
-        >
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-white truncate">{item.title}</p>
-            {item.subtitle ? <p className="text-xs text-white/50 truncate">{item.subtitle}</p> : null}
+    <div className="mt-2 -mx-3 px-3">
+      <div className="flex gap-2.5 overflow-x-auto snap-x snap-mandatory pb-2 [scrollbar-width:thin]">
+        {visible.map((item, i) => (
+          <div
+            key={`${item.title}-${i}`}
+            className="group relative flex min-w-[220px] max-w-[240px] snap-start flex-col rounded-xl border border-white/[0.08] bg-white/[0.04] p-3 transition hover:bg-white/[0.07]"
+          >
+            <div className="flex items-start gap-2">
+              <p className="text-sm font-semibold text-white line-clamp-2 flex-1">{item.title}</p>
+              {item.badge ? (
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
+                    item.badgeColor === "green" && "bg-emerald-500/20 text-emerald-300",
+                    item.badgeColor === "red" && "bg-rose-500/20 text-rose-300",
+                    item.badgeColor === "blue" && "bg-sky-500/20 text-sky-300",
+                    item.badgeColor === "purple" && "bg-violet-500/20 text-violet-300",
+                    (!item.badgeColor || item.badgeColor === "amber" || item.badgeColor === "yellow") && "bg-amber-500/20 text-amber-200",
+                  )}
+                >
+                  {item.badge}
+                </span>
+              ) : null}
+            </div>
+            {item.subtitle ? (
+              <p className="mt-1 text-[11px] leading-snug text-white/55 line-clamp-2">{item.subtitle}</p>
+            ) : null}
+            {item.meta ? (
+              <p className="mt-1.5 text-xs font-medium text-white/85 truncate">{item.meta}</p>
+            ) : null}
+            {item.action ? (
+              <button
+                type="button"
+                onClick={() => onAction(item.action)}
+                className="mt-3 inline-flex items-center justify-center gap-1 rounded-lg bg-white/[0.06] border border-white/[0.08] px-2.5 py-1.5 text-[11px] font-medium text-white/90 hover:bg-white/[0.12] transition"
+              >
+                Ver detalle
+                <ChevronRight className="h-3 w-3" />
+              </button>
+            ) : null}
           </div>
-          {item.badge ? (
-            <span
-              className={cn(
-                "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                item.badgeColor === "green" && "bg-emerald-500/20 text-emerald-300",
-                item.badgeColor === "red" && "bg-rose-500/20 text-rose-300",
-                (!item.badgeColor || item.badgeColor === "amber") && "bg-amber-500/20 text-amber-200",
-              )}
-            >
-              {item.badge}
-            </span>
-          ) : null}
-          <ChevronRight className="h-4 w-4 shrink-0 text-white/30" />
-        </button>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -540,6 +598,38 @@ function renderMessageContent(content: string) {
   ));
 }
 
+const TOOL_LABELS: Record<string, string> = {
+  search_accounts: "Buscando clientes...",
+  search_deals: "Buscando deals...",
+  search_installations: "Buscando instalaciones...",
+  search_quotes: "Buscando cotizaciones...",
+  search_guardias: "Buscando guardias...",
+  get_entity_documents: "Buscando documentos...",
+  read_document: "Leyendo documento...",
+  get_uf_utm: "Consultando UF/UTM...",
+  get_guardias_metrics: "Calculando métricas...",
+  get_pending_rendiciones: "Buscando rendiciones...",
+  get_daily_attendance: "Consultando asistencia...",
+  get_supervision_visits: "Consultando supervisión...",
+  get_rondas_status: "Consultando rondas...",
+  get_tickets_summary: "Consultando tickets...",
+  get_finance_summary: "Consultando finanzas...",
+  get_account_detail: "Leyendo ficha del cliente...",
+  list_account_documents: "Listando documentos del cliente...",
+  get_guardia_detail: "Leyendo ficha del guardia...",
+  list_guardia_documents: "Listando documentos del guardia...",
+  get_panic_alerts: "Revisando alertas de pánico...",
+  get_daily_absences: "Revisando ausencias...",
+  get_extra_shifts: "Revisando turnos extra...",
+  get_deal_pipeline: "Cargando pipeline...",
+  get_user_context: "Cargando contexto del usuario...",
+  get_tenant_summary: "Cargando resumen del tenant...",
+};
+
+function friendlyToolLabel(name: string): string {
+  return TOOL_LABELS[name] ?? "Consultando datos...";
+}
+
 const QUICK_STARTERS = [
   "¿Qué puedes hacer?",
   "Resume el estado de operaciones de hoy",
@@ -560,6 +650,9 @@ export function AiHelpChatWidgetV2() {
   const [sending, setSending] = useState(false);
   const [streamingStarted, setStreamingStarted] = useState(false);
   const [persistenceEnabled, setPersistenceEnabled] = useState(true);
+  const [activeToolName, setActiveToolName] = useState<string | null>(null);
+  const pageContext = useChatPageContext();
+  const clearPageContext = useClearChatPageContext();
   const scrollDesktopRef = useRef<HTMLDivElement | null>(null);
   const scrollMobileRef = useRef<HTMLDivElement | null>(null);
   const handleAction = (action: VisualCardItem["action"] | VisualSuggestionItem["action"] | undefined) => {
@@ -699,6 +792,7 @@ export function AiHelpChatWidgetV2() {
         body: JSON.stringify({
           message: text,
           conversationId: activeConversationId ?? undefined,
+          pageContext: pageContext ?? undefined,
         }),
       });
 
@@ -778,6 +872,11 @@ export function AiHelpChatWidgetV2() {
                   }
                   return updated;
                 });
+              } else if (eventType === "tool_call") {
+                const status = (data.status as string) || "running";
+                const name = (data.name as string) || "";
+                if (status === "running") setActiveToolName(name);
+                else setActiveToolName(null);
               } else if (eventType === "error") {
                 throw new Error((data.error as string) || "Error del asistente");
               }
@@ -819,6 +918,7 @@ export function AiHelpChatWidgetV2() {
       });
     } finally {
       setSending(false);
+      setActiveToolName(null);
     }
   };
 
@@ -844,6 +944,27 @@ export function AiHelpChatWidgetV2() {
           <X className="h-4 w-4" />
         </button>
       </div>
+
+      {pageContext ? (
+        <div className="border-b border-cyan-500/20 px-3 py-2 bg-gradient-to-r from-cyan-500/10 to-emerald-500/5">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] uppercase tracking-wide text-cyan-300/70">Hablando sobre</p>
+              <p className="text-xs font-medium text-white truncate">{pageContext.entityName}</p>
+            </div>
+            <button
+              type="button"
+              onClick={clearPageContext}
+              className="shrink-0 rounded-md p-1 text-white/40 hover:bg-white/10 hover:text-white transition"
+              aria-label="Quitar contexto de página"
+              title="Quitar contexto"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="border-b border-white/[0.06] px-3 py-2 bg-black/10">
         <div className="flex items-center gap-2">
@@ -919,16 +1040,16 @@ export function AiHelpChatWidgetV2() {
             </div>
           ))
         )}
-        {sending && !streamingStarted && (
+        {(sending && !streamingStarted) || activeToolName ? (
           <div className="flex items-center gap-1.5 px-2 py-2 text-xs text-cyan-200/80">
             <span className="inline-flex gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0ms]" />
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:120ms]" />
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:240ms]" />
             </span>
-            <span>Pensando...</span>
+            <span>{activeToolName ? friendlyToolLabel(activeToolName) : "Pensando..."}</span>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className={cn("border-t border-white/[0.08] p-3", mobile && "pb-[calc(env(safe-area-inset-bottom)+0.75rem)]")}>

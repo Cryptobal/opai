@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
+import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -308,6 +309,14 @@ export function CrmDealDetailClient({
   canConfigureCrm?: boolean;
   currentUserId?: string;
 }) {
+  // Contexto de página para OPAI Intelligence (chat contextual tipo Notion)
+  useRegisterChatPageContext({
+    entityType: "crm_deal",
+    entityId: deal.id,
+    entityName: deal.title,
+    entityUrl: `/crm/deals/${deal.id}`,
+  });
+
   // ── Quote linking & creation state ──
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [quoteCreateOpen, setQuoteCreateOpen] = useState(false);

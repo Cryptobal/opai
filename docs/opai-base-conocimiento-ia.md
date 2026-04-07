@@ -98,7 +98,56 @@ OPAI es una plataforma SaaS (Software as a Service) tipo ERP + IA disenada espec
 - Busqueda semantica inteligente con embeddings vectoriales
 - Soporta PDF, Word, Markdown y texto plano
 
-### Capacidades de IA
+### Capacidades del asistente OPAI Intelligence (chatbot)
+
+El asistente conversacional integrado en OPAI Suite puede:
+
+**Conversación funcional**
+- Explicar modulos, flujos, conceptos y navegacion del sistema.
+- Guiar paso a paso en cualquier flujo operativo o de configuracion.
+- Citar protocolos, normativas y manuales de la base de conocimiento.
+
+**Busqueda federada de entidades**
+- Buscar clientes, deals, instalaciones, cotizaciones y guardias por nombre, RUT o codigo.
+- Cuando el usuario menciona un nombre propio no reconocido, el asistente busca automaticamente en todas las entidades antes de pedir contexto.
+- Resultados se muestran como cards con link directo a la ficha.
+
+**Contexto de pagina (tipo Notion AI)**
+- Cuando el usuario esta viendo la ficha de un cliente, deal, cotizacion, instalacion, guardia o documento, el asistente sabe cual es la entidad activa y resuelve referencias ambiguas como "este cliente" o "resumeme esto".
+- Funciona en fichas de: clientes CRM, deals CRM, instalaciones CRM, cotizaciones CPQ, guardias Ops y documentos.
+
+**Lectura y resumen de documentos**
+- Listar todos los documentos asociados a una entidad (contratos generados, archivos adjuntos, ordenes de compra, propuestas, anexos).
+- Leer y resumir el contenido de contratos, ordenes de compra y otros documentos PDF, DOCX, TXT o Markdown almacenados en OPAI.
+- Entregar resumenes estructurados (partes, objeto, vigencia, montos, obligaciones criticas).
+
+**Datos en vivo del tenant**
+- Indicadores economicos: UF y UTM del dia.
+- Operacion: asistencia diaria, ausencias, turnos extra, PPC, alertas de panico, rondas, supervision, tickets.
+- Comercial: pipeline de deals, listados de cotizaciones y clientes.
+- Finanzas: rendiciones por aprobar, resumen DTE.
+- Personas: metricas de guardias, fichas completas, documentos por guardia.
+
+**Renderizado visual estructurado**
+- Cards horizontales scrollables (con CTA "Ver detalle").
+- Graficos bar/line/pie/donut.
+- KPIs con delta.
+- Tablas estructuradas.
+- Botones de sugerencias de seguimiento.
+
+**Indicador de tool en curso**
+- Muestra mensajes especificos como "Buscando clientes...", "Leyendo documento...", "Consultando rondas..." mientras ejecuta cada accion.
+
+### Limites del asistente (lo que NO puede hacer)
+
+- **No ejecuta acciones de escritura**: no crea, edita ni elimina entidades. No envia emails, WhatsApp ni firma documentos.
+- **No accede a sistemas externos** (banco, SII, AFP, OS10) a menos que el dato ya este en la base de OPAI.
+- **No procesa imagenes ni hace OCR**.
+- **No lee Excel (XLSX) ni PowerPoint (PPTX)** todavia.
+- **No tiene memoria entre tenants**: cada respuesta esta aislada al usuario y empresa actual.
+- **No inventa datos numericos** (montos, RUTs, sueldos, metricas): si no tiene la fuente, lo dice explicitamente.
+
+### Capacidades de IA del producto (no del chatbot)
 - Analisis predictivo de ausentismo
 - Deteccion de anomalias en rondas
 - Optimizacion de cobertura automatica

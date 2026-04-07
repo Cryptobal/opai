@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -288,6 +289,14 @@ export function GuardiaDetailClient({
   const router = useRouter();
   const [guardia, setGuardia] = useState(initialGuardia);
   const [activeTab, setActiveTab] = useState<TabKey>("perfil");
+
+  // Contexto de página para OPAI Intelligence (chat contextual tipo Notion)
+  useRegisterChatPageContext({
+    entityType: "ops_guardia",
+    entityId: guardia.id,
+    entityName: `${guardia.persona?.firstName ?? ""} ${guardia.persona?.lastName ?? ""}`.trim() || "Guardia",
+    entityUrl: `/personas/guardias/${guardia.id}`,
+  });
 
   // ── Document count for badge ──
   const [fileAttachCount, setFileAttachCount] = useState(0);

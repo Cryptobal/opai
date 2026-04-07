@@ -35,6 +35,7 @@ import { DOC_STATUS_CONFIG, DOC_CATEGORIES } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
 import type { DocDocument, DocHistory } from "@/types/docs";
 import { useCanDelete } from "@/lib/permissions-context";
+import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 
 interface DocDetailClientProps {
   documentId: string;
@@ -66,6 +67,19 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [doc, setDoc] = useState<DocDocument | null>(null);
+
+  // Contexto de página para OPAI Intelligence (chat contextual tipo Notion)
+  useRegisterChatPageContext(
+    doc
+      ? {
+          entityType: "doc_document",
+          entityId: doc.id,
+          entityName: doc.title,
+          entityUrl: `/docs/${doc.id}`,
+          extra: doc.category ? `Categoría: ${doc.category} · Estado: ${doc.status}` : undefined,
+        }
+      : null,
+  );
   const [content, setContent] = useState<any>(null);
   const [status, setStatus] = useState("");
   const [showHistory, setShowHistory] = useState(false);

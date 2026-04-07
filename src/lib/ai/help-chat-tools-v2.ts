@@ -11,6 +11,8 @@ import {
   getUfUtmIndicators,
   searchGuardiasByNameOrRut,
 } from "@/lib/ai/help-chat-tools";
+import { getFileBuffer } from "@/lib/storage";
+import { extractText } from "@/lib/knowledge/extract";
 
 function baseToolDefinitions() {
   return [
@@ -334,6 +336,44 @@ function v2ToolDefinitions() {
         },
       },
     },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_entity_documents",
+        description:
+          "Lista los documentos asociados a una entidad (cliente, deal, instalación, contacto). Útil cuando el usuario pide ver o resumir contratos, anexos u órdenes de un cliente. Devuelve documentId, título, categoría, estado y fecha. Para leer el contenido de un documento usa read_document.",
+        parameters: {
+          type: "object",
+          properties: {
+            entityType: {
+              type: "string",
+              enum: ["crm_account", "crm_deal", "crm_installation", "crm_contact"],
+              description: "Tipo de entidad. Si el usuario está viendo una ficha y dice 'este cliente' / 'este deal', usa el contexto de página.",
+            },
+            entityId: { type: "string", description: "UUID de la entidad." },
+            limit: { type: "number", description: "Máximo 20." },
+          },
+          required: ["entityType", "entityId"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "read_document",
+        description:
+          "Lee el contenido de texto plano de un documento (contrato, anexo, protocolo) almacenado en OPAI. Úsalo cuando el usuario pida resumir, explicar o buscar información dentro de un documento. Devuelve título, categoría, estado y el texto completo extraído. El texto puede estar truncado a 12.000 caracteres.",
+        parameters: {
+          type: "object",
+          properties: {
+            documentId: { type: "string", description: "UUID del documento (obtenido de get_entity_documents)." },
+          },
+          required: ["documentId"],
+          additionalProperties: false,
+        },
+      },
+    },
   ];
 }
 
@@ -419,6 +459,7 @@ async function toolSearchAccounts(tenantId: string, query: string, limit: number
     type: r.type,
     installations: r._count.installations,
     deals: r._count.deals,
+    url: `/crm/accounts/${r.id}`,
   }));
 }
 
@@ -452,6 +493,7 @@ async function toolSearchDeals(tenantId: string, status: string | undefined, lim
     stageClosedLost: r.stage.isClosedLost,
     expectedClose: r.expectedCloseDate?.toISOString().slice(0, 10) ?? null,
     updatedAt: r.updatedAt.toISOString(),
+    url: `/crm/deals/${r.id}`,
   }));
 }
 
@@ -543,6 +585,7 @@ async function toolSearchInstallations(tenantId: string, query: string, limit: n
           email: r.supervisorAssignments[0].supervisor.email,
         }
       : null,
+    url: `/crm/installations/${r.id}`,
   }));
 }
 
@@ -1297,6 +1340,330 @@ async function toolSearchQuotes(
   }));
 }
 
+/* ── Helpers para tools de documentos contextuales ── */
+
+/**
+ * Extrae texto plano de un documento Tiptap (JSON).
+ * Recorre recursivamente buscando nodos `text` y agregando saltos de línea
+ * en bloques (paragraph, heading, listItem, etc).
+ */
+function tiptapToPlainText(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  const n = node as Record<string, unknown>;
+  let out = "";
+  if (typeof n.text === "string") out += n.text;
+  if (Array.isArray(n.content)) {
+    for (const child of n.content) out += tiptapToPlainText(child);
+  }
+  const blockTypes = new Set([
+    "paragraph",
+    "heading",
+    "listItem",
+    "blockquote",
+    "codeBlock",
+    "tableRow",
+    "horizontalRule",
+  ]);
+  if (typeof n.type === "string" && blockTypes.has(n.type)) {
+    out += "\n";
+  }
+  return out;
+}
+
+/**
+ * Mapea entityType largo (DocAssociation: "crm_account", "crm_deal"...)
+ * al short form usado por CrmFileLink ("account", "deal"...).
+ */
+function entityTypeToCrmFileLinkType(entityType: string): string | null {
+  switch (entityType) {
+    case "crm_account": return "account";
+    case "crm_deal": return "deal";
+    case "crm_installation": return "installation";
+    case "crm_contact": return "contact";
+    case "ops_guardia": return "guardia";
+    default: return null;
+  }
+}
+
+/**
+ * Lista documentos asociados a una entidad. Hace UNION de tres fuentes:
+ *  - DocAssociation → Document (Tiptap, contratos generados)
+ *  - CrmFileLink → CrmFile (PDFs/DOCX subidos por usuarios: órdenes, facturas, anexos)
+ *  - CpqQuoteAttachment (cuando entityType === "cpq_quote")
+ *
+ * Cada item incluye un `documentId` con prefijo (`doc:`, `file:`, `att:`) para
+ * que `read_document` sepa cómo leer cada uno.
+ */
+async function toolGetEntityDocuments(
+  tenantId: string,
+  entityType: string,
+  entityId: string,
+  limit: number,
+) {
+  const take = Math.max(1, Math.min(limit || 10, 20));
+
+  // Caso especial: cotización CPQ → solo attachments propios
+  if (entityType === "cpq_quote") {
+    const atts = await prisma.cpqQuoteAttachment.findMany({
+      where: { quoteId: entityId, tenantId },
+      take,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        fileName: true,
+        mimeType: true,
+        size: true,
+        publicUrl: true,
+        createdAt: true,
+      },
+    });
+    return atts.map((a) => ({
+      documentId: `att:${a.id}`,
+      title: a.fileName,
+      module: "cpq",
+      category: "attachment",
+      status: "active",
+      mimeType: a.mimeType,
+      size: a.size,
+      pdfUrl: a.publicUrl ?? null,
+      updatedAt: a.createdAt.toISOString(),
+      url: a.publicUrl ?? `/crm/cotizaciones/${entityId}`,
+      source: "cpq_attachment",
+    }));
+  }
+
+  const linkType = entityTypeToCrmFileLinkType(entityType);
+
+  const [associations, fileLinks] = await Promise.all([
+    prisma.docAssociation.findMany({
+      where: { entityType, entityId, document: { tenantId } },
+      take,
+      orderBy: { document: { updatedAt: "desc" } },
+      select: {
+        role: true,
+        document: {
+          select: {
+            id: true,
+            title: true,
+            module: true,
+            category: true,
+            status: true,
+            pdfUrl: true,
+            updatedAt: true,
+          },
+        },
+      },
+    }),
+    linkType
+      ? prisma.crmFileLink.findMany({
+          where: { entityType: linkType, entityId, tenantId },
+          take,
+          orderBy: { createdAt: "desc" },
+          select: {
+            createdAt: true,
+            file: {
+              select: {
+                id: true,
+                fileName: true,
+                mimeType: true,
+                size: true,
+                storageKey: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve([] as Array<{ createdAt: Date; file: { id: string; fileName: string; mimeType: string; size: number; storageKey: string } }>),
+  ]);
+
+  const docItems = associations.map((a) => ({
+    documentId: `doc:${a.document.id}`,
+    title: a.document.title,
+    module: a.document.module,
+    category: a.document.category,
+    status: a.document.status,
+    role: a.role,
+    pdfUrl: a.document.pdfUrl ?? null,
+    updatedAt: a.document.updatedAt.toISOString(),
+    url: `/docs/${a.document.id}`,
+    source: "doc",
+  }));
+
+  const fileItems = fileLinks.map((l) => ({
+    documentId: `file:${l.file.id}`,
+    title: l.file.fileName,
+    module: "crm",
+    category: "attachment",
+    status: "active",
+    mimeType: l.file.mimeType,
+    size: l.file.size,
+    pdfUrl: null,
+    updatedAt: l.createdAt.toISOString(),
+    url: `/api/crm/files/${l.file.id}/download`,
+    source: "crm_file",
+  }));
+
+  // Mezcla y ordena por fecha desc, recorta a `take`
+  return [...docItems, ...fileItems]
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+    .slice(0, take);
+}
+
+/**
+ * Lee el contenido textual de un documento. El `documentId` puede venir con
+ * prefijo (`doc:xxx`, `file:xxx`, `att:xxx`) — formato producido por
+ * `toolGetEntityDocuments`. Si no trae prefijo, asume `doc:` por compatibilidad.
+ */
+async function toolReadDocument(tenantId: string, rawDocumentId: string) {
+  const id = rawDocumentId.trim();
+  if (!id) return { ok: false, error: "documentId requerido." };
+
+  const colon = id.indexOf(":");
+  const prefix = colon > 0 ? id.slice(0, colon) : "doc";
+  const realId = colon > 0 ? id.slice(colon + 1) : id;
+
+  if (prefix === "doc") {
+    const doc = await prisma.document.findFirst({
+      where: { id: realId, tenantId },
+      select: {
+        id: true,
+        title: true,
+        module: true,
+        category: true,
+        status: true,
+        content: true,
+        pdfUrl: true,
+        updatedAt: true,
+      },
+    });
+    if (!doc) return { ok: false, error: "Documento no encontrado o sin permiso." };
+    const fullText = tiptapToPlainText(doc.content)
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    const MAX = 12_000;
+    const truncated = fullText.length > MAX;
+    return {
+      ok: true,
+      data: {
+        id: `doc:${doc.id}`,
+        title: doc.title,
+        module: doc.module,
+        category: doc.category,
+        status: doc.status,
+        pdfUrl: doc.pdfUrl ?? null,
+        updatedAt: doc.updatedAt.toISOString(),
+        url: `/docs/${doc.id}`,
+        text: truncated ? `${fullText.slice(0, MAX)}\n\n[...documento truncado a ${MAX} caracteres]` : fullText,
+        truncated,
+        length: fullText.length,
+        source: "doc",
+      },
+    };
+  }
+
+  if (prefix === "file") {
+    const file = await prisma.crmFile.findFirst({
+      where: { id: realId, tenantId },
+      select: {
+        id: true,
+        fileName: true,
+        mimeType: true,
+        size: true,
+        storageKey: true,
+        createdAt: true,
+      },
+    });
+    if (!file) return { ok: false, error: "Archivo no encontrado o sin permiso." };
+    return await readBinaryFile({
+      idLabel: `file:${file.id}`,
+      title: file.fileName,
+      mimeType: file.mimeType,
+      storageKey: file.storageKey,
+      updatedAt: file.createdAt,
+      url: `/api/crm/files/${file.id}/download`,
+      module: "crm",
+    });
+  }
+
+  if (prefix === "att") {
+    const att = await prisma.cpqQuoteAttachment.findFirst({
+      where: { id: realId, tenantId },
+      select: {
+        id: true,
+        fileName: true,
+        mimeType: true,
+        size: true,
+        storageKey: true,
+        publicUrl: true,
+        createdAt: true,
+      },
+    });
+    if (!att) return { ok: false, error: "Adjunto no encontrado o sin permiso." };
+    return await readBinaryFile({
+      idLabel: `att:${att.id}`,
+      title: att.fileName,
+      mimeType: att.mimeType,
+      storageKey: att.storageKey,
+      updatedAt: att.createdAt,
+      url: att.publicUrl ?? `#`,
+      module: "cpq",
+    });
+  }
+
+  return { ok: false, error: `Prefijo de documentId desconocido: '${prefix}'.` };
+}
+
+/**
+ * Lee un binario de R2 y extrae texto. Soporta PDF, DOCX, TXT, MD vía
+ * `extractText`. Capa tamaño y trunca el texto resultante.
+ */
+async function readBinaryFile(opts: {
+  idLabel: string;
+  title: string;
+  mimeType: string;
+  storageKey: string;
+  updatedAt: Date;
+  url: string;
+  module: string;
+}) {
+  try {
+    const buffer = await getFileBuffer(opts.storageKey);
+    let text: string;
+    try {
+      text = await extractText(buffer, opts.mimeType);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "no soportado";
+      return {
+        ok: false,
+        error: `No fue posible extraer texto del archivo (${opts.mimeType}): ${msg}. Sugerencia: descárgalo desde la app.`,
+      };
+    }
+    const fullText = text.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    const MAX = 12_000;
+    const truncated = fullText.length > MAX;
+    return {
+      ok: true,
+      data: {
+        id: opts.idLabel,
+        title: opts.title,
+        module: opts.module,
+        category: "attachment",
+        status: "active",
+        mimeType: opts.mimeType,
+        pdfUrl: null,
+        updatedAt: opts.updatedAt.toISOString(),
+        url: opts.url,
+        text: truncated ? `${fullText.slice(0, MAX)}\n\n[...documento truncado a ${MAX} caracteres]` : fullText,
+        truncated,
+        length: fullText.length,
+        source: opts.idLabel.startsWith("att:") ? "cpq_attachment" : "crm_file",
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error leyendo archivo";
+    return { ok: false, error: msg };
+  }
+}
+
 export async function executeToolCallV2(
   toolName: string,
   args: Record<string, unknown>,
@@ -1411,6 +1778,21 @@ export async function executeToolCallV2(
             typeof args.limit === "number" ? args.limit : 12,
           ),
         };
+      case "get_entity_documents":
+        return {
+          ok: true,
+          data: await toolGetEntityDocuments(
+            tenantId,
+            typeof args.entityType === "string" ? args.entityType : "",
+            typeof args.entityId === "string" ? args.entityId : "",
+            typeof args.limit === "number" ? args.limit : 10,
+          ),
+        };
+      case "read_document":
+        return await toolReadDocument(
+          tenantId,
+          typeof args.documentId === "string" ? args.documentId : "",
+        );
       default:
         return { ok: false, error: "Herramienta no soportada" };
     }

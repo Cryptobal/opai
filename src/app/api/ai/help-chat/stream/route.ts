@@ -106,7 +106,34 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as {
     message?: unknown;
     conversationId?: unknown;
+    pageContext?: unknown;
   };
+
+  /* page context (Notion-like): the user is currently viewing an entity */
+  type PageContext = {
+    entityType: string;
+    entityId: string;
+    entityName: string;
+    entityUrl?: string;
+    extra?: string;
+  };
+  let pageContext: PageContext | null = null;
+  if (body.pageContext && typeof body.pageContext === "object") {
+    const pc = body.pageContext as Record<string, unknown>;
+    if (
+      typeof pc.entityType === "string" &&
+      typeof pc.entityId === "string" &&
+      typeof pc.entityName === "string"
+    ) {
+      pageContext = {
+        entityType: pc.entityType,
+        entityId: pc.entityId,
+        entityName: pc.entityName,
+        entityUrl: typeof pc.entityUrl === "string" ? pc.entityUrl : undefined,
+        extra: typeof pc.extra === "string" ? pc.extra : undefined,
+      };
+    }
+  }
   const appBaseUrl = request.nextUrl.origin;
   const userMessage = typeof body.message === "string" ? body.message.trim() : "";
   if (!userMessage) {
@@ -235,9 +262,24 @@ export async function POST(request: NextRequest) {
     userRole: ctx.userRole,
   });
 
+  const pageContextSystemMessage = pageContext
+    ? `Contexto de página actual (el usuario está viendo esta entidad en la app):
+- Tipo: ${pageContext.entityType}
+- ID: ${pageContext.entityId}
+- Nombre: ${pageContext.entityName}${pageContext.entityUrl ? `\n- URL: ${pageContext.entityUrl}` : ""}${pageContext.extra ? `\n- Detalle: ${pageContext.extra}` : ""}
+
+REGLAS DE CONTEXTO DE PÁGINA (críticas):
+1. Cuando el usuario use referencias ambiguas como "este cliente", "este deal", "esta cotización", "este contrato", "el cliente", "resúmeme esto", asume que se refiere a la entidad de arriba.
+2. Si el usuario pide ver/listar/resumir documentos sin especificar de qué entidad, llama get_entity_documents con el entityType e entityId del contexto de página.
+3. Si el usuario pide resumir un documento específico (contrato, orden de compra, anexo, protocolo), primero llama get_entity_documents para obtener el documentId más relevante, luego read_document para obtener su texto, y produce un resumen estructurado en 4-6 puntos clave (partes, objeto, vigencia, montos, obligaciones críticas).
+4. NO repitas el nombre de la entidad en cada respuesta — el usuario ya sabe qué está viendo. Sé natural.
+5. Si el usuario pregunta algo claramente NO relacionado a esta entidad (ej: "qué es UF"), responde normalmente sin forzar el contexto.`
+    : null;
+
   const messages: Array<Record<string, unknown>> = [
     { role: "system", content: systemPrompt },
     { role: "system", content: `Contexto documental y base de conocimiento relevante:\n${docsContext || "(sin bloques relevantes encontrados)"}` },
+    ...(pageContextSystemMessage ? [{ role: "system", content: pageContextSystemMessage }] : []),
     ...trimmedHistory.map(m => ({ role: m.role, content: m.content })),
     { role: "user", content: userMessage },
   ];
@@ -303,10 +345,12 @@ export async function POST(request: NextRequest) {
           for (const call of pendingToolCalls) {
             let args: Record<string, unknown> = {};
             try { args = JSON.parse(call.arguments || "{}"); } catch { args = {}; }
+            send("tool_call", { name: call.name, status: "running" });
             const result = await executeToolCallV2(
               call.name, args, ctx.tenantId, ctx.userId,
               hasCapability(perms, "rendicion_view_all"),
             );
+            send("tool_call", { name: call.name, status: "done" });
             messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
           }
           fullText = "";

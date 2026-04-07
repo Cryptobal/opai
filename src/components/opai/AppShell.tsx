@@ -10,6 +10,7 @@ import { ThemeLogo } from './ThemeLogo';
 import { TopbarActions } from './TopbarActions';
 import { QuickCreateModal, type QuickCreateType } from './QuickCreateModal';
 import { AiHelpChatWidgetV2 as AiHelpChatWidget } from './AiHelpChatWidgetV2';
+import { ChatPageContextProvider } from './ChatPageContextProvider';
 import { NotificationPopover } from './NotificationPopover';
 import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { BottomNav } from './BottomNav';
@@ -39,7 +40,9 @@ export interface AppShellProps {
 export function AppShell(props: AppShellProps) {
   return (
     <CommandPaletteProvider>
-      <AppShellInner {...props} />
+      <ChatPageContextProvider>
+        <AppShellInner {...props} />
+      </ChatPageContextProvider>
     </CommandPaletteProvider>
   );
 }

@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck } from "lucide-react";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
@@ -1665,6 +1666,15 @@ export function CrmInstallationDetailClient({
   currentUserId?: string;
 }) {
   const router = useRouter();
+
+  // Contexto de página para OPAI Intelligence (chat contextual tipo Notion)
+  useRegisterChatPageContext({
+    entityType: "crm_installation",
+    entityId: installation.id,
+    entityName: installation.name,
+    entityUrl: `/crm/installations/${installation.id}`,
+  });
+
   const hasCoords = installation.lat != null && installation.lng != null;
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);

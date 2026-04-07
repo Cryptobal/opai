@@ -7,6 +7,7 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
 
@@ -121,6 +122,32 @@ export function getFileUrl(storageKey: string): string {
     throw new Error("R2_PUBLIC_URL no configurado");
   }
   return `${baseUrl}/${storageKey}`;
+}
+
+/**
+ * Descarga un archivo de R2 a un Buffer en memoria.
+ * Usar con cuidado: capa el tamaño con `maxBytes` para no agotar memoria.
+ * Por defecto 8 MB (suficiente para PDFs/DOCX típicos de contratos).
+ */
+export async function getFileBuffer(
+  storageKey: string,
+  maxBytes: number = 8 * 1024 * 1024,
+): Promise<Buffer> {
+  const client = getClient();
+  const bucket = getBucket();
+  const response = await client.send(
+    new GetObjectCommand({ Bucket: bucket, Key: storageKey }),
+  );
+  if (!response.Body) {
+    throw new Error("Archivo vacío o no encontrado en storage");
+  }
+  const bytes = await response.Body.transformToByteArray();
+  if (bytes.byteLength > maxBytes) {
+    throw new Error(
+      `Archivo demasiado grande (${bytes.byteLength} bytes, máx ${maxBytes}).`,
+    );
+  }
+  return Buffer.from(bytes);
 }
 
 /**

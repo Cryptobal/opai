@@ -59,6 +59,7 @@ import { AccountContractsSection } from "./AccountContractsSection";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { NewExternalChatModal } from "@/components/chat/NewExternalChatModal";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
+import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 
 const ACCOUNT_LOGO_MARKER_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_MARKER_SUFFIX = "]]";
@@ -209,6 +210,17 @@ export function CrmAccountDetailClient({
   const router = useRouter();
   const chatCtx = useChatSidePanelContext();
   const [account, setAccount] = useState(initialAccount);
+
+  // Registra contexto de página para el asistente OPAI Intelligence:
+  // permite preguntas tipo "resúmeme este cliente", "qué documentos tiene",
+  // "muéstrame las cotizaciones", sin que el usuario tenga que repetir el nombre.
+  useRegisterChatPageContext({
+    entityType: "crm_account",
+    entityId: account.id,
+    entityName: account.name,
+    entityUrl: `/crm/accounts/${account.id}`,
+    extra: account.industry ? `Industria: ${account.industry}` : undefined,
+  });
   const [accountLogoUrl, setAccountLogoUrl] = useState<string | null>(
     sanitizeLogoUrl(
       (initialAccount as Record<string, unknown>).logoUrl as string | null

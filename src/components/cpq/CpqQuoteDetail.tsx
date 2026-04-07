@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -132,6 +133,20 @@ export function CpqQuoteDetail({
 }: CpqQuoteDetailProps) {
   const router = useRouter();
   const [quote, setQuote] = useState<CpqQuote | null>(null);
+
+  // Contexto de página para OPAI Intelligence (chat contextual tipo Notion).
+  // Mientras la cotización carga, el hook recibe null y no registra contexto.
+  useRegisterChatPageContext(
+    quote
+      ? {
+          entityType: "cpq_quote",
+          entityId: quote.id,
+          entityName: quote.name || quote.code || "Cotización",
+          entityUrl: `/crm/cotizaciones/${quote.id}`,
+          extra: quote.clientName ? `Cliente: ${quote.clientName}` : undefined,
+        }
+      : null,
+  );
   const [positions, setPositions] = useState<CpqPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [costSummary, setCostSummary] = useState<CpqQuoteCostSummary | null>(null);
