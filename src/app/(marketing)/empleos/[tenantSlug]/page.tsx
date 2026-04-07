@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { resolveTenantFromSlug } from "@/lib/tenant";
@@ -27,12 +26,29 @@ export async function generateMetadata({
 
   const cfg = await getTenantCompanyConfig(tenant.id);
   const companyName = cfg.commercialName || cfg.companyName;
+  const ogImage = cfg.brandingLogoFull || cfg.logoUrl || undefined;
+
+  const title = `Empleos ${companyName} | OPAI`;
+  const description = `Encuentra empleo como guardia de seguridad en ${companyName}. Ofertas actualizadas con turno, renta y ubicacion.`;
+  const url = `https://www.opai.cl/empleos/${tenantSlug}`;
 
   return {
-    title: `Ofertas de empleo en ${companyName} | OPAI`,
-    description: `Encuentra empleo como guardia de seguridad en ${companyName}. Ofertas actualizadas con turno, renta y ubicacion.`,
-    alternates: {
-      canonical: `https://www.opai.cl/empleos/${tenantSlug}`,
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: "OPAI",
+      type: "website",
+      images: ogImage ? [{ url: ogImage, alt: companyName }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ogImage ? [ogImage] : undefined,
     },
   };
 }
@@ -93,12 +109,11 @@ export default async function TenantEmpleosPage({
         <div className="mb-12 text-center">
           {logoUrl && (
             <div className="mb-6 flex justify-center">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={logoUrl}
                 alt={companyName}
-                width={180}
-                height={60}
-                className="h-12 w-auto object-contain"
+                className="h-14 w-auto object-contain"
               />
             </div>
           )}

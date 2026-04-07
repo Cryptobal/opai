@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { resolveTenantFromSlug } from "@/lib/tenant";
@@ -63,11 +62,28 @@ export async function generateMetadata({
 
   if (!job) return { title: "Empleo no encontrado" };
 
+  const title = `${job.titulo} — ${companyName} | OPAI`;
+  const description = job.descripcion.slice(0, 160);
+  const url = `https://www.opai.cl/empleos/${tenantSlug}/${slug}`;
+  const ogImage = cfg.brandingLogoFull || cfg.logoUrl || undefined;
+
   return {
-    title: `${job.titulo} — ${companyName} | OPAI`,
-    description: job.descripcion.slice(0, 160),
-    alternates: {
-      canonical: `https://www.opai.cl/empleos/${tenantSlug}/${slug}`,
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: "OPAI",
+      type: "article",
+      images: ogImage ? [{ url: ogImage, alt: companyName }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ogImage ? [ogImage] : undefined,
     },
   };
 }
@@ -168,12 +184,11 @@ export default async function TenantJobDetailPage({
           {/* Company header */}
           <div className="mb-8 flex items-center gap-4">
             {logoUrl ? (
-              <Image
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
                 src={logoUrl}
                 alt={companyName}
-                width={120}
-                height={40}
-                className="h-10 w-auto object-contain"
+                className="h-12 w-auto object-contain"
               />
             ) : (
               <div className="h-10 w-10 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-bold text-white">
