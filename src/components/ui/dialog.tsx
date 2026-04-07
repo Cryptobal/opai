@@ -61,18 +61,23 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         onPointerDownOutside={(e) => {
-          // Evitar que el dialog se cierre al hacer clic en el dropdown de Google Places
+          // Evitar que el dialog se cierre al hacer clic en el dropdown de Google Places (legacy + PlaceAutocompleteElement)
           const target = e.target as HTMLElement;
-          if (target?.closest?.(".pac-container")) {
+          if (
+            target?.closest?.(".pac-container") ||
+            target?.closest?.("gmp-place-autocomplete")
+          ) {
             e.preventDefault();
             return;
           }
           onPointerDownOutside?.(e);
         }}
         onInteractOutside={(e) => {
-          // Idem para interactOutside (cubre focus y pointer)
           const target = e.target as HTMLElement;
-          if (target?.closest?.(".pac-container")) {
+          if (
+            target?.closest?.(".pac-container") ||
+            target?.closest?.("gmp-place-autocomplete")
+          ) {
             e.preventDefault();
             return;
           }

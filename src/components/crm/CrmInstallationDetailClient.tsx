@@ -1615,11 +1615,11 @@ function StaffingSection({
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Desactivar puesto</DialogTitle>
+            <DialogDescription>
+              El puesto &quot;{deactivateConfirm.name}&quot; se desactivará. Se cerrarán las asignaciones de guardias y se limpiará la pauta desde la fecha indicada.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <p className="text-sm text-muted-foreground">
-              El puesto &quot;{deactivateConfirm.name}&quot; se desactivará. Se cerrarán las asignaciones de guardias y se limpiará la pauta desde la fecha indicada.
-            </p>
             <div className="space-y-1.5">
               <Label>Fecha de desactivación</Label>
               <input
@@ -2592,6 +2592,9 @@ export function CrmInstallationDetailClient({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Editar instalación</DialogTitle>
+            <DialogDescription>
+              Modifica nombre, dirección (búsqueda en Google Maps o enlace), ciudad, comuna y demás datos de la instalación.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

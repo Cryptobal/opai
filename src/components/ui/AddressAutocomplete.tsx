@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export type AddressResult = {
@@ -150,6 +151,7 @@ export function AddressAutocomplete({
   valueRef.current = value;
 
   const [ready, setReady] = useState(false);
+  const [gmpAvailable, setGmpAvailable] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   // z-index para sugerencias (.pac-container y gmp prediction list)
@@ -188,6 +190,16 @@ export function AddressAutocomplete({
     }
   }, []);
 
+  /** Espera a que el JS de Maps exponga importLibrary (puede llegar un tick después del onload). */
+  async function waitForImportLibrary(maxAttempts = 30): Promise<boolean> {
+    for (let i = 0; i < maxAttempts; i++) {
+      const maps = (window as any).google?.maps;
+      if (maps?.importLibrary) return true;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    return false;
+  }
+
   // Montar el web component PlaceAutocompleteElement.
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY || !containerRef.current) return;
@@ -198,15 +210,25 @@ export function AddressAutocomplete({
         await ensureGoogleMaps();
         if (cancelled || !containerRef.current) return;
 
-        const maps = (window as any).google?.maps;
-        if (!maps?.importLibrary) return;
+        const hasImporter = await waitForImportLibrary();
+        if (cancelled || !containerRef.current) return;
 
-        const placesLib = await maps.importLibrary("places") as any;
+        if (!hasImporter) {
+          console.warn("[AddressAutocomplete] google.maps.importLibrary no disponible; usando campo de texto.");
+          setGmpAvailable(false);
+          setReady(true);
+          return;
+        }
+
+        const maps = (window as any).google?.maps;
+        const placesLib = (await maps.importLibrary("places")) as any;
         if (cancelled) return;
 
         const Ctor = placesLib.PlaceAutocompleteElement;
         if (!Ctor) {
           console.warn("[AddressAutocomplete] PlaceAutocompleteElement not available");
+          setGmpAvailable(false);
+          setReady(true);
           return;
         }
 
@@ -237,9 +259,11 @@ export function AddressAutocomplete({
         containerRef.current.appendChild(el);
         widgetRef.current = el;
         lastParentValue.current = initial;
+        setGmpAvailable(true);
         setReady(true);
       } catch (err) {
         console.error("[AddressAutocomplete] init:", err);
+        setGmpAvailable(false);
         setReady(true);
       }
     })();
@@ -247,6 +271,7 @@ export function AddressAutocomplete({
     return () => {
       cancelled = true;
       setReady(false);
+      setGmpAvailable(false);
       const el = widgetRef.current;
       if (el?.parentNode) el.remove();
       widgetRef.current = null;
@@ -254,13 +279,13 @@ export function AddressAutocomplete({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sincronizar valor del padre.
+  // Sincronizar valor del padre (solo web component).
   useEffect(() => {
-    if (value === undefined || !widgetRef.current || !ready) return;
+    if (value === undefined || !gmpAvailable || !widgetRef.current || !ready) return;
     if (lastParentValue.current === value) return;
     lastParentValue.current = value;
     widgetRef.current.value = value;
-  }, [value, ready]);
+  }, [value, ready, gmpAvailable]);
 
   const focusWidget = useCallback(() => {
     const el = widgetRef.current;
@@ -284,17 +309,44 @@ export function AddressAutocomplete({
 
   return (
     <div className="space-y-2">
-      <div className="relative w-full">
+      <div className="relative z-20 w-full">
         <MapPin className={`absolute left-3 top-1/2 z-[2] -translate-y-1/2 h-4 w-4 pointer-events-none ${pinColor}`} />
-        <div className={cn(wrap, "cursor-text")} onClick={focusWidget}>
+        <div
+          className={cn(wrap, ready && gmpAvailable ? "cursor-text" : "")}
+          onClick={gmpAvailable && ready ? focusWidget : undefined}
+        >
           {!ready && (
             <div className="pointer-events-none absolute inset-0 left-9 flex items-center text-sm text-muted-foreground">
               Cargando buscador…
             </div>
           )}
+          {ready && !gmpAvailable && (
+            <Input
+              className={cn(
+                "relative z-[2] min-h-10 border-0 bg-transparent pl-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0",
+                className,
+              )}
+              value={value ?? ""}
+              placeholder={placeholder}
+              onChange={(e) => {
+                const v = e.target.value;
+                onChangeRef.current({
+                  address: v,
+                  city: "",
+                  commune: "",
+                  lat: 0,
+                  lng: 0,
+                });
+              }}
+            />
+          )}
+          {/* Un solo nodo con ref: si el ref saltaba entre dos divs, el web component se perdía al cambiar de estado. */}
           <div
             ref={containerRef}
-            className="relative z-[1] flex min-h-[40px] w-full items-center [&>gmp-place-autocomplete]:min-h-10 [&>gmp-place-autocomplete]:w-full [&>gmp-place-autocomplete]:pointer-events-auto"
+            className={cn(
+              "relative z-[1] flex min-h-[40px] w-full items-center [&>gmp-place-autocomplete]:min-h-10 [&>gmp-place-autocomplete]:w-full [&>gmp-place-autocomplete]:pointer-events-auto",
+              ready && !gmpAvailable && "hidden",
+            )}
           />
         </div>
       </div>

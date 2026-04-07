@@ -288,38 +288,38 @@ export function UnifiedDevicesSection({ installationId, pairingCode: initialPair
 
       {/* 2. Dispositivos Vinculados — sección contraíble con lista en scroll */}
       <div className="rounded-lg border border-zinc-700 bg-zinc-900/30 overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setDevicesSectionOpen((o) => !o)}
-          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-zinc-800/50 transition-colors"
-        >
-          <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setDevicesSectionOpen((o) => !o)}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left hover:bg-zinc-800/50 transition-colors rounded-md -my-1 py-1 -ml-1 pl-1"
+          >
             {devicesSectionOpen ? (
               <ChevronDown className="h-4 w-4 text-zinc-400 shrink-0" />
             ) : (
               <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0" />
             )}
-            <Smartphone className="h-5 w-5 text-zinc-400" />
+            <Smartphone className="h-5 w-5 text-zinc-400 shrink-0" />
             <h4 className="text-sm font-medium text-zinc-300">
               Dispositivos Vinculados
             </h4>
             <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
               {activeDevices.length}
             </span>
-          </div>
+          </button>
           <Button
             variant="ghost"
             size="sm"
+            type="button"
             className="text-zinc-400 shrink-0"
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               setLoading(true);
               fetchDevices();
             }}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           </Button>
-        </button>
+        </div>
 
         {devicesSectionOpen && (
           <>

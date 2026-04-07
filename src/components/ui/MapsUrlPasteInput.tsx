@@ -179,12 +179,12 @@ export function MapsUrlPasteInput({
   };
 
   return (
-    <div className={cn("relative z-10", className)}>
+    <div className={cn("relative", className)}>
       <Label htmlFor={inputId} className="text-sm text-muted-foreground">
         O pegar URL de Google Maps
       </Label>
       <div className="flex gap-2 mt-1">
-        <div className="relative z-10 flex-1 min-w-0">
+        <div className="relative flex-1 min-w-0">
           <Link2 className="absolute left-3 top-1/2 z-0 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             id={inputId}
