@@ -2301,7 +2301,9 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                   <div className="space-y-1">
                     <Label className="text-[11px]">Dirección (Google Maps)</Label>
                     <div className="flex gap-2 items-center">
-                      <AddressAutocomplete value={inst.address} onChange={(result) => handleAddressChange(inst._key, result)} placeholder="Buscar dirección..." className={`h-9 text-sm flex-1 ${inputClassName}`} showMap={false} />
+                      <div className="flex-1 min-w-0">
+                        <AddressAutocomplete value={inst.address} onChange={(result) => handleAddressChange(inst._key, result)} placeholder="Buscar dirección..." showMap={false} />
+                      </div>
                       {(inst.address || (inst.lat != null && inst.lng != null)) && (
                         <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" title="Abrir en Google Maps" asChild>
                           <a href={inst.lat != null && inst.lng != null ? `https://www.google.com/maps/@${inst.lat},${inst.lng},17z` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inst.address)}`} target="_blank" rel="noreferrer">
