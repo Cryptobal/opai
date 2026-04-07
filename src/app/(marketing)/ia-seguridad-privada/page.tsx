@@ -149,7 +149,7 @@ export default function IAPageSeguridadPrivada() {
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <Link href="/registrarse" className="mk-btn-primary">
-              Probar IA gratis 30 días →
+              Probar IA gratis →
             </Link>
             <Link href="/contacto" className="mk-btn-ghost">
               Solicitar demo

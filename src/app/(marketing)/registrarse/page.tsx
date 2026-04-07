@@ -12,7 +12,7 @@ const guardOptions = [
 ]
 
 const benefits = [
-  'Acceso completo a todos los módulos durante 30 días',
+  'Acceso completo a todos los módulos',
   'Face ID, rondas GPS y alertas WhatsApp incluidas',
   'IA operacional: help chat RAG, OCR, análisis',
   '6 portales: Admin, Operaciones, RRHH, Finanzas, Cliente, Guardia',
@@ -47,11 +47,11 @@ const timelineSteps = [
 const faqs = [
   {
     q: '¿Necesito tarjeta de crédito para la prueba gratuita?',
-    a: 'No. Los 30 días de prueba son completamente gratis y no requieren tarjeta de crédito ni ningún dato de pago.',
+    a: 'No. La prueba es completamente gratis y no requiere tarjeta de crédito ni ningún dato de pago.',
   },
   {
-    q: '¿Qué pasa después de los 30 días?',
-    a: 'Tu cuenta se pausa automáticamente. No se cobra nada. Si quieres continuar, eliges un plan y activas tu suscripción. Si no, tus datos se mantienen por 30 días más por si cambias de opinión.',
+    q: '¿Qué pasa si quiero funcionalidades avanzadas?',
+    a: 'Eliges un plan pagado y activas tu suscripción. Si prefieres seguir con el plan gratis, tus datos se mantienen sin límite de tiempo.',
   },
   {
     q: '¿Puedo migrar mis datos desde otro sistema?',
@@ -142,7 +142,7 @@ export default function RegistrarsePage() {
             <div>
               <div className="mk-label">
                 <div className="mk-pulse" />
-                30 días gratis
+                Gratis para siempre
               </div>
               <h1
                 style={{
@@ -153,7 +153,7 @@ export default function RegistrarsePage() {
                   marginBottom: '24px',
                 }}
               >
-                Crea tu cuenta gratis — 30 días sin tarjeta
+                Crea tu cuenta gratis — sin tarjeta
               </h1>
               <p
                 style={{

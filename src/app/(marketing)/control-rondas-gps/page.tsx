@@ -106,7 +106,7 @@ export default function ControlRondasGPSPage() {
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <Link href="/registrarse" className="mk-btn-primary">
-              Probar gratis 30 días →
+              Probar gratis →
             </Link>
             <Link href="/contacto" className="mk-btn-ghost">
               Solicitar demo

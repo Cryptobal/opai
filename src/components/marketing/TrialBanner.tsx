@@ -7,7 +7,7 @@ interface TrialBannerProps {
 }
 
 export function TrialBanner({
-  title = 'Empieza hoy — 30 días gratis, sin tarjeta',
+  title = 'Empieza hoy — gratis, sin tarjeta',
   subtitle = 'Crea tu cuenta en 2 minutos. Sin contratos, sin compromisos.',
   showContactLink = true,
 }: TrialBannerProps) {
@@ -29,7 +29,7 @@ export function TrialBanner({
       <div className="mk-container">
         <div className="mk-label" style={{ margin: '0 auto 24px' }}>
           <div className="mk-pulse" />
-          Prueba gratis 30 días
+          Prueba gratis
         </div>
         <h2 style={{
           fontFamily: 'var(--mk-font-h)',
@@ -72,7 +72,7 @@ export function TrialBanner({
           color: 'var(--mk-muted)',
           letterSpacing: '0.04em',
         }}>
-          Sin tarjeta de crédito &nbsp;·&nbsp; 30 días gratis &nbsp;·&nbsp; Luego desde UF 35/mes &nbsp;·&nbsp; Cancela cuando quieras
+          Sin tarjeta de crédito &nbsp;·&nbsp; Plan gratis para siempre &nbsp;·&nbsp; Cancela cuando quieras
         </p>
       </div>
     </section>

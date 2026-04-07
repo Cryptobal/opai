@@ -107,6 +107,48 @@ const PLAN_BADGE_COLORS: Record<string, string> = {
   enterprise: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
 };
 
+const MODULE_LABELS: Record<string, { name: string; category: string }> = {
+  hub: { name: 'Hub (Dashboard)', category: 'Core' },
+  config: { name: 'Configuración', category: 'Core' },
+  portal_guardia: { name: 'Portal Guardia', category: 'Core' },
+  portal_marcacion: { name: 'Portal Marcación', category: 'Core' },
+  ops_asistencia: { name: 'Asistencia', category: 'Core' },
+  ops_pauta: { name: 'Pautas', category: 'Core' },
+  personas: { name: 'Personas', category: 'Core' },
+  tickets: { name: 'Tickets', category: 'Core' },
+  ops_pce: { name: 'PCE', category: 'Operaciones' },
+  ops_turnos_extra: { name: 'Turnos Extra', category: 'Operaciones' },
+  ops_refuerzos: { name: 'Refuerzos', category: 'Operaciones' },
+  ops_onboarding: { name: 'Onboarding Digital', category: 'Operaciones' },
+  ops_audit: { name: 'Log de Auditoría', category: 'Operaciones' },
+  documentos: { name: 'Documentos', category: 'Operaciones' },
+  contratos: { name: 'Contratos', category: 'Operaciones' },
+  portal_supervisor: { name: 'Portal Supervisor', category: 'Operaciones' },
+  ops_supervision: { name: 'Supervisión de Campo GPS', category: 'Profesional' },
+  alertas_cobertura: { name: 'Alertas de Cobertura', category: 'Profesional' },
+  chat: { name: 'Chat Real-time', category: 'Profesional' },
+  gamificacion: { name: 'Gamificación', category: 'Profesional' },
+  protocolos_ia: { name: 'Protocolos IA', category: 'Profesional' },
+  reportes_dt: { name: 'Reportes DT', category: 'Profesional' },
+  crm: { name: 'CRM Comercial', category: 'Add-ons' },
+  cpq: { name: 'CPQ (Cotizador)', category: 'Add-ons' },
+  ops_rondas: { name: 'Rondas GPS', category: 'Add-ons' },
+  ops_inventario: { name: 'Inventario', category: 'Add-ons' },
+  portal_cliente: { name: 'Portal Cliente', category: 'Add-ons' },
+  payroll: { name: 'Payroll / Nómina', category: 'Add-ons' },
+  finanzas: { name: 'Finanzas + DTE', category: 'Add-ons' },
+  ats: { name: 'ATS / Reclutamiento', category: 'Add-ons' },
+  face_id: { name: 'Face ID Biométrico', category: 'Add-ons' },
+  ia_operacional: { name: 'IA Operacional', category: 'Add-ons' },
+  control_acceso: { name: 'Control de Acceso', category: 'Add-ons' },
+  fiscalizacion: { name: 'Fiscalización DT', category: 'Add-ons' },
+  control_nocturno: { name: 'Control Nocturno IA', category: 'Add-ons' },
+  white_label: { name: 'White-label', category: 'Add-ons' },
+  app_nativa: { name: 'App iOS/Android', category: 'Add-ons' },
+};
+
+const MODULE_CATEGORIES = ['Core', 'Operaciones', 'Profesional', 'Add-ons'] as const;
+
 const TAG_COLORS: Record<string, string> = {
   operacional: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
   comercial: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300',
@@ -134,6 +176,9 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
   // Custom addon price drafts
   const [addonPriceDrafts, setAddonPriceDrafts] = useState<Record<string, string>>({});
   const [editingAddonPrice, setEditingAddonPrice] = useState<string | null>(null);
+
+  // Plan switch preview
+  const [selectedPlanSlug, setSelectedPlanSlug] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -411,21 +456,47 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
         </div>
 
         {/* Plan change buttons */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {PLAN_SLUGS.map((slug) => (
-            <button
-              key={slug}
-              onClick={() => patchPlan({ plan: slug })}
-              disabled={plan.plan === slug || mutating}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                plan.plan === slug
-                  ? 'cursor-default bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-              }`}
-            >
-              {slug}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          {PLAN_SLUGS.map((slug) => {
+            const isCurrent = plan.plan === slug;
+            const isSelected = selectedPlanSlug === slug;
+            return (
+              <button
+                key={slug}
+                onClick={() => setSelectedPlanSlug(isCurrent ? null : slug)}
+                disabled={mutating}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
+                  isCurrent
+                    ? 'bg-teal-600 text-white'
+                    : isSelected
+                      ? 'bg-teal-100 text-teal-800 ring-2 ring-teal-500 dark:bg-teal-900 dark:text-teal-200'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {slug} {isCurrent && '✓'}
+              </button>
+            );
+          })}
+          {selectedPlanSlug && selectedPlanSlug !== plan.plan && (
+            <>
+              <button
+                onClick={() => {
+                  patchPlan({ plan: selectedPlanSlug });
+                  setSelectedPlanSlug(null);
+                }}
+                disabled={mutating}
+                className="ml-2 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-700"
+              >
+                Confirmar cambio a {selectedPlanSlug}
+              </button>
+              <button
+                onClick={() => setSelectedPlanSlug(null)}
+                className="rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400"
+              >
+                Cancelar
+              </button>
+            </>
+          )}
         </div>
 
         {/* Custom overrides */}
@@ -628,6 +699,141 @@ export function TenantAddonsSection({ tenantId }: { tenantId: string }) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* ── Section 1b: Plan → Features Matrix ── */}
+      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
+          Matriz de features por plan
+        </h3>
+        {(() => {
+          const planMap = new Map<string, CatalogPlan>(
+            plansData.plans.map((p) => [p.slug, p] as const),
+          );
+          const currentSlug = plan.plan;
+          const previewSlug = selectedPlanSlug && selectedPlanSlug !== currentSlug ? selectedPlanSlug : null;
+          const currentSet = new Set<string>(planMap.get(currentSlug)?.includedModules ?? []);
+          const previewSet: Set<string> | null = previewSlug
+            ? new Set<string>(planMap.get(previewSlug)?.includedModules ?? [])
+            : null;
+
+          return (
+            <>
+              {previewSlug && (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3 text-xs">
+                  <div className="font-semibold text-amber-800 dark:text-amber-300 mb-1">
+                    Vista previa de cambio: {currentSlug} → {previewSlug}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <div>
+                      <span className="text-green-700 dark:text-green-400 font-medium">+ Ganan:</span>{' '}
+                      {Array.from(previewSet!)
+                        .filter((m) => !currentSet.has(m))
+                        .map((m) => MODULE_LABELS[m]?.name ?? m)
+                        .join(', ') || '—'}
+                    </div>
+                    <div>
+                      <span className="text-red-700 dark:text-red-400 font-medium">− Pierden:</span>{' '}
+                      {Array.from(currentSet)
+                        .filter((m) => !previewSet!.has(m))
+                        .map((m) => MODULE_LABELS[m]?.name ?? m)
+                        .join(', ') || '—'}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="text-left p-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                        Módulo
+                      </th>
+                      {PLAN_SLUGS.map((slug) => {
+                        const isCurrent = slug === currentSlug;
+                        const isPreview = slug === previewSlug;
+                        return (
+                          <th
+                            key={slug}
+                            className={`p-2 text-center text-xs font-semibold capitalize ${
+                              isCurrent
+                                ? 'bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300 border-x-2 border-teal-500'
+                                : isPreview
+                                  ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-x-2 border-amber-400'
+                                  : 'text-gray-500 dark:text-gray-400'
+                            }`}
+                          >
+                            {slug}
+                            {isCurrent && (
+                              <div className="text-[10px] font-bold text-teal-600 dark:text-teal-400">
+                                ACTIVO
+                              </div>
+                            )}
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MODULE_CATEGORIES.flatMap((cat) => {
+                      const modulesInCat = Object.entries(MODULE_LABELS).filter(
+                        ([, info]) => info.category === cat,
+                      );
+                      return [
+                          <tr key={`cat-${cat}`}>
+                            <td
+                              colSpan={PLAN_SLUGS.length + 1}
+                              className="bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300"
+                            >
+                              {cat}
+                            </td>
+                          </tr>
+                          ,
+                          ...modulesInCat.map(([key, info]) => (
+                            <tr
+                              key={key}
+                              className="border-b border-gray-100 dark:border-gray-800"
+                            >
+                              <td className="p-2 text-gray-700 dark:text-gray-300">
+                                {info.name}
+                              </td>
+                              {PLAN_SLUGS.map((slug) => {
+                                const included = (
+                                  planMap.get(slug)?.includedModules ?? []
+                                ).includes(key);
+                                const isCurrent = slug === currentSlug;
+                                const isPreview = slug === previewSlug;
+                                return (
+                                  <td
+                                    key={slug}
+                                    className={`p-2 text-center ${
+                                      isCurrent
+                                        ? 'bg-teal-50/60 dark:bg-teal-950/20 border-x-2 border-teal-500'
+                                        : isPreview
+                                          ? 'bg-amber-50/60 dark:bg-amber-950/20 border-x-2 border-amber-400'
+                                          : ''
+                                    }`}
+                                  >
+                                    {included ? (
+                                      <span className="text-teal-600 dark:text-teal-400 font-bold">
+                                        ✓
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-300 dark:text-gray-700">—</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          )),
+                        ];
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* ── Section 2: Add-ons ── */}

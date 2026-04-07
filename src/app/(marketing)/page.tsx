@@ -302,7 +302,7 @@ export default function MarketingPage() {
               className="mk-btn-primary"
               style={{ padding: '16px 32px', fontSize: '1rem' }}
             >
-              Comenzar gratis — 30 días →
+              Comenzar gratis →
             </Link>
             <Link href="/planes" className="mk-btn-ghost">
               Ver planes y precios
@@ -318,48 +318,8 @@ export default function MarketingPage() {
               marginBottom: '20px',
             }}
           >
-            Sin tarjeta de crédito · 30 días gratis · Cancela cuando quieras
+            Sin tarjeta de crédito · Sin compromisos · Cancela cuando quieras
           </p>
-
-          {/* Enlaces legales visibles en el HTML de la portada (requisitos OAuth / rastreo) */}
-          <nav
-            aria-label="Información legal"
-            style={{ marginBottom: 'clamp(40px, 6vw, 56px)' }}
-          >
-            <p
-              style={{
-                fontFamily: 'var(--mk-font-b)',
-                fontSize: '0.88rem',
-                color: 'var(--mk-text)',
-                margin: 0,
-                lineHeight: 1.6,
-              }}
-            >
-              <a
-                href="/privacidad"
-                style={{
-                  color: 'var(--mk-teal)',
-                  textDecoration: 'underline',
-                  textUnderlineOffset: '3px',
-                }}
-              >
-                Política de privacidad
-              </a>
-              <span style={{ color: 'var(--mk-muted)', margin: '0 10px' }} aria-hidden>
-                ·
-              </span>
-              <a
-                href="/terminos"
-                style={{
-                  color: 'var(--mk-teal)',
-                  textDecoration: 'underline',
-                  textUnderlineOffset: '3px',
-                }}
-              >
-                Términos y condiciones
-              </a>
-            </p>
-          </nav>
 
           {/* Stats bar */}
           <div
