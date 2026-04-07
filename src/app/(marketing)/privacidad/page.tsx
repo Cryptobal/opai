@@ -11,6 +11,8 @@ export const metadata: Metadata = {
     title: 'Política de Privacidad | OPAI',
     description: 'Cómo OPAI recopila, usa y protege tus datos personales según la Ley 19.628 de Chile.',
     url: 'https://www.opai.cl/privacidad',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
   },
 }
 

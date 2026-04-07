@@ -13,6 +13,8 @@ export const metadata: Metadata = {
     title: 'Funcionalidades OPAI — Sistema completo para seguridad privada',
     description: 'Operaciones, Rondas GPS, Face ID, Alertas WhatsApp, IA Operacional, CRM, Finanzas, Nómina, ATS y 6 portales especializados.',
     url: 'https://www.opai.cl/funcionalidades',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
   },
 }
 

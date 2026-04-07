@@ -31,7 +31,7 @@ export async function generateMetadata({
       type: "website",
       images: [
         {
-          url: "/Logo%20Gard%20Blanco.png",
+          url: "/icons/og-image.png",
           width: 1200,
           height: 630,
           alt: "OPAI",
@@ -43,7 +43,7 @@ export async function generateMetadata({
       title: "Postulación Guardia | OPAI",
       description:
         "Completa el formulario de postulación de OPAI para iniciar tu proceso.",
-      images: ["/Logo%20Gard%20Blanco.png"],
+      images: ["/icons/og-image.png"],
     },
   };
 }

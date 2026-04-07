@@ -9,6 +9,8 @@ export const metadata: Metadata = {
     title: 'Contacto | OPAI',
     description: 'Escríbenos por WhatsApp o email. Te respondemos en menos de 24 horas.',
     url: 'https://www.opai.cl/contacto',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
   },
 }
 

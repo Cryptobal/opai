@@ -9,6 +9,20 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.opai.cl/funcionalidades/portales',
   },
+  openGraph: {
+    title: '6 Portales Especializados por Rol | OPAI',
+    description:
+      'Cada actor tiene su propio portal: Admin, Cliente, Guardia, Supervisor, Marcación y Rondas. Autenticación independiente, permisos granulares y experiencia optimizada por rol.',
+    url: 'https://www.opai.cl/funcionalidades/portales',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: '6 Portales Especializados por Rol | OPAI',
+    description: 'Admin, Cliente, Guardia, Supervisor, Marcación y Rondas — un portal por rol.',
+    images: ['/icons/og-image.png'],
+  },
 }
 
 const portals = [

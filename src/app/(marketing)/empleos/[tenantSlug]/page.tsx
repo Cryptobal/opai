@@ -26,7 +26,6 @@ export async function generateMetadata({
 
   const cfg = await getTenantCompanyConfig(tenant.id);
   const companyName = cfg.commercialName || cfg.companyName;
-  const ogImage = cfg.brandingLogoFull || cfg.logoUrl || undefined;
 
   const title = `Empleos ${companyName} | OPAI`;
   const description = `Encuentra empleo como guardia de seguridad en ${companyName}. Ofertas actualizadas con turno, renta y ubicacion.`;
@@ -42,13 +41,11 @@ export async function generateMetadata({
       url,
       siteName: "OPAI",
       type: "website",
-      images: ogImage ? [{ url: ogImage, alt: companyName }] : undefined,
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: ogImage ? [ogImage] : undefined,
     },
   };
 }

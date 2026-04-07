@@ -9,6 +9,20 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.opai.cl/funcionalidades/operaciones',
   },
+  openGraph: {
+    title: 'Gestión de Guardias y Operaciones | OPAI',
+    description:
+      'Administra guardias, turnos, asignaciones y check-ins con GPS, QR, PIN y Face ID. Onboarding digital, inventario de equipamiento y cumplimiento OS10 integrado.',
+    url: 'https://www.opai.cl/funcionalidades/operaciones',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Gestión de Guardias y Operaciones | OPAI',
+    description: 'Guardias, turnos, check-ins GPS/QR/Face ID y cumplimiento OS10.',
+    images: ['/icons/og-image.png'],
+  },
 }
 
 const features = [

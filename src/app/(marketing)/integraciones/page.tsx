@@ -12,6 +12,8 @@ export const metadata: Metadata = {
     description:
       '12 integraciones de clase mundial que potencian el ERP de seguridad privada más completo de Chile.',
     url: 'https://www.opai.cl/integraciones',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
   },
 }
 

@@ -9,6 +9,20 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.opai.cl/funcionalidades/finanzas',
   },
+  openGraph: {
+    title: 'Finanzas y Facturación DTE para Seguridad Privada | OPAI',
+    description:
+      'Finanzas integradas al negocio de seguridad privada: contabilidad partida doble, facturación electrónica DTE, conciliación bancaria, factoring y reportes de gastos multinivel.',
+    url: 'https://www.opai.cl/funcionalidades/finanzas',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Finanzas y Facturación DTE | OPAI',
+    description: 'Contabilidad partida doble, DTE, conciliación bancaria y factoring.',
+    images: ['/icons/og-image.png'],
+  },
 }
 
 const features = [

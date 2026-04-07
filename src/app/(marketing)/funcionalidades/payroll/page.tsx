@@ -9,6 +9,20 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.opai.cl/funcionalidades/payroll',
   },
+  openGraph: {
+    title: 'Payroll y Nómina para Guardias de Seguridad — Chile | OPAI',
+    description:
+      'Liquidaciones de sueldo para guardias de seguridad en Chile. Cálculo de turnos rotativos, horas extra automáticas, LRE, Previred, AFC y simulador de liquidación.',
+    url: 'https://www.opai.cl/funcionalidades/payroll',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Payroll y Nómina para Guardias de Seguridad | OPAI',
+    description: 'Liquidaciones, LRE, Previred, AFC y simulador para guardias.',
+    images: ['/icons/og-image.png'],
+  },
 }
 
 const features = [

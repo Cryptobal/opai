@@ -9,6 +9,20 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.opai.cl/funcionalidades/alertas-cobertura',
   },
+  openGraph: {
+    title: 'Alertas de Cobertura Automáticas WhatsApp | OPAI',
+    description:
+      'Sistema de alertas WhatsApp por oleadas para cubrir ausencias de guardias automáticamente. Tracking de aceptación, escalamiento y asignación de cobertura.',
+    url: 'https://www.opai.cl/funcionalidades/alertas-cobertura',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Alertas de Cobertura Automáticas WhatsApp | OPAI',
+    description: 'Sistema de alertas WhatsApp por oleadas para cubrir ausencias de guardias automáticamente.',
+    images: ['/icons/og-image.png'],
+  },
 }
 
 const features = [

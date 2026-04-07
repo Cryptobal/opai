@@ -9,6 +9,8 @@ export const metadata: Metadata = {
     title: 'Crea tu cuenta gratis — 30 días sin tarjeta | OPAI',
     description: '30 días gratis, acceso completo, sin tarjeta. Prueba OPAI hoy.',
     url: 'https://www.opai.cl/registrarse',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
   },
 }
 

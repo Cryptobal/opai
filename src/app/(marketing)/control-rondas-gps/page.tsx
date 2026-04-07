@@ -12,6 +12,8 @@ export const metadata: Metadata = {
     description:
       'Monitorea rondas en tiempo real con GPS, checkpoints inteligentes y Trust Score impulsado por inteligencia artificial.',
     url: 'https://www.opai.cl/control-rondas-gps',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
   },
 }
 

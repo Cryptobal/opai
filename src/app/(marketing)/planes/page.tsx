@@ -12,6 +12,8 @@ export const metadata: Metadata = {
     title: 'Planes y Precios | OPAI',
     description: 'Plan gratis para siempre. Add-ons modulares. Desde UF 0.5 por guardia/mes.',
     url: 'https://www.opai.cl/planes',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
   },
 }
 const plans = [

@@ -44,11 +44,18 @@ export const metadata: Metadata = {
     title: 'OPAI — ERP para Empresas de Seguridad Privada',
     description:
       'Operaciones, CRM, Finanzas y Nómina con IA operacional real. Face ID, GPS en tiempo real, alertas WhatsApp automáticas.',
+    images: [{
+      url: '/icons/og-image.png',
+      width: 1200,
+      height: 630,
+      alt: 'OPAI — ERP con IA para Seguridad Privada',
+    }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'OPAI — ERP para Empresas de Seguridad Privada',
     description: 'El único ERP con IA operacional real para seguridad privada en Chile.',
+    images: ['/icons/og-image.png'],
   },
   robots: {
     index: true,

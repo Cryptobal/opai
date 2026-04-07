@@ -9,6 +9,20 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://www.opai.cl/funcionalidades/face-id',
   },
+  openGraph: {
+    title: 'Face ID Biométrico para Guardias | OPAI',
+    description:
+      'Marcaciones biométricas con AWS Rekognition, threshold del 95%, quality checks, liveness detection y cumplimiento automático de Resolución N°38.',
+    url: 'https://www.opai.cl/funcionalidades/face-id',
+    type: 'website',
+    images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Face ID Biométrico para Guardias | OPAI',
+    description: 'AWS Rekognition al 95%, liveness detection y cumplimiento Res N°38.',
+    images: ['/icons/og-image.png'],
+  },
 }
 
 const features = [
