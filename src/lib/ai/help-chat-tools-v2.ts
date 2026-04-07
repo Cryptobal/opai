@@ -193,6 +193,147 @@ function v2ToolDefinitions() {
         parameters: { type: "object", properties: {}, additionalProperties: false },
       },
     },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_guardia_detail",
+        description:
+          "Ficha completa de un guardia: datos personales (RUT, email, teléfono, dirección, fecha nacimiento, AFP, salud), datos previsionales y cuentas bancarias. Buscá por nombre/apellido/RUT/código.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Nombre, apellido, RUT o código del guardia." },
+          },
+          required: ["query"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "list_guardia_documents",
+        description:
+          "Lista los documentos de un guardia (OS10, contrato, anexos, certificados, etc.). Devuelve link directo al archivo y a la pantalla de la app. Filtrá por tipo si querés.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Nombre, RUT o código del guardia." },
+            type: {
+              type: "string",
+              description:
+                "Filtro por tipo de documento (ej: 'OS10', 'contrato', 'anexo', 'certificado'). Opcional.",
+            },
+          },
+          required: ["query"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_account_detail",
+        description:
+          "Ficha completa de una cuenta CRM (cliente o prospecto): nombre, RUT, razón social, representante legal, dirección, web, industria, contactos principales, instalaciones.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Nombre, razón social o RUT del cliente." },
+          },
+          required: ["query"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "list_account_documents",
+        description:
+          "Lista los documentos asociados a una cuenta CRM (contratos de servicio, anexos, etc.) con link clickeable a la pantalla del documento y al PDF si existe.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Nombre, razón social o RUT del cliente." },
+            category: {
+              type: "string",
+              description:
+                "Filtro por categoría (ej: 'contrato_servicio', 'anexo'). Opcional.",
+            },
+          },
+          required: ["query"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_panic_alerts",
+        description:
+          "Lista las alertas de pánico (botón de pánico) generadas en una fecha. Incluye instalación, guardia que la activó, mensaje, severidad y estado de resolución.",
+        parameters: {
+          type: "object",
+          properties: {
+            date: { type: "string", description: "YYYY-MM-DD. Omite para hoy." },
+            days_back: {
+              type: "number",
+              description: "En vez de una fecha exacta, mira los últimos N días. Default 1 (solo hoy).",
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_daily_absences",
+        description:
+          "Lista guardias ausentes en una fecha (asistencia con status 'ausente' o sin check-in). Incluye instalación, puesto y nombre del guardia esperado.",
+        parameters: {
+          type: "object",
+          properties: {
+            date: { type: "string", description: "YYYY-MM-DD. Omite para hoy." },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_extra_shifts",
+        description:
+          "Lista turnos extra del día con guardia, instalación, monto y estado (pending/approved/paid).",
+        parameters: {
+          type: "object",
+          properties: {
+            date: { type: "string", description: "YYYY-MM-DD. Omite para hoy." },
+            status: { type: "string", description: "Filtrar por estado (pending|approved|paid|rejected)." },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "search_quotes",
+        description:
+          "Busca cotizaciones (CPQ) por código, nombre, cliente o estado. Devuelve link clickeable a la cotización en la app.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Texto a buscar (código, nombre o cliente). Opcional." },
+            status: { type: "string", description: "Filtrar por estado (draft, sent, accepted, etc.). Opcional." },
+            limit: { type: "number", description: "Cantidad máxima (1-25)." },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
   ];
 }
 
@@ -656,6 +797,506 @@ async function toolGetTenantSummary(tenantId: string) {
   };
 }
 
+/* ───────── Detail / document tools ───────── */
+
+async function findGuardiaByQuery(tenantId: string, query: string) {
+  const q = query.trim();
+  if (!q) return null;
+  return prisma.opsGuardia.findFirst({
+    where: {
+      tenantId,
+      OR: [
+        { code: { contains: q, mode: "insensitive" } },
+        { persona: { firstName: { contains: q, mode: "insensitive" } } },
+        { persona: { lastName: { contains: q, mode: "insensitive" } } },
+        { persona: { rut: { contains: q, mode: "insensitive" } } },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      code: true,
+      lifecycleStatus: true,
+      hiredAt: true,
+      currentInstallation: { select: { id: true, name: true } },
+      persona: {
+        select: {
+          firstName: true,
+          lastName: true,
+          rut: true,
+          email: true,
+          personalEmail: true,
+          phone: true,
+          phoneMobile: true,
+          addressFormatted: true,
+          commune: true,
+          city: true,
+          region: true,
+          birthDate: true,
+          sex: true,
+          nacionalidad: true,
+          afp: true,
+          healthSystem: true,
+          isapreName: true,
+        },
+      },
+      bankAccounts: {
+        orderBy: [{ isDefault: "desc" }],
+        select: {
+          bankName: true,
+          accountType: true,
+          accountNumber: true,
+          holderName: true,
+          holderRut: true,
+          isDefault: true,
+        },
+      },
+    },
+  });
+}
+
+async function toolGetGuardiaDetail(tenantId: string, query: string) {
+  const g = await findGuardiaByQuery(tenantId, query);
+  if (!g) return { ok: false, error: "No encontré ningún guardia con esa búsqueda." };
+  return {
+    ok: true,
+    data: {
+      id: g.id,
+      code: g.code,
+      url: `/personas/guardias/${g.id}`,
+      lifecycleStatus: g.lifecycleStatus,
+      hiredAt: g.hiredAt,
+      instalacionActual: g.currentInstallation
+        ? { id: g.currentInstallation.id, name: g.currentInstallation.name, url: `/crm/installations/${g.currentInstallation.id}` }
+        : null,
+      persona: {
+        nombre: `${g.persona.firstName} ${g.persona.lastName}`.trim(),
+        rut: g.persona.rut,
+        email: g.persona.email,
+        emailPersonal: g.persona.personalEmail,
+        telefono: g.persona.phone,
+        celular: g.persona.phoneMobile,
+        direccion: g.persona.addressFormatted,
+        comuna: g.persona.commune,
+        ciudad: g.persona.city,
+        region: g.persona.region,
+        fechaNacimiento: g.persona.birthDate,
+        sexo: g.persona.sex,
+        nacionalidad: g.persona.nacionalidad,
+        afp: g.persona.afp,
+        sistemaSalud: g.persona.healthSystem,
+        isapre: g.persona.isapreName,
+      },
+      cuentasBancarias: g.bankAccounts.map((b) => ({
+        banco: b.bankName,
+        tipoCuenta: b.accountType,
+        numeroCuenta: b.accountNumber,
+        titular: b.holderName,
+        rutTitular: b.holderRut,
+        principal: b.isDefault,
+      })),
+    },
+  };
+}
+
+async function toolListGuardiaDocuments(tenantId: string, query: string, type?: string) {
+  const g = await findGuardiaByQuery(tenantId, query);
+  if (!g) return { ok: false, error: "No encontré ningún guardia con esa búsqueda." };
+  const where: Prisma.OpsDocumentoPersonaWhereInput = { tenantId, guardiaId: g.id };
+  if (type && type.trim()) {
+    where.type = { contains: type.trim(), mode: "insensitive" };
+  }
+  const docs = await prisma.opsDocumentoPersona.findMany({
+    where,
+    orderBy: [{ updatedAt: "desc" }],
+    take: 30,
+    select: {
+      id: true,
+      type: true,
+      fileUrl: true,
+      fileName: true,
+      status: true,
+      issuedAt: true,
+      expiresAt: true,
+    },
+  });
+  return {
+    ok: true,
+    data: {
+      guardia: {
+        id: g.id,
+        nombre: `${g.persona.firstName} ${g.persona.lastName}`.trim(),
+        rut: g.persona.rut,
+        url: `/personas/guardias/${g.id}`,
+      },
+      documentos: docs.map((d) => ({
+        id: d.id,
+        tipo: d.type,
+        nombreArchivo: d.fileName,
+        estado: d.status,
+        emitido: d.issuedAt,
+        vence: d.expiresAt,
+        // Link directo al archivo (R2/storage) y a la pantalla del guardia
+        archivoUrl: d.fileUrl,
+        verEnApp: `/personas/guardias/${g.id}`,
+      })),
+    },
+  };
+}
+
+async function findAccountByQuery(tenantId: string, query: string) {
+  const q = query.trim();
+  if (!q) return null;
+  return prisma.crmAccount.findFirst({
+    where: {
+      tenantId,
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { legalName: { contains: q, mode: "insensitive" } },
+        { rut: { contains: q, mode: "insensitive" } },
+      ],
+    },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      rut: true,
+      legalName: true,
+      legalRepresentativeName: true,
+      legalRepresentativeRut: true,
+      industry: true,
+      segment: true,
+      type: true,
+      status: true,
+      website: true,
+      address: true,
+      commune: true,
+      contacts: {
+        take: 5,
+        orderBy: { createdAt: "desc" },
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true, roleTitle: true },
+      },
+      installations: {
+        take: 10,
+        orderBy: { updatedAt: "desc" },
+        select: { id: true, name: true },
+      },
+    },
+  });
+}
+
+async function toolGetAccountDetail(tenantId: string, query: string) {
+  const a = await findAccountByQuery(tenantId, query);
+  if (!a) return { ok: false, error: "No encontré ninguna cuenta con esa búsqueda." };
+  return {
+    ok: true,
+    data: {
+      id: a.id,
+      url: `/crm/accounts/${a.id}`,
+      nombre: a.name,
+      rut: a.rut,
+      razonSocial: a.legalName,
+      representanteLegal: a.legalRepresentativeName,
+      rutRepresentanteLegal: a.legalRepresentativeRut,
+      industria: a.industry,
+      segmento: a.segment,
+      tipo: a.type,
+      estado: a.status,
+      web: a.website,
+      direccion: a.address,
+      comuna: a.commune,
+      contactos: a.contacts.map((c) => ({
+        id: c.id,
+        nombre: `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim(),
+        email: c.email,
+        telefono: c.phone,
+        cargo: c.roleTitle,
+      })),
+      instalaciones: a.installations.map((i) => ({
+        id: i.id,
+        nombre: i.name,
+        url: `/crm/installations/${i.id}`,
+      })),
+    },
+  };
+}
+
+async function toolListAccountDocuments(
+  tenantId: string,
+  query: string,
+  category?: string,
+) {
+  const a = await findAccountByQuery(tenantId, query);
+  if (!a) return { ok: false, error: "No encontré ninguna cuenta con esa búsqueda." };
+  const where: Prisma.DocumentWhereInput = {
+    tenantId,
+    associations: { some: { entityType: "crm_account", entityId: a.id } },
+  };
+  if (category && category.trim()) where.category = { contains: category.trim(), mode: "insensitive" };
+  const docs = await prisma.document.findMany({
+    where,
+    orderBy: { updatedAt: "desc" },
+    take: 25,
+    select: {
+      id: true,
+      title: true,
+      module: true,
+      category: true,
+      status: true,
+      effectiveDate: true,
+      expirationDate: true,
+      pdfUrl: true,
+      signatureStatus: true,
+    },
+  });
+  return {
+    ok: true,
+    data: {
+      cuenta: { id: a.id, nombre: a.name, rut: a.rut, url: `/crm/accounts/${a.id}` },
+      documentos: docs.map((d) => ({
+        id: d.id,
+        titulo: d.title,
+        modulo: d.module,
+        categoria: d.category,
+        estado: d.status,
+        firma: d.signatureStatus,
+        vigenciaDesde: d.effectiveDate,
+        vigenciaHasta: d.expirationDate,
+        verEnApp: `/opai/documentos/${d.id}`,
+        pdfUrl: d.pdfUrl,
+      })),
+    },
+  };
+}
+
+function dayBoundsChile(dateStr: string): { gte: Date; lt: Date } {
+  // Treat dateStr as a Chile-local date and return a UTC range covering that day.
+  const [y, m, d] = dateStr.split("-").map((n) => parseInt(n, 10));
+  // Chile is UTC-3 (or -4 in summer); use -3 as a safe lower bound. We just want
+  // the calendar day, slop is fine for human-facing reports.
+  const gte = new Date(Date.UTC(y, m - 1, d, 3, 0, 0));
+  const lt = new Date(Date.UTC(y, m - 1, d + 1, 3, 0, 0));
+  return { gte, lt };
+}
+
+async function toolGetPanicAlerts(tenantId: string, dateStr: string, daysBack: number) {
+  const { gte, lt } = dayBoundsChile(dateStr);
+  const lower = daysBack > 1 ? new Date(gte.getTime() - (daysBack - 1) * 24 * 60 * 60 * 1000) : gte;
+  const rows = await prisma.opsAlertaRonda.findMany({
+    where: {
+      tenantId,
+      tipo: "panico",
+      createdAt: { gte: lower, lt },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      severidad: true,
+      mensaje: true,
+      resuelta: true,
+      isAcknowledged: true,
+      createdAt: true,
+      installation: { select: { id: true, name: true } },
+      guardia: {
+        select: {
+          id: true,
+          code: true,
+          persona: { select: { firstName: true, lastName: true, rut: true } },
+        },
+      },
+    },
+  });
+  return {
+    ok: true,
+    data: {
+      total: rows.length,
+      desde: lower,
+      hasta: lt,
+      alertas: rows.map((r) => ({
+        id: r.id,
+        cuando: r.createdAt,
+        severidad: r.severidad,
+        mensaje: r.mensaje,
+        resuelta: r.resuelta,
+        reconocida: r.isAcknowledged,
+        instalacion: r.installation
+          ? { id: r.installation.id, nombre: r.installation.name, url: `/crm/installations/${r.installation.id}` }
+          : null,
+        guardia: r.guardia
+          ? {
+              id: r.guardia.id,
+              codigo: r.guardia.code,
+              nombre: `${r.guardia.persona.firstName} ${r.guardia.persona.lastName}`.trim(),
+              rut: r.guardia.persona.rut,
+              url: `/personas/guardias/${r.guardia.id}`,
+            }
+          : null,
+      })),
+    },
+  };
+}
+
+async function toolGetDailyAbsences(tenantId: string, dateStr: string) {
+  const [y, m, d] = dateStr.split("-").map((n) => parseInt(n, 10));
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const rows = await prisma.opsAsistenciaDiaria.findMany({
+    where: {
+      tenantId,
+      date,
+      deletedAt: null,
+      attendanceStatus: { in: ["ausente", "no_marcada"] },
+    },
+    take: 100,
+    orderBy: [{ installationId: "asc" }],
+    select: {
+      id: true,
+      attendanceStatus: true,
+      plannedShiftStart: true,
+      plannedShiftEnd: true,
+      installation: { select: { id: true, name: true } },
+      puesto: { select: { id: true, name: true } },
+      plannedGuardia: {
+        select: {
+          id: true,
+          code: true,
+          persona: { select: { firstName: true, lastName: true, rut: true } },
+        },
+      },
+    },
+  });
+  return {
+    ok: true,
+    data: {
+      fecha: dateStr,
+      total: rows.length,
+      ausencias: rows.map((r) => ({
+        id: r.id,
+        estado: r.attendanceStatus,
+        turnoPlanificado:
+          r.plannedShiftStart && r.plannedShiftEnd
+            ? `${r.plannedShiftStart}-${r.plannedShiftEnd}`
+            : null,
+        instalacion: {
+          id: r.installation.id,
+          nombre: r.installation.name,
+          url: `/crm/installations/${r.installation.id}`,
+        },
+        puesto: { id: r.puesto.id, nombre: r.puesto.name },
+        guardia: r.plannedGuardia
+          ? {
+              id: r.plannedGuardia.id,
+              codigo: r.plannedGuardia.code,
+              nombre: `${r.plannedGuardia.persona.firstName} ${r.plannedGuardia.persona.lastName}`.trim(),
+              rut: r.plannedGuardia.persona.rut,
+              url: `/personas/guardias/${r.plannedGuardia.id}`,
+            }
+          : null,
+      })),
+    },
+  };
+}
+
+async function toolGetExtraShifts(tenantId: string, dateStr: string, status?: string) {
+  const [y, m, d] = dateStr.split("-").map((n) => parseInt(n, 10));
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const where: Prisma.OpsTurnoExtraWhereInput = { tenantId, date };
+  if (status) where.status = status;
+  const rows = await prisma.opsTurnoExtra.findMany({
+    where,
+    take: 100,
+    orderBy: [{ createdAt: "desc" }],
+    select: {
+      id: true,
+      status: true,
+      tipo: true,
+      horasExtra: true,
+      amountClp: true,
+      installation: { select: { id: true, name: true } },
+      guardia: {
+        select: {
+          id: true,
+          code: true,
+          persona: { select: { firstName: true, lastName: true, rut: true } },
+        },
+      },
+    },
+  });
+  return {
+    ok: true,
+    data: {
+      fecha: dateStr,
+      total: rows.length,
+      turnosExtra: rows.map((r) => ({
+        id: r.id,
+        estado: r.status,
+        tipo: r.tipo,
+        horasExtra: r.horasExtra ? Number(r.horasExtra) : null,
+        montoClp: Number(r.amountClp),
+        instalacion: {
+          id: r.installation.id,
+          nombre: r.installation.name,
+          url: `/crm/installations/${r.installation.id}`,
+        },
+        guardia: {
+          id: r.guardia.id,
+          codigo: r.guardia.code,
+          nombre: `${r.guardia.persona.firstName} ${r.guardia.persona.lastName}`.trim(),
+          rut: r.guardia.persona.rut,
+          url: `/personas/guardias/${r.guardia.id}`,
+        },
+      })),
+    },
+  };
+}
+
+async function toolSearchQuotes(
+  tenantId: string,
+  query: string | undefined,
+  status: string | undefined,
+  limit: number,
+) {
+  const take = Math.max(1, Math.min(limit || 12, 25));
+  const where: Prisma.CpqQuoteWhereInput = { tenantId };
+  if (status) where.status = status;
+  const q = (query || "").trim();
+  if (q) {
+    where.OR = [
+      { code: { contains: q, mode: "insensitive" } },
+      { name: { contains: q, mode: "insensitive" } },
+      { clientName: { contains: q, mode: "insensitive" } },
+    ];
+  }
+  const rows = await prisma.cpqQuote.findMany({
+    where,
+    take,
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      clientName: true,
+      status: true,
+      monthlyCost: true,
+      currency: true,
+      validUntil: true,
+      updatedAt: true,
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    code: r.code,
+    nombre: r.name,
+    cliente: r.clientName,
+    estado: r.status,
+    montoMensual: Number(r.monthlyCost),
+    moneda: r.currency,
+    validaHasta: r.validUntil,
+    actualizada: r.updatedAt,
+    url: `/crm/cotizaciones/${r.id}`,
+  }));
+}
+
 export async function executeToolCallV2(
   toolName: string,
   args: Record<string, unknown>,
@@ -721,6 +1362,55 @@ export async function executeToolCallV2(
         return await toolGetUserContext(tenantId, userId);
       case "get_tenant_summary":
         return { ok: true, data: await toolGetTenantSummary(tenantId) };
+      case "get_guardia_detail":
+        return await toolGetGuardiaDetail(
+          tenantId,
+          typeof args.query === "string" ? args.query : "",
+        );
+      case "list_guardia_documents":
+        return await toolListGuardiaDocuments(
+          tenantId,
+          typeof args.query === "string" ? args.query : "",
+          typeof args.type === "string" ? args.type : undefined,
+        );
+      case "get_account_detail":
+        return await toolGetAccountDetail(
+          tenantId,
+          typeof args.query === "string" ? args.query : "",
+        );
+      case "list_account_documents":
+        return await toolListAccountDocuments(
+          tenantId,
+          typeof args.query === "string" ? args.query : "",
+          typeof args.category === "string" ? args.category : undefined,
+        );
+      case "get_panic_alerts": {
+        const dateStr =
+          typeof args.date === "string" && args.date.length >= 8 ? args.date : todayChileStr();
+        const daysBack = typeof args.days_back === "number" ? args.days_back : 1;
+        return await toolGetPanicAlerts(tenantId, dateStr, daysBack);
+      }
+      case "get_daily_absences": {
+        const dateStr =
+          typeof args.date === "string" && args.date.length >= 8 ? args.date : todayChileStr();
+        return await toolGetDailyAbsences(tenantId, dateStr);
+      }
+      case "get_extra_shifts": {
+        const dateStr =
+          typeof args.date === "string" && args.date.length >= 8 ? args.date : todayChileStr();
+        const status = typeof args.status === "string" ? args.status : undefined;
+        return await toolGetExtraShifts(tenantId, dateStr, status);
+      }
+      case "search_quotes":
+        return {
+          ok: true,
+          data: await toolSearchQuotes(
+            tenantId,
+            typeof args.query === "string" ? args.query : undefined,
+            typeof args.status === "string" ? args.status : undefined,
+            typeof args.limit === "number" ? args.limit : 12,
+          ),
+        };
       default:
         return { ok: false, error: "Herramienta no soportada" };
     }

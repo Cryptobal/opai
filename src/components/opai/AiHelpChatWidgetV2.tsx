@@ -509,8 +509,29 @@ function linkifyLine(line: string) {
   return parts.length > 0 ? parts : line;
 }
 
+/**
+ * Strip out visual block syntax (`:::cards ... :::`, `:::chart ... :::`, etc.)
+ * from streaming text so the user doesn't see raw JSON while the model writes
+ * the block. Removes both completed blocks AND the trailing partial block
+ * (anything after an unmatched `:::xxx`). The server re-sends a clean text in
+ * the final `done` event so the rendered bubble will look right when streaming
+ * finishes.
+ */
+function stripVisualBlocks(content: string): string {
+  const VISUAL_TYPES = "(chart|kpi|cards|table|suggestions)";
+  // Remove fully closed blocks
+  let out = content.replace(
+    new RegExp(`:::${VISUAL_TYPES}\\s*\\n[\\s\\S]*?\\n:::`, "gi"),
+    "",
+  );
+  // Remove trailing unclosed block (still streaming)
+  out = out.replace(new RegExp(`:::${VISUAL_TYPES}[\\s\\S]*$`, "i"), "");
+  return out.replace(/\n{3,}/g, "\n\n").trimEnd();
+}
+
 function renderMessageContent(content: string) {
-  const lines = content.split("\n");
+  const cleaned = stripVisualBlocks(content);
+  const lines = cleaned.split("\n");
   return lines.map((line, idx) => (
     <Fragment key={`${idx}-${line.slice(0, 12)}`}>
       {linkifyLine(line)}
@@ -537,6 +558,7 @@ export function AiHelpChatWidgetV2() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [streamingStarted, setStreamingStarted] = useState(false);
   const [persistenceEnabled, setPersistenceEnabled] = useState(true);
   const scrollDesktopRef = useRef<HTMLDivElement | null>(null);
   const scrollMobileRef = useRef<HTMLDivElement | null>(null);
@@ -652,6 +674,7 @@ export function AiHelpChatWidgetV2() {
   const sendMessage = async (overrideText?: string) => {
     const text = (overrideText ?? input).trim();
     if (!text || sending) return;
+    setStreamingStarted(false);
 
     const optimisticUser: ChatMessage = {
       id: `tmp-user-${Date.now()}`,
@@ -723,6 +746,7 @@ export function AiHelpChatWidgetV2() {
                 }
                 setPersistenceEnabled(data.persistenceEnabled !== false);
               } else if (eventType === "token") {
+                if (!streamingStarted) setStreamingStarted(true);
                 streamedText += (data.token as string) || "";
                 setMessages((prev) => {
                   const updated = [...prev];
@@ -895,7 +919,7 @@ export function AiHelpChatWidgetV2() {
             </div>
           ))
         )}
-        {sending && (
+        {sending && !streamingStarted && (
           <div className="flex items-center gap-1.5 px-2 py-2 text-xs text-cyan-200/80">
             <span className="inline-flex gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0ms]" />
