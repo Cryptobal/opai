@@ -18,8 +18,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
-import { CheckCircle2, AlertTriangle, Loader2, ExternalLink } from "lucide-react";
+import {
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
+  ExternalLink,
+  HelpCircle,
+} from "lucide-react";
 
 export interface BneIntegrationConfig {
   configured: boolean;
@@ -149,6 +160,98 @@ export function BneIntegrationCard({
             <h3 className="font-semibold text-sm sm:text-base">
               BNE (Bolsa Nacional de Empleo)
             </h3>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Cómo solicitar credenciales BNE"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/60 transition"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                side="right"
+                align="start"
+                className="w-[360px] text-xs space-y-3"
+              >
+                <div className="space-y-1">
+                  <p className="font-semibold text-sm text-foreground">
+                    Cómo obtener tus credenciales BNE
+                  </p>
+                  <p className="text-muted-foreground">
+                    BNE entrega credenciales API por empresa. Cada empleador
+                    debe solicitar las suyas — son intransferibles.
+                  </p>
+                </div>
+
+                <ol className="space-y-2 list-decimal list-inside text-foreground">
+                  <li>
+                    Ingresa con clave única a{" "}
+                    <a
+                      href="https://www.bne.cl"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary inline-flex items-center gap-0.5 hover:underline"
+                    >
+                      bne.cl <ExternalLink className="h-3 w-3" />
+                    </a>{" "}
+                    con tu perfil empresa.
+                  </li>
+                  <li>
+                    Envía un correo a{" "}
+                    <a
+                      href="mailto:soporte@bne.gob.cl?subject=Solicitud%20de%20credenciales%20API%20BNE&body=Estimados%2C%0A%0ASolicito%20generar%20credenciales%20API%20BNE%20para%20la%20siguiente%20empresa%3A%0A%0A-%20Raz%C3%B3n%20social%3A%20%0A-%20RUT%3A%20%0A-%20Contacto%20t%C3%A9cnico%3A%20%0A%0AGracias."
+                      className="text-primary hover:underline font-mono"
+                    >
+                      soporte@bne.gob.cl
+                    </a>{" "}
+                    indicando:
+                    <ul className="list-disc list-inside ml-3 mt-1 text-muted-foreground space-y-0.5">
+                      <li>Razón social y RUT</li>
+                      <li>Asunto: solicitud credenciales API BNE</li>
+                      <li>Contacto técnico</li>
+                    </ul>
+                  </li>
+                  <li>
+                    Recibirás un caso{" "}
+                    <code className="text-[11px]">CAS-XXXX</code>. Cuando lo
+                    resuelvan, las credenciales aparecen en tu perfil empresa
+                    de bne.cl, sección{" "}
+                    <strong>&quot;Credenciales Generadas&quot;</strong> dentro
+                    de &quot;Solicitud de credenciales API BNE&quot;.
+                  </li>
+                  <li>
+                    Pega <em>Consumer Key</em> + <em>Consumer Secret</em> en
+                    los campos de abajo, ingresa tu RUT y presiona{" "}
+                    <strong>Guardar</strong>.
+                  </li>
+                  <li>
+                    Click en <strong>Probar conexión</strong>. OPAI obtendrá
+                    el token OAuth2 y descubrirá automáticamente tu{" "}
+                    <code className="text-[11px]">idEmpleador</code> contra el
+                    API de BNE.
+                  </li>
+                </ol>
+
+                <div className="rounded-md bg-muted/50 p-2 space-y-0.5 text-muted-foreground">
+                  <p className="font-medium text-foreground">Notas:</p>
+                  <p>
+                    · Las credenciales se cifran (AES-256-GCM) antes de
+                    guardarse en la base de datos.
+                  </p>
+                  <p>
+                    · Soporte BNE: +56 2 2405 5200 ·{" "}
+                    <a
+                      href="mailto:soporte@bne.gob.cl"
+                      className="text-primary hover:underline"
+                    >
+                      soporte@bne.gob.cl
+                    </a>
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Badge variant="default" className="text-[10px] px-1.5 py-0">
               API REST
             </Badge>
@@ -181,36 +284,11 @@ export function BneIntegrationCard({
 
       {channelEnabled && (
         <>
-          <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1.5">
-            <p className="font-medium text-foreground">
-              Cómo obtener tus credenciales:
-            </p>
-            <ol className="list-decimal list-inside space-y-0.5 text-muted-foreground">
-              <li>
-                Ingresa a{" "}
-                <a
-                  href="https://www.bne.cl"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-primary inline-flex items-center gap-0.5"
-                >
-                  bne.cl <ExternalLink className="h-3 w-3" />
-                </a>{" "}
-                con tu perfil empresa.
-              </li>
-              <li>
-                Solicita credenciales escribiendo a{" "}
-                <code className="text-[11px]">soporte@bne.gob.cl</code>{" "}
-                indicando RUT y razón social.
-              </li>
-              <li>
-                Recibirás un caso (CAS-XXXX) y al resolverse encontrarás los
-                datos en &quot;Credenciales Generadas&quot; dentro de tu perfil
-                empresa.
-              </li>
-              <li>Pega Consumer Key y Consumer Secret abajo y guarda.</li>
-            </ol>
-          </div>
+          <p className="text-[11px] text-muted-foreground">
+            ¿No tienes credenciales aún? Click en el ícono{" "}
+            <HelpCircle className="inline h-3 w-3 -mt-0.5" /> arriba para ver
+            cómo solicitarlas a BNE.
+          </p>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
