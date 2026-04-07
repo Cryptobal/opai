@@ -2,7 +2,7 @@
 
 /**
  * AddressAutocomplete — usa la API legacy google.maps.places.Autocomplete sobre un
- * <input> HTML nativo para garantizar interactividad plena (sin shadow DOM ni web component).
+ * <input> HTML nativo. Robusto frente a loading=async / carga previa / HMR.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -30,37 +30,63 @@ interface AddressAutocompleteProps {
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
-let scriptLoaded = false;
-let scriptLoading = false;
-const loadCallbacks: (() => void)[] = [];
+/* ── Script loader ─────────────────────────────────────────────────────────── */
+
+let scriptPromise: Promise<void> | null = null;
 
 function loadGoogleMapsScript(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (typeof window === "undefined") return resolve();
-    if (scriptLoaded && window.google?.maps) {
-      resolve();
-      return;
-    }
-    loadCallbacks.push(() => resolve());
-    if (scriptLoading) return;
-    scriptLoading = true;
+  if (typeof window === "undefined") return Promise.resolve();
 
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&loading=async&language=es&region=CL`;
-    script.async = true;
-    script.defer = true;
-    script.onerror = () => {
-      scriptLoading = false;
-      reject(new Error("No se pudo cargar Google Maps"));
-    };
-    script.onload = () => {
-      scriptLoaded = true;
-      loadCallbacks.forEach((cb) => cb());
-      loadCallbacks.length = 0;
-    };
-    document.head.appendChild(script);
-  });
+  // Si ya está cargado con places disponible, resuelve inmediatamente.
+  if ((window as any).google?.maps?.places?.Autocomplete) return Promise.resolve();
+
+  if (!scriptPromise) {
+    scriptPromise = new Promise<void>((resolve, reject) => {
+      // Si el objeto google.maps existe (cargado con loading=async por otra parte del código),
+      // usamos importLibrary para obtener la librería places.
+      const gm = (window as any).google?.maps;
+      if (gm && typeof gm.importLibrary === "function") {
+        gm.importLibrary("places").then(() => resolve()).catch(reject);
+        return;
+      }
+
+      // Si el script ya está en el DOM pero todavía no cargó, esperar.
+      const existing = document.querySelector<HTMLScriptElement>(
+        `script[src*="maps.googleapis.com/maps/api/js"]`
+      );
+      if (existing && !existing.dataset.resolved) {
+        existing.addEventListener("load", () => {
+          existing.dataset.resolved = "1";
+          const gm2 = (window as any).google?.maps;
+          if (gm2 && typeof gm2.importLibrary === "function") {
+            gm2.importLibrary("places").then(() => resolve()).catch(reject);
+          } else {
+            resolve();
+          }
+        });
+        existing.addEventListener("error", reject);
+        return;
+      }
+
+      // Carga fresca — sin loading=async para que places quede en el namespace global.
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=es&region=CL`;
+      script.async = true;
+      script.defer = true;
+      script.dataset.resolved = "1";
+      script.onerror = () => {
+        scriptPromise = null;
+        reject(new Error("No se pudo cargar Google Maps"));
+      };
+      script.onload = () => resolve();
+      document.head.appendChild(script);
+    });
+  }
+
+  return scriptPromise;
 }
+
+/* ── Helpers de parsing ────────────────────────────────────────────────────── */
 
 function parseComunaFromFormattedAddress(formatted: string): string {
   const parts = formatted.split(", ").map((p) => p.trim());
@@ -113,9 +139,10 @@ function extractFromComponents(
   return { address: formatted, city, commune, region: admin1 || "", placeId, lat, lng };
 }
 
-/** Tipos mínimos para la API legacy de Places (sin @types/google.maps). */
-interface LegacyAutocomplete {
-  addListener: (event: string, handler: () => void) => { remove: () => void };
+/* ── Tipos mínimos de la API legacy ─────────────────────────────────────────── */
+
+interface LegacyAcInstance {
+  addListener: (event: string, fn: () => void) => { remove: () => void };
   getPlace: () => {
     formatted_address?: string;
     address_components?: LegacyComponent[];
@@ -123,6 +150,8 @@ interface LegacyAutocomplete {
     place_id?: string;
   };
 }
+
+/* ── Componente ─────────────────────────────────────────────────────────────── */
 
 export function AddressAutocomplete({
   value,
@@ -133,16 +162,15 @@ export function AddressAutocomplete({
   wrapperClassName,
 }: AddressAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const acInstanceRef = useRef<LegacyAutocomplete | null>(null);
+  const acRef = useRef<LegacyAcInstance | null>(null);
   const listenerRef = useRef<{ remove: () => void } | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Texto visible en el input; se sincroniza desde el padre solo cuando el padre cambia value
-  // (evita pisar lo que el usuario escribe).
   const [inputValue, setInputValue] = useState(value ?? "");
   const lastParentValueRef = useRef(value);
 
+  // Sincronizar valor desde el padre sin pisar lo que el usuario escribe.
   useEffect(() => {
     if (value === undefined) return;
     if (value === lastParentValueRef.current) return;
@@ -152,7 +180,7 @@ export function AddressAutocomplete({
 
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Inyectar z-index para el dropdown .pac-container una sola vez.
+  // z-index del dropdown .pac-container — solo inyectar una vez.
   useEffect(() => {
     const styleId = "pac-container-zfix";
     if (document.getElementById(styleId)) return;
@@ -161,18 +189,18 @@ export function AddressAutocomplete({
     s.textContent = `.pac-container { z-index: 10000 !important; pointer-events: auto !important; }`;
     document.head.appendChild(s);
 
-    const handler = (e: PointerEvent | MouseEvent) => {
+    const stopProp = (e: Event) => {
       if ((e.target as HTMLElement)?.closest?.(".pac-container")) e.stopPropagation();
     };
-    document.addEventListener("pointerdown", handler, true);
-    document.addEventListener("mousedown", handler, true);
+    document.addEventListener("pointerdown", stopProp, true);
+    document.addEventListener("mousedown", stopProp, true);
     return () => {
-      document.removeEventListener("pointerdown", handler, true);
-      document.removeEventListener("mousedown", handler, true);
+      document.removeEventListener("pointerdown", stopProp, true);
+      document.removeEventListener("mousedown", stopProp, true);
     };
   }, []);
 
-  // Montar el Autocomplete legacy sobre el input nativo.
+  // Montar google.maps.places.Autocomplete sobre el input nativo.
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY || !inputRef.current) return;
     let cancelled = false;
@@ -182,28 +210,42 @@ export function AddressAutocomplete({
         await loadGoogleMapsScript();
         if (cancelled || !inputRef.current) return;
 
-        const places = (window.google?.maps as unknown as { places?: { Autocomplete: new (el: HTMLInputElement, opts?: Record<string, unknown>) => LegacyAutocomplete } })?.places;
-        if (!places?.Autocomplete) return;
+        // Después de loadGoogleMapsScript, puede que places aún no esté disponible si el
+        // script se cargó con loading=async. Intentar importLibrary como fallback.
+        let AcClass: (new (el: HTMLInputElement, opts?: Record<string, unknown>) => LegacyAcInstance) | undefined =
+          (window as any).google?.maps?.places?.Autocomplete;
 
-        const ac = new places.Autocomplete(inputRef.current, {
+        if (!AcClass) {
+          const gm = (window as any).google?.maps;
+          if (typeof gm?.importLibrary === "function") {
+            await gm.importLibrary("places");
+            AcClass = (window as any).google?.maps?.places?.Autocomplete;
+          }
+        }
+
+        if (!AcClass) {
+          console.warn("[AddressAutocomplete] google.maps.places.Autocomplete no disponible");
+          return;
+        }
+
+        const ac = new AcClass(inputRef.current, {
           componentRestrictions: { country: "cl" },
           types: ["address"],
           fields: ["formatted_address", "address_components", "geometry", "place_id"],
         });
-        acInstanceRef.current = ac;
+        acRef.current = ac;
 
         listenerRef.current = ac.addListener("place_changed", () => {
           const place = ac.getPlace();
           if (!place.geometry?.location) return;
           const lat = place.geometry.location.lat();
           const lng = place.geometry.location.lng();
-          const comps: LegacyComponent[] = place.address_components ?? [];
           const result = extractFromComponents(
             place.formatted_address ?? "",
             place.place_id ?? "",
             lat,
             lng,
-            comps,
+            place.address_components ?? [],
           );
           setInputValue(result.address);
           lastParentValueRef.current = result.address;
@@ -219,7 +261,7 @@ export function AddressAutocomplete({
       cancelled = true;
       listenerRef.current?.remove();
       listenerRef.current = null;
-      acInstanceRef.current = null;
+      acRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
