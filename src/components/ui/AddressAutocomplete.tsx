@@ -183,6 +183,30 @@ export function AddressAutocomplete({
         z-index: 10000 !important;
       }
       .pac-container { z-index: 10000 !important; pointer-events: auto !important; }
+      /* Neutraliza el chrome propio del web component para que solo se vea el wrapper */
+      gmp-place-autocomplete,
+      gmp-basic-place-autocomplete {
+        border: 0 !important;
+        outline: 0 !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        --gmpx-color-surface: transparent;
+        --gmpx-color-on-surface: inherit;
+        --gmpx-color-on-surface-variant: inherit;
+        --gmpx-color-primary: transparent;
+        --gmpx-font-family-base: inherit;
+        --gmpx-font-family-headings: inherit;
+      }
+      gmp-place-autocomplete::part(input),
+      gmp-place-autocomplete::part(input-container),
+      gmp-basic-place-autocomplete::part(input),
+      gmp-basic-place-autocomplete::part(input-container) {
+        border: 0 !important;
+        outline: 0 !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        color: inherit !important;
+      }
     `;
     document.head.appendChild(style);
 
@@ -326,10 +350,10 @@ export function AddressAutocomplete({
     );
   }
 
-  const wrapperBaseClasses = "relative min-h-[44px] w-full rounded-lg border pl-9 pr-2 shadow-sm transition-colors focus-within:ring-1";
+  const wrapperBaseClasses = "relative min-h-[44px] w-full rounded-lg border pl-9 pr-2 shadow-sm transition-colors focus-within:border-ring";
   const wrapperClasses = wrapperClassName
     ? `${wrapperBaseClasses} ${wrapperClassName}`
-    : `${wrapperBaseClasses} border-input bg-background focus-within:ring-ring`;
+    : `${wrapperBaseClasses} border-input bg-background`;
 
   const mapPinColor = wrapperClassName ? "text-slate-400" : "text-muted-foreground";
 
