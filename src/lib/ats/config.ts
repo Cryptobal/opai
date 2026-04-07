@@ -105,13 +105,32 @@ export async function getAtsConfig(tenantId: string): Promise<AtsMatchConfig> {
     }
   }
 
-  // Read channel config (single JSON blob)
+  // Read channel config (single JSON blob).
+  //
+  // We deep-merge per channel: code-controlled fields (`tipo`, `label`) ALWAYS
+  // win over what's stored in DB, so when we promote a channel from "feed" to
+  // "partner_api" (e.g. BNE) every existing tenant picks up the new type
+  // automatically without a data migration. Only user-editable fields
+  // (`enabled`, `externalUrl`, `feedUrl`, `notas`) are taken from DB.
   const channelSetting = await prisma.setting.findFirst({
     where: { key: "ats_channels", tenantId },
   });
-  config.channelConfigs = channelSetting
-    ? { ...CHANNEL_DEFAULTS, ...JSON.parse(channelSetting.value) }
-    : { ...CHANNEL_DEFAULTS };
+  const stored: Record<string, Partial<AtsChannelCfg>> = channelSetting
+    ? JSON.parse(channelSetting.value)
+    : {};
+  const merged: Record<string, AtsChannelCfg> = {};
+  for (const [key, def] of Object.entries(CHANNEL_DEFAULTS)) {
+    const dbValue = stored[key] ?? {};
+    merged[key] = {
+      ...def,
+      enabled: dbValue.enabled ?? def.enabled,
+      externalUrl: dbValue.externalUrl ?? def.externalUrl,
+      feedUrl: dbValue.feedUrl ?? def.feedUrl,
+      notas: dbValue.notas ?? def.notas,
+      // tipo & label intentionally NOT taken from DB.
+    };
+  }
+  config.channelConfigs = merged;
 
   cache = { config, tenantId, expiresAt: Date.now() + CACHE_TTL };
   return config;

@@ -27,10 +27,13 @@ const prisma = new PrismaClient();
 const GARD_TENANT_ID = "clgard00000000000000001";
 const GARD_RUT = "778406233"; // 77.840.623-3 sin puntos ni guion
 
-const PROD_KEY = "fEKbHEjuzQ3xT_VRBfNEPf8rrYEa";
-const PROD_SECRET = "8B1VX7nQjYWAL9tAOHQ3DFqmAWYa";
-const TEST_KEY = "BrVxujLTQPkCYwKZHbRnvO3081ka";
-const TEST_SECRET = "dBYDvtqaWAPfcS1xWD0qVuYxwa0a";
+// Credentials are NEVER hardcoded. Provide them via env vars when running:
+//   BNE_GARD_PROD_KEY=... BNE_GARD_PROD_SECRET=... pnpm tsx scripts/seed-bne-gard.ts
+//   BNE_GARD_TEST_KEY=... BNE_GARD_TEST_SECRET=... pnpm tsx scripts/seed-bne-gard.ts --env=test
+const PROD_KEY = process.env.BNE_GARD_PROD_KEY || "";
+const PROD_SECRET = process.env.BNE_GARD_PROD_SECRET || "";
+const TEST_KEY = process.env.BNE_GARD_TEST_KEY || "";
+const TEST_SECRET = process.env.BNE_GARD_TEST_SECRET || "";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -50,6 +53,11 @@ async function main() {
 
   const consumerKey = env === "prod" ? PROD_KEY : TEST_KEY;
   const consumerSecret = env === "prod" ? PROD_SECRET : TEST_SECRET;
+  if (!consumerKey || !consumerSecret) {
+    throw new Error(
+      `Faltan credenciales para ambiente ${env}. Define BNE_GARD_${env.toUpperCase()}_KEY y BNE_GARD_${env.toUpperCase()}_SECRET en tu shell o .env.local antes de correr este script.`,
+    );
+  }
 
   const data = {
     consumerKey,

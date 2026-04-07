@@ -71,6 +71,7 @@ const REGIONES = [
 
 const CANALES = [
   { value: "google_jobs", label: "Google Empleos", desc: "JSON-LD · Gratis · Automático" },
+  { value: "bne", label: "BNE (Bolsa Nacional de Empleo)", desc: "API OAuth2 · Requiere credenciales por empresa" },
   { value: "indeed", label: "Indeed", desc: "Job Sync API · Requiere partner" },
   { value: "computrabajo", label: "Computrabajo", desc: "XML feed · Requiere partner" },
   { value: "bumeran", label: "Bumeran Chile", desc: "ATS API · Requiere partner" },
