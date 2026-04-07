@@ -699,13 +699,33 @@ function getQuickStarters(
   }
 
   // 2) Pathname: módulo actual
+  // IMPORTANTE: el orden importa — las rutas más específicas deben ir antes
+  // que las más genéricas (ej. /crm/leads antes que /crm).
   const p = pathname ?? "";
-  if (p.startsWith("/crm/leads") || p.startsWith("/crm/prospects")) {
+
+  // ── CRM ──
+  if (p.startsWith("/crm/leads") || p.startsWith("/crm/prospecting")) {
     return [
       "¿Cómo creo un prospecto?",
       "Muéstrame los leads más recientes",
       "¿Cómo convierto un prospecto en cliente?",
       "Buscar prospecto por nombre",
+    ];
+  }
+  if (p.startsWith("/crm/contacts")) {
+    return [
+      "¿Cómo creo un contacto nuevo?",
+      "Buscar contacto por nombre o correo",
+      "¿Cómo vinculo un contacto a una cuenta?",
+      "Muéstrame contactos sin interacciones recientes",
+    ];
+  }
+  if (p.startsWith("/crm/accounts")) {
+    return [
+      "Busca una cuenta por nombre",
+      "¿Cómo creo una cuenta nueva?",
+      "Lista las cuentas con deals abiertos",
+      "¿Qué cuentas tienen contratos por vencer?",
     ];
   }
   if (p.startsWith("/crm/deals")) {
@@ -724,12 +744,30 @@ function getQuickStarters(
       "Buscar cotización por código",
     ];
   }
+  if (p.startsWith("/crm/installations")) {
+    return [
+      "Lista las instalaciones activas",
+      "¿Cómo doy de alta una instalación?",
+      "Instalaciones con alertas recientes",
+      "Buscar instalación por nombre o dirección",
+    ];
+  }
   if (p.startsWith("/crm")) {
     return [
       "Busca un cliente por nombre",
       "¿Cómo creo una cuenta nueva?",
       "Resume el pipeline comercial",
       "Lista las últimas cotizaciones",
+    ];
+  }
+
+  // ── Operaciones ──
+  if (p.startsWith("/ops/rondas/monitoreo")) {
+    return [
+      "¿Qué rondas están en curso?",
+      "¿Hay checkpoints atrasados ahora?",
+      "Resume el estado de monitoreo en vivo",
+      "¿Cómo interpreto las alertas de ronda?",
     ];
   }
   if (p.startsWith("/ops/rondas") || p.startsWith("/rondas")) {
@@ -740,12 +778,28 @@ function getQuickStarters(
       "Resume la supervisión de esta semana",
     ];
   }
-  if (p.startsWith("/ops/pauta")) {
+  if (p.startsWith("/ops/pautas") || p.startsWith("/ops/pauta")) {
     return [
       "¿Cómo creo la pauta del mes?",
       "¿Cuántos PPC tengo hoy?",
       "Explícame cómo funciona un slot",
       "Diferencia entre pauta mensual y asistencia diaria",
+    ];
+  }
+  if (p.startsWith("/ops/supervision")) {
+    return [
+      "Resume las visitas de supervisión de hoy",
+      "¿Qué hallazgos críticos hay abiertos?",
+      "¿Cómo agendo una nueva visita?",
+      "Reportes de supervisión de esta semana",
+    ];
+  }
+  if (p.startsWith("/ops/control-nocturno")) {
+    return [
+      "Estado del control nocturno de hoy",
+      "¿Cómo creo un turno de control nocturno?",
+      "KPIs del control nocturno",
+      "Incidencias detectadas esta semana",
     ];
   }
   if (p.startsWith("/ops/asistencia") || p.startsWith("/ops/marcacion")) {
@@ -756,6 +810,46 @@ function getQuickStarters(
       "¿Cómo funciona la marcación por QR?",
     ];
   }
+  if (p.startsWith("/ops/ats")) {
+    return [
+      "¿Cuántos candidatos activos tengo en el ATS?",
+      "¿Cómo creo una vacante nueva?",
+      "Explícame las etapas del pipeline de selección",
+      "Candidatos listos para contratar",
+    ];
+  }
+  if (p.startsWith("/ops/tickets")) {
+    return [
+      "¿Cuántos tickets abiertos hay?",
+      "Tickets críticos sin asignar",
+      "¿Cómo escalo un ticket?",
+      "Resume los tickets de esta semana",
+    ];
+  }
+  if (p.startsWith("/ops/puestos")) {
+    return [
+      "Lista los puestos operativos",
+      "¿Cómo configuro un puesto nuevo?",
+      "¿Qué puestos tienen PPC hoy?",
+      "Puestos por instalación",
+    ];
+  }
+  if (p.startsWith("/ops/inventario")) {
+    return [
+      "Stock disponible por bodega",
+      "¿Cómo registro una entrega?",
+      "Últimas compras realizadas",
+      "Activos asignados por guardia",
+    ];
+  }
+  if (p.startsWith("/ops/alertas-cobertura")) {
+    return [
+      "Alertas de cobertura activas ahora",
+      "¿Cómo resuelvo una alerta de cobertura?",
+      "Historial de alertas de esta semana",
+      "Configurar umbrales de alerta",
+    ];
+  }
   if (p.startsWith("/ops")) {
     return [
       "Resume el estado operativo de hoy",
@@ -764,7 +858,9 @@ function getQuickStarters(
       "¿Cómo configuro un puesto operativo?",
     ];
   }
-  if (p.startsWith("/personas/guardias") || p.startsWith("/personas")) {
+
+  // ── Personas / RRHH ──
+  if (p.startsWith("/personas/guardias")) {
     return [
       "Buscar guardia por nombre o RUT",
       "Resume las métricas de guardias",
@@ -772,20 +868,80 @@ function getQuickStarters(
       "¿Cómo doy de alta un guardia?",
     ];
   }
+  if (p.startsWith("/personas/gamificacion")) {
+    return [
+      "Ranking de guardias del mes",
+      "¿Cómo funciona la gamificación?",
+      "Guardias con mejor desempeño",
+      "Configurar reglas de puntaje",
+    ];
+  }
+  if (p.startsWith("/personas")) {
+    return [
+      "Resume el estado del personal",
+      "Buscar guardia por nombre o RUT",
+      "¿Qué documentos vencen pronto?",
+      "¿Cómo doy de alta un colaborador?",
+    ];
+  }
+
+  // ── Finanzas ──
+  if (p.startsWith("/finanzas/rendiciones")) {
+    return [
+      "¿Cuántas rendiciones hay pendientes?",
+      "¿Cómo apruebo una rendición?",
+      "Rendiciones vencidas",
+      "¿Cómo cargo una nueva rendición?",
+    ];
+  }
+  if (p.startsWith("/finanzas/facturacion")) {
+    return [
+      "¿Qué DTE están por vencer?",
+      "¿Cómo emito una factura electrónica?",
+      "Notas de crédito pendientes",
+      "Resume la facturación del mes",
+    ];
+  }
+  if (p.startsWith("/finanzas/conciliacion")) {
+    return [
+      "Movimientos bancarios sin conciliar",
+      "¿Cómo concilio una partida?",
+      "Resume la conciliación del mes",
+      "Diferencias detectadas hoy",
+    ];
+  }
+  if (p.startsWith("/finanzas/contabilidad")) {
+    return [
+      "¿Cómo creo un asiento contable?",
+      "Últimos asientos registrados",
+      "Cuentas contables más usadas",
+      "Cerrar período contable",
+    ];
+  }
   if (p.startsWith("/finanzas") || p.startsWith("/finance")) {
     return [
       "¿Cuántas rendiciones hay pendientes?",
       "Resume las finanzas del último mes",
-      "¿Cómo apruebo una rendición?",
       "¿Qué DTE están por vencer?",
+      "¿Cómo apruebo una rendición?",
     ];
   }
-  if (p.startsWith("/docs")) {
+
+  // ── Payroll ──
+  if (p.startsWith("/payroll/parameters")) {
     return [
-      "¿Cómo genero un contrato?",
-      "¿Cómo funciona la firma digital?",
-      "Buscar documento por nombre",
-      "Lista las plantillas disponibles",
+      "¿Qué parámetros tengo configurados?",
+      "¿Cómo actualizo la UF / UTM?",
+      "Parámetros de AFP y Salud",
+      "Explícame cada parámetro de payroll",
+    ];
+  }
+  if (p.startsWith("/payroll/simulator")) {
+    return [
+      "Explícame el simulador de sueldos",
+      "Simula un sueldo con bonos",
+      "¿Cómo calculo el costo de un guardia?",
+      "Diferencia entre líquido e imponible",
     ];
   }
   if (p.startsWith("/payroll")) {
@@ -793,15 +949,85 @@ function getQuickStarters(
       "Explícame el simulador de sueldos",
       "¿Cuál es la UF y UTM de hoy?",
       "¿Cómo configuro parámetros de payroll?",
-      "¿Cómo calculo el costo de un guardia?",
+      "¿Cómo cierro un período de payroll?",
     ];
   }
-  if (p.startsWith("/configuracion") || p.startsWith("/settings")) {
+
+  // ── Documentos ──
+  if (p.startsWith("/opai/documentos/templates")) {
+    return [
+      "¿Cómo creo una plantilla nueva?",
+      "Lista las plantillas disponibles",
+      "¿Cómo uso variables en una plantilla?",
+      "Duplicar una plantilla existente",
+    ];
+  }
+  if (p.startsWith("/opai/documentos")) {
+    return [
+      "¿Cómo genero un contrato?",
+      "¿Cómo funciona la firma digital?",
+      "Buscar documento por nombre",
+      "Lista las plantillas disponibles",
+    ];
+  }
+
+  // ── Configuración ──
+  if (p.startsWith("/opai/configuracion/ats")) {
+    return [
+      "¿Cómo configuro las etapas del ATS?",
+      "Plantillas de correo para candidatos",
+      "Fuentes de reclutamiento activas",
+      "Requisitos por vacante",
+    ];
+  }
+  if (p.startsWith("/opai/configuracion/crm")) {
+    return [
+      "¿Cómo configuro etapas del pipeline?",
+      "Campos personalizados del CRM",
+      "Reglas de asignación de leads",
+      "Configurar fuentes de origen",
+    ];
+  }
+  if (p.startsWith("/opai/configuracion/cpq")) {
+    return [
+      "¿Cómo creo un ítem de cotización?",
+      "Configurar descuentos y márgenes",
+      "Plantillas de cotización",
+      "Reglas de aprobación",
+    ];
+  }
+  if (p.startsWith("/opai/configuracion/asistente-ia")) {
+    return [
+      "¿Qué roles pueden usar el asistente?",
+      "¿Cómo habilito preguntas sobre datos?",
+      "Explícame las bases de conocimiento",
+      "Configurar proveedor de IA",
+    ];
+  }
+  if (p.startsWith("/opai/configuracion")) {
     return [
       "¿Cómo creo un rol nuevo?",
       "¿Qué permisos tiene mi usuario?",
       "Explícame la jerarquía de roles",
       "¿Cómo invito a un usuario?",
+    ];
+  }
+  if (p.startsWith("/opai/usuarios")) {
+    return [
+      "¿Cómo invito a un usuario nuevo?",
+      "Lista de usuarios activos",
+      "¿Cómo desactivo un usuario?",
+      "Asignar un rol a un usuario",
+    ];
+  }
+
+  // ── Hub / Home ──
+  if (p === "/" || p.startsWith("/hub")) {
+    return [
+      "¿Qué puedes hacer?",
+      "Resume el estado operativo de hoy",
+      "¿Cuántas rendiciones hay pendientes?",
+      "Muéstrame mis pendientes del día",
     ];
   }
 
@@ -982,6 +1208,7 @@ export function AiHelpChatWidgetV2() {
           message: text,
           conversationId: activeConversationId ?? undefined,
           pageContext: pageContext ?? undefined,
+          pathname: pathname ?? undefined,
         }),
       });
 
@@ -1072,6 +1299,21 @@ export function AiHelpChatWidgetV2() {
                 const name = (data.name as string) || "";
                 if (status === "running") setActiveToolName(name);
                 else setActiveToolName(null);
+              } else if (eventType === "reset_stream") {
+                // El server terminó una iteración de tool-calling y va a
+                // streamear la respuesta final. Limpiamos el texto acumulado
+                // para que la burbuja no muestre el razonamiento previo
+                // concatenado con la respuesta final (bug "primero una
+                // respuesta, luego otra rara").
+                streamedText = "";
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last && last.role === "assistant" && last.id.startsWith("tmp-streaming-")) {
+                    updated[updated.length - 1] = { ...last, content: "" };
+                  }
+                  return updated;
+                });
               } else if (eventType === "error") {
                 throw new Error((data.error as string) || "Error del asistente");
               }
@@ -1213,27 +1455,51 @@ export function AiHelpChatWidgetV2() {
             </div>
           </div>
         ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={cn(
-                "max-w-[95%] rounded-2xl px-3 py-2.5 text-sm",
-                msg.role === "user"
-                  ? "ml-auto bg-gradient-to-br from-cyan-500/35 to-emerald-600/25 text-white border border-white/10"
-                  : "mr-auto bg-white/[0.04] text-white/95 border border-white/[0.06]",
-              )}
-            >
-              <div className="whitespace-pre-wrap">{renderMessageContent(msg.content)}</div>
-              {msg.role === "assistant" && (msg.visuals?.length || msg.suggestions?.length) ? (
-                <VisualsRenderer
-                  visuals={msg.visuals ?? []}
-                  suggestions={msg.suggestions ?? []}
-                  onCardAction={(a) => handleAction(a)}
-                  onSuggestionAction={(a) => handleAction(a)}
-                />
-              ) : null}
-            </div>
-          ))
+          <>
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={cn(
+                  "max-w-[95%] rounded-2xl px-3 py-2.5 text-sm",
+                  msg.role === "user"
+                    ? "ml-auto bg-gradient-to-br from-cyan-500/35 to-emerald-600/25 text-white border border-white/10"
+                    : "mr-auto bg-white/[0.04] text-white/95 border border-white/[0.06]",
+                )}
+              >
+                <div className="whitespace-pre-wrap">{renderMessageContent(msg.content)}</div>
+                {msg.role === "assistant" && (msg.visuals?.length || msg.suggestions?.length) ? (
+                  <VisualsRenderer
+                    visuals={msg.visuals ?? []}
+                    suggestions={msg.suggestions ?? []}
+                    onCardAction={(a) => handleAction(a)}
+                    onSuggestionAction={(a) => handleAction(a)}
+                  />
+                ) : null}
+              </div>
+            ))}
+            {/* Quick starters contextuales tras cada respuesta del asistente
+                (solo si el último mensaje es del asistente, no estamos enviando
+                y el asistente no devolvió sus propias suggestions en el bloque
+                :::suggestions). Esto da batches contextuales permanentes según
+                el módulo donde esté el usuario. */}
+            {!sending &&
+            messages.length > 0 &&
+            messages[messages.length - 1].role === "assistant" &&
+            !messages[messages.length - 1].suggestions?.length ? (
+              <div className="mr-auto max-w-[95%] flex flex-wrap gap-2 pt-1">
+                {quickStarters.map((q) => (
+                  <button
+                    key={`follow-${q}`}
+                    type="button"
+                    onClick={() => void sendMessage(q)}
+                    className="rounded-full border border-cyan-500/25 bg-gradient-to-r from-cyan-500/10 to-emerald-500/10 px-3 py-1.5 text-[11px] text-cyan-100 hover:from-cyan-500/20 hover:to-emerald-500/15 transition"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </>
         )}
         {(sending && !streamingStarted) || activeToolName ? (
           <div className="flex items-center gap-1.5 px-2 py-2 text-xs text-cyan-200/80">

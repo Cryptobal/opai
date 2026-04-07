@@ -66,6 +66,62 @@ function clipTitle(text: string): string {
 }
 
 /**
+ * Mapea un pathname a una descripción humana del módulo actual para
+ * inyectarla en el system prompt. Cubre los módulos principales de OPAI:
+ * hub, CRM (leads, contactos, cuentas, deals, cotizaciones, instalaciones),
+ * Operaciones (pautas, rondas, monitoreo, supervisión, ATS, tickets, puestos,
+ * alertas), Personas/Guardias, Finanzas, Payroll, Documentos y Configuración.
+ */
+function describeModule(pathname: string): string {
+  const p = pathname.toLowerCase();
+  if (p === "/" || p.startsWith("/hub")) return "Hub / Inicio — dashboard general del tenant";
+  if (p.startsWith("/crm/leads") || p.startsWith("/crm/prospecting")) return "CRM > Leads / Prospección comercial";
+  if (p.startsWith("/crm/contacts")) return "CRM > Contactos comerciales";
+  if (p.startsWith("/crm/accounts")) return "CRM > Cuentas / Clientes";
+  if (p.startsWith("/crm/deals")) return "CRM > Deals / Pipeline comercial";
+  if (p.startsWith("/crm/cotizaciones") || p.startsWith("/cpq")) return "CRM > Cotizaciones (CPQ)";
+  if (p.startsWith("/crm/installations")) return "CRM > Instalaciones";
+  if (p.startsWith("/crm")) return "CRM — gestión comercial";
+  if (p.startsWith("/ops/rondas/monitoreo")) return "Operaciones > Rondas > Monitoreo en vivo";
+  if (p.startsWith("/ops/rondas")) return "Operaciones > Rondas de vigilancia";
+  if (p.startsWith("/ops/pautas") || p.startsWith("/ops/pauta")) return "Operaciones > Pauta mensual / asignaciones";
+  if (p.startsWith("/ops/supervision")) return "Operaciones > Supervisión en terreno";
+  if (p.startsWith("/ops/control-nocturno")) return "Operaciones > Control nocturno";
+  if (p.startsWith("/ops/asistencia") || p.startsWith("/ops/marcacion")) return "Operaciones > Asistencia y marcación";
+  if (p.startsWith("/ops/ats")) return "Operaciones > ATS (Reclutamiento y selección)";
+  if (p.startsWith("/ops/tickets")) return "Operaciones > Tickets / Incidencias";
+  if (p.startsWith("/ops/puestos")) return "Operaciones > Puestos operativos";
+  if (p.startsWith("/ops/inventario")) return "Operaciones > Inventario operativo";
+  if (p.startsWith("/ops/alertas-cobertura")) return "Operaciones > Alertas de cobertura";
+  if (p.startsWith("/ops")) return "Operaciones — gestión operativa";
+  if (p.startsWith("/personas/guardias")) return "Personas > Guardias / Colaboradores";
+  if (p.startsWith("/personas/gamificacion")) return "Personas > Gamificación";
+  if (p.startsWith("/personas")) return "Personas — gestión de personal";
+  if (p.startsWith("/finanzas/rendiciones")) return "Finanzas > Rendiciones";
+  if (p.startsWith("/finanzas/facturacion")) return "Finanzas > Facturación electrónica (DTE)";
+  if (p.startsWith("/finanzas/conciliacion")) return "Finanzas > Conciliación bancaria";
+  if (p.startsWith("/finanzas/contabilidad")) return "Finanzas > Contabilidad";
+  if (p.startsWith("/finanzas")) return "Finanzas — gestión financiera";
+  if (p.startsWith("/payroll/parameters")) return "Payroll > Parámetros";
+  if (p.startsWith("/payroll/simulator")) return "Payroll > Simulador de sueldos";
+  if (p.startsWith("/payroll")) return "Payroll — remuneraciones";
+  if (p.startsWith("/opai/documentos")) return "Documentos — contratos, anexos y plantillas";
+  if (p.startsWith("/opai/configuracion/ats")) return "Configuración > ATS";
+  if (p.startsWith("/opai/configuracion/crm")) return "Configuración > CRM";
+  if (p.startsWith("/opai/configuracion/cpq")) return "Configuración > CPQ / Cotizaciones";
+  if (p.startsWith("/opai/configuracion/asistente-ia")) return "Configuración > Asistente IA";
+  if (p.startsWith("/opai/configuracion")) return "Configuración de la plataforma";
+  if (p.startsWith("/opai/usuarios")) return "Configuración > Usuarios y roles";
+  if (p.startsWith("/opai")) return "OPAI — administración";
+  if (p.startsWith("/chat")) return "Chat interno";
+  if (p.startsWith("/portales")) return "Portales externos";
+  if (p.startsWith("/reportes")) return "Reportes y analítica";
+  if (p.startsWith("/fiscalizacion")) return "Fiscalización";
+  if (p.startsWith("/te")) return "Turnos extra";
+  return `ruta ${pathname}`;
+}
+
+/**
  * Resolves the effective model to use.
  * For platform-configured providers we honour the chosen model.
  * For the env-var fallback (OpenAI) we apply the dynamic model router.
@@ -107,6 +163,7 @@ export async function POST(request: NextRequest) {
     message?: unknown;
     conversationId?: unknown;
     pageContext?: unknown;
+    pathname?: unknown;
   };
 
   /* page context (Notion-like): the user is currently viewing an entity */
@@ -135,6 +192,8 @@ export async function POST(request: NextRequest) {
     }
   }
   const appBaseUrl = request.nextUrl.origin;
+  const currentPathname =
+    typeof body.pathname === "string" && body.pathname.startsWith("/") ? body.pathname : null;
   const userMessage = typeof body.message === "string" ? body.message.trim() : "";
   if (!userMessage) {
     return new Response(JSON.stringify({ success: false, error: "El mensaje es obligatorio" }), {
@@ -276,10 +335,21 @@ REGLAS DE CONTEXTO DE PÁGINA (críticas):
 5. Si el usuario pregunta algo claramente NO relacionado a esta entidad (ej: "qué es UF"), responde normalmente sin forzar el contexto.`
     : null;
 
+  const moduleContextSystemMessage = currentPathname
+    ? `Contexto de módulo actual: el usuario está navegando en la ruta ${currentPathname} (${describeModule(currentPathname)}).
+
+REGLAS DE CONTEXTO DE MÓDULO:
+1. Si la pregunta es ambigua ("¿cómo creo uno?", "muéstrame los recientes", "¿cómo configuro esto?"), asume que el usuario se refiere al módulo de la ruta actual.
+2. Cuando expliques flujos o acciones, prioriza ejemplos, rutas y terminología del módulo actual.
+3. En el bloque :::suggestions final prioriza acciones relacionadas a este módulo para mantener al usuario en contexto.
+4. No repitas el nombre del módulo en cada frase — sé natural y directo.`
+    : null;
+
   const messages: Array<Record<string, unknown>> = [
     { role: "system", content: systemPrompt },
     { role: "system", content: `Contexto documental y base de conocimiento relevante:\n${docsContext || "(sin bloques relevantes encontrados)"}` },
     ...(pageContextSystemMessage ? [{ role: "system", content: pageContextSystemMessage }] : []),
+    ...(moduleContextSystemMessage ? [{ role: "system", content: moduleContextSystemMessage }] : []),
     ...trimmedHistory.map(m => ({ role: m.role, content: m.content })),
     { role: "user", content: userMessage },
   ];
@@ -353,6 +423,13 @@ REGLAS DE CONTEXTO DE PÁGINA (críticas):
             send("tool_call", { name: call.name, status: "done" });
             messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
           }
+          // El texto emitido en esta iteración era solo razonamiento previo a
+          // las tool_calls (no la respuesta final). Le decimos al cliente que
+          // borre lo que mostró para que la próxima iteración escriba limpio
+          // sobre la burbuja en streaming. Sin esto el cliente acumula todas
+          // las iteraciones y luego el evento "done" reemplaza con la última,
+          // provocando el bug de "primero una respuesta, después otra rara".
+          send("reset_stream", {});
           fullText = "";
         }
 
