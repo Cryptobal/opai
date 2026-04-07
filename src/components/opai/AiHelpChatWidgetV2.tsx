@@ -592,7 +592,16 @@ export function AiHelpChatWidgetV2() {
           setConversations(json.data);
           setPersistenceEnabled(json.persistenceEnabled !== false);
           if (!activeConversationId && !isNewConversation && json.data.length > 0) {
-            setActiveConversationId(json.data[0].id);
+            const lastConv = json.data[0];
+            const lastUpdated = new Date(lastConv.updatedAt).getTime();
+            const now = Date.now();
+            const INACTIVITY_THRESHOLD_MS = 4 * 60 * 60 * 1000; // 4 horas
+            if (Number.isFinite(lastUpdated) && now - lastUpdated > INACTIVITY_THRESHOLD_MS) {
+              setIsNewConversation(true);
+              setMessages([]);
+            } else {
+              setActiveConversationId(lastConv.id);
+            }
           }
         }
       } catch {
@@ -819,7 +828,7 @@ export function AiHelpChatWidgetV2() {
             Nueva
           </Button>
           <select
-            className="h-8 flex-1 rounded-md border border-white/15 bg-white/5 px-2 text-xs text-white"
+            className="h-8 flex-1 min-w-0 rounded-md border border-white/15 bg-white/5 px-2 text-xs text-white truncate"
             value={activeConversationId ?? ""}
             onChange={(e) => {
               setActiveConversationId(e.target.value || null);
@@ -949,7 +958,7 @@ export function AiHelpChatWidgetV2() {
             {panelShell(false)}
           </div>
 
-          <div className="md:hidden fixed inset-0 z-50 flex flex-col bg-[#1a1a2e] text-white">
+          <div className="md:hidden fixed inset-0 z-50 flex flex-col bg-[#1a1a2e] text-white pt-[env(safe-area-inset-top)]">
             {panelShell(true)}
           </div>
         </>

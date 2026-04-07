@@ -16,6 +16,28 @@ export async function GET() {
 
   try {
     await ensureKnowledgeTables();
+
+    // Auto-recover stuck processing items (> 10 min)
+    const TEN_MINUTES_AGO = new Date(Date.now() - 10 * 60 * 1000);
+    await prisma.knowledgeBase
+      .updateMany({
+        where: {
+          tenantId: ctx.tenantId,
+          status: 'processing',
+          createdAt: { lt: TEN_MINUTES_AGO },
+        },
+        data: {
+          status: 'error',
+          metadata: {
+            error:
+              'El procesamiento excedió el tiempo máximo. Intenta subir el documento nuevamente.',
+          },
+        },
+      })
+      .catch((err: unknown) => {
+        console.error('[Knowledge] Auto-recover stuck items failed:', err);
+      });
+
     const items = await prisma.knowledgeBase.findMany({
       where: { tenantId: ctx.tenantId },
       orderBy: { createdAt: 'desc' },

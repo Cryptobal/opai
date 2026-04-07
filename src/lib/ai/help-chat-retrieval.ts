@@ -165,7 +165,7 @@ async function listMarkdownFiles(dir: string): Promise<string[]> {
 
   for (const entry of entries) {
     if (entry.name.startsWith(".")) continue;
-    if (entry.name === "_deprecated") continue;
+    if (entry.name === "_deprecated" || entry.name === "_archive") continue;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...(await listMarkdownFiles(fullPath)));
@@ -182,13 +182,36 @@ async function loadDocsChunks(): Promise<DocChunk[]> {
   try {
     const docsDir = path.join(process.cwd(), "docs");
     await fs.access(docsDir);
-    const files = await listMarkdownFiles(docsDir);
+
+    // Solo cargar directorios relevantes para el asistente
+    const RELEVANT_DIRS = ["00-product", "01-architecture", "02-implementation", "ai"];
     const chunks: DocChunk[] = [];
 
-    for (const file of files) {
-      const raw = await fs.readFile(file, "utf8");
-      const fileLabel = path.relative(docsDir, file).replace(/\\/g, "/");
-      chunks.push(...chunkMarkdown(raw, fileLabel));
+    for (const subDir of RELEVANT_DIRS) {
+      const fullPath = path.join(docsDir, subDir);
+      try {
+        await fs.access(fullPath);
+        const files = await listMarkdownFiles(fullPath);
+        for (const file of files) {
+          const raw = await fs.readFile(file, "utf8");
+          const fileLabel = path.relative(docsDir, file).replace(/\\/g, "/");
+          chunks.push(...chunkMarkdown(raw, fileLabel));
+        }
+      } catch {
+        // directory missing, skip
+      }
+    }
+
+    // Archivos sueltos relevantes en la raíz de docs/
+    const rootFiles = ["FLUJOS_MARCACION.md", "opai-base-conocimiento-ia.md"];
+    for (const fileName of rootFiles) {
+      const filePath = path.join(docsDir, fileName);
+      try {
+        const raw = await fs.readFile(filePath, "utf8");
+        chunks.push(...chunkMarkdown(raw, fileName));
+      } catch {
+        // file missing, skip
+      }
     }
 
     return chunks;

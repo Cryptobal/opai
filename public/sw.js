@@ -1,4 +1,4 @@
-const CACHE_NAME = 'opai-v2';
+const CACHE_NAME = 'opai-v3';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [
@@ -45,6 +45,11 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET') return;
 
+  // AI chat routes: always bypass SW (SSE streaming is incompatible with SW caching)
+  if (url.pathname.startsWith('/api/ai/') || url.pathname.startsWith('/api/marketing/chat')) {
+    return; // Let the browser handle these directly
+  }
+
   // API: network-first with cache fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
@@ -77,7 +82,12 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(() =>
-        caches.match(request).then((cached) => cached || caches.match(OFFLINE_URL))
+        caches.match(request).then((cached) => {
+          if (cached) return cached;
+          return caches.match(OFFLINE_URL).then((offline) =>
+            offline || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
+          );
+        })
       )
     );
     return;
@@ -85,7 +95,11 @@ self.addEventListener('fetch', (event) => {
 
   // Default: network with fallback
   event.respondWith(
-    fetch(request).catch(() => caches.match(request))
+    fetch(request).catch(() =>
+      caches.match(request).then((cached) =>
+        cached || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
+      )
+    )
   );
 });
 
