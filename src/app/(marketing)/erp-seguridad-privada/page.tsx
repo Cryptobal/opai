@@ -138,7 +138,7 @@ const faqs = [
   },
   {
     q: '¿Puedo probar OPAI antes de comprometerme?',
-    a: 'Por supuesto. Ofrecemos 30 días gratis sin tarjeta de crédito. Puedes crear tu cuenta en 2 minutos y comenzar a operar inmediatamente.',
+    a: 'Por supuesto. Ofrecemos acceso gratis sin tarjeta de crédito. Puedes crear tu cuenta en 2 minutos y comenzar a operar inmediatamente.',
   },
   {
     q: '¿Quién desarrolló OPAI?',
@@ -207,7 +207,7 @@ export default function ERPSeguridadPrivadaPage() {
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <Link href="/registrarse" className="mk-btn-primary">
-              Comenzar gratis 30 días →
+              Comenzar gratis →
             </Link>
             <Link href="/contacto" className="mk-btn-ghost">
               Solicitar demo

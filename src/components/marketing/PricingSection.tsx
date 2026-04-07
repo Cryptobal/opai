@@ -14,54 +14,65 @@ interface PlanData {
 
 const PLANS: PlanData[] = [
   {
-    name: "Starter",
-    price: 0.12,
-    description: "Núcleo operacional",
-    guardLimit: "Hasta 50 guardias",
-    color: "#00D4AA",
+    name: "Gratis",
+    price: 0,
+    description: "Hasta 10 guardias, para siempre",
+    guardLimit: "hasta 10 guardias",
+    color: "#94A3B8",
     features: [
-      "Fichas de guardias de seguridad",
-      "Puestos y pautas mensuales",
-      "Marcaciones GPS + foto",
-      "Portal del Guardia (iOS + Android)",
-      "Alertas de cobertura por WhatsApp",
-      "Chat interno + documentos digitales",
+      "Gestión de guardias (fichas OS10)",
+      "Pautas mensuales y pauta diaria",
+      "Marcaciones GPS + QR + PIN",
+      "Portal Guardia + Portal Marcación",
+      "1 usuario admin",
       "Soporte por email",
     ],
   },
   {
-    name: "Operaciones Pro",
-    price: 0.28,
-    description: "Operación completa",
-    guardLimit: "Hasta 200 guardias",
-    popular: true,
+    name: "Starter",
+    price: 0.5,
+    description: "Operación profesional",
+    guardLimit: "mín UF 20/mes",
     color: "#3B82F6",
     features: [
-      "Todo Starter +",
-      "Sistema de Control de Rondas GPS",
-      "Supervisión de campo",
-      "Portal del Cliente (visibilidad 24/7)",
-      "Portal del Supervisor",
-      "CRM + Cotizaciones",
-      "Inventario y activos",
-      "Control de turno y refuerzos",
-      "Soporte prioritario",
+      "Todo lo del plan Gratis +",
+      "Guardias ilimitados",
+      "Tickets con SLA configurable",
+      "Documentos con templates y tokens",
+      "Roles RBAC (13 roles) + Auditoría",
+      "Hasta 5 usuarios admin",
     ],
   },
   {
-    name: "Suite Completa",
-    price: 0.46,
-    description: "Todo incluido",
-    guardLimit: "Guardias ilimitados",
+    name: "Profesional",
+    price: 0.8,
+    description: "Control total",
+    guardLimit: "mín UF 45/mes",
+    popular: true,
+    color: "#00D4AA",
+    features: [
+      "Todo lo del plan Starter +",
+      "Alertas de cobertura WhatsApp + email",
+      "Supervisión de campo GPS",
+      "Chat interno y externo real-time",
+      "Firma digital de documentos",
+      "Portal Supervisor + Gamificación",
+      "Hasta 15 usuarios admin",
+    ],
+  },
+  {
+    name: "Enterprise",
+    price: 0,
+    description: "Todo incluido, sin límites",
+    guardLimit: "según cantidad de guardias",
     color: "#A855F7",
     features: [
-      "Todo Operaciones Pro +",
-      "Payroll Chile (liquidaciones LRE)",
-      "Facturación electrónica SII",
-      "Contabilidad + bancos (Fintoc)",
-      "Fiscalización DT",
-      "IA avanzada",
-      "Onboarding dedicado + SLA",
+      "Todo lo del plan Profesional +",
+      "Todos los add-ons incluidos",
+      "Face ID + IA Operacional",
+      "App iOS/Android nativa",
+      "SLA garantizado + API access",
+      "Onboarding y migración dedicada",
     ],
   },
 ];
@@ -96,8 +107,7 @@ export default function PricingSection() {
             Precios transparentes en UF
           </h2>
           <p className="text-lg text-[#94A3B8] max-w-2xl mx-auto mb-6">
-            Por guardia activo/mes. Sin contratos de permanencia. 14 días de prueba
-            con Suite completa gratis.
+            Por guardia activo/mes. Sin contratos de permanencia. Plan gratis para siempre.
           </p>
 
           {/* Toggle UF / CLP */}
@@ -127,7 +137,7 @@ export default function PricingSection() {
         </div>
 
         {/* Plans grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
           {PLANS.map((plan) => (
             <div
               key={plan.name}
@@ -153,25 +163,41 @@ export default function PricingSection() {
               {/* Price */}
               <div className="mb-6">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-4xl font-extrabold text-white">
-                    {showCLP ? formatCLP(plan.price) : `${plan.price} UF`}
-                  </span>
+                  {plan.name === "Gratis" ? (
+                    <span className="text-4xl font-extrabold text-white">Gratis</span>
+                  ) : plan.name === "Enterprise" ? (
+                    <span className="text-4xl font-extrabold text-white">A convenir</span>
+                  ) : (
+                    <span className="text-4xl font-extrabold text-white">
+                      {showCLP ? formatCLP(plan.price) : `${plan.price} UF`}
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-[#94A3B8] mt-1">
-                  por guardia/mes · {plan.guardLimit}
+                  {plan.name === "Gratis" || plan.name === "Enterprise"
+                    ? plan.guardLimit
+                    : `por guardia/mes · ${plan.guardLimit}`}
                 </p>
               </div>
 
               {/* CTA */}
               <a
-                href="#demo"
+                href={
+                  plan.name === "Enterprise"
+                    ? "/contacto?interes=enterprise"
+                    : "/registrarse"
+                }
                 className={`block w-full text-center py-3 rounded-xl text-sm font-semibold transition-all mb-6 ${
                   plan.popular
                     ? "bg-blue-500 hover:bg-blue-600 text-white"
                     : "border border-white/10 hover:border-white/20 text-white hover:bg-white/5"
                 }`}
               >
-                Comenzar prueba gratis
+                {plan.name === "Gratis"
+                  ? "Crear cuenta gratis"
+                  : plan.name === "Enterprise"
+                  ? "Hablar con nosotros"
+                  : "Comenzar gratis"}
               </a>
 
               {/* Features */}

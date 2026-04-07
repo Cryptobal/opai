@@ -92,7 +92,7 @@ export default function AtsMarketingPage() {
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <Link href="/registrarse" className="mk-btn-primary">
-              Probar gratis 30 días
+              Probar gratis
             </Link>
             <Link href="/funcionalidades" className="mk-btn-secondary">
               Ver todos los módulos

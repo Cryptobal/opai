@@ -66,8 +66,8 @@ export default function MarketingFooter() {
             &copy; {new Date().getFullYear()} OPAI. Todos los derechos reservados.
           </p>
           <div className="flex items-center gap-6 text-xs text-[#94A3B8]">
-            <a href="#" className="hover:text-white transition-colors">Términos</a>
-            <a href="#" className="hover:text-white transition-colors">Privacidad</a>
+            <a href="/terminos" className="text-[#64748B] hover:text-white transition-colors">Términos</a>
+            <a href="/privacidad" className="text-[#64748B] hover:text-white transition-colors">Privacidad</a>
             <a href="mailto:hola@opai.cl" className="hover:text-white transition-colors">
               hola@opai.cl
             </a>

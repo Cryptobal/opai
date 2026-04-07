@@ -54,7 +54,7 @@ const plans = [
     badge: null,
     price: 'Desde UF 0.5',
     priceSub: 'por guardia/mes \u00b7 m\u00edn UF 20',
-    cta: 'Comenzar gratis 30 d\u00edas',
+    cta: 'Comenzar gratis',
     ctaStyle: 'outline' as const,
     ctaHref: '/registrarse?plan=starter',
     features: [
@@ -79,7 +79,7 @@ const plans = [
     badge: 'M\u00e1s popular',
     price: 'Desde UF 0.8',
     priceSub: 'por guardia/mes \u00b7 m\u00edn UF 45',
-    cta: 'Comenzar gratis 30 d\u00edas',
+    cta: 'Comenzar gratis',
     ctaStyle: 'primary' as const,
     ctaHref: '/registrarse?plan=profesional',
     features: [
