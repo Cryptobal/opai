@@ -104,12 +104,16 @@ export function AtsCreateJobClient({
   mode = "create",
   jobId,
   initialData,
+  defaultCanales,
 }: {
   installations: Installation[];
   snippets: AtsSnippetsConfig;
   mode?: "create" | "edit";
   jobId?: string;
   initialData?: AtsJobEditData;
+  /** Channels pre-checked when creating. Defaults to a sensible baseline if
+   *  the server didn't pass anything. */
+  defaultCanales?: string[];
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -131,7 +135,9 @@ export function AtsCreateJobClient({
     experienciaMinAnios:
       initialData?.experienciaMinAnios != null ? String(initialData.experienciaMinAnios) : "0",
     funciones: initialData?.funciones ?? "",
-    canales: ["google_jobs", "base_opai", "jooble"] as string[],
+    canales: (defaultCanales && defaultCanales.length > 0
+      ? defaultCanales
+      : ["google_jobs", "base_opai", "jooble"]) as string[],
   });
 
   function toggleCanal(canal: string) {

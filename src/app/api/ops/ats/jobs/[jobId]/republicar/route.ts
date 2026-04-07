@@ -8,9 +8,14 @@ import { requireTenantModule } from "@/lib/require-module";
 /**
  * Vuelve a ejecutar la publicación en los canales activos del aviso (p. ej. tras editar
  * o para reintentar indexación en Google Empleos).
+ *
+ * Acepta opcionalmente un body JSON `{ addCanales: ["bne", ...] }` para
+ * AÑADIR canales nuevos al aviso (los crea como activos en
+ * AtsDistributionChannel) y publicarlos en la misma llamada. Útil para
+ * conectar BNE a un aviso que ya estaba publicado en otros canales.
  */
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> },
 ) {
   try {
@@ -23,6 +28,18 @@ export async function POST(
     if (forbidden) return forbidden;
 
     const { jobId } = await params;
+
+    let addCanales: Canal[] = [];
+    try {
+      const body = (await request.json().catch(() => null)) as
+        | { addCanales?: string[] }
+        | null;
+      if (body?.addCanales && Array.isArray(body.addCanales)) {
+        addCanales = body.addCanales as Canal[];
+      }
+    } catch {
+      // body opcional
+    }
 
     const job = await prisma.atsJobPosting.findFirst({
       where: { id: jobId, tenantId: ctx.tenantId },
@@ -39,18 +56,23 @@ export async function POST(
       );
     }
 
-    const canales = job.channels.filter((c) => c.activo);
+    // Existing active channels + any newly requested ones (deduped).
+    const existingActive = job.channels.filter((c) => c.activo).map((c) => c.canal);
+    const allCanales = Array.from(
+      new Set<string>([...existingActive, ...addCanales]),
+    ) as Canal[];
+
     const results: { canal: string; ok: boolean; error?: string }[] = [];
 
-    for (const ch of canales) {
-      const result = await publicarEnCanal(jobId, ch.canal as Canal, ctx.tenantId);
+    for (const canal of allCanales) {
+      const result = await publicarEnCanal(jobId, canal, ctx.tenantId);
       await actualizarEstadoCanal(
         jobId,
-        ch.canal as Canal,
+        canal,
         result.success ? "publicado" : "error",
         { externalId: result.externalId, errorDetalle: result.error },
       );
-      results.push({ canal: ch.canal, ok: result.success, error: result.error });
+      results.push({ canal, ok: result.success, error: result.error });
     }
 
     const anyOk = results.some((r) => r.ok);

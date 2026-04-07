@@ -4,7 +4,18 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Briefcase, Users, Clock, CheckCircle, Plus, Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import {
+  Briefcase,
+  Users,
+  Clock,
+  CheckCircle,
+  Plus,
+  Eye,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Send,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -68,6 +79,36 @@ export function AtsDashboardClient({
 }) {
   const router = useRouter();
   const [filterEstado, setFilterEstado] = useState<string>("all");
+
+  async function handlePublishBne(jobId: string) {
+    const t = toast.loading("Publicando en BNE…");
+    try {
+      const res = await fetch(`/api/ops/ats/jobs/${jobId}/republicar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addCanales: ["bne"] }),
+      });
+      const json = await res.json();
+      toast.dismiss(t);
+      if (!json.success) {
+        toast.error(json.error || "No se pudo publicar en BNE");
+        return;
+      }
+      const bneResult = json.data?.results?.find(
+        (r: { canal: string; ok: boolean; error?: string }) =>
+          r.canal === "bne",
+      );
+      if (bneResult?.ok) {
+        toast.success("Aviso publicado en BNE");
+      } else {
+        toast.error(`BNE rechazó: ${bneResult?.error || "error desconocido"}`);
+      }
+      router.refresh();
+    } catch {
+      toast.dismiss(t);
+      toast.error("Error de red");
+    }
+  }
 
   async function handleDelete(jobId: string, applications: number) {
     if (applications > 0) {
@@ -261,6 +302,19 @@ export function AtsDashboardClient({
                           <Pencil className="h-4 w-4 mr-2" /> Editar aviso
                         </Link>
                       </DropdownMenuItem>
+                      {job.estado === "ACTIVO" &&
+                        !job.channels.some(
+                          (c) => c.canal === "bne" && c.activo,
+                        ) && (
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              handlePublishBne(job.id);
+                            }}
+                          >
+                            <Send className="h-4 w-4 mr-2" /> Publicar en BNE
+                          </DropdownMenuItem>
+                        )}
                       <DropdownMenuItem
                         className="text-red-600 focus:text-red-600"
                         onSelect={(e) => {
