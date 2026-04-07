@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, type ReactElement } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { usePathname } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
@@ -31,6 +32,7 @@ import type {
 import {
   useChatPageContext,
   useClearChatPageContext,
+  type ChatPageContextValue,
 } from "./ChatPageContextProvider";
 
 type ConversationItem = {
@@ -630,12 +632,187 @@ function friendlyToolLabel(name: string): string {
   return TOOL_LABELS[name] ?? "Consultando datos...";
 }
 
-const QUICK_STARTERS = [
-  "¿Qué puedes hacer?",
-  "Resume el estado de operaciones de hoy",
-  "¿Cuántas rendiciones hay pendientes?",
-  "¿Cómo configuro rondas?",
-];
+/**
+ * Starters dinámicos: se adaptan a la entidad que el usuario está viendo
+ * (pageContext) o, en su defecto, al módulo actual (pathname).
+ * Fallback: starters genéricos.
+ */
+function getQuickStarters(
+  pageContext: ChatPageContextValue | null,
+  pathname: string | null,
+): string[] {
+  // 1) Contexto de página: prioridad máxima
+  if (pageContext) {
+    switch (pageContext.entityType) {
+      case "crm_account":
+        return [
+          "Resúmeme este cliente",
+          "¿Qué cotizaciones tiene?",
+          "Lista sus contratos y documentos",
+          "¿Cuál fue la última actividad?",
+        ];
+      case "crm_deal":
+        return [
+          "Resúmeme este deal",
+          "¿En qué etapa está y cuál es el próximo paso?",
+          "¿Qué cotizaciones tiene asociadas?",
+          "¿Cuánto falta para el cierre esperado?",
+        ];
+      case "crm_installation":
+        return [
+          "Resúmeme esta instalación",
+          "¿Quién es el supervisor asignado?",
+          "¿Cuántos puestos y guardias tiene?",
+          "¿Hay alertas recientes?",
+        ];
+      case "cpq_quote":
+        return [
+          "Resúmeme esta cotización",
+          "¿Qué incluye el servicio?",
+          "¿Cuándo vence y cuál es el monto mensual?",
+          "Genera un resumen para enviar al cliente",
+        ];
+      case "ops_guardia":
+        return [
+          "Resúmeme este guardia",
+          "¿Qué documentos tiene vigentes?",
+          "¿Cómo ha sido su asistencia?",
+          "¿Tiene turnos extra recientes?",
+        ];
+      case "doc_document":
+        return [
+          "Resúmeme este documento en 5 puntos",
+          "¿Cuáles son las obligaciones principales?",
+          "¿Qué montos y fechas clave menciona?",
+          "¿Está vigente y quién lo firmó?",
+        ];
+      case "crm_contact":
+        return [
+          "Resúmeme este contacto",
+          "¿Qué interacciones tiene registradas?",
+          "¿A qué cuenta pertenece?",
+          "Abre el correo para escribirle",
+        ];
+      default:
+        break;
+    }
+  }
+
+  // 2) Pathname: módulo actual
+  const p = pathname ?? "";
+  if (p.startsWith("/crm/leads") || p.startsWith("/crm/prospects")) {
+    return [
+      "¿Cómo creo un prospecto?",
+      "Muéstrame los leads más recientes",
+      "¿Cómo convierto un prospecto en cliente?",
+      "Buscar prospecto por nombre",
+    ];
+  }
+  if (p.startsWith("/crm/deals")) {
+    return [
+      "Resume el pipeline comercial",
+      "¿Qué deals cierran esta semana?",
+      "Lista los deals abiertos por etapa",
+      "¿Cómo creo un deal nuevo?",
+    ];
+  }
+  if (p.startsWith("/crm/cotizaciones") || p.startsWith("/cpq")) {
+    return [
+      "Lista las últimas cotizaciones enviadas",
+      "¿Cómo clono una cotización?",
+      "¿Qué cotizaciones están por vencer?",
+      "Buscar cotización por código",
+    ];
+  }
+  if (p.startsWith("/crm")) {
+    return [
+      "Busca un cliente por nombre",
+      "¿Cómo creo una cuenta nueva?",
+      "Resume el pipeline comercial",
+      "Lista las últimas cotizaciones",
+    ];
+  }
+  if (p.startsWith("/ops/rondas") || p.startsWith("/rondas")) {
+    return [
+      "Estado de rondas de hoy",
+      "¿Hay alertas de checkpoints?",
+      "¿Cómo creo una plantilla de rondas?",
+      "Resume la supervisión de esta semana",
+    ];
+  }
+  if (p.startsWith("/ops/pauta")) {
+    return [
+      "¿Cómo creo la pauta del mes?",
+      "¿Cuántos PPC tengo hoy?",
+      "Explícame cómo funciona un slot",
+      "Diferencia entre pauta mensual y asistencia diaria",
+    ];
+  }
+  if (p.startsWith("/ops/asistencia") || p.startsWith("/ops/marcacion")) {
+    return [
+      "Resume la asistencia de hoy",
+      "¿Cuántas ausencias hubo?",
+      "Turnos extra pendientes de aprobación",
+      "¿Cómo funciona la marcación por QR?",
+    ];
+  }
+  if (p.startsWith("/ops")) {
+    return [
+      "Resume el estado operativo de hoy",
+      "¿Cuántos PPC tengo?",
+      "¿Qué alertas de pánico hay recientes?",
+      "¿Cómo configuro un puesto operativo?",
+    ];
+  }
+  if (p.startsWith("/personas/guardias") || p.startsWith("/personas")) {
+    return [
+      "Buscar guardia por nombre o RUT",
+      "Resume las métricas de guardias",
+      "¿Qué documentos vencen pronto?",
+      "¿Cómo doy de alta un guardia?",
+    ];
+  }
+  if (p.startsWith("/finanzas") || p.startsWith("/finance")) {
+    return [
+      "¿Cuántas rendiciones hay pendientes?",
+      "Resume las finanzas del último mes",
+      "¿Cómo apruebo una rendición?",
+      "¿Qué DTE están por vencer?",
+    ];
+  }
+  if (p.startsWith("/docs")) {
+    return [
+      "¿Cómo genero un contrato?",
+      "¿Cómo funciona la firma digital?",
+      "Buscar documento por nombre",
+      "Lista las plantillas disponibles",
+    ];
+  }
+  if (p.startsWith("/payroll")) {
+    return [
+      "Explícame el simulador de sueldos",
+      "¿Cuál es la UF y UTM de hoy?",
+      "¿Cómo configuro parámetros de payroll?",
+      "¿Cómo calculo el costo de un guardia?",
+    ];
+  }
+  if (p.startsWith("/configuracion") || p.startsWith("/settings")) {
+    return [
+      "¿Cómo creo un rol nuevo?",
+      "¿Qué permisos tiene mi usuario?",
+      "Explícame la jerarquía de roles",
+      "¿Cómo invito a un usuario?",
+    ];
+  }
+
+  // 3) Fallback genérico
+  return [
+    "¿Qué puedes hacer?",
+    "Resume el estado de operaciones de hoy",
+    "¿Cuántas rendiciones hay pendientes?",
+    "¿Cómo configuro rondas?",
+  ];
+}
 
 export function AiHelpChatWidgetV2() {
   const [open, setOpen] = useState(false);
@@ -653,6 +830,11 @@ export function AiHelpChatWidgetV2() {
   const [activeToolName, setActiveToolName] = useState<string | null>(null);
   const pageContext = useChatPageContext();
   const clearPageContext = useClearChatPageContext();
+  const pathname = usePathname();
+  const quickStarters = useMemo(
+    () => getQuickStarters(pageContext, pathname),
+    [pageContext, pathname],
+  );
   // Cuando una conversación nueva se crea durante un streaming, guardamos su id
   // aquí para que el useEffect que carga mensajes desde DB no clobere el estado
   // local mientras la respuesta del asistente aún no se persiste.
@@ -710,17 +892,13 @@ export function AiHelpChatWidgetV2() {
         if (json.success && Array.isArray(json.data)) {
           setConversations(json.data);
           setPersistenceEnabled(json.persistenceEnabled !== false);
-          if (!activeConversationId && !isNewConversation && json.data.length > 0) {
-            const lastConv = json.data[0];
-            const lastUpdated = new Date(lastConv.updatedAt).getTime();
-            const now = Date.now();
-            const INACTIVITY_THRESHOLD_MS = 4 * 60 * 60 * 1000; // 4 horas
-            if (Number.isFinite(lastUpdated) && now - lastUpdated > INACTIVITY_THRESHOLD_MS) {
-              setIsNewConversation(true);
-              setMessages([]);
-            } else {
-              setActiveConversationId(lastConv.id);
-            }
+          // Al abrir el panel siempre arrancamos en conversación nueva.
+          // El historial queda accesible desde el selector superior.
+          // Excepción: si el usuario ya tiene una conversación activa
+          // en memoria (ej. porque no cerró el panel), se respeta.
+          if (!activeConversationId && !isNewConversation) {
+            setIsNewConversation(true);
+            setMessages([]);
           }
         }
       } catch {
@@ -1022,7 +1200,7 @@ export function AiHelpChatWidgetV2() {
             <p className="text-sm font-medium text-white mb-1">¿En qué te ayudo?</p>
             <p className="text-xs text-white/50 mb-4">Pregunta por módulos, datos del tenant o cómo usar OPAI.</p>
             <div className="flex flex-col gap-2 w-full max-w-xs">
-              {QUICK_STARTERS.map((q) => (
+              {quickStarters.map((q) => (
                 <button
                   key={q}
                   type="button"

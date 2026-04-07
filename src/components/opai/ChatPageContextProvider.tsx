@@ -90,7 +90,7 @@ export function useClearChatPageContext(): () => void {
  */
 export function useRegisterChatPageContext(value: ChatPageContextValue | null) {
   const store = useContext(ChatPageContext);
-  // Estabilizamos por valores serializables; basta con depender de los strings.
+  const setCtx = store?.setContext;
   const entityType = value?.entityType;
   const entityId = value?.entityId;
   const entityName = value?.entityName;
@@ -98,15 +98,14 @@ export function useRegisterChatPageContext(value: ChatPageContextValue | null) {
   const extra = value?.extra;
 
   useEffect(() => {
-    if (!store) return;
+    if (!setCtx) return;
     if (!entityType || !entityId || !entityName) {
-      store.setContext(null);
+      setCtx(null);
       return;
     }
-    store.setContext({ entityType, entityId, entityName, entityUrl, extra });
+    setCtx({ entityType, entityId, entityName, entityUrl, extra });
     return () => {
-      store.setContext(null);
+      setCtx(null);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store, entityType, entityId, entityName, entityUrl, extra]);
+  }, [setCtx, entityType, entityId, entityName, entityUrl, extra]);
 }
