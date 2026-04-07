@@ -302,19 +302,30 @@ export function AtsDashboardClient({
                           <Pencil className="h-4 w-4 mr-2" /> Editar aviso
                         </Link>
                       </DropdownMenuItem>
-                      {job.estado === "ACTIVO" &&
-                        !job.channels.some(
-                          (c) => c.canal === "bne" && c.activo,
-                        ) && (
+                      {(() => {
+                        if (job.estado !== "ACTIVO") return null;
+                        const bneCh = job.channels.find(
+                          (c) => c.canal === "bne",
+                        );
+                        // Show the action while BNE is not yet successfully
+                        // published — covers "never tried", "in error" and
+                        // "pending" states. Once estado === "publicado" we
+                        // hide it (use Reenviar a canales for re-publish).
+                        if (bneCh?.estado === "publicado") return null;
+                        const label = bneCh?.estado === "error"
+                          ? "Reintentar BNE"
+                          : "Publicar en BNE";
+                        return (
                           <DropdownMenuItem
                             onSelect={(e) => {
                               e.preventDefault();
                               handlePublishBne(job.id);
                             }}
                           >
-                            <Send className="h-4 w-4 mr-2" /> Publicar en BNE
+                            <Send className="h-4 w-4 mr-2" /> {label}
                           </DropdownMenuItem>
-                        )}
+                        );
+                      })()}
                       <DropdownMenuItem
                         className="text-red-600 focus:text-red-600"
                         onSelect={(e) => {

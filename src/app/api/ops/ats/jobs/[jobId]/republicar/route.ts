@@ -3,6 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { publicarEnCanal, actualizarEstadoCanal, type Canal } from "@/lib/ats/distribution.service";
+import {
+  getAtsConfig,
+  updateAtsChannelConfigs,
+  CHANNEL_DEFAULTS,
+} from "@/lib/ats/config";
 import { requireTenantModule } from "@/lib/require-module";
 
 /**
@@ -61,6 +66,26 @@ export async function POST(
     const allCanales = Array.from(
       new Set<string>([...existingActive, ...addCanales]),
     ) as Canal[];
+
+    // Auto-enable any explicitly requested channels in the tenant's
+    // ats_channels Setting. The intent of POSTing addCanales is "publish
+    // here NOW", so we save the user from having to also toggle the switch
+    // and click "Guardar canales" beforehand.
+    if (addCanales.length > 0) {
+      const cfg = await getAtsConfig(ctx.tenantId);
+      const merged = { ...(cfg.channelConfigs ?? {}) };
+      let changed = false;
+      for (const canal of addCanales) {
+        const current = merged[canal] ?? CHANNEL_DEFAULTS[canal];
+        if (current && !current.enabled) {
+          merged[canal] = { ...current, enabled: true };
+          changed = true;
+        }
+      }
+      if (changed) {
+        await updateAtsChannelConfigs(ctx.tenantId, merged);
+      }
+    }
 
     const results: { canal: string; ok: boolean; error?: string }[] = [];
 
