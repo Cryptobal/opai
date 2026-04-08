@@ -3,9 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { validateRut, cleanRut, isWithinSchedule, isWithinValidity } from "@/lib/access-control/utils";
 import type { RutValidationResult } from "@/lib/access-control/types";
 import { safeAccessControlQuery } from "@/lib/access-control/safe-query";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const { allowed } = checkRateLimit(`validate-rut:${ip}`, { limit: 20, windowSeconds: 60 });
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: "Demasiados intentos. Intente nuevamente en un momento." },
+        { status: 429, headers: { "Retry-After": "60" } },
+      );
+    }
+
     const body = await request.json();
     const { rut, installationId } = body as { rut: string; installationId: string };
 

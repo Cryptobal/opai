@@ -4,12 +4,12 @@ import { TrialBanner } from '@/components/marketing/TrialBanner'
 export const metadata: Metadata = {
   title: 'Política de Privacidad | OPAI',
   description:
-    'Política de privacidad de OPAI. Conoce cómo recopilamos, usamos y protegemos tus datos personales de acuerdo a la Ley 19.628 de Chile.',
+    'Política de privacidad de OPAI. Conoce cómo recopilamos, usamos y protegemos tus datos personales de acuerdo a la Ley 21.719 de Chile.',
   alternates: { canonical: 'https://www.opai.cl/privacidad' },
   robots: { index: true, follow: true },
   openGraph: {
     title: 'Política de Privacidad | OPAI',
-    description: 'Cómo OPAI recopila, usa y protege tus datos personales según la Ley 19.628 de Chile.',
+    description: 'Cómo OPAI recopila, usa y protege tus datos personales según la Ley 21.719 de Chile.',
     url: 'https://www.opai.cl/privacidad',
     type: 'website',
     images: [{ url: '/icons/og-image.png', width: 1200, height: 630, alt: 'OPAI — ERP con IA para Seguridad Privada' }],
@@ -167,7 +167,7 @@ export default function PrivacidadPage() {
             <h2 style={sectionTitle}>4. Base legal</h2>
             <p style={paragraph}>
               El tratamiento de tus datos personales se realiza conforme a la{' '}
-              <strong>Ley N° 19.628 sobre Protección de la Vida Privada</strong> de
+              <strong>Ley N° 21.719 sobre Protección de Datos Personales</strong> de
               la República de Chile. Las bases legales que sustentan el tratamiento
               son:
             </p>
@@ -188,30 +188,37 @@ export default function PrivacidadPage() {
             </ul>
           </div>
 
-          {/* 5. Derechos ARCO */}
+          {/* 5. Derechos del titular */}
           <div style={{ marginBottom: '48px' }}>
-            <h2 style={sectionTitle}>5. Derechos ARCO</h2>
+            <h2 style={sectionTitle}>5. Derechos del titular de los datos</h2>
             <p style={paragraph}>
-              De conformidad con la Ley 19.628, tienes derecho a ejercer los
+              De conformidad con la Ley 21.719, tienes derecho a ejercer los
               siguientes derechos respecto de tus datos personales:
             </p>
             <ul style={list}>
               <li>
-                <strong>Acceso:</strong> solicitar información sobre qué datos
-                personales tuyos están siendo tratados.
+                <strong>Acceso:</strong> saber qué datos tuyos procesamos y con
+                qué fin.
               </li>
               <li>
-                <strong>Rectificación:</strong> solicitar la corrección de datos
-                personales inexactos o incompletos.
+                <strong>Rectificación:</strong> corregir datos inexactos o
+                incompletos.
               </li>
               <li>
-                <strong>Cancelación:</strong> solicitar la eliminación de tus datos
-                personales cuando ya no sean necesarios para la finalidad para la
-                que fueron recopilados.
+                <strong>Supresión:</strong> solicitar la eliminación de tus
+                datos personales.
               </li>
               <li>
-                <strong>Oposición:</strong> oponerte al tratamiento de tus datos
-                personales en determinadas circunstancias.
+                <strong>Oposición:</strong> oponerte al tratamiento por razones
+                fundadas.
+              </li>
+              <li>
+                <strong>Portabilidad:</strong> recibir tus datos en formato
+                estructurado y estándar.
+              </li>
+              <li>
+                <strong>Bloqueo:</strong> suspender temporalmente el tratamiento
+                de tus datos.
               </li>
             </ul>
             <p style={paragraph}>
@@ -314,6 +321,87 @@ export default function PrivacidadPage() {
               <strong>abril de 2026</strong>. Nos reservamos el derecho de
               modificarla en cualquier momento. En caso de cambios sustanciales, te
               notificaremos a través de la plataforma o por correo electrónico.
+            </p>
+          </div>
+
+          {/* 10. Rol de Opai como encargado del tratamiento */}
+          <div style={{ marginBottom: '48px' }}>
+            <h2 style={sectionTitle}>10. Rol de Opai como encargado del tratamiento</h2>
+            <p style={paragraph}>
+              Opai actúa como <strong>encargado del tratamiento</strong> y procesa
+              datos personales por cuenta de las empresas de seguridad privada que
+              contratan la plataforma, las cuales son las{' '}
+              <strong>responsables del tratamiento</strong>. Los guardias y demás
+              titulares deben dirigir sus solicitudes de derechos a su empleador
+              (la empresa tenant). Opai facilitará a la empresa el ejercicio de
+              estos derechos cuando corresponda.
+            </p>
+          </div>
+
+          {/* 11. Bases legales del tratamiento */}
+          <div style={{ marginBottom: '48px' }}>
+            <h2 style={sectionTitle}>11. Bases legales del tratamiento</h2>
+            <p style={paragraph}>
+              Los datos se procesan bajo las siguientes bases legales reconocidas
+              por la Ley 21.719:
+            </p>
+            <ul style={list}>
+              <li>
+                <strong>Ejecución del contrato de trabajo:</strong> datos
+                laborales básicos del personal de seguridad.
+              </li>
+              <li>
+                <strong>Cumplimiento de obligación legal:</strong> registro en la
+                Dirección del Trabajo, cotizaciones previsionales y demás
+                obligaciones laborales.
+              </li>
+              <li>
+                <strong>Consentimiento explícito:</strong> tratamiento de datos
+                biométricos como Face ID para marcación de asistencia.
+              </li>
+              <li>
+                <strong>Interés legítimo:</strong> mejora continua de las
+                operaciones de seguridad y de la plataforma.
+              </li>
+            </ul>
+          </div>
+
+          {/* 12. Transferencias internacionales */}
+          <div style={{ marginBottom: '48px' }}>
+            <h2 style={sectionTitle}>12. Transferencias internacionales</h2>
+            <p style={paragraph}>
+              Los datos personales pueden ser procesados o almacenados en
+              servidores ubicados fuera de Chile (por ejemplo, infraestructura de
+              Vercel en Estados Unidos), aplicando las garantías de seguridad
+              apropiadas y conforme a los requisitos de la Ley 21.719 para
+              transferencias internacionales.
+            </p>
+          </div>
+
+          {/* 13. Plazo de conservación */}
+          <div style={{ marginBottom: '48px' }}>
+            <h2 style={sectionTitle}>13. Plazo de conservación</h2>
+            <p style={paragraph}>
+              Los datos personales se conservan mientras dure la relación laboral
+              del guardia con la empresa tenant, y por <strong>5 años
+              adicionales</strong> conforme a la normativa laboral chilena, salvo
+              que una obligación legal específica requiera un plazo distinto.
+            </p>
+          </div>
+
+          {/* 14. Contacto para ejercicio de derechos */}
+          <div style={{ marginBottom: '48px' }}>
+            <h2 style={sectionTitle}>14. Contacto para ejercicio de derechos</h2>
+            <p style={paragraph}>
+              Para solicitudes relacionadas con el ejercicio de los derechos
+              reconocidos por la Ley 21.719, puedes escribir a{' '}
+              <a
+                href="mailto:datos@opai.cl"
+                style={{ color: 'var(--mk-teal)', textDecoration: 'underline' }}
+              >
+                datos@opai.cl
+              </a>
+              .
             </p>
           </div>
         </div>

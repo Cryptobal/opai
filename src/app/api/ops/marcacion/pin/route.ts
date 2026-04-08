@@ -12,6 +12,7 @@ import { canReloadGuardiaMarcacionPin } from "@/lib/ops-rbac";
 import { generatePin } from "@/lib/marcacion";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const schema = z.object({
   guardiaId: z.string().uuid(),
@@ -19,6 +20,15 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const { allowed } = checkRateLimit(`ops-marcacion-pin:${ip}`, { limit: 10, windowSeconds: 60 });
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: "Demasiados intentos. Intente nuevamente en un momento." },
+        { status: 429, headers: { "Retry-After": "60" } },
+      );
+    }
+
     const auth = await requireAuth();
     if (!auth) {
       return NextResponse.json(

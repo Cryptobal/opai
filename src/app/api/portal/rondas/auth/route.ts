@@ -2,9 +2,19 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { formatPersonName } from "@/lib/personas";
 import bcrypt from "bcryptjs";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const { allowed } = checkRateLimit(`portal-rondas-auth:${ip}`, { limit: 10, windowSeconds: 60 });
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: "Demasiados intentos. Intente nuevamente en un momento." },
+        { status: 429, headers: { "Retry-After": "60" } },
+      );
+    }
+
     const body = await request.json();
     const { rut, pin } = body as { rut?: string; pin?: string };
 

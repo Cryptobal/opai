@@ -23,6 +23,7 @@ import { parseMarcacionConfigValue, resolveMarcacionGeoRadiusM } from "@/lib/ops
 import { verifyFace } from "@/lib/services/rekognition";
 import { uploadMarcacionPhoto } from "@/lib/marcacion-photo";
 import { z } from "zod";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const schema = z.object({
   image: z.string().min(1),
@@ -40,6 +41,15 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const { allowed } = checkRateLimit(`face-verify:${ip}`, { limit: 15, windowSeconds: 60 });
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: "Demasiados intentos. Intente nuevamente en un momento." },
+        { status: 429, headers: { "Retry-After": "60" } },
+      );
+    }
+
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
