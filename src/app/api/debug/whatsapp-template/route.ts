@@ -66,6 +66,53 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Modo especial: listar WhatsApp channel senders del account (vía REST directo,
+  // el SDK de Twilio no expone bien este recurso).
+  if (request.nextUrl.searchParams.get("waSenders") === "1") {
+    try {
+      const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+      const res = await fetch(
+        `https://messaging.twilio.com/v2/Channels/Senders?MessagingBinding.Type=whatsapp`,
+        { headers: { Authorization: `Basic ${auth}` } },
+      );
+      const json = await res.json();
+      return NextResponse.json({ status: res.status, body: json });
+    } catch (err: any) {
+      return NextResponse.json({ error: err?.message }, { status: 500 });
+    }
+  }
+
+  // Modo especial: asociar un WhatsApp sender (SID XE...) a un Messaging Service existente
+  //   ?attachSender=1&serviceSid=MG...&senderSid=XE...
+  if (request.nextUrl.searchParams.get("attachSender") === "1") {
+    const serviceSid = request.nextUrl.searchParams.get("serviceSid");
+    const senderSid = request.nextUrl.searchParams.get("senderSid");
+    if (!serviceSid || !senderSid) {
+      return NextResponse.json(
+        { error: "Missing serviceSid or senderSid" },
+        { status: 400 },
+      );
+    }
+    try {
+      const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+      const res = await fetch(
+        `https://messaging.twilio.com/v1/Services/${serviceSid}/ChannelSenders`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${auth}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({ Sid: senderSid }).toString(),
+        },
+      );
+      const json = await res.json();
+      return NextResponse.json({ status: res.status, body: json });
+    } catch (err: any) {
+      return NextResponse.json({ error: err?.message }, { status: 500 });
+    }
+  }
+
   // Modo especial: crear un Messaging Service nuevo y asociar el número WhatsApp
   if (request.nextUrl.searchParams.get("createService") === "1") {
     try {
