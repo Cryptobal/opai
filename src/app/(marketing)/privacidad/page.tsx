@@ -378,14 +378,44 @@ export default function PrivacidadPage() {
             </p>
           </div>
 
-          {/* 13. Plazo de conservación */}
+          {/* 13. Retención de datos */}
           <div style={{ marginBottom: '48px' }}>
-            <h2 style={sectionTitle}>13. Plazo de conservación</h2>
+            <h2 style={sectionTitle}>13. Retención de datos</h2>
             <p style={paragraph}>
-              Los datos personales se conservan mientras dure la relación laboral
-              del guardia con la empresa tenant, y por <strong>5 años
-              adicionales</strong> conforme a la normativa laboral chilena, salvo
-              que una obligación legal específica requiera un plazo distinto.
+              Los plazos de conservación de los distintos tipos de datos
+              personales tratados en la plataforma son los siguientes:
+            </p>
+            <ul style={list}>
+              <li>
+                <strong>Datos de guardias y personas (trabajadores):</strong>{' '}
+                durante toda la relación laboral con la empresa tenant y por{' '}
+                <strong>5 años adicionales</strong> después del término del
+                contrato, conforme a la normativa laboral chilena.
+              </li>
+              <li>
+                <strong>Datos comerciales (clientes y prospectos):</strong>{' '}
+                <strong>5 años</strong> desde la última interacción relevante
+                (cotización, visita, comunicación documentada). Pasado ese
+                plazo, los registros son eliminados o anonimizados.
+              </li>
+              <li>
+                <strong>Registros de auditoría (audit logs):</strong>{' '}
+                <strong>6 años</strong>, conforme al Art. 15 de la Ley 21.719
+                que exige al responsable conservar el registro de actividades
+                de tratamiento y las operaciones realizadas sobre datos
+                personales.
+              </li>
+              <li>
+                <strong>Respaldos (backups):</strong> rotación de{' '}
+                <strong>30 días</strong>. Los backups se sobrescriben de forma
+                automática transcurrido ese plazo.
+              </li>
+            </ul>
+            <p style={paragraph}>
+              Vencidos estos plazos, los datos se eliminan o anonimizan salvo
+              que una obligación legal específica requiera conservarlos por más
+              tiempo. La supresión anticipada a solicitud del titular se
+              gestiona a través del derecho ARCO de cancelación.
             </p>
           </div>
 

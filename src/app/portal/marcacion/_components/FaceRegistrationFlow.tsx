@@ -12,6 +12,10 @@ interface FaceRegistrationFlowProps {
 
 type Step = "consent" | "identify" | "capture" | "processing" | "success" | "error";
 
+// Versión del texto legal de consentimiento informado (Ley 21.719).
+// Incrementar si cambia el texto — queda registrado en audit logs.
+const CONSENT_TEXT_VERSION = "1.0";
+
 export function FaceRegistrationFlow({
   installationId,
   onRegistered,
@@ -21,6 +25,7 @@ export function FaceRegistrationFlow({
   const [step, setStep] = useState<Step>("consent");
   const [rut, setRut] = useState(prefillRut);
   const [pin, setPin] = useState("");
+  const [consentChecked, setConsentChecked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -38,6 +43,7 @@ export function FaceRegistrationFlow({
             pin,
             image: imageBase64,
             installationId,
+            consentTextVersion: CONSENT_TEXT_VERSION,
           }),
         });
 
@@ -63,43 +69,110 @@ export function FaceRegistrationFlow({
     setStep("capture");
   }
 
-  // Step: Biometric consent (Resolucion 38)
+  // Step: Biometric consent — Consentimiento informado Ley 21.719
   if (step === "consent") {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center px-4" style={{ background: "#060a13" }}>
-        <div className="w-full max-w-md rounded-2xl p-6" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          <h2 className="text-lg font-bold text-white mb-4 text-center">
-            Consentimiento para Uso de Datos Biometricos
+      <div className="min-h-dvh flex flex-col items-center justify-center px-4 py-8" style={{ background: "#060a13" }}>
+        <div
+          className="w-full max-w-md rounded-2xl p-6 overflow-y-auto"
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            maxHeight: "calc(100dvh - 4rem)",
+          }}
+        >
+          <h2 className="text-lg font-bold text-white mb-1 text-center">
+            Consentimiento informado — Face ID
           </h2>
-          <div className="text-sm text-white/60 space-y-3">
-            <p>
-              OPAI utilizara tecnologia de reconocimiento facial
-              exclusivamente para verificar su identidad al momento de registrar
-              asistencia laboral.
-            </p>
-            <p className="font-medium text-white/80">Sus datos biometricos:</p>
-            <ul className="list-disc list-inside space-y-1 pl-2">
-              <li>Se almacenan de forma encriptada</li>
-              <li>Solo se usan para verificacion de identidad en marcacion</li>
-              <li>
-                Seran eliminados entre 90 y 120 dias despues del termino de su
-                relacion laboral
-              </li>
-              <li>Usted puede revocar este consentimiento en cualquier momento</li>
-            </ul>
-            <p className="mt-4 text-white/70">
-              Acepta el uso de reconocimiento facial para marcacion de asistencia?
-            </p>
+          <p className="text-xs text-white/40 text-center mb-5">
+            Ley 21.719 de Protección de Datos Personales · v{CONSENT_TEXT_VERSION}
+          </p>
+
+          <div className="text-sm text-white/70 space-y-3 leading-relaxed">
+            <div>
+              <p className="font-semibold text-white/90">¿Qué dato se recoge?</p>
+              <p>
+                Un <span className="text-white/90">template biométrico</span> (representación
+                matemática de los rasgos de tu rostro) generado a partir de una fotografía
+                que captures en este dispositivo. No se almacena la imagen como dato biométrico,
+                solo el template cifrado en el proveedor de reconocimiento.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold text-white/90">¿Con qué finalidad?</p>
+              <p>
+                Verificar tu identidad al momento de marcar entrada y salida en tu puesto de
+                trabajo, para cumplir con el control de asistencia laboral.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold text-white/90">Base legal</p>
+              <p>
+                Tu <span className="text-white/90">consentimiento libre, informado y específico</span>,
+                conforme al Art. 12 de la Ley 21.719. Puedes no aceptar y usar el método
+                alternativo de PIN sin ninguna consecuencia laboral.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold text-white/90">Plazo de conservación</p>
+              <p>
+                Durante toda tu relación laboral con la empresa. Al término del contrato, el
+                template biométrico es eliminado de forma automática.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold text-white/90">Derecho a retirar el consentimiento</p>
+              <p>
+                Puedes <span className="text-white/90">revocar este consentimiento en cualquier momento</span>,
+                sin expresar causa, desde el Portal del Guardia en la sección "Mis datos → Derechos ARCO".
+                La revocación detendrá el uso de Face ID inmediatamente y podrás seguir marcando con PIN.
+              </p>
+            </div>
           </div>
-          <button
-            onClick={() => setStep("identify")}
-            className="w-full rounded-xl px-4 py-3 text-sm font-bold text-white mt-6"
-            style={{ background: "rgba(16,185,129,0.4)" }}
+
+          <label
+            className="flex items-start gap-3 mt-6 p-3 rounded-xl cursor-pointer select-none"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
           >
-            Acepto — Registrar Face ID
-          </button>
-          <p className="text-sm text-white/25 text-center mt-4 leading-relaxed">
-            Si no desea utilizar reconocimiento facial, contacte a su supervisor para coordinar un método alternativo de verificación.
+            <input
+              type="checkbox"
+              checked={consentChecked}
+              onChange={(e) => setConsentChecked(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-emerald-500"
+              aria-label="He leído y acepto el consentimiento informado"
+            />
+            <span className="text-sm text-white/80">
+              He leído y acepto el tratamiento de mis datos biométricos en los términos descritos.
+            </span>
+          </label>
+
+          <div className="flex gap-3 mt-5">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 rounded-xl px-4 py-3 text-sm font-medium text-white/70"
+              style={{ background: "rgba(255,255,255,0.06)" }}
+            >
+              No acepto
+            </button>
+            <button
+              type="button"
+              disabled={!consentChecked}
+              onClick={() => setStep("identify")}
+              className="flex-1 rounded-xl px-4 py-3 text-sm font-bold text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: "rgba(16,185,129,0.4)" }}
+            >
+              Acepto y continúo
+            </button>
+          </div>
+
+          <p className="text-xs text-white/30 text-center mt-4 leading-relaxed">
+            Si no deseas utilizar reconocimiento facial, puedes seguir marcando con tu PIN
+            sin ninguna consecuencia laboral.
           </p>
         </div>
       </div>

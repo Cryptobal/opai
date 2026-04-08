@@ -25,6 +25,8 @@ model Tenant {
   dpaAcceptedAt               DateTime?                    @map("dpa_accepted_at")
   dpaAcceptedBy               String?                      @map("dpa_accepted_by")
   dpaVersion                  String?                      @map("dpa_version")
+  // ── Ley 21.719 — Contacto del DPO (Data Protection Officer) del tenant ──
+  dpoContactEmail             String?                      @map("dpo_contact_email")
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
   admins                      Admin[]

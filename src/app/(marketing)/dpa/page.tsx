@@ -126,14 +126,44 @@ export default function DpaPage() {
         conservación.
       </p>
 
-      <h2 style={sectionTitle}>8. Plazo y jurisdicción</h2>
+      <h2 style={sectionTitle}>8. Retención de datos</h2>
+      <p style={paragraph}>
+        Mientras el contrato esté vigente, Opai conserva los distintos tipos de datos
+        personales tratados por cuenta del Responsable según los siguientes plazos:
+      </p>
+      <ul style={list}>
+        <li>
+          <strong>Datos de guardias y personas (trabajadores):</strong> durante toda la
+          relación laboral con el Tenant y <strong>5 años adicionales</strong> después
+          del término del contrato laboral, conforme a la normativa laboral chilena.
+        </li>
+        <li>
+          <strong>Datos comerciales (clientes y prospectos):</strong>{" "}
+          <strong>5 años</strong> desde la última interacción relevante.
+        </li>
+        <li>
+          <strong>Registros de auditoría (audit logs):</strong>{" "}
+          <strong>6 años</strong>, conforme al Art. 15 de la Ley 21.719.
+        </li>
+        <li>
+          <strong>Respaldos (backups):</strong>{" "}
+          <strong>30 días</strong> de rotación, con sobrescritura automática.
+        </li>
+      </ul>
+      <p style={paragraph}>
+        Vencidos estos plazos, los datos se eliminan o anonimizan salvo obligación
+        legal específica. La supresión anticipada a solicitud del titular se gestiona
+        mediante el derecho ARCO de cancelación.
+      </p>
+
+      <h2 style={sectionTitle}>9. Plazo y jurisdicción</h2>
       <p style={paragraph}>
         Este DPA se mantendrá vigente mientras dure la relación contractual entre el
         Tenant y Opai. Cualquier controversia se resolverá ante los tribunales ordinarios
         de Santiago, Chile, conforme a la legislación chilena.
       </p>
 
-      <h2 style={sectionTitle}>9. Aceptación</h2>
+      <h2 style={sectionTitle}>10. Aceptación</h2>
       <p style={paragraph}>
         El Tenant acepta este contrato al hacer clic en el botón "Aceptar DPA" en su
         panel de administración. La aceptación queda registrada con fecha, usuario y
