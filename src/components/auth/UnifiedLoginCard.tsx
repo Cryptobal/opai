@@ -326,15 +326,25 @@ export function UnifiedLoginCard({
           onClick={() => {
             window.location.href = "/api/portal/auth/unified-google";
           }}
-          className="w-full flex items-center justify-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium transition-colors cursor-pointer"
+          className="w-full flex items-center justify-center gap-3 rounded-xl px-4 py-[13px] text-sm font-medium transition-all group"
           style={{
-            border: "1px solid rgba(255,255,255,0.08)",
-            background: "rgba(255,255,255,0.03)",
-            color: "#d1d5db",
+            border: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(255,255,255,0.04)",
+            color: "#e5e7eb",
             fontFamily: "'Plus Jakarta Sans', sans-serif",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.16)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
               fill="#4285F4"
@@ -352,18 +362,26 @@ export function UnifiedLoginCard({
               fill="#EA4335"
             />
           </svg>
-          Ingresar con Google
+          <span>Ingresar con Google</span>
         </button>
       ) : null}
 
       {/* Separator — only when there's both Google AND a form */}
       {cfg.showGoogle && (cfg.showRutPin || cfg.showEmailPin) ? (
-        <div className="relative my-5">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-white/10" />
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center" aria-hidden>
+            <span className="w-full border-t border-white/[0.08]" />
           </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-[#0f1729] px-2 text-[#6b7280]">o</span>
+          <div className="relative flex justify-center text-[10px] uppercase">
+            <span
+              className="px-3 text-[#6b7280]"
+              style={{
+                background: "rgba(10,14,23,0.9)",
+                letterSpacing: "0.15em",
+              }}
+            >
+              o continúa con
+            </span>
           </div>
         </div>
       ) : null}
@@ -461,29 +479,52 @@ export function UnifiedLoginCard({
 
       {/* Cross-links */}
       {cfg.showClienteLink ? (
-        <div className="text-center mt-5">
-          <button
-            type="button"
-            onClick={() => router.push("/portal/cliente")}
-            className="text-xs text-[#9ca3af] hover:text-white transition-colors"
-          >
-            ¿Eres cliente? Ingresa aquí →
-          </button>
-        </div>
+        <CrossLink
+          label="¿Eres cliente?"
+          cta="Ingresa aquí"
+          onClick={() => router.push("/portal/cliente")}
+        />
       ) : null}
 
       {cfg.showGuardiaLink ? (
-        <div className="text-center mt-5">
-          <button
-            type="button"
-            onClick={() => router.push("/portal/personas")}
-            className="text-xs text-[#9ca3af] hover:text-white transition-colors"
-          >
-            ¿Eres guardia o supervisor? Ingresa aquí →
-          </button>
-        </div>
+        <CrossLink
+          label="¿Eres guardia o supervisor?"
+          cta="Ingresa aquí"
+          onClick={() => router.push("/portal/personas")}
+        />
       ) : null}
     </AuthShell>
+  );
+}
+
+function CrossLink({
+  label,
+  cta,
+  onClick,
+}: {
+  label: string;
+  cta: string;
+  onClick: () => void;
+}) {
+  return (
+    <div className="text-center mt-6 pt-5 border-t border-white/[0.06]">
+      <button
+        type="button"
+        onClick={onClick}
+        className="group inline-flex items-center gap-1.5 text-xs text-[#9ca3af] hover:text-white transition-colors"
+      >
+        <span>{label}</span>
+        <span className="font-semibold underline-offset-4 group-hover:underline">
+          {cta}
+        </span>
+        <span
+          aria-hidden
+          className="inline-block transition-transform group-hover:translate-x-1"
+        >
+          →
+        </span>
+      </button>
+    </div>
   );
 }
 

@@ -181,14 +181,12 @@ export function PersonasHubClient() {
 
   if (state === "loading" || state === "redirecting") {
     return (
-      <div className="flex items-center justify-center min-h-dvh bg-[#060a13]">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-white mb-2">Opai</div>
-          <div className="text-sm text-gray-400">
-            {state === "loading" ? "Verificando sesión..." : "Redirigiendo..."}
-          </div>
-        </div>
-      </div>
+      <HubLoadingState
+        tenantBrand={tenantBrand}
+        label={
+          state === "loading" ? "Verificando sesión..." : "Redirigiendo..."
+        }
+      />
     );
   }
 
@@ -212,7 +210,48 @@ export function PersonasHubClient() {
   return <UnifiedLoginCard mode="personas" />;
 }
 /* ------------------------------------------------------------------ */
-/*  RoleSelector                                                        */
+/*  HubLoadingState — shared by "loading" and "redirecting"             */
+/* ------------------------------------------------------------------ */
+
+function HubLoadingState({
+  tenantBrand,
+  label,
+}: {
+  tenantBrand: TenantBrand | null;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center justify-center min-h-dvh bg-[#060a13] text-white">
+      <div className="text-center">
+        {tenantBrand?.brandingLogoWhite ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={tenantBrand.brandingLogoWhite}
+            alt={tenantBrand.commercialName ?? ""}
+            className="h-12 mx-auto mb-4 object-contain opacity-90"
+          />
+        ) : (
+          <div
+            className="text-2xl font-bold mb-4"
+            style={{ letterSpacing: "-0.02em" }}
+          >
+            Opai
+          </div>
+        )}
+        <div className="flex items-center justify-center gap-2">
+          <div
+            className="w-4 h-4 rounded-full border-2 border-teal-400/30 border-t-teal-400 animate-spin"
+            aria-hidden
+          />
+          <span className="text-sm text-gray-400">{label}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  RoleSelector — shown when the user has 2+ active sessions          */
 /* ------------------------------------------------------------------ */
 
 function RoleSelector({
@@ -232,90 +271,175 @@ function RoleSelector({
       name: string;
       description: string;
       Icon: typeof Shield;
-      color: string;
-      activeColor: string;
+      accent: string;
+      glow: string;
     }
   > = {
     guardia: {
       name: "Guardia",
       description: "Tu pauta, solicitudes y documentos",
       Icon: Shield,
-      color: "from-teal-500/20 to-teal-600/10 border-teal-500/30",
-      activeColor: "from-teal-500/30 to-teal-600/20 border-teal-400/50",
+      accent: "#2dd4bf",
+      glow: "rgba(45,212,191,0.14)",
     },
     supervisor: {
       name: "Supervisor",
       description: "Gestión de equipo e instalaciones",
       Icon: Users,
-      color: "from-purple-500/20 to-purple-600/10 border-purple-500/30",
-      activeColor: "from-purple-500/30 to-purple-600/20 border-purple-400/50",
+      accent: "#8b5cf6",
+      glow: "rgba(139,92,246,0.14)",
     },
     cliente: {
       name: "Cliente",
       description: "Reportes, cotizaciones e incidentes",
       Icon: Building2,
-      color: "from-amber-500/20 to-amber-600/10 border-amber-500/30",
-      activeColor: "from-amber-500/30 to-amber-600/20 border-amber-400/50",
+      accent: "#3b82f6",
+      glow: "rgba(59,130,246,0.14)",
     },
   };
 
   return (
-    <div className="flex flex-col min-h-dvh bg-[#060a13] text-white p-6">
-      <div className="text-center mt-8 mb-6">
-        {tenantBrand?.brandingLogoWhite ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={tenantBrand.brandingLogoWhite}
-            alt={tenantBrand.commercialName ?? ""}
-            className="h-12 mx-auto mb-3 object-contain"
-          />
-        ) : (
-          <div className="text-3xl font-bold mb-1">Opai</div>
-        )}
-        {tenantBrand?.commercialName ? (
-          <p className="text-sm text-gray-400">{tenantBrand.commercialName}</p>
-        ) : null}
-        <p className="text-xs text-gray-500 mt-3">
-          Selecciona tu portal
-        </p>
-      </div>
-
-      <div className="flex-1 flex flex-col justify-center gap-4 max-w-sm mx-auto w-full">
-        {roles.map((role) => {
-          const cfg = configs[role];
-          const Icon = cfg.Icon;
-          const hasSession =
-            (role === "guardia" && sessions?.guardia) ||
-            (role === "supervisor" && sessions?.supervisor) ||
-            (role === "cliente" && sessions?.cliente) ||
-            false;
-          return (
-            <button
-              key={role}
-              type="button"
-              onClick={() => onSelect(role)}
-              className={`
-                p-5 rounded-2xl border bg-gradient-to-br
-                ${hasSession ? cfg.activeColor : cfg.color}
-                text-left transition-transform active:scale-[0.98]
-                relative
-              `}
+    <div
+      className="flex flex-col min-h-dvh text-white"
+      style={{
+        background:
+          "linear-gradient(180deg, #060a13 0%, #0a0e17 30%, #0d1220 100%)",
+        paddingTop: "var(--safe-area-top, 0px)",
+        paddingBottom: "var(--safe-area-bottom, 0px)",
+      }}
+    >
+      <div className="flex-1 flex flex-col justify-center px-6 py-10 max-w-md mx-auto w-full">
+        {/* Hero */}
+        <div className="text-center mb-8">
+          {tenantBrand?.brandingLogoWhite ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={tenantBrand.brandingLogoWhite}
+              alt={tenantBrand.commercialName ?? ""}
+              className="h-12 mx-auto mb-3 object-contain"
+            />
+          ) : (
+            <div
+              className="text-3xl font-bold mb-1"
+              style={{ letterSpacing: "-0.02em" }}
             >
-              {hasSession ? (
-                <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-green-400" />
-              ) : null}
-              <Icon className="w-7 h-7 mb-3 opacity-80" />
-              <div className="text-lg font-semibold">{cfg.name}</div>
-              <div className="text-sm text-gray-400 mt-1">{cfg.description}</div>
-              {hasSession ? (
-                <div className="text-xs text-green-400 mt-2">Sesión activa</div>
-              ) : null}
-            </button>
-          );
-        })}
+              Opai
+            </div>
+          )}
+          {tenantBrand?.commercialName ? (
+            <p className="text-sm text-[#9ca3af]">{tenantBrand.commercialName}</p>
+          ) : null}
+          <h1
+            className="text-xl font-semibold mt-5 mb-1"
+            style={{ letterSpacing: "-0.01em" }}
+          >
+            Elige cómo continuar
+          </h1>
+          <p className="text-[13px] text-[#6b7280]">
+            Tienes sesión activa en varios portales
+          </p>
+        </div>
+
+        {/* Cards */}
+        <div className="flex flex-col gap-3">
+          {roles.map((role) => {
+            const cfg = configs[role];
+            const Icon = cfg.Icon;
+            const hasSession =
+              (role === "guardia" && sessions?.guardia) ||
+              (role === "supervisor" && sessions?.supervisor) ||
+              (role === "cliente" && sessions?.cliente) ||
+              false;
+            return (
+              <button
+                key={role}
+                type="button"
+                onClick={() => onSelect(role)}
+                className="relative w-full text-left rounded-2xl overflow-hidden transition-all active:scale-[0.98] hover:-translate-y-0.5"
+                style={{
+                  padding: "18px 20px",
+                  background: `linear-gradient(180deg, rgba(255,255,255,0.035), ${cfg.glow})`,
+                  border: `1px solid ${cfg.accent}30`,
+                  boxShadow: `0 10px 32px ${cfg.glow}, inset 0 1px 0 rgba(255,255,255,0.04)`,
+                  backdropFilter: "blur(18px) saturate(1.15)",
+                  WebkitBackdropFilter: "blur(18px) saturate(1.15)",
+                }}
+              >
+                {/* Top hairline */}
+                <div
+                  aria-hidden
+                  className="absolute -top-px left-1/2 -translate-x-1/2 w-[60%] h-px"
+                  style={{
+                    background: `linear-gradient(90deg, transparent, ${cfg.accent}, transparent)`,
+                  }}
+                />
+                <div className="flex items-center gap-4">
+                  {/* Icon chip */}
+                  <div
+                    className="flex items-center justify-center shrink-0"
+                    style={{
+                      width: "46px",
+                      height: "46px",
+                      borderRadius: "12px",
+                      background: `${cfg.accent}14`,
+                      border: `1px solid ${cfg.accent}2e`,
+                      color: cfg.accent,
+                    }}
+                  >
+                    <Icon className="w-5 h-5" strokeWidth={2} />
+                  </div>
+                  {/* Text */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="text-[17px] font-semibold text-white"
+                        style={{ letterSpacing: "-0.01em" }}
+                      >
+                        {cfg.name}
+                      </div>
+                      {hasSession ? (
+                        <span
+                          className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                          style={{
+                            background: "rgba(16,185,129,0.1)",
+                            border: "1px solid rgba(16,185,129,0.3)",
+                            color: "#10b981",
+                          }}
+                        >
+                          Sesión activa
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="text-[13px] text-[#9ca3af] mt-0.5">
+                      {cfg.description}
+                    </div>
+                  </div>
+                  {/* Arrow */}
+                  <div style={{ color: cfg.accent }} aria-hidden>
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M9 6l6 6-6 6" />
+                    </svg>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="text-center text-xs text-gray-600 pb-4">Opai v1.0</div>
+      {/* Footer */}
+      <div className="text-center text-[11px] text-[#4b5563] pb-4">
+        Opai Personas
+      </div>
     </div>
   );
 }

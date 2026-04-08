@@ -118,10 +118,30 @@ export function TerrenoHubClient() {
   /* --------------------------- Loading --------------------------- */
   if (state === "loading") {
     return (
-      <div className="flex items-center justify-center min-h-dvh bg-[#060a13]">
+      <div className="flex items-center justify-center min-h-dvh bg-[#060a13] text-white">
         <div className="text-center">
-          <div className="text-2xl font-bold text-white mb-2">Opai Terreno</div>
-          <div className="text-sm text-gray-400">Cargando...</div>
+          {tenantBrand?.brandingLogoWhite ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={tenantBrand.brandingLogoWhite}
+              alt={tenantBrand.commercialName ?? ""}
+              className="h-12 mx-auto mb-4 object-contain opacity-90"
+            />
+          ) : (
+            <div
+              className="text-2xl font-bold mb-4"
+              style={{ letterSpacing: "-0.02em" }}
+            >
+              Opai Terreno
+            </div>
+          )}
+          <div className="flex items-center justify-center gap-2">
+            <div
+              className="w-4 h-4 rounded-full border-2 border-amber-400/30 border-t-amber-400 animate-spin"
+              aria-hidden
+            />
+            <span className="text-sm text-gray-400">Cargando...</span>
+          </div>
         </div>
       </div>
     );
@@ -148,7 +168,8 @@ export function TerrenoHubClient() {
       href: "/portal/marcacion?from=terreno",
       enabled: config?.portalMarcacionEnabled ?? true,
       Icon: Clock,
-      color: "from-amber-500/20 to-amber-600/10 border-amber-500/30",
+      accent: "#f97316",
+      glow: "rgba(249,115,22,0.14)",
     },
     {
       id: "rondas",
@@ -157,7 +178,8 @@ export function TerrenoHubClient() {
       href: "/portal/rondas?from=terreno",
       enabled: config?.portalRondasEnabled ?? true,
       Icon: Shield,
-      color: "from-blue-500/20 to-blue-600/10 border-blue-500/30",
+      accent: "#10b981",
+      glow: "rgba(16,185,129,0.14)",
     },
     {
       id: "acceso",
@@ -166,7 +188,8 @@ export function TerrenoHubClient() {
       href: "/portal/acceso?from=terreno",
       enabled: config?.portalAccesoEnabled ?? true,
       Icon: DoorOpen,
-      color: "from-green-500/20 to-green-600/10 border-green-500/30",
+      accent: "#f59e0b",
+      glow: "rgba(245,158,11,0.14)",
     },
   ];
 
@@ -179,56 +202,162 @@ export function TerrenoHubClient() {
   }
 
   return (
-    <div className="flex flex-col min-h-dvh bg-[#060a13] text-white p-6">
-      {/* Header */}
-      <div className="text-center mt-8 mb-4">
-        {tenantBrand?.brandingLogoWhite ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={tenantBrand.brandingLogoWhite}
-            alt={tenantBrand.commercialName ?? "Tenant"}
-            className="h-10 mx-auto mb-2 object-contain"
-          />
-        ) : null}
-        <h1 className="text-2xl font-bold">Opai Terreno</h1>
-        {tenantBrand?.commercialName ? (
-          <p className="text-sm text-gray-400 mt-1">
-            {tenantBrand.commercialName}
-          </p>
-        ) : null}
-        {config ? (
-          <p className="text-xs text-gray-500 mt-0.5">
-            {config.installationName}
-          </p>
-        ) : null}
-      </div>
+    <div
+      className="flex flex-col min-h-dvh text-white"
+      style={{
+        background:
+          "linear-gradient(180deg, #060a13 0%, #0a0e17 30%, #0d1220 100%)",
+        paddingTop: "var(--safe-area-top, 0px)",
+        paddingBottom: "var(--safe-area-bottom, 0px)",
+      }}
+    >
+      {/* Amber halo */}
+      <div
+        aria-hidden
+        className="fixed inset-0 pointer-events-none z-[0]"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 50% at 50% 30%, rgba(245,158,11,0.15) 0%, rgba(245,158,11,0.05) 30%, transparent 70%)",
+        }}
+      />
 
-      {/* Sub-app cards */}
-      <div className="flex-1 flex flex-col justify-center gap-4 max-w-sm mx-auto w-full">
-        {enabledPortals.map((portal) => {
-          const Icon = portal.Icon;
-          return (
-            <button
-              key={portal.id}
-              onClick={() => router.push(portal.href)}
-              className={`
-                p-6 rounded-2xl border bg-gradient-to-br ${portal.color}
-                text-left transition-transform active:scale-[0.98]
-              `}
-            >
-              <Icon className="w-8 h-8 mb-3 opacity-80" />
-              <div className="text-lg font-semibold">{portal.name}</div>
-              <div className="text-sm text-gray-400 mt-1">
-                {portal.description}
+      <div className="relative z-[1] flex-1 flex flex-col justify-center px-6 py-10 max-w-md mx-auto w-full">
+        {/* Hero */}
+        <div className="text-center mb-8">
+          <div className="relative inline-flex mb-3">
+            <div
+              aria-hidden
+              className="absolute inset-0 -m-3 rounded-3xl blur-xl"
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(245,158,11,0.4) 0%, rgba(245,158,11,0.08) 60%, transparent 80%)",
+              }}
+            />
+            {tenantBrand?.brandingLogoWhite ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={tenantBrand.brandingLogoWhite}
+                alt={tenantBrand.commercialName ?? "Tenant"}
+                className="relative h-14 object-contain"
+              />
+            ) : (
+              <div
+                className="relative text-3xl font-bold"
+                style={{ letterSpacing: "-0.02em" }}
+              >
+                Opai Terreno
               </div>
-            </button>
-          );
-        })}
+            )}
+          </div>
+          {tenantBrand?.commercialName ? (
+            <p className="text-sm text-[#9ca3af] mt-2">
+              {tenantBrand.commercialName}
+            </p>
+          ) : null}
+          {config ? (
+            <div
+              className="inline-flex items-center gap-2 mt-3 px-3 py-1 rounded-full"
+              style={{
+                background: "rgba(245,158,11,0.08)",
+                border: "1px solid rgba(245,158,11,0.25)",
+              }}
+            >
+              <div
+                className="w-[6px] h-[6px] rounded-full bg-amber-400"
+                style={{ boxShadow: "0 0 8px rgba(245,158,11,0.7)" }}
+                aria-hidden
+              />
+              <span className="text-[11px] font-medium text-amber-300">
+                {config.installationName}
+              </span>
+            </div>
+          ) : null}
+          <h1
+            className="text-xl font-semibold mt-5 mb-1"
+            style={{ letterSpacing: "-0.01em" }}
+          >
+            Modo de operación
+          </h1>
+          <p className="text-[13px] text-[#6b7280]">
+            Elige qué vas a hacer en este dispositivo
+          </p>
+        </div>
+
+        {/* Sub-app cards */}
+        <div className="flex flex-col gap-3">
+          {enabledPortals.map((portal) => {
+            const Icon = portal.Icon;
+            return (
+              <button
+                key={portal.id}
+                type="button"
+                onClick={() => router.push(portal.href)}
+                className="relative w-full text-left rounded-2xl overflow-hidden transition-all active:scale-[0.98] hover:-translate-y-0.5"
+                style={{
+                  padding: "18px 20px",
+                  background: `linear-gradient(180deg, rgba(255,255,255,0.035), ${portal.glow})`,
+                  border: `1px solid ${portal.accent}30`,
+                  boxShadow: `0 10px 32px ${portal.glow}, inset 0 1px 0 rgba(255,255,255,0.04)`,
+                  backdropFilter: "blur(18px) saturate(1.15)",
+                  WebkitBackdropFilter: "blur(18px) saturate(1.15)",
+                }}
+              >
+                <div
+                  aria-hidden
+                  className="absolute -top-px left-1/2 -translate-x-1/2 w-[60%] h-px"
+                  style={{
+                    background: `linear-gradient(90deg, transparent, ${portal.accent}, transparent)`,
+                  }}
+                />
+                <div className="flex items-center gap-4">
+                  <div
+                    className="flex items-center justify-center shrink-0"
+                    style={{
+                      width: "48px",
+                      height: "48px",
+                      borderRadius: "13px",
+                      background: `${portal.accent}16`,
+                      border: `1px solid ${portal.accent}35`,
+                      color: portal.accent,
+                    }}
+                  >
+                    <Icon className="w-6 h-6" strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className="text-[17px] font-semibold text-white"
+                      style={{ letterSpacing: "-0.01em" }}
+                    >
+                      {portal.name}
+                    </div>
+                    <div className="text-[13px] text-[#9ca3af] mt-0.5">
+                      {portal.description}
+                    </div>
+                  </div>
+                  <div style={{ color: portal.accent }} aria-hidden>
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M9 6l6 6-6 6" />
+                    </svg>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Footer */}
-      <div className="text-center text-xs text-gray-600 pb-4">
-        Opai Terreno v1.0
+      <div className="relative z-[1] text-center text-[11px] text-[#4b5563] pb-4">
+        Opai Terreno
       </div>
     </div>
   );
