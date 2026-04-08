@@ -47,8 +47,14 @@ export async function GET(request: NextRequest) {
         { status: 500 },
       );
     }
-    // Test send con valores sample
-    const to = send.startsWith("whatsapp:") ? send : `whatsapp:${send}`;
+    // Normalizar número: URL params encodean + como espacio, así que lo reponemos.
+    // También aceptamos formato sin + (ej. "56982307771") y lo forzamos.
+    const rawPhone = send.trim().replace(/^\s+/, "").replace(/\s+/g, "");
+    let normalized = rawPhone;
+    if (!normalized.startsWith("+") && !normalized.startsWith("whatsapp:")) {
+      normalized = `+${normalized}`;
+    }
+    const to = normalized.startsWith("whatsapp:") ? normalized : `whatsapp:${normalized}`;
     const from = fromNumber.startsWith("whatsapp:")
       ? fromNumber
       : `whatsapp:${fromNumber}`;
