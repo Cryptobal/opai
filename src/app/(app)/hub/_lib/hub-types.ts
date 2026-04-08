@@ -15,6 +15,9 @@ export interface HubPerms {
   hasDocs: boolean;
   hasFinance: boolean;
   hasOps: boolean;
+  hasAts: boolean;
+  hasPayroll: boolean;
+  hasPersonas: boolean;
   canOpenLeads: boolean;
   canOpenDeals: boolean;
   canOpenQuotes: boolean;
@@ -25,6 +28,8 @@ export interface HubPerms {
   canApproveRendicion: boolean;
   canMarkAttendance: boolean;
   hasSupervision: boolean;
+  hasSupervisionCheckin: boolean;
+  hasFinanceRendiciones: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -151,6 +156,8 @@ export interface OpsMetrics {
   rounds: OpsRounds;
   unresolvedAlerts: number;
   criticalAlerts: number;
+  attendanceTrend7d: number[];
+  roundsTrend7d: number[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -247,14 +254,6 @@ export interface HubQuickActionsProps {
   perms: HubPerms;
 }
 
-export interface HubExecutiveSnapshotProps {
-  perms: HubPerms;
-  opsMetrics: OpsMetrics | null;
-  crmMetrics: CrmMetrics | null;
-  financeMetrics: FinanceMetrics | null;
-  docsSignals: DocsSignals | null;
-}
-
 export interface KpiLinkCardProps {
   href: string;
   title: string;
@@ -273,21 +272,6 @@ export interface CompactStatProps {
   value: string | number;
 }
 
-export interface HubAlertasCriticasProps {
-  alerts: HubAlert[];
-}
-
-export interface HubEstadoOperacionalProps {
-  opsMetrics: OpsMetrics;
-}
-
-export interface HubAccionesPrioritariasProps {
-  perms: HubPerms;
-  opsMetrics: OpsMetrics | null;
-  crmMetrics: CrmMetrics | null;
-  financeMetrics: FinanceMetrics | null;
-}
-
 export interface HubCrmSectionProps {
   perms: HubPerms;
   crmMetrics: CrmMetrics;
@@ -298,10 +282,6 @@ export interface HubCrmSectionProps {
 export interface HubFinanceSectionProps {
   financeMetrics: FinanceMetrics;
   opsMetrics: OpsMetrics | null;
-}
-
-export interface HubDocsSectionProps {
-  docsSignals: DocsSignals;
 }
 
 export interface HubActividadRecienteProps {
@@ -430,6 +410,10 @@ export interface ClosingHubData {
   portalTopUsers: ClosingPortalTopUser[];
   /** Nombre comercial del tenant para mensajes WhatsApp. */
   commercialName: string;
+  /** Leads created per day for last 7 days (oldest → newest) */
+  leadsTrend7d: number[];
+  /** Deals in negotiation per day for last 7 days (oldest → newest) */
+  dealsTrend7d: number[];
 }
 
 export interface ClosingPortalTopUser {
@@ -459,4 +443,35 @@ export interface HubClosingSectionProps {
   closingData: ClosingHubData;
   sellerFirstName: string;
   upcomingProjects?: UpcomingProject[];
+}
+
+/* ------------------------------------------------------------------ */
+/* ATS metrics                                                         */
+/* ------------------------------------------------------------------ */
+
+export interface AtsMetrics {
+  openJobs: number;
+  recentApplications: number;
+  inProcess: number;
+}
+
+/* ------------------------------------------------------------------ */
+/* Payroll metrics                                                     */
+/* ------------------------------------------------------------------ */
+
+export interface PayrollMetrics {
+  currentPeriodLabel: string | null;
+  currentPeriodStatus: string | null;
+  pendingAnticipos: number;
+  nextCloseDate: Date | null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Personas metrics                                                    */
+/* ------------------------------------------------------------------ */
+
+export interface PersonasMetrics {
+  enOnboarding: number;
+  documentacionPendiente: number;
+  contratosPorVencer: number;
 }

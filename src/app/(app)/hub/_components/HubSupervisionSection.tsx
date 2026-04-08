@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { HubKpiLinkCard } from "./HubKpiLinkCard";
 import { HubCollapsibleSection } from "./HubCollapsibleSection";
+import { HubVisitHeatmap } from "./charts/HubVisitHeatmap";
 import type { SupervisionMetrics } from "../_lib/hub-types";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -136,6 +137,9 @@ export function HubSupervisionSection({
           </div>
         </div>
       </div>
+
+      {/* Visit heatmap */}
+      <HubVisitHeatmap />
 
       {/* Recent visits */}
       {data.recentVisits.length > 0 && (

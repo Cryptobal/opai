@@ -202,12 +202,6 @@ function ensureSupervisorSupervisionAccess(
     changed = true;
   }
 
-  // 6. hubLayout siempre "supervisor"
-  if (patched.hubLayout !== "supervisor") {
-    patched.hubLayout = "supervisor";
-    changed = true;
-  }
-
   if (!changed) return perms;
 
   return {

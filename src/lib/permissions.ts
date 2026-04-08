@@ -167,7 +167,6 @@ export interface RolePermissions {
   modules: Partial<Record<ModuleKey, PermissionLevel>>;
   submodules: Record<string, PermissionLevel>;
   capabilities: Partial<Record<CapabilityKey, boolean>>;
-  hubLayout?: "default" | "supervisor";
 }
 
 export function mergeRolePermissions(
@@ -178,7 +177,6 @@ export function mergeRolePermissions(
     modules: { ...base.modules, ...override.modules },
     submodules: { ...base.submodules, ...override.submodules },
     capabilities: { ...base.capabilities, ...override.capabilities },
-    hubLayout: override.hubLayout ?? base.hubLayout,
   };
 }
 
@@ -523,7 +521,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       alerta_cobertura_crear: true,
       alerta_cobertura_gestionar: true,
     },
-    hubLayout: "supervisor",
   },
 
   viewer: {

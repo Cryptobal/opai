@@ -1,19 +1,23 @@
 "use client";
 
 /**
- * Wrapper cliente para el Hub — refactored accordion layout.
+ * Wrapper cliente para el Hub — unified accordion layout for all roles.
  * Evita el error createClientModuleProxy al reducir a un solo boundary servidor->cliente.
  */
 
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { HubGreeting } from './HubGreeting';
-// HubNotifications removed from Hub layout — notification system still exists elsewhere
+import { HubQuickActions } from './HubQuickActions';
+import { HubAlertsBanner } from './HubAlertsBanner';
 import { HubCrmSection } from './HubCrmSection';
 import { HubOperationsSection } from './HubOperationsSection';
 import { HubSupervisionSection } from './HubSupervisionSection';
 import { HubFinanzasSection } from './HubFinanzasSection';
 import { HubTicketsSection } from './HubTicketsSection';
 import { HubActivitySection } from './HubActivitySection';
+import { HubAtsSection } from './HubAtsSection';
+import { HubPayrollSection } from './HubPayrollSection';
+import { HubPersonasSection } from './HubPersonasSection';
 import type {
   HubPerms,
   ClosingHubData,
@@ -23,6 +27,10 @@ import type {
   TicketMetrics,
   ActivityEntry,
   SupervisionMetrics,
+  HubAlert,
+  AtsMetrics,
+  PayrollMetrics,
+  PersonasMetrics,
 } from '../_lib/hub-types';
 
 export interface HubClientWrapperProps {
@@ -37,6 +45,10 @@ export interface HubClientWrapperProps {
   supervisionMetrics: SupervisionMetrics | null;
   showPortalLink?: boolean;
   upcomingProjects?: import('../_lib/hub-types').UpcomingProject[];
+  alerts: HubAlert[];
+  atsMetrics: AtsMetrics | null;
+  payrollMetrics: PayrollMetrics | null;
+  personasMetrics: PersonasMetrics | null;
 }
 
 export function HubClientWrapper({
@@ -45,12 +57,15 @@ export function HubClientWrapper({
   opsMetrics,
   closingData,
   financeMetrics,
-  notifications,
   ticketMetrics,
   activities,
   supervisionMetrics,
   showPortalLink,
   upcomingProjects,
+  alerts,
+  atsMetrics,
+  payrollMetrics,
+  personasMetrics,
 }: HubClientWrapperProps) {
   const pendingFollowUpsCount = closingData?.kpis.followUpsOverdueCount ?? 0;
 
@@ -62,6 +77,12 @@ export function HubClientWrapper({
         pendingFollowUpsCount={pendingFollowUpsCount}
         showPortalLink={showPortalLink}
       />
+
+      {/* Quick actions — role-aware */}
+      <HubQuickActions perms={hubPerms} />
+
+      {/* Critical alerts banner */}
+      <HubAlertsBanner alerts={alerts} />
 
       {/* Section 1: Hub de Cierre (expanded by default) */}
       {closingData && hubPerms.hasCrm && (
@@ -94,7 +115,22 @@ export function HubClientWrapper({
       {/* Section 4: Tickets (collapsed by default) */}
       <HubTicketsSection ticketMetrics={ticketMetrics} />
 
-      {/* Section 5: Recent Activity (collapsed by default) */}
+      {/* Section 5: ATS (collapsed by default) */}
+      {atsMetrics && hubPerms.hasAts && (
+        <HubAtsSection metrics={atsMetrics} />
+      )}
+
+      {/* Section 6: Payroll (collapsed by default) */}
+      {payrollMetrics && hubPerms.hasPayroll && (
+        <HubPayrollSection metrics={payrollMetrics} />
+      )}
+
+      {/* Section 7: Personas (collapsed by default) */}
+      {personasMetrics && hubPerms.hasPersonas && (
+        <HubPersonasSection metrics={personasMetrics} />
+      )}
+
+      {/* Section 8: Recent Activity (collapsed by default) */}
       <HubActivitySection activities={activities} />
 
       {/* Empty state */}
@@ -108,7 +144,6 @@ export function HubClientWrapper({
           </CardHeader>
         </Card>
       )}
-
     </div>
   );
 }

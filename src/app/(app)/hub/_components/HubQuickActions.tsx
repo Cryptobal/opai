@@ -7,6 +7,9 @@ import {
   UserPlus,
   UserRoundCheck,
   Clock3,
+  MapPin,
+  Receipt,
+  Smartphone,
 } from 'lucide-react';
 import type { HubQuickActionsProps } from '../_lib/hub-types';
 
@@ -18,6 +21,30 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
           <Button size="sm" className="gap-2 rounded-full hover:shadow-sm">
             <UserPlus className="h-4 w-4" />
             Nuevo Lead
+          </Button>
+        </Link>
+      )}
+      {perms.hasSupervisionCheckin && (
+        <Link href="/ops/supervision/nueva-visita">
+          <Button variant="outline" size="sm" className="gap-2 rounded-full hover:shadow-sm">
+            <MapPin className="h-4 w-4" />
+            Nueva visita
+          </Button>
+        </Link>
+      )}
+      {perms.hasPersonas && (
+        <Link href="/personas/guardias/ingreso-te">
+          <Button variant="outline" size="sm" className="gap-2 rounded-full hover:shadow-sm">
+            <UserPlus className="h-4 w-4" />
+            Ingresar Guardia TE
+          </Button>
+        </Link>
+      )}
+      {perms.hasFinanceRendiciones && (
+        <Link href="/finanzas/rendiciones/nueva">
+          <Button variant="outline" size="sm" className="gap-2 rounded-full hover:shadow-sm">
+            <Receipt className="h-4 w-4" />
+            Nueva rendición
           </Button>
         </Link>
       )}
@@ -66,6 +93,14 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
           <Button variant="outline" size="sm" className="gap-2 rounded-full hover:shadow-sm">
             <Plus className="h-4 w-4" />
             Nueva Propuesta
+          </Button>
+        </Link>
+      )}
+      {perms.hasSupervisionCheckin && (
+        <Link href="/portal/supervisor">
+          <Button variant="outline" size="sm" className="gap-2 rounded-full hover:shadow-sm">
+            <Smartphone className="h-4 w-4" />
+            Portal Supervisor
           </Button>
         </Link>
       )}
