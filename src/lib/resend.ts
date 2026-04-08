@@ -23,6 +23,8 @@ export const EMAIL_CONFIG = {
 export interface TenantEmailConfig {
   from: string;
   replyTo: string;
+  logoUrl: string;
+  companyName: string;
 }
 
 const tenantEmailCache = new Map<string, { config: TenantEmailConfig; ts: number }>();
@@ -48,11 +50,18 @@ export async function getTenantEmailConfig(tenantId: string): Promise<TenantEmai
     const config: TenantEmailConfig = {
       from: cfg.emailFrom,
       replyTo: cfg.emailReplyTo,
+      logoUrl: cfg.logoUrl || "",
+      companyName: cfg.companyName || EMAIL_CONFIG.companyName,
     };
 
     tenantEmailCache.set(tenantId, { config, ts: Date.now() });
     return config;
   } catch {
-    return { from: EMAIL_CONFIG.from, replyTo: EMAIL_CONFIG.replyTo };
+    return {
+      from: EMAIL_CONFIG.from,
+      replyTo: EMAIL_CONFIG.replyTo,
+      logoUrl: "",
+      companyName: EMAIL_CONFIG.companyName,
+    };
   }
 }

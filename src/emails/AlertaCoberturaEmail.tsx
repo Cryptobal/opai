@@ -25,6 +25,8 @@ interface AlertaCoberturaEmailProps {
   linkAceptar: string;
   esInterno: boolean;
   tiempoRestanteMin: number;
+  logoUrl?: string;
+  companyName?: string;
 }
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || "";
@@ -40,40 +42,57 @@ export default function AlertaCoberturaEmail({
   linkAceptar,
   esInterno,
   tiempoRestanteMin,
+  logoUrl,
+  companyName = "OPAI",
 }: AlertaCoberturaEmailProps) {
   const esUrgente = urgencia === "URGENTE";
   const fullUrl = linkAceptar.startsWith("http") ? linkAceptar : `${SITE_URL}${linkAceptar}`;
+  const logoSrc = logoUrl || `${SITE_URL}/logo-white.png`;
 
   return (
     <Html>
       <Head />
       <Preview>
-        {esUrgente ? "🚨 TURNO EXTRA URGENTE" : "⚠️ Turno Extra Disponible"} — {instalacion}
+        {esUrgente
+          ? `🚨 ${esInterno ? "COBERTURA URGENTE" : "TURNO EXTRA URGENTE"}`
+          : `⚠️ ${esInterno ? "Cobertura Requerida" : "Turno Extra Disponible"}`}{" "}
+        — {instalacion}
       </Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
             <Img
-              src={`${SITE_URL}/logo-white.png`}
-              alt="OPAI"
-              width={80}
-              height={28}
+              src={logoSrc}
+              alt={companyName}
+              height={32}
               style={logo}
             />
           </Section>
 
           <Text style={categoryTag}>
-            {esUrgente ? "🚨 URGENTE" : "⚠️ TURNO EXTRA"}
+            {esUrgente
+              ? "🚨 URGENTE"
+              : esInterno
+              ? "⚠️ COBERTURA REQUERIDA"
+              : "⚠️ TURNO EXTRA"}
           </Text>
 
           <Heading style={h1}>
-            {esUrgente ? "Turno Extra Urgente" : "Turno Extra Disponible"}
+            {esUrgente
+              ? esInterno
+                ? "Cobertura Urgente"
+                : "Turno Extra Urgente"
+              : esInterno
+              ? "Cobertura Requerida"
+              : "Turno Extra Disponible"}
           </Heading>
 
           <Text style={greeting}>Hola {nombre},</Text>
 
           <Text style={text}>
-            Hay un turno extra disponible que necesita cobertura:
+            {esInterno
+              ? "Necesitamos cobertura en una instalación. Tu perfil califica:"
+              : "Hay un turno extra disponible que necesita cobertura:"}
           </Text>
 
           {/* Info box */}
@@ -107,7 +126,7 @@ export default function AlertaCoberturaEmail({
 
           <Section style={buttonWrap}>
             <Button href={fullUrl} style={esUrgente ? buttonUrgente : button}>
-              {"✅"} ACEPTAR TURNO EXTRA
+              {"✅"} {esInterno ? "ACEPTAR COBERTURA" : "ACEPTAR TURNO EXTRA"}
             </Button>
           </Section>
 

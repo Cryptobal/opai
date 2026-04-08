@@ -217,7 +217,7 @@ export async function POST(
       const guardiaData = await prisma.opsGuardia.findUnique({
         where: { id: guardiaId },
         include: {
-          persona: { select: { firstName: true, lastName: true, phone: true, email: true } },
+          persona: { select: { firstName: true, lastName: true, phone: true, phoneMobile: true, email: true } },
         },
       });
 
@@ -240,7 +240,7 @@ export async function POST(
           instalacionDireccion,
           guardiaId,
           guardiaNombre: `${guardiaData.persona.firstName} ${guardiaData.persona.lastName}`,
-          guardiaPhone: guardiaData.persona.phone,
+          guardiaPhone: guardiaData.persona.phoneMobile || guardiaData.persona.phone,
           guardiaEmail: guardiaData.persona.email,
           distanciaKm: distanciaKm ?? null,
           esInterno,

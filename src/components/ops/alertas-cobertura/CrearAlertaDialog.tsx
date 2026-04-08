@@ -118,7 +118,10 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
   const [fechaTurno, setFechaTurno] = useState("");
   const [fechaInicio, setFechaInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
-  const [montoOfrecido, setMontoOfrecido] = useState(0);
+  // Monto como string para permitir borrar el campo por completo (el Number(input)
+  // del value lo trataba como 0 y no dejaba editar). Se convierte a number al enviar.
+  const [montoInput, setMontoInput] = useState("0");
+  const montoOfrecido = montoInput === "" ? 0 : Number(montoInput);
   const [funciones, setFunciones] = useState("");
   const [urgencia, setUrgencia] = useState<string>("");
   const [radioKm, setRadioKm] = useState(30);
@@ -204,7 +207,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
   useEffect(() => {
     if (puestoId) {
       const puesto = puestos.find((p) => p.id === puestoId);
-      if (puesto?.teMontoClp) setMontoOfrecido(puesto.teMontoClp);
+      if (puesto?.teMontoClp) setMontoInput(String(puesto.teMontoClp));
 
       // Auto-compute fechaInicio/fechaFin from puesto shift times + selected date
       if (fechaTurno && puesto?.shiftStart && puesto?.shiftEnd) {
@@ -359,7 +362,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
     setFechaTurno("");
     setFechaInicio("");
     setFechaFin("");
-    setMontoOfrecido(0);
+    setMontoInput("0");
     setFunciones("");
     setUrgencia("");
     setRadioKm(30);
@@ -384,7 +387,10 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] md:w-[min(96vw,1100px)]">
+      <DialogContent
+        className="max-w-[1200px] max-h-[92vh] overflow-y-auto p-6 sm:p-8"
+        style={{ width: "min(1200px, calc(100vw - 2rem))" }}
+      >
         <DialogHeader>
           <DialogTitle>Nueva Alerta de Cobertura</DialogTitle>
           <DialogDescription>
@@ -392,7 +398,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-6 lg:gap-8">
           {/* Left: Form */}
           <div className="space-y-4">
             {/* Toggle modo */}
@@ -584,8 +590,15 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
                 type="number"
                 min={0}
                 step={1000}
-                value={montoOfrecido}
-                onChange={(e) => setMontoOfrecido(Number(e.target.value))}
+                value={montoInput}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  // Permitir vacío; si no, solo dígitos
+                  if (v === "" || /^\d+$/.test(v)) setMontoInput(v);
+                }}
+                onBlur={() => {
+                  if (montoInput === "") setMontoInput("0");
+                }}
                 placeholder="0 = usar monto de instalación"
               />
               <p className="text-[10px] text-muted-foreground">

@@ -50,9 +50,13 @@ export async function notificarGuardiaAlerta(params: {
   const resultado = { push: false, email: false, whatsapp: false };
   const errores: Record<string, string> = {};
 
+  // Título varía según audiencia: para contratados (interno) es "Cobertura",
+  // para pool externo con turnos extra es "Turno Extra".
+  const tituloBase = params.esInterno ? "Cobertura Requerida" : "Turno Extra Disponible";
+  const tituloUrgente = params.esInterno ? "COBERTURA URGENTE" : "TURNO EXTRA URGENTE";
   const titulo = params.urgencia === "URGENTE"
-    ? "\uD83D\uDEA8 TURNO EXTRA URGENTE"
-    : "\u26A0\uFE0F Turno Extra Disponible";
+    ? `\uD83D\uDEA8 ${tituloUrgente}`
+    : `\u26A0\uFE0F ${tituloBase}`;
 
   const montoFormateado = new Intl.NumberFormat("es-CL", {
     style: "currency",
@@ -70,8 +74,12 @@ export async function notificarGuardiaAlerta(params: {
   // Cargar persona una sola vez (email + phone + nombre)
   const persona = await prisma.opsPersona.findUnique({
     where: { id: params.personaId },
-    select: { email: true, personalEmail: true, firstName: true, phone: true },
+    select: { email: true, personalEmail: true, firstName: true, phone: true, phoneMobile: true },
   });
+
+  // Priorizar phoneMobile (celular) sobre phone (fijo). El perfil UI muestra phoneMobile
+  // como "CELULAR", así que ahí es donde usualmente están los números de WhatsApp.
+  const telefonoContacto = persona?.phoneMobile || persona?.phone || null;
 
   // Link de aceptación: interno usa portal, externo usa landing pública con token
   let linkAceptar = `/portal/guardia?section=alertas-cobertura`;
@@ -123,6 +131,8 @@ export async function notificarGuardiaAlerta(params: {
             linkAceptar: `${SITE_URL}${linkAceptar}`,
             esInterno: params.esInterno,
             tiempoRestanteMin: params.tiempoRestanteOleadaMin,
+            logoUrl: emailConfig.logoUrl,
+            companyName: emailConfig.companyName,
           }),
         );
 
@@ -149,7 +159,7 @@ export async function notificarGuardiaAlerta(params: {
       errores.WHATSAPP = "Twilio no configurado";
     } else {
       try {
-        if (persona?.phone) {
+        if (telefonoContacto) {
           // URL path para botón: alertaId?token=jwt (externo) o alertaId (interno)
           let urlPath: string;
           if (!params.esInterno) {
@@ -164,7 +174,7 @@ export async function notificarGuardiaAlerta(params: {
           }
 
           const waResult = await enviarAlertaWhatsApp({
-            telefono: persona.phone,
+            telefono: telefonoContacto,
             instalacion: params.instalacionNombre,
             direccion: params.instalacionDireccion,
             horario,
@@ -259,7 +269,7 @@ export async function notificarOleada(params: {
     select: {
       id: true,
       persona: {
-        select: { id: true, email: true, personalEmail: true, phone: true, firstName: true, lastName: true },
+        select: { id: true, email: true, personalEmail: true, phone: true, phoneMobile: true, firstName: true, lastName: true },
       },
     },
   });
