@@ -36,11 +36,15 @@ export async function GET(request: NextRequest) {
     const client = Twilio(accountSid, authToken);
     // @ts-ignore — twilio SDK no expone tipos de Content API todavía
     const content = await client.content.v1.contents(contentSid).fetch();
-    // @ts-ignore
-    const approvals = await client.content.v1
-      .contents(contentSid)
-      .approvalFetch()
-      .catch((e: any) => ({ error: e?.message || String(e) }));
+
+    let approvals: unknown = null;
+    try {
+      // @ts-ignore
+      const fetched = await client.content.v1.contents(contentSid).approvalFetch().fetch();
+      approvals = fetched;
+    } catch (e: any) {
+      approvals = { error: e?.message || String(e), code: e?.code };
+    }
 
     return NextResponse.json({
       contentSid: contentSid.substring(0, 10) + "...",
