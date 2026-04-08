@@ -35,11 +35,13 @@ interface TenantBrand {
   brandingLogoWhite?: string;
 }
 
-async function fetchBranding(tenantId: string): Promise<TenantBrand | null> {
+async function fetchBranding(): Promise<TenantBrand | null> {
+  // Endpoint resolves the tenant server-side from whichever session
+  // cookie the browser already has. No tenantId in the URL.
   try {
-    const res = await fetch(
-      `/api/tenant/branding?tenantId=${encodeURIComponent(tenantId)}`,
-    );
+    const res = await fetch("/api/tenant/branding", {
+      credentials: "include",
+    });
     if (!res.ok) return null;
     return (await res.json()) as TenantBrand;
   } catch {
@@ -161,12 +163,12 @@ export function PersonasHubClient() {
       const result = await detectActiveSessions();
       setSessions(result);
 
-      // Fetch tenant branding if we have a tenant id
-      if (result.tenantId) {
-        fetchBranding(result.tenantId).then((brand) => {
-          if (brand) setTenantBrand(brand);
-        });
-      }
+      // Fetch tenant branding. The endpoint resolves the tenant from the
+      // session cookies automatically — if there's no session, it falls
+      // back to OPAI defaults.
+      fetchBranding().then((brand) => {
+        if (brand) setTenantBrand(brand);
+      });
 
       const active = activeList(result);
 

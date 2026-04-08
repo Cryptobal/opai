@@ -92,19 +92,18 @@ export function TerrenoHubClient() {
         setConfig(cfg);
         setState("ready");
 
-        // Tenant branding (fire-and-forget)
-        if (cfg.tenantId) {
-          try {
-            const brandRes = await fetch(
-              `/api/tenant/branding?tenantId=${encodeURIComponent(cfg.tenantId)}`,
-            );
-            if (brandRes.ok) {
-              const brand = (await brandRes.json()) as TenantBrand;
-              setTenantBrand(brand);
-            }
-          } catch {
-            /* branding is optional */
+        // Tenant branding (fire-and-forget). The endpoint resolves tenant
+        // from the device token server-side — no tenantId in the URL.
+        try {
+          const brandRes = await fetch("/api/tenant/branding", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (brandRes.ok) {
+            const brand = (await brandRes.json()) as TenantBrand;
+            setTenantBrand(brand);
           }
+        } catch {
+          /* branding is optional */
         }
       } catch {
         // Offline — let the user still see the sub-app selector with all
