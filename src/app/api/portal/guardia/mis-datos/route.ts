@@ -99,7 +99,8 @@ export async function GET(request: NextRequest) {
         finalidad:
           "Gestión de la relación laboral, control de asistencia, pago de remuneraciones, cumplimiento normativo",
         baseLegal: "Ejecución del contrato de trabajo y obligaciones legales laborales",
-        plazoConservacion: "Durante la relación laboral y 5 años después de su término",
+        plazoConservacion:
+          "Durante toda la relación laboral y 5 años adicionales después de su término (normativa laboral chilena). Los registros de auditoría se conservan 6 años conforme al Art. 15 de la Ley 21.719. Los respaldos tienen rotación de 30 días.",
         contactoDerechos,
       },
     });
