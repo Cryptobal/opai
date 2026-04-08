@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, Shield, DoorOpen } from "lucide-react";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
+import { AuthPairingInput } from "@/components/auth/AuthPairingInput";
+import { AuthButton } from "@/components/auth/AuthButton";
+import { AuthInfoBox } from "@/components/auth/AuthInfoBox";
 import { DEVICE_TOKEN_KEY, safeStorage } from "@/lib/device-constants";
 
 interface DeviceConfig {
@@ -22,7 +27,34 @@ interface TenantBrand {
   brandingAppName?: string;
 }
 
-type AppState = "loading" | "no-device" | "ready";
+type AppState = "loading" | "pairing" | "ready";
+
+const ACCENT = "#f59e0b"; // amber-500 — Terreno hub color
+
+/* ------------------------------------------------------------------ */
+/*  Device fingerprint helpers (mirror of MarcacionPairingScreen)      */
+/* ------------------------------------------------------------------ */
+
+function safe(fn: () => string, fallback = "unknown"): string {
+  try {
+    return fn() ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function generateFingerprint(): string {
+  return [
+    safe(() => navigator.userAgent),
+    safe(() => `${screen.width}x${screen.height}`, "0x0"),
+    safe(() => Intl.DateTimeFormat().resolvedOptions().timeZone),
+    safe(() => navigator.language),
+  ].join("|");
+}
+
+/* ------------------------------------------------------------------ */
+/*  TerrenoHubClient                                                    */
+/* ------------------------------------------------------------------ */
 
 export function TerrenoHubClient() {
   const router = useRouter();
@@ -34,7 +66,7 @@ export function TerrenoHubClient() {
     async function init() {
       const token = safeStorage.getItem(DEVICE_TOKEN_KEY);
       if (!token) {
-        setState("no-device");
+        setState("pairing");
         return;
       }
 
@@ -44,7 +76,7 @@ export function TerrenoHubClient() {
         });
         if (!res.ok) {
           safeStorage.removeItem(DEVICE_TOKEN_KEY);
-          setState("no-device");
+          setState("pairing");
           return;
         }
         const json = await res.json();
@@ -60,7 +92,7 @@ export function TerrenoHubClient() {
         setConfig(cfg);
         setState("ready");
 
-        // Fetch tenant branding (fire-and-forget)
+        // Tenant branding (fire-and-forget)
         if (cfg.tenantId) {
           try {
             const brandRes = await fetch(
@@ -75,7 +107,8 @@ export function TerrenoHubClient() {
           }
         }
       } catch {
-        // Offline — show all options as a fallback
+        // Offline — let the user still see the sub-app selector with all
+        // three enabled (they can attempt to use cached data inside each).
         setState("ready");
         setConfig(null);
       }
@@ -83,6 +116,7 @@ export function TerrenoHubClient() {
     init();
   }, []);
 
+  /* --------------------------- Loading --------------------------- */
   if (state === "loading") {
     return (
       <div className="flex items-center justify-center min-h-dvh bg-[#060a13]">
@@ -94,9 +128,19 @@ export function TerrenoHubClient() {
     );
   }
 
-  // Portals list: enabled flags apply only when we have a device config.
-  // In no-device / offline mode we show all three so the user can pick
-  // which pairing flow to start.
+  /* --------------------------- Pairing --------------------------- */
+  if (state === "pairing") {
+    return (
+      <TerrenoPairingScreen
+        onPaired={() => {
+          // Reload: the effect will re-read the token and move to "ready"
+          window.location.reload();
+        }}
+      />
+    );
+  }
+
+  /* ---------------------------- Ready ---------------------------- */
   const portals = [
     {
       id: "marcacion",
@@ -129,18 +173,15 @@ export function TerrenoHubClient() {
 
   const enabledPortals = portals.filter((p) => p.enabled);
 
-  // When a device is fully paired AND only one portal is enabled, go straight
-  // there. Skipped in no-device mode so the user always sees the three options.
-  if (state === "ready" && enabledPortals.length === 1) {
+  // Only one sub-app enabled → go straight to it
+  if (enabledPortals.length === 1) {
     router.replace(enabledPortals[0].href);
     return null;
   }
 
-  const isNoDevice = state === "no-device";
-
   return (
     <div className="flex flex-col min-h-dvh bg-[#060a13] text-white p-6">
-      {/* Header — tenant branding when available */}
+      {/* Header */}
       <div className="text-center mt-8 mb-4">
         {tenantBrand?.brandingLogoWhite ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -161,14 +202,9 @@ export function TerrenoHubClient() {
             {config.installationName}
           </p>
         ) : null}
-        {isNoDevice ? (
-          <p className="text-xs text-amber-400/80 mt-2">
-            Dispositivo sin parear · Elige un portal para iniciar el pairing
-          </p>
-        ) : null}
       </div>
 
-      {/* Portal cards */}
+      {/* Sub-app cards */}
       <div className="flex-1 flex flex-col justify-center gap-4 max-w-sm mx-auto w-full">
         {enabledPortals.map((portal) => {
           const Icon = portal.Icon;
@@ -196,5 +232,134 @@ export function TerrenoHubClient() {
         Opai Terreno v1.0
       </div>
     </div>
+  );
+}
+
+/* ================================================================== */
+/*  TerrenoPairingScreen — inline pairing UI                            */
+/* ================================================================== */
+
+function TerrenoPairingScreen({ onPaired }: { onPaired: () => void }) {
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (code.length < 6) return;
+
+    setError(null);
+    setLoading(true);
+
+    const raw = code.replace(/[^A-Z0-9]/g, "").slice(0, 6);
+    const fullCode = `${raw.slice(0, 2)}-${raw.slice(2, 4)}-${raw.slice(4, 6)}`;
+
+    try {
+      const res = await fetch("/api/devices/pair", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: fullCode,
+          metadata: {
+            userAgent: safe(() => navigator.userAgent),
+            screenWidth: safe(() => String(screen.width), "0"),
+            screenHeight: safe(() => String(screen.height), "0"),
+            screenResolution: safe(
+              () => `${screen.width}x${screen.height}`,
+              "0x0",
+            ),
+            timezone: safe(() =>
+              Intl.DateTimeFormat().resolvedOptions().timeZone,
+            ),
+            language: safe(() => navigator.language),
+            deviceFingerprint: generateFingerprint(),
+          },
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(
+          data?.error ?? "Código inválido o expirado. Verifica e intenta de nuevo.",
+        );
+      }
+
+      const result = data?.data ?? data;
+
+      // Persist the device token. Same key the three sub-apps already read.
+      safeStorage.setItem(DEVICE_TOKEN_KEY, result.deviceToken);
+
+      onPaired();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Error al vincular. Intenta de nuevo.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <AuthShell
+      portalId="terreno"
+      accent={ACCENT}
+      accentRgb="245, 158, 11"
+      portalName="Opai Terreno"
+      portalSubtitle="Dispositivo en instalación"
+      showBackLink={false}
+    >
+      <AuthFormHeader
+        title="Emparejar dispositivo"
+        subtitle="Código de 6 caracteres generado por tu supervisor"
+      />
+
+      <form onSubmit={handleSubmit}>
+        {error ? (
+          <div
+            className="rounded-xl px-4 py-3 mb-4 text-sm text-red-400"
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              border: "1px solid rgba(239,68,68,0.2)",
+            }}
+          >
+            {error}
+          </div>
+        ) : null}
+
+        <AuthPairingInput accent={ACCENT} value={code} onChange={setCode} />
+
+        <AuthButton
+          accent={ACCENT}
+          label="Emparejar"
+          type="submit"
+          disabled={code.length < 6 || loading}
+          loading={loading}
+        />
+      </form>
+
+      <AuthInfoBox
+        accent={ACCENT}
+        icon={
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={ACCENT}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+        }
+      >
+        Una vez emparejado, este dispositivo podrá usar Marcación, Rondas y
+        Control de Acceso sin volver a pedir el código.
+      </AuthInfoBox>
+    </AuthShell>
   );
 }

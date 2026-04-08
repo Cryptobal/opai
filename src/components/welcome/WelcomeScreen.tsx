@@ -6,7 +6,7 @@ import { useBranding } from "@/lib/branding/useBranding";
 import { motion, AnimatePresence } from "framer-motion";
 import { AuthBackground } from "@/components/auth/AuthBackground";
 import { AuthNavBar } from "@/components/auth/AuthNavBar";
-import { ShieldCheckIcon, UsersGroupIcon, BuildingIcon, ZapBoltIcon } from "@/components/auth/icons";
+import { ShieldCheckIcon, UsersGroupIcon, ZapBoltIcon } from "@/components/auth/icons";
 import { PortalCard } from "./PortalCard";
 
 const STORAGE_KEY = "opai-last-portal";
@@ -30,41 +30,28 @@ interface PortalDef {
 
 const PORTALS: PortalDef[] = [
   {
-    key: "guardia",
+    key: "terreno",
     icon: ShieldCheckIcon,
-    title: "Guardia",
-    subtitle: "Portal de Guardia",
+    title: "Terreno",
+    subtitle: "Dispositivo en instalación",
+    accentColor: "#f59e0b",
+    glow: "rgba(245,158,11,0.12)",
+    href: "/portal/terreno",
+  },
+  {
+    key: "personas",
+    icon: UsersGroupIcon,
+    title: "Personas",
+    subtitle: "Guardia · Supervisor · Cliente",
     accentColor: "#2dd4bf",
     glow: "rgba(45,212,191,0.12)",
-    subOptions: [
-      { label: "Portal Marcación", subtitle: "Entrada y salida con Face ID o PIN", href: "/portal/marcacion" },
-      { label: "Portal Guardia", subtitle: "Novedades, asistencia y documentos", href: "/portal/guardia" },
-      { label: "Portal Rondas", subtitle: "Registro de rondas y checkpoints", href: "/portal/rondas" },
-    ],
-  },
-  {
-    key: "supervisor",
-    icon: UsersGroupIcon,
-    title: "Supervisor",
-    subtitle: "Hub Operacional",
-    accentColor: "#8b5cf6",
-    glow: "rgba(139,92,246,0.12)",
-    href: "/portal/supervisor",
-  },
-  {
-    key: "cliente",
-    icon: BuildingIcon,
-    title: "Cliente",
-    subtitle: "Portal de Servicios",
-    accentColor: "#3b82f6",
-    glow: "rgba(59,130,246,0.12)",
-    href: "/portal/cliente",
+    href: "/portal/personas",
   },
   {
     key: "opai",
     icon: ZapBoltIcon,
-    title: "OPAI",
-    subtitle: "Sistema ERP Completo",
+    title: "OPAI ERP",
+    subtitle: "Sistema ERP completo",
     accentColor: "#f43f5e",
     glow: "rgba(244,63,94,0.12)",
     href: "/opai/login",
