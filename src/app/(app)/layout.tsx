@@ -8,6 +8,7 @@ import { PermissionsProvider } from '@/lib/permissions-context';
 import { ImpersonateBanner } from '@/components/platform/ImpersonateBanner';
 import { getTenantModulesList } from '@/lib/tenant-modules';
 import { TenantModulesProvider } from '@/contexts/TenantModulesContext';
+import { DpaConsentBanner } from '@/components/DpaConsentBanner';
 
 /** Evita pre-render en build; todas las rutas requieren auth/DB */
 export const dynamic = 'force-dynamic';
@@ -72,6 +73,7 @@ export default async function AppLayout({
             tenantId={session.user.tenantId}
           >
             {children}
+            <DpaConsentBanner userRole={session.user.role ?? ""} />
           </AppLayoutClient>
         </TenantModulesProvider>
       </PermissionsProvider>

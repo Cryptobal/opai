@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Copy, KeyRound, Loader2, ScanFace } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SHOW_PIN_IN_PROFILE } from "@/lib/guard-portal";
 
 interface MarcacionSectionProps {
   guardiaId: string;
@@ -131,7 +132,7 @@ export default function MarcacionSection({
 
       <div className="rounded-lg border border-border bg-background px-4 py-3">
         <p className="text-xs text-muted-foreground">PIN activo</p>
-        {marcacionPinVisible ? (
+        {SHOW_PIN_IN_PROFILE && marcacionPinVisible ? (
           <div className="mt-2 flex items-center justify-between gap-3">
             <p className="text-2xl font-mono font-semibold tracking-[0.2em]">{marcacionPinVisible}</p>
             <Button
@@ -148,8 +149,9 @@ export default function MarcacionSection({
             </Button>
           </div>
         ) : marcacionPin ? (
-          <p className="mt-2 text-xs text-amber-600">
-            Este guardia tiene PIN activo, pero no está visible en ficha. Usa "Resetear PIN" para dejarlo visible.
+          <p className="mt-2 text-xs text-muted-foreground">
+            PIN configurado. Por privacidad (Ley 21.719), el PIN se muestra una sola
+            vez al generarse. Si el guardia lo olvidó, genera uno nuevo.
           </p>
         ) : (
           <p className="mt-2 text-xs text-muted-foreground">

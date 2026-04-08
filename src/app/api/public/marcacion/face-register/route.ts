@@ -18,6 +18,7 @@ import { registerFace } from "@/lib/services/rekognition";
 import { uploadFile } from "@/lib/storage";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
+import { logAudit } from "@/lib/audit";
 
 const schema = z.object({
   rut: z.string().min(1),
@@ -182,6 +183,16 @@ export async function POST(req: NextRequest) {
         faceIdConsentAt: new Date(),
         faceIdConsentRevoked: false,
       },
+    });
+
+    await logAudit({
+      userId: guardia.id,
+      action: "CONSENT_GRANTED",
+      entity: "OpsGuardia",
+      entityId: guardia.id,
+      details: { type: "FACE_ID_REGISTERED", installationId },
+      tenantId: installation.tenantId,
+      request: req,
     });
 
     return NextResponse.json({

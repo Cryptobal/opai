@@ -45,6 +45,7 @@ import {
 } from "@/lib/personas";
 import { canEditGuardiasPlanSeleccion, hasOpsCapability } from "@/lib/ops-rbac";
 import { SeleccionadoDestinoFields } from "@/components/ops/SeleccionadoDestinoFields";
+import { SHOW_PIN_IN_PROFILE } from "@/lib/guard-portal";
 
 type GuardiaItem = {
   id: string;
@@ -316,7 +317,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
       if (lifecycleFilter !== "all" && item.lifecycleStatus !== lifecycleFilter) return false;
       if (!query) return true;
       const text =
-        `${formatPersonName(item.persona.firstName, item.persona.lastName)} ${item.persona.rut ?? ""} ${item.persona.email ?? ""} ${item.code ?? ""} ${item.persona.addressFormatted ?? ""} ${item.marcacionPinVisible ?? ""} ${item.currentInstallation?.name ?? ""} ${item.intendedInstallation?.name ?? ""} ${item.intendedInstallation?.account?.name ?? ""}`.toLowerCase();
+        `${formatPersonName(item.persona.firstName, item.persona.lastName)} ${item.persona.rut ?? ""} ${item.persona.email ?? ""} ${item.code ?? ""} ${item.persona.addressFormatted ?? ""} ${item.currentInstallation?.name ?? ""} ${item.intendedInstallation?.name ?? ""} ${item.intendedInstallation?.account?.name ?? ""}`.toLowerCase();
       return text.includes(query);
     });
   }, [guardias, search, lifecycleFilter]);
@@ -525,8 +526,8 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   };
 
   const pinDisplay = (item: GuardiaItem) => {
-    if (item.marcacionPinVisible) return `PIN: ${item.marcacionPinVisible}`;
-    if (item.marcacionPin) return "Recargar para generar";
+    if (SHOW_PIN_IN_PROFILE && item.marcacionPinVisible) return `PIN: ${item.marcacionPinVisible}`;
+    if (item.marcacionPin) return "PIN configurado";
     return null;
   };
 

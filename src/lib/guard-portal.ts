@@ -87,6 +87,18 @@ export interface GuardTicket {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  FEATURE FLAGS — PIN visibility migration (Ley 21.719 Fase 2)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Controla si el PIN almacenado (`marcacionPinVisible`) se muestra en la ficha
+ * del guardia. Por defecto false en producción: el PIN solo se muestra una vez
+ * al generarse. Fase 3: eliminar marcacionPinVisible del schema.
+ */
+export const SHOW_PIN_IN_PROFILE =
+  process.env.NEXT_PUBLIC_SHOW_PIN_PROFILE === "true";
+
+// ═══════════════════════════════════════════════════════════════
 //  PORTAL SECTIONS
 // ═══════════════════════════════════════════════════════════════
 
@@ -106,7 +118,8 @@ export type PortalSection =
   | "control-acceso"
   | "desempeno"
   | "equipamiento"
-  | "alertas-cobertura";
+  | "alertas-cobertura"
+  | "mis-datos";
 
 export interface PortalNavItem {
   key: PortalSection;
@@ -132,6 +145,7 @@ export const PORTAL_NAV_ITEMS: PortalNavItem[] = [
   { key: "equipamiento", label: "Equipamiento", icon: "Package", description: "Uniformes y equipos asignados" },
   { key: "control-acceso", label: "Control Acceso", icon: "ShieldCheck", description: "Control de acceso a la instalación" },
   { key: "desempeno", label: "Desempeño", icon: "TrendingUp", description: "Mi puntaje, badges y ranking" },
+  { key: "mis-datos", label: "Mis Datos", icon: "Shield", description: "Tus datos personales y derechos ARCO (Ley 21.719)" },
 ];
 
 // Bottom nav: only 5 items for mobile

@@ -51,6 +51,7 @@ import { ChatGuardPortal } from "@/components/portal/ChatGuardPortal";
 import { GuardDesempenoSection } from "@/components/portal/GuardDesempenoSection";
 import { AccessControlGuardHome } from "@/components/access-control/AccessControlGuardHome";
 import { AlertasCoberturaGuardiaSection } from "@/components/portal/AlertasCoberturaGuardiaSection";
+import { MisDatosSection } from "@/components/portal/MisDatosSection";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import { FaceCameraCapture } from "@/app/portal/marcacion/_components/FaceCameraCapture";
@@ -297,6 +298,9 @@ export function GuardPortalClient() {
           )}
           {activeSection === "documentos" && (
             <DocumentosSection session={session} />
+          )}
+          {activeSection === "mis-datos" && (
+            <MisDatosSection session={session} />
           )}
         </main>
       )}

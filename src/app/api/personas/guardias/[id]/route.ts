@@ -10,6 +10,7 @@ import {
   normalizeNullable,
   type GuardiaLifecycleStatus,
 } from "@/lib/personas";
+import { encryptPersonaFields, decryptPersonaFields } from "@/lib/persona-encryption";
 
 type Params = { id: string };
 
@@ -93,6 +94,8 @@ export async function GET(
     const { marcacionPin, ...guardiaRest } = guardia;
     const sanitized = {
       ...guardiaRest,
+      // Descifrar campos sensibles (Ley 21.719)
+      persona: decryptPersonaFields(guardiaRest.persona),
       marcacionPin: marcacionPin ? "[configurado]" : null,
     };
 
@@ -198,7 +201,7 @@ export async function PATCH(
       if (!planOnly) {
       await tx.opsPersona.update({
         where: { id: existing.personaId },
-        data: {
+        data: encryptPersonaFields({
           firstName: body.firstName ?? undefined,
           lastName: body.lastName ?? undefined,
           rut: body.rut !== undefined ? normalizeNullable(body.rut) : undefined,
@@ -242,7 +245,7 @@ export async function PATCH(
           cotizaAFC: body.cotizaAFC !== undefined ? body.cotizaAFC : undefined,
           cotizaSalud: body.cotizaSalud !== undefined ? body.cotizaSalud : undefined,
           personalEmail: body.personalEmail !== undefined ? normalizeNullable(body.personalEmail) : undefined,
-        },
+        }),
       });
       }
 

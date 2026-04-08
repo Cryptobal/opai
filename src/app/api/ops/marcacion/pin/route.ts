@@ -13,6 +13,7 @@ import { generatePin } from "@/lib/marcacion";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { logAudit } from "@/lib/audit";
 
 const schema = z.object({
   guardiaId: z.string().uuid(),
@@ -90,6 +91,17 @@ export async function POST(req: NextRequest) {
         marcacionPin: hashedPin,
         marcacionPinVisible: plainPin,
       },
+    });
+
+    await logAudit({
+      userId: auth.userId,
+      userEmail: auth.userEmail,
+      action: "UPDATE",
+      entity: "OpsGuardia",
+      entityId: guardiaId,
+      details: { type: "PIN_REGENERATED" },
+      tenantId: auth.tenantId,
+      request: req,
     });
 
     // El PIN en texto plano solo se retorna UNA VEZ en esta respuesta

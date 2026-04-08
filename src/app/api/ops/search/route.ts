@@ -43,7 +43,6 @@ export async function GET(request: NextRequest) {
         id: true,
         code: true,
         marcacionPin: true,
-        marcacionPinVisible: true,
         persona: {
           select: {
             firstName: true,
@@ -75,11 +74,8 @@ export async function GET(request: NextRequest) {
         ? `${apellidos}${primerNombre ? `, ${primerNombre}` : ""}`
         : (g.persona.firstName ?? "").trim() || "Guardia";
 
-      const pinDisplay = g.marcacionPinVisible
-        ? `PIN: ${g.marcacionPinVisible}`
-        : g.marcacionPin
-          ? "Recargar para generar"
-          : "Sin PIN";
+      // Ley 21.719: el PIN no se expone en búsqueda. Solo se indica si está configurado.
+      const pinDisplay = g.marcacionPin ? "PIN configurado" : "Sin PIN";
 
       const subtitleParts = [
         g.currentInstallation?.name,

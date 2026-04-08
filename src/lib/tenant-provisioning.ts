@@ -91,7 +91,8 @@ export async function provisionTenant(
     // 1. Tenant
 
     const tenant = await tx.tenant.create({
-      data: { name, slug, active: true },
+      // dpaVersion sin dpaAcceptedAt = pendiente de aceptación (Ley 21.719)
+      data: { name, slug, active: true, dpaVersion: "1.0" },
     });
 
     // 2. Admin (owner)

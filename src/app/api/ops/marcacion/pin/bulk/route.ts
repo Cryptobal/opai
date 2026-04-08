@@ -11,6 +11,7 @@ import { requireAuth } from "@/lib/api-auth";
 import { ensureOpsCapability } from "@/lib/ops";
 import { generatePin } from "@/lib/marcacion";
 import * as bcrypt from "bcryptjs";
+import { logAudit } from "@/lib/audit";
 
 export async function POST() {
   try {
@@ -42,6 +43,15 @@ export async function POST() {
       });
       updated++;
     }
+
+    await logAudit({
+      userId: auth.userId,
+      userEmail: auth.userEmail,
+      action: "UPDATE",
+      entity: "OpsGuardia",
+      details: { type: "PIN_BULK_REGENERATED", updated },
+      tenantId: auth.tenantId,
+    });
 
     return NextResponse.json({
       success: true,

@@ -49,6 +49,7 @@ import { cn } from "@/lib/utils";
 import { ChipTabs } from "@/components/ui/chip-tabs";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { formatPersonName } from "@/lib/personas";
+import { SHOW_PIN_IN_PROFILE } from "@/lib/guard-portal";
 import {
   AFP_CHILE,
   getLifecycleTransitions,
@@ -556,13 +557,15 @@ export function GuardiaDetailClient({
                 <span className="text-[10px] text-muted-foreground uppercase tracking-wider shrink-0">PIN de marcación</span>
                 <span className={cn(
                   "shrink-0 rounded px-2.5 py-1 text-sm font-semibold tabular-nums",
-                  guardia.marcacionPinVisible
+                  guardia.marcacionPin
                     ? "bg-emerald-500/25 text-emerald-400 border border-emerald-500/30"
-                    : guardia.marcacionPin
-                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                      : "bg-muted text-muted-foreground border border-border"
+                    : "bg-muted text-muted-foreground border border-border"
                 )}>
-                  {guardia.marcacionPinVisible ?? (guardia.marcacionPin ? "Recargar para generar" : "—")}
+                  {SHOW_PIN_IN_PROFILE && guardia.marcacionPinVisible
+                    ? guardia.marcacionPinVisible
+                    : guardia.marcacionPin
+                      ? "Configurado"
+                      : "—"}
                 </span>
                 {canReloadMarcacionPin && (
                   <Button

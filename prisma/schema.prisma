@@ -21,6 +21,10 @@ model Tenant {
   suspendedReason             String?                      @map("suspended_reason")
   onboardedBy                 String?                      @map("onboarded_by")
   lastActivityAt              DateTime?                    @map("last_activity_at")
+  // ── Ley 21.719 — Contrato de Encargado de Tratamiento (DPA) ──
+  dpaAcceptedAt               DateTime?                    @map("dpa_accepted_at")
+  dpaAcceptedBy               String?                      @map("dpa_accepted_by")
+  dpaVersion                  String?                      @map("dpa_version")
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
   admins                      Admin[]

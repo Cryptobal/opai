@@ -6,6 +6,8 @@ import { BadgeClear } from "@/components/pwa/BadgeClear";
 import { PWAProvider } from "@/components/pwa/PWAProvider";
 import { ThemeProvider } from "@/components/opai/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
+import { CookieConsentBanner } from "@/components/CookieConsent";
+import { ConditionalAnalytics } from "@/components/ConditionalAnalytics";
 import "../styles/globals.css";
 
 const exo2 = Exo_2({
@@ -28,12 +30,6 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains",
   display: "swap",
 });
-
-/** Google Tag Manager (opai.cl) — override con NEXT_PUBLIC_GTM_ID en .env si hace falta */
-const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? "GTM-WNF9VD9B";
-/** Google Analytics 4 (gtag.js) — override con NEXT_PUBLIC_GA_MEASUREMENT_ID */
-const GA_MEASUREMENT_ID =
-  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-ZW32Q9SS52";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -99,36 +95,9 @@ export default function RootLayout({
             else document.documentElement.classList.add('dark');
           } catch(e) { document.documentElement.classList.add('dark'); }
         `}</Script>
-        <Script
-          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics-gtag" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${GA_MEASUREMENT_ID}');
-          `}
-        </Script>
-        <Script id="google-tag-manager" strategy="afterInteractive">
-          {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','${GTM_ID}');`}
-        </Script>
       </head>
       <body>
-        <noscript>
-          <iframe
-            src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
-            height="0"
-            width="0"
-            style={{ display: "none", visibility: "hidden" }}
-            title="Google Tag Manager"
-          />
-        </noscript>
+        <ConditionalAnalytics />
         <ThemeProvider>
           <PWAProvider>
             <BadgeClear />
@@ -136,6 +105,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
           </PWAProvider>
           <Toaster />
         </ThemeProvider>
+        <CookieConsentBanner />
         <Analytics />
       </body>
     </html>
