@@ -17,11 +17,23 @@
     "db:migrate": "prisma migrate deploy",
     "geocode-guardias": "npx tsx prisma/scripts/geocode-guardias.ts",
     "cap:terreno:init": "cp capacitor.config.terreno.ts capacitor.config.ts && npx cap add android && mv android android-terreno && git checkout capacitor.config.ts",
-    "cap:opai:init": "cp capacitor.config.opai.ts capacitor.config.ts && npx cap add android && mv android android-opai && git checkout capacitor.config.ts",
     "cap:terreno:sync": "cp capacitor.config.terreno.ts capacitor.config.ts && cp -r android-terreno android && npx cap sync android && rm -rf android-terreno && mv android android-terreno && git checkout capacitor.config.ts",
-    "cap:opai:sync": "cp capacitor.config.opai.ts capacitor.config.ts && cp -r android-opai android && npx cap sync android && rm -rf android-opai && mv android android-opai && git checkout capacitor.config.ts",
     "cap:terreno:open": "cp capacitor.config.terreno.ts capacitor.config.ts && cp -r android-terreno android && npx cap open android",
-    "cap:opai:open": "cp capacitor.config.opai.ts capacitor.config.ts && cp -r android-opai android && npx cap open android"
+    "cap:terreno:ios:init": "cp capacitor.config.terreno.ts capacitor.config.ts && npx cap add ios && mv ios ios-terreno && git checkout capacitor.config.ts",
+    "cap:terreno:ios:sync": "cp capacitor.config.terreno.ts capacitor.config.ts && cp -r ios-terreno ios && npx cap sync ios && rm -rf ios-terreno && mv ios ios-terreno && git checkout capacitor.config.ts",
+    "cap:terreno:ios:open": "cp capacitor.config.terreno.ts capacitor.config.ts && cp -r ios-terreno ios && npx cap open ios",
+    "cap:personas:init": "cp capacitor.config.personas.ts capacitor.config.ts && npx cap add android && mv android android-personas && git checkout capacitor.config.ts",
+    "cap:personas:sync": "cp capacitor.config.personas.ts capacitor.config.ts && cp -r android-personas android && npx cap sync android && rm -rf android-personas && mv android android-personas && git checkout capacitor.config.ts",
+    "cap:personas:open": "cp capacitor.config.personas.ts capacitor.config.ts && cp -r android-personas android && npx cap open android",
+    "cap:personas:ios:init": "cp capacitor.config.personas.ts capacitor.config.ts && npx cap add ios && mv ios ios-personas && git checkout capacitor.config.ts",
+    "cap:personas:ios:sync": "cp capacitor.config.personas.ts capacitor.config.ts && cp -r ios-personas ios && npx cap sync ios && rm -rf ios-personas && mv ios ios-personas && git checkout capacitor.config.ts",
+    "cap:personas:ios:open": "cp capacitor.config.personas.ts capacitor.config.ts && cp -r ios-personas ios && npx cap open ios",
+    "cap:erp:init": "cp capacitor.config.erp.ts capacitor.config.ts && npx cap add android && mv android android-erp && git checkout capacitor.config.ts",
+    "cap:erp:sync": "cp capacitor.config.erp.ts capacitor.config.ts && cp -r android-erp android && npx cap sync android && rm -rf android-erp && mv android android-erp && git checkout capacitor.config.ts",
+    "cap:erp:open": "cp capacitor.config.erp.ts capacitor.config.ts && cp -r android-erp android && npx cap open android",
+    "cap:erp:ios:init": "cp capacitor.config.erp.ts capacitor.config.ts && npx cap add ios && mv ios ios-erp && git checkout capacitor.config.ts",
+    "cap:erp:ios:sync": "cp capacitor.config.erp.ts capacitor.config.ts && cp -r ios-erp ios && npx cap sync ios && rm -rf ios-erp && mv ios ios-erp && git checkout capacitor.config.ts",
+    "cap:erp:ios:open": "cp capacitor.config.erp.ts capacitor.config.ts && cp -r ios-erp ios && npx cap open ios"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"

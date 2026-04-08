@@ -1,25 +1,37 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 /**
- * Default Capacitor config — selects between the two apps via env var.
+ * Default Capacitor config — selects between the three apps via env var.
  *
- * Usage:
- *   CAPACITOR_APP=terreno npx cap sync    # Opai Terreno (shared device)
- *   CAPACITOR_APP=opai    npx cap sync    # Opai (personal device, default)
+ * Three apps total, each one a separate Google Play / App Store listing:
  *
- * Prefer the dedicated npm scripts instead (see package.json):
+ *   CAPACITOR_APP=terreno  npx cap sync   # Opai Terreno  (cl.opai.terreno)
+ *   CAPACITOR_APP=personas npx cap sync   # Opai Personas (cl.opai.personas)
+ *   CAPACITOR_APP=erp      npx cap sync   # Opai ERP      (cl.opai.erp)
+ *
+ * Default (no env var): personas — the most common local workflow.
+ *
+ * Prefer the dedicated npm scripts in package.json:
  *   npm run cap:terreno:sync
- *   npm run cap:opai:sync
+ *   npm run cap:personas:sync
+ *   npm run cap:erp:sync
+ *
+ * iOS variants:
+ *   npm run cap:<app>:ios:init     # one-time npx cap add ios
+ *   npm run cap:<app>:ios:sync     # sync Xcode project
+ *   npm run cap:<app>:ios:open     # open in Xcode
  */
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const app = process.env.CAPACITOR_APP || "opai";
+const app = process.env.CAPACITOR_APP || "personas";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const loaded =
   app === "terreno"
     ? require("./capacitor.config.terreno")
-    : require("./capacitor.config.opai");
+    : app === "erp"
+      ? require("./capacitor.config.erp")
+      : require("./capacitor.config.personas");
 
 const config: CapacitorConfig = loaded.default ?? loaded;
 
