@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeRut, isValidChileanRut } from "@/lib/personas";
-import { registerFace } from "@/lib/services/rekognition";
+import { registerFace, deleteFace } from "@/lib/services/rekognition";
 import { uploadFile } from "@/lib/storage";
 import * as bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -25,6 +25,9 @@ const schema = z.object({
   pin: z.string().min(4).max(6),
   image: z.string().min(1),
   installationId: z.string().min(1),
+  // Versión del texto legal aceptado por el guardia (Ley 21.719).
+  // El UI envía "1.0"; si falta, se registra "unknown" en el audit.
+  consentTextVersion: z.string().min(1).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -38,7 +41,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { rut, pin, image, installationId } = parsed.data;
+    const { rut, pin, image, installationId, consentTextVersion } = parsed.data;
 
     // Validate RUT
     const normalizedRut = normalizeRut(rut);
@@ -78,6 +81,7 @@ export async function POST(req: NextRequest) {
             marcacionPin: true,
             faceIdRegistered: true,
             faceIdAwsId: true,
+            faceIdConsentRevoked: true,
           },
         },
       },
@@ -123,13 +127,43 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if already registered
-    if (guardia.faceIdRegistered && guardia.faceIdAwsId) {
+    // Check if already registered.
+    // Excepción: si el guardia revocó previamente su consentimiento
+    // (faceIdConsentRevoked=true), permitimos que vuelva a aceptarlo
+    // explícitamente y re-registre el rostro (Ley 21.719 — Art. derecho
+    // a retirar y volver a otorgar el consentimiento).
+    if (guardia.faceIdRegistered && guardia.faceIdAwsId && !guardia.faceIdConsentRevoked) {
       return NextResponse.json(
         { success: false, error: "Face ID ya esta registrado. Para re-registrar, contacta al administrador." },
         { status: 409 }
       );
     }
+
+    // Si estaba revocado, eliminamos el template biométrico previo en AWS
+    // Rekognition antes de indexar el nuevo.
+    if (guardia.faceIdConsentRevoked && guardia.faceIdAwsId) {
+      try {
+        await deleteFace(guardia.faceIdAwsId);
+      } catch (err) {
+        console.error("[face-register] Error deleting previous face:", err);
+        // No bloqueamos el flujo: el nuevo registro prevalecerá.
+      }
+    }
+
+    // Log de consentimiento informado (Ley 21.719).
+    // Se registra ANTES del tratamiento del dato biométrico.
+    await logAudit({
+      userId: guardia.id,
+      action: "CONSENT_GRANTED",
+      entity: "OpsGuardia",
+      entityId: guardia.id,
+      details: {
+        type: "FACE_ID_CONSENT",
+        textVersion: consentTextVersion ?? "unknown",
+      },
+      tenantId: installation.tenantId,
+      request: req,
+    });
 
     // Decode image
     const imageBuffer = Buffer.from(image, "base64");
