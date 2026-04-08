@@ -44,6 +44,9 @@ import type {
   ClosingStaleDeal,
   ClosingPendingLead,
   ClosingPortalTopUser,
+  AtsMetrics,
+  PayrollMetrics,
+  PersonasMetrics,
 } from './hub-types';
 
 /* ------------------------------------------------------------------ */
@@ -620,6 +623,41 @@ export async function getClosingHubData(
 
   const tenantConfig = await getTenantCompanyConfig(tenantId);
 
+  // Trend data for last 7 days (sparklines) — best-effort
+  const last7DayBoundaries = Array.from({ length: 7 }, (_, i) => {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (6 - i));
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return { start, end };
+  });
+
+  let leadsTrend7d: number[] = new Array(7).fill(0);
+  let dealsTrend7d: number[] = new Array(7).fill(0);
+  try {
+    const trendQueries = await Promise.all([
+      ...last7DayBoundaries.map(({ start, end }) =>
+        prisma.crmLead.count({
+          where: { tenantId, createdAt: { gte: start, lt: end } },
+        }),
+      ),
+      ...last7DayBoundaries.map(({ start, end }) =>
+        prisma.crmDeal.count({
+          where: {
+            tenantId,
+            status: 'open',
+            createdAt: { gte: start, lt: end },
+          },
+        }),
+      ),
+    ]);
+    leadsTrend7d = trendQueries.slice(0, 7);
+    dealsTrend7d = trendQueries.slice(7, 14);
+  } catch {
+    /* ignore */
+  }
+
   return {
     kpis: {
       openLeadsCount,
@@ -653,6 +691,8 @@ export async function getClosingHubData(
       proposalToWonRate: toPercent(closedWon30, proposalsSent30),
     },
     commercialName: tenantConfig.commercialName || 'OPAI',
+    leadsTrend7d,
+    dealsTrend7d,
   };
 }
 
@@ -1230,6 +1270,41 @@ export async function getOpsMetrics(
 
   const attTotal = attPresent + attAbsent + attPending + attReplacement;
 
+  // Trend data for last 7 days (sparklines) — best-effort, fall back to zeros on failure
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(todayDate);
+    d.setDate(d.getDate() - (6 - i));
+    return d;
+  });
+
+  let attendanceTrend7d: number[] = new Array(7).fill(0);
+  let roundsTrend7d: number[] = new Array(7).fill(0);
+  try {
+    const trendQueries = await Promise.all([
+      ...last7Days.map((d) =>
+        prisma.opsAsistenciaDiaria.count({
+          where: { tenantId, date: d, attendanceStatus: 'presente' },
+        }),
+      ),
+      ...last7Days.map((d) =>
+        prisma.opsRondaEjecucion.count({
+          where: {
+            tenantId,
+            status: 'completada',
+            scheduledAt: {
+              gte: d,
+              lt: new Date(d.getTime() + 24 * 60 * 60 * 1000),
+            },
+          },
+        }),
+      ),
+    ]);
+    attendanceTrend7d = trendQueries.slice(0, 7);
+    roundsTrend7d = trendQueries.slice(7, 14);
+  } catch {
+    /* ignore — trends are non-critical */
+  }
+
   return {
     activePuestos,
     activeGuardias,
@@ -1260,6 +1335,8 @@ export async function getOpsMetrics(
     },
     unresolvedAlerts,
     criticalAlerts,
+    attendanceTrend7d,
+    roundsTrend7d,
   };
 }
 
@@ -1675,4 +1752,110 @@ export async function getSupervisionMetrics(
     openFindings: openFindingsRaw.length,
     overdueFindingsCount,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* ATS metrics                                                         */
+/* ------------------------------------------------------------------ */
+
+export async function getAtsMetrics(tenantId: string): Promise<AtsMetrics | null> {
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
+    const [openJobs, recentApplications, inProcess] = await Promise.all([
+      prisma.atsJobPosting.count({ where: { tenantId, estado: 'ACTIVO' } }),
+      prisma.atsApplication.count({
+        where: { tenantId, createdAt: { gte: sevenDaysAgo } },
+      }),
+      prisma.atsApplication.count({
+        where: { tenantId, etapa: { in: ['EN_REVISION', 'ENTREVISTA'] } },
+      }),
+    ]);
+    return { openJobs, recentApplications, inProcess };
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Payroll metrics                                                     */
+/* ------------------------------------------------------------------ */
+
+const SPANISH_MONTHS = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+export async function getPayrollMetrics(tenantId: string): Promise<PayrollMetrics | null> {
+  try {
+    const currentPeriod = await prisma.payrollPeriod.findFirst({
+      where: { tenantId, status: { in: ['OPEN', 'PROCESSING'] } },
+      orderBy: [{ year: 'desc' }, { month: 'desc' }],
+    });
+
+    let pendingAnticipos = 0;
+    try {
+      pendingAnticipos = await prisma.payrollAnticipoProcess.count({
+        where: { tenantId, status: 'DRAFT' },
+      });
+    } catch {
+      pendingAnticipos = 0;
+    }
+
+    const currentPeriodLabel = currentPeriod
+      ? `${SPANISH_MONTHS[currentPeriod.month - 1] ?? currentPeriod.month} ${currentPeriod.year}`
+      : null;
+
+    // Build approximate "next close" = last day of the period month
+    const nextCloseDate = currentPeriod
+      ? new Date(currentPeriod.year, currentPeriod.month, 0)
+      : null;
+
+    return {
+      currentPeriodLabel,
+      currentPeriodStatus: currentPeriod?.status ?? null,
+      pendingAnticipos,
+      nextCloseDate,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Personas metrics                                                    */
+/* ------------------------------------------------------------------ */
+
+export async function getPersonasMetrics(tenantId: string): Promise<PersonasMetrics | null> {
+  try {
+    const now = new Date();
+    const in30Days = new Date(now.getTime() + 30 * 86400000);
+
+    const [enOnboarding, documentacionPendiente, contratosPorVencer] = await Promise.all([
+      prisma.opsGuardia.count({
+        where: {
+          tenantId,
+          lifecycleStatus: { in: ['postulante', 'seleccionado'] },
+        },
+      }),
+      prisma.opsDocumentoPersona.count({
+        where: { tenantId, status: 'pending' },
+      }),
+      prisma.opsGuardia.count({
+        where: {
+          tenantId,
+          status: 'active',
+          contractType: 'plazo_fijo',
+          OR: [
+            { contractPeriod1End: { gte: now, lte: in30Days } },
+            { contractPeriod2End: { gte: now, lte: in30Days } },
+            { contractPeriod3End: { gte: now, lte: in30Days } },
+          ],
+        },
+      }),
+    ]);
+
+    return { enOnboarding, documentacionPendiente, contratosPorVencer };
+  } catch {
+    return null;
+  }
 }

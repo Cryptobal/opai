@@ -175,10 +175,6 @@ function PermissionEditor({
     onChange(next);
   };
 
-  const setHubLayout = (layout: "default" | "supervisor") => {
-    onChange({ ...permissions, hubLayout: layout });
-  };
-
   const capabilitiesByModule = useMemo(() => {
     const map = new Map<ModuleKey, typeof CAPABILITY_META>();
     for (const cap of CAPABILITY_META) {
@@ -206,7 +202,6 @@ function PermissionEditor({
             const subs = SUBMODULE_META.filter((s) => s.module === mod.key);
             const caps = capabilitiesByModule.get(mod.key) ?? [];
             const hasSubs = subs.length > 0;
-            const isHub = mod.key === "hub";
             const isCpq = mod.key === "cpq";
             const overrideCount = subs.filter(
               (s) => `${mod.key}.${s.submodule}` in permissions.submodules,
@@ -215,7 +210,7 @@ function PermissionEditor({
             return (
               <div key={mod.key}>
                 <div className="flex items-center gap-2 px-4 py-3">
-                  {(hasSubs || isHub) ? (
+                  {hasSubs ? (
                     <button
                       onClick={() => toggleModule(mod.key)}
                       className="flex items-center gap-2 flex-1 min-w-0 text-left"
@@ -250,30 +245,6 @@ function PermissionEditor({
 
                 {isExpanded && (
                   <div className="border-t border-border bg-accent/20">
-                    {/* Hub: tipo de inicio */}
-                    {isHub && (
-                      <div className="flex items-center justify-between pl-11 pr-4 py-2.5 border-t border-border/50 first:border-t-0">
-                        <span className="text-xs text-muted-foreground">
-                          Tipo de inicio (Hub)
-                        </span>
-                        <select
-                          value={permissions.hubLayout ?? "default"}
-                          onChange={(e) =>
-                            setHubLayout(
-                              e.target.value === "supervisor"
-                                ? "supervisor"
-                                : "default",
-                            )
-                          }
-                          disabled={disabled}
-                          className="rounded-full border border-border bg-background px-3 py-1 text-xs font-medium"
-                        >
-                          <option value="default">Normal (admin)</option>
-                          <option value="supervisor">Supervisor (terreno)</option>
-                        </select>
-                      </div>
-                    )}
-
                     {/* Submódulos (Ops, CRM, etc.) */}
                     {subs.map((sub) => {
                       const subKey = `${mod.key}.${sub.submodule}`;

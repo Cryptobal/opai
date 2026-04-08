@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react';
 import type { ClosingFunnel } from '../_lib/hub-types';
 
 interface Props {
@@ -5,10 +6,10 @@ interface Props {
 }
 
 const STEPS = [
-  { key: 'leadsCreated', label: 'Leads', color: 'bg-blue-500', textColor: 'text-blue-400' },
-  { key: 'leadsConverted', label: 'Convertidos', color: 'bg-violet-500', textColor: 'text-violet-400' },
-  { key: 'proposalsSent', label: 'Propuestas', color: 'bg-teal-500', textColor: 'text-teal-400' },
-  { key: 'dealsWon', label: 'Ganados', color: 'bg-emerald-500', textColor: 'text-emerald-400' },
+  { key: 'leadsCreated', label: 'Leads', color: '#3b82f6' },
+  { key: 'leadsConverted', label: 'Convertidos', color: '#8b5cf6' },
+  { key: 'proposalsSent', label: 'Propuestas', color: '#2DD4A0' },
+  { key: 'dealsWon', label: 'Ganados', color: '#10b981' },
 ] as const;
 
 export function HubMiniFunnel({ funnel }: Props) {
@@ -19,33 +20,48 @@ export function HubMiniFunnel({ funnel }: Props) {
       <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
         Embudo 30 días
       </p>
-      <div className="grid grid-cols-4 gap-3">
-        {STEPS.map((step) => {
+      <div className="space-y-2.5">
+        {STEPS.map((step, idx) => {
           const value = funnel[step.key];
-          const pct = Math.max((value / max) * 100, 6);
+          const pct = Math.max((value / max) * 100, 4);
+          const conversionLabel =
+            idx === 1
+              ? `${funnel.leadToDealRate}%`
+              : idx === 3
+                ? `${funnel.proposalToWonRate}%`
+                : null;
+
           return (
-            <div key={step.key} className="text-center">
-              <p className={`text-2xl font-bold tabular-nums leading-tight ${step.textColor}`}>
-                {value}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">{step.label}</p>
-              <div className="mt-1.5 h-1 bg-muted/30 rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${step.color} rounded-full transition-all`}
-                  style={{ width: `${pct}%` }}
-                />
+            <div key={step.key}>
+              {conversionLabel && (
+                <div className="flex items-center justify-center mb-1 -mt-0.5">
+                  <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                    <ChevronRight className="h-2.5 w-2.5 rotate-90" />
+                    <span>conv. {conversionLabel}</span>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground w-20 shrink-0 text-right">
+                  {step.label}
+                </span>
+                <div className="flex-1 h-5 bg-muted/30 rounded-md overflow-hidden relative">
+                  <div
+                    className="h-full rounded-md transition-all duration-500 flex items-center justify-end pr-2"
+                    style={{
+                      width: `${pct}%`,
+                      backgroundColor: step.color,
+                    }}
+                  >
+                    <span className="text-[10px] font-bold tabular-nums text-white drop-shadow">
+                      {value}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           );
         })}
-      </div>
-      <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
-        <span className="text-sm text-muted-foreground">
-          Lead→Deal <span className="font-bold text-foreground">{funnel.leadToDealRate}%</span>
-        </span>
-        <span className="text-sm text-muted-foreground">
-          Prop→Ganado <span className="font-bold text-foreground">{funnel.proposalToWonRate}%</span>
-        </span>
       </div>
     </div>
   );

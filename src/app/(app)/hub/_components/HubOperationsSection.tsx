@@ -7,11 +7,12 @@ import {
   UserPlus,
   AlertTriangle,
   Clock3,
-  Route,
 } from 'lucide-react';
 import { HubKpiLinkCard } from './HubKpiLinkCard';
-import { HubCompactStat } from './HubCompactStat';
 import { HubCollapsibleSection } from './HubCollapsibleSection';
+import { HubMiniDonut } from './charts/HubMiniDonut';
+import { HubSegmentedBar } from './charts/HubSegmentedBar';
+import { HubSparkline } from './charts/HubSparkline';
 import type { OpsMetrics } from '../_lib/hub-types';
 
 interface HubOperationsSectionProps {
@@ -25,14 +26,24 @@ export function HubOperationsSection({ opsMetrics }: HubOperationsSectionProps) 
     coveragePct >= 95 ? 'text-emerald-500 border-emerald-500/30' :
     coveragePct >= 80 ? 'text-amber-500 border-amber-500/30' :
     'text-red-500 border-red-500/30';
-  const coverageBarColor =
-    coveragePct >= 95 ? 'bg-emerald-500' :
-    coveragePct >= 80 ? 'bg-amber-500' :
-    'bg-red-500';
-  const roundsBarColor =
-    rounds.completionPercent >= 80 ? 'bg-emerald-500' :
-    rounds.completionPercent >= 50 ? 'bg-amber-500' :
-    'bg-red-500';
+
+  const attendanceSegments = [
+    { value: attendance.present, color: '#10b981', label: 'Presente' },
+    { value: attendance.replacement, color: '#3b82f6', label: 'Reemplazo' },
+    { value: attendance.pending, color: '#f59e0b', label: 'Pendiente' },
+    { value: attendance.absent, color: '#ef4444', label: 'Ausente' },
+  ];
+
+  const roundsSegments = [
+    { value: rounds.completed, color: '#10b981', label: 'Completadas' },
+    { value: rounds.inProgress, color: '#3b82f6', label: 'En curso' },
+    { value: rounds.missed, color: '#ef4444', label: 'Perdidas' },
+    {
+      value: Math.max(0, rounds.scheduled - rounds.completed - rounds.inProgress - rounds.missed),
+      color: 'rgba(255,255,255,0.15)',
+      label: 'Pendientes',
+    },
+  ];
 
   return (
     <HubCollapsibleSection
@@ -95,7 +106,7 @@ export function HubOperationsSection({ opsMetrics }: HubOperationsSectionProps) 
         />
       </div>
 
-      {/* Sub-seccion: Asistencia hoy */}
+      {/* Sub-seccion: Asistencia hoy con donut */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-semibold">Asistencia hoy</p>
@@ -106,15 +117,47 @@ export function HubOperationsSection({ opsMetrics }: HubOperationsSectionProps) 
             Ver pauta diaria
           </Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <HubCompactStat label="Presente" value={attendance.present} className="[&>p:last-child]:text-emerald-500" />
-          <HubCompactStat label="Ausente" value={attendance.absent} className="[&>p:last-child]:text-red-400" />
-          <HubCompactStat label="Pendiente" value={attendance.pending} className="[&>p:last-child]:text-amber-500" />
-          <HubCompactStat label="Reemplazo" value={attendance.replacement} />
+        <div className="rounded-lg border border-border bg-card p-3 flex items-center gap-4">
+          <HubMiniDonut
+            segments={attendanceSegments}
+            centerValue={`${coveragePct}%`}
+            centerLabel="cobertura"
+            size={96}
+            thickness={12}
+          />
+          <div className="flex-1 min-w-0 grid grid-cols-2 gap-x-3 gap-y-1.5">
+            {attendanceSegments.map((seg) => (
+              <div key={seg.label} className="flex items-center gap-1.5 min-w-0">
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: seg.color }}
+                />
+                <span className="text-[11px] text-muted-foreground truncate">
+                  {seg.label}{' '}
+                  <span className="font-bold tabular-nums text-foreground">
+                    {seg.value}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+          {opsMetrics.attendanceTrend7d && opsMetrics.attendanceTrend7d.length > 0 && (
+            <div className="hidden sm:flex flex-col items-end gap-1">
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
+                7d
+              </span>
+              <HubSparkline
+                data={opsMetrics.attendanceTrend7d}
+                color="#10b981"
+                width={64}
+                height={22}
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Sub-seccion: Rondas hoy */}
+      {/* Sub-seccion: Rondas hoy con barra segmentada */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-semibold">Rondas hoy</p>
@@ -125,22 +168,21 @@ export function HubOperationsSection({ opsMetrics }: HubOperationsSectionProps) 
             Ver rondas
           </Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-          <HubCompactStat label="Programadas" value={rounds.scheduled} />
-          <HubCompactStat label="Completadas" value={rounds.completed} className="[&>p:last-child]:text-emerald-500" />
-          <HubCompactStat label="En curso" value={rounds.inProgress} />
-          <HubCompactStat label="Perdidas" value={rounds.missed} className="[&>p:last-child]:text-red-400" />
-        </div>
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>{rounds.completionPercent}% completadas ({rounds.completed}/{rounds.scheduled})</span>
+        <div className="rounded-lg border border-border bg-card p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] text-muted-foreground">
+              {rounds.completionPercent}% completadas ({rounds.completed}/{rounds.scheduled})
+            </span>
+            {opsMetrics.roundsTrend7d && opsMetrics.roundsTrend7d.length > 0 && (
+              <HubSparkline
+                data={opsMetrics.roundsTrend7d}
+                color="#3b82f6"
+                width={56}
+                height={18}
+              />
+            )}
           </div>
-          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${roundsBarColor}`}
-              style={{ width: `${Math.min(rounds.completionPercent, 100)}%` }}
-            />
-          </div>
+          <HubSegmentedBar segments={roundsSegments} />
         </div>
       </div>
     </HubCollapsibleSection>

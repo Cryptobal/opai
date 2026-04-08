@@ -7,7 +7,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView } from "@/lib/api-auth-crm";
-import { resolvePermissionsById } from "@/lib/permissions-server";
 import { requireTenantModule } from '@/lib/require-module';
 
 type SearchResult = {
@@ -44,10 +43,7 @@ export async function GET(request: NextRequest) {
 
     const contains = { contains: q, mode: "insensitive" as const };
     const tenantId = ctx.tenantId;
-    const perms = await resolvePermissionsById(ctx.userId);
-    const isSupervisorHub =
-      perms.hubLayout === "supervisor" ||
-      ctx.userRole?.toLowerCase() === "supervisor";
+    const isSupervisorHub = ctx.userRole?.toLowerCase() === "supervisor";
 
     // IDs de negocios (deals) cuyo título o nombre de cuenta coincide
     const dealIdsByTitleOrAccount = await prisma.crmDeal.findMany({

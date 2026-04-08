@@ -63,8 +63,7 @@ export async function GET(request: NextRequest) {
     const hasOps = hasModuleAccess(perms, "ops");
     const hasDocs = hasModuleAccess(perms, "docs");
 
-    const isSupervisorHub =
-      perms.hubLayout === "supervisor" || ctx.userRole?.toLowerCase() === "supervisor";
+    const isSupervisorHub = ctx.userRole?.toLowerCase() === "supervisor";
 
     const contains = { contains: q, mode: "insensitive" as const };
     const tenantId = ctx.tenantId;

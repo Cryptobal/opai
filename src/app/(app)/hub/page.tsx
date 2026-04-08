@@ -1,15 +1,9 @@
 /**
- * Hub OPAI — ERP Command Center (refactored)
+ * Hub OPAI — ERP Command Center (unified)
  *
- * Mobile-first accordion layout with collapsible sections:
- * - Header: greeting + date + pending follow-ups
- * - Notifications (latest 3)
- * - Section 1: Pipeline Comercial (expanded by default)
- * - Section 2: Operaciones (collapsed)
- * - Section 3: Finanzas & Rendiciones (collapsed)
- * - Section 4: Tickets (collapsed)
- * - Section 5: Actividad Reciente (collapsed)
- * - FAB Speed Dial for quick actions
+ * Mobile-first accordion layout with collapsible sections for ALL roles
+ * (supervisor included). One unified hub: visibility is governed entirely
+ * by the permissions system.
  */
 
 import { redirect } from 'next/navigation';
@@ -31,11 +25,14 @@ import {
   getTicketMetrics,
   getSupervisionMetrics,
   getUpcomingProjects,
+  getAtsMetrics,
+  getPayrollMetrics,
+  getPersonasMetrics,
+  getAlerts,
 } from './_lib/hub-queries';
 import type { HubPerms } from './_lib/hub-types';
 
 import { HubClientWrapper } from './_components/HubClientWrapper';
-import { SupervisorHub } from './_components/SupervisorHub';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -58,6 +55,9 @@ export default async function HubPage() {
     hasDocs: hasModuleAccess(perms, 'docs'),
     hasFinance: hasModuleAccess(perms, 'finance'),
     hasOps: hasModuleAccess(perms, 'ops'),
+    hasAts: canView(perms, 'ops', 'ats') || hasModuleAccess(perms, 'ops'),
+    hasPayroll: hasModuleAccess(perms, 'payroll'),
+    hasPersonas: canView(perms, 'ops', 'guardias') || hasModuleAccess(perms, 'ops'),
     canOpenLeads: canView(perms, 'crm', 'leads'),
     canOpenDeals: canView(perms, 'crm', 'deals'),
     canOpenQuotes: canView(perms, 'crm', 'quotes'),
@@ -68,38 +68,42 @@ export default async function HubPage() {
     canApproveRendicion: hasCapability(perms, 'rendicion_approve'),
     canMarkAttendance: canEdit(perms, 'ops', 'pauta_diaria'),
     hasSupervision: canView(perms, 'ops', 'supervision'),
+    hasSupervisionCheckin: hasCapability(perms, 'supervision_checkin'),
+    hasFinanceRendiciones: canEdit(perms, 'finance', 'rendiciones'),
   };
 
   // Fetch data in parallel — only for modules user has access to
-  const [closingData, financeMetrics, opsMetrics, activities, notifications, ticketMetrics, supervisionMetrics, upcomingProjects] =
-    await Promise.all([
-      hubPerms.hasCrm
-        ? getClosingHubData(tenantId, thirtyDaysAgo, now)
-        : null,
-      hubPerms.hasFinance
-        ? getFinanceMetrics(tenantId)
-        : null,
-      hubPerms.hasOps
-        ? getOpsMetrics(tenantId)
-        : null,
-      getRecentActivity(tenantId),
-      getNotifications(tenantId, session.user.id, perms),
-      getTicketMetrics(tenantId),
-      hubPerms.hasSupervision
-        ? getSupervisionMetrics(tenantId)
-        : null,
-      hubPerms.hasCrm
-        ? getUpcomingProjects(tenantId)
-        : [],
-    ]);
+  const [
+    closingData,
+    financeMetrics,
+    opsMetrics,
+    activities,
+    notifications,
+    ticketMetrics,
+    supervisionMetrics,
+    upcomingProjects,
+    atsMetrics,
+    payrollMetrics,
+    personasMetrics,
+  ] = await Promise.all([
+    hubPerms.hasCrm ? getClosingHubData(tenantId, thirtyDaysAgo, now) : null,
+    hubPerms.hasFinance ? getFinanceMetrics(tenantId) : null,
+    hubPerms.hasOps ? getOpsMetrics(tenantId) : null,
+    getRecentActivity(tenantId),
+    getNotifications(tenantId, session.user.id, perms),
+    getTicketMetrics(tenantId),
+    hubPerms.hasSupervision ? getSupervisionMetrics(tenantId) : null,
+    hubPerms.hasCrm ? getUpcomingProjects(tenantId) : [],
+    hubPerms.hasAts ? getAtsMetrics(tenantId) : null,
+    hubPerms.hasPayroll ? getPayrollMetrics(tenantId) : null,
+    hubPerms.hasPersonas ? getPersonasMetrics(tenantId) : null,
+  ]);
+
+  const alerts = getAlerts(opsMetrics, null, financeMetrics);
 
   const firstName = session.user.name?.split(' ')[0] || 'Usuario';
   const role = session.user.role as string | undefined;
   const showPortalLink = role === 'owner' || role === 'admin';
-
-  if (perms.hubLayout === "supervisor") {
-    return <SupervisorHub tenantId={tenantId} userId={session.user.id} firstName={firstName} />;
-  }
 
   return (
     <HubClientWrapper
@@ -114,6 +118,10 @@ export default async function HubPage() {
       supervisionMetrics={supervisionMetrics}
       showPortalLink={showPortalLink}
       upcomingProjects={upcomingProjects}
+      alerts={alerts}
+      atsMetrics={atsMetrics}
+      payrollMetrics={payrollMetrics}
+      personasMetrics={personasMetrics}
     />
   );
 }
