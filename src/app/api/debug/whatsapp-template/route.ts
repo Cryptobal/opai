@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     try {
       const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
       const res = await fetch(
-        `https://messaging.twilio.com/v2/Channels/Senders?MessagingBinding.Type=whatsapp`,
+        `https://messaging.twilio.com/v2/Channels/Senders?Channel=whatsapp`,
         { headers: { Authorization: `Basic ${auth}` } },
       );
       const json = await res.json();
