@@ -169,6 +169,9 @@ export async function PATCH(
         aceptadaPorGuardiaId: true,
         creadaPorId: true,
         installation: { select: { name: true, lat: true, lng: true } },
+        libreAddress: true,
+        libreLat: true,
+        libreLng: true,
       },
     });
 
@@ -221,19 +224,29 @@ export async function PATCH(
         );
       }
 
-      // Regenerar oleadas
+      // Regenerar oleadas — resolver coordenadas según modo (instalación o libre)
       let oleadasConfig: unknown[] = [];
       let proximaOleadaAt = new Date();
 
       const inst = alerta.installation;
-      if (inst?.lat != null && inst?.lng != null) {
+      let reLat: number | null = null;
+      let reLng: number | null = null;
+      if (alerta.installationId && inst?.lat != null && inst?.lng != null) {
+        reLat = Number(inst.lat);
+        reLng = Number(inst.lng);
+      } else if (alerta.libreLat != null && alerta.libreLng != null) {
+        reLat = Number(alerta.libreLat);
+        reLng = Number(alerta.libreLng);
+      }
+
+      if (reLat != null && reLng != null) {
         try {
           const config = await getAlertaCoberturaConfig(ctx.tenantId);
           const resultado = await generarOleadas({
             tenantId: ctx.tenantId,
             installationId: alerta.installationId,
-            instalacionLat: Number(inst.lat),
-            instalacionLng: Number(inst.lng),
+            instalacionLat: reLat,
+            instalacionLng: reLng,
             fechaInicio: alerta.fechaInicio,
             fechaFin: alerta.fechaFin,
             radioKm: alerta.radioKm,
@@ -292,11 +305,11 @@ export async function PATCH(
         estadoAnterior: alerta.estado,
       });
 
-      // Chat de instalación (fire-and-forget)
-      (async () => {
+      // Chat de instalación (fire-and-forget) — solo modo instalación
+      if (alerta.installationId) (async () => {
         try {
           const installation = await prisma.crmInstallation.findUnique({
-            where: { id: alerta.installationId },
+            where: { id: alerta.installationId! },
             select: { chatEnabled: true, chatChannels: { select: { id: true }, take: 1 } },
           });
           if (installation?.chatEnabled && installation.chatChannels[0]?.id) {
@@ -355,6 +368,17 @@ export async function PATCH(
           );
         }
 
+        // Modo libre no tiene instalación/puesto → no puede auto-asignar a pauta
+        if (!alerta.installationId) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Las alertas en modo libre no se pueden auto-asignar a pauta. Use asignación manual.",
+            },
+            { status: 400 },
+          );
+        }
+
         const resultado = await autoAsignarEnPauta({
           tenantId: ctx.tenantId,
           alertaId: alerta.id,
@@ -385,7 +409,7 @@ export async function PATCH(
           tenantId: ctx.tenantId,
           guardiaId: alerta.aceptadaPorGuardiaId,
           alertaId: alerta.id,
-          instalacionNombre: alerta.installation.name,
+          instalacionNombre: alerta.installation?.name ?? alerta.libreAddress ?? "Cobertura",
           fechaInicio: alerta.fechaInicio,
           montoOfrecido: alerta.montoOfrecido,
           asignacionTipo: "AUTOMATICA",
@@ -421,7 +445,7 @@ export async function PATCH(
           tenantId: ctx.tenantId,
           guardiaId: alerta.aceptadaPorGuardiaId,
           alertaId: alerta.id,
-          instalacionNombre: alerta.installation.name,
+          instalacionNombre: alerta.installation?.name ?? alerta.libreAddress ?? "Cobertura",
           fechaInicio: alerta.fechaInicio,
           montoOfrecido: alerta.montoOfrecido,
           asignacionTipo: "MANUAL",

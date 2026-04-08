@@ -84,21 +84,35 @@ export async function GET(request: NextRequest) {
             montoOfrecido: true,
             funciones: true,
             urgencia: true,
+            modalidad: true,
             installationId: true,
             installation: { select: { name: true, address: true } },
+            libreAddress: true,
+            libreComuna: true,
           },
         });
 
         if (alertaCompleta) {
+          const esModoLibre = !alertaCompleta.installationId;
+          const instalacionNombre = esModoLibre
+            ? (alertaCompleta.libreComuna
+                ? `Cobertura — ${alertaCompleta.libreComuna}`
+                : "Cobertura (dirección libre)")
+            : (alertaCompleta.installation?.name ?? "");
+          const instalacionDireccion = esModoLibre
+            ? (alertaCompleta.libreAddress ?? "")
+            : (alertaCompleta.installation?.address ?? "");
+
           notificarOleada({
             tenantId: alertaCompleta.tenantId,
             alertaId: alerta.id,
             oleadaNumero: siguienteOleada,
             guardiaIds: oleada.guardiaIds,
             esInterno: oleada.tipo !== "EXTERNO",
-            instalacionNombre: alertaCompleta.installation.name,
-            instalacionDireccion: alertaCompleta.installation.address ?? "",
+            instalacionNombre,
+            instalacionDireccion,
             instalacionId: alertaCompleta.installationId,
+            modalidad: alertaCompleta.modalidad,
             fechaInicio: alertaCompleta.fechaInicio,
             fechaFin: alertaCompleta.fechaFin,
             montoOfrecido: alertaCompleta.montoOfrecido,

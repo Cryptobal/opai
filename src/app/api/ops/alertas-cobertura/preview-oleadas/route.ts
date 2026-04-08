@@ -38,24 +38,46 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    // Obtener coordenadas de la instalación
-    const installation = await prisma.crmInstallation.findFirst({
-      where: { id: body.installationId, tenantId: ctx.tenantId },
-      select: { id: true, name: true, lat: true, lng: true },
-    });
+    // Resolver coordenadas: modo instalación o modo libre
+    let instalacionLat: number;
+    let instalacionLng: number;
+    let installationIdResolved: string | null = null;
 
-    if (!installation) {
-      return NextResponse.json(
-        { success: false, error: "Instalación no encontrada" },
-        { status: 404 },
-      );
-    }
+    if (body.installationId) {
+      const installation = await prisma.crmInstallation.findFirst({
+        where: { id: body.installationId, tenantId: ctx.tenantId },
+        select: { id: true, name: true, lat: true, lng: true },
+      });
 
-    if (installation.lat == null || installation.lng == null) {
+      if (!installation) {
+        return NextResponse.json(
+          { success: false, error: "Instalación no encontrada" },
+          { status: 404 },
+        );
+      }
+
+      if (installation.lat == null || installation.lng == null) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "La instalación no tiene coordenadas geográficas configuradas",
+          },
+          { status: 400 },
+        );
+      }
+
+      instalacionLat = Number(installation.lat);
+      instalacionLng = Number(installation.lng);
+      installationIdResolved = installation.id;
+    } else if (body.libreLat != null && body.libreLng != null) {
+      // Modo libre: usa coordenadas del Google Places autocomplete
+      instalacionLat = body.libreLat;
+      instalacionLng = body.libreLng;
+    } else {
       return NextResponse.json(
         {
           success: false,
-          error: "La instalación no tiene coordenadas geográficas configuradas",
+          error: "Debes seleccionar una instalación o ingresar una dirección libre",
         },
         { status: 400 },
       );
@@ -63,9 +85,9 @@ export async function POST(request: NextRequest) {
 
     const resultado = await generarOleadas({
       tenantId: ctx.tenantId,
-      installationId: body.installationId,
-      instalacionLat: Number(installation.lat),
-      instalacionLng: Number(installation.lng),
+      installationId: installationIdResolved,
+      instalacionLat,
+      instalacionLng,
       fechaInicio: new Date(body.fechaInicio),
       fechaFin: new Date(body.fechaFin),
       radioKm: body.radioKm ?? 30,

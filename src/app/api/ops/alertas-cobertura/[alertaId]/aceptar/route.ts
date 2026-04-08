@@ -208,6 +208,8 @@ export async function POST(
           montoOfrecido: true,
           funciones: true,
           installation: { select: { name: true, address: true } },
+          libreAddress: true,
+          libreComuna: true,
         },
       });
 
@@ -219,12 +221,22 @@ export async function POST(
       });
 
       if (alertaCompleta && guardiaData) {
+        const esModoLibre = !alertaCompleta.installationId;
+        const instalacionNombre = esModoLibre
+          ? (alertaCompleta.libreComuna
+              ? `Cobertura — ${alertaCompleta.libreComuna}`
+              : "Cobertura (dirección libre)")
+          : (alertaCompleta.installation?.name ?? "");
+        const instalacionDireccion = esModoLibre
+          ? (alertaCompleta.libreAddress ?? undefined)
+          : (alertaCompleta.installation?.address ?? undefined);
+
         notificarSupervisorAceptacion({
           tenantId: alertaCompleta.tenantId,
           alertaId,
           instalacionId: alertaCompleta.installationId,
-          instalacionNombre: alertaCompleta.installation.name,
-          instalacionDireccion: alertaCompleta.installation.address ?? undefined,
+          instalacionNombre,
+          instalacionDireccion,
           guardiaId,
           guardiaNombre: `${guardiaData.persona.firstName} ${guardiaData.persona.lastName}`,
           guardiaPhone: guardiaData.persona.phone,

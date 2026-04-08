@@ -1,21 +1,55 @@
 import { z } from "zod";
 
-export const crearAlertaSchema = z.object({
-  installationId: z.string().uuid(),
-  puestoId: z.string().uuid().optional(),
-  modalidad: z.enum(["GGSS", "CCTV", "TACTICO"]),
-  fechaInicio: z.string().datetime(),
-  fechaFin: z.string().datetime(),
-  montoOfrecido: z.number().int().min(0),
-  funciones: z.string().min(1).max(1000),
-  urgencia: z.enum(["URGENTE", "HOY", "PROGRAMADA"]).optional(),
-  notasInternas: z.string().max(500).optional(),
-  radioKm: z.number().min(1).max(500).optional(),
-  genero: z.enum(["M", "F"]).nullable().optional(),
-  requiereOS10: z.boolean().optional(),
-  soloDealer: z.boolean().optional(),
-  soloConMovilizacion: z.boolean().optional(),
-});
+export const crearAlertaSchema = z
+  .object({
+    // Modo instalación
+    installationId: z.string().uuid().optional(),
+    puestoId: z.string().uuid().optional(),
+
+    // Modo libre (dirección manual)
+    libreAddress: z.string().min(3).max(300).optional(),
+    libreLat: z.number().min(-90).max(90).optional(),
+    libreLng: z.number().min(-180).max(180).optional(),
+    libreComuna: z.string().max(120).optional(),
+    libreCiudad: z.string().max(120).optional(),
+
+    modalidad: z.enum(["GGSS", "CCTV", "TACTICO", "MIXTO"]),
+    fechaInicio: z.string().datetime(),
+    fechaFin: z.string().datetime(),
+    montoOfrecido: z.number().int().min(0),
+    funciones: z.string().min(1).max(1000),
+    urgencia: z.enum(["URGENTE", "HOY", "PROGRAMADA"]).optional(),
+    notasInternas: z.string().max(500).optional(),
+    radioKm: z.number().min(1).max(500).optional(),
+    genero: z.enum(["M", "F"]).nullable().optional(),
+    requiereOS10: z.boolean().optional(),
+    soloDealer: z.boolean().optional(),
+    soloConMovilizacion: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      const hasInstallation = !!data.installationId;
+      const hasLibre =
+        !!data.libreAddress && data.libreLat != null && data.libreLng != null;
+      return hasInstallation || hasLibre;
+    },
+    {
+      message:
+        "Debes seleccionar una instalación o ingresar una dirección libre con coordenadas",
+      path: ["installationId"],
+    },
+  )
+  .refine(
+    (data) => {
+      // En modo libre el monto debe ser > 0 (no hay instalación/puesto de donde heredar)
+      if (!data.installationId && data.montoOfrecido <= 0) return false;
+      return true;
+    },
+    {
+      message: "En modo libre el monto ofrecido debe ser mayor a 0",
+      path: ["montoOfrecido"],
+    },
+  );
 
 export const cancelarAlertaSchema = z.object({
   motivo: z.string().min(1, "El motivo de cancelación es obligatorio").max(500),

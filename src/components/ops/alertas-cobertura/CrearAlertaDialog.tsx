@@ -30,7 +30,10 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
+import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import type { OleadaPreview, PreviewOleadasResponse } from "./types";
+
+type ModoAlerta = "instalacion" | "libre";
 
 interface Props {
   open: boolean;
@@ -55,9 +58,22 @@ interface Puesto {
 }
 
 export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
-  // Form state
+  // Modo de alerta
+  const [modo, setModo] = useState<ModoAlerta>("instalacion");
+
+  // Form state — modo instalación
   const [installationId, setInstallationId] = useState("");
   const [puestoId, setPuestoId] = useState("");
+
+  // Form state — modo libre
+  const [libreAddress, setLibreAddress] = useState("");
+  const [libreLat, setLibreLat] = useState<number | null>(null);
+  const [libreLng, setLibreLng] = useState<number | null>(null);
+  const [libreComuna, setLibreComuna] = useState("");
+  const [libreCiudad, setLibreCiudad] = useState("");
+  const [libreHoraInicio, setLibreHoraInicio] = useState("09:00");
+  const [libreHoraFin, setLibreHoraFin] = useState("18:00");
+
   const [modalidad, setModalidad] = useState("GGSS");
   const [fechaTurno, setFechaTurno] = useState("");
   const [fechaInicio, setFechaInicio] = useState("");
@@ -130,6 +146,20 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
       .catch(() => {});
   }, [installationId]);
 
+  // Modo libre: auto-calcular fechaInicio/fechaFin desde fechaTurno + horarios manuales
+  useEffect(() => {
+    if (modo !== "libre" || !fechaTurno || !libreHoraInicio || !libreHoraFin) return;
+    setFechaInicio(`${fechaTurno}T${libreHoraInicio}`);
+    if (libreHoraFin < libreHoraInicio) {
+      // Turno nocturno: cruza medianoche
+      const d = new Date(fechaTurno);
+      d.setDate(d.getDate() + 1);
+      setFechaFin(`${d.toISOString().slice(0, 10)}T${libreHoraFin}`);
+    } else {
+      setFechaFin(`${fechaTurno}T${libreHoraFin}`);
+    }
+  }, [modo, fechaTurno, libreHoraInicio, libreHoraFin]);
+
   // Auto-set monto and compute dates when puesto or fechaTurno changes
   useEffect(() => {
     if (puestoId) {
@@ -153,30 +183,43 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
 
   // Preview oleadas with debounce
   const fetchPreview = useCallback(async () => {
-    if (!installationId || !fechaInicio || !fechaFin || !funciones) {
+    const ubicacionListaInstalacion = modo === "instalacion" && !!installationId;
+    const ubicacionListaLibre =
+      modo === "libre" && libreLat != null && libreLng != null && !!libreAddress;
+    if ((!ubicacionListaInstalacion && !ubicacionListaLibre) || !fechaInicio || !fechaFin || !funciones) {
       setPreview(null);
       return;
     }
     setLoadingPreview(true);
     try {
+      const body: Record<string, unknown> = {
+        modalidad,
+        fechaInicio: new Date(fechaInicio).toISOString(),
+        fechaFin: new Date(fechaFin).toISOString(),
+        montoOfrecido,
+        funciones,
+        urgencia: urgencia && urgencia !== "__none__" ? urgencia : undefined,
+        radioKm,
+        requiereOS10,
+        soloConMovilizacion,
+        soloDealer,
+        genero: genero || undefined,
+      };
+      if (modo === "instalacion") {
+        body.installationId = installationId;
+        body.puestoId = puestoId || undefined;
+      } else {
+        body.libreAddress = libreAddress;
+        body.libreLat = libreLat;
+        body.libreLng = libreLng;
+        body.libreComuna = libreComuna || undefined;
+        body.libreCiudad = libreCiudad || undefined;
+      }
+
       const res = await fetch("/api/ops/alertas-cobertura/preview-oleadas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          installationId,
-          puestoId: puestoId || undefined,
-          modalidad,
-          fechaInicio: new Date(fechaInicio).toISOString(),
-          fechaFin: new Date(fechaFin).toISOString(),
-          montoOfrecido,
-          funciones,
-          urgencia: urgencia && urgencia !== "__none__" ? urgencia : undefined,
-          radioKm,
-          requiereOS10,
-          soloConMovilizacion,
-          soloDealer,
-          genero: genero || undefined,
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (json.success !== false) {
@@ -189,7 +232,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
     } finally {
       setLoadingPreview(false);
     }
-  }, [installationId, puestoId, modalidad, fechaInicio, fechaFin, montoOfrecido, funciones, urgencia, radioKm, requiereOS10, soloConMovilizacion, soloDealer, genero]);
+  }, [modo, installationId, puestoId, libreAddress, libreLat, libreLng, libreComuna, libreCiudad, modalidad, fechaInicio, fechaFin, montoOfrecido, funciones, urgencia, radioKm, requiereOS10, soloConMovilizacion, soloDealer, genero]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -200,31 +243,48 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
   }, [fetchPreview]);
 
   const handleCreate = async () => {
-    if (!installationId || !fechaInicio || !fechaFin || !funciones) {
+    const ubicacionListaInstalacion = modo === "instalacion" && !!installationId;
+    const ubicacionListaLibre =
+      modo === "libre" && libreLat != null && libreLng != null && !!libreAddress;
+    if ((!ubicacionListaInstalacion && !ubicacionListaLibre) || !fechaInicio || !fechaFin || !funciones) {
       toast.error("Completa todos los campos requeridos");
+      return;
+    }
+    if (modo === "libre" && (!montoOfrecido || montoOfrecido <= 0)) {
+      toast.error("En modo libre el monto ofrecido debe ser mayor a 0");
       return;
     }
     setCreating(true);
     try {
+      const body: Record<string, unknown> = {
+        modalidad,
+        fechaInicio: new Date(fechaInicio).toISOString(),
+        fechaFin: new Date(fechaFin).toISOString(),
+        montoOfrecido,
+        funciones,
+        urgencia: urgencia && urgencia !== "__none__" ? urgencia : undefined,
+        radioKm,
+        requiereOS10,
+        soloConMovilizacion,
+        soloDealer,
+        genero: genero && genero !== "__none__" ? genero : undefined,
+        notasInternas: notasInternas || undefined,
+      };
+      if (modo === "instalacion") {
+        body.installationId = installationId;
+        body.puestoId = puestoId || undefined;
+      } else {
+        body.libreAddress = libreAddress;
+        body.libreLat = libreLat;
+        body.libreLng = libreLng;
+        body.libreComuna = libreComuna || undefined;
+        body.libreCiudad = libreCiudad || undefined;
+      }
+
       const res = await fetch("/api/ops/alertas-cobertura", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          installationId,
-          puestoId: puestoId || undefined,
-          modalidad,
-          fechaInicio: new Date(fechaInicio).toISOString(),
-          fechaFin: new Date(fechaFin).toISOString(),
-          montoOfrecido,
-          funciones,
-          urgencia: urgencia && urgencia !== "__none__" ? urgencia : undefined,
-          radioKm,
-          requiereOS10,
-          soloConMovilizacion,
-          soloDealer,
-          genero: genero && genero !== "__none__" ? genero : undefined,
-          notasInternas: notasInternas || undefined,
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (json.success) {
@@ -243,8 +303,16 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
   };
 
   const resetForm = () => {
+    setModo("instalacion");
     setInstallationId("");
     setPuestoId("");
+    setLibreAddress("");
+    setLibreLat(null);
+    setLibreLng(null);
+    setLibreComuna("");
+    setLibreCiudad("");
+    setLibreHoraInicio("09:00");
+    setLibreHoraFin("18:00");
     setModalidad("GGSS");
     setFechaTurno("");
     setFechaInicio("");
@@ -279,42 +347,122 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left: Form */}
           <div className="space-y-4">
-            {/* Instalación */}
-            <div className="space-y-1.5">
-              <Label>Instalación *</Label>
-              <Select value={installationId} onValueChange={setInstallationId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar instalación" />
-                </SelectTrigger>
-                <SelectContent>
-                  {installations.map((i) => (
-                    <SelectItem key={i.id} value={i.id}>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-3 w-3 text-muted-foreground" />
-                        {i.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Toggle modo */}
+            <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-muted/40 border">
+              <button
+                type="button"
+                onClick={() => setModo("instalacion")}
+                className={`text-xs font-medium py-2 rounded-md transition-colors ${
+                  modo === "instalacion"
+                    ? "bg-background shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Por Instalación
+              </button>
+              <button
+                type="button"
+                onClick={() => setModo("libre")}
+                className={`text-xs font-medium py-2 rounded-md transition-colors ${
+                  modo === "libre"
+                    ? "bg-background shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Dirección libre
+              </button>
             </div>
 
-            {/* Puesto */}
-            {puestos.length > 0 && (
-              <div className="space-y-1.5">
-                <Label>Puesto</Label>
-                <Select value={puestoId || "__all__"} onValueChange={(v) => setPuestoId(v === "__all__" ? "" : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos los puestos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">Todos los puestos</SelectItem>
-                    {puestos.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {modo === "instalacion" ? (
+              <>
+                {/* Instalación */}
+                <div className="space-y-1.5">
+                  <Label>Instalación *</Label>
+                  <Select value={installationId} onValueChange={setInstallationId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar instalación" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {installations.map((i) => (
+                        <SelectItem key={i.id} value={i.id}>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-3 w-3 text-muted-foreground" />
+                            {i.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Puesto */}
+                {puestos.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label>Puesto</Label>
+                    <Select value={puestoId || "__all__"} onValueChange={(v) => setPuestoId(v === "__all__" ? "" : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos los puestos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">Todos los puestos</SelectItem>
+                        {puestos.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Modo libre — dirección con Google Places */}
+                <div className="space-y-1.5">
+                  <Label>Dirección *</Label>
+                  <AddressAutocomplete
+                    value={libreAddress}
+                    placeholder="Busca la dirección del turno..."
+                    onChange={(r: AddressResult) => {
+                      setLibreAddress(r.address);
+                      setLibreLat(r.lat);
+                      setLibreLng(r.lng);
+                      setLibreComuna(r.commune || "");
+                      setLibreCiudad(r.city || "");
+                    }}
+                  />
+                  {libreLat != null && libreLng != null && (
+                    <p className="text-[10px] text-muted-foreground">
+                      {libreComuna ? `${libreComuna} · ` : ""}
+                      {libreLat.toFixed(5)}, {libreLng.toFixed(5)}
+                    </p>
+                  )}
+                </div>
+
+                {/* Horarios manuales */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Hora inicio *</Label>
+                    <Input
+                      type="time"
+                      value={libreHoraInicio}
+                      onChange={(e) => setLibreHoraInicio(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Hora fin *</Label>
+                    <Input
+                      type="time"
+                      value={libreHoraFin}
+                      onChange={(e) => setLibreHoraFin(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 rounded-md bg-sky-500/10 border border-sky-500/20 p-2">
+                  <Info className="h-3.5 w-3.5 text-sky-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-[10px] text-sky-300">
+                    En modo libre solo se notifica al pool externo por distancia (no hay personal interno asignado a una instalación).
+                  </p>
+                </div>
+              </>
             )}
 
             {/* Modalidad */}
@@ -544,7 +692,17 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={creating}>
             Cancelar
           </Button>
-          <Button onClick={handleCreate} disabled={creating || !installationId || !fechaInicio || !fechaFin || !funciones}>
+          <Button
+            onClick={handleCreate}
+            disabled={
+              creating ||
+              !fechaInicio ||
+              !fechaFin ||
+              !funciones ||
+              (modo === "instalacion" && !installationId) ||
+              (modo === "libre" && (!libreAddress || libreLat == null || libreLng == null || !montoOfrecido || montoOfrecido <= 0))
+            }
+          >
             {creating && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
             Crear Alerta
           </Button>

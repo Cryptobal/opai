@@ -30,7 +30,12 @@ export interface OleadasPreview extends Oleada {
 
 export interface GenerarOleadasParams {
   tenantId: string;
-  installationId: string;
+  /**
+   * Si es null, la alerta es en "modo libre" (dirección manual).
+   * En ese caso NO se generan oleadas internas (no hay instalación a la que
+   * pertenezcan guardias); solo se genera la oleada externa por distancia.
+   */
+  installationId: string | null;
   instalacionLat: number;
   instalacionLng: number;
   fechaInicio: Date;
@@ -66,73 +71,96 @@ export async function generarOleadas(params: GenerarOleadasParams): Promise<Olea
   // Los guardias que están terminando turno en la instalación NO son candidatos.
 
   // === OLEADAS INTERNAS: por anillos de distancia ===
-  const radioMaxInterno = Math.max(params.radioKm, config.oleada3RadioKm);
-  const todosInternos = await resolverCandidatos({
-    tenantId: params.tenantId,
-    installationId: params.installationId,
-    instalacionLat: params.instalacionLat,
-    instalacionLng: params.instalacionLng,
-    radioKm: radioMaxInterno,
-    fechaInicio: params.fechaInicio,
-    fechaFin: params.fechaFin,
-    genero: params.genero,
-    modalidad: params.modalidad,
-    requiereOS10: params.requiereOS10,
-    soloDealer: false,
-    soloConMovilizacion: params.soloConMovilizacion,
-    fase: "INTERNA",
-  });
+  //
+  // Opción B de clamp: el radio del slider actúa como TOPE DURO sobre los anillos
+  // internos. Si el usuario pone 10km y el config tiene anillos 5/15/25, solo se
+  // muestran los anillos que caben (cercano 0-5, medio 5-10 recortado). Esto hace
+  // que el preview respete exactamente lo que el usuario pidió.
+  //
+  // En modo libre (installationId === null) NO hay oleadas internas — no hay
+  // "empleados internos de esta instalación" porque no hay instalación.
 
-  const guardiasConCoordenadas = todosInternos.length;
+  let todosInternos: import("./segmentacion.service").GuardiaCandidate[] = [];
+  let guardiasConCoordenadas = 0;
 
-  // Anillo 1: Cercanos (0 - oleada1RadioKm)
-  agregarOleadaAnillo(
-    todosInternos,
-    guardiaIdsUsados,
-    oleadas,
-    previews,
-    oleadaNumero,
-    "INTERNO_CERCANO",
-    0,
-    config.oleada1RadioKm,
-    config.oleada1EsperaMin,
-  );
-  if (oleadas.length > oleadaNumero + (config.incluirTurnoSaliente ? 1 : 0)) oleadaNumero++;
+  if (params.installationId) {
+    const radioMaxInterno = Math.min(params.radioKm, config.oleada3RadioKm);
+    todosInternos = await resolverCandidatos({
+      tenantId: params.tenantId,
+      installationId: params.installationId,
+      instalacionLat: params.instalacionLat,
+      instalacionLng: params.instalacionLng,
+      radioKm: radioMaxInterno,
+      fechaInicio: params.fechaInicio,
+      fechaFin: params.fechaFin,
+      genero: params.genero,
+      modalidad: params.modalidad,
+      requiereOS10: params.requiereOS10,
+      soloDealer: false,
+      soloConMovilizacion: params.soloConMovilizacion,
+      fase: "INTERNA",
+    });
 
-  // Anillo 2: Medianos (oleada1RadioKm - oleada2RadioKm)
-  const preCountMedio = oleadas.length;
-  agregarOleadaAnillo(
-    todosInternos,
-    guardiaIdsUsados,
-    oleadas,
-    previews,
-    oleadaNumero,
-    "INTERNO_MEDIO",
-    config.oleada1RadioKm,
-    config.oleada2RadioKm,
-    config.oleada2EsperaMin,
-  );
-  if (oleadas.length > preCountMedio) oleadaNumero++;
+    guardiasConCoordenadas = todosInternos.length;
 
-  // Anillo 3: Lejanos (oleada2RadioKm - oleada3RadioKm)
-  const preCountLejano = oleadas.length;
-  agregarOleadaAnillo(
-    todosInternos,
-    guardiaIdsUsados,
-    oleadas,
-    previews,
-    oleadaNumero,
-    "INTERNO_LEJANO",
-    config.oleada2RadioKm,
-    config.oleada3RadioKm,
-    config.oleada3EsperaMin,
-  );
-  if (oleadas.length > preCountLejano) oleadaNumero++;
+    // Anillo 1: Cercanos (0 - min(oleada1RadioKm, radioKm))
+    const anillo1Max = Math.min(config.oleada1RadioKm, params.radioKm);
+    if (anillo1Max > 0) {
+      agregarOleadaAnillo(
+        todosInternos,
+        guardiaIdsUsados,
+        oleadas,
+        previews,
+        oleadaNumero,
+        "INTERNO_CERCANO",
+        0,
+        anillo1Max,
+        config.oleada1EsperaMin,
+      );
+      if (oleadas.length > oleadaNumero) oleadaNumero++;
+    }
+
+    // Anillo 2: Medianos (oleada1RadioKm - min(oleada2RadioKm, radioKm))
+    if (params.radioKm > config.oleada1RadioKm) {
+      const anillo2Max = Math.min(config.oleada2RadioKm, params.radioKm);
+      const preCountMedio = oleadas.length;
+      agregarOleadaAnillo(
+        todosInternos,
+        guardiaIdsUsados,
+        oleadas,
+        previews,
+        oleadaNumero,
+        "INTERNO_MEDIO",
+        config.oleada1RadioKm,
+        anillo2Max,
+        config.oleada2EsperaMin,
+      );
+      if (oleadas.length > preCountMedio) oleadaNumero++;
+    }
+
+    // Anillo 3: Lejanos (oleada2RadioKm - min(oleada3RadioKm, radioKm))
+    if (params.radioKm > config.oleada2RadioKm) {
+      const anillo3Max = Math.min(config.oleada3RadioKm, params.radioKm);
+      const preCountLejano = oleadas.length;
+      agregarOleadaAnillo(
+        todosInternos,
+        guardiaIdsUsados,
+        oleadas,
+        previews,
+        oleadaNumero,
+        "INTERNO_LEJANO",
+        config.oleada2RadioKm,
+        anillo3Max,
+        config.oleada3EsperaMin,
+      );
+      if (oleadas.length > preCountLejano) oleadaNumero++;
+    }
+  }
 
   // === OLEADA EXTERNA ===
   const externos = await resolverCandidatos({
     tenantId: params.tenantId,
-    installationId: params.installationId,
+    installationId: params.installationId, // puede ser null en modo libre
     instalacionLat: params.instalacionLat,
     instalacionLng: params.instalacionLng,
     radioKm: params.radioKm,

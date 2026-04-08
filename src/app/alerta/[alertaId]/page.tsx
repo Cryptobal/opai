@@ -37,6 +37,9 @@ export default async function AlertaExternaPage({ params, searchParams }: Props)
       installation: {
         select: { name: true, address: true, commune: true, city: true },
       },
+      libreAddress: true,
+      libreComuna: true,
+      libreCiudad: true,
     },
   });
 
@@ -59,12 +62,21 @@ export default async function AlertaExternaPage({ params, searchParams }: Props)
         funciones: alerta.funciones,
         urgencia: alerta.urgencia,
         modalidad: alerta.modalidad,
-        instalacion: {
-          name: alerta.installation.name,
-          address: alerta.installation.address,
-          commune: alerta.installation.commune,
-          city: alerta.installation.city,
-        },
+        instalacion: alerta.installation
+          ? {
+              name: alerta.installation.name,
+              address: alerta.installation.address,
+              commune: alerta.installation.commune,
+              city: alerta.installation.city,
+            }
+          : {
+              name: alerta.libreComuna
+                ? `Cobertura — ${alerta.libreComuna}`
+                : "Cobertura (dirección libre)",
+              address: alerta.libreAddress,
+              commune: alerta.libreComuna,
+              city: alerta.libreCiudad,
+            },
       }}
       token={token}
       yaAceptada={yaAceptada}

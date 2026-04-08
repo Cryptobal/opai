@@ -117,43 +117,65 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    // Validar instalación
-    const installation = await prisma.crmInstallation.findFirst({
-      where: { id: body.installationId, tenantId: ctx.tenantId },
-      select: { id: true, name: true, teMontoClp: true },
-    });
-    if (!installation) {
-      return NextResponse.json(
-        { success: false, error: "Instalación no encontrada" },
-        { status: 404 },
-      );
-    }
+    // Resolver modo: instalación o libre
+    const esModoLibre = !body.installationId;
 
-    // Validar puesto si se provee
+    let installation: Awaited<
+      ReturnType<typeof prisma.crmInstallation.findFirst<{
+        select: { id: true; name: true; teMontoClp: true };
+      }>>
+    > = null;
     let puestoTeMontoClp: number | null = null;
-    if (body.puestoId) {
-      const puesto = await prisma.opsPuestoOperativo.findFirst({
-        where: { id: body.puestoId, installationId: body.installationId, tenantId: ctx.tenantId },
-        select: { id: true, teMontoClp: true },
+
+    if (!esModoLibre) {
+      // MODO INSTALACIÓN
+      installation = await prisma.crmInstallation.findFirst({
+        where: { id: body.installationId!, tenantId: ctx.tenantId },
+        select: { id: true, name: true, teMontoClp: true },
       });
-      if (!puesto) {
+      if (!installation) {
         return NextResponse.json(
-          { success: false, error: "Puesto no encontrado en esta instalación" },
+          { success: false, error: "Instalación no encontrada" },
           { status: 404 },
         );
       }
-      puestoTeMontoClp = puesto.teMontoClp ? Number(puesto.teMontoClp) : null;
+
+      if (body.puestoId) {
+        const puesto = await prisma.opsPuestoOperativo.findFirst({
+          where: { id: body.puestoId, installationId: body.installationId!, tenantId: ctx.tenantId },
+          select: { id: true, teMontoClp: true },
+        });
+        if (!puesto) {
+          return NextResponse.json(
+            { success: false, error: "Puesto no encontrado en esta instalación" },
+            { status: 404 },
+          );
+        }
+        puestoTeMontoClp = puesto.teMontoClp ? Number(puesto.teMontoClp) : null;
+      }
+    } else {
+      // MODO LIBRE — validar que tenemos address + lat/lng (el Zod ya lo exige pero doble check)
+      if (!body.libreAddress || body.libreLat == null || body.libreLng == null) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Debes ingresar una dirección libre con coordenadas",
+          },
+          { status: 400 },
+        );
+      }
     }
 
     // Resolver monto
     const config = await getAlertaCoberturaConfig(ctx.tenantId);
     let montoOfrecido = body.montoOfrecido;
-    if (montoOfrecido === 0) {
+    if (montoOfrecido === 0 && !esModoLibre) {
       montoOfrecido =
         puestoTeMontoClp ??
-        (installation.teMontoClp ? Number(installation.teMontoClp) : null) ??
+        (installation?.teMontoClp ? Number(installation.teMontoClp) : null) ??
         config.montoDefaultClp;
     }
+    // En modo libre el Zod ya garantiza montoOfrecido > 0
 
     const now = toZonedTime(new Date(), TZ);
 
@@ -168,8 +190,13 @@ export async function POST(request: NextRequest) {
       data: {
         tenantId: ctx.tenantId,
         creadaPorId: ctx.userId,
-        installationId: body.installationId,
-        puestoId: body.puestoId ?? null,
+        installationId: esModoLibre ? null : body.installationId!,
+        puestoId: esModoLibre ? null : (body.puestoId ?? null),
+        libreAddress: esModoLibre ? body.libreAddress! : null,
+        libreLat: esModoLibre ? body.libreLat! : null,
+        libreLng: esModoLibre ? body.libreLng! : null,
+        libreComuna: esModoLibre ? (body.libreComuna ?? null) : null,
+        libreCiudad: esModoLibre ? (body.libreCiudad ?? null) : null,
         radioKm: body.radioKm ?? 30,
         genero: body.genero ?? null,
         modalidad: body.modalidad,
@@ -195,29 +222,50 @@ export async function POST(request: NextRequest) {
     });
 
     await createOpsAuditLog(ctx, "alerta_cobertura.created", "alerta_cobertura", alerta.id, {
-      installationId: body.installationId,
+      installationId: body.installationId ?? null,
+      libreAddress: body.libreAddress ?? null,
       modalidad: body.modalidad,
       urgencia: body.urgencia,
       montoOfrecido,
     });
 
-    // Generar oleadas de segmentación geográfica
-    const instGeo = await prisma.crmInstallation.findUnique({
-      where: { id: body.installationId },
-      select: { lat: true, lng: true, address: true },
-    });
+    // Resolver coordenadas y nombre/dirección a usar para generar oleadas + notificar
+    let lat: number | null = null;
+    let lng: number | null = null;
+    let direccionParaNotificar = "";
+    let nombreParaNotificar = "";
+
+    if (esModoLibre) {
+      lat = body.libreLat!;
+      lng = body.libreLng!;
+      direccionParaNotificar = body.libreAddress!;
+      nombreParaNotificar = body.libreComuna
+        ? `Cobertura — ${body.libreComuna}`
+        : "Cobertura (dirección libre)";
+    } else {
+      const instGeo = await prisma.crmInstallation.findUnique({
+        where: { id: body.installationId! },
+        select: { lat: true, lng: true, address: true },
+      });
+      if (instGeo?.lat != null && instGeo?.lng != null) {
+        lat = Number(instGeo.lat);
+        lng = Number(instGeo.lng);
+      }
+      direccionParaNotificar = instGeo?.address ?? "";
+      nombreParaNotificar = installation?.name ?? "";
+    }
 
     let oleadasGeneradas = 0;
     let totalGuardias = 0;
     let advertencia: string | null = null;
 
-    if (instGeo?.lat != null && instGeo?.lng != null) {
+    if (lat != null && lng != null) {
       try {
         const resultado = await generarOleadas({
           tenantId: ctx.tenantId,
-          installationId: body.installationId,
-          instalacionLat: Number(instGeo.lat),
-          instalacionLng: Number(instGeo.lng),
+          installationId: esModoLibre ? null : body.installationId!,
+          instalacionLat: lat,
+          instalacionLng: lng,
           fechaInicio: new Date(body.fechaInicio),
           fechaFin: new Date(body.fechaFin),
           radioKm: body.radioKm ?? 30,
@@ -274,9 +322,9 @@ export async function POST(request: NextRequest) {
             oleadaNumero: 0,
             guardiaIds: primeraOleada.guardiaIds,
             esInterno: primeraOleada.tipo !== "EXTERNO",
-            instalacionNombre: installation.name,
-            instalacionDireccion: instGeo?.address ?? "",
-            instalacionId: body.installationId,
+            instalacionNombre: nombreParaNotificar,
+            instalacionDireccion: direccionParaNotificar,
+            instalacionId: esModoLibre ? null : body.installationId!,
             fechaInicio: new Date(body.fechaInicio),
             fechaFin: new Date(body.fechaFin),
             montoOfrecido: montoOfrecido,
@@ -290,8 +338,8 @@ export async function POST(request: NextRequest) {
         // Pusher: nueva alerta creada
         emitirEventoPusher(ctx.tenantId, "alerta-creada", {
           alertaId: alerta.id,
-          installationId: body.installationId,
-          instalacionNombre: installation.name,
+          installationId: esModoLibre ? null : body.installationId!,
+          instalacionNombre: nombreParaNotificar,
           estado: "ACTIVA",
           oleadaActual: 0,
           totalOleadas: resultado.oleadas.length,

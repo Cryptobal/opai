@@ -44,12 +44,12 @@ export async function GET(request: NextRequest) {
       modalidad: string;
       urgencia: string | null;
       montoOfrecido: number;
-      installationId: string;
+      installationId: string | null;
       aceptadaAt: Date | null;
       createdAt: Date;
       reAlertaCount: number;
       oleadaActual: number;
-      installation: { name: string };
+      installation: { name: string } | null;
     }> = await prisma.opsAlertaCobertura.findMany({
       where: where as any,
       select: {
@@ -124,9 +124,10 @@ export async function GET(request: NextRequest) {
       null: alertas.filter((a) => a.urgencia == null).length,
     };
 
-    // Top installations
+    // Top installations (solo alertas modo instalación; las modo libre no se agrupan aquí)
     const instMap = new Map<string, { name: string; count: number }>();
     for (const a of alertas) {
+      if (!a.installationId || !a.installation) continue;
       const existing = instMap.get(a.installationId);
       if (existing) {
         existing.count++;

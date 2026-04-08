@@ -40,7 +40,7 @@ export interface GuardiaCandidate {
 
 export interface FiltrosSegmentacion {
   tenantId: string;
-  installationId: string;
+  installationId: string | null;
   instalacionLat: number;
   instalacionLng: number;
   radioKm: number;
@@ -101,7 +101,7 @@ export async function resolverCandidatos(
   const fechaDate = filtros.fechaInicio;
   const guardiasOcupados = await obtenerGuardiasOcupados(
     filtros.tenantId,
-    filtros.installationId,
+    filtros.installationId ?? "",
     fechaDate,
     filtros.fechaInicio,
     filtros.fechaFin,

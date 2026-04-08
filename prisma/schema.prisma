@@ -7747,6 +7747,7 @@ enum OpsAlertaCoberturaModalidad {
   GGSS
   CCTV
   TACTICO
+  MIXTO
 
   @@schema("ops")
 }
@@ -7759,11 +7760,18 @@ model OpsAlertaCobertura {
   creadaPorId           String   @map("creada_por_id")
   creadaPor             Admin    @relation("alertas_cobertura_creador", fields: [creadaPorId], references: [id])
 
-  // Ubicación
-  installationId        String   @map("installation_id") @db.Uuid
-  installation          CrmInstallation @relation("alertas_cobertura_installation", fields: [installationId], references: [id])
+  // Ubicación — Modo "instalación" (installationId presente) O modo "libre" (libre_* presentes)
+  installationId        String?  @map("installation_id") @db.Uuid
+  installation          CrmInstallation? @relation("alertas_cobertura_installation", fields: [installationId], references: [id])
   puestoId              String?  @map("puesto_id") @db.Uuid
   puesto                OpsPuestoOperativo? @relation("alertas_cobertura_puesto", fields: [puestoId], references: [id])
+
+  // Modo libre (dirección manual con Google Places)
+  libreAddress          String?  @map("libre_address")
+  libreLat              Float?   @map("libre_lat")
+  libreLng              Float?   @map("libre_lng")
+  libreComuna           String?  @map("libre_comuna")
+  libreCiudad           String?  @map("libre_ciudad")
 
   // Segmentación
   radioKm               Float    @default(30) @map("radio_km")

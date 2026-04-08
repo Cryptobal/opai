@@ -240,7 +240,8 @@ export async function notificarOleada(params: {
   esInterno: boolean;
   instalacionNombre: string;
   instalacionDireccion: string;
-  instalacionId: string;
+  /** Null en alertas de modo libre (sin instalación asociada). */
+  instalacionId: string | null;
   fechaInicio: Date;
   fechaFin: Date;
   montoOfrecido: number;
@@ -289,31 +290,33 @@ export async function notificarOleada(params: {
     }
   }
 
-  // === CHAT DE INSTALACIÓN ===
-  try {
-    const installation = await prisma.crmInstallation.findUnique({
-      where: { id: params.instalacionId },
-      select: { chatEnabled: true, chatChannels: { select: { id: true }, take: 1 } },
-    });
-
-    if (installation?.chatEnabled && installation.chatChannels[0]?.id) {
-      const tipoOleada = params.esInterno ? "personal interno" : "pool externo";
-      await sendSystemChatMessage({
-        tenantId: params.tenantId,
-        channelId: installation.chatChannels[0].id,
-        content: `\u26A0\uFE0F Alerta de cobertura activada — Oleada ${params.oleadaNumero + 1} (${tipoOleada}): ${params.guardiaIds.length} guardias notificados.${params.urgencia === "URGENTE" ? " \uD83D\uDEA8 URGENTE" : ""}`,
-        systemEventType: "alerta_cobertura",
-        systemEventData: {
-          alertaId: params.alertaId,
-          oleadaNumero: params.oleadaNumero,
-          guardiaCount: params.guardiaIds.length,
-          tipo: params.esInterno ? "INTERNA" : "EXTERNA",
-          link: `/ops/alertas-cobertura/${params.alertaId}`,
-        },
+  // === CHAT DE INSTALACIÓN === (solo en modo instalación)
+  if (params.instalacionId) {
+    try {
+      const installation = await prisma.crmInstallation.findUnique({
+        where: { id: params.instalacionId },
+        select: { chatEnabled: true, chatChannels: { select: { id: true }, take: 1 } },
       });
+
+      if (installation?.chatEnabled && installation.chatChannels[0]?.id) {
+        const tipoOleada = params.esInterno ? "personal interno" : "pool externo";
+        await sendSystemChatMessage({
+          tenantId: params.tenantId,
+          channelId: installation.chatChannels[0].id,
+          content: `\u26A0\uFE0F Alerta de cobertura activada — Oleada ${params.oleadaNumero + 1} (${tipoOleada}): ${params.guardiaIds.length} guardias notificados.${params.urgencia === "URGENTE" ? " \uD83D\uDEA8 URGENTE" : ""}`,
+          systemEventType: "alerta_cobertura",
+          systemEventData: {
+            alertaId: params.alertaId,
+            oleadaNumero: params.oleadaNumero,
+            guardiaCount: params.guardiaIds.length,
+            tipo: params.esInterno ? "INTERNA" : "EXTERNA",
+            link: `/ops/alertas-cobertura/${params.alertaId}`,
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[AlertaCobertura:Notif] Chat error:", e);
     }
-  } catch (e) {
-    console.error("[AlertaCobertura:Notif] Chat error:", e);
   }
 
   // === PUSHER REAL-TIME (para dashboard supervisor) ===
@@ -341,7 +344,8 @@ export async function notificarOleada(params: {
 export async function notificarSupervisorAceptacion(params: {
   tenantId: string;
   alertaId: string;
-  instalacionId: string;
+  /** Null en alertas de modo libre (sin instalación asociada). */
+  instalacionId: string | null;
   instalacionNombre: string;
   instalacionDireccion?: string;
   guardiaId: string;
@@ -413,28 +417,30 @@ export async function notificarSupervisorAceptacion(params: {
     console.error("[AlertaCobertura:Notif] Email supervisor error:", e);
   }
 
-  // 3. Chat de instalación
-  try {
-    const installation = await prisma.crmInstallation.findUnique({
-      where: { id: params.instalacionId },
-      select: { chatEnabled: true, chatChannels: { select: { id: true }, take: 1 } },
-    });
-
-    if (installation?.chatEnabled && installation.chatChannels[0]?.id) {
-      await sendSystemChatMessage({
-        tenantId: params.tenantId,
-        channelId: installation.chatChannels[0].id,
-        content: `\u2705 Cobertura resuelta — ${params.guardiaNombre} aceptó el turno extra.${params.esInterno ? "" : " (Personal externo)"}`,
-        systemEventType: "alerta_cobertura_aceptada",
-        systemEventData: {
-          alertaId: params.alertaId,
-          guardiaId: params.guardiaId,
-          guardiaNombre: params.guardiaNombre,
-        },
+  // 3. Chat de instalación (solo modo instalación)
+  if (params.instalacionId) {
+    try {
+      const installation = await prisma.crmInstallation.findUnique({
+        where: { id: params.instalacionId },
+        select: { chatEnabled: true, chatChannels: { select: { id: true }, take: 1 } },
       });
+
+      if (installation?.chatEnabled && installation.chatChannels[0]?.id) {
+        await sendSystemChatMessage({
+          tenantId: params.tenantId,
+          channelId: installation.chatChannels[0].id,
+          content: `\u2705 Cobertura resuelta — ${params.guardiaNombre} aceptó el turno extra.${params.esInterno ? "" : " (Personal externo)"}`,
+          systemEventType: "alerta_cobertura_aceptada",
+          systemEventData: {
+            alertaId: params.alertaId,
+            guardiaId: params.guardiaId,
+            guardiaNombre: params.guardiaNombre,
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[AlertaCobertura:Notif] Chat aceptación error:", e);
     }
-  } catch (e) {
-    console.error("[AlertaCobertura:Notif] Chat aceptación error:", e);
   }
 
   // 4. Notificación bell
