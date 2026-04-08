@@ -1,8 +1,8 @@
 {
-  "name": "Gard Control de Acceso",
+  "name": "Opai Control de Acceso",
   "short_name": "Control Acceso",
   "id": "/portal/acceso",
-  "description": "Control de acceso e ingreso — Gard Security",
+  "description": "Control de acceso e ingreso — Opai",
   "start_url": "/portal/acceso",
   "scope": "/portal/acceso",
   "display": "standalone",

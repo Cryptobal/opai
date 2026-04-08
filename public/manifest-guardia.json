@@ -2,7 +2,7 @@
   "name": "OPAI Guardias",
   "short_name": "OPAI Guardias",
   "id": "/portal/guardia",
-  "description": "Portal de guardias — Gard Security",
+  "description": "Portal de guardias — Opai",
   "start_url": "/portal/guardia",
   "scope": "/portal/guardia",
   "display": "standalone",

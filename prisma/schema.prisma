@@ -531,6 +531,27 @@ model PasswordResetToken {
   @@schema("public")
 }
 
+/// Capacitor / native push tokens for the personal (Opai) app.
+/// NEVER used by the Terreno (shared device) app — shared devices don't
+/// receive personal notifications.
+model PushToken {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  userId     String   @map("user_id")
+  userType   String   @map("user_type") // "guardia" | "supervisor" | "cliente" | "admin"
+  token      String   @unique
+  platform   String   // "android" | "ios" | "web"
+  deviceInfo String?  @map("device_info")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId, userId])
+  @@index([token])
+  @@map("push_tokens")
+  @@schema("public")
+}
+
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?

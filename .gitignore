@@ -59,3 +59,7 @@ node_modules_bad_1771520600/
 # Capacitor native projects (regenerated with `npx cap add`)
 android/
 ios/
+android-terreno/
+android-opai/
+ios-terreno/
+ios-opai/

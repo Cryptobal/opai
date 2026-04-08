@@ -15,7 +15,13 @@
     "generate-icons": "node scripts/generate-gard-icons.mjs",
     "migrate:soho": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/migrate-soho-crm.ts",
     "db:migrate": "prisma migrate deploy",
-    "geocode-guardias": "npx tsx prisma/scripts/geocode-guardias.ts"
+    "geocode-guardias": "npx tsx prisma/scripts/geocode-guardias.ts",
+    "cap:terreno:init": "cp capacitor.config.terreno.ts capacitor.config.ts && npx cap add android && mv android android-terreno && git checkout capacitor.config.ts",
+    "cap:opai:init": "cp capacitor.config.opai.ts capacitor.config.ts && npx cap add android && mv android android-opai && git checkout capacitor.config.ts",
+    "cap:terreno:sync": "cp capacitor.config.terreno.ts capacitor.config.ts && cp -r android-terreno android && npx cap sync android && rm -rf android-terreno && mv android android-terreno && git checkout capacitor.config.ts",
+    "cap:opai:sync": "cp capacitor.config.opai.ts capacitor.config.ts && cp -r android-opai android && npx cap sync android && rm -rf android-opai && mv android android-opai && git checkout capacitor.config.ts",
+    "cap:terreno:open": "cp capacitor.config.terreno.ts capacitor.config.ts && cp -r android-terreno android && npx cap open android",
+    "cap:opai:open": "cp capacitor.config.opai.ts capacitor.config.ts && cp -r android-opai android && npx cap open android"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"

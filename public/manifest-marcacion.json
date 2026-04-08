@@ -1,8 +1,8 @@
 {
-  "name": "Gard Marcacion",
-  "short_name": "Marcacion",
+  "name": "Opai Marcación",
+  "short_name": "Marcación",
   "id": "/portal/marcacion",
-  "description": "Marcacion de asistencia con Face ID — Gard Security",
+  "description": "Marcación de asistencia con Face ID — Opai",
   "start_url": "/portal/marcacion",
   "scope": "/portal/marcacion",
   "display": "standalone",

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
 import { BadgeClear } from "@/components/pwa/BadgeClear";
+import { BackToHubButton } from "@/components/portal/BackToHubButton";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -29,6 +30,7 @@ export default function PortalMarcacionLayout({ children }: { children: React.Re
     <div className="min-h-dvh text-foreground antialiased" style={{ paddingTop: 'var(--safe-area-top)' }}>
       <ServiceWorkerRegistrar scope="/portal/marcacion" />
       <BadgeClear />
+      <BackToHubButton />
       {children}
     </div>
   );
