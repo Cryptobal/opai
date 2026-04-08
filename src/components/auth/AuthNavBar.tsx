@@ -2,19 +2,26 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { PortalId } from "./auth-config";
+import { getHubForPortal, type HubId, type PortalId } from "./auth-config";
 
 interface AuthNavBarProps {
   activePortalId: PortalId | "home";
 }
 
-const NAV_PORTALS: { id: PortalId; label: string; accent: string; href: string }[] = [
-  { id: "guardia", label: "Guardia", accent: "#2dd4bf", href: "/portal/guardia" },
-  { id: "rondas", label: "Rondas", accent: "#10b981", href: "/portal/rondas" },
-  { id: "supervisor", label: "Supervisor", accent: "#8b5cf6", href: "/portal/supervisor" },
-  { id: "cliente", label: "Cliente", accent: "#3b82f6", href: "/portal/cliente" },
-  { id: "marcacion", label: "Marcación", accent: "#f97316", href: "/portal/marcacion" },
-  { id: "acceso", label: "Acceso", accent: "#f59e0b", href: "/portal/acceso" },
+/**
+ * Top navigation bar shown on every login / pairing screen.
+ *
+ * Collapsed to the three hubs users care about:
+ *   - Terreno: shared device (marcación, rondas, acceso pairing)
+ *   - Personas: personal device (guardia, supervisor, cliente login)
+ *   - OPAI ERP: admin ERP login
+ *
+ * Sub-portals inherit the parent hub's active state via getHubForPortal().
+ * See src/components/auth/auth-config.ts for the mapping.
+ */
+const NAV_HUBS: { id: HubId; label: string; accent: string; href: string }[] = [
+  { id: "terreno", label: "Terreno", accent: "#f59e0b", href: "/portal/terreno" },
+  { id: "personas", label: "Personas", accent: "#2dd4bf", href: "/portal/personas" },
   { id: "opai", label: "OPAI ERP", accent: "#f43f5e", href: "/opai/login" },
 ];
 
@@ -27,6 +34,8 @@ export function AuthNavBar({ activePortalId }: AuthNavBarProps) {
     return () => window.removeEventListener("scroll", handler);
   }, []);
 
+  const activeHub = getHubForPortal(activePortalId);
+
   return (
     <div
       className="fixed top-0 left-0 right-0 z-[100] transition-colors duration-300"
@@ -38,11 +47,9 @@ export function AuthNavBar({ activePortalId }: AuthNavBarProps) {
       }}
     >
       <div
-        className="max-w-[720px] mx-auto flex items-center gap-0.5 px-4 py-2 overflow-x-auto"
+        className="max-w-[720px] mx-auto flex items-center justify-center gap-1 px-4 py-2"
         style={{
           fontFamily: "'Plus Jakarta Sans', sans-serif",
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
         }}
       >
         {/* OPAI mini logo */}
@@ -50,7 +57,7 @@ export function AuthNavBar({ activePortalId }: AuthNavBarProps) {
           href="/welcome"
           className="flex items-center gap-2 mr-3 shrink-0 px-2.5 py-1 rounded-lg transition-all"
           style={{
-            background: activePortalId === "home" ? "rgba(244,63,94,0.1)" : "transparent",
+            background: activeHub === "home" ? "rgba(244,63,94,0.1)" : "transparent",
           }}
         >
           <div
@@ -72,23 +79,23 @@ export function AuthNavBar({ activePortalId }: AuthNavBarProps) {
         {/* Divider */}
         <div className="w-px h-5 bg-white/[0.06] mr-2 shrink-0" />
 
-        {/* Portal tabs */}
-        {NAV_PORTALS.map((portal) => {
-          const isActive = activePortalId === portal.id;
+        {/* Hub tabs — only 3 */}
+        {NAV_HUBS.map((hub) => {
+          const isActive = activeHub === hub.id;
           return (
             <Link
-              key={portal.id}
-              href={portal.href}
+              key={hub.id}
+              href={hub.href}
               className="shrink-0 px-3 py-1.5 rounded-[7px] text-xs transition-all whitespace-nowrap"
               style={{
-                background: isActive ? `${portal.accent}15` : "transparent",
-                color: isActive ? portal.accent : "#6b7280",
+                background: isActive ? `${hub.accent}15` : "transparent",
+                color: isActive ? hub.accent : "#6b7280",
                 fontWeight: isActive ? 600 : 400,
-                outline: isActive ? `1px solid ${portal.accent}25` : "none",
+                outline: isActive ? `1px solid ${hub.accent}25` : "none",
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
               }}
             >
-              {portal.label}
+              {hub.label}
             </Link>
           );
         })}

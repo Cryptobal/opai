@@ -127,7 +127,7 @@ function portalHref(role: ActiveSession): string {
       : "/portal/cliente";
 }
 
-export function PersonalHubClient() {
+export function PersonasHubClient() {
   const router = useRouter();
   const [state, setState] = useState<HubState>("loading");
   const [sessions, setSessions] = useState<SessionCheckResult | null>(null);
@@ -284,7 +284,7 @@ function UnifiedLoginScreen({ tenantBrand }: { tenantBrand: TenantBrand | null }
       toast.success("Sesión iniciada");
       router.replace("/portal/guardia");
     } catch (err) {
-      console.error("[Portal Personal] Login error:", err);
+      console.error("[Portal Personas] Login error:", err);
       setError("Error de conexión. Intenta nuevamente.");
     } finally {
       setLoading(false);
@@ -295,11 +295,11 @@ function UnifiedLoginScreen({ tenantBrand }: { tenantBrand: TenantBrand | null }
 
   return (
     <AuthShell
-      portalId="guardia"
+      portalId="personas"
       accent={ACCENT}
       accentRgb="45, 212, 191"
-      portalName="Opai"
-      portalSubtitle={tenantBrand?.commercialName ?? "Ingresa a tu portal"}
+      portalName="Opai Personas"
+      portalSubtitle={tenantBrand?.commercialName ?? "Guardia · Supervisor · Cliente"}
       showBackLink={false}
     >
       <AuthFormHeader

@@ -1,4 +1,35 @@
 export const PORTAL_CONFIG = {
+  terreno: {
+    id: "terreno",
+    label: "Terreno",
+    name: "Opai Terreno",
+    subtitle: "Dispositivo en instalación",
+    accent: "#f59e0b",
+    accentRgb: "245, 158, 11",
+    href: "/portal/terreno",
+  },
+  personas: {
+    id: "personas",
+    label: "Personas",
+    name: "Opai Personas",
+    subtitle: "Guardia · Supervisor · Cliente",
+    accent: "#2dd4bf",
+    accentRgb: "45, 212, 191",
+    href: "/portal/personas",
+  },
+  opai: {
+    id: "opai",
+    label: "OPAI ERP",
+    name: "OPAI",
+    subtitle: "Sistema ERP Completo",
+    accent: "#f43f5e",
+    accentRgb: "244, 63, 94",
+    href: "/opai/login",
+  },
+  // ── Legacy portal IDs (still used by the sub-portals' own login screens) ──
+  // The top AuthNavBar no longer shows these as separate tabs; they all roll up
+  // into the three hubs above. Keep the entries so existing <AuthShell portalId="..."/>
+  // references keep compiling.
   guardia: {
     id: "guardia",
     label: "Guardia",
@@ -53,15 +84,23 @@ export const PORTAL_CONFIG = {
     accentRgb: "249, 115, 22",
     href: "/portal/marcacion",
   },
-  opai: {
-    id: "opai",
-    label: "OPAI ERP",
-    name: "OPAI",
-    subtitle: "Sistema ERP Completo",
-    accent: "#f43f5e",
-    accentRgb: "244, 63, 94",
-    href: "/opai/login",
-  },
 } as const;
 
 export type PortalId = keyof typeof PORTAL_CONFIG;
+
+/**
+ * Maps any portal ID to its top-level hub. Used by AuthNavBar so that
+ * sub-portals highlight the correct parent tab.
+ */
+export type HubId = "terreno" | "personas" | "opai";
+
+export function getHubForPortal(portalId: PortalId | "home"): HubId | "home" {
+  if (portalId === "home") return "home";
+  if (portalId === "terreno" || portalId === "marcacion" || portalId === "rondas" || portalId === "acceso") {
+    return "terreno";
+  }
+  if (portalId === "personas" || portalId === "guardia" || portalId === "supervisor" || portalId === "cliente") {
+    return "personas";
+  }
+  return "opai";
+}

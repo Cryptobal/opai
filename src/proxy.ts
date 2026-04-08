@@ -61,7 +61,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/portal/acceso')) return true; // Control de acceso (auth por device_token)
   if (pathname.startsWith('/portal/marcacion')) return true; // Portal Marcación (auth por device_token)
   if (pathname.startsWith('/portal/terreno')) return true; // Hub Opai Terreno (auth por device_token)
-  if (pathname.startsWith('/portal/personal')) return true; // Hub Opai Personal (login unificado RUT+PIN / Google / cookie)
+  if (pathname.startsWith('/portal/personas')) return true; // Hub Opai Personas (login unificado RUT+PIN / Google / cookie)
   if (pathname.startsWith('/registro-demo')) return true; // Auto-registro prospecto demo
   if (pathname.startsWith('/descargar')) return true; // PWA download landing pages
   if (pathname === '/welcome') return true;

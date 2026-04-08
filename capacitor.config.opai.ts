@@ -11,7 +11,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * Auth model: NextAuth session / guard RUT+PIN / cliente email+PIN
  * PushNotifications enabled for per-user notifications.
  *
- * Entry point is /portal/personal — a hub that auto-detects active sessions
+ * Entry point is /portal/personas — a hub that auto-detects active sessions
  * and routes to the corresponding portal.
  */
 const config: CapacitorConfig = {
@@ -19,7 +19,7 @@ const config: CapacitorConfig = {
   appName: "Opai",
   webDir: "out",
   server: {
-    url: "https://www.opai.cl/portal/personal",
+    url: "https://www.opai.cl/portal/personas",
     allowNavigation: [
       "www.opai.cl",
       "opai.gard.cl",

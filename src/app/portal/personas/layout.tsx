@@ -10,19 +10,19 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Opai",
-  description: "Portal personal — Opai",
-  manifest: "/manifest-personal.json",
+  title: "Opai Personas",
+  description: "Portal Personas — Opai",
+  manifest: "/manifest-personas.json",
   robots: { index: false, follow: false },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Opai",
+    title: "Opai Personas",
   },
   icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
-export default function PortalPersonalLayout({
+export default function PortalPersonasLayout({
   children,
 }: {
   children: React.ReactNode;

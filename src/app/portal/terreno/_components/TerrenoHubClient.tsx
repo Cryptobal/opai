@@ -94,12 +94,9 @@ export function TerrenoHubClient() {
     );
   }
 
-  if (state === "no-device") {
-    // Redirect to marcacion entrypoint (pairing is shared across terreno portals)
-    router.replace("/portal/marcacion");
-    return null;
-  }
-
+  // Portals list: enabled flags apply only when we have a device config.
+  // In no-device / offline mode we show all three so the user can pick
+  // which pairing flow to start.
   const portals = [
     {
       id: "marcacion",
@@ -132,11 +129,14 @@ export function TerrenoHubClient() {
 
   const enabledPortals = portals.filter((p) => p.enabled);
 
-  // If only one portal enabled, go straight there
-  if (enabledPortals.length === 1) {
+  // When a device is fully paired AND only one portal is enabled, go straight
+  // there. Skipped in no-device mode so the user always sees the three options.
+  if (state === "ready" && enabledPortals.length === 1) {
     router.replace(enabledPortals[0].href);
     return null;
   }
+
+  const isNoDevice = state === "no-device";
 
   return (
     <div className="flex flex-col min-h-dvh bg-[#060a13] text-white p-6">
@@ -159,6 +159,11 @@ export function TerrenoHubClient() {
         {config ? (
           <p className="text-xs text-gray-500 mt-0.5">
             {config.installationName}
+          </p>
+        ) : null}
+        {isNoDevice ? (
+          <p className="text-xs text-amber-400/80 mt-2">
+            Dispositivo sin parear · Elige un portal para iniciar el pairing
           </p>
         ) : null}
       </div>

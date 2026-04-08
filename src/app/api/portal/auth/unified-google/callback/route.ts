@@ -27,7 +27,7 @@ const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo";
 export async function GET(request: NextRequest) {
   const baseUrl =
     process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "";
-  const hubUrl = `${baseUrl}/portal/personal`;
+  const hubUrl = `${baseUrl}/portal/personas`;
 
   const code = request.nextUrl.searchParams.get("code");
   if (!code) {
