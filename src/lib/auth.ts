@@ -79,7 +79,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const password = String(credentials.password);
         const portal = credentials.portal ? String(credentials.portal) : 'opai';
 
-        const { prisma } = await import('@/lib/prisma');
+        const { prisma } = await import('./prisma');
 
         // 0. Impersonate flow (platform admin → tenant owner)
         const creds = credentials as Record<string, unknown>;
@@ -145,10 +145,35 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           include: { tenant: true },
         });
         
-        if (!admin || admin.status !== 'active') return null;
+        if (!admin || admin.status !== 'active') {
+          try {
+            const { logAudit } = await import('./audit');
+            await logAudit({
+              userEmail: email,
+              action: 'LOGIN_FAILED',
+              entity: 'Admin',
+              details: { reason: admin ? 'inactive' : 'not_found' },
+            });
+          } catch {}
+          return null;
+        }
 
         const valid = await bcrypt.compare(password, admin.password);
-        if (!valid) return null;
+        if (!valid) {
+          try {
+            const { logAudit } = await import('./audit');
+            await logAudit({
+              userId: admin.id,
+              userEmail: email,
+              action: 'LOGIN_FAILED',
+              entity: 'Admin',
+              entityId: admin.id,
+              details: { reason: 'bad_password' },
+              tenantId: admin.tenantId,
+            });
+          } catch {}
+          return null;
+        }
 
         await prisma.admin.update({
           where: { id: admin.id },
@@ -171,7 +196,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async signIn({ user, account }) {
       // Google provider: verify email exists as active Admin
       if (account?.provider === 'google') {
-        const { prisma } = await import('@/lib/prisma');
+        const { prisma } = await import('./prisma');
         const admin = await prisma.admin.findFirst({
           where: {
             email: user.email!.toLowerCase(),
@@ -213,14 +238,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return token;
       }
 
-      // Refrescar rol desde BD periódicamente (solo en Node; en Edge no hay Prisma)
+      // Refrescar rol desde BD periódicamente (solo en Node estricto; en Edge/middleware no hay Prisma)
       const now = Date.now();
-      const isEdge = typeof (globalThis as unknown as { EdgeRuntime?: string }).EdgeRuntime === 'string';
+      const runtime = process.env.NEXT_RUNTIME;
+      const isEdgeRuntime = typeof (globalThis as unknown as { EdgeRuntime?: string }).EdgeRuntime === 'string';
+      const isNodeRuntime = runtime === 'nodejs' && !isEdgeRuntime;
       if (!token.roleRefreshedAt || now - token.roleRefreshedAt > ROLE_REFRESH_INTERVAL) {
-        if (!isEdge) {
+        if (isNodeRuntime) {
           const DB_TIMEOUT_MS = 5000;
           try {
-            const { prisma } = await import('@/lib/prisma');
+            const { prisma } = await import('./prisma');
             const admin = await Promise.race([
               prisma.admin.findUnique({
                 where: { id: token.id },
@@ -260,6 +287,41 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
   },
+  events: {
+    // Ley 21.719 — auditoría de autenticación
+    async signIn({ user, account }) {
+      try {
+        const { logAudit } = await import('./audit');
+        await logAudit({
+          userId: user?.id,
+          userEmail: user?.email,
+          action: 'LOGIN',
+          entity: 'Admin',
+          entityId: user?.id ?? null,
+          details: { provider: account?.provider ?? 'credentials' },
+          tenantId: (user as { tenantId?: string })?.tenantId ?? null,
+        });
+      } catch {
+        /* fail-safe */
+      }
+    },
+    async signOut(message) {
+      try {
+        const { logAudit } = await import('./audit');
+        const token = (message as { token?: { id?: string; email?: string; tenantId?: string } }).token;
+        await logAudit({
+          userId: token?.id,
+          userEmail: token?.email,
+          action: 'LOGOUT',
+          entity: 'Admin',
+          entityId: token?.id ?? null,
+          tenantId: token?.tenantId ?? null,
+        });
+      } catch {
+        /* fail-safe */
+      }
+    },
+  },
   pages: {
     signIn: '/opai/login',
   },
@@ -276,7 +338,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
  * Helper para actualizar último login
  */
 export async function updateLastLogin(userId: string) {
-  const { prisma } = await import('@/lib/prisma');
+  const { prisma } = await import('./prisma');
   await prisma.admin.update({
     where: { id: userId },
     data: { lastLoginAt: new Date() },
