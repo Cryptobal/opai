@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
         services: services.map((s) => ({
           sid: s.sid,
           friendlyName: s.friendlyName,
-          useCase: s.useCase,
+          useCase: s.usecase,
           dateCreated: s.dateCreated,
         })),
       });
