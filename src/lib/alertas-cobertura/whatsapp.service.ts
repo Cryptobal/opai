@@ -7,22 +7,27 @@
 
 import Twilio from "twilio";
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const fromNumber = process.env.TWILIO_WHATSAPP_FROM;
-const contentSid = process.env.TWILIO_WHATSAPP_CONTENT_SID; // Optional
+// IMPORTANTE: leer estas env vars vía getters — NO a nivel de módulo, porque en
+// Vercel las funciones cold-started a veces no las tienen aún al momento del
+// import. Leer on-demand evita el problema.
+function accountSid() { return process.env.TWILIO_ACCOUNT_SID; }
+function authToken() { return process.env.TWILIO_AUTH_TOKEN; }
+function fromNumber() { return process.env.TWILIO_WHATSAPP_FROM; }
+function contentSid() { return process.env.TWILIO_WHATSAPP_CONTENT_SID; }
 
 const SITE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
 
 let twilioClient: Twilio.Twilio | null = null;
 
 function getClient(): Twilio.Twilio | null {
-  if (!accountSid || !authToken) {
-    console.warn("[WhatsApp] Twilio credentials not configured");
+  const sid = accountSid();
+  const token = authToken();
+  if (!sid || !token) {
+    console.warn("[WhatsApp] Twilio credentials not configured (missing ACCOUNT_SID or AUTH_TOKEN)");
     return null;
   }
   if (!twilioClient) {
-    twilioClient = Twilio(accountSid, authToken);
+    twilioClient = Twilio(sid, token);
   }
   return twilioClient;
 }
@@ -42,8 +47,15 @@ export async function enviarAlertaWhatsApp(
   params: EnviarAlertaWhatsAppParams,
 ): Promise<{ success: boolean; messageSid?: string; error?: string }> {
   const client = getClient();
-  if (!client || !fromNumber) {
-    console.warn("[WhatsApp] Twilio not configured, skipping");
+  const from = fromNumber();
+  const tmplSid = contentSid();
+
+  if (!client || !from) {
+    console.warn("[WhatsApp] Twilio not configured — skipping", {
+      hasClient: !!client,
+      hasFrom: !!from,
+      hasContentSid: !!tmplSid,
+    });
     return { success: false, error: "Twilio not configured" };
   }
 
@@ -55,8 +67,11 @@ export async function enviarAlertaWhatsApp(
 
   const to = `whatsapp:${telefonoNormalizado}`;
 
+  // Log inicial — diagnostica qué estrategia se intentará
+  console.log(`[WhatsApp] Enviando a ${telefonoNormalizado} — estrategia: ${tmplSid ? "template" : "freeform"}`);
+
   // Estrategia 1: Content Template (si está configurado y aprobado)
-  if (contentSid) {
+  if (tmplSid) {
     try {
       // Template turno_extra_notif_v2 (UTILITY, 7 vars):
       //   {{1}} = JWT token (button URL only: /alerta/t/{{1}})
@@ -67,9 +82,9 @@ export async function enviarAlertaWhatsApp(
         : params.urlPath;
 
       const message = await client.messages.create({
-        from: fromNumber,
+        from,
         to,
-        contentSid,
+        contentSid: tmplSid,
         contentVariables: JSON.stringify({
           "1": buttonToken.substring(0, 500),
           "2": params.instalacion.substring(0, 200),
@@ -81,15 +96,29 @@ export async function enviarAlertaWhatsApp(
         }),
       });
 
-      console.log(`[WhatsApp] Template enviado a ${telefonoNormalizado}: SID=${message.sid}`);
+      console.log(`[WhatsApp] ✓ Template enviado a ${telefonoNormalizado}: SID=${message.sid}`);
       return { success: true, messageSid: message.sid };
     } catch (templateError: any) {
-      console.warn(`[WhatsApp] Template falló (${templateError?.code || templateError?.message}), intentando texto plano...`);
-      // Fall through to plain text
+      // Log detallado del error — MUY importante para diagnosticar
+      const code = templateError?.code;
+      const status = templateError?.status;
+      const message = templateError?.message || String(templateError);
+      const moreInfo = templateError?.moreInfo;
+      console.error(
+        `[WhatsApp] ✗ Template FALLÓ a ${telefonoNormalizado}:`,
+        { code, status, message, moreInfo, contentSid: tmplSid?.substring(0, 10) + "..." },
+      );
+      // NO hacer fallback a freeform — casi siempre fallará con 63016
+      // (fuera de la ventana de 24h) y es más claro devolver el error real.
+      return {
+        success: false,
+        error: `Template error ${code}: ${message}`,
+      };
     }
   }
 
-  // Estrategia 2: Texto plano con link
+  // Estrategia 2: Texto plano (SOLO si no hay template configurado — ej. dev)
+  console.warn("[WhatsApp] ⚠ TWILIO_WHATSAPP_CONTENT_SID no configurado — usando freeform (fallará fuera de ventana 24h)");
   try {
     const linkAceptar = `${SITE_URL}/alerta/${params.urlPath}`;
     const body = [
@@ -107,16 +136,18 @@ export async function enviarAlertaWhatsApp(
     ].join("\n");
 
     const message = await client.messages.create({
-      from: fromNumber,
+      from,
       to,
       body,
     });
 
-    console.log(`[WhatsApp] Texto plano enviado a ${telefonoNormalizado}: SID=${message.sid}`);
+    console.log(`[WhatsApp] ✓ Texto plano enviado a ${telefonoNormalizado}: SID=${message.sid}`);
     return { success: true, messageSid: message.sid };
   } catch (error: any) {
-    console.error(`[WhatsApp] Error enviando a ${telefonoNormalizado}:`, error?.message || error);
-    return { success: false, error: error?.message || "Error desconocido" };
+    const code = error?.code;
+    const msg = error?.message || String(error);
+    console.error(`[WhatsApp] ✗ Error freeform a ${telefonoNormalizado}:`, { code, msg });
+    return { success: false, error: `Freeform error ${code}: ${msg}` };
   }
 }
 
@@ -139,5 +170,5 @@ function normalizarTelefonoChileno(telefono: string): string | null {
 }
 
 export function isWhatsAppConfigured(): boolean {
-  return !!(accountSid && authToken && fromNumber);
+  return !!(accountSid() && authToken() && fromNumber());
 }

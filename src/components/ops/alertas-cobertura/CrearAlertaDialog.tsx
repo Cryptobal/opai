@@ -388,7 +388,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-[1200px] max-h-[92vh] overflow-y-auto p-6 sm:p-8"
+        className="sm:!max-w-[1200px] !max-h-[94vh] overflow-y-auto p-6 sm:p-8"
         style={{ width: "min(1200px, calc(100vw - 2rem))" }}
       >
         <DialogHeader>

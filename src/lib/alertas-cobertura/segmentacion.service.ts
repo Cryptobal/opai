@@ -79,6 +79,7 @@ export async function resolverCandidatos(
       id: true,
       personaId: true,
       availableExtraShifts: true,
+      lifecycleStatus: true,
       os10: true,
       os10ExpiresAt: true,
       contractType: true,
@@ -117,15 +118,21 @@ export async function resolverCandidatos(
     const lat = Number(p.lat);
     const lng = Number(p.lng);
 
-    // Fase INTERNA: empleados internos que NO están en turno
+    // Fase INTERNA: SOLO contratados (planta). Excluye "seleccionado" (en
+    // proceso de contratación) y "te" (pool de turnos extra — esos son externos).
     if (filtros.fase === "INTERNA") {
-      // Excluir guardias que están ocupados en el horario de la alerta
+      if (g.lifecycleStatus !== "contratado") continue;
       if (guardiasOcupados.has(g.id)) continue;
     }
 
-    // Fase EXTERNA: guardias con disponibilidad para turnos extra
+    // Fase EXTERNA: guardias disponibles para turnos extra. Incluye tanto el
+    // pool "te" como contratados con availableExtraShifts=true que aún no
+    // fueron notificados por la fase INTERNA (el dedup se hace arriba con
+    // guardiaIdsUsados).
     if (filtros.fase === "EXTERNA") {
-      if (!g.availableExtraShifts) continue;
+      const esPoolTE = g.lifecycleStatus === "te";
+      if (!esPoolTE && !g.availableExtraShifts) continue;
+      if (guardiasOcupados.has(g.id)) continue;
     }
 
     // Filtro género
