@@ -48,12 +48,13 @@ export function PortalCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.25 + index * 0.08, ease: [0.16, 1, 0.3, 1] }}
+      className="h-full"
     >
       <button
         onClick={handleClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className="w-full text-left transition-all duration-300 group"
+        className="w-full h-full text-left transition-all duration-300 group"
         style={{
           padding: "20px 22px",
           borderRadius: "16px",

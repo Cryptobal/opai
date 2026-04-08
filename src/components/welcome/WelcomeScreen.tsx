@@ -118,7 +118,7 @@ export function WelcomeScreen() {
       <AuthNavBar activePortalId="home" />
 
       {/* Main content */}
-      <div className="relative z-[2] w-full max-w-[460px] px-5 pt-20 pb-16">
+      <div className="relative z-[2] w-full max-w-[680px] px-5 pt-20 pb-16">
         {/* OPAI Logo */}
         <motion.div
           initial={{ opacity: 0, y: -8, scale: 0.97 }}
@@ -185,7 +185,7 @@ export function WelcomeScreen() {
         )}
 
         {/* Portal cards */}
-        <div className="w-full grid gap-3 sm:grid-cols-2">
+        <div className="w-full grid gap-3 grid-cols-1 sm:grid-cols-3">
           {PORTALS.map((portal, i) => (
             <PortalCard
               key={portal.key}

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
 import { BadgeClear } from "@/components/pwa/BadgeClear";
-import { BackToHubButton } from "@/components/portal/BackToHubButton";
+import { TerrenoModeSwitcher } from "@/components/portal/TerrenoModeSwitcher";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -30,7 +30,7 @@ export default function PortalAccesoLayout({ children }: { children: React.React
     <div className="min-h-dvh text-foreground antialiased" style={{ paddingTop: 'var(--safe-area-top)' }}>
       <ServiceWorkerRegistrar scope="/portal/acceso" />
       <BadgeClear />
-      <BackToHubButton />
+      <TerrenoModeSwitcher active="acceso" />
       {children}
     </div>
   );
