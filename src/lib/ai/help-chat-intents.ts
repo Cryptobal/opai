@@ -651,6 +651,29 @@ export function shouldPreferFunctionalInference(
   return assistantText.length < 220 || !hasClickableLink;
 }
 
+/**
+ * Decide upfront (sin necesidad de la respuesta del AI) si debemos servir
+ * directamente la respuesta inferida en vez de invocar al modelo. Útil para
+ * preguntas puramente funcionales tipo "¿cómo creo X?" / "¿dónde está Y?",
+ * donde el modelo y luego el reemplazo post-stream causaban un bug visual
+ * de doble respuesta (el usuario veía la respuesta del AI y luego la
+ * plantilla "Te refieres a..." sustituyéndola).
+ */
+export function shouldUseInferredAnswerUpfront(userMessage: string): boolean {
+  const msg = normalize(userMessage);
+  // Excepción explícita: rendiciones pendientes/aprobaciones requieren datos.
+  const asksRendicionData =
+    msg.includes("rendicion") &&
+    (msg.includes("faltan") ||
+      msg.includes("pendiente") ||
+      msg.includes("pendientes") ||
+      msg.includes("aprobacion") ||
+      msg.includes("aprobar"));
+  if (asksRendicionData) return false;
+  if (isDataHeavyQuestion(msg)) return false;
+  return isFunctionalQuestion(msg);
+}
+
 export function resolveFunctionalIntent(userMessage: string, appBaseUrl: string): string | null {
   const msg = normalize(userMessage);
 

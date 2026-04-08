@@ -9,7 +9,7 @@ import { buildHelpChatSystemPromptV2 } from "@/lib/ai/help-chat-system-prompt-v2
 import { parseVisualBlocks } from "@/lib/ai/help-chat-visual-types";
 import {
   resolveFunctionalIntent,
-  shouldPreferFunctionalInference,
+  shouldUseInferredAnswerUpfront,
 } from "@/lib/ai/help-chat-intents";
 import { chooseModel, detectFrustration } from "@/lib/ai/help-chat-model-router";
 import { searchKnowledge } from "@/lib/knowledge/search";
@@ -374,74 +374,108 @@ REGLAS DE CONTEXTO DE MÓDULO:
 
         let fullText = "";
         let toolCallsUsed = 0;
-        const completionParams = {
-          messages,
-          tools,
-          temperature: 0.2,
-          maxTokens: 1400,
-        };
+        let usedInferredAnswer = false;
 
-        /* tool-calling loop (max 4 iterations) — always streaming */
-        for (let step = 0; step < 4; step += 1) {
-          let pendingToolCalls: ToolCallInfo[] = [];
-          let hasToolCalls = false;
+        // ── Inferred answer upfront ──
+        // Para preguntas puramente funcionales (cómo/dónde/qué hace tal módulo)
+        // que matchean un intent conocido, servimos directamente la plantilla
+        // estructurada SIN llamar al modelo. Antes el server llamaba al AI,
+        // streameaba la respuesta natural del AI, y luego en post-procesamiento
+        // la reemplazaba por la plantilla — el usuario veía la respuesta del
+        // AI flashar y luego ser reemplazada por "Te refieres a X > Y..." (el
+        // famoso bug de la "segunda respuesta rara").
+        const inferredFunctionalAnswer = resolveFunctionalIntent(userMessage, appBaseUrl);
+        if (inferredFunctionalAnswer && shouldUseInferredAnswerUpfront(userMessage)) {
+          usedInferredAnswer = true;
+          fullText = normalizeAssistantLinks(inferredFunctionalAnswer, appBaseUrl);
+          // Stream chunked para que se vea como streaming natural en el cliente.
+          const CHUNK_SIZE = 28;
+          for (let i = 0; i < fullText.length; i += CHUNK_SIZE) {
+            send("token", { token: fullText.slice(i, i + CHUNK_SIZE) });
+            // Pequeña pausa para simular el efecto typewriter (no bloqueante).
+            await new Promise((resolve) => setTimeout(resolve, 12));
+          }
+        } else {
+          const completionParams = {
+            messages,
+            tools,
+            temperature: 0.2,
+            maxTokens: 1400,
+          };
 
-          for await (const event of createStreamingCompletion(configWithModel, completionParams)) {
-            if (event.type === "token") {
-              fullText += event.text;
-              send("token", { token: event.text });
+          /* tool-calling loop (max 4 iterations) — always streaming */
+          for (let step = 0; step < 4; step += 1) {
+            let pendingToolCalls: ToolCallInfo[] = [];
+            let hasToolCalls = false;
+
+            for await (const event of createStreamingCompletion(configWithModel, completionParams)) {
+              if (event.type === "token") {
+                fullText += event.text;
+                send("token", { token: event.text });
+              }
+              if (event.type === "tool_calls") {
+                hasToolCalls = true;
+                pendingToolCalls = event.calls;
+              }
             }
-            if (event.type === "tool_calls") {
-              hasToolCalls = true;
-              pendingToolCalls = event.calls;
+
+            if (!hasToolCalls || pendingToolCalls.length === 0) {
+              break;
             }
-          }
 
-          if (!hasToolCalls || pendingToolCalls.length === 0) {
-            break;
-          }
+            toolCallsUsed += pendingToolCalls.length;
+            messages.push({
+              role: "assistant",
+              content: fullText || null,
+              tool_calls: pendingToolCalls.map(tc => ({
+                id: tc.id,
+                type: "function",
+                function: { name: tc.name, arguments: tc.arguments },
+              })),
+            });
 
-          toolCallsUsed += pendingToolCalls.length;
-          messages.push({
-            role: "assistant",
-            content: fullText || null,
-            tool_calls: pendingToolCalls.map(tc => ({
-              id: tc.id,
-              type: "function",
-              function: { name: tc.name, arguments: tc.arguments },
-            })),
-          });
-
-          for (const call of pendingToolCalls) {
-            let args: Record<string, unknown> = {};
-            try { args = JSON.parse(call.arguments || "{}"); } catch { args = {}; }
-            send("tool_call", { name: call.name, status: "running" });
-            const result = await executeToolCallV2(
-              call.name, args, ctx.tenantId, ctx.userId,
-              hasCapability(perms, "rendicion_view_all"),
-            );
-            send("tool_call", { name: call.name, status: "done" });
-            messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
+            for (const call of pendingToolCalls) {
+              let args: Record<string, unknown> = {};
+              try { args = JSON.parse(call.arguments || "{}"); } catch { args = {}; }
+              send("tool_call", { name: call.name, status: "running" });
+              const result = await executeToolCallV2(
+                call.name, args, ctx.tenantId, ctx.userId,
+                hasCapability(perms, "rendicion_view_all"),
+              );
+              send("tool_call", { name: call.name, status: "done" });
+              messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
+            }
+            // El texto emitido en esta iteración era solo razonamiento previo a
+            // las tool_calls (no la respuesta final). Le decimos al cliente que
+            // borre lo que mostró para que la próxima iteración escriba limpio
+            // sobre la burbuja en streaming. Sin esto el cliente acumula todas
+            // las iteraciones y luego el evento "done" reemplaza con la última,
+            // provocando el bug de "primero una respuesta, después otra rara".
+            send("reset_stream", {});
+            fullText = "";
           }
-          // El texto emitido en esta iteración era solo razonamiento previo a
-          // las tool_calls (no la respuesta final). Le decimos al cliente que
-          // borre lo que mostró para que la próxima iteración escriba limpio
-          // sobre la burbuja en streaming. Sin esto el cliente acumula todas
-          // las iteraciones y luego el evento "done" reemplaza con la última,
-          // provocando el bug de "primero una respuesta, después otra rara".
-          send("reset_stream", {});
-          fullText = "";
         }
 
         /* post-processing */
         let assistantText = normalizeAssistantLinks(fullText || fallbackMessage(userMessage), appBaseUrl);
-        const inferredFunctionalAnswer = resolveFunctionalIntent(userMessage, appBaseUrl);
         const assistantUsedFallback = assistantText.includes("No tengo suficiente información para asegurar esto");
+
+        // Rescate post-stream: si el AI devolvió fallback y tenemos respuesta
+        // inferida disponible, limpiamos la burbuja y streameamos la inferida.
+        // Solo entra aquí si el camino upfront NO se usó (porque la pregunta
+        // no calificó como puramente funcional pero el AI igual fracasó).
         if (
-          inferredFunctionalAnswer &&
-          (assistantUsedFallback || shouldPreferFunctionalInference(userMessage, assistantText))
+          !usedInferredAnswer &&
+          assistantUsedFallback &&
+          inferredFunctionalAnswer
         ) {
+          send("reset_stream", {});
           assistantText = normalizeAssistantLinks(inferredFunctionalAnswer, appBaseUrl);
+          const CHUNK_SIZE = 28;
+          for (let i = 0; i < assistantText.length; i += CHUNK_SIZE) {
+            send("token", { token: assistantText.slice(i, i + CHUNK_SIZE) });
+            await new Promise((resolve) => setTimeout(resolve, 12));
+          }
         }
 
         const { cleanText, visuals, suggestions } = parseVisualBlocks(assistantText);
