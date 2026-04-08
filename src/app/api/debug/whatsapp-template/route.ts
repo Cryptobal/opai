@@ -3,12 +3,15 @@ import Twilio from "twilio";
 
 /**
  * Debug endpoint — consulta el Content Template de Twilio configurado en
- * TWILIO_WHATSAPP_CONTENT_SID y devuelve su estructura (variables esperadas,
- * tipos de contenido, etc). Útil para alinear los contentVariables que envía
- * `enviarAlertaWhatsApp` con lo que el template realmente espera.
+ * TWILIO_WHATSAPP_CONTENT_SID y devuelve su estructura.
  *
- * Uso: GET /api/debug/whatsapp-template
- * Protegido con un token simple ?t=opai-debug para no exponerlo.
+ * Uso:
+ *   GET /api/debug/whatsapp-template?t=opai-debug
+ *     → fetch del template, devuelve estructura.
+ *
+ *   GET /api/debug/whatsapp-template?t=opai-debug&send=+56982307771
+ *     → intenta ENVIAR el template al número dado con valores de prueba,
+ *       devuelve el resultado o el error EXACTO de Twilio.
  */
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("t");
@@ -19,6 +22,7 @@ export async function GET(request: NextRequest) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const contentSid = process.env.TWILIO_WHATSAPP_CONTENT_SID;
+  const fromNumber = process.env.TWILIO_WHATSAPP_FROM;
 
   if (!accountSid || !authToken || !contentSid) {
     return NextResponse.json(
@@ -27,14 +31,75 @@ export async function GET(request: NextRequest) {
         hasAccountSid: !!accountSid,
         hasAuthToken: !!authToken,
         hasContentSid: !!contentSid,
+        hasFromNumber: !!fromNumber,
       },
       { status: 500 },
     );
   }
 
+  const client = Twilio(accountSid, authToken);
+
+  const send = request.nextUrl.searchParams.get("send");
+  if (send) {
+    if (!fromNumber) {
+      return NextResponse.json(
+        { error: "TWILIO_WHATSAPP_FROM not set" },
+        { status: 500 },
+      );
+    }
+    // Test send con valores sample
+    const to = send.startsWith("whatsapp:") ? send : `whatsapp:${send}`;
+    const from = fromNumber.startsWith("whatsapp:")
+      ? fromNumber
+      : `whatsapp:${fromNumber}`;
+
+    const variables = {
+      "1": "test-token-debug",
+      "2": "Cobertura Debug",
+      "3": "Lo Fontecilla 201, Las Condes",
+      "4": "jue 9 abr | 09:00 - 18:00",
+      "5": "$30.000",
+      "6": "Guardia de Seguridad (GGSS)",
+      "7": "Test debug",
+    };
+
+    try {
+      const msg = await client.messages.create({
+        from,
+        to,
+        contentSid,
+        contentVariables: JSON.stringify(variables),
+      });
+      return NextResponse.json({
+        ok: true,
+        messageSid: msg.sid,
+        status: msg.status,
+        from,
+        to,
+        variables,
+      });
+    } catch (err: any) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: err?.message,
+          code: err?.code,
+          status: err?.status,
+          moreInfo: err?.moreInfo,
+          details: err?.details,
+          from,
+          to,
+          contentSidPrefix: contentSid.substring(0, 10),
+          variables,
+        },
+        { status: 200 }, // 200 so user can read the JSON easily
+      );
+    }
+  }
+
+  // GET sin send → fetch del template
   try {
-    const client = Twilio(accountSid, authToken);
-    // @ts-ignore — twilio SDK no expone tipos de Content API todavía
+    // @ts-ignore
     const content = await client.content.v1.contents(contentSid).fetch();
 
     let approvals: unknown = null;
