@@ -43,16 +43,70 @@ export async function GET(request: NextRequest) {
   if (request.nextUrl.searchParams.get("services") === "1") {
     try {
       const services = await client.messaging.v1.services.list({ limit: 20 });
-      return NextResponse.json({
-        services: services.map((s) => ({
-          sid: s.sid,
-          friendlyName: s.friendlyName,
-          useCase: s.usecase,
-          dateCreated: s.dateCreated,
-        })),
-      });
+      // Para cada servicio, también listar los phone numbers asociados
+      const detailed = await Promise.all(
+        services.map(async (s) => {
+          let phones: unknown = [];
+          try {
+            const pns = await client.messaging.v1.services(s.sid).phoneNumbers.list({ limit: 10 });
+            phones = pns.map((p) => ({ sid: p.sid, phoneNumber: p.phoneNumber, capabilities: p.capabilities }));
+          } catch {}
+          return {
+            sid: s.sid,
+            friendlyName: s.friendlyName,
+            useCase: s.usecase,
+            dateCreated: s.dateCreated,
+            phones,
+          };
+        }),
+      );
+      return NextResponse.json({ services: detailed });
     } catch (err: any) {
       return NextResponse.json({ error: err?.message, code: err?.code }, { status: 500 });
+    }
+  }
+
+  // Modo especial: crear un Messaging Service nuevo y asociar el número WhatsApp
+  if (request.nextUrl.searchParams.get("createService") === "1") {
+    try {
+      // 1) Crear el servicio
+      const service = await client.messaging.v1.services.create({
+        friendlyName: "OPAI Alertas Cobertura",
+      });
+
+      // 2) Encontrar el IncomingPhoneNumber que corresponde al WhatsApp sender
+      const wa = fromNumber?.replace("whatsapp:", "") || "";
+      const incomings = await client.incomingPhoneNumbers.list({ limit: 50 });
+      const match = incomings.find((p) => p.phoneNumber === wa);
+
+      let addedSid: string | null = null;
+      let addError: string | null = null;
+      if (match) {
+        try {
+          const added = await client.messaging.v1
+            .services(service.sid)
+            .phoneNumbers.create({ phoneNumberSid: match.sid });
+          addedSid = added.sid;
+        } catch (e: any) {
+          addError = e?.message || String(e);
+        }
+      }
+
+      return NextResponse.json({
+        created: true,
+        messagingServiceSid: service.sid,
+        friendlyName: service.friendlyName,
+        whatsappNumber: wa,
+        whatsappMatched: !!match,
+        addedSid,
+        addError,
+        nextStep: `Agregar en Vercel env: TWILIO_MESSAGING_SERVICE_SID=${service.sid}`,
+      });
+    } catch (err: any) {
+      return NextResponse.json(
+        { error: err?.message, code: err?.code, moreInfo: err?.moreInfo },
+        { status: 500 },
+      );
     }
   }
 
