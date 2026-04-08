@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/api-auth";
+import { after } from "next/server";
 import { notificarSupervisorAceptacion } from "@/lib/alertas-cobertura/notificacion.service";
 import { verificarTokenExterno } from "@/lib/alertas-cobertura/token.service";
 import { requireTenantModule } from '@/lib/require-module';
@@ -231,7 +232,7 @@ export async function POST(
           ? (alertaCompleta.libreAddress ?? undefined)
           : (alertaCompleta.installation?.address ?? undefined);
 
-        notificarSupervisorAceptacion({
+        const notifAceptacionParams = {
           tenantId: alertaCompleta.tenantId,
           alertaId,
           instalacionId: alertaCompleta.installationId,
@@ -248,7 +249,14 @@ export async function POST(
           fechaFin: alertaCompleta.fechaFin,
           montoOfrecido: alertaCompleta.montoOfrecido,
           funciones: alertaCompleta.funciones,
-        }).catch((err) => console.error("[AlertaCobertura] Error notificando aceptación:", err));
+        };
+        after(async () => {
+          try {
+            await notificarSupervisorAceptacion(notifAceptacionParams);
+          } catch (err) {
+            console.error("[AlertaCobertura] Error notificando aceptación:", err);
+          }
+        });
       }
 
       return NextResponse.json({

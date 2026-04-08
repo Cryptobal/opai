@@ -25,6 +25,8 @@ export const crearAlertaSchema = z
     requiereOS10: z.boolean().optional(),
     soloDealer: z.boolean().optional(),
     soloConMovilizacion: z.boolean().optional(),
+    /** A quién notificar. Default: ambos (internos contratados + externos con turnos extra). */
+    audiencia: z.enum(["internos", "externos", "ambos"]).optional(),
   })
   .refine(
     (data) => {

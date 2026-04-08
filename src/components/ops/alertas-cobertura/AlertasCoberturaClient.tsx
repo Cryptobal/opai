@@ -346,7 +346,7 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
                               {format(new Date(a.createdAt), "dd MMM yyyy HH:mm", { locale: es })}
                             </TableCell>
                             <TableCell className="font-medium text-sm">
-                              {a.installation.name}
+                              {a.installation?.name ?? (a.libreComuna ? `Cobertura — ${a.libreComuna}` : (a.libreAddress ?? "Cobertura"))}
                             </TableCell>
                             <TableCell className="text-xs">{a.modalidad}</TableCell>
                             <TableCell>
@@ -474,7 +474,7 @@ function AlertaActivaCard({
                 {urgenciaBadge.label}
               </Badge>
             )}
-            <CardTitle className="text-base">{alerta.installation.name}</CardTitle>
+            <CardTitle className="text-base">{alerta.installation?.name ?? (alerta.libreComuna ? `Cobertura — ${alerta.libreComuna}` : (alerta.libreAddress ?? "Cobertura"))}</CardTitle>
           </div>
           <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30">
             {alerta.modalidad}
@@ -553,7 +553,7 @@ function AlertaAceptadaCard({
             <Badge variant="outline" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
               Aceptada
             </Badge>
-            <CardTitle className="text-base">{alerta.installation.name}</CardTitle>
+            <CardTitle className="text-base">{alerta.installation?.name ?? (alerta.libreComuna ? `Cobertura — ${alerta.libreComuna}` : (alerta.libreAddress ?? "Cobertura"))}</CardTitle>
           </div>
           {alerta.esInternoAceptacion === false && (
             <Badge variant="outline" className="bg-purple-500/20 text-purple-400 border-purple-500/30">

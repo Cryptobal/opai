@@ -15,6 +15,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,42 @@ import { AddressAutocomplete, type AddressResult } from "@/components/ui/Address
 import type { OleadaPreview, PreviewOleadasResponse } from "./types";
 
 type ModoAlerta = "instalacion" | "libre";
+type AudienciaAlerta = "internos" | "externos" | "ambos";
+
+/** Time picker compacto con selects de hora y minuto (15 min steps). */
+function QuickTimePicker({
+  value,
+  onChange,
+  label,
+}: {
+  value: string; // "HH:mm"
+  onChange: (v: string) => void;
+  label: string;
+}) {
+  const [h, m] = value.split(":");
+  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, "0"));
+  const minutes = ["00", "15", "30", "45"];
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <div className="flex gap-1.5">
+        <Select value={h ?? "09"} onValueChange={(nv) => onChange(`${nv}:${m ?? "00"}`)}>
+          <SelectTrigger className="h-10 w-[72px] font-mono"><SelectValue /></SelectTrigger>
+          <SelectContent className="max-h-60">
+            {hours.map((hh) => <SelectItem key={hh} value={hh}>{hh}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <span className="self-center font-mono text-muted-foreground">:</span>
+        <Select value={m ?? "00"} onValueChange={(nv) => onChange(`${h ?? "09"}:${nv}`)}>
+          <SelectTrigger className="h-10 w-[72px] font-mono"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {minutes.map((mm) => <SelectItem key={mm} value={mm}>{mm}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
 
 interface Props {
   open: boolean;
@@ -64,6 +101,9 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
   // Form state — modo instalación
   const [installationId, setInstallationId] = useState("");
   const [puestoId, setPuestoId] = useState("");
+
+  // Audiencia: a quién notificar (internos = contratados, externos = con turnos extra)
+  const [audiencia, setAudiencia] = useState<AudienciaAlerta>("ambos");
 
   // Form state — modo libre
   const [libreAddress, setLibreAddress] = useState("");
@@ -204,6 +244,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
         soloConMovilizacion,
         soloDealer,
         genero: genero || undefined,
+        audiencia,
       };
       if (modo === "instalacion") {
         body.installationId = installationId;
@@ -232,7 +273,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
     } finally {
       setLoadingPreview(false);
     }
-  }, [modo, installationId, puestoId, libreAddress, libreLat, libreLng, libreComuna, libreCiudad, modalidad, fechaInicio, fechaFin, montoOfrecido, funciones, urgencia, radioKm, requiereOS10, soloConMovilizacion, soloDealer, genero]);
+  }, [modo, installationId, puestoId, libreAddress, libreLat, libreLng, libreComuna, libreCiudad, modalidad, fechaInicio, fechaFin, montoOfrecido, funciones, urgencia, radioKm, requiereOS10, soloConMovilizacion, soloDealer, genero, audiencia]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -304,6 +345,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
 
   const resetForm = () => {
     setModo("instalacion");
+    setAudiencia("ambos");
     setInstallationId("");
     setPuestoId("");
     setLibreAddress("");
@@ -331,17 +373,23 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
 
   const OLEADA_TIPO_LABELS: Record<string, string> = {
     TURNO_SALIENTE: "Turno Saliente",
-    CERCANO: "Cercanos",
-    MEDIANO: "Medianos",
-    LEJANO: "Lejanos",
-    EXTERNO: "Externos",
+    INTERNO_CERCANO: "Contratados (cercanos)",
+    INTERNO_MEDIO: "Contratados (medianos)",
+    INTERNO_LEJANO: "Contratados (lejanos)",
+    CERCANO: "Contratados (cercanos)",
+    MEDIANO: "Contratados (medianos)",
+    LEJANO: "Contratados (lejanos)",
+    EXTERNO: "Turnos Extra",
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] md:w-[min(96vw,1100px)]">
         <DialogHeader>
           <DialogTitle>Nueva Alerta de Cobertura</DialogTitle>
+          <DialogDescription>
+            Crea una alerta por instalación o por dirección libre. El preview de oleadas se actualiza en tiempo real.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -371,6 +419,36 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
               >
                 Dirección libre
               </button>
+            </div>
+
+            {/* Selector de audiencia: a quién notificar */}
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Notificar a
+              </Label>
+              <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-muted/40 border">
+                {(["internos", "externos", "ambos"] as AudienciaAlerta[]).map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => setAudiencia(a)}
+                    className={`text-[11px] font-medium py-1.5 rounded-md transition-colors capitalize ${
+                      audiencia === a
+                        ? "bg-background shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {a === "internos" ? "Contratados" : a === "externos" ? "Turnos Extra" : "Ambos"}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                {audiencia === "internos"
+                  ? "Solo guardias contratados (planta) dentro del radio."
+                  : audiencia === "externos"
+                  ? "Solo guardias con disponibilidad para turnos extra."
+                  : "Contratados y turnos extra."}
+              </p>
             </div>
 
             {modo === "instalacion" ? (
@@ -437,30 +515,18 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
                   )}
                 </div>
 
-                {/* Horarios manuales */}
+                {/* Horarios manuales con picker compacto */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Hora inicio *</Label>
-                    <Input
-                      type="time"
-                      value={libreHoraInicio}
-                      onChange={(e) => setLibreHoraInicio(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Hora fin *</Label>
-                    <Input
-                      type="time"
-                      value={libreHoraFin}
-                      onChange={(e) => setLibreHoraFin(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="flex items-start gap-2 rounded-md bg-sky-500/10 border border-sky-500/20 p-2">
-                  <Info className="h-3.5 w-3.5 text-sky-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-[10px] text-sky-300">
-                    En modo libre solo se notifica al pool externo por distancia (no hay personal interno asignado a una instalación).
-                  </p>
+                  <QuickTimePicker
+                    label="Hora inicio *"
+                    value={libreHoraInicio}
+                    onChange={setLibreHoraInicio}
+                  />
+                  <QuickTimePicker
+                    label="Hora fin *"
+                    value={libreHoraFin}
+                    onChange={setLibreHoraFin}
+                  />
                 </div>
               </>
             )}

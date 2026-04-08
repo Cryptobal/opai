@@ -103,7 +103,9 @@ export async function GET(request: NextRequest) {
             ? (alertaCompleta.libreAddress ?? "")
             : (alertaCompleta.installation?.address ?? "");
 
-          notificarOleada({
+          // Crono: await directo (no after) — el cron no responde a un usuario,
+          // así que el tiempo que tarda no afecta UX.
+          await notificarOleada({
             tenantId: alertaCompleta.tenantId,
             alertaId: alerta.id,
             oleadaNumero: siguienteOleada,
@@ -119,7 +121,7 @@ export async function GET(request: NextRequest) {
             funciones: alertaCompleta.funciones,
             urgencia: alertaCompleta.urgencia,
             tiempoRestanteOleadaMin: oleada.esperaMin,
-          }).catch((err) => console.error(`[AlertaCobertura:Cron] Error notificando oleada ${siguienteOleada}:`, err));
+          }).catch((err: unknown) => console.error(`[AlertaCobertura:Cron] Error notificando oleada ${siguienteOleada}:`, err));
         }
       }
 

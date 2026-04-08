@@ -2,8 +2,13 @@ export interface AlertaCobertura {
   id: string;
   tenantId: string;
   creadaPorId: string;
-  installationId: string;
+  installationId: string | null;
   puestoId: string | null;
+  libreAddress: string | null;
+  libreLat: number | null;
+  libreLng: number | null;
+  libreComuna: string | null;
+  libreCiudad: string | null;
   radioKm: number;
   genero: string | null;
   modalidad: string;
@@ -42,7 +47,7 @@ export interface AlertaCobertura {
     city?: string | null;
     lat?: number | null;
     lng?: number | null;
-  };
+  } | null;
   creadaPor: {
     id: string;
     name: string;

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, parseBody, resolveApiPerms } from "@/lib/api-auth";
@@ -274,6 +274,7 @@ export async function POST(request: NextRequest) {
           requiereOS10: body.requiereOS10 ?? true,
           soloDealer: body.soloDealer ?? false,
           soloConMovilizacion: body.soloConMovilizacion ?? false,
+          audiencia: body.audiencia ?? "ambos",
         });
 
         const primeraOleada = resultado.oleadas[0];
@@ -314,9 +315,11 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Sprint 3: Disparar notificaciones a oleada 0 (fire-and-forget)
+        // Sprint 3: Disparar notificaciones a oleada 0 usando `after()`
+        // En Vercel serverless, fire-and-forget después del response se cancela.
+        // `after()` garantiza que la promesa termine antes de que la función se apague.
         if (primeraOleada && primeraOleada.guardiaIds.length > 0) {
-          notificarOleada({
+          const notifParams = {
             tenantId: ctx.tenantId,
             alertaId: alerta.id,
             oleadaNumero: 0,
@@ -332,7 +335,14 @@ export async function POST(request: NextRequest) {
             urgencia: body.urgencia ?? null,
             tiempoRestanteOleadaMin: primeraOleada.esperaMin,
             modalidad: body.modalidad,
-          }).catch((err) => console.error("[AlertaCobertura] Error notificando oleada 0:", err));
+          };
+          after(async () => {
+            try {
+              await notificarOleada(notifParams);
+            } catch (err) {
+              console.error("[AlertaCobertura] Error notificando oleada 0:", err);
+            }
+          });
         }
 
         // Pusher: nueva alerta creada

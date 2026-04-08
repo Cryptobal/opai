@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
       requiereOS10: body.requiereOS10 ?? true,
       soloDealer: body.soloDealer ?? false,
       soloConMovilizacion: body.soloConMovilizacion ?? false,
+      audiencia: body.audiencia ?? "ambos",
     });
 
     return NextResponse.json({

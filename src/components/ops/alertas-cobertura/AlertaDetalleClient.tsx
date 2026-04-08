@@ -203,7 +203,7 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold">{alerta.installation.name}</h1>
+              <h1 className="text-lg font-semibold">{alerta.installation?.name ?? (alerta.libreComuna ? `Cobertura — ${alerta.libreComuna}` : (alerta.libreAddress ?? "Cobertura"))}</h1>
               <Badge variant="outline" className={estadoBadge.className}>
                 {estadoBadge.label}
               </Badge>
@@ -277,7 +277,7 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
           <CardContent className="space-y-2.5 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Dirección</span>
-              <span className="text-right text-xs">{alerta.installation.address || "—"}</span>
+              <span className="text-right text-xs">{alerta.installation?.address || alerta.libreAddress || "—"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Modalidad</span>

@@ -32,8 +32,7 @@ export interface GenerarOleadasParams {
   tenantId: string;
   /**
    * Si es null, la alerta es en "modo libre" (dirección manual).
-   * En ese caso NO se generan oleadas internas (no hay instalación a la que
-   * pertenezcan guardias); solo se genera la oleada externa por distancia.
+   * Puede generar oleadas internas/externas igual, segmentadas solo por distancia.
    */
   installationId: string | null;
   instalacionLat: number;
@@ -46,6 +45,13 @@ export interface GenerarOleadasParams {
   requiereOS10: boolean;
   soloDealer: boolean;
   soloConMovilizacion: boolean;
+  /**
+   * Audiencia: a quién notificar.
+   * - "internos": solo contratados (planta) — oleadas por anillos de distancia
+   * - "externos": solo guardias con `availableExtraShifts = true` — una sola oleada
+   * - "ambos" (default): ambos, primero internos por anillos, luego externos
+   */
+  audiencia?: "internos" | "externos" | "ambos";
 }
 
 interface OleadasResult {
@@ -59,6 +65,10 @@ interface OleadasResult {
 
 export async function generarOleadas(params: GenerarOleadasParams): Promise<OleadasResult> {
   const config = await getAlertaCoberturaConfig(params.tenantId);
+  const audiencia = params.audiencia ?? "ambos";
+  const incluirInternos = audiencia === "internos" || audiencia === "ambos";
+  const incluirExternos = audiencia === "externos" || audiencia === "ambos";
+
   const oleadas: Oleada[] = [];
   const previews: OleadasPreview[] = [];
   const guardiaIdsUsados = new Set<string>();
@@ -83,7 +93,12 @@ export async function generarOleadas(params: GenerarOleadasParams): Promise<Olea
   let todosInternos: import("./segmentacion.service").GuardiaCandidate[] = [];
   let guardiasConCoordenadas = 0;
 
-  if (params.installationId) {
+  // Oleadas internas: los "contratados" (fase INTERNA).
+  // ANTES: solo corría cuando había installationId.
+  // AHORA: corre siempre que la audiencia incluya internos — installationId es
+  // opcional porque la segmentación internamente solo lo usa para excluir
+  // guardias ocupados por horario (ese filtro funciona con null).
+  if (incluirInternos) {
     const radioMaxInterno = Math.min(params.radioKm, config.oleada3RadioKm);
     todosInternos = await resolverCandidatos({
       tenantId: params.tenantId,
@@ -158,7 +173,7 @@ export async function generarOleadas(params: GenerarOleadasParams): Promise<Olea
   }
 
   // === OLEADA EXTERNA ===
-  const externos = await resolverCandidatos({
+  const externos = incluirExternos ? await resolverCandidatos({
     tenantId: params.tenantId,
     installationId: params.installationId, // puede ser null en modo libre
     instalacionLat: params.instalacionLat,
@@ -172,7 +187,7 @@ export async function generarOleadas(params: GenerarOleadasParams): Promise<Olea
     soloDealer: params.soloDealer,
     soloConMovilizacion: params.soloConMovilizacion,
     fase: "EXTERNA",
-  });
+  }) : [];
 
   const externosFiltrados = externos.filter((g) => !guardiaIdsUsados.has(g.guardiaId));
 
