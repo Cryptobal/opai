@@ -219,6 +219,36 @@ export function PersonasHubClient() {
   return <UnifiedLoginScreen tenantBrand={tenantBrand} />;
 }
 
+/**
+ * Rewrites error messages from /api/portal/guardia/auth for the unified
+ * Personas login. The underlying endpoint is guardia-specific, so its
+ * messages ("use el PIN de marcación") can be confusing when someone tries
+ * to log in as cliente. We append (or replace) the text to steer them to
+ * the cliente link below the form.
+ */
+function rewritePersonasAuthError(serverError: unknown): string {
+  const msg = typeof serverError === "string" && serverError.length > 0
+    ? serverError
+    : "Error al iniciar sesión.";
+
+  // "PIN incorrecto. Use el mismo PIN de marcación de asistencia."
+  if (/PIN incorrecto/i.test(msg)) {
+    return "PIN incorrecto. Si eres guardia usa tu PIN de marcación; si eres cliente, ingresa por el link de abajo.";
+  }
+
+  // "PIN no configurado. Contacte a su supervisor..."
+  if (/PIN no configurado/i.test(msg)) {
+    return `${msg} Si eres cliente, ingresa por el link de abajo.`;
+  }
+
+  // "RUT no encontrado..." or "Su RUT no está asociado a un guardia activo..."
+  if (/RUT/i.test(msg)) {
+    return `${msg} Si eres cliente, ingresa por el link de abajo.`;
+  }
+
+  return msg;
+}
+
 /* ------------------------------------------------------------------ */
 /*  UnifiedLoginScreen                                                  */
 /* ------------------------------------------------------------------ */
@@ -260,7 +290,7 @@ function UnifiedLoginScreen({ tenantBrand }: { tenantBrand: TenantBrand | null }
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Error al iniciar sesión.");
+        setError(rewritePersonasAuthError(data.error));
         return;
       }
       const sessionData = (data.data ?? data.session) as
