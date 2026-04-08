@@ -28,6 +28,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "No encontrado" }, { status: 404 });
     }
 
+    // Contacto del DPO del tenant (Ley 21.719). Fallback a datos@opai.cl
+    // si el tenant todavía no lo configuró.
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: guardAuth.tenantId },
+      select: { dpoContactEmail: true },
+    });
+    const contactoDerechos = tenant?.dpoContactEmail?.trim() || "datos@opai.cl";
+
     // Descifrar campos sensibles (Ley 21.719)
     const persona = decryptPersonaFields(guardia.persona);
 
@@ -92,7 +100,7 @@ export async function GET(request: NextRequest) {
           "Gestión de la relación laboral, control de asistencia, pago de remuneraciones, cumplimiento normativo",
         baseLegal: "Ejecución del contrato de trabajo y obligaciones legales laborales",
         plazoConservacion: "Durante la relación laboral y 5 años después de su término",
-        contactoDerechos: "datos@opai.cl",
+        contactoDerechos,
       },
     });
   } catch (error) {

@@ -45,6 +45,13 @@ const CONFIG_SECTIONS: ConfigSection[] = [
     ],
   },
   {
+    key: "compliance",
+    title: "Compliance",
+    items: [
+      { submodule: "usuarios", href: "/opai/configuracion/cumplimiento", title: "Cumplimiento (Ley 21.719)", description: "Contacto del DPO y estado del DPA", icon: "shield-check", adminOnly: true },
+    ],
+  },
+  {
     key: "modulos",
     title: "Módulos",
     items: [
