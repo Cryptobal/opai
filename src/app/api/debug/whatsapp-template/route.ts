@@ -39,6 +39,23 @@ export async function GET(request: NextRequest) {
 
   const client = Twilio(accountSid, authToken);
 
+  // Modo especial: listar Messaging Services del account
+  if (request.nextUrl.searchParams.get("services") === "1") {
+    try {
+      const services = await client.messaging.v1.services.list({ limit: 20 });
+      return NextResponse.json({
+        services: services.map((s) => ({
+          sid: s.sid,
+          friendlyName: s.friendlyName,
+          useCase: s.useCase,
+          dateCreated: s.dateCreated,
+        })),
+      });
+    } catch (err: any) {
+      return NextResponse.json({ error: err?.message, code: err?.code }, { status: 500 });
+    }
+  }
+
   const send = request.nextUrl.searchParams.get("send");
   if (send) {
     if (!fromNumber) {
