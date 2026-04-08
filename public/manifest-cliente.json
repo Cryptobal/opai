@@ -2,7 +2,7 @@
   "name": "OPAI Clientes",
   "short_name": "OPAI Clientes",
   "id": "/portal/cliente",
-  "description": "Portal de clientes — Gard Security",
+  "description": "Portal de clientes — Opai",
   "start_url": "/portal/cliente",
   "scope": "/portal/cliente",
   "display": "standalone",

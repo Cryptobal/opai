@@ -41,17 +41,13 @@ import {
   Zap,
   DollarSign,
 } from "lucide-react";
-import { AuthShell } from "@/components/auth/AuthShell";
-import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
-import { AuthTextInput } from "@/components/auth/AuthTextInput";
-import { AuthPinInput } from "@/components/auth/AuthPinInput";
-import { AuthButton } from "@/components/auth/AuthButton";
-import { IdCardIcon } from "@/components/auth/icons";
+import { UnifiedLoginCard } from "@/components/auth/UnifiedLoginCard";
 import { ChatGuardPortal } from "@/components/portal/ChatGuardPortal";
 import { GuardDesempenoSection } from "@/components/portal/GuardDesempenoSection";
 import { AccessControlGuardHome } from "@/components/access-control/AccessControlGuardHome";
 import { AlertasCoberturaGuardiaSection } from "@/components/portal/AlertasCoberturaGuardiaSection";
 import { MisDatosSection } from "@/components/portal/MisDatosSection";
+import { SwitchPortalButton } from "@/components/portal/SwitchPortalButton";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import { FaceCameraCapture } from "@/app/portal/marcacion/_components/FaceCameraCapture";
@@ -76,8 +72,6 @@ import {
   PORTAL_NAV_ITEMS,
   SHIFT_CODE_LABELS,
   EXTRA_SHIFT_STATUS_LABELS,
-  formatRut,
-  isValidRut,
   getGreeting,
   formatClp,
 } from "@/lib/guard-portal";
@@ -334,159 +328,27 @@ export function GuardPortalClient() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  LOGIN SCREEN
+//  LOGIN SCREEN — delegates 100% to the shared UnifiedLoginCard.
+//  All of the previous RUT+PIN + Google + error-handling logic lives
+//  in src/components/auth/UnifiedLoginCard.tsx under mode="guardia".
+//  The only thing this wrapper does is receive the session from the
+//  card callback and push it into this client's local state so the
+//  portal re-renders into the dashboard without a full reload.
 // ═══════════════════════════════════════════════════════════════
 
 function LoginScreen({ onLogin }: { onLogin: (s: GuardSession) => void }) {
-  const [rut, setRut] = useState("");
-  const [pin, setPin] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function handleRutChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const formatted = formatRut(e.target.value);
-    if (formatted.replace(/-/g, "").length <= 9) {
-      setRut(formatted);
-    }
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-
-    if (!isValidRut(rut)) {
-      setError("RUT inválido. Ingresa un RUT válido.");
-      return;
-    }
-    if (pin.length < 4) {
-      setError("El PIN debe tener al menos 4 dígitos.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch("/api/portal/guardia/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rut: rut.replace(/\./g, ""), pin }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Error al iniciar sesión.");
-        return;
-      }
-      const sessionData = (data.data ?? data.session) as GuardSession | undefined;
-      if (!sessionData || !sessionData.guardiaId) {
-        console.error("[Portal] Respuesta inesperada del servidor:", data);
-        setError("Error al procesar la respuesta. Intenta nuevamente.");
-        return;
-      }
-      toast.success("Sesión iniciada correctamente");
-      onLogin(sessionData);
-    } catch (err) {
-      console.error("[Portal] Error de conexión:", err);
-      setError("Error de conexión. Intenta nuevamente.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const ACCENT = "#2dd4bf";
-
   return (
-    <AuthShell
-      portalId="guardia"
-      accent={ACCENT}
-      accentRgb="45, 212, 191"
-      portalName="Portal Guardia"
-      portalSubtitle="Novedades y asistencia"
-    >
-      <AuthFormHeader title="Ingresa tu PIN" subtitle="Código de 4 dígitos asignado por tu supervisor" />
-
-      <PWAInstallBanner
-        appName="OPAI Guardias"
-        appDescription="Turnos, chat y más desde tu celular"
-        iconSrc="/icons/icon-192x192.png"
-        variant="inline"
-        dismissKey="guardia"
-      />
-
-      <form onSubmit={handleSubmit}>
-        <AuthTextInput
-          label="RUT"
-          accent={ACCENT}
-          icon={<IdCardIcon />}
-          value={rut}
-          onChange={handleRutChange}
-          placeholder="12.345.678-9"
-          maxLength={12}
-          autoComplete="username"
-          autoFocus
-        />
-
-        <label
-          className="block text-xs font-medium text-[#9ca3af] mb-[7px]"
-          style={{ letterSpacing: "0.02em", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-        >
-          Tu PIN (4 d&iacute;gitos)
-        </label>
-        <AuthPinInput length={4} accent={ACCENT} value={pin} onChange={setPin} />
-
-        {error && (
-          <div className="rounded-xl px-4 py-3 mb-4" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
-            <p className="text-xs text-red-400 text-center">{error}</p>
-          </div>
-        )}
-
-        <AuthButton
-          accent={ACCENT}
-          label="Ingresar"
-          type="submit"
-          disabled={loading || !rut || pin.length < 4}
-          loading={loading}
-        />
-
-        <div className="text-center mt-4">
-          <span className="text-xs text-[#6b7280]">&iquest;Olvidaste tu PIN? Contacta a tu supervisor</span>
-        </div>
-      </form>
-
-      {/* Separator */}
-      <div className="relative my-5">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-white/10" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-[#0f1729] px-2 text-[#6b7280]">o</span>
-        </div>
-      </div>
-
-      {/* Google Sign-In */}
-      <button
-        onClick={() => { window.location.href = "/api/portal/guardia/auth/google"; }}
-        type="button"
-        className="w-full flex items-center justify-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium transition-colors cursor-pointer"
-        style={{
-          border: "1px solid rgba(255,255,255,0.08)",
-          background: "rgba(255,255,255,0.03)",
-          color: "#d1d5db",
-          fontFamily: "'Plus Jakarta Sans', sans-serif",
-        }}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-        </svg>
-        Continuar con Google
-      </button>
-      <p className="text-center text-xs text-[#6b7280] mt-2">
-        &iquest;Primera vez? Se abrir&aacute; el formulario de postulaci&oacute;n.
-      </p>
-    </AuthShell>
+    <UnifiedLoginCard
+      mode="guardia"
+      onLoginSuccess={(session) => {
+        if (session && typeof session === "object" && "guardiaId" in session) {
+          onLogin(session as GuardSession);
+        }
+      }}
+    />
   );
 }
+
 
 // ═══════════════════════════════════════════════════════════════
 //  INICIO SECTION
@@ -1947,6 +1809,11 @@ function PerfilSection({
         <LogOut className="h-4 w-4" />
         Cerrar sesión
       </Button>
+
+      {/* Switch portal (Capacitor only) */}
+      <div className="flex justify-center pt-2">
+        <SwitchPortalButton />
+      </div>
     </div>
   );
 }

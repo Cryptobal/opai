@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
 import { BadgeClear } from "@/components/pwa/BadgeClear";
+import { TerrenoModeSwitcher } from "@/components/portal/TerrenoModeSwitcher";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -29,6 +30,7 @@ export default function PortalRondasLayout({ children }: { children: React.React
     <div className="min-h-dvh text-[#f5f5f5] antialiased" style={{ paddingTop: 'var(--safe-area-top)' }}>
       <ServiceWorkerRegistrar scope="/portal/rondas" />
       <BadgeClear />
+      <TerrenoModeSwitcher active="rondas" />
       {children}
     </div>
   );

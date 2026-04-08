@@ -2,18 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import {
   ChevronDown,
 } from "lucide-react";
 import { SplashScreen } from "@/components/pwa/SplashScreen";
-import { AuthShell } from "@/components/auth/AuthShell";
-import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
-import { AuthTextInput } from "@/components/auth/AuthTextInput";
-import { AuthPinInput } from "@/components/auth/AuthPinInput";
-import { AuthButton } from "@/components/auth/AuthButton";
-import { MailIcon } from "@/components/auth/icons";
+import { UnifiedLoginCard } from "@/components/auth/UnifiedLoginCard";
 import { ChatClientePortal } from "@/components/portal/cliente/ChatClientePortal";
 import { PortalDocumentos } from "@/components/portal/cliente/PortalDocumentos";
 import { PortalClienteNav, PortalSection } from "@/components/portal/cliente/PortalClienteNav";
@@ -60,19 +54,13 @@ export function PortalClienteClient() {
   const [screen, setScreen] = useState<"login" | "dashboard">("login");
   const [activeSection, setActiveSection] = useState<PortalSection>(initialSection || "dashboard");
 
-  /* ── Login state ── */
+  /* ── Login state ──
+   * The UnifiedLoginCard owns email/PIN/loading/error state internally.
+   * We only need to keep initialEmail because it's the CPQ deep-link prefill.
+   * Legacy Google-error query params are intentionally ignored here —
+   * the unified OAuth flow doesn't use them, and the legacy endpoint is
+   * kept alive only as a server-side fallback. */
   const initialEmail = searchParams.get("email") ?? "";
-  const googleError = searchParams.get("error");
-  const [email, setEmail] = useState(initialEmail);
-  const [pin, setPin] = useState("");
-  const [loginError, setLoginError] = useState(() => {
-    if (googleError === "google_not_registered") return "Tu cuenta de Google no est\u00e1 registrada como cliente.";
-    if (googleError === "google_account_inactive") return "La cuenta de cliente est\u00e1 inactiva.";
-    if (googleError === "google_cancelled") return "Inicio de sesi\u00f3n con Google cancelado.";
-    if (googleError === "google_token_failed" || googleError === "google_no_email") return "Error al autenticar con Google. Intenta nuevamente.";
-    return "";
-  });
-  const [loggingIn, setLoggingIn] = useState(false);
 
   /* ── Selected installation ── */
   const [selectedInstallation, setSelectedInstallation] = useState("");
@@ -129,31 +117,8 @@ export function PortalClienteClient() {
     try { await fetch("/api/portal/cliente/tour", { method: "POST" }); } catch {}
   };
 
-  /* ── Login ── */
-  async function handleLogin() {
-    setLoginError("");
-    setLoggingIn(true);
-    try {
-      const res = await fetch("/api/portal/cliente/auth", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), pin }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        setSession(json.data);
-        setSelectedInstallation(json.data.installations[0]?.id ?? "");
-        setScreen("dashboard");
-      } else {
-        setLoginError(json.error || "Error de autenticacion");
-      }
-    } catch {
-      setLoginError("Error de conexion");
-    } finally {
-      setLoggingIn(false);
-    }
-  }
+  /* Login is handled by <UnifiedLoginCard mode="cliente" />. The screen
+   * transition after a successful login happens via onLoginSuccess below. */
 
   const portalConfig = session?.portalConfig ?? DEFAULT_PORTAL_CONFIG;
 
@@ -286,105 +251,30 @@ export function PortalClienteClient() {
   }
 
   /* ══════════════════════════════════════ LOGIN ══════════════════════════════════════ */
+  /* The standalone cliente login delegates to the shared UnifiedLoginCard,
+   * exactly like /portal/guardia and /portal/personas. The only thing this
+   * wrapper adds is:
+   *   - initialEmail from ?email= (CPQ deep-link pre-fill)
+   *   - onLoginSuccess callback that transitions screen → "dashboard" and
+   *     pushes the returned session into local state, avoiding a full
+   *     reload (the dashboard is in the SAME component).
+   */
   if (screen === "login") {
-    const ACCENT = "#3b82f6";
     return (
-      <AuthShell
-        portalId="cliente"
-        accent={ACCENT}
-        accentRgb="59, 130, 246"
-        portalName="Cliente"
-        portalSubtitle="Portal de Servicios"
-      >
-        <AuthFormHeader title="Portal de Clientes" subtitle="powered by OPAI" />
-        <p className="text-sm text-[#9ca3af] text-center max-w-xs mx-auto -mt-2 mb-4">
-          El único sistema operativo integral de seguridad privada en Chile. Visibilidad total de tu servicio en tiempo real.
-        </p>
-
-        <PWAInstallBanner
-          appName="OPAI Clientes"
-          appDescription="Tu portal de seguridad siempre disponible"
-          iconSrc="/icons/icon-192x192.png"
-          variant="inline"
-          dismissKey="cliente"
-        />
-
-        <div>
-          <AuthTextInput
-            label="Correo electrónico"
-            accent={ACCENT}
-            icon={<MailIcon />}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="tu@empresa.com"
-            type="email"
-          />
-
-          <label
-            className="block text-sm font-medium text-[#9ca3af] mb-[7px]"
-            style={{ letterSpacing: "0.02em", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-          >
-            PIN de acceso (4 dígitos)
-          </label>
-          <AuthPinInput length={4} accent={ACCENT} value={pin} onChange={setPin} />
-
-          {loginError && (
-            <div className="rounded-xl px-4 py-3 mb-4" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
-              <p className="text-xs text-red-400 text-center">{loginError}</p>
-            </div>
-          )}
-
-          <AuthButton
-            accent={ACCENT}
-            label="Ingresar al Portal"
-            onClick={handleLogin}
-            disabled={loggingIn || !email.trim() || !pin}
-            loading={loggingIn}
-          />
-
-          <div className="text-center mt-4">
-            <button
-              type="button"
-              onClick={() => router.push("/portal/cliente/forgot-pin")}
-              className="text-xs transition-colors"
-              style={{ color: "#6b7280" }}
-            >
-              ¿Olvidaste tu PIN?
-            </button>
-          </div>
-
-          {/* Separator */}
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-white/10" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#0f1729] px-2 text-[#6b7280]">o</span>
-            </div>
-          </div>
-
-          {/* Google Sign-In */}
-          <button
-            onClick={() => { window.location.href = "/api/portal/cliente/auth/google"; }}
-            type="button"
-            className="w-full flex items-center justify-center gap-2.5 rounded-xl px-4 py-3 text-sm font-medium transition-colors cursor-pointer"
-            style={{
-              border: "1px solid rgba(255,255,255,0.08)",
-              background: "rgba(255,255,255,0.03)",
-              color: "#d1d5db",
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-            </svg>
-            Continuar con Google
-          </button>
-        </div>
-      </AuthShell>
+      <UnifiedLoginCard
+        mode="cliente"
+        initialEmail={initialEmail}
+        onLoginSuccess={(data) => {
+          const clienteSession = data as ClienteSession | undefined;
+          if (!clienteSession) {
+            window.location.reload();
+            return;
+          }
+          setSession(clienteSession);
+          setSelectedInstallation(clienteSession.installations?.[0]?.id ?? "");
+          setScreen("dashboard");
+        }}
+      />
     );
   }
 

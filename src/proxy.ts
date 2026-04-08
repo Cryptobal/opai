@@ -60,6 +60,8 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/portal/rondas')) return true;
   if (pathname.startsWith('/portal/acceso')) return true; // Control de acceso (auth por device_token)
   if (pathname.startsWith('/portal/marcacion')) return true; // Portal Marcación (auth por device_token)
+  if (pathname.startsWith('/portal/terreno')) return true; // Hub Opai Terreno (auth por device_token)
+  if (pathname.startsWith('/portal/personas')) return true; // Hub Opai Personas (login unificado RUT+PIN / Google / cookie)
   if (pathname.startsWith('/registro-demo')) return true; // Auto-registro prospecto demo
   if (pathname.startsWith('/descargar')) return true; // PWA download landing pages
   if (pathname === '/welcome') return true;
@@ -82,6 +84,9 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/portal/guardia')) return true;
   if (pathname.startsWith('/api/portal/cliente')) return true;
   if (pathname.startsWith('/api/portal/rondas')) return true;
+  if (pathname.startsWith('/api/portal/auth/unified-google')) return true; // Unified OAuth (multi-role resolution)
+  if (pathname.startsWith('/api/tenant/branding')) return true; // Public branding for hubs
+  if (pathname.startsWith('/api/push/register')) return true; // Push token registration (auth checked in-route)
   if (pathname.startsWith('/api/access-control/')) return true; // All access-control routes use device_token auth
   if (pathname === '/api/devices/pair') return true; // Unified device pairing (no auth)
   if (pathname === '/api/devices/validate') return true; // Device validation (auth by device_token)

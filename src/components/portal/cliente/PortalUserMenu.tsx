@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, LogOut } from "lucide-react";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { cn } from "@/lib/utils";
+import { SwitchPortalButton } from "@/components/portal/SwitchPortalButton";
 
 interface Props {
   session: ClienteSession;
@@ -60,6 +61,9 @@ export function PortalUserMenu({ session, onNotificaciones, onLogout }: Props) {
             <LogOut className="h-4 w-4" />
             Salir
           </button>
+          <div className="flex justify-center px-4 py-2 border-t border-zinc-700">
+            <SwitchPortalButton />
+          </div>
         </div>
       )}
     </div>

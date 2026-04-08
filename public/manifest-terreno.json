@@ -1,0 +1,64 @@
+{
+  "name": "Opai Terreno",
+  "short_name": "Terreno",
+  "id": "/portal/terreno",
+  "description": "Portal de operaciones en terreno — Marcación, Rondas y Control de Acceso",
+  "start_url": "/portal/terreno",
+  "scope": "/portal",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#060a13",
+  "background_color": "#060a13",
+  "icons": [
+    {
+      "src": "/icons/terreno/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/terreno/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/terreno/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/terreno/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Marcación",
+      "short_name": "Marcación",
+      "url": "/portal/marcacion",
+      "icons": [
+        { "src": "/icons/terreno/icon-96x96.png", "sizes": "96x96", "type": "image/png" }
+      ]
+    },
+    {
+      "name": "Rondas",
+      "short_name": "Rondas",
+      "url": "/portal/rondas",
+      "icons": [
+        { "src": "/icons/terreno/icon-96x96.png", "sizes": "96x96", "type": "image/png" }
+      ]
+    },
+    {
+      "name": "Control de Acceso",
+      "short_name": "Acceso",
+      "url": "/portal/acceso",
+      "icons": [
+        { "src": "/icons/terreno/icon-96x96.png", "sizes": "96x96", "type": "image/png" }
+      ]
+    }
+  ]
+}

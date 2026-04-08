@@ -2,7 +2,7 @@
   "name": "OPAI Supervisor",
   "short_name": "OPAI Supervisor",
   "id": "/portal/supervisor",
-  "description": "Portal de supervisores — Gard Security",
+  "description": "Portal de supervisores — Opai",
   "start_url": "/portal/supervisor",
   "scope": "/portal/supervisor",
   "display": "standalone",

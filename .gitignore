@@ -57,5 +57,13 @@ node_modules_bad_1771520600/
 .worktrees/
 
 # Capacitor native projects (regenerated with `npx cap add`)
+# These are per-app working dirs populated by the cap:<app>:* scripts
+# in package.json. One dir per platform per app.
 android/
 ios/
+android-terreno/
+android-personas/
+android-erp/
+ios-terreno/
+ios-personas/
+ios-erp/
