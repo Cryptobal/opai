@@ -187,18 +187,29 @@ export async function GET(request: NextRequest) {
       "7": "Test debug",
     };
 
+    // Si se pasa ?msgService=MG..., usa ese Messaging Service en vez de `from`
+    const msgServiceSid = request.nextUrl.searchParams.get("msgService");
+
     try {
-      const msg = await client.messages.create({
-        from,
+      const createParams: Record<string, unknown> = {
         to,
         contentSid,
         contentVariables: JSON.stringify(variables),
-      });
+      };
+      if (msgServiceSid) {
+        createParams.messagingServiceSid = msgServiceSid;
+      } else {
+        createParams.from = from;
+      }
+
+      const msg = await client.messages.create(createParams as any);
       return NextResponse.json({
         ok: true,
         messageSid: msg.sid,
         status: msg.status,
-        from,
+        strategy: msgServiceSid ? "messagingService" : "from",
+        from: msgServiceSid ? undefined : from,
+        messagingServiceSid: msgServiceSid || undefined,
         to,
         variables,
       });
@@ -211,12 +222,14 @@ export async function GET(request: NextRequest) {
           status: err?.status,
           moreInfo: err?.moreInfo,
           details: err?.details,
-          from,
+          strategy: msgServiceSid ? "messagingService" : "from",
+          from: msgServiceSid ? undefined : from,
+          messagingServiceSid: msgServiceSid || undefined,
           to,
           contentSidPrefix: contentSid.substring(0, 10),
           variables,
         },
-        { status: 200 }, // 200 so user can read the JSON easily
+        { status: 200 },
       );
     }
   }
