@@ -79,6 +79,7 @@ function AppLayoutClientInner({
   // Use simulated permissions when active, otherwise real permissions
   const permissions = isSimulating ? effectivePermissions : realPermissions;
   const isAdmin = userRole === 'owner' || userRole === 'admin';
+  const isComplianceVisible = userRole === 'owner' || userRole === 'admin' || userRole === 'rrhh';
   const { isModuleEnabled } = useTenantModules();
 
   // Doble check: permiso de rol + módulo del tenant
@@ -254,7 +255,17 @@ function AppLayoutClientInner({
         isModuleEnabled('control_acceso') && { href: '/portal/acceso', label: 'Control de Acceso', icon: ScanLine },
       ].filter(Boolean) as NavItem['children'],
     },
-  ], [permissions, isAdmin, isModuleEnabled, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge]);
+    // ── Cumplimiento (Ley 21.719) ──
+    {
+      href: '/opai/compliance/arco',
+      label: 'Cumplimiento',
+      icon: Shield,
+      show: isComplianceVisible,
+      children: [
+        { href: '/opai/compliance/arco', label: 'Solicitudes ARCO', icon: Shield },
+      ],
+    },
+  ], [permissions, isAdmin, isComplianceVisible, isModuleEnabled, unreadMentionNotesCount, notesByModule, crmNotesBadge, opsNotesBadge, payrollNotesBadge, docsNotesBadge, financeNotesBadge, personasNotesBadge]);
 
   return (
     <InAppNotificationProvider
