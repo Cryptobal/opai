@@ -23,6 +23,7 @@ import {
   buildDefaultPortalInviteEmailSubject,
   truncateCustomEmailSubject,
 } from "@/lib/cpq-portal-email-subject";
+import { buildPortalClienteInviteUrl } from "@/lib/portal-cliente-url";
 
 export interface SendQuoteToPortalOptions {
   quoteId: string;
@@ -290,11 +291,26 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
 
   // Send email
   const tenantConfig = await getTenantCompanyConfig(tenantId);
-  const basePortalUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/portal/cliente`;
-  const portalUrl = contact.email ? `${basePortalUrl}?email=${encodeURIComponent(contact.email)}` : basePortalUrl;
+  const portalUrl = await buildPortalClienteInviteUrl({
+    email: contact.email,
+    tenantId,
+  });
   const contactName = `${contact.firstName} ${contact.lastName}`.trim();
 
-  const whatsappMsg = `Hola ${contactName}, soy ${ejecutivoName} de la empresa ${account.name} por la cotización ${quote.code}. Tengo una consulta.`;
+  /** Nombre manual en CPQ/lead (prioridad) — mismo criterio que el asunto del correo de portal */
+  const manualRef = quote.name?.trim() || quote.clientName?.trim() || null;
+  const installationLabel = quote.installation?.name?.trim() || null;
+
+  const whatsappMsg = [
+    `Hola ${contactName}, qle.`,
+    `Soy ${ejecutivoName} de la empresa ${account.name}.`,
+    `Cotización ${quote.code}.`,
+    manualRef ? `Nombre / referencia: ${manualRef}.` : null,
+    installationLabel ? `Instalación: ${installationLabel}.` : null,
+    `Tengo una consulta.`,
+  ]
+    .filter(Boolean)
+    .join(" ");
   const whatsappBase = (tenantConfig.whatsappLink || "https://wa.me/5698277711").replace(/\?.*$/, "");
   const whatsappUrl = `${whatsappBase}?text=${encodeURIComponent(whatsappMsg)}`;
 
@@ -471,7 +487,18 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     pinGenerated: !contact.portalPin,
     proposalLink: presentationUniqueId ? `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/p/${presentationUniqueId}?mode=commercial` : null,
     whatsappPhone: normalizePhone(contact.phone),
-    whatsappMessage: buildWhatsAppMessage({ contactName, companyName: account.name, email: contact.email, pin, portalUrl, ejecutivoName, brandName: tenantConfig.commercialName }),
+    whatsappMessage: buildWhatsAppMessage({
+      contactName,
+      companyName: account.name,
+      quoteCode: quote.code,
+      manualRef,
+      installationName: installationLabel,
+      email: contact.email,
+      pin,
+      portalUrl,
+      ejecutivoName,
+      brandName: tenantConfig.commercialName,
+    }),
     contactName,
   };
 }
@@ -488,6 +515,10 @@ function normalizePhone(raw: string | null | undefined): string | null {
 interface WhatsAppMsgParams {
   contactName: string;
   companyName: string;
+  quoteCode: string;
+  /** Nombre escrito a mano en la cotización (o clientName); si no hay, se usa cuenta en el encabezado */
+  manualRef: string | null;
+  installationName: string | null;
   email: string;
   pin: string;
   portalUrl: string;
@@ -496,15 +527,44 @@ interface WhatsAppMsgParams {
 }
 
 function buildWhatsAppMessage(params: WhatsAppMsgParams): string {
-  const { contactName, companyName, email, pin, portalUrl, ejecutivoName, brandName } = params;
+  const {
+    contactName,
+    companyName,
+    quoteCode,
+    manualRef,
+    installationName,
+    email,
+    pin,
+    portalUrl,
+    ejecutivoName,
+    brandName,
+  } = params;
   const firstName = contactName.split(" ")[0];
+  const headerLines: string[] = [`*Cotización ${quoteCode}*`];
+  if (manualRef) {
+    headerLines.push(`*Nombre / referencia:* ${manualRef}`);
+  } else {
+    headerLines.push(`*Cuenta:* ${companyName}`);
+  }
+  if (installationName) {
+    headerLines.push(`*Instalación:* ${installationName}`);
+  }
   return [
-    `*Cotización para ${companyName}*`, "",
-    `Hola ${firstName}, soy *${ejecutivoName}* de *${brandName}*.`, "",
-    `Te envié por correo una propuesta de seguridad personalizada. En tu portal privado podrás revisar todo el detalle y chatear directamente conmigo.`, "",
-    `*Ingresa al portal desde este link* (tu correo ya está prellenado):`, portalUrl, "",
-    `*Credenciales de acceso:*`, `Correo: ${email}`, `PIN: ${pin}`, "",
-    `Solo ingresa el PIN y listo.`, "",
+    ...headerLines,
+    "",
+    `Hola ${firstName}, qle. Soy *${ejecutivoName}* de *${brandName}*.`,
+    "",
+    `Te envié por correo una propuesta de seguridad personalizada. En tu portal privado podrás revisar todo el detalle y chatear directamente conmigo.`,
+    "",
+    `*Ingresa al portal desde este link* (tu correo ya está prellenado):`,
+    portalUrl,
+    "",
+    `*Credenciales de acceso:*`,
+    `Correo: ${email}`,
+    `PIN: ${pin}`,
+    "",
+    `Solo ingresa el PIN y listo.`,
+    "",
     `¿Quieres que agendemos una llamada para revisarla juntos? Responde aquí.`,
   ].join("\n");
 }
