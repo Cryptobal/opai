@@ -52,6 +52,7 @@ import { GuardDesempenoSection } from "@/components/portal/GuardDesempenoSection
 import { AccessControlGuardHome } from "@/components/access-control/AccessControlGuardHome";
 import { AlertasCoberturaGuardiaSection } from "@/components/portal/AlertasCoberturaGuardiaSection";
 import { MisDatosSection } from "@/components/portal/MisDatosSection";
+import { SwitchPortalButton } from "@/components/portal/SwitchPortalButton";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import { FaceCameraCapture } from "@/app/portal/marcacion/_components/FaceCameraCapture";
@@ -1947,6 +1948,11 @@ function PerfilSection({
         <LogOut className="h-4 w-4" />
         Cerrar sesión
       </Button>
+
+      {/* Switch portal (Capacitor only) */}
+      <div className="flex justify-center pt-2">
+        <SwitchPortalButton />
+      </div>
     </div>
   );
 }

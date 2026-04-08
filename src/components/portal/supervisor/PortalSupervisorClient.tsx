@@ -32,6 +32,7 @@ import { VisitaTecnicaDetail } from "./VisitaTecnicaDetail";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { AlertasCoberturaClient } from "@/components/ops/alertas-cobertura/AlertasCoberturaClient";
+import { SwitchPortalButton } from "@/components/portal/SwitchPortalButton";
 
 export function PortalSupervisorClient() {
   const searchParams = useSearchParams();
@@ -444,6 +445,9 @@ export function PortalSupervisorClient() {
                 <span className="text-xs text-center leading-tight">{label}</span>
               </button>
             ))}
+          </div>
+          <div className="flex justify-center pt-2 border-t border-zinc-800">
+            <SwitchPortalButton />
           </div>
         </SheetContent>
       </Sheet>
