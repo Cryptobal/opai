@@ -128,6 +128,13 @@ export type DocumentCheckResult = {
   autoTicketCode: string | null;
 };
 
+export type GuardDocCheckResult = {
+  guardiaId: string;
+  guardiaName: string;
+  guardiaRut: string | null;
+  docs: DocumentCheckResult[];
+};
+
 export const FINDING_CATEGORIES = [
   { value: "personal", label: "Personal (uniforme, credencial, actitud)" },
   { value: "infrastructure", label: "Infraestructura (cámaras, alarmas, extintores)" },

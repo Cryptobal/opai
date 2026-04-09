@@ -12,6 +12,8 @@ import {
   X,
   FileText,
   XCircle,
+  ChevronDown,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +28,8 @@ import type {
   VisitData,
   InstalacionDocumentType,
   DocumentCheckResult,
+  GuardDocCheckResult,
+  DotacionGuard,
 } from "./types";
 import { FindingModal } from "./FindingModal";
 
@@ -53,6 +57,13 @@ type Props = {
   onBookPhotoChange: (file: File | null, preview: string | null) => void;
   onPuestoPhotoChange: (file: File | null, preview: string | null) => void;
   onDocumentResultsChange: (results: DocumentCheckResult[]) => void;
+  globalDocumentTypes?: InstalacionDocumentType[];
+  globalDocumentResults?: DocumentCheckResult[];
+  onGlobalDocumentResultsChange?: (results: DocumentCheckResult[]) => void;
+  guardDocTypes?: InstalacionDocumentType[];
+  guardDocResults?: GuardDocCheckResult[];
+  onGuardDocResultsChange?: (results: GuardDocCheckResult[]) => void;
+  dotacionGuards?: DotacionGuard[];
   onFindingCreated: (finding: Finding) => void;
   onFindingStatusChange: (findingId: string, status: string) => void;
   onNext: () => void;
@@ -79,6 +90,13 @@ export function Step3Checklist({
   onBookPhotoChange,
   onPuestoPhotoChange,
   onDocumentResultsChange,
+  globalDocumentTypes = [],
+  globalDocumentResults = [],
+  onGlobalDocumentResultsChange,
+  guardDocTypes = [],
+  guardDocResults = [],
+  onGuardDocResultsChange,
+  dotacionGuards = [],
   onFindingCreated,
   onFindingStatusChange,
   onNext,
@@ -92,6 +110,128 @@ export function Step3Checklist({
   const puestoPhotoInputRef = useRef<HTMLInputElement>(null);
   const docPhotoInputRef = useRef<HTMLInputElement>(null);
   const [activeDocCode, setActiveDocCode] = useState<string | null>(null);
+  const [expandedGuardId, setExpandedGuardId] = useState<string | null>(null);
+  const [activeGuardDoc, setActiveGuardDoc] = useState<{ guardId: string; code: string } | null>(null);
+  const guardDocPhotoInputRef = useRef<HTMLInputElement>(null);
+
+  // Merge global documents into installation documents list
+  const allInstDocs: InstalacionDocumentType[] = [
+    ...globalDocumentTypes.map((d) => ({ ...d, label: `${d.label} (Global)` })),
+    ...documentTypes,
+  ];
+  const allInstResults: DocumentCheckResult[] = [
+    ...globalDocumentResults,
+    ...documentResults,
+  ];
+
+  // Guard document handlers
+  function handleGuardDocToggle(guardId: string, code: string, present: boolean) {
+    const updated = guardDocResults.map((g) => {
+      if (g.guardiaId !== guardId) return g;
+      return {
+        ...g,
+        docs: g.docs.map((d) =>
+          d.code === code
+            ? {
+                ...d,
+                isChecked: present,
+                autoFindingId: present ? null : d.autoFindingId,
+                autoTicketCode: present ? null : d.autoTicketCode,
+              }
+            : d,
+        ),
+      };
+    });
+    onGuardDocResultsChange?.(updated);
+
+    // Auto-create finding when "No"
+    const guardResult = guardDocResults.find((g) => g.guardiaId === guardId);
+    const existingDoc = guardResult?.docs.find((d) => d.code === code);
+    if (!present && visit.id && !existingDoc?.autoFindingId) {
+      const docType = guardDocTypes.find((d) => d.code === code);
+      const guard = dotacionGuards.find((g) => g.guardId === guardId);
+      const docLabel = docType?.label ?? code;
+      const guardLabel = guard?.guardName ?? guardId;
+
+      fetch(`/api/ops/supervision/${visit.id}/findings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: "documentation",
+          severity: "critical",
+          description: `${docLabel} no presente — Guardia: ${guardLabel}`,
+          guardId,
+        }),
+      })
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success) {
+            const updatedWithFinding = guardDocResults.map((g) => {
+              if (g.guardiaId !== guardId) return g;
+              return {
+                ...g,
+                docs: g.docs.map((d) =>
+                  d.code === code
+                    ? {
+                        ...d,
+                        isChecked: false,
+                        autoFindingId: json.data.id,
+                        autoTicketCode: json.data.ticketCode ?? null,
+                      }
+                    : d,
+                ),
+              };
+            });
+            onGuardDocResultsChange?.(updatedWithFinding);
+            onFindingCreated({
+              ...json.data,
+              ticketCode: json.data.ticketCode ?? null,
+            });
+            toast.success(
+              `Hallazgo creado${json.data.ticketCode ? ` — Ticket #${json.data.ticketCode}` : ""}`,
+            );
+          }
+        })
+        .catch(() => {
+          toast.error("Error al crear hallazgo automatico");
+        });
+    }
+  }
+
+  function handleGuardDocPhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !activeGuardDoc) return;
+    const { guardId, code } = activeGuardDoc;
+    const updated = guardDocResults.map((g) => {
+      if (g.guardiaId !== guardId) return g;
+      return {
+        ...g,
+        docs: g.docs.map((d) => {
+          if (d.code !== code) return d;
+          if (d.photoPreview) URL.revokeObjectURL(d.photoPreview);
+          return { ...d, photoFile: file, photoPreview: URL.createObjectURL(file) };
+        }),
+      };
+    });
+    onGuardDocResultsChange?.(updated);
+    if (guardDocPhotoInputRef.current) guardDocPhotoInputRef.current.value = "";
+    setActiveGuardDoc(null);
+  }
+
+  function removeGuardDocPhoto(guardId: string, code: string) {
+    const updated = guardDocResults.map((g) => {
+      if (g.guardiaId !== guardId) return g;
+      return {
+        ...g,
+        docs: g.docs.map((d) => {
+          if (d.code !== code) return d;
+          if (d.photoPreview) URL.revokeObjectURL(d.photoPreview);
+          return { ...d, photoFile: null, photoPreview: null };
+        }),
+      };
+    });
+    onGuardDocResultsChange?.(updated);
+  }
 
   function toggleChecklistItem(itemId: string) {
     const existing = checklistResults.find((r) => r.checklistItemId === itemId);
@@ -113,29 +253,50 @@ export function Step3Checklist({
     return checklistResults.find((r) => r.checklistItemId === itemId)?.isChecked ?? false;
   }
 
+  // Determine if a doc code belongs to global layer
+  const globalDocCodes = new Set(globalDocumentTypes.map((d) => d.code));
+
+  function isGlobalDoc(code: string): boolean {
+    return globalDocCodes.has(code);
+  }
+
   // Document type handlers — unified Sí/No + auto-finding
   function updateDocResult(code: string, updates: Partial<DocumentCheckResult>) {
-    onDocumentResultsChange(
-      documentResults.map((dr) =>
-        dr.code === code ? { ...dr, ...updates } : dr,
-      ),
-    );
+    if (isGlobalDoc(code)) {
+      onGlobalDocumentResultsChange?.(
+        globalDocumentResults.map((dr) =>
+          dr.code === code ? { ...dr, ...updates } : dr,
+        ),
+      );
+    } else {
+      onDocumentResultsChange(
+        documentResults.map((dr) =>
+          dr.code === code ? { ...dr, ...updates } : dr,
+        ),
+      );
+    }
   }
 
   async function handleDocCheck(code: string, present: boolean) {
+    const isGlobal = isGlobalDoc(code);
+    const targetResults = isGlobal ? globalDocumentResults : documentResults;
+
     // Update checked status
-    onDocumentResultsChange(
-      documentResults.map((dr) =>
-        dr.code === code
-          ? {
-              ...dr,
-              isChecked: present,
-              autoFindingId: present ? null : dr.autoFindingId,
-              autoTicketCode: present ? null : dr.autoTicketCode,
-            }
-          : dr,
-      ),
+    const updatedResults = targetResults.map((dr) =>
+      dr.code === code
+        ? {
+            ...dr,
+            isChecked: present,
+            autoFindingId: present ? null : dr.autoFindingId,
+            autoTicketCode: present ? null : dr.autoTicketCode,
+          }
+        : dr,
     );
+    if (isGlobal) {
+      onGlobalDocumentResultsChange?.(updatedResults);
+    } else {
+      onDocumentResultsChange(updatedResults);
+    }
 
     // Sync libro_novedades with bookUpToDate prop
     if (code === "libro_novedades") {
@@ -147,9 +308,9 @@ export function Step3Checklist({
     }
 
     // If "No" and haven't already created a finding, auto-create
-    const existingResult = documentResults.find((dr) => dr.code === code);
+    const existingResult = targetResults.find((dr) => dr.code === code);
     if (!present && visit.id && !existingResult?.autoFindingId) {
-      const docType = documentTypes.find((d) => d.code === code);
+      const docType = allInstDocs.find((d) => d.code === code);
       const docLabel = docType?.label ?? code;
 
       try {
@@ -164,18 +325,21 @@ export function Step3Checklist({
         });
         const json = await res.json();
         if (json.success) {
-          onDocumentResultsChange(
-            documentResults.map((dr) =>
-              dr.code === code
-                ? {
-                    ...dr,
-                    isChecked: false,
-                    autoFindingId: json.data.id,
-                    autoTicketCode: json.data.ticketCode ?? null,
-                  }
-                : dr,
-            ),
+          const findingUpdated = targetResults.map((dr) =>
+            dr.code === code
+              ? {
+                  ...dr,
+                  isChecked: false,
+                  autoFindingId: json.data.id,
+                  autoTicketCode: json.data.ticketCode ?? null,
+                }
+              : dr,
           );
+          if (isGlobal) {
+            onGlobalDocumentResultsChange?.(findingUpdated);
+          } else {
+            onDocumentResultsChange(findingUpdated);
+          }
           // Also notify parent about the finding
           onFindingCreated({
             ...json.data,
@@ -186,7 +350,7 @@ export function Step3Checklist({
           );
         }
       } catch {
-        toast.error("Error al crear hallazgo automático");
+        toast.error("Error al crear hallazgo automatico");
       }
     }
   }
@@ -234,30 +398,40 @@ export function Step3Checklist({
   function handleDocPhotoCapture(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !activeDocCode) return;
-    onDocumentResultsChange(
-      documentResults.map((dr) => {
-        if (dr.code !== activeDocCode) return dr;
-        if (dr.photoPreview) URL.revokeObjectURL(dr.photoPreview);
-        return { ...dr, photoFile: file, photoPreview: URL.createObjectURL(file) };
-      }),
-    );
+    const isGlobal = isGlobalDoc(activeDocCode);
+    const targetResults = isGlobal ? globalDocumentResults : documentResults;
+    const updated = targetResults.map((dr) => {
+      if (dr.code !== activeDocCode) return dr;
+      if (dr.photoPreview) URL.revokeObjectURL(dr.photoPreview);
+      return { ...dr, photoFile: file, photoPreview: URL.createObjectURL(file) };
+    });
+    if (isGlobal) {
+      onGlobalDocumentResultsChange?.(updated);
+    } else {
+      onDocumentResultsChange(updated);
+    }
     if (docPhotoInputRef.current) docPhotoInputRef.current.value = "";
     setActiveDocCode(null);
   }
 
   function removeDocPhoto(code: string) {
-    onDocumentResultsChange(
-      documentResults.map((dr) => {
-        if (dr.code !== code) return dr;
-        if (dr.photoPreview) URL.revokeObjectURL(dr.photoPreview);
-        return { ...dr, photoFile: null, photoPreview: null };
-      }),
-    );
+    const isGlobal = isGlobalDoc(code);
+    const targetResults = isGlobal ? globalDocumentResults : documentResults;
+    const updated = targetResults.map((dr) => {
+      if (dr.code !== code) return dr;
+      if (dr.photoPreview) URL.revokeObjectURL(dr.photoPreview);
+      return { ...dr, photoFile: null, photoPreview: null };
+    });
+    if (isGlobal) {
+      onGlobalDocumentResultsChange?.(updated);
+    } else {
+      onDocumentResultsChange(updated);
+    }
   }
 
   // Compliance calculation (documents + custom checklist)
-  const totalDocItems = documentTypes.length;
-  const checkedDocCount = documentResults.filter((dr) => dr.isChecked).length;
+  const totalDocItems = allInstDocs.length;
+  const checkedDocCount = allInstResults.filter((dr) => dr.isChecked).length;
   const totalChecklistItems = checklistItems.length;
   const checkedChecklistCount = checklistItems.filter((item) => getItemChecked(item.id)).length;
   const totalItems = totalDocItems + totalChecklistItems;
@@ -272,8 +446,8 @@ export function Step3Checklist({
         ? "bg-amber-500/10 border-amber-500/30"
         : "bg-red-500/10 border-red-500/30";
 
-  // If libro_novedades is in documentTypes, book validation is handled by doc results
-  const libroInDocTypes = documentTypes.some((d) => d.code === "libro_novedades");
+  // If libro_novedades is in documentTypes (or global), book validation is handled by doc results
+  const libroInDocTypes = allInstDocs.some((d) => d.code === "libro_novedades");
   const bookRequiredFilled = libroInDocTypes || bookUpToDate !== null;
   const bookNotesRequired = !libroInDocTypes && bookUpToDate === false;
   const bookPhotoRequired = !libroInDocTypes && bookUpToDate === true;
@@ -283,10 +457,10 @@ export function Step3Checklist({
   const puestoPhotoFulfilled = !!puestoPhotoPreview;
 
   // Document results validation: all required docs must be answered (Sí with photo, or No with auto-finding)
-  const allRequiredDocsAnswered = documentTypes
+  const allRequiredDocsAnswered = allInstDocs
     .filter((d) => d.required)
     .every((d) => {
-      const result = documentResults.find((dr) => dr.code === d.code);
+      const result = allInstResults.find((dr) => dr.code === d.code);
       if (!result) return false;
       if (result.isChecked === true) return !!result.photoPreview; // Sí requires photo
       if (result.isChecked === false) return !!result.autoFindingId; // No requires auto-finding created
@@ -384,7 +558,7 @@ export function Step3Checklist({
           </div>
 
           {/* Document types from configuration — unified Sí/No + date/photo or auto-finding */}
-          {documentTypes.length > 0 && (
+          {allInstDocs.length > 0 && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-sm font-medium">
                 <FileText className="h-4 w-4" />
@@ -399,8 +573,8 @@ export function Step3Checklist({
                 onChange={handleDocPhotoCapture}
               />
               <div className="space-y-3">
-                {documentTypes.map((doc) => {
-                  const result = documentResults.find((dr) => dr.code === doc.code);
+                {allInstDocs.map((doc) => {
+                  const result = allInstResults.find((dr) => dr.code === doc.code);
                   const isChecked = result?.isChecked ?? false;
                   const isNo = result !== undefined && !isChecked && result.isChecked === false;
                   const isAnswered = isChecked || isNo;
@@ -530,6 +704,186 @@ export function Step3Checklist({
             </div>
           )}
 
+          {/* Guard document checks — accordion per guard */}
+          {guardDocTypes.length > 0 && guardDocResults.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-sm font-medium">
+                <Shield className="h-4 w-4" />
+                Documentos por guardia
+              </Label>
+              <input
+                ref={guardDocPhotoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleGuardDocPhotoCapture}
+              />
+              <div className="space-y-2">
+                {guardDocResults.map((guard) => {
+                  const checkedGuardDocs = guard.docs.filter((d) => d.isChecked).length;
+                  const totalGuardDocs = guard.docs.length;
+                  const isExpanded = expandedGuardId === guard.guardiaId;
+
+                  return (
+                    <div key={guard.guardiaId} className="rounded-lg border">
+                      {/* Guard header — tap to expand/collapse */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedGuardId(isExpanded ? null : guard.guardiaId)
+                        }
+                        className="flex w-full items-center justify-between gap-2 p-3 text-left"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{guard.guardiaName}</p>
+                          {guard.guardiaRut && (
+                            <p className="text-xs text-muted-foreground">{guard.guardiaRut}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span
+                            className={`text-xs font-medium ${
+                              checkedGuardDocs === totalGuardDocs
+                                ? "text-emerald-400"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {checkedGuardDocs}/{totalGuardDocs} &#10003;
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-muted-foreground transition-transform ${
+                              isExpanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </div>
+                      </button>
+
+                      {/* Expanded: list of documents */}
+                      {isExpanded && (
+                        <div className="space-y-3 border-t px-3 pb-3 pt-2">
+                          {guardDocTypes.map((docType) => {
+                            const docResult = guard.docs.find((d) => d.code === docType.code);
+                            const isDocChecked = docResult?.isChecked ?? false;
+                            const isDocNo =
+                              docResult !== undefined &&
+                              !isDocChecked &&
+                              docResult.isChecked === false;
+
+                            return (
+                              <div
+                                key={docType.code}
+                                className={`rounded-lg border p-3 transition ${
+                                  isDocChecked
+                                    ? "border-emerald-500/30 bg-emerald-500/5"
+                                    : isDocNo
+                                      ? "border-red-500/30 bg-red-500/5"
+                                      : "border-border"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <span className="text-sm font-medium">{docType.label}</span>
+                                  {isDocChecked && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveGuardDoc({
+                                          guardId: guard.guardiaId,
+                                          code: docType.code,
+                                        });
+                                        guardDocPhotoInputRef.current?.click();
+                                      }}
+                                      className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted/40"
+                                    >
+                                      <Camera className="h-3 w-3" />
+                                      Foto
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Toggle Sí/No */}
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleGuardDocToggle(guard.guardiaId, docType.code, true)
+                                    }
+                                    className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 p-2.5 text-sm font-medium transition ${
+                                      isDocChecked
+                                        ? "border-emerald-500 bg-emerald-500/20 text-emerald-400"
+                                        : "border-border text-muted-foreground hover:border-emerald-500/50"
+                                    }`}
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                    Si
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleGuardDocToggle(guard.guardiaId, docType.code, false)
+                                    }
+                                    className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 p-2.5 text-sm font-medium transition ${
+                                      isDocNo
+                                        ? "border-red-500 bg-red-500/20 text-red-400"
+                                        : "border-border text-muted-foreground hover:border-red-500/50"
+                                    }`}
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                    No
+                                  </button>
+                                </div>
+
+                                {/* Photo preview when Sí */}
+                                {isDocChecked && docResult?.photoPreview && (
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <div className="relative">
+                                      <img
+                                        src={docResult.photoPreview}
+                                        alt={docType.label}
+                                        className="h-14 w-14 rounded-md object-cover"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          removeGuardDocPhoto(guard.guardiaId, docType.code)
+                                        }
+                                        className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* No: warning */}
+                                {isDocNo && (
+                                  <div className="mt-2 rounded-lg bg-red-500/10 p-2 text-xs">
+                                    {docResult?.autoFindingId ? (
+                                      <p className="text-emerald-400">
+                                        &#10003; Hallazgo creado
+                                        {docResult.autoTicketCode
+                                          ? ` — Ticket #${docResult.autoTicketCode}`
+                                          : ""}
+                                      </p>
+                                    ) : (
+                                      <p className="text-red-400">
+                                        Se generara hallazgo critico
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Additional checklist items (only shown if custom items exist from DB) */}
           {checklistItems.length > 0 && (
             <div className="space-y-2">
@@ -593,7 +947,7 @@ export function Step3Checklist({
           )}
 
           {/* Logbook section — only if libro_novedades is NOT in documentTypes (handled above) */}
-          {!documentTypes.some((d) => d.code === "libro_novedades") && (
+          {!allInstDocs.some((d) => d.code === "libro_novedades") && (
           <div className="rounded-lg border p-3 space-y-3">
             <p className="flex items-center gap-2 text-sm font-medium">
               <BookOpen className="h-4 w-4" />
