@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/api-auth";
-import { after } from "next/server";
 import { notificarSupervisorAceptacion } from "@/lib/alertas-cobertura/notificacion.service";
 import { verificarTokenExterno } from "@/lib/alertas-cobertura/token.service";
 import { requireTenantModule } from '@/lib/require-module';
@@ -250,13 +249,15 @@ export async function POST(
           montoOfrecido: alertaCompleta.montoOfrecido,
           funciones: alertaCompleta.funciones,
         };
-        after(async () => {
-          try {
-            await notificarSupervisorAceptacion(notifAceptacionParams);
-          } catch (err) {
-            console.error("[AlertaCobertura] Error notificando aceptación:", err);
-          }
-        });
+        // IMPORTANTE: NO usar after() aquí — el endpoint de aceptar es llamado
+        // por guardias externos vía la landing pública, y after() no siempre se
+        // ejecuta en ese contexto (la función se cierra antes). Usar await directo;
+        // el guardia ya vio "Turno Aceptado" y no le importa la latencia extra.
+        try {
+          await notificarSupervisorAceptacion(notifAceptacionParams);
+        } catch (err) {
+          console.error("[AlertaCobertura] Error notificando aceptación:", err);
+        }
       }
 
       return NextResponse.json({
