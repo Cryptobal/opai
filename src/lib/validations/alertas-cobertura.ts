@@ -32,10 +32,13 @@ export const crearAlertaSchema = z
       .object({
         oleada1RadioKm: z.number().min(1).max(500).optional(),
         oleada1EsperaMin: z.number().int().min(1).max(120).optional(),
+        oleada2Enabled: z.boolean().optional(),
         oleada2RadioKm: z.number().min(1).max(500).optional(),
         oleada2EsperaMin: z.number().int().min(1).max(120).optional(),
+        oleada3Enabled: z.boolean().optional(),
         oleada3RadioKm: z.number().min(1).max(500).optional(),
         oleada3EsperaMin: z.number().int().min(1).max(120).optional(),
+        oleadaExternaEnabled: z.boolean().optional(),
         oleadaExternaEsperaMin: z.number().int().min(1).max(240).optional(),
       })
       .optional()

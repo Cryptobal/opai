@@ -24,7 +24,19 @@ import { es } from "date-fns/locale";
 import { toZonedTime } from "date-fns-tz";
 
 const TZ = "America/Santiago";
-const SITE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+// IMPORTANTE: en Vercel prod no existe NEXTAUTH_URL ni NEXT_PUBLIC_SITE_URL.
+// Los env vars disponibles son SITE_URL, NEXT_PUBLIC_APP_URL y NEXT_PUBLIC_BASE_URL.
+// Si ninguno está disponible, fallback a opai.gard.cl en producción.
+// Sin esto, los emails quedaban con URLs relativas ("/ops/...") que Gmail
+// interpretaba como "http://ops/..." (inválido).
+const SITE_URL = (
+  process.env.NEXTAUTH_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.SITE_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  "https://opai.gard.cl"
+).replace(/\/$/, "");
 
 // ======================================
 // 1. NOTIFICAR GUARDIA — Nueva alerta disponible
@@ -456,50 +468,42 @@ export async function notificarSupervisorAceptacion(params: {
   }
 
   // 2.5 WhatsApp al admin con los datos de contacto del guardia aceptante.
-  //     Intenta mandar texto plano freeform — requiere que Twilio tenga una
-  //     ventana activa con ese número. Para garantizar entrega fuera de
-  //     ventana, crear un template "cobertura_aceptada" y setear
-  //     TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION en Vercel (futuro).
+  //
+  // WhatsApp Business requiere un Content Template APROBADO para mensajes
+  // outbound fuera de la ventana de 24h. Si TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION
+  // no está seteado, NO intentamos mandar (fallará silenciosamente con 63016).
+  //
+  // Para habilitar: crear template "cobertura_resuelta" en Twilio Console →
+  // Messaging → Content Template Builder, en español, con 4 variables:
+  //   {{1}} = Nombre del guardia que aceptó
+  //   {{2}} = Instalación
+  //   {{3}} = Horario
+  //   {{4}} = Teléfono del guardia
+  // Luego setear TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION=HX... en Vercel env.
   try {
     const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
     const tenantCfg = await getTenantCompanyConfig(params.tenantId);
     const telAdmin = tenantCfg.phoneRaw;
+    const tmplAceptSid = process.env.TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION?.trim();
+
     console.log(
-      `[AlertaCobertura:Notif] WhatsApp aceptación — tenant ${params.tenantId}, phoneRaw: ${telAdmin || "(vacío)"}`,
+      `[AlertaCobertura:Notif] WhatsApp aceptación — tenant ${params.tenantId}, phoneRaw: ${telAdmin || "(vacío)"}, template: ${tmplAceptSid ? "configurado" : "NO CONFIGURADO"}`,
     );
-    if (telAdmin) {
-      const montoFmt = params.montoOfrecido
-        ? new Intl.NumberFormat("es-CL", {
-            style: "currency",
-            currency: "CLP",
-            maximumFractionDigits: 0,
-          }).format(params.montoOfrecido)
-        : "";
+
+    if (!telAdmin) {
+      console.warn(
+        "[AlertaCobertura:Notif] No hay teléfono del tenant configurado (Settings > Empresa > phoneRaw). Saltando WhatsApp al supervisor.",
+      );
+    } else if (!tmplAceptSid) {
+      console.warn(
+        "[AlertaCobertura:Notif] TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION no configurado. Crear template 'cobertura_resuelta' en Twilio Console y setear env var. Saltando WhatsApp al supervisor.",
+      );
+    } else {
       const horarioFmt =
         params.fechaInicio && params.fechaFin
           ? formatearRangoHorario(params.fechaInicio, params.fechaFin)
           : "";
-      const distancia =
-        params.distanciaKm != null ? ` (${params.distanciaKm.toFixed(1)} km)` : "";
-      const body = [
-        "✅ *Cobertura Resuelta*",
-        "",
-        `📍 ${params.instalacionNombre}`,
-        horarioFmt ? `📅 ${horarioFmt}` : "",
-        montoFmt ? `💰 ${montoFmt}` : "",
-        "",
-        "*Guardia que aceptó:*",
-        `👤 ${params.guardiaNombre}${distancia}`,
-        params.guardiaPhone ? `📱 ${params.guardiaPhone}` : "",
-        params.guardiaEmail ? `✉️ ${params.guardiaEmail}` : "",
-        params.esInterno ? "🏢 Personal interno" : "🆔 Pool externo",
-        "",
-        `🔗 ${SITE_URL}${linkAlerta}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
 
-      // Usa el cliente Twilio directamente con un mensaje simple (no template)
       const { default: Twilio } = await import("twilio");
       const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
       const tok = process.env.TWILIO_AUTH_TOKEN?.trim();
@@ -510,15 +514,30 @@ export async function notificarSupervisorAceptacion(params: {
         const normalized = telAdmin.startsWith("+") ? telAdmin : `+${telAdmin}`;
         const createParams: Record<string, string> = {
           to: `whatsapp:${normalized}`,
-          body,
+          contentSid: tmplAceptSid,
+          contentVariables: JSON.stringify({
+            "1": params.guardiaNombre.substring(0, 100),
+            "2": params.instalacionNombre.substring(0, 100),
+            "3": horarioFmt.substring(0, 100),
+            "4": (params.guardiaPhone || "—").substring(0, 50),
+          }),
         };
         if (msSid) {
           createParams.messagingServiceSid = msSid;
         } else {
           createParams.from = from!.startsWith("whatsapp:") ? from! : `whatsapp:${from!}`;
         }
-        await client.messages.create(createParams as any);
-        console.log(`[AlertaCobertura:Notif] WhatsApp aceptación enviado a admin ${normalized}`);
+        try {
+          const msg = await client.messages.create(createParams as any);
+          console.log(
+            `[AlertaCobertura:Notif] ✓ WhatsApp aceptación enviado a ${normalized}: SID=${msg.sid}`,
+          );
+        } catch (twErr: any) {
+          console.error(
+            "[AlertaCobertura:Notif] ✗ WhatsApp aceptación FALLÓ:",
+            { code: twErr?.code, message: twErr?.message, moreInfo: twErr?.moreInfo },
+          );
+        }
       }
     }
   } catch (e) {
@@ -723,6 +742,112 @@ export async function emitirEventoPusher(
     await pusher.trigger(`alertas-cobertura-${tenantId}`, evento, data);
   } catch (e) {
     console.error(`[AlertaCobertura:Notif] Pusher ${evento} error:`, e);
+  }
+}
+
+// ======================================
+// 7. NOTIFICAR OPERACIONES — Alerta CREADA (email al grupo de ops del tenant)
+// ======================================
+
+/**
+ * Envía un email al `emailOps` del tenant cuando se crea una nueva alerta
+ * de cobertura, para que el equipo de operaciones esté al tanto sin tener
+ * que entrar a la plataforma. Es un email de TEXTO simple (no template de
+ * React Email) para mantener el payload liviano.
+ */
+export async function notificarOpsAlertaCreada(params: {
+  tenantId: string;
+  alertaId: string;
+  instalacionNombre: string;
+  instalacionDireccion: string;
+  fechaInicio: Date;
+  fechaFin: Date;
+  montoOfrecido: number;
+  funciones: string;
+  urgencia: string | null;
+  creadaPorNombre: string;
+  totalGuardias: number;
+  oleadasGeneradas: number;
+}): Promise<void> {
+  try {
+    const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+    const tenantCfg = await getTenantCompanyConfig(params.tenantId);
+    const emailOps = tenantCfg.emailOps;
+    if (!emailOps || !emailOps.includes("@")) {
+      console.log(
+        `[AlertaCobertura:Notif] emailOps no configurado en tenant ${params.tenantId}, saltando notif a ops.`,
+      );
+      return;
+    }
+
+    const emailConfig = await getTenantEmailConfig(params.tenantId);
+    const montoFmt = new Intl.NumberFormat("es-CL", {
+      style: "currency",
+      currency: "CLP",
+      maximumFractionDigits: 0,
+    }).format(params.montoOfrecido);
+    const horario = formatearRangoHorario(params.fechaInicio, params.fechaFin);
+    const linkDetalle = `${SITE_URL}/ops/alertas-cobertura/${params.alertaId}`;
+    const urgenciaLabel = params.urgencia === "URGENTE"
+      ? "🚨 URGENTE"
+      : params.urgencia === "HOY"
+      ? "⚠️ Hoy"
+      : "";
+
+    const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0c1222;padding:32px 0;">
+  <div style="background:#111827;border-radius:12px;max-width:560px;margin:0 auto;border:1px solid #1e293b;overflow:hidden;">
+    <div style="background:#0f172a;padding:20px 28px;">
+      <div style="color:#f59e0b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">
+        ${urgenciaLabel ? `${urgenciaLabel} · ` : ""}Nueva Alerta de Cobertura
+      </div>
+      <h1 style="color:#f1f5f9;font-size:20px;font-weight:600;margin:8px 0 0;">
+        ${params.instalacionNombre}
+      </h1>
+    </div>
+    <div style="padding:20px 28px;">
+      <p style="color:#94a3b8;font-size:14px;line-height:1.6;margin:0 0 16px;">
+        ${params.creadaPorNombre} creó una alerta de cobertura. Notificamos a
+        ${params.totalGuardias} guardia(s) en ${params.oleadasGeneradas} oleada(s).
+      </p>
+      <div style="background:#0f172a;border-radius:8px;border:1px solid #1e293b;padding:16px 20px;margin-bottom:16px;">
+        ${params.instalacionDireccion ? `<p style="color:#64748b;font-size:11px;text-transform:uppercase;margin:0 0 2px;">Dirección</p><p style="color:#cbd5e1;font-size:14px;margin:0 0 12px;">${params.instalacionDireccion}</p>` : ""}
+        <p style="color:#64748b;font-size:11px;text-transform:uppercase;margin:0 0 2px;">Horario</p>
+        <p style="color:#f1f5f9;font-size:16px;font-weight:600;margin:0 0 12px;">${horario}</p>
+        <p style="color:#64748b;font-size:11px;text-transform:uppercase;margin:0 0 2px;">Funciones</p>
+        <p style="color:#cbd5e1;font-size:14px;margin:0 0 12px;">${params.funciones}</p>
+        <p style="color:#64748b;font-size:11px;text-transform:uppercase;margin:0 0 2px;">Monto Ofrecido</p>
+        <p style="color:#22c55e;font-size:22px;font-weight:700;margin:0;">${montoFmt}</p>
+      </div>
+      <div style="text-align:center;padding:8px 0 20px;">
+        <a href="${linkDetalle}" style="background:#00d4aa;color:#0f172a;border-radius:8px;padding:14px 32px;text-decoration:none;font-size:14px;font-weight:700;display:inline-block;">
+          VER DETALLE DE ALERTA
+        </a>
+      </div>
+      <p style="color:#475569;font-size:11px;margin:16px 0 0;border-top:1px solid #1e293b;padding-top:16px;">
+        Este email se envía automáticamente al grupo de operaciones del tenant.
+        Para dejar de recibirlo, cambiar el email en Configuración → Empresa.
+      </p>
+    </div>
+  </div>
+</div>`;
+
+    await resend.emails.send({
+      from: emailConfig.from,
+      replyTo: emailConfig.replyTo,
+      to: emailOps,
+      subject: `${urgenciaLabel ? urgenciaLabel + " " : ""}Nueva alerta de cobertura — ${params.instalacionNombre}`,
+      html,
+      headers: { "X-Entity-Ref-ID": params.alertaId },
+      // @ts-ignore
+      clickTracking: false,
+      openTracking: false,
+    });
+    console.log(
+      `[AlertaCobertura:Notif] Email alerta creada enviado a ops (${emailOps})`,
+    );
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Error notificando ops (alerta creada):", e);
   }
 }
 

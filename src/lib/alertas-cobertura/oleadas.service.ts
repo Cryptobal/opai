@@ -31,10 +31,13 @@ export interface OleadasPreview extends Oleada {
 export interface OleadasOverride {
   oleada1RadioKm?: number;
   oleada1EsperaMin?: number;
+  oleada2Enabled?: boolean;
   oleada2RadioKm?: number;
   oleada2EsperaMin?: number;
+  oleada3Enabled?: boolean;
   oleada3RadioKm?: number;
   oleada3EsperaMin?: number;
+  oleadaExternaEnabled?: boolean;
   oleadaExternaEsperaMin?: number;
 }
 
@@ -94,6 +97,12 @@ export async function generarOleadas(params: GenerarOleadasParams): Promise<Olea
     oleadaExternaEsperaMin:
       override.oleadaExternaEsperaMin ?? tenantConfig.oleadaExternaEsperaMin,
   };
+  // Toggles de habilitación por oleada (solo valen si hay override explícito).
+  // Defaults: 2 y 3 y externa habilitadas (backward compat con alertas previas).
+  const oleada2Enabled = override.oleada2Enabled ?? true;
+  const oleada3Enabled = override.oleada3Enabled ?? true;
+  const oleadaExternaEnabled = override.oleadaExternaEnabled ?? true;
+
   const audiencia = params.audiencia ?? "ambos";
   const incluirInternos = audiencia === "internos" || audiencia === "ambos";
   const incluirExternos = audiencia === "externos" || audiencia === "ambos";
@@ -165,7 +174,7 @@ export async function generarOleadas(params: GenerarOleadasParams): Promise<Olea
     }
 
     // Anillo 2: Medianos (oleada1RadioKm - min(oleada2RadioKm, radioKm))
-    if (params.radioKm > config.oleada1RadioKm) {
+    if (oleada2Enabled && params.radioKm > config.oleada1RadioKm) {
       const anillo2Max = Math.min(config.oleada2RadioKm, params.radioKm);
       const preCountMedio = oleadas.length;
       agregarOleadaAnillo(
@@ -183,7 +192,7 @@ export async function generarOleadas(params: GenerarOleadasParams): Promise<Olea
     }
 
     // Anillo 3: Lejanos (oleada2RadioKm - min(oleada3RadioKm, radioKm))
-    if (params.radioKm > config.oleada2RadioKm) {
+    if (oleada3Enabled && params.radioKm > config.oleada2RadioKm) {
       const anillo3Max = Math.min(config.oleada3RadioKm, params.radioKm);
       const preCountLejano = oleadas.length;
       agregarOleadaAnillo(
@@ -202,7 +211,7 @@ export async function generarOleadas(params: GenerarOleadasParams): Promise<Olea
   }
 
   // === OLEADA EXTERNA ===
-  const externos = incluirExternos ? await resolverCandidatos({
+  const externos = (incluirExternos && oleadaExternaEnabled) ? await resolverCandidatos({
     tenantId: params.tenantId,
     installationId: params.installationId, // puede ser null en modo libre
     instalacionLat: params.instalacionLat,

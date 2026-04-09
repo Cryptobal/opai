@@ -7,7 +7,7 @@ import { canView, hasCapability } from "@/lib/permissions";
 import { crearAlertaSchema } from "@/lib/validations/alertas-cobertura";
 import { getAlertaCoberturaConfig } from "@/lib/alertas-cobertura/config";
 import { generarOleadas } from "@/lib/alertas-cobertura/oleadas.service";
-import { notificarOleada, emitirEventoPusher } from "@/lib/alertas-cobertura/notificacion.service";
+import { notificarOleada, emitirEventoPusher, notificarOpsAlertaCreada } from "@/lib/alertas-cobertura/notificacion.service";
 import { addHours, addMinutes } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { requireTenantModule } from '@/lib/require-module';
@@ -348,6 +348,28 @@ export async function POST(request: NextRequest) {
             }
           });
         }
+
+        // Email al grupo de ops del tenant (fire-and-forget via after())
+        after(async () => {
+          try {
+            await notificarOpsAlertaCreada({
+              tenantId: ctx.tenantId,
+              alertaId: alerta.id,
+              instalacionNombre: nombreParaNotificar,
+              instalacionDireccion: direccionParaNotificar,
+              fechaInicio: new Date(body.fechaInicio),
+              fechaFin: new Date(body.fechaFin),
+              montoOfrecido,
+              funciones: body.funciones,
+              urgencia: body.urgencia ?? null,
+              creadaPorNombre: alerta.creadaPor?.name ?? "Supervisor",
+              totalGuardias: resultado.totalGuardias,
+              oleadasGeneradas: resultado.oleadas.length,
+            });
+          } catch (err) {
+            console.error("[AlertaCobertura] Error notificando ops creada:", err);
+          }
+        });
 
         // Pusher: nueva alerta creada
         emitirEventoPusher(ctx.tenantId, "alerta-creada", {

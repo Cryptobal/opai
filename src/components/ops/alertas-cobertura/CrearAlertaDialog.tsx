@@ -109,10 +109,13 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
   const [oleadasCustom, setOleadasCustom] = useState(false);
   const [o1Radio, setO1Radio] = useState(5);
   const [o1Espera, setO1Espera] = useState(10);
+  const [o2Enabled, setO2Enabled] = useState(true);
   const [o2Radio, setO2Radio] = useState(10);
   const [o2Espera, setO2Espera] = useState(15);
+  const [o3Enabled, setO3Enabled] = useState(true);
   const [o3Radio, setO3Radio] = useState(20);
   const [o3Espera, setO3Espera] = useState(20);
+  const [oExtEnabled, setOExtEnabled] = useState(true);
   const [oExtEspera, setOExtEspera] = useState(30);
 
   // Cargar defaults del tenant al abrir el modal
@@ -280,10 +283,13 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
           ? {
               oleada1RadioKm: o1Radio,
               oleada1EsperaMin: o1Espera,
+              oleada2Enabled: o2Enabled,
               oleada2RadioKm: o2Radio,
               oleada2EsperaMin: o2Espera,
+              oleada3Enabled: o3Enabled,
               oleada3RadioKm: o3Radio,
               oleada3EsperaMin: o3Espera,
+              oleadaExternaEnabled: oExtEnabled,
               oleadaExternaEsperaMin: oExtEspera,
             }
           : null,
@@ -315,7 +321,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
     } finally {
       setLoadingPreview(false);
     }
-  }, [modo, installationId, puestoId, libreAddress, libreLat, libreLng, libreComuna, libreCiudad, modalidad, fechaInicio, fechaFin, montoOfrecido, funciones, urgencia, radioKm, requiereOS10, soloConMovilizacion, soloDealer, genero, audiencia, oleadasCustom, o1Radio, o1Espera, o2Radio, o2Espera, o3Radio, o3Espera, oExtEspera]);
+  }, [modo, installationId, puestoId, libreAddress, libreLat, libreLng, libreComuna, libreCiudad, modalidad, fechaInicio, fechaFin, montoOfrecido, funciones, urgencia, radioKm, requiereOS10, soloConMovilizacion, soloDealer, genero, audiencia, oleadasCustom, o1Radio, o1Espera, o2Enabled, o2Radio, o2Espera, o3Enabled, o3Radio, o3Espera, oExtEnabled, oExtEspera]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -411,6 +417,9 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
     setGenero("");
     setNotasInternas("");
     setOleadasCustom(false);
+    setO2Enabled(true);
+    setO3Enabled(true);
+    setOExtEnabled(true);
     setPreview(null);
   };
 
@@ -738,58 +747,129 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
               </div>
 
               {oleadasCustom && (
-                <div className="space-y-2.5 rounded-md border border-border/60 bg-muted/20 p-3">
-                  {([
-                    ["1", "Cercanos", o1Radio, setO1Radio, o1Espera, setO1Espera],
-                    ["2", "Medianos", o2Radio, setO2Radio, o2Espera, setO2Espera],
-                    ["3", "Lejanos", o3Radio, setO3Radio, o3Espera, setO3Espera],
-                  ] as const).map(([num, label, radio, setRadio, espera, setEspera]) => (
-                    <div key={num} className="grid grid-cols-[auto_1fr_1fr] gap-2 items-center">
-                      <Badge variant="secondary" className="text-[10px] h-5 w-5 p-0 justify-center">
-                        {num}
-                      </Badge>
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">{label} — Radio (km)</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={500}
-                          value={radio}
-                          onChange={(e) => setRadio(Number(e.target.value) || 0)}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Espera (min)</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={120}
-                          value={espera}
-                          onChange={(e) => setEspera(Number(e.target.value) || 0)}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                  <div className="grid grid-cols-[auto_1fr_1fr] gap-2 items-center">
-                    <Badge variant="secondary" className="text-[10px] h-5 p-0 px-1 justify-center">
-                      Ext
+                <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3">
+                  {/* Oleada 1 — siempre activa */}
+                  <div className="grid grid-cols-[auto_1fr_1fr] gap-2 items-end">
+                    <Badge variant="secondary" className="text-[10px] h-5 p-0 px-1.5 justify-center self-center">
+                      1 · Cercanos
                     </Badge>
-                    <div className="col-span-1 text-[10px] text-muted-foreground self-center">
-                      Oleada externa (turnos extra)
+                    <div className="space-y-0.5">
+                      <Label className="text-[10px] text-muted-foreground">Radio (km)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={500}
+                        value={o1Radio}
+                        onChange={(e) => setO1Radio(Number(e.target.value) || 0)}
+                        className="h-8 text-xs"
+                      />
                     </div>
                     <div className="space-y-0.5">
                       <Label className="text-[10px] text-muted-foreground">Espera (min)</Label>
                       <Input
                         type="number"
                         min={1}
-                        max={240}
-                        value={oExtEspera}
-                        onChange={(e) => setOExtEspera(Number(e.target.value) || 0)}
+                        max={120}
+                        value={o1Espera}
+                        onChange={(e) => setO1Espera(Number(e.target.value) || 0)}
                         className="h-8 text-xs"
                       />
                     </div>
+                  </div>
+
+                  {/* Oleada 2 — toggleable */}
+                  <div className="space-y-2 border-t border-border/40 pt-2">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary" className="text-[10px] h-5 p-0 px-1.5">
+                        2 · Medianos
+                      </Badge>
+                      <Switch checked={o2Enabled} onCheckedChange={setO2Enabled} />
+                    </div>
+                    {o2Enabled && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] text-muted-foreground">Radio (km)</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={500}
+                            value={o2Radio}
+                            onChange={(e) => setO2Radio(Number(e.target.value) || 0)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] text-muted-foreground">Espera (min)</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={120}
+                            value={o2Espera}
+                            onChange={(e) => setO2Espera(Number(e.target.value) || 0)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Oleada 3 — toggleable */}
+                  <div className="space-y-2 border-t border-border/40 pt-2">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary" className="text-[10px] h-5 p-0 px-1.5">
+                        3 · Lejanos
+                      </Badge>
+                      <Switch checked={o3Enabled} onCheckedChange={setO3Enabled} />
+                    </div>
+                    {o3Enabled && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] text-muted-foreground">Radio (km)</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={500}
+                            value={o3Radio}
+                            onChange={(e) => setO3Radio(Number(e.target.value) || 0)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] text-muted-foreground">Espera (min)</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={120}
+                            value={o3Espera}
+                            onChange={(e) => setO3Espera(Number(e.target.value) || 0)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Oleada externa (Turnos Extra) — toggleable */}
+                  <div className="space-y-2 border-t border-border/40 pt-2">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary" className="text-[10px] h-5 p-0 px-1.5">
+                        Ext · Turnos Extra
+                      </Badge>
+                      <Switch checked={oExtEnabled} onCheckedChange={setOExtEnabled} />
+                    </div>
+                    {oExtEnabled && (
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Espera (min)</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={240}
+                          value={oExtEspera}
+                          onChange={(e) => setOExtEspera(Number(e.target.value) || 0)}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
