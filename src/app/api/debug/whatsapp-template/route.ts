@@ -39,6 +39,69 @@ export async function GET(request: NextRequest) {
 
   const client = Twilio(accountSid, authToken);
 
+  // Modo: enviar via REST directo (no SDK) para ver el error CRUDO de Twilio
+  // ?rawSend=1&phone=56982307771[&msgService=MG...][&useTemplate=1]
+  if (request.nextUrl.searchParams.get("rawSend") === "1") {
+    const phone = (request.nextUrl.searchParams.get("phone") || "").trim();
+    const msgServiceSid = request.nextUrl.searchParams.get("msgService");
+    const useTemplate = request.nextUrl.searchParams.get("useTemplate") === "1";
+
+    let normalized = phone.replace(/\s+/g, "");
+    if (!normalized.startsWith("+")) normalized = `+${normalized}`;
+    const to = `whatsapp:${normalized}`;
+
+    const params = new URLSearchParams();
+    params.append("To", to);
+    if (msgServiceSid) {
+      params.append("MessagingServiceSid", msgServiceSid);
+    } else {
+      const from = fromNumber!.startsWith("whatsapp:") ? fromNumber! : `whatsapp:${fromNumber!}`;
+      params.append("From", from);
+    }
+    if (useTemplate) {
+      params.append("ContentSid", contentSid);
+      params.append(
+        "ContentVariables",
+        JSON.stringify({
+          "1": "test-token-debug",
+          "2": "Cobertura Debug",
+          "3": "Lo Fontecilla 201, Las Condes",
+          "4": "jue 9 abr | 09:00 - 18:00",
+          "5": "$30.000",
+          "6": "Guardia de Seguridad (GGSS)",
+          "7": "Test debug",
+        }),
+      );
+    } else {
+      params.append("Body", "OPAI debug — test simple sin template");
+    }
+
+    try {
+      const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+      const res = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${auth}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: params.toString(),
+        },
+      );
+      const text = await res.text();
+      let json: unknown;
+      try { json = JSON.parse(text); } catch { json = text; }
+      return NextResponse.json({
+        httpStatus: res.status,
+        sentParams: Object.fromEntries(params.entries()),
+        body: json,
+      });
+    } catch (err: any) {
+      return NextResponse.json({ error: err?.message }, { status: 500 });
+    }
+  }
+
   // Modo especial: listar Messaging Services del account
   if (request.nextUrl.searchParams.get("services") === "1") {
     try {
