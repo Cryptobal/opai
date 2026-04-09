@@ -65,19 +65,49 @@ export async function GET(request: NextRequest) {
       const { prisma } = await import("@/lib/prisma");
       const admin = await prisma.admin.findUnique({
         where: { id: adminId },
-        select: { id: true, name: true, phone: true },
+        select: { id: true, name: true, phone: true, email: true },
       });
       if (!admin) return NextResponse.json({ error: "Admin not found" });
-      if (!admin.phone) {
+
+      // Misma lógica que notificarSupervisorAceptacion: Admin.phone → OpsPersona.phoneMobile
+      let tel = admin.phone?.trim() || null;
+      if (!tel && admin.email) {
+        const persona = await prisma.opsPersona.findFirst({
+          where: {
+            OR: [
+              { email: admin.email },
+              { personalEmail: admin.email },
+            ],
+          },
+          select: { phoneMobile: true, phone: true, firstName: true, lastName: true },
+        });
+        tel = persona?.phoneMobile?.trim() || persona?.phone?.trim() || null;
+        if (tel) {
+          return NextResponse.json({
+            info: `Admin.phone es null, pero encontré OpsPersona con email=${admin.email}: ${persona?.firstName} ${persona?.lastName}, tel=${tel}. Usando ese.`,
+            admin,
+            persona: { name: `${persona?.firstName} ${persona?.lastName}`, tel },
+          });
+        }
+      }
+      if (!tel) {
         return NextResponse.json({
-          error: "Admin no tiene phone configurado",
+          error: "Admin no tiene phone y no se encontró OpsPersona con ese email",
           admin,
         });
       }
 
+      // Normalizar
+      let normalized = tel;
+      if (!normalized.startsWith("+") && !normalized.startsWith("whatsapp:")) {
+        if (/^9\d{8}$/.test(normalized)) normalized = `+56${normalized}`;
+        else if (/^56\d{9}$/.test(normalized)) normalized = `+${normalized}`;
+        else normalized = `+${normalized}`;
+      }
+
       const from = fromNumber?.startsWith("whatsapp:") ? fromNumber : `whatsapp:${fromNumber}`;
       const msSid = process.env.TWILIO_MESSAGING_SERVICE_SID?.trim();
-      const to = `whatsapp:${admin.phone}`;
+      const to = `whatsapp:${normalized}`;
       const createParams: Record<string, string> = {
         to,
         contentSid: tmplAceptSid,

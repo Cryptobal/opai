@@ -481,11 +481,29 @@ export async function notificarSupervisorAceptacion(params: {
   //   {{3}} = Horario
   //   {{4}} = Teléfono del guardia
   try {
+    // Resolver teléfono del admin que creó la alerta.
+    // Orden de prioridad:
+    //  1. Admin.phone (si lo tiene configurado en Mi Perfil)
+    //  2. OpsPersona con mismo email que el admin → phoneMobile || phone
+    //     (los admins de operaciones suelen ser también guardias/supervisores
+    //     con un OpsPersona que SÍ tiene celular registrado)
     const adminCreador = await prisma.admin.findUnique({
       where: { id: params.creadaPorId },
-      select: { phone: true, name: true },
+      select: { phone: true, name: true, email: true },
     });
-    const telAdmin = adminCreador?.phone?.trim() || null;
+    let telAdmin = adminCreador?.phone?.trim() || null;
+    if (!telAdmin && adminCreador?.email) {
+      const persona = await prisma.opsPersona.findFirst({
+        where: {
+          OR: [
+            { email: adminCreador.email },
+            { personalEmail: adminCreador.email },
+          ],
+        },
+        select: { phoneMobile: true, phone: true },
+      });
+      telAdmin = persona?.phoneMobile?.trim() || persona?.phone?.trim() || null;
+    }
     const tmplAceptSid = process.env.TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION?.trim();
 
     console.log(
@@ -513,7 +531,11 @@ export async function notificarSupervisorAceptacion(params: {
       const from = process.env.TWILIO_WHATSAPP_FROM?.trim();
       if (sid && tok && (msSid || from)) {
         const client = Twilio(sid, tok);
-        const normalized = telAdmin.startsWith("+") ? telAdmin : `+${telAdmin}`;
+        // Normalizar a E.164: 982307771 → +56982307771
+        let normalized = telAdmin.replace(/[\s\-\(\)\.]/g, "");
+        if (/^9\d{8}$/.test(normalized)) normalized = `+56${normalized}`;
+        else if (/^56\d{9}$/.test(normalized)) normalized = `+${normalized}`;
+        else if (!normalized.startsWith("+")) normalized = `+${normalized}`;
         const createParams: Record<string, string> = {
           to: `whatsapp:${normalized}`,
           contentSid: tmplAceptSid,
