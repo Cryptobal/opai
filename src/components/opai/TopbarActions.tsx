@@ -6,7 +6,9 @@ import { signOut } from "next-auth/react";
 import { Bell, LogOut, Settings, User } from "lucide-react";
 import { MessageCircle } from "lucide-react";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
-import { NotificationPopover } from "./NotificationPopover";
+import { useNotificationSidePanelContext } from "@/components/notifications/NotificationSidePanelContext";
+import { useNotifications } from "@/contexts/NotificationContext";
+import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "./ThemeToggle";
 import { RoleSwitcher } from "@/components/navbar/RoleSwitcher";
 import { Avatar } from "./Avatar";
@@ -35,7 +37,18 @@ export function TopbarActions({
 }: TopbarActionsProps) {
   const [mounted, setMounted] = useState(false);
   const chatCtx = useChatSidePanelContext();
+  const notifCtx = useNotificationSidePanelContext();
+  const { unreadCount: notifUnreadCount } = useNotifications();
   useEffect(() => setMounted(true), []);
+
+  const handleToggleChat = () => {
+    if (!chatCtx.isPanelOpen) notifCtx.closePanel();
+    chatCtx.togglePanel();
+  };
+  const handleToggleNotifications = () => {
+    if (!notifCtx.isPanelOpen) chatCtx.closePanel();
+    notifCtx.togglePanel();
+  };
 
   return (
     <div className={cn("flex items-center gap-2 w-full", className)}>
@@ -53,7 +66,7 @@ export function TopbarActions({
       <button
         type="button"
         className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        onClick={chatCtx.togglePanel}
+        onClick={handleToggleChat}
         aria-label="Abrir chat"
       >
         <MessageCircle className="h-4 w-4" />
@@ -61,7 +74,22 @@ export function TopbarActions({
           <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
         )}
       </button>
-      <NotificationPopover />
+      <button
+        type="button"
+        className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        onClick={handleToggleNotifications}
+        aria-label="Notificaciones"
+      >
+        <Bell className="h-4 w-4" />
+        {notifUnreadCount > 0 && (
+          <Badge
+            variant="destructive"
+            className="absolute -right-1 -top-1 h-5 min-w-5 rounded-full p-0 text-[10px] flex items-center justify-center animate-pulse"
+          >
+            {notifUnreadCount > 9 ? "9+" : notifUnreadCount}
+          </Badge>
+        )}
+      </button>
       <Link
         href="/opai/configuracion"
         className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"

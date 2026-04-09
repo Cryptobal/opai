@@ -1,9 +1,9 @@
 'use client';
 
-import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
+import { cloneElement, isValidElement, ReactElement, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MessageCircle, Search } from 'lucide-react';
+import { Bell, MessageCircle, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CommandPalette, CommandPaletteProvider, useCommandPalette } from './CommandPalette';
 import { ThemeLogo } from './ThemeLogo';
@@ -11,11 +11,13 @@ import { TopbarActions } from './TopbarActions';
 import { QuickCreateModal, type QuickCreateType } from './QuickCreateModal';
 import { AiHelpChatWidgetV2 as AiHelpChatWidget } from './AiHelpChatWidgetV2';
 import { ChatPageContextProvider } from './ChatPageContextProvider';
-import { NotificationPopover } from './NotificationPopover';
 import { SimulationBanner } from '@/components/navbar/SimulationBanner';
 import { BottomNav } from './BottomNav';
 import { useChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { ChatSidePanel } from '@/components/chat/ChatSidePanel';
+import { useNotificationSidePanelContext } from '@/components/notifications/NotificationSidePanelContext';
+import { NotificationSidePanel } from '@/components/notifications/NotificationSidePanel';
+import { useNotifications } from '@/contexts/NotificationContext';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -57,7 +59,21 @@ function AppShellInner({
 }: AppShellProps) {
   const pathname = usePathname();
   const chatCtx = useChatSidePanelContext();
+  const notifCtx = useNotificationSidePanelContext();
+  const { unreadCount: notifUnreadCount } = useNotifications();
   const { open: openCommandPalette } = useCommandPalette();
+
+  // Close notification panel when chat opens and vice versa
+  const handleToggleChat = useCallback(() => {
+    if (!chatCtx.isPanelOpen) notifCtx.closePanel();
+    chatCtx.togglePanel();
+  }, [chatCtx, notifCtx]);
+  const handleToggleNotifications = useCallback(() => {
+    if (!notifCtx.isPanelOpen) chatCtx.closePanel();
+    notifCtx.togglePanel();
+  }, [chatCtx, notifCtx]);
+
+  const anyPanelOpen = chatCtx.isPanelOpen || notifCtx.isPanelOpen;
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -101,7 +117,7 @@ function AppShellInner({
               <button
                 type="button"
                 className="relative inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
-                onClick={chatCtx.togglePanel}
+                onClick={handleToggleChat}
                 aria-label="Abrir chat"
               >
                 <MessageCircle className="h-5 w-5" />
@@ -109,7 +125,17 @@ function AppShellInner({
                   <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
                 )}
               </button>
-              <NotificationPopover compact />
+              <button
+                type="button"
+                className="relative inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
+                onClick={handleToggleNotifications}
+                aria-label="Notificaciones"
+              >
+                <Bell className="h-5 w-5" />
+                {notifUnreadCount > 0 && (
+                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background animate-pulse" />
+                )}
+              </button>
             </div>
           </header>
         )}
@@ -138,7 +164,7 @@ function AppShellInner({
             'transition-[padding,margin] duration-300 ease-out min-w-0',
             'pt-[calc(3rem+env(safe-area-inset-top,0px))] lg:pt-12', // espacio para topbar fija (min-h-12 = 3rem) en mobile y desktop
             isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
-            chatCtx.isPanelOpen && 'lg:mr-[400px]',
+            anyPanelOpen && 'lg:mr-[400px]',
             className
           )}
         >
@@ -146,7 +172,7 @@ function AppShellInner({
           <div className={cn(
             "hidden lg:flex fixed top-0 right-0 z-20 h-12 items-center gap-3 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 shrink-0 transition-[left,right] duration-300 ease-out",
             isSidebarOpen ? 'left-64' : 'left-[72px]',
-            chatCtx.isPanelOpen && 'right-[400px]',
+            anyPanelOpen && 'right-[400px]',
           )}>
             <TopbarActions userName={userName} userEmail={userEmail} userRole={userRole} />
           </div>
@@ -182,8 +208,9 @@ function AppShellInner({
         <AiHelpChatWidget />
       </div>
 
-      {/* ── Chat Side Panel (outside overflow-x-hidden to avoid fixed clipping) ── */}
+      {/* ── Side Panels (outside overflow-x-hidden to avoid fixed clipping) ── */}
       <ChatSidePanel userRole={userRole} />
+      <NotificationSidePanel />
     </>
   );
 }

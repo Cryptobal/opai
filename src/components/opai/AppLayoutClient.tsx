@@ -42,6 +42,7 @@ import { RoleSimulationProvider, useRoleSimulation } from '@/contexts/RoleSimula
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { useTenantModules } from '@/contexts/TenantModulesContext';
 import { ChatSidePanelProvider } from '@/components/chat/ChatFloatingProvider';
+import { NotificationSidePanelProvider } from '@/components/notifications/NotificationSidePanelContext';
 import { PushPermissionPrompt } from '@/components/pwa/PushPermissionPrompt';
 import { InAppNotificationProvider } from '@/components/notifications/InAppNotificationProvider';
 import { PanicAlertProvider } from '@/components/ops/PanicAlertProvider';
@@ -278,6 +279,7 @@ function AppLayoutClientInner({
       chatUrlPrefix="/chat"
     >
       <PanicAlertProvider tenantId={tenantId ?? ""}>
+      <NotificationSidePanelProvider>
       <ChatSidePanelProvider currentUserId={currentUserId ?? ''} userRole={userRole}>
         <AppShell
           sidebar={
@@ -302,6 +304,7 @@ function AppLayoutClientInner({
           {children}
         </AppShell>
       </ChatSidePanelProvider>
+      </NotificationSidePanelProvider>
       </PanicAlertProvider>
     </InAppNotificationProvider>
   );
