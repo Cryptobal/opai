@@ -49,7 +49,8 @@ function parseConfig(value: string | null): GuardiaDocumentoConfigItem[] {
         }
       }
     }
-    return mergeWithDefaults(result);
+    // Once the user has saved, their list is the source of truth — don't re-add defaults
+    return result;
   } catch {
     return getDefaults();
   }

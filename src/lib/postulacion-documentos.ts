@@ -46,10 +46,10 @@ export function mergeMissingDefaultPostulacionDocuments(items: PostulacionDocume
   return [...items, ...extra];
 }
 
-/** Lista efectiva igual que ve el usuario en GET: defaults completos si nunca guardó; si no, merge de faltantes. */
+/** Lista efectiva igual que ve el usuario en GET: defaults completos si nunca guardó; si ya guardó, su lista es la fuente de verdad. */
 export function getEffectivePostulacionDocuments(stored: PostulacionDocumentItem[]): PostulacionDocumentItem[] {
   if (stored.length === 0) return [...DEFAULT_POSTULACION_DOCUMENTS];
-  return mergeMissingDefaultPostulacionDocuments(stored);
+  return stored;
 }
 
 /**

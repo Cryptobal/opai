@@ -4,6 +4,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { calcDocStatus } from "@/lib/docs-operacionales";
 import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
+import { getPostulacionDocumentTypes } from "@/lib/postulacion-documentos";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,16 +17,19 @@ export async function GET(request: NextRequest) {
     const filtro = searchParams.get("filtro") ?? "obligatorio_visita";
     const search = searchParams.get("search")?.trim() ?? "";
 
-    // 1. Get guard document config
-    const guardConfig = await getGuardiaDocumentosConfig(ctx.tenantId);
+    // 1. Get guard document config + postulacion config (for "required" flag)
+    const [guardConfig, postulacionDocs] = await Promise.all([
+      getGuardiaDocumentosConfig(ctx.tenantId),
+      getPostulacionDocumentTypes(ctx.tenantId),
+    ]);
+    const requiredCodes = new Set(postulacionDocs.filter((d) => d.required).map((d) => d.code));
 
     // 2. Filter doc types by filtro param
     let filteredConfig = guardConfig;
     if (filtro === "obligatorio_visita") {
       filteredConfig = guardConfig.filter((c) => c.obligatorioEnVisita);
     } else if (filtro === "obligatorio") {
-      // All that have expiration (commonly "required") — keep all non-hidden types
-      filteredConfig = guardConfig.filter((c) => c.visibleInGuardForm !== false);
+      filteredConfig = guardConfig.filter((c) => requiredCodes.has(c.code));
     }
     // "todos" → use all guardConfig as-is
 
