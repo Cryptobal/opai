@@ -161,12 +161,12 @@ export default function AlertaAceptadaEmail({
           <Hr style={hr} />
 
           <Text style={footnote}>
-            Esta notificación fue enviada desde OPAI.{" "}
+            ¿No quieres recibir este tipo de alertas?{" "}
             <Link
-              href={`${SITE_URL}/opai/perfil/notificaciones`}
+              href={`${SITE_URL}/opai/perfil/notificaciones?type=alerta_cobertura_aceptada`}
               style={footnoteLink}
             >
-              Editar tus notificaciones
+              Administrar notificaciones
             </Link>
           </Text>
         </Container>

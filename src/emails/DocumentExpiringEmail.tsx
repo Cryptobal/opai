@@ -5,11 +5,15 @@ import {
   Head,
   Heading,
   Html,
+  Link,
   Preview,
   Section,
   Text,
+  Hr,
 } from "@react-email/components";
 import * as React from "react";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || "";
 
 interface DocumentExpiringEmailProps {
   documentTitle: string;
@@ -46,6 +50,16 @@ export default function DocumentExpiringEmail({
           <Text style={footnote}>
             Puedes renovar o actualizar el documento antes de su vencimiento para evitar interrupciones.
           </Text>
+          <Hr style={hr} />
+          <Text style={unsubscribeText}>
+            ¿No quieres recibir este tipo de alertas?{" "}
+            <Link
+              href={`${SITE_URL}/opai/perfil/notificaciones?type=contract_expiring`}
+              style={unsubscribeLink}
+            >
+              Administrar notificaciones
+            </Link>
+          </Text>
         </Container>
       </Body>
     </Html>
@@ -61,3 +75,6 @@ const line = { color: "#1e293b", fontSize: "14px", margin: "0 0 6px" };
 const buttonWrap = { textAlign: "center" as const, margin: "20px 0 8px" };
 const button = { backgroundColor: "#f59e0b", color: "#fff", borderRadius: "8px", padding: "12px 20px", textDecoration: "none", fontSize: "15px", fontWeight: "700" };
 const footnote = { color: "#94a3b8", fontSize: "12px", lineHeight: "1.5", margin: "16px 0 0" };
+const hr = { borderColor: "#e2e8f0", margin: "16px 0 0" };
+const unsubscribeText = { color: "#94a3b8", fontSize: "11px", lineHeight: "1.5", margin: "12px 0 0", textAlign: "center" as const };
+const unsubscribeLink = { color: "#0ea5e9", textDecoration: "underline" };

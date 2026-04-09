@@ -568,6 +568,10 @@ export async function sendNotificacionFueraDeRango(data: NotificacionFueraDeRang
         <p style="color: #94a3b8; font-size: 10px; margin: 0;">
           ${EMAIL_CONFIG.companyName} — Notificación automática de marcación fuera de rango
         </p>
+        <p style="color: #94a3b8; font-size: 10px; margin: 8px 0 0;">
+          ¿No quieres recibir este tipo de alertas?
+          <a href="${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || ""}/opai/perfil/notificaciones" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
+        </p>
       </div>
     </div>
   `;

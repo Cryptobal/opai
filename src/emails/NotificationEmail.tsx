@@ -20,6 +20,8 @@ interface NotificationEmailProps {
   actionUrl?: string;
   actionLabel?: string;
   category?: string;
+  /** Notification type key (e.g. "contract_expiring") for granular unsubscribe link */
+  notificationType?: string;
 }
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || "";
@@ -30,6 +32,7 @@ export default function NotificationEmail({
   actionUrl,
   actionLabel = "Ver en OPAI",
   category,
+  notificationType,
 }: NotificationEmailProps) {
   const fullUrl = actionUrl
     ? actionUrl.startsWith("http")
@@ -74,12 +77,12 @@ export default function NotificationEmail({
           <Hr style={hr} />
 
           <Text style={footnote}>
-            Esta notificación fue enviada desde OPAI.{" "}
+            ¿No quieres recibir este tipo de alertas?{" "}
             <Link
-              href={`${SITE_URL}/opai/perfil/notificaciones`}
+              href={`${SITE_URL}/opai/perfil/notificaciones${notificationType ? `?type=${notificationType}` : ""}`}
               style={footnoteLink}
             >
-              Editar tus notificaciones
+              Administrar notificaciones
             </Link>
           </Text>
         </Container>

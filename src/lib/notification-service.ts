@@ -102,6 +102,7 @@ export async function sendNotification(input: CreateNotificationInput) {
           actionUrl: link ?? undefined,
           actionLabel,
           category,
+          notificationType: type,
         })
       );
 
@@ -183,6 +184,7 @@ export async function sendNotificationToUser(
           actionUrl: link ?? undefined,
           actionLabel,
           category: typeDef?.category,
+          notificationType: type,
         })
       );
 
@@ -276,6 +278,7 @@ export async function sendNotificationToUsers(
           actionUrl: link ?? undefined,
           actionLabel,
           category: typeDef?.category,
+          notificationType: type,
         })
       );
 
