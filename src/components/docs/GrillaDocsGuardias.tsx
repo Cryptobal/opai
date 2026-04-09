@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronRight, ChevronDown, Loader2, Search } from "lucide-react";
+import { ChevronRight, ChevronDown, ChevronsUpDown, Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GrillaCelda } from "./GrillaCelda";
 import { DocVerificacionDrawer } from "./DocVerificacionDrawer";
@@ -82,6 +82,14 @@ const DOC_LABELS: Record<string, string> = {
   certificado_curso: "Cert. Curso",
   ficha_inscripcion: "Ficha Insc.",
   hoja_vida: "Hoja de Vida",
+  cedula_identidad: "Cédula Id.",
+  curriculum: "Currículum",
+  anexo_contrato: "Anexo Contrato",
+  certificado_ensenanza_media: "Cert. Ens. Media",
+  certificado_afp: "Cert. AFP",
+  certificado_fonasa_isapre: "Cert. Fonasa/Isapre",
+  registro_capacitacion: "Reg. Capacitación",
+  historial_penal: "Historial Penal",
 };
 
 const FILTRO_LABELS: Record<Filtro, string> = {
@@ -128,6 +136,7 @@ export function GrillaDocsGuardias() {
   const [search, setSearch] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("obligatorio_visita");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [allExpanded, setAllExpanded] = useState(true);
   const [drawer, setDrawer] = useState<DrawerState>({
     open: false,
     docName: "",
@@ -152,6 +161,10 @@ export function GrillaDocsGuardias() {
       const json = await res.json();
       if (res.ok && json.success) {
         setData(json.data);
+        // Auto-expand all installations on data load
+        const allIds = new Set((json.data as GrillaData).rows.map((r: InstallationRow) => r.installationId));
+        setExpandedIds(allIds);
+        setAllExpanded(true);
       }
     } catch {
       // ignore
@@ -183,6 +196,17 @@ export function GrillaDocsGuardias() {
       }
       return next;
     });
+  }
+
+  function toggleAll() {
+    if (allExpanded) {
+      setExpandedIds(new Set());
+      setAllExpanded(false);
+    } else {
+      const allIds = new Set(rows.map((r) => r.installationId));
+      setExpandedIds(allIds);
+      setAllExpanded(true);
+    }
   }
 
   function openDrawer(
@@ -242,6 +266,19 @@ export function GrillaDocsGuardias() {
             </button>
           ))}
         </div>
+
+        {/* Expand/Collapse all */}
+        {rows.length > 0 && (
+          <button
+            type="button"
+            onClick={toggleAll}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:bg-accent transition-colors ml-auto"
+            title={allExpanded ? "Contraer todas" : "Expandir todas"}
+          >
+            <ChevronsUpDown className="h-3.5 w-3.5" />
+            {allExpanded ? "Contraer" : "Expandir"}
+          </button>
+        )}
       </div>
 
       {/* Grid */}
@@ -261,24 +298,34 @@ export function GrillaDocsGuardias() {
             </div>
           )}
 
-          <table className="w-full border-collapse text-xs">
+          <table className="border-collapse text-xs">
             <thead>
               <tr className="border-b bg-muted/50">
                 {/* Guardia column */}
-                <th className="sticky left-0 z-20 min-w-[200px] bg-muted/50 px-3 py-2 text-left font-medium">
+                <th
+                  className="sticky left-0 z-20 bg-muted/50 px-3 py-2 text-left font-medium border-b border-border"
+                  style={{ minWidth: 220 }}
+                >
                   Instalación / Guardia
                 </th>
-                <th className="min-w-[60px] px-2 py-2 text-center font-medium text-muted-foreground">
+                <th
+                  className="px-2 py-2 text-center font-medium text-muted-foreground border-b border-border whitespace-nowrap"
+                  style={{ minWidth: 60 }}
+                >
                   Cumpl.
                 </th>
                 {/* Doc type columns */}
                 {docTypes.map((dt) => (
                   <th
                     key={dt.code}
-                    className="min-w-[72px] px-1 py-2 text-center font-medium text-muted-foreground"
-                    title={dt.code}
+                    className="px-1 py-2.5 text-center font-medium text-muted-foreground border-b border-border"
+                    style={{ minWidth: 90 }}
+                    title={DOC_LABELS[dt.code] ?? dt.code}
                   >
-                    <span className="block truncate max-w-[70px] mx-auto">
+                    <span
+                      className="text-[11px] leading-snug max-w-[85px] text-center line-clamp-2 break-words mx-auto block"
+                      title={DOC_LABELS[dt.code] ?? dt.code}
+                    >
                       {DOC_LABELS[dt.code] ?? dt.code}
                     </span>
                   </th>
