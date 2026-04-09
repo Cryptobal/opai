@@ -548,21 +548,30 @@ export function MonitoreoMap({
         </div>
       )}
 
-      <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-black/70 backdrop-blur-sm px-4 py-2 text-xs font-medium text-white shadow-lg">
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 ring-1 ring-emerald-400/30" /> En ronda
+      <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-black/75 backdrop-blur-sm px-3 py-2 text-[11px] font-medium text-white shadow-lg max-w-[calc(100%-24px)]">
+        <span className="flex items-center gap-1.5" title="Instalación">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-cyan-400 flex-shrink-0" fill="currentColor">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
+          </svg>
+          Instalación
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-red-500 ring-1 ring-red-500/30 animate-pulse" /> Emergencia
+        <span className="flex items-center gap-1.5" title="Guardia activo">
+          <span className="h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white/60 flex-shrink-0" /> Guardia
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-zinc-500 ring-1 ring-zinc-500/30" /> Sin actividad
+        <span className="flex items-center gap-1.5" title="Alerta activa">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-red-500 flex-shrink-0" fill="currentColor">
+            <path d="M12 2L1 21h22L12 2z" />
+          </svg>
+          Alerta
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full border-[1.5px] border-zinc-400" /> Checkpoint
+        <span className="flex items-center gap-1.5" title="Checkpoint marcado">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 ring-1 ring-white/30 flex-shrink-0" /> Marcado
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-px w-4 bg-emerald-400/60 border-t border-dashed border-emerald-400" /> Recorrido
+        <span className="flex items-center gap-1.5" title="Checkpoint pendiente">
+          <span className="h-2.5 w-2.5 rounded-full bg-zinc-500 ring-1 ring-white/20 flex-shrink-0" /> Pendiente
+        </span>
+        <span className="flex items-center gap-1.5" title="Recorrido del guardia">
+          <span className="inline-block h-0.5 w-5 bg-emerald-400/80 flex-shrink-0" /> Recorrido
         </span>
       </div>
     </div>

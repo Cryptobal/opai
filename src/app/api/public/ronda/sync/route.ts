@@ -144,10 +144,12 @@ export async function POST(request: NextRequest) {
             createdMarks.push({ status: "COMPLETED", timestamp: new Date(m.marcadoAt), checkpointId: m.checkpointId });
 
             if (alertAnomalies.length > 0) {
-              // Deduplicate telemetry alerts
+              // Suppress noisy telemetry + dedupe idempotently per ejecución
+              const SUPPRESSED_AT_CREATION = new Set(["sin_movimiento"]);
+              const creatable = alertAnomalies.filter((a: string) => !SUPPRESSED_AT_CREATION.has(a));
               const TELEMETRY_TYPES = ["sin_movimiento", "bateria_baja", "bateria_estatica"];
-              const telemetryTypes = alertAnomalies.filter((a: string) => TELEMETRY_TYPES.includes(a));
-              const actionableTypes = alertAnomalies.filter((a: string) => !TELEMETRY_TYPES.includes(a));
+              const telemetryTypes = creatable.filter((a: string) => TELEMETRY_TYPES.includes(a));
+              const actionableTypes = creatable.filter((a: string) => !TELEMETRY_TYPES.includes(a));
 
               let filteredTelemetry: string[] = [];
               if (telemetryTypes.length > 0) {
@@ -155,7 +157,6 @@ export async function POST(request: NextRequest) {
                   where: {
                     ejecucionId: ejecucion.id,
                     tipo: { in: telemetryTypes },
-                    resuelta: false,
                   },
                   select: { tipo: true },
                 });

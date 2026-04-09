@@ -6,7 +6,7 @@ import { MonitoreoGuardPanel } from "./MonitoreoGuardPanel";
 import { HistorialGridDialog, type HistorialTurno } from "./HistorialGridDialog";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
-import { ALERT_CATALOG, TELEMETRY_ALERT_TYPES } from "@/lib/rondas/alert-catalog";
+import { ALERT_CATALOG, TELEMETRY_ALERT_TYPES, ACTIONABLE_ALERT_TYPES } from "@/lib/rondas/alert-catalog";
 
 /* ─── Alert types ─── */
 interface AlertRow {
@@ -460,14 +460,25 @@ function AlertasTab({
     [filteredAlerts],
   );
 
-  // Group telemetry by tipo
+  // Group telemetry by tipo (with per-installation breakdown)
   const telemetryByType = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { count: number; byInstallation: Map<string, { id: string; name: string; count: number }> }>();
     for (const a of telemetryAlerts) {
-      map.set(a.tipo, (map.get(a.tipo) ?? 0) + 1);
+      if (!map.has(a.tipo)) map.set(a.tipo, { count: 0, byInstallation: new Map() });
+      const entry = map.get(a.tipo)!;
+      entry.count += 1;
+      const instId = a.installation?.id ?? "sin-instalacion";
+      const instName = a.installation?.name ?? "Sin instalación";
+      if (!entry.byInstallation.has(instId)) {
+        entry.byInstallation.set(instId, { id: instId, name: instName, count: 0 });
+      }
+      entry.byInstallation.get(instId)!.count += 1;
     }
-    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+    return Array.from(map.entries()).sort((a, b) => b[1].count - a[1].count);
   }, [telemetryAlerts]);
+
+  // Expanded telemetry type (shows per-installation breakdown)
+  const [expandedTelemetryType, setExpandedTelemetryType] = useState<string | null>(null);
 
   const handleBulkResolve = async (tipos: string[], installationId?: string) => {
     const resolveId = installationId ?? "all";
@@ -570,6 +581,18 @@ function AlertasTab({
               />
             ))}
           </div>
+          {actionableAlerts.length > 3 && (
+            <div className="px-4 py-2 border-b border-[#1a1f2e]">
+              <button
+                onClick={() => handleBulkResolve(ACTIONABLE_ALERT_TYPES, installationFilter?.id)}
+                disabled={bulkResolvingId === "all"}
+                className="w-full flex items-center justify-center gap-1.5 rounded bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 text-[11px] font-medium text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+              >
+                {bulkResolvingId === "all" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                Resolver todo ({actionableAlerts.length})
+              </button>
+            </div>
+          )}
         </>
       )}
 
@@ -588,12 +611,44 @@ function AlertasTab({
           </button>
           {complianceExpanded && (
             <div>
-              {telemetryByType.map(([tipo, count]) => (
-                <div key={tipo} className="flex items-center justify-between px-4 py-1.5 text-xs text-muted-foreground">
-                  <span>{(ALERT_CATALOG as any)[tipo]?.label ?? tipo}</span>
-                  <span className="font-semibold text-zinc-400">{count}</span>
-                </div>
-              ))}
+              {telemetryByType.map(([tipo, entry]) => {
+                const isTypeExpanded = expandedTelemetryType === tipo;
+                const installations = Array.from(entry.byInstallation.values()).sort(
+                  (a, b) => b.count - a.count,
+                );
+                return (
+                  <div key={tipo} className="border-b border-[#1a1f2e]/40">
+                    <button
+                      onClick={() => setExpandedTelemetryType(isTypeExpanded ? null : tipo)}
+                      className="w-full flex items-center justify-between gap-2 px-4 py-1.5 text-xs hover:bg-zinc-800/20 transition-colors"
+                    >
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <ChevronRight
+                          className={cn(
+                            "h-3 w-3 text-zinc-600 transition-transform",
+                            isTypeExpanded && "rotate-90",
+                          )}
+                        />
+                        {(ALERT_CATALOG as any)[tipo]?.label ?? tipo}
+                      </span>
+                      <span className="font-semibold text-zinc-400">{entry.count}</span>
+                    </button>
+                    {isTypeExpanded && (
+                      <div className="bg-zinc-900/30 pl-8 pr-4 py-1">
+                        {installations.map((inst) => (
+                          <div
+                            key={inst.id}
+                            className="flex items-center justify-between py-1 text-[11px] text-zinc-400"
+                          >
+                            <span className="truncate">{inst.name}</span>
+                            <span className="font-medium">{inst.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {/* Bulk archive telemetry */}
               <div className="px-4 py-3 border-b border-[#1a1f2e]">
                 <button

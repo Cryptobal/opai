@@ -211,8 +211,14 @@ export async function marcarCheckpoint(
     elapsedMinutes: prev ? elapsedSec / 60 : undefined,
   });
 
-  // Filter to only enabled alert types for alert creation / notifications
-  const alertAnomalies = anomalies.filter(code => fullConfig[code]?.enabled !== false);
+  // Filter to only enabled alert types for alert creation / notifications.
+  // `sin_movimiento` is suppressed at creation — too noisy per-mark (fires on every
+  // brief stillness). The signal is still used for trust score below. To re-enable,
+  // remove from SUPPRESSED_AT_CREATION.
+  const SUPPRESSED_AT_CREATION = new Set(["sin_movimiento"]);
+  const alertAnomalies = anomalies.filter(
+    (code) => !SUPPRESSED_AT_CREATION.has(code) && fullConfig[code]?.enabled !== false,
+  );
 
   // 7. Trust score — calculated normally for all marks (including rondas libres)
   const trustScore = computeCheckpointTrustScore({
@@ -337,14 +343,14 @@ export async function marcarCheckpoint(
       const telemetryTypes = alertAnomalies.filter(a => TELEMETRY_TYPES.includes(a));
       const actionableTypes = alertAnomalies.filter(a => !TELEMETRY_TYPES.includes(a));
 
-      // For telemetry types: check if alert already exists for this ejecución
+      // For telemetry types: idempotent — only 1 alert per (ejecucion, tipo) ever,
+      // regardless of resuelta/archivedAt state. Prevents races and manual-resolve loops.
       let filteredTelemetry: typeof telemetryTypes = [];
       if (telemetryTypes.length > 0) {
         const existingTelemetry = await tx.opsAlertaRonda.findMany({
           where: {
             ejecucionId: execution.id,
             tipo: { in: telemetryTypes },
-            resuelta: false,
           },
           select: { tipo: true },
         });

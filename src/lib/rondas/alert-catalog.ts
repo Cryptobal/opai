@@ -10,6 +10,9 @@ export type AlertTypeCode =
   | "bateria_estatica"
   | "guardia_estatico"
   | "ronda_no_iniciada"
+  | "ronda_no_realizada"
+  | "ronda_incompleta"
+  | "ronda_libre_timeout"
   | "panico";
 
 export type AlertSeverity = "info" | "warning" | "critical";
@@ -113,6 +116,33 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     thresholds: [
       { key: "roundNotStartedMinutes", label: "Tolerancia", unit: "min", defaultValue: 10, min: 5, max: 60, step: 1 },
     ],
+  },
+  ronda_no_realizada: {
+    code: "ronda_no_realizada",
+    label: "Ronda no realizada",
+    description: "Ronda programada cerrada automáticamente por no haber sido realizada",
+    defaultSeverity: "warning",
+    source: "scheduler",
+    level: "actionable",
+    configurable: false,
+  },
+  ronda_incompleta: {
+    code: "ronda_incompleta",
+    label: "Ronda incompleta",
+    description: "Ronda finalizada sin marcar todos los checkpoints",
+    defaultSeverity: "warning",
+    source: "scheduler",
+    level: "actionable",
+    configurable: false,
+  },
+  ronda_libre_timeout: {
+    code: "ronda_libre_timeout",
+    label: "Ronda libre timeout",
+    description: "Ronda libre cerrada automáticamente por timeout o pérdida de señal",
+    defaultSeverity: "warning",
+    source: "scheduler",
+    level: "actionable",
+    configurable: false,
   },
   panico: {
     code: "panico",

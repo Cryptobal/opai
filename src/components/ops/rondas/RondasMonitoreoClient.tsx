@@ -896,7 +896,17 @@ export function RondasMonitoreoClient({
                     guardPanelData={guardPanelData}
                     completedData={completedData}
                     selectedRondaId={selectedRondaId}
-                    onSelectGuard={setSelectedRondaId}
+                    onSelectGuard={(id) => {
+                      setSelectedRondaId(id);
+                      if (id) {
+                        // Open map if collapsed so operator sees the drill-down
+                        setMapCollapsed(false);
+                        // Also set installation to trigger map drill-down zoom
+                        const ronda = rows.find((r: any) => r.id === id);
+                        const instId = ronda?.rondaTemplate?.installation?.id ?? ronda?.installation?.id;
+                        if (instId) setSelectedInstallationId(instId);
+                      }
+                    }}
                     onAddNote={handleAddNote}
                     alertRows={alertRows}
                     alertsLoading={alertsLoading}
