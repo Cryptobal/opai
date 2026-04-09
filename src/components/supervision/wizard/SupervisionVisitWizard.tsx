@@ -32,6 +32,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [maxReachedStep, setMaxReachedStep] = useState<WizardStep>(1);
   const [saving, setSaving] = useState(false);
+  const [verificacionesSaved, setVerificacionesSaved] = useState(false);
 
   // Visit data
   const [visit, setVisit] = useState<VisitData | null>(null);
@@ -245,9 +246,60 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
     }
   }
 
+  /** Upload a doc verification photo and return its URL */
+  async function uploadDocPhoto(visitId: string, file: File, label: string): Promise<string | null> {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("categoryName", `Verificación: ${label}`);
+      const res = await fetch(`/api/ops/supervision/${visitId}/photos`, {
+        method: "POST",
+        body: formData,
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        return json.data.photoUrl as string;
+      }
+      console.warn(`[WIZARD] Failed to upload doc photo for ${label}:`, json);
+      return null;
+    } catch (err) {
+      console.warn(`[WIZARD] Error uploading doc photo for ${label}:`, err);
+      return null;
+    }
+  }
+
   /** Collect and POST all doc verificaciones to the verificaciones-fisicas endpoint */
   async function saveVerificaciones() {
     if (!visit) return;
+    if (verificacionesSaved) return;
+
+    // Upload all doc verification photos first
+    const globalPhotoUrls: Record<string, string> = {};
+    for (const result of globalDocResults) {
+      if (result.photoFile) {
+        const url = await uploadDocPhoto(visit.id, result.photoFile, result.code);
+        if (url) globalPhotoUrls[result.code] = url;
+      }
+    }
+
+    const instalacionPhotoUrls: Record<string, string> = {};
+    for (const result of documentResults) {
+      if (result.photoFile) {
+        const url = await uploadDocPhoto(visit.id, result.photoFile, result.code);
+        if (url) instalacionPhotoUrls[result.code] = url;
+      }
+    }
+
+    const guardPhotoUrls: Record<string, Record<string, string>> = {};
+    for (const guardResult of guardDocResults) {
+      guardPhotoUrls[guardResult.guardiaId] = {};
+      for (const doc of guardResult.docs) {
+        if (doc.photoFile) {
+          const url = await uploadDocPhoto(visit.id, doc.photoFile, `${guardResult.guardiaName}-${doc.code}`);
+          if (url) guardPhotoUrls[guardResult.guardiaId][doc.code] = url;
+        }
+      }
+    }
 
     const verificaciones: Array<{
       tipoDocId?: string;
@@ -266,6 +318,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
         capa: "global",
         installationId: visit.installationId,
         presente: result.isChecked,
+        ...(globalPhotoUrls[result.code] ? { photoUrl: globalPhotoUrls[result.code] } : {}),
       });
     }
 
@@ -276,18 +329,21 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
         capa: "instalacion",
         installationId: visit.installationId,
         presente: result.isChecked,
+        ...(instalacionPhotoUrls[result.code] ? { photoUrl: instalacionPhotoUrls[result.code] } : {}),
       });
     }
 
     // Guard doc results
     for (const guardResult of guardDocResults) {
       for (const doc of guardResult.docs) {
+        const guardUrls = guardPhotoUrls[guardResult.guardiaId] ?? {};
         verificaciones.push({
           guardiaDocType: doc.code,
           capa: "guardia",
           installationId: visit.installationId,
           guardiaId: guardResult.guardiaId,
           presente: doc.isChecked,
+          ...(guardUrls[doc.code] ? { photoUrl: guardUrls[doc.code] } : {}),
         });
       }
     }
@@ -304,6 +360,8 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
         // Non-blocking: don't throw, the core wizard flow shouldn't break
       }
     }
+
+    setVerificacionesSaved(true);
   }
 
   // Step 2 → 3: Save evaluations
@@ -395,24 +453,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
         bookPhotoUrl = photoJson.data.photoUrl;
       }
 
-      // Upload document photos
-      for (const dr of documentResults) {
-        if (dr.photoFile) {
-          const formData = new FormData();
-          formData.append("file", dr.photoFile);
-          formData.append("categoryName", `Documento: ${dr.code}`);
-          const docPhotoRes = await fetch(`/api/ops/supervision/${visit.id}/photos`, {
-            method: "POST",
-            body: formData,
-          });
-          if (!docPhotoRes.ok) {
-            const err = await docPhotoRes.json().catch(() => ({}));
-            throw new Error(err.error ?? `Error al subir foto de documento: ${dr.code}`);
-          }
-        }
-      }
-
-      // Save verificaciones (global + instalacion + guardia docs)
+      // Save verificaciones (global + instalacion + guardia docs) — also uploads doc photos
       await saveVerificaciones();
 
       // Save book data + legacy document checklist
