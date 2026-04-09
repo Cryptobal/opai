@@ -10,10 +10,19 @@ import Twilio from "twilio";
 // IMPORTANTE: leer estas env vars vía getters — NO a nivel de módulo, porque en
 // Vercel las funciones cold-started a veces no las tienen aún al momento del
 // import. Leer on-demand evita el problema.
-function accountSid() { return process.env.TWILIO_ACCOUNT_SID; }
-function authToken() { return process.env.TWILIO_AUTH_TOKEN; }
-function fromNumber() { return process.env.TWILIO_WHATSAPP_FROM; }
-function contentSid() { return process.env.TWILIO_WHATSAPP_CONTENT_SID; }
+//
+// CRÍTICO: hacer .trim() — Vercel a veces guarda env vars con \n al final
+// (especialmente si se pegaron desde un archivo o si se agregaron con `vercel
+// env add < file`). Un \n invisible en TWILIO_WHATSAPP_CONTENT_SID causaba
+// error 20422 "Invalid Parameter" en TODOS los envíos via template.
+function trimEnv(v: string | undefined): string | undefined {
+  return v?.trim() || undefined;
+}
+function accountSid() { return trimEnv(process.env.TWILIO_ACCOUNT_SID); }
+function authToken() { return trimEnv(process.env.TWILIO_AUTH_TOKEN); }
+function fromNumber() { return trimEnv(process.env.TWILIO_WHATSAPP_FROM); }
+function contentSid() { return trimEnv(process.env.TWILIO_WHATSAPP_CONTENT_SID); }
+function messagingServiceSid() { return trimEnv(process.env.TWILIO_MESSAGING_SERVICE_SID); }
 
 const SITE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
 
@@ -49,11 +58,13 @@ export async function enviarAlertaWhatsApp(
   const client = getClient();
   const from = fromNumber();
   const tmplSid = contentSid();
+  const msSid = messagingServiceSid();
 
-  if (!client || !from) {
+  if (!client || (!from && !msSid)) {
     console.warn("[WhatsApp] Twilio not configured — skipping", {
       hasClient: !!client,
       hasFrom: !!from,
+      hasMessagingService: !!msSid,
       hasContentSid: !!tmplSid,
     });
     return { success: false, error: "Twilio not configured" };
@@ -73,16 +84,17 @@ export async function enviarAlertaWhatsApp(
   // Estrategia 1: Content Template (si está configurado y aprobado)
   if (tmplSid) {
     try {
-      // Template turno_extra_notif_v2 (UTILITY, 7 vars):
-      //   {{1}} = JWT token (button URL only: /alerta/t/{{1}})
+      // Template alerta_turno_extra (UTILITY, 7 vars):
+      //   {{1}} = JWT token (button URL: /alerta/t/{{1}})
       //   {{2}} = Instalación, {{3}} = Dirección
       //   {{4}} = Horario, {{5}} = Monto, {{6}} = Modalidad, {{7}} = Funciones
       const buttonToken = params.urlPath.includes("?token=")
         ? params.urlPath.split("?token=")[1]
         : params.urlPath;
 
-      const message = await client.messages.create({
-        from,
+      // Si hay Messaging Service, lo usamos (recomendado por Twilio para
+      // Content templates). Sino, fallback a `from` directo.
+      const sendParams: Parameters<typeof client.messages.create>[0] = {
         to,
         contentSid: tmplSid,
         contentVariables: JSON.stringify({
@@ -94,7 +106,13 @@ export async function enviarAlertaWhatsApp(
           "6": params.modalidad.substring(0, 100),
           "7": params.funciones.substring(0, 200),
         }),
-      });
+      };
+      if (msSid) {
+        sendParams.messagingServiceSid = msSid;
+      } else {
+        sendParams.from = from!;
+      }
+      const message = await client.messages.create(sendParams);
 
       console.log(`[WhatsApp] ✓ Template enviado a ${telefonoNormalizado}: SID=${message.sid}`);
       return { success: true, messageSid: message.sid };
@@ -135,11 +153,16 @@ export async function enviarAlertaWhatsApp(
       `👉 Aceptar turno: ${linkAceptar}`,
     ].join("\n");
 
-    const message = await client.messages.create({
-      from,
+    const fallbackParams: Parameters<typeof client.messages.create>[0] = {
       to,
       body,
-    });
+    };
+    if (msSid) {
+      fallbackParams.messagingServiceSid = msSid;
+    } else {
+      fallbackParams.from = from!;
+    }
+    const message = await client.messages.create(fallbackParams);
 
     console.log(`[WhatsApp] ✓ Texto plano enviado a ${telefonoNormalizado}: SID=${message.sid}`);
     return { success: true, messageSid: message.sid };
@@ -170,5 +193,5 @@ function normalizarTelefonoChileno(telefono: string): string | null {
 }
 
 export function isWhatsAppConfigured(): boolean {
-  return !!(accountSid() && authToken() && fromNumber());
+  return !!(accountSid() && authToken() && (fromNumber() || messagingServiceSid()));
 }
