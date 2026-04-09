@@ -298,19 +298,23 @@ export function GrillaDocsGuardias() {
             </div>
           )}
 
-          <table className="border-collapse text-xs">
+          <table
+            className="border-collapse text-xs"
+            style={{ minWidth: `${Math.max(500, 280 + docTypes.length * 100)}px` }}
+          >
             <thead>
               <tr className="border-b bg-muted/50">
                 {/* Guardia column */}
                 <th
-                  className="sticky left-0 z-20 bg-muted/50 px-3 py-2 text-left font-medium border-b border-border"
+                  className="sticky left-0 z-20 bg-muted/50 px-3 py-2.5 text-left font-medium border-b border-border whitespace-nowrap"
                   style={{ minWidth: 220 }}
                 >
                   Instalación / Guardia
                 </th>
+                {/* Cumpl. after doc columns — moved to end like Por Instalación */}
                 <th
-                  className="px-2 py-2 text-center font-medium text-muted-foreground border-b border-border whitespace-nowrap"
-                  style={{ minWidth: 60 }}
+                  className="px-2 py-2.5 text-center font-medium text-muted-foreground border-b border-border whitespace-nowrap"
+                  style={{ minWidth: 55 }}
                 >
                   Cumpl.
                 </th>
@@ -318,16 +322,18 @@ export function GrillaDocsGuardias() {
                 {docTypes.map((dt) => (
                   <th
                     key={dt.code}
-                    className="px-1 py-2.5 text-center font-medium text-muted-foreground border-b border-border"
-                    style={{ minWidth: 90 }}
+                    className="px-2 py-2.5 text-center font-medium text-muted-foreground border-b border-border"
+                    style={{ minWidth: 100 }}
                     title={DOC_LABELS[dt.code] ?? dt.code}
                   >
-                    <span
-                      className="text-[11px] leading-snug max-w-[85px] text-center line-clamp-2 break-words mx-auto block"
-                      title={DOC_LABELS[dt.code] ?? dt.code}
-                    >
-                      {DOC_LABELS[dt.code] ?? dt.code}
-                    </span>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span
+                        className="text-[11px] leading-snug max-w-[95px] text-center line-clamp-2 break-words"
+                        title={DOC_LABELS[dt.code] ?? dt.code}
+                      >
+                        {DOC_LABELS[dt.code] ?? dt.code}
+                      </span>
+                    </div>
                   </th>
                 ))}
               </tr>
