@@ -116,6 +116,48 @@ export async function updateDisplayName(name: string) {
 }
 
 /**
+ * Actualizar teléfono del usuario autenticado.
+ * Normaliza a formato E.164 chileno (+569XXXXXXXX) cuando es posible.
+ * Usado por alertas-cobertura para enviar WhatsApp al admin creador
+ * cuando un guardia acepta el turno.
+ */
+export async function updatePhone(phone: string) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: 'No autenticado' };
+  }
+
+  const raw = phone.trim().replace(/[\s\-\(\)\.]/g, '');
+  let normalized = raw;
+  if (raw !== '') {
+    // Aceptar 9XXXXXXXX (9 dígitos) y prepender +56
+    if (/^9\d{8}$/.test(raw)) normalized = `+56${raw}`;
+    // Aceptar 56XXXXXXXXX y prepender +
+    else if (/^56\d{9}$/.test(raw)) normalized = `+${raw}`;
+    // Aceptar ya en formato E.164
+    else if (/^\+\d{8,15}$/.test(raw)) normalized = raw;
+    else {
+      return { success: false, error: 'Formato de teléfono inválido. Usa +56912345678 o 912345678' };
+    }
+  }
+
+  const user = await prisma.admin.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, tenantId: true, email: true },
+  });
+  if (!user) {
+    return { success: false, error: 'Usuario no encontrado' };
+  }
+
+  await prisma.admin.update({
+    where: { id: user.id },
+    data: { phone: normalized || null },
+  });
+
+  return { success: true, phone: normalized };
+}
+
+/**
  * Actualizar cargo del usuario autenticado.
  */
 export async function updateCargo(cargo: string) {

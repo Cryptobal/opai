@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Briefcase, Loader2, Mail, Pencil, Save, Shield, User, X } from "lucide-react";
-import { updateDisplayName, updateCargo } from "@/app/(app)/opai/perfil/actions";
+import { Briefcase, Loader2, Mail, Pencil, Phone, Save, Shield, User, X } from "lucide-react";
+import { updateDisplayName, updateCargo, updatePhone } from "@/app/(app)/opai/perfil/actions";
 
 interface UserInfoProps {
   user: {
@@ -10,6 +10,7 @@ interface UserInfoProps {
     email: string;
     role: string;
     cargo?: string | null;
+    phone?: string | null;
   };
 }
 
@@ -32,6 +33,9 @@ export function UserInfo({ user }: UserInfoProps) {
   const [isEditingCargo, setIsEditingCargo] = useState(false);
   const [currentCargo, setCurrentCargo] = useState(user.cargo ?? "");
   const [draftCargo, setDraftCargo] = useState(user.cargo ?? "");
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [currentPhone, setCurrentPhone] = useState(user.phone ?? "");
+  const [draftPhone, setDraftPhone] = useState(user.phone ?? "");
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error";
     message: string;
@@ -59,6 +63,40 @@ export function UserInfo({ user }: UserInfoProps) {
     setStatusMessage(null);
     setDraftCargo(currentCargo);
     setIsEditingCargo(false);
+  };
+
+  const startEditPhone = () => {
+    setStatusMessage(null);
+    setDraftPhone(currentPhone);
+    setIsEditingPhone(true);
+  };
+
+  const cancelEditPhone = () => {
+    setStatusMessage(null);
+    setDraftPhone(currentPhone);
+    setIsEditingPhone(false);
+  };
+
+  const savePhone = () => {
+    setStatusMessage(null);
+    startTransition(async () => {
+      const result = await updatePhone(draftPhone);
+      if (!result.success) {
+        setStatusMessage({
+          type: "error",
+          message: result.error || "No se pudo actualizar el teléfono",
+        });
+        return;
+      }
+      const newPhone = result.phone ?? draftPhone.trim();
+      setCurrentPhone(newPhone);
+      setDraftPhone(newPhone);
+      setIsEditingPhone(false);
+      setStatusMessage({
+        type: "success",
+        message: "Teléfono actualizado correctamente",
+      });
+    });
   };
 
   const saveCargo = () => {
@@ -181,6 +219,69 @@ export function UserInfo({ user }: UserInfoProps) {
             <p className="text-foreground font-medium">
               {roleLabels[user.role] || user.role}
             </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3">
+          <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">
+              Teléfono (WhatsApp)
+            </p>
+            {!isEditingPhone ? (
+              <button
+                type="button"
+                onClick={startEditPhone}
+                className="group mt-0.5 inline-flex items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left transition-colors hover:border-border hover:bg-accent/40"
+                title="Haz clic para cambiar tu teléfono"
+              >
+                <span className="text-foreground font-medium font-mono">
+                  {currentPhone || (
+                    <span className="text-muted-foreground italic font-sans">Sin teléfono</span>
+                  )}
+                </span>
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground" />
+              </button>
+            ) : (
+              <div className="mt-1 space-y-2">
+                <input
+                  type="tel"
+                  value={draftPhone}
+                  onChange={(e) => setDraftPhone(e.target.value)}
+                  disabled={isPending}
+                  maxLength={20}
+                  placeholder="+56912345678 o 912345678"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-mono text-foreground placeholder:text-muted-foreground placeholder:font-sans focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Se usa para recibir notificaciones de WhatsApp (ej: cuando un guardia acepta una alerta de cobertura que creaste).
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={savePhone}
+                    disabled={isPending}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    {isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
+                    Guardar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditPhone}
+                    disabled={isPending}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-60"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

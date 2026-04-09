@@ -467,32 +467,34 @@ export async function notificarSupervisorAceptacion(params: {
     console.error("[AlertaCobertura:Notif] Email supervisor error:", e);
   }
 
-  // 2.5 WhatsApp al admin con los datos de contacto del guardia aceptante.
+  // 2.5 WhatsApp al admin que CREÓ la alerta con los datos de contacto del
+  //     guardia que aceptó. Lee el phone del Admin.phone (agregado en la
+  //     migration 20260605000000_add_admin_phone).
   //
   // WhatsApp Business requiere un Content Template APROBADO para mensajes
   // outbound fuera de la ventana de 24h. Si TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION
-  // no está seteado, NO intentamos mandar (fallará silenciosamente con 63016).
+  // no está seteado, NO intentamos mandar (fallará con 63016).
   //
-  // Para habilitar: crear template "cobertura_resuelta" en Twilio Console →
-  // Messaging → Content Template Builder, en español, con 4 variables:
+  // Template "cobertura_resuelta" esperado con 4 variables:
   //   {{1}} = Nombre del guardia que aceptó
   //   {{2}} = Instalación
   //   {{3}} = Horario
   //   {{4}} = Teléfono del guardia
-  // Luego setear TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION=HX... en Vercel env.
   try {
-    const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
-    const tenantCfg = await getTenantCompanyConfig(params.tenantId);
-    const telAdmin = tenantCfg.phoneRaw;
+    const adminCreador = await prisma.admin.findUnique({
+      where: { id: params.creadaPorId },
+      select: { phone: true, name: true },
+    });
+    const telAdmin = adminCreador?.phone?.trim() || null;
     const tmplAceptSid = process.env.TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION?.trim();
 
     console.log(
-      `[AlertaCobertura:Notif] WhatsApp aceptación — tenant ${params.tenantId}, phoneRaw: ${telAdmin || "(vacío)"}, template: ${tmplAceptSid ? "configurado" : "NO CONFIGURADO"}`,
+      `[AlertaCobertura:Notif] WhatsApp aceptación — admin ${params.creadaPorId} (${adminCreador?.name || "?"}), phone: ${telAdmin || "(vacío)"}, template: ${tmplAceptSid ? "configurado" : "NO CONFIGURADO"}`,
     );
 
     if (!telAdmin) {
       console.warn(
-        "[AlertaCobertura:Notif] No hay teléfono del tenant configurado (Settings > Empresa > phoneRaw). Saltando WhatsApp al supervisor.",
+        `[AlertaCobertura:Notif] Admin creador ${params.creadaPorId} no tiene teléfono configurado. Saltando WhatsApp. Configurar en: Mi Perfil > Teléfono.`,
       );
     } else if (!tmplAceptSid) {
       console.warn(

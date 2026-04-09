@@ -401,6 +401,7 @@ model Admin {
   email                 String                    @unique
   password              String
   name                  String
+  phone                 String?
   cargo                 String?
   role                  String                    @default("admin")
   roleTemplateId        String?                   @map("role_template_id")
