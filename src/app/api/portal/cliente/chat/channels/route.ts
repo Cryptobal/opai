@@ -60,6 +60,10 @@ export async function GET(request: NextRequest) {
               select: { id: true, name: true },
             })
           : null;
+        const pref = await prisma.chatNotificationPreference.findFirst({
+          where: { channelId: externalChannel.id, userType: "CLIENT", userId: session.contactId },
+          select: { preference: true },
+        });
         channelData = [
           {
             id: externalChannel.id,
@@ -75,6 +79,7 @@ export async function GET(request: NextRequest) {
             updatedAt: externalChannel.updatedAt.toISOString(),
             account: accountInfo ? { id: accountInfo.id, name: accountInfo.name } : null,
             unreadCount: unreadMap.get(externalChannel.id) ?? 0,
+            notificationPreference: pref?.preference ?? "ALL",
           },
         ];
       }
@@ -132,6 +137,15 @@ export async function GET(request: NextRequest) {
     const channelIds = channels.map((ch) => ch.id);
     const unreadMap = await batchUnreadCounts(channelIds, "CLIENT", session.contactId);
 
+    // Batch notification preferences
+    const notifPrefs = channelIds.length > 0
+      ? await prisma.chatNotificationPreference.findMany({
+          where: { channelId: { in: channelIds }, userType: "CLIENT", userId: session.contactId },
+          select: { channelId: true, preference: true },
+        })
+      : [];
+    const notifPrefMap = new Map(notifPrefs.map((p) => [p.channelId, p.preference]));
+
     const data = channels.map((ch) => ({
       id: ch.id,
       tenantId: ch.tenantId,
@@ -153,6 +167,7 @@ export async function GET(request: NextRequest) {
           }
         : undefined,
       unreadCount: unreadMap.get(ch.id) ?? 0,
+      notificationPreference: notifPrefMap.get(ch.id) ?? "ALL",
     }));
 
     return NextResponse.json({
