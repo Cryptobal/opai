@@ -264,6 +264,12 @@ export function Step5Closure({
     hasValidation
   );
 
+  // Unanswered tracking for visual hints (only relevant when client contacted & trying to finalize)
+  const missingContactName = clientContacted && clientContactName.trim() === "";
+  const missingRisk = clientContacted && surveyData.hasUrgentRisk === null;
+  const missingNps = clientContacted && surveyData.npsScore === null;
+  const missingValidation = clientContacted && !hasValidation;
+
   // Tags
   const tags: { label: string; color: string }[] = [];
   if (isExpress) tags.push({ label: "Express (<15 min)", color: "text-amber-400 bg-amber-500/10" });
@@ -369,12 +375,15 @@ export function Step5Closure({
               {/* Contact info */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-xs">Nombre del contacto</Label>
+                  <Label className={`text-xs ${missingContactName ? "text-amber-400" : ""}`}>
+                    Nombre del contacto
+                    {missingContactName && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
+                  </Label>
                   <Input
                     value={clientContactName}
                     onChange={(e) => onClientContactNameChange(e.target.value)}
                     placeholder="Nombre"
-                    className="h-11"
+                    className={`h-11 ${missingContactName ? "border-amber-500/40" : ""}`}
                   />
                 </div>
                 <div className="space-y-1">
@@ -390,23 +399,28 @@ export function Step5Closure({
 
               {/* Survey questions Q1-Q6 */}
               <div className="space-y-4 pt-2">
-                {SURVEY_QUESTIONS.map((q, idx) => (
-                  <div key={q.key} className="space-y-1">
-                    <Label className="text-xs">
-                      {idx + 1}. {q.question}
-                    </Label>
-                    <SurveyRating
-                      value={surveyData[q.key]}
-                      onChange={(v) => updateSurveyField(q.key, v)}
-                      labels={q.labels}
-                    />
-                  </div>
-                ))}
+                {SURVEY_QUESTIONS.map((q, idx) => {
+                  const unanswered = clientContacted && surveyData[q.key] === null;
+                  return (
+                    <div key={q.key} className={`space-y-1 rounded-lg p-1.5 -mx-1.5 transition-colors ${unanswered ? "bg-amber-500/5" : ""}`}>
+                      <Label className={`text-xs ${unanswered ? "text-amber-400" : ""}`}>
+                        {idx + 1}. {q.question}
+                        {unanswered && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
+                      </Label>
+                      <SurveyRating
+                        value={surveyData[q.key]}
+                        onChange={(v) => updateSurveyField(q.key, v)}
+                        labels={q.labels}
+                      />
+                    </div>
+                  );
+                })}
 
                 {/* Q7: Urgent risk — Sí/No */}
-                <div className="space-y-2">
-                  <Label className="text-xs">
+                <div className={`space-y-2 rounded-lg p-1.5 -mx-1.5 transition-colors ${missingRisk ? "bg-amber-500/5" : ""}`}>
+                  <Label className={`text-xs ${missingRisk ? "text-amber-400" : ""}`}>
                     7. Existe actualmente algun riesgo o preocupacion relevante que debamos abordar de inmediato?
+                    {missingRisk && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
                   </Label>
                   <div className="flex gap-2">
                     <button
@@ -423,8 +437,7 @@ export function Step5Closure({
                     <button
                       type="button"
                       onClick={() => {
-                        updateSurveyField("hasUrgentRisk", false);
-                        updateSurveyField("urgentRiskDetail", "");
+                        onSurveyDataChange({ ...surveyData, hasUrgentRisk: false, urgentRiskDetail: "" });
                       }}
                       className={`flex-1 rounded-lg border-2 p-2.5 text-center text-sm font-medium transition ${
                         surveyData.hasUrgentRisk === false
@@ -452,9 +465,10 @@ export function Step5Closure({
                 </div>
 
                 {/* Q8: NPS */}
-                <div className="space-y-1">
-                  <Label className="text-xs">
+                <div className={`space-y-1 rounded-lg p-1.5 -mx-1.5 transition-colors ${missingNps ? "bg-amber-500/5" : ""}`}>
+                  <Label className={`text-xs ${missingNps ? "text-amber-400" : ""}`}>
                     8. Recomendaria nuestro servicio? (NPS)
+                    {missingNps && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
                   </Label>
                   <NpsRating
                     value={surveyData.npsScore}
@@ -478,9 +492,10 @@ export function Step5Closure({
               </div>
 
               {/* Validation section */}
-              <div className="space-y-3 rounded-lg bg-muted/30 p-3">
-                <p className="text-xs font-medium">
+              <div className={`space-y-3 rounded-lg p-3 transition-colors ${missingValidation ? "bg-amber-500/5 border border-amber-500/20" : "bg-muted/30"}`}>
+                <p className={`text-xs font-medium ${missingValidation ? "text-amber-400" : ""}`}>
                   Validacion del cliente (obligatorio)
+                  {missingValidation && <span className="ml-1 text-[10px] text-amber-400/70">*</span>}
                 </p>
                 <p className="text-[10px] text-muted-foreground">
                   El cliente confirma que respondio esta encuesta
@@ -714,15 +729,24 @@ export function Step5Closure({
           </Button>
         </div>
 
-        {clientContacted && !canFinalize && (
-          <p className="text-center text-xs text-amber-400">
-            {!clientContactName.trim()
-              ? "Falta nombre del contacto"
-              : !surveyComplete
-                ? "Faltan preguntas de la encuesta"
-                : "Falta validacion (firma o foto)"}
-          </p>
-        )}
+        {clientContacted && !canFinalize && (() => {
+          const missing: string[] = [];
+          if (!clientContactName.trim()) missing.push("nombre del contacto");
+          const unansweredCount = [
+            surveyData.serviceQuality, surveyData.scheduleCompliance,
+            surveyData.personalPresentation, surveyData.professionalism,
+            surveyData.supervisionPresence, surveyData.incidentResponse,
+          ].filter((v) => v === null).length;
+          if (unansweredCount > 0) missing.push(`${unansweredCount} pregunta(s) de encuesta`);
+          if (surveyData.hasUrgentRisk === null) missing.push("pregunta de riesgo (Q7)");
+          if (surveyData.npsScore === null) missing.push("NPS (Q8)");
+          if (!hasValidation) missing.push("validacion (firma o foto)");
+          return (
+            <p className="text-center text-xs text-amber-400">
+              Falta: {missing.join(", ")}
+            </p>
+          );
+        })()}
       </CardContent>
     </Card>
   );
