@@ -49,6 +49,9 @@ export async function notifyRendicionSubmitted(data: {
           `${data.submitterName} ha enviado la rendición ${data.rendicionCode} por ${formattedAmount} para su aprobación.`,
           "",
           `Revísala en: ${SITE_URL}/finanzas/aprobaciones`,
+          "",
+          "---",
+          `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${SITE_URL}/opai/perfil/notificaciones`,
         ].join("\n"),
       });
     } catch (err) {
@@ -83,6 +86,9 @@ export async function notifyRendicionApproved(data: {
         `El pago será procesado próximamente.`,
         "",
         `Ver detalle: ${SITE_URL}/finanzas`,
+        "",
+        "---",
+        `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${SITE_URL}/opai/perfil/notificaciones`,
       ].join("\n"),
     });
   } catch (err) {
@@ -117,6 +123,9 @@ export async function notifyRendicionRejected(data: {
         `Motivo: ${data.reason}`,
         "",
         `Puedes corregirla y reenviarla desde: ${SITE_URL}/finanzas`,
+        "",
+        "---",
+        `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${SITE_URL}/opai/perfil/notificaciones`,
       ].join("\n"),
     });
   } catch (err) {
@@ -150,6 +159,9 @@ export async function notifyRendicionPaid(data: {
         `Código de pago: ${data.paymentCode}`,
         "",
         `Ver detalle: ${SITE_URL}/finanzas`,
+        "",
+        "---",
+        `¿No quieres recibir este tipo de alertas? Administrar notificaciones: ${SITE_URL}/opai/perfil/notificaciones`,
       ].join("\n"),
     });
   } catch (err) {

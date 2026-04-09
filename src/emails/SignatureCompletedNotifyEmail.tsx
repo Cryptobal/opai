@@ -8,8 +8,11 @@ import {
   Section,
   Text,
   Link,
+  Hr,
 } from "@react-email/components";
 import * as React from "react";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || "";
 
 interface SignatureCompletedNotifyEmailProps {
   documentTitle: string;
@@ -50,6 +53,16 @@ export default function SignatureCompletedNotifyEmail({
               </Link>
             </Text>
           ) : null}
+          <Hr style={hr} />
+          <Text style={unsubscribeText}>
+            ¿No quieres recibir este tipo de alertas?{" "}
+            <Link
+              href={`${SITE_URL}/opai/perfil/notificaciones?type=document_signed_completed`}
+              style={unsubscribeLink}
+            >
+              Administrar notificaciones
+            </Link>
+          </Text>
         </Container>
       </Body>
     </Html>
@@ -63,3 +76,6 @@ const text = { color: "#334155", fontSize: "15px", lineHeight: "1.6", margin: "0
 const box = { backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "14px 16px", margin: "14px 0" };
 const line = { color: "#1e293b", fontSize: "14px", margin: "0 0 6px" };
 const link = { color: "#0ea5e9", textDecoration: "underline", wordBreak: "break-all" as const };
+const hr = { borderColor: "#e2e8f0", margin: "16px 0 0" };
+const unsubscribeText = { color: "#94a3b8", fontSize: "11px", lineHeight: "1.5", margin: "12px 0 0", textAlign: "center" as const };
+const unsubscribeLink = { color: "#0ea5e9", textDecoration: "underline" };

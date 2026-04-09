@@ -282,6 +282,10 @@ function buildHtml(data: MonitorEmailData): string {
 
   <tr><td style="padding:16px 32px;border-top:1px solid #e2e8f0;background:#f8fafc">
     <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center">Sistema OPAI — Reporte generado automáticamente</p>
+    <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;text-align:center">
+      ¿No quieres recibir este tipo de alertas?
+      <a href="${baseUrl}/opai/perfil/notificaciones" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
+    </p>
   </td></tr>
 
 </table></td></tr></table>

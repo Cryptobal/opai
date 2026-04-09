@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
   Mail,
@@ -21,12 +21,32 @@ interface ApiResponse {
   };
 }
 
-export function UserNotificationPrefsClient() {
+interface Props {
+  /** When set via ?type= query param, auto-scroll and highlight this notification type */
+  highlightType?: string;
+}
+
+export function UserNotificationPrefsClient({ highlightType }: Props = {}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [prefs, setPrefs] = useState<UserNotifPrefsMap>({});
   const [types, setTypes] = useState<NotificationTypeDef[]>([]);
   const [dirty, setDirty] = useState(false);
+  const [highlighted, setHighlighted] = useState<string | undefined>(highlightType);
+  const highlightRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to highlighted notification type after data loads
+  useEffect(() => {
+    if (highlighted && !loading && types.length > 0 && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast.info("Desactiva el email de esta notificación desmarcando la casilla de correo", {
+        duration: 6000,
+      });
+      // Clear highlight after a few seconds
+      const timer = setTimeout(() => setHighlighted(undefined), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlighted, loading, types.length]);
 
   const fetchPrefs = useCallback(async () => {
     setLoading(true);
@@ -188,10 +208,16 @@ export function UserNotificationPrefsClient() {
           <div className="divide-y divide-border/50">
             {items.map((t) => {
               const pref = prefs[t.key] ?? { bell: t.defaultBell, email: t.defaultEmail };
+              const isHighlighted = highlighted === t.key;
               return (
                 <div
                   key={t.key}
-                  className="flex items-center gap-4 px-5 py-3"
+                  ref={isHighlighted ? highlightRef : undefined}
+                  className={`flex items-center gap-4 px-5 py-3 transition-colors duration-1000 ${
+                    isHighlighted
+                      ? "bg-primary/10 ring-2 ring-primary/40 ring-inset rounded-md"
+                      : ""
+                  }`}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium">{t.label}</div>
