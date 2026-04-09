@@ -30,18 +30,27 @@ export async function GET(request: NextRequest) {
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
+    const filter = request.nextUrl.searchParams.get("filter") || "contratado";
+    // Legacy compat: mode param still works for contratado/inactivo
     const mode = request.nextUrl.searchParams.get("mode") === "historico" ? "historico" : "activos";
+
+    const VALID_FILTERS = ["all", "postulante", "seleccionado", "contratado", "te", "inactivo"];
+    const activeFilter = VALID_FILTERS.includes(filter) ? filter : "contratado";
 
     const where: Record<string, unknown> = {
       tenantId: ctx.tenantId,
-      hiredAt: { not: null },
-      lifecycleStatus:
-        mode === "activos"
-          ? "contratado"
-          : { in: ["contratado", "inactivo"] },
     };
-    if (mode === "activos") {
-      where.status = "active";
+
+    if (activeFilter === "all") {
+      // No lifecycle filter — all statuses
+    } else if (activeFilter === "contratado") {
+      where.lifecycleStatus = mode === "historico" ? { in: ["contratado", "inactivo"] } : "contratado";
+      where.hiredAt = { not: null };
+      if (mode === "activos") where.status = "active";
+    } else if (activeFilter === "inactivo") {
+      where.lifecycleStatus = "inactivo";
+    } else {
+      where.lifecycleStatus = activeFilter;
     }
 
     const guardiasRaw = await prisma.opsGuardia.findMany({
@@ -61,7 +70,10 @@ export async function GET(request: NextRequest) {
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     });
 
-    const guardias = guardiasRaw.filter((g) => g.lifecycleStatus !== "te");
+    // Only exclude TE from contratado grid (legacy behavior); otherwise show all results
+    const guardias = activeFilter === "contratado"
+      ? guardiasRaw.filter((g) => g.lifecycleStatus !== "te")
+      : guardiasRaw;
 
     type GridRow = Record<string, string>;
     const rows: GridRow[] = [];
@@ -146,58 +158,60 @@ export async function GET(request: NextRequest) {
       grouped[inst].push(row);
     }
 
-    // ── PPC: dotación vs asignados por instalación ──
-    const [puestosAgg, asignacionesByInst] = await Promise.all([
-      prisma.opsPuestoOperativo.groupBy({
-        by: ["installationId"],
-        where: { tenantId: ctx.tenantId, active: true },
-        _sum: { requiredGuards: true },
-      }),
-      prisma.opsAsignacionGuardia.groupBy({
-        by: ["installationId"],
-        where: { tenantId: ctx.tenantId, isActive: true },
-        _count: { id: true },
-      }),
-    ]);
-
-    // Map installationId → name
-    const installationIds = [
-      ...new Set([
-        ...puestosAgg.map((p) => p.installationId),
-        ...asignacionesByInst.map((a) => a.installationId),
-      ]),
-    ];
-    const installations = await prisma.crmInstallation.findMany({
-      where: { id: { in: installationIds } },
-      select: { id: true, name: true },
-    });
-    const idToName: Record<string, string> = {};
-    for (const inst of installations) {
-      idToName[inst.id] = inst.name;
-    }
-
-    const dotacionMap: Record<string, number> = {};
-    for (const p of puestosAgg) {
-      const name = idToName[p.installationId] ?? "Sin instalación";
-      dotacionMap[name] = (dotacionMap[name] ?? 0) + (p._sum.requiredGuards ?? 0);
-    }
-
-    const asignadosMap: Record<string, number> = {};
-    for (const a of asignacionesByInst) {
-      const name = idToName[a.installationId] ?? "Sin instalación";
-      asignadosMap[name] = (asignadosMap[name] ?? 0) + a._count.id;
-    }
-
+    // ── PPC: dotación vs asignados por instalación (only for contratado view) ──
     type InstSummary = { dotacion: number; asignados: number; ppc: number };
-    const summary: Record<string, InstSummary> = {};
-    const allInstNames = new Set([...Object.keys(grouped), ...Object.keys(dotacionMap)]);
-    for (const name of allInstNames) {
-      const dot = dotacionMap[name] ?? 0;
-      const asig = asignadosMap[name] ?? 0;
-      summary[name] = { dotacion: dot, asignados: asig, ppc: Math.max(0, dot - asig) };
+    let summary: Record<string, InstSummary> = {};
+
+    if (activeFilter === "contratado") {
+      const [puestosAgg, asignacionesByInst] = await Promise.all([
+        prisma.opsPuestoOperativo.groupBy({
+          by: ["installationId"],
+          where: { tenantId: ctx.tenantId, active: true },
+          _sum: { requiredGuards: true },
+        }),
+        prisma.opsAsignacionGuardia.groupBy({
+          by: ["installationId"],
+          where: { tenantId: ctx.tenantId, isActive: true },
+          _count: { id: true },
+        }),
+      ]);
+
+      const installationIds = [
+        ...new Set([
+          ...puestosAgg.map((p) => p.installationId),
+          ...asignacionesByInst.map((a) => a.installationId),
+        ]),
+      ];
+      const installations = await prisma.crmInstallation.findMany({
+        where: { id: { in: installationIds } },
+        select: { id: true, name: true },
+      });
+      const idToName: Record<string, string> = {};
+      for (const inst of installations) {
+        idToName[inst.id] = inst.name;
+      }
+
+      const dotacionMap: Record<string, number> = {};
+      for (const p of puestosAgg) {
+        const name = idToName[p.installationId] ?? "Sin instalación";
+        dotacionMap[name] = (dotacionMap[name] ?? 0) + (p._sum.requiredGuards ?? 0);
+      }
+
+      const asignadosMap: Record<string, number> = {};
+      for (const a of asignacionesByInst) {
+        const name = idToName[a.installationId] ?? "Sin instalación";
+        asignadosMap[name] = (asignadosMap[name] ?? 0) + a._count.id;
+      }
+
+      const allInstNames = new Set([...Object.keys(grouped), ...Object.keys(dotacionMap)]);
+      for (const name of allInstNames) {
+        const dot = dotacionMap[name] ?? 0;
+        const asig = asignadosMap[name] ?? 0;
+        summary[name] = { dotacion: dot, asignados: asig, ppc: Math.max(0, dot - asig) };
+      }
     }
 
-    return NextResponse.json({ success: true, data: grouped, summary });
+    return NextResponse.json({ success: true, data: grouped, summary, filter: activeFilter });
   } catch (error) {
     console.error("[PERSONAS] Error cargando grilla de guardias:", error);
     return NextResponse.json({ success: false, error: "No se pudo cargar la grilla" }, { status: 500 });

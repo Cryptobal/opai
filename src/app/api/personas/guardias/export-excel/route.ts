@@ -32,17 +32,34 @@ export async function GET(request: NextRequest) {
     if (forbidden) return forbidden;
 
     const mode = request.nextUrl.searchParams.get("mode") === "historico" ? "historico" : "activos";
+    const filter = request.nextUrl.searchParams.get("filter") || "";
+
+    const VALID_FILTERS = ["all", "postulante", "seleccionado", "contratado", "te", "inactivo"];
+    const activeFilter = VALID_FILTERS.includes(filter) ? filter : "";
 
     const where: any = {
       tenantId: ctx.tenantId,
-      hiredAt: { not: null },
-      lifecycleStatus:
+    };
+
+    if (activeFilter && activeFilter !== "contratado") {
+      // New filter-based export
+      if (activeFilter === "all") {
+        // No lifecycle filter
+      } else if (activeFilter === "inactivo") {
+        where.lifecycleStatus = "inactivo";
+      } else {
+        where.lifecycleStatus = activeFilter;
+      }
+    } else {
+      // Legacy mode-based export (contratado)
+      where.hiredAt = { not: null };
+      where.lifecycleStatus =
         mode === "activos"
           ? "contratado"
-          : { in: ["contratado", "inactivo"] },
-    };
-    if (mode === "activos") {
-      where.status = "active";
+          : { in: ["contratado", "inactivo"] };
+      if (mode === "activos") {
+        where.status = "active";
+      }
     }
 
     const guardiasRaw = await prisma.opsGuardia.findMany({
@@ -61,7 +78,9 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     });
-    const guardias = guardiasRaw.filter((g) => g.lifecycleStatus !== "te");
+    const guardias = (!activeFilter || activeFilter === "contratado")
+      ? guardiasRaw.filter((g) => g.lifecycleStatus !== "te")
+      : guardiasRaw;
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "OPAI";
@@ -194,8 +213,16 @@ export async function GET(request: NextRequest) {
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const fileName =
-      mode === "activos"
+    const FILTER_FILENAMES: Record<string, string> = {
+      all: "guardias-todos",
+      postulante: "guardias-postulantes",
+      seleccionado: "guardias-seleccionados",
+      te: "guardias-turno-extra",
+      inactivo: "guardias-inactivos",
+    };
+    const fileName = activeFilter && activeFilter !== "contratado"
+      ? `${FILTER_FILENAMES[activeFilter] ?? `guardias-${activeFilter}`}-${today}.xlsx`
+      : mode === "activos"
         ? `guardias-activos-${today}.xlsx`
         : `guardias-activos-e-inactivos-${today}.xlsx`;
 

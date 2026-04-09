@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { Avatar, EmptyState } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw, Share2, MessageCircle, FileCheck, FileX } from "lucide-react";
+import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw, Share2, MessageCircle, FileCheck, FileX, Download } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import {
@@ -223,11 +223,41 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
     }
   };
 
-  const handleLoadGrid = async () => {
-    setGridLoading(true);
+  const handleExportGridExcel = async () => {
     try {
-      const mode = lifecycleFilter === "inactivo" ? "historico" : "activos";
-      const res = await fetch(`/api/personas/guardias/grid-data?mode=${mode}`);
+      const filterParam = gridFilter || lifecycleFilter;
+      const response = await fetch(`/api/personas/guardias/export-excel?filter=${filterParam}`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || "No se pudo generar el Excel");
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="(.+)"/);
+      const fileName = match?.[1] ?? `guardias-${filterParam}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Excel descargado");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo descargar el Excel");
+    }
+  };
+
+  const [gridFilter, setGridFilter] = useState<string>("");
+
+  const handleLoadGrid = async (filterOverride?: string) => {
+    setGridLoading(true);
+    const activeFilter = filterOverride ?? lifecycleFilter;
+    try {
+      const mode = activeFilter === "inactivo" ? "historico" : "activos";
+      const res = await fetch(`/api/personas/guardias/grid-data?mode=${mode}&filter=${activeFilter === "all" ? "all" : activeFilter}`);
       const payload = await res.json();
       if (!res.ok || !payload.success) {
         toast.error(payload.error || "No se pudo cargar la grilla");
@@ -235,10 +265,12 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
       }
       setGridData(payload.data);
       setGridSummary(payload.summary ?? {});
-      // Start with all collapsed
+      setGridFilter(activeFilter);
+      // For contratado, start collapsed; for others, start expanded (flat list)
       const collapsed: Record<string, boolean> = {};
+      const shouldCollapse = activeFilter === "contratado";
       for (const inst of Object.keys(payload.data)) {
-        collapsed[inst] = true;
+        collapsed[inst] = shouldCollapse;
       }
       setGridCollapsed(collapsed);
     } catch {
@@ -250,8 +282,11 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
 
   const handleViewChange = (newView: ViewMode) => {
     setViewMode(newView);
-    if (newView === "spreadsheet" && !gridData) {
-      void handleLoadGrid();
+    if (newView === "spreadsheet") {
+      // Load grid if no data, or if filter changed since last load
+      if (!gridData || gridFilter !== lifecycleFilter) {
+        void handleLoadGrid();
+      }
     }
   };
 
@@ -938,7 +973,12 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
               })),
             ]}
             activeFilter={lifecycleFilter}
-            onFilterChange={setLifecycleFilter}
+            onFilterChange={(f) => {
+              setLifecycleFilter(f);
+              if (viewMode === "spreadsheet") {
+                void handleLoadGrid(f);
+              }
+            }}
             viewModes={["list", "cards", "spreadsheet"]}
             activeView={viewMode}
             onViewChange={handleViewChange}
@@ -1355,7 +1395,7 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
               })}
             </div>
           ) : viewMode === "spreadsheet" ? (
-            /* ── Vista grilla: tabla tipo Excel agrupada por instalación ── */
+            /* ── Vista grilla: tabla tipo Excel ── */
             <div className="space-y-2 min-w-0">
               {gridLoading ? (
                 <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
@@ -1369,25 +1409,31 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                   description="No se pudieron cargar los datos de la grilla."
                   compact
                 />
-              ) : (
+              ) : (() => {
+                const isGrouped = gridFilter === "contratado";
+                const allRows = Object.values(gridData).flat();
+                const totalCount = allRows.length;
+                return (
                 <>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => {
-                        const allExpanded = Object.values(gridCollapsed).every((v) => !v);
-                        const next: Record<string, boolean> = {};
-                        for (const inst of Object.keys(gridData)) {
-                          next[inst] = allExpanded;
-                        }
-                        setGridCollapsed(next);
-                      }}
-                    >
-                      {Object.values(gridCollapsed).every((v) => !v) ? "Colapsar todo" : "Expandir todo"}
-                    </Button>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    {isGrouped && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          const allExpanded = Object.values(gridCollapsed).every((v) => !v);
+                          const next: Record<string, boolean> = {};
+                          for (const inst of Object.keys(gridData)) {
+                            next[inst] = allExpanded;
+                          }
+                          setGridCollapsed(next);
+                        }}
+                      >
+                        {Object.values(gridCollapsed).every((v) => !v) ? "Colapsar todo" : "Expandir todo"}
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       size="sm"
@@ -1399,96 +1445,164 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
                       <RefreshCw className={`h-3 w-3 mr-1 ${gridLoading ? "animate-spin" : ""}`} />
                       Recargar
                     </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => void handleExportGridExcel()}
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      Descargar Excel
+                    </Button>
                     <span className="text-xs text-muted-foreground">
-                      {Object.values(gridData).reduce((sum, rows) => sum + rows.length, 0)} registros en {Object.keys(gridData).length} instalaciones
+                      {totalCount} registro{totalCount !== 1 ? "s" : ""}
+                      {isGrouped && ` en ${Object.keys(gridData).length} instalaciones`}
                     </span>
                   </div>
-                  {Object.entries(gridData).map(([instName, rows]) => {
-                    const s = gridSummary[instName];
-                    return (
-                    <div key={instName} className="border border-border rounded-lg overflow-hidden">
-                      <button
-                        type="button"
-                        className="w-full flex items-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted/80 transition-colors text-left"
-                        onClick={() => toggleInstallation(instName)}
-                      >
-                        {gridCollapsed[instName] ? (
-                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                        )}
-                        <Building2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />
-                        <span className="text-sm font-semibold">{instName}</span>
-                        {s && s.dotacion > 0 && (
-                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground ml-2">
-                            <span>Dotación <span className="font-semibold text-foreground/80">{s.dotacion}</span></span>
-                            <span className="text-border">·</span>
-                            <span>Guardias <span className="font-semibold text-foreground/80">{s.asignados}</span></span>
-                            {s.ppc > 0 && (
-                              <>
-                                <span className="text-border">·</span>
-                                <span className="text-amber-400">PPC <span className="font-semibold">{s.ppc}</span></span>
-                              </>
-                            )}
-                          </span>
-                        )}
-                        <span className="text-xs text-muted-foreground ml-auto">{rows.length} guardia{rows.length !== 1 ? "s" : ""}</span>
-                      </button>
-                      {!gridCollapsed[instName] && (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs border-collapse">
-                            <thead>
-                              <tr className="bg-[#0F2847] text-white sticky top-0 z-10">
-                                {GRID_COLUMNS.map((col) => (
-                                  <th
-                                    key={col.key}
-                                    className="px-2 py-1.5 text-left font-semibold whitespace-nowrap border-r border-[#1a3a5c] last:border-r-0"
-                                    style={{ minWidth: col.width }}
-                                  >
-                                    {col.label}
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {rows.map((row, idx) => (
-                                <tr
-                                  key={row.id + "-" + idx}
-                                  className="border-t border-border hover:bg-muted/30 transition-colors cursor-pointer"
-                                  onClick={() => row.id && router.push(`/personas/guardias/${row.id}`)}
-                                >
+
+                  {isGrouped ? (
+                    /* ── Grouped by installation (contratado) ── */
+                    Object.entries(gridData).map(([instName, rows]) => {
+                      const s = gridSummary[instName];
+                      return (
+                      <div key={instName} className="border border-border rounded-lg overflow-hidden">
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted/80 transition-colors text-left"
+                          onClick={() => toggleInstallation(instName)}
+                        >
+                          {gridCollapsed[instName] ? (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                          )}
+                          <Building2 className="h-3.5 w-3.5 text-violet-400 shrink-0" />
+                          <span className="text-sm font-semibold">{instName}</span>
+                          {s && s.dotacion > 0 && (
+                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground ml-2">
+                              <span>Dotación <span className="font-semibold text-foreground/80">{s.dotacion}</span></span>
+                              <span className="text-border">·</span>
+                              <span>Guardias <span className="font-semibold text-foreground/80">{s.asignados}</span></span>
+                              {s.ppc > 0 && (
+                                <>
+                                  <span className="text-border">·</span>
+                                  <span className="text-amber-400">PPC <span className="font-semibold">{s.ppc}</span></span>
+                                </>
+                              )}
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground ml-auto">{rows.length} guardia{rows.length !== 1 ? "s" : ""}</span>
+                        </button>
+                        {!gridCollapsed[instName] && (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs border-collapse">
+                              <thead>
+                                <tr className="bg-[#0F2847] text-white sticky top-0 z-10">
                                   {GRID_COLUMNS.map((col) => (
-                                    <td
+                                    <th
                                       key={col.key}
-                                      className="px-2 py-1 whitespace-nowrap border-r border-border/50 last:border-r-0 font-mono"
-                                      title={row[col.key] || ""}
+                                      className="px-2 py-1.5 text-left font-semibold whitespace-nowrap border-r border-[#1a3a5c] last:border-r-0"
+                                      style={{ minWidth: col.width }}
                                     >
-                                      {col.key === "os10" ? (
-                                        <span className={row[col.key] === "Sí" ? "text-emerald-400" : "text-muted-foreground"}>
-                                          {row[col.key] || "—"}
-                                        </span>
-                                      ) : col.key === "os10Expira" && row[col.key] ? (
-                                        <span className="tabular-nums">{row[col.key]}</span>
-                                      ) : col.key === "estadoLaboral" ? (
-                                        <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${LIFECYCLE_COLORS[row[col.key]] || "bg-muted text-muted-foreground"}`}>
-                                          {LIFECYCLE_LABELS[row[col.key]] || row[col.key]}
-                                        </span>
-                                      ) : (
-                                        <span className="truncate max-w-full block">{row[col.key] || "—"}</span>
-                                      )}
-                                    </td>
+                                      {col.label}
+                                    </th>
                                   ))}
                                 </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((row, idx) => (
+                                  <tr
+                                    key={row.id + "-" + idx}
+                                    className="border-t border-border hover:bg-muted/30 transition-colors cursor-pointer"
+                                    onClick={() => row.id && router.push(`/personas/guardias/${row.id}`)}
+                                  >
+                                    {GRID_COLUMNS.map((col) => (
+                                      <td
+                                        key={col.key}
+                                        className="px-2 py-1 whitespace-nowrap border-r border-border/50 last:border-r-0 font-mono"
+                                        title={row[col.key] || ""}
+                                      >
+                                        {col.key === "os10" ? (
+                                          <span className={row[col.key] === "Sí" ? "text-emerald-400" : "text-muted-foreground"}>
+                                            {row[col.key] || "—"}
+                                          </span>
+                                        ) : col.key === "os10Expira" && row[col.key] ? (
+                                          <span className="tabular-nums">{row[col.key]}</span>
+                                        ) : col.key === "estadoLaboral" ? (
+                                          <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${LIFECYCLE_COLORS[row[col.key]] || "bg-muted text-muted-foreground"}`}>
+                                            {LIFECYCLE_LABELS[row[col.key]] || row[col.key]}
+                                          </span>
+                                        ) : (
+                                          <span className="truncate max-w-full block">{row[col.key] || "—"}</span>
+                                        )}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                    })
+                  ) : (
+                    /* ── Flat table (postulante, seleccionado, te, inactivo, todos) ── */
+                    <div className="border border-border rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-[#0F2847] text-white sticky top-0 z-10">
+                              {GRID_COLUMNS.map((col) => (
+                                <th
+                                  key={col.key}
+                                  className="px-2 py-1.5 text-left font-semibold whitespace-nowrap border-r border-[#1a3a5c] last:border-r-0"
+                                  style={{ minWidth: col.width }}
+                                >
+                                  {col.label}
+                                </th>
                               ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {allRows.map((row, idx) => (
+                              <tr
+                                key={row.id + "-" + idx}
+                                className="border-t border-border hover:bg-muted/30 transition-colors cursor-pointer"
+                                onClick={() => row.id && router.push(`/personas/guardias/${row.id}`)}
+                              >
+                                {GRID_COLUMNS.map((col) => (
+                                  <td
+                                    key={col.key}
+                                    className="px-2 py-1 whitespace-nowrap border-r border-border/50 last:border-r-0 font-mono"
+                                    title={row[col.key] || ""}
+                                  >
+                                    {col.key === "os10" ? (
+                                      <span className={row[col.key] === "Sí" ? "text-emerald-400" : "text-muted-foreground"}>
+                                        {row[col.key] || "—"}
+                                      </span>
+                                    ) : col.key === "os10Expira" && row[col.key] ? (
+                                      <span className="tabular-nums">{row[col.key]}</span>
+                                    ) : col.key === "estadoLaboral" ? (
+                                      <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${LIFECYCLE_COLORS[row[col.key]] || "bg-muted text-muted-foreground"}`}>
+                                        {LIFECYCLE_LABELS[row[col.key]] || row[col.key]}
+                                      </span>
+                                    ) : (
+                                      <span className="truncate max-w-full block">{row[col.key] || "—"}</span>
+                                    )}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  );
-                  })}
+                  )}
                 </>
-              )}
+              );
+              })()}
             </div>
           ) : null}
         </CardContent>
