@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
       soloDealer: body.soloDealer ?? false,
       soloConMovilizacion: body.soloConMovilizacion ?? false,
       audiencia: body.audiencia ?? "ambos",
+      oleadasOverride: body.oleadasOverride ?? null,
     });
 
     return NextResponse.json({

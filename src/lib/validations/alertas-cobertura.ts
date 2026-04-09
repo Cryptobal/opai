@@ -27,6 +27,19 @@ export const crearAlertaSchema = z
     soloConMovilizacion: z.boolean().optional(),
     /** A quién notificar. Default: ambos (internos contratados + externos con turnos extra). */
     audiencia: z.enum(["internos", "externos", "ambos"]).optional(),
+    /** Override opcional de la config de oleadas del tenant para esta alerta. */
+    oleadasOverride: z
+      .object({
+        oleada1RadioKm: z.number().min(1).max(500).optional(),
+        oleada1EsperaMin: z.number().int().min(1).max(120).optional(),
+        oleada2RadioKm: z.number().min(1).max(500).optional(),
+        oleada2EsperaMin: z.number().int().min(1).max(120).optional(),
+        oleada3RadioKm: z.number().min(1).max(500).optional(),
+        oleada3EsperaMin: z.number().int().min(1).max(120).optional(),
+        oleadaExternaEsperaMin: z.number().int().min(1).max(240).optional(),
+      })
+      .optional()
+      .nullable(),
   })
   .refine(
     (data) => {

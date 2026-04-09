@@ -7816,6 +7816,9 @@ model OpsAlertaCobertura {
   // Oleadas
   oleadaActual          Int      @default(0) @map("oleada_actual")
   oleadasConfig         Json     @default("[]") @map("oleadas_config") @db.JsonB
+  /// Override opcional de la config del tenant — si null, usa getAlertaCoberturaConfig().
+  /// Shape: { oleada1RadioKm?, oleada1EsperaMin?, oleada2RadioKm?, oleada2EsperaMin?, oleada3RadioKm?, oleada3EsperaMin?, oleadaExternaEsperaMin? }
+  oleadasOverride       Json?    @map("oleadas_override") @db.JsonB
   proximaOleadaAt       DateTime @map("proxima_oleada_at") @db.Timestamptz(6)
 
   // Aceptación

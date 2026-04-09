@@ -28,6 +28,16 @@ export interface OleadasPreview extends Oleada {
   guardias: { id: string; nombre: string; distanciaKm: number }[];
 }
 
+export interface OleadasOverride {
+  oleada1RadioKm?: number;
+  oleada1EsperaMin?: number;
+  oleada2RadioKm?: number;
+  oleada2EsperaMin?: number;
+  oleada3RadioKm?: number;
+  oleada3EsperaMin?: number;
+  oleadaExternaEsperaMin?: number;
+}
+
 export interface GenerarOleadasParams {
   tenantId: string;
   /**
@@ -52,6 +62,11 @@ export interface GenerarOleadasParams {
    * - "ambos" (default): ambos, primero internos por anillos, luego externos
    */
   audiencia?: "internos" | "externos" | "ambos";
+  /**
+   * Override parcial de la config del tenant para esta alerta específica.
+   * Los campos no provistos caen al valor del tenant.
+   */
+  oleadasOverride?: OleadasOverride | null;
 }
 
 interface OleadasResult {
@@ -64,7 +79,21 @@ interface OleadasResult {
 }
 
 export async function generarOleadas(params: GenerarOleadasParams): Promise<OleadasResult> {
-  const config = await getAlertaCoberturaConfig(params.tenantId);
+  const tenantConfig = await getAlertaCoberturaConfig(params.tenantId);
+  // Merge tenant config + override por alerta (si viene). Los campos del override
+  // reemplazan a los del tenant, el resto se mantiene.
+  const override = params.oleadasOverride ?? {};
+  const config = {
+    ...tenantConfig,
+    oleada1RadioKm: override.oleada1RadioKm ?? tenantConfig.oleada1RadioKm,
+    oleada1EsperaMin: override.oleada1EsperaMin ?? tenantConfig.oleada1EsperaMin,
+    oleada2RadioKm: override.oleada2RadioKm ?? tenantConfig.oleada2RadioKm,
+    oleada2EsperaMin: override.oleada2EsperaMin ?? tenantConfig.oleada2EsperaMin,
+    oleada3RadioKm: override.oleada3RadioKm ?? tenantConfig.oleada3RadioKm,
+    oleada3EsperaMin: override.oleada3EsperaMin ?? tenantConfig.oleada3EsperaMin,
+    oleadaExternaEsperaMin:
+      override.oleadaExternaEsperaMin ?? tenantConfig.oleadaExternaEsperaMin,
+  };
   const audiencia = params.audiencia ?? "ambos";
   const incluirInternos = audiencia === "internos" || audiencia === "ambos";
   const incluirExternos = audiencia === "externos" || audiencia === "ambos";

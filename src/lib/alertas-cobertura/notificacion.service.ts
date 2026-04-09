@@ -150,6 +150,12 @@ export async function notificarGuardiaAlerta(params: {
           to: emailDestino,
           subject: titulo,
           html,
+          // Sin tracking de clicks — Resend los reescribe a un subdominio
+          // resend-links.com sin SSL válido, rompiendo los botones CTA.
+          headers: { "X-Entity-Ref-ID": params.alertaId },
+          // @ts-ignore SDK tipos no exponen esto en todas las versiones
+          clickTracking: false,
+          openTracking: false,
         });
         resultado.email = true;
       } else {
@@ -419,12 +425,30 @@ export async function notificarSupervisorAceptacion(params: {
         }),
       );
 
+      // Destinatarios: admin creador + emailOps del tenant (si existe y no
+      // es el mismo) como CC para que operaciones reciba copia automática.
+      const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+      const tenantCfg = await getTenantCompanyConfig(params.tenantId);
+      const ccList: string[] = [];
+      if (
+        tenantCfg.emailOps &&
+        tenantCfg.emailOps.includes("@") &&
+        tenantCfg.emailOps.toLowerCase() !== admin.email.toLowerCase()
+      ) {
+        ccList.push(tenantCfg.emailOps);
+      }
+
       await resend.emails.send({
         from: emailConfig.from,
         replyTo: emailConfig.replyTo,
         to: admin.email,
+        cc: ccList.length > 0 ? ccList : undefined,
         subject: `✅ Cobertura Resuelta — ${params.guardiaNombre} aceptó turno en ${params.instalacionNombre}`,
         html,
+        headers: { "X-Entity-Ref-ID": params.alertaId },
+        // @ts-ignore
+        clickTracking: false,
+        openTracking: false,
       });
     }
   } catch (e) {
@@ -433,13 +457,16 @@ export async function notificarSupervisorAceptacion(params: {
 
   // 2.5 WhatsApp al admin con los datos de contacto del guardia aceptante.
   //     Intenta mandar texto plano freeform — requiere que Twilio tenga una
-  //     ventana activa con ese número o se cae silencioso. Para garantizar
-  //     entrega fuera de ventana, crear un template "cobertura_aceptada" y
-  //     setear TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION en Vercel (futuro).
+  //     ventana activa con ese número. Para garantizar entrega fuera de
+  //     ventana, crear un template "cobertura_aceptada" y setear
+  //     TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION en Vercel (futuro).
   try {
     const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
     const tenantCfg = await getTenantCompanyConfig(params.tenantId);
     const telAdmin = tenantCfg.phoneRaw;
+    console.log(
+      `[AlertaCobertura:Notif] WhatsApp aceptación — tenant ${params.tenantId}, phoneRaw: ${telAdmin || "(vacío)"}`,
+    );
     if (telAdmin) {
       const montoFmt = params.montoOfrecido
         ? new Intl.NumberFormat("es-CL", {
@@ -672,6 +699,9 @@ export async function notificarGuardiaConfirmacion(params: {
           <p><strong>Monto:</strong> ${montoFormateado}</p>
           <p style="margin-top:20px;color:#6b7280;font-size:12px">OPAI — Sistema de Gestión Operacional</p>
         </div>`,
+        // @ts-ignore
+        clickTracking: false,
+        openTracking: false,
       });
     }
   } catch (e) {

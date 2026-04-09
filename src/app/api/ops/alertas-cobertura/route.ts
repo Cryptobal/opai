@@ -212,6 +212,9 @@ export async function POST(request: NextRequest) {
         estado: "ACTIVA",
         oleadaActual: 0,
         oleadasConfig: [],
+        oleadasOverride: body.oleadasOverride
+          ? (body.oleadasOverride as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
         proximaOleadaAt,
         expiraAt,
       },
@@ -275,6 +278,7 @@ export async function POST(request: NextRequest) {
           soloDealer: body.soloDealer ?? false,
           soloConMovilizacion: body.soloConMovilizacion ?? false,
           audiencia: body.audiencia ?? "ambos",
+          oleadasOverride: body.oleadasOverride ?? null,
         });
 
         const primeraOleada = resultado.oleadas[0];

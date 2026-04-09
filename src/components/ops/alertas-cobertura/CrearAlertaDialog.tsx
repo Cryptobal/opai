@@ -105,6 +105,34 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
   // Audiencia: a quién notificar (internos = contratados, externos = con turnos extra)
   const [audiencia, setAudiencia] = useState<AudienciaAlerta>("ambos");
 
+  // Override de oleadas por alerta (si null, usa config del tenant)
+  const [oleadasCustom, setOleadasCustom] = useState(false);
+  const [o1Radio, setO1Radio] = useState(5);
+  const [o1Espera, setO1Espera] = useState(10);
+  const [o2Radio, setO2Radio] = useState(10);
+  const [o2Espera, setO2Espera] = useState(15);
+  const [o3Radio, setO3Radio] = useState(20);
+  const [o3Espera, setO3Espera] = useState(20);
+  const [oExtEspera, setOExtEspera] = useState(30);
+
+  // Cargar defaults del tenant al abrir el modal
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/ops/alertas-cobertura/config")
+      .then((r) => r.json())
+      .then((j) => {
+        const c = j?.config || j;
+        if (c?.oleada1RadioKm != null) setO1Radio(c.oleada1RadioKm);
+        if (c?.oleada1EsperaMin != null) setO1Espera(c.oleada1EsperaMin);
+        if (c?.oleada2RadioKm != null) setO2Radio(c.oleada2RadioKm);
+        if (c?.oleada2EsperaMin != null) setO2Espera(c.oleada2EsperaMin);
+        if (c?.oleada3RadioKm != null) setO3Radio(c.oleada3RadioKm);
+        if (c?.oleada3EsperaMin != null) setO3Espera(c.oleada3EsperaMin);
+        if (c?.oleadaExternaEsperaMin != null) setOExtEspera(c.oleadaExternaEsperaMin);
+      })
+      .catch(() => {});
+  }, [open]);
+
   // Form state — modo libre
   const [libreAddress, setLibreAddress] = useState("");
   const [libreLat, setLibreLat] = useState<number | null>(null);
@@ -248,6 +276,17 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
         soloDealer,
         genero: genero || undefined,
         audiencia,
+        oleadasOverride: oleadasCustom
+          ? {
+              oleada1RadioKm: o1Radio,
+              oleada1EsperaMin: o1Espera,
+              oleada2RadioKm: o2Radio,
+              oleada2EsperaMin: o2Espera,
+              oleada3RadioKm: o3Radio,
+              oleada3EsperaMin: o3Espera,
+              oleadaExternaEsperaMin: oExtEspera,
+            }
+          : null,
       };
       if (modo === "instalacion") {
         body.installationId = installationId;
@@ -276,7 +315,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
     } finally {
       setLoadingPreview(false);
     }
-  }, [modo, installationId, puestoId, libreAddress, libreLat, libreLng, libreComuna, libreCiudad, modalidad, fechaInicio, fechaFin, montoOfrecido, funciones, urgencia, radioKm, requiereOS10, soloConMovilizacion, soloDealer, genero, audiencia]);
+  }, [modo, installationId, puestoId, libreAddress, libreLat, libreLng, libreComuna, libreCiudad, modalidad, fechaInicio, fechaFin, montoOfrecido, funciones, urgencia, radioKm, requiereOS10, soloConMovilizacion, soloDealer, genero, audiencia, oleadasCustom, o1Radio, o1Espera, o2Radio, o2Espera, o3Radio, o3Espera, oExtEspera]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -371,6 +410,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
     setSoloDealer(false);
     setGenero("");
     setNotasInternas("");
+    setOleadasCustom(false);
     setPreview(null);
   };
 
@@ -679,6 +719,80 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
                   step={5}
                 />
               </div>
+            </div>
+
+            <div className="h-px bg-border" />
+
+            {/* Personalizar oleadas */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider">Oleadas</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {oleadasCustom
+                      ? "Usando valores personalizados para esta alerta"
+                      : "Usando valores del tenant (configuración general)"}
+                  </p>
+                </div>
+                <Switch checked={oleadasCustom} onCheckedChange={setOleadasCustom} />
+              </div>
+
+              {oleadasCustom && (
+                <div className="space-y-2.5 rounded-md border border-border/60 bg-muted/20 p-3">
+                  {([
+                    ["1", "Cercanos", o1Radio, setO1Radio, o1Espera, setO1Espera],
+                    ["2", "Medianos", o2Radio, setO2Radio, o2Espera, setO2Espera],
+                    ["3", "Lejanos", o3Radio, setO3Radio, o3Espera, setO3Espera],
+                  ] as const).map(([num, label, radio, setRadio, espera, setEspera]) => (
+                    <div key={num} className="grid grid-cols-[auto_1fr_1fr] gap-2 items-center">
+                      <Badge variant="secondary" className="text-[10px] h-5 w-5 p-0 justify-center">
+                        {num}
+                      </Badge>
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">{label} — Radio (km)</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={500}
+                          value={radio}
+                          onChange={(e) => setRadio(Number(e.target.value) || 0)}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Espera (min)</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={120}
+                          value={espera}
+                          onChange={(e) => setEspera(Number(e.target.value) || 0)}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <div className="grid grid-cols-[auto_1fr_1fr] gap-2 items-center">
+                    <Badge variant="secondary" className="text-[10px] h-5 p-0 px-1 justify-center">
+                      Ext
+                    </Badge>
+                    <div className="col-span-1 text-[10px] text-muted-foreground self-center">
+                      Oleada externa (turnos extra)
+                    </div>
+                    <div className="space-y-0.5">
+                      <Label className="text-[10px] text-muted-foreground">Espera (min)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={240}
+                        value={oExtEspera}
+                        onChange={(e) => setOExtEspera(Number(e.target.value) || 0)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Notas internas */}

@@ -174,6 +174,7 @@ export async function PATCH(
         libreAddress: true,
         libreLat: true,
         libreLng: true,
+        oleadasOverride: true,
       },
     });
 
@@ -257,6 +258,7 @@ export async function PATCH(
             requiereOS10: alerta.requiereOS10,
             soloDealer: alerta.soloDealer,
             soloConMovilizacion: alerta.soloConMovilizacion,
+            oleadasOverride: (alerta.oleadasOverride as any) ?? null,
           });
           oleadasConfig = resultado.oleadas;
           const primeraOleada = resultado.oleadas[0];
