@@ -226,7 +226,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
         )
       : allUsers.filter((u) => !existingDmUserIds.has(u.id));
 
-    const applyUnread = (list: typeof filtered) => filter === "unread" ? list.filter(ch => ch.unreadCount > 0) : list;
+    const applyUnread = (list: typeof filtered) => filter === "unread" ? list.filter(ch => ch.unreadCount > 0 && ch.notificationPreference !== "MUTED") : list;
 
     return {
       directChannels: applyUnread(filtered.filter((ch) => ch.channelType === "DIRECT")),
@@ -733,7 +733,7 @@ function GroupChannelsSection({
   onMarkAsRead?: (channelId: string) => void;
   onUpdateNotifPref?: (channelId: string, pref: NotifPreference) => void;
 }) {
-  const sectionUnread = groupChannels.reduce((sum, ch) => sum + ch.unreadCount, 0);
+  const sectionUnread = groupChannels.reduce((sum, ch) => sum + (ch.notificationPreference === 'ALL' ? ch.unreadCount : 0), 0);
   const sectionPref = sectionNotifMode(groupChannels);
   const showSectionNotifMenu = onApplySectionNotifPref && groupChannels.length > 0;
 
@@ -1015,7 +1015,7 @@ function ChannelSection({
   onUpdateNotifPref?: (channelId: string, pref: NotifPreference) => void;
   onApplySectionNotifPref?: (channelIds: string[], preference: NotifPreference) => Promise<void>;
 }) {
-  const sectionUnread = channels.reduce((sum, ch) => sum + ch.unreadCount, 0);
+  const sectionUnread = channels.reduce((sum, ch) => sum + (ch.notificationPreference === 'ALL' ? ch.unreadCount : 0), 0);
   const sectionPref = sectionNotifMode(channels);
   const showSectionNotifMenu = onApplySectionNotifPref && !isArchivedSection && channels.length > 0;
 
@@ -1326,8 +1326,13 @@ function ChannelListItem({
           {channel.notificationPreference === "MUTED" && (
             <BellOff className="h-3 w-3 shrink-0 text-muted-foreground/50" />
           )}
-          {channel.unreadCount > 0 && (
-            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-teal-600 px-1.5 text-[10px] font-bold text-white shrink-0">
+          {channel.unreadCount > 0 && channel.notificationPreference !== "MUTED" && (
+            <span className={cn(
+              "flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold shrink-0",
+              channel.notificationPreference === "MENTIONS_ONLY"
+                ? "bg-zinc-600 text-zinc-300"
+                : "bg-teal-600 text-white"
+            )}>
               {channel.unreadCount > 99 ? "99+" : channel.unreadCount}
             </span>
           )}

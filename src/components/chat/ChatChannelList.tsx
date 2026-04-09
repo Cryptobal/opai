@@ -230,7 +230,7 @@ export function ChatChannelList({
   }, []);
 
   const sectionUnread = (chs: ChatChannelData[]) =>
-    chs.reduce((sum, ch) => sum + (unreadCounts[ch.id] || 0), 0);
+    chs.reduce((sum, ch) => sum + ((ch.notificationPreference ?? "ALL") === "ALL" ? (unreadCounts[ch.id] || 0) : 0), 0);
 
   const processedChannels = useMemo(() => {
     let list = channels.filter((ch) => !ch.isArchivedByMe);
@@ -268,7 +268,7 @@ export function ChatChannelList({
   }), [processedChannels]);
 
   const totalUnread = useMemo(
-    () => channels.filter((ch) => !ch.isArchivedByMe).reduce((sum, ch) => sum + (unreadCounts[ch.id] || 0), 0),
+    () => channels.filter((ch) => !ch.isArchivedByMe).reduce((sum, ch) => sum + ((ch.notificationPreference ?? "ALL") === "ALL" ? (unreadCounts[ch.id] || 0) : 0), 0),
     [channels, unreadCounts]
   );
 

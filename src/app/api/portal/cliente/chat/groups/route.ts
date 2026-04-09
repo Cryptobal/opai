@@ -55,6 +55,15 @@ export async function GET(request: NextRequest) {
     const channelIds = channels.map((ch) => ch.id);
     const unreadMap = await batchUnreadCounts(channelIds, "CLIENT", session.contactId);
 
+    // Batch notification preferences
+    const notifPrefs = channelIds.length > 0
+      ? await prisma.chatNotificationPreference.findMany({
+          where: { channelId: { in: channelIds }, userType: "CLIENT", userId: session.contactId },
+          select: { channelId: true, preference: true },
+        })
+      : [];
+    const notifPrefMap = new Map(notifPrefs.map((p) => [p.channelId, p.preference]));
+
     const data = channels.map((ch) => ({
       id: ch.id,
       name: ch.name,
@@ -64,6 +73,7 @@ export async function GET(request: NextRequest) {
       lastMessageAt: ch.lastMessageAt?.toISOString() ?? null,
       lastMessagePreview: ch.lastMessagePreview,
       unreadCount: unreadMap.get(ch.id) ?? 0,
+      notificationPreference: notifPrefMap.get(ch.id) ?? "ALL",
     }));
 
     return NextResponse.json({ success: true, data });

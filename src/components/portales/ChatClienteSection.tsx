@@ -26,6 +26,7 @@ interface ChannelInfo {
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   unreadCount: number;
+  notificationPreference?: "ALL" | "MENTIONS_ONLY" | "MUTED";
 }
 
 interface LockedChannel {
@@ -164,8 +165,12 @@ export function ChatClienteSection({ session, isProspect }: ChatClienteSectionPr
           <p className="text-[11px] text-zinc-500 truncate">{ch.lastMessagePreview}</p>
         )}
       </div>
-      {ch.unreadCount > 0 && (
-        <span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-[#2dd4bf] text-[10px] font-bold text-zinc-900 px-1.5">
+      {ch.unreadCount > 0 && (ch.notificationPreference ?? "ALL") !== "MUTED" && (
+        <span className={`inline-flex items-center justify-center h-5 min-w-[20px] rounded-full text-[10px] font-bold px-1.5 ${
+          (ch.notificationPreference ?? "ALL") === "MENTIONS_ONLY"
+            ? "bg-zinc-600 text-zinc-300"
+            : "bg-[#2dd4bf] text-zinc-900"
+        }`}>
           {ch.unreadCount}
         </span>
       )}

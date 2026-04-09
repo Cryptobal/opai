@@ -38,11 +38,27 @@ export async function GET(request: NextRequest) {
     // Batch unread counts in a single SQL query
     const unreadMap = await batchUnreadCounts(channelIds, "ADMIN", ctx.userId);
 
+    // Fetch notification preferences to exclude MUTED/MENTIONS_ONLY from total
+    const notifPrefs = channelIds.length > 0
+      ? await prisma.chatNotificationPreference.findMany({
+          where: {
+            channelId: { in: channelIds },
+            userType: "ADMIN",
+            userId: ctx.userId,
+            preference: { in: ["MUTED", "MENTIONS_ONLY"] },
+          },
+          select: { channelId: true },
+        })
+      : [];
+    const excludedFromTotal = new Set(notifPrefs.map((p) => p.channelId));
+
     const counts: Record<string, number> = {};
     let total = 0;
     for (const [channelId, count] of unreadMap) {
       counts[channelId] = count;
-      total += count;
+      if (!excludedFromTotal.has(channelId)) {
+        total += count;
+      }
     }
 
     return NextResponse.json({

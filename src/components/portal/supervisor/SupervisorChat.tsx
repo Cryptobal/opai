@@ -88,6 +88,7 @@ interface ChannelInfo {
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   unreadCount: number;
+  notificationPreference?: "ALL" | "MENTIONS_ONLY" | "MUTED";
 }
 
 interface Props {
@@ -231,8 +232,12 @@ export function SupervisorChat({ session }: Props) {
                       <p className="text-xs text-zinc-500 truncate">{ch.lastMessagePreview}</p>
                     )}
                   </div>
-                  {ch.unreadCount > 0 && (
-                    <span className="flex-shrink-0 bg-[#2dd4bf] text-zinc-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {ch.unreadCount > 0 && (ch.notificationPreference ?? "ALL") !== "MUTED" && (
+                    <span className={`flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                      (ch.notificationPreference ?? "ALL") === "MENTIONS_ONLY"
+                        ? "bg-zinc-600 text-zinc-300"
+                        : "bg-[#2dd4bf] text-zinc-900"
+                    }`}>
                       {ch.unreadCount}
                     </span>
                   )}

@@ -134,9 +134,9 @@ export function ChatPortalChannelList({
       );
     }
 
-    // Filter by unread
+    // Filter by unread (exclude MUTED channels)
     if (filter === "unread") {
-      filtered = filtered.filter((ch) => (ch.unreadCount ?? 0) > 0);
+      filtered = filtered.filter((ch) => (ch.unreadCount ?? 0) > 0 && (ch.notificationPreference ?? "ALL") !== "MUTED");
     }
 
     // Group by type
@@ -262,7 +262,7 @@ export function ChatPortalChannelList({
         {sections.map((section) => {
           const isCollapsed = collapsedSections.has(section.key);
           const sectionUnread = section.channels.reduce(
-            (sum, ch) => sum + (ch.unreadCount ?? 0),
+            (sum, ch) => sum + ((ch.notificationPreference ?? "ALL") === "ALL" ? (ch.unreadCount ?? 0) : 0),
             0,
           );
 
@@ -323,8 +323,13 @@ export function ChatPortalChannelList({
                           </p>
                         )}
                       </div>
-                      {unread > 0 && (
-                        <span className="shrink-0 min-w-[20px] rounded-full bg-teal-500 px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
+                      {unread > 0 && (ch.notificationPreference ?? "ALL") !== "MUTED" && (
+                        <span className={cn(
+                          "shrink-0 min-w-[20px] rounded-full px-1.5 py-0.5 text-center text-[10px] font-bold",
+                          (ch.notificationPreference ?? "ALL") === "MENTIONS_ONLY"
+                            ? "bg-zinc-600 text-zinc-300"
+                            : "bg-teal-500 text-white"
+                        )}>
                           {unread > 99 ? "99+" : unread}
                         </span>
                       )}

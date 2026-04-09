@@ -40,6 +40,7 @@ export type ChatChannelData = {
     image: string | null;
   } | null;
   unreadCount?: number;
+  notificationPreference?: "ALL" | "MENTIONS_ONLY" | "MUTED";
   isArchivedByMe?: boolean;
   account?: { id: string; name: string; status: string } | null;
 };
