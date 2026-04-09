@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -22,12 +23,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DateRangePicker, type DateRange } from "@/components/ui/date-range-picker";
+import { PagosTab } from "@/components/finance/PagosTab";
+import type { Payment, PendingRendicion } from "@/components/finance/PagosTab";
 import { EmptyState, DataTable, type DataTableColumn } from "@/components/opai";
 import {
   Plus,
   Receipt,
   Car,
-  ChevronRight,
   CheckCircle2,
   XCircle,
   Wallet,
@@ -35,10 +38,9 @@ import {
   CreditCard,
   Landmark,
   ArrowRight,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ListToolbar } from "@/components/shared/ListToolbar";
-import type { ViewMode } from "@/components/shared/ViewToggle";
 
 /* ── Types ── */
 
@@ -70,14 +72,13 @@ interface RendicionesClientProps {
   canApprove: boolean;
   canPay: boolean;
   currentUserId: string;
+  payments: Payment[];
+  pendingRendiciones: PendingRendicion[];
 }
 
 /* ── Constants ── */
 
-const STATUS_CONFIG: Record<
-  string,
-  { label: string; className: string }
-> = {
+const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   DRAFT: {
     label: "Borrador",
     className: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
@@ -111,7 +112,6 @@ const TYPE_LABELS: Record<string, string> = {
 
 const STATUS_TABS = [
   { value: "ALL", label: "Todos" },
-  { value: "DRAFT", label: "Borrador" },
   { value: "SUBMITTED", label: "Enviadas" },
   { value: "IN_APPROVAL", label: "En aprobación" },
   { value: "APPROVED", label: "Aprobadas" },
@@ -142,21 +142,34 @@ function extractFilenameFromDisposition(
   return asciiMatch?.[1] ?? fallback;
 }
 
-/* ── Component ── */
+const isSelectable = (status: string) =>
+  ["SUBMITTED", "IN_APPROVAL", "APPROVED"].includes(status);
 
-export function RendicionesClient({
+/* ── Inner Component ── */
+
+function RendicionesClientInner({
   rendiciones,
   items,
   canSubmit,
   canApprove,
   canPay,
   currentUserId,
+  payments,
+  pendingRendiciones,
 }: RendicionesClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"rendiciones" | "pagos">(
+    searchParams.get("tab") === "pagos" ? "pagos" : "rendiciones"
+  );
+
+  // Filter state
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [typeFilter, setTypeFilter] = useState("ALL");
-  const [displayView, setDisplayView] = useState<ViewMode>("list");
+  const [submitterFilter, setSubmitterFilter] = useState("ALL");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -171,17 +184,22 @@ export function RendicionesClient({
   const [paymentNotes, setPaymentNotes] = useState("");
   const [processing, setProcessing] = useState(false);
 
+  /* ── Derived: submitter options ── */
+
+  const submitters = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of rendiciones) map.set(r.submitterId, r.submitterName);
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [rendiciones]);
+
   /* ── Filtering ── */
 
   const filtered = useMemo(() => {
     let list = rendiciones;
-
-    if (statusFilter !== "ALL") {
-      list = list.filter((r) => r.status === statusFilter);
-    }
-    if (typeFilter !== "ALL") {
-      list = list.filter((r) => r.type === typeFilter);
-    }
+    if (statusFilter !== "ALL") list = list.filter((r) => r.status === statusFilter);
+    if (submitterFilter !== "ALL") list = list.filter((r) => r.submitterId === submitterFilter);
+    if (dateRange?.from) list = list.filter((r) => new Date(r.date) >= dateRange.from!);
+    if (dateRange?.to) list = list.filter((r) => new Date(r.date) <= dateRange.to!);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -193,27 +211,21 @@ export function RendicionesClient({
           r.beneficiaryName?.toLowerCase().includes(q)
       );
     }
-
     return list;
-  }, [rendiciones, statusFilter, typeFilter, search]);
+  }, [rendiciones, statusFilter, submitterFilter, dateRange, search]);
 
   const clearFilters = useCallback(() => {
     setSearch("");
     setStatusFilter("ALL");
-    setTypeFilter("ALL");
+    setSubmitterFilter("ALL");
+    setDateRange(undefined);
   }, []);
 
-  const hasActiveFilters = statusFilter !== "ALL" || typeFilter !== "ALL" || search.trim() !== "";
-
-  const statusFilters = useMemo(() =>
-    STATUS_TABS.map((tab) => ({
-      key: tab.value,
-      label: tab.label,
-      count: tab.value === "ALL"
-        ? rendiciones.length
-        : rendiciones.filter((r) => r.status === tab.value).length,
-    })),
-  [rendiciones]);
+  const hasActiveFilters =
+    statusFilter !== "ALL" ||
+    submitterFilter !== "ALL" ||
+    !!dateRange ||
+    search.trim() !== "";
 
   /* ── Selection ── */
 
@@ -227,12 +239,12 @@ export function RendicionesClient({
   }, []);
 
   const toggleSelectAll = useCallback(() => {
-    const filteredIds = filtered.map((r) => r.id);
-    const allSelected = filteredIds.every((id) => selectedIds.has(id));
+    const selectableIds = filtered.filter((r) => isSelectable(r.status)).map((r) => r.id);
+    const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filteredIds));
+      setSelectedIds(new Set(selectableIds));
     }
   }, [filtered, selectedIds]);
 
@@ -246,7 +258,6 @@ export function RendicionesClient({
     [selectedRendiciones]
   );
 
-  // What actions are available based on selection
   const selectedApprovable = useMemo(
     () => selectedRendiciones.filter((r) => ["SUBMITTED", "IN_APPROVAL"].includes(r.status)),
     [selectedRendiciones]
@@ -257,7 +268,6 @@ export function RendicionesClient({
     [selectedRendiciones]
   );
 
-  // Summary by beneficiary for payment dialog
   const beneficiarySummary = useMemo(() => {
     const map = new Map<string, { name: string; total: number; count: number }>();
     for (const r of selectedPayable) {
@@ -269,6 +279,16 @@ export function RendicionesClient({
     }
     return [...map.values()].sort((a, b) => b.total - a.total);
   }, [selectedPayable]);
+
+  /* ── "Pagar aprobadas" shortcut ── */
+
+  const approvedCount = rendiciones.filter((r) => r.status === "APPROVED").length;
+
+  const handlePayApproved = useCallback(() => {
+    setStatusFilter("APPROVED");
+    const approvedIds = rendiciones.filter((r) => r.status === "APPROVED").map((r) => r.id);
+    setSelectedIds(new Set(approvedIds));
+  }, [rendiciones]);
 
   /* ── Bulk Actions ── */
 
@@ -404,50 +424,62 @@ export function RendicionesClient({
               key: "_select",
               label: "",
               className: "w-10",
-              render: (_: unknown, row: RendicionRow) => (
-                <div
-                  role="checkbox"
-                  aria-checked={selectedIds.has(row.id)}
-                  tabIndex={0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleSelect(row.id);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === " " || e.key === "Enter") {
-                      e.preventDefault();
+              render: (_: unknown, row: RendicionRow) => {
+                if (!isSelectable(row.status)) return <div className="w-4" />;
+                return (
+                  <div
+                    role="checkbox"
+                    aria-checked={selectedIds.has(row.id)}
+                    tabIndex={0}
+                    onClick={(e) => {
                       e.stopPropagation();
                       toggleSelect(row.id);
-                    }
-                  }}
-                  className={cn(
-                    "h-4 w-4 rounded border flex items-center justify-center cursor-pointer shrink-0",
-                    selectedIds.has(row.id)
-                      ? "bg-primary border-primary"
-                      : "border-muted-foreground/40 hover:border-muted-foreground"
-                  )}
-                >
-                  {selectedIds.has(row.id) && (
-                    <svg
-                      className="h-3 w-3 text-primary-foreground"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                    >
-                      <path d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </div>
-              ),
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === " " || e.key === "Enter") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleSelect(row.id);
+                      }
+                    }}
+                    className={cn(
+                      "h-4 w-4 rounded border flex items-center justify-center cursor-pointer shrink-0",
+                      selectedIds.has(row.id)
+                        ? "bg-primary border-primary"
+                        : "border-muted-foreground/40 hover:border-muted-foreground"
+                    )}
+                  >
+                    {selectedIds.has(row.id) && (
+                      <svg
+                        className="h-3 w-3 text-primary-foreground"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
+                        <path d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                );
+              },
             } satisfies DataTableColumn,
           ]
         : []),
       {
         key: "code",
         label: "Código",
-        render: (value: string) => (
-          <span className="font-mono text-xs">{value}</span>
+        render: (value: string, row: RendicionRow) => (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/finanzas/rendiciones/${row.id}`);
+            }}
+            className="font-mono text-xs text-primary underline hover:text-primary/80"
+          >
+            {value}
+          </button>
         ),
       },
       {
@@ -538,203 +570,236 @@ export function RendicionesClient({
             <span className="text-muted-foreground text-xs">—</span>
           ),
       },
-      {
-        key: "_chevron",
-        label: "",
-        render: () => (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        ),
-      },
     ],
-    [showSelection, selectedIds, toggleSelect]
+    [showSelection, selectedIds, toggleSelect, router]
   );
 
   return (
-    <div className="space-y-6">
-      {/* Toolbar */}
-      <ListToolbar
-        search={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Buscar código, descripción..."
-        filters={statusFilters}
-        activeFilter={statusFilter}
-        onFilterChange={setStatusFilter}
-        viewModes={["list", "cards"]}
-        activeView={displayView}
-        onViewChange={setDisplayView}
-        actionSlot={
-          <div className="flex items-center gap-2">
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="h-9 w-[130px] text-xs">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todos los tipos</SelectItem>
-                <SelectItem value="PURCHASE">Compra</SelectItem>
-                <SelectItem value="MILEAGE">Kilometraje</SelectItem>
-              </SelectContent>
-            </Select>
-            {canSubmit && (
-              <Link href="/finanzas/rendiciones/nueva">
-                <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
-                  <Plus className="h-4 w-4" />
-                  <span className="sr-only">Nueva rendición</span>
-                </Button>
-              </Link>
+    <div className={cn("space-y-4", selectedIds.size > 0 && "pb-20")}>
+      {/* ── Tabs: Rendiciones | Pagos ── */}
+      <div className="flex gap-1 border-b border-border pb-2">
+        {([
+          { value: "rendiciones" as const, label: "Rendiciones", count: rendiciones.length },
+          { value: "pagos" as const, label: "Pagos", count: payments.length },
+        ]).map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => setActiveTab(tab.value)}
+            className={cn(
+              "px-4 py-2 text-sm font-medium transition-colors relative",
+              activeTab === tab.value
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
             )}
-          </div>
-        }
-      />
-
-      {/* Bulk action bar */}
-      {selectedIds.size > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
-          <div className="flex items-center gap-3 text-sm">
-            <button
-              type="button"
-              onClick={toggleSelectAll}
-              className="text-xs text-muted-foreground hover:text-foreground underline"
+          >
+            {tab.label}
+            <span
+              className={cn(
+                "ml-1.5 text-[10px] rounded-full px-1.5 py-0.5 min-w-[18px] text-center",
+                activeTab === tab.value
+                  ? "bg-primary/20 text-primary"
+                  : "bg-muted text-muted-foreground"
+              )}
             >
-              {filtered.every((r) => selectedIds.has(r.id))
-                ? "Deseleccionar todo"
-                : "Seleccionar todo"}
-            </button>
-            <span className="text-muted-foreground">
-              {selectedIds.size} seleccionada(s) ={" "}
-              <span className="font-medium text-foreground">
-                {fmtCLP.format(selectedAmount)}
-              </span>
+              {tab.count}
             </span>
-          </div>
-          <div className="flex items-center gap-2">
-            {canApprove && selectedApprovable.length > 0 && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
-                  onClick={() => setApproveDialogOpen(true)}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-                  Aprobar ({selectedApprovable.length})
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-red-400 border-red-500/30 hover:bg-red-500/10"
-                  onClick={() => setRejectDialogOpen(true)}
-                >
-                  <XCircle className="h-3.5 w-3.5 mr-1.5" />
-                  Rechazar ({selectedApprovable.length})
-                </Button>
-              </>
+            {activeTab === tab.value && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary -mb-2" />
             )}
-            {canPay && selectedPayable.length > 0 && (
-              <Button
-                size="sm"
-                onClick={() => setPayDialogOpen(true)}
-              >
-                <Wallet className="h-3.5 w-3.5 mr-1.5" />
-                Crear pago ({selectedPayable.length})
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
+          </button>
+        ))}
+      </div>
 
-      {/* Results count */}
-      <p className="text-xs text-muted-foreground">
-        {filtered.length} rendición(es)
-      </p>
-
-      {/* Table / list */}
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={<Receipt className="h-10 w-10" />}
-          title="Sin rendiciones"
-          description={
-            hasActiveFilters
-              ? "No se encontraron rendiciones con los filtros seleccionados."
-              : "No hay rendiciones registradas aún."
-          }
-          action={
-            canSubmit && !hasActiveFilters ? (
-              <Link href="/finanzas/rendiciones/nueva">
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Crear rendición
-                </Button>
-              </Link>
-            ) : hasActiveFilters ? (
-              <Button variant="outline" size="sm" onClick={clearFilters}>
-                Limpiar filtros
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : displayView === "list" ? (
+      {/* ── Tab: Rendiciones ── */}
+      {activeTab === "rendiciones" && (
         <>
-          {/* Table view */}
-          <div className="hidden md:block">
-            <DataTable
-              columns={tableColumns}
-              data={filtered}
-              onRowClick={(row) =>
-                router.push(`/finanzas/rendiciones/${row.id}`)
-              }
-              compact
-            />
+          {/* Filters row */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar código, descripción, solicitante..."
+                className="pl-9 h-9 bg-background text-foreground border-input"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <Select value={submitterFilter} onValueChange={setSubmitterFilter}>
+                <SelectTrigger className="h-9 w-[160px] text-xs">
+                  <SelectValue placeholder="Solicitante" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos</SelectItem>
+                  {submitters.map(([id, name]) => (
+                    <SelectItem key={id} value={id}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <DateRangePicker
+                value={dateRange}
+                onChange={setDateRange}
+                placeholder="Rango de fechas"
+              />
+              {canSubmit && (
+                <Link href="/finanzas/rendiciones/nueva">
+                  <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
+                    <Plus className="h-4 w-4" />
+                    <span className="sr-only">Nueva rendición</span>
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
 
-          {/* Mobile fallback for list view */}
-          <div className="md:hidden space-y-2">
-            {filtered.map((r) => {
-              const statusCfg = STATUS_CONFIG[r.status] ?? {
-                label: r.status,
-                className: "bg-muted text-muted-foreground",
-              };
-              const isSelected = selectedIds.has(r.id);
+          {/* Status pills */}
+          <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+            {STATUS_TABS.map((tab) => {
+              const count =
+                tab.value === "ALL"
+                  ? rendiciones.length
+                  : rendiciones.filter((r) => r.status === tab.value).length;
               return (
-                <div key={r.id} className="relative">
-                  {showSelection && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        toggleSelect(r.id);
-                      }}
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.value)}
+                  className={cn(
+                    "whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5",
+                    statusFilter === tab.value
+                      ? "bg-primary/15 text-primary border border-primary/30"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent"
+                  )}
+                >
+                  {tab.label}
+                  <span
+                    className={cn(
+                      "text-[10px] rounded-full px-1.5 py-0.5 min-w-[18px] text-center",
+                      statusFilter === tab.value
+                        ? "bg-primary/20 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* "Pagar aprobadas" button */}
+          {canPay && approvedCount > 0 && (
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={handlePayApproved}>
+                <Wallet className="h-3.5 w-3.5 mr-1.5" />
+                Pagar aprobadas ({approvedCount})
+              </Button>
+            </div>
+          )}
+
+          {/* Count */}
+          <p className="text-xs text-muted-foreground">
+            {filtered.length} rendición(es)
+          </p>
+
+          {/* Table / empty */}
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={<Receipt className="h-10 w-10" />}
+              title="Sin rendiciones"
+              description={
+                hasActiveFilters
+                  ? "No se encontraron rendiciones con los filtros seleccionados."
+                  : "No hay rendiciones registradas aún."
+              }
+              action={
+                canSubmit && !hasActiveFilters ? (
+                  <Link href="/finanzas/rendiciones/nueva">
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      Crear rendición
+                    </Button>
+                  </Link>
+                ) : hasActiveFilters ? (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    Limpiar filtros
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block">
+                <DataTable
+                  columns={tableColumns}
+                  data={filtered}
+                  onRowClick={(row) =>
+                    isSelectable(row.status) ? toggleSelect(row.id) : undefined
+                  }
+                  compact
+                />
+              </div>
+
+              {/* Mobile cards */}
+              <div className="md:hidden space-y-2">
+                {filtered.map((r) => {
+                  const statusCfg = STATUS_CONFIG[r.status] ?? {
+                    label: r.status,
+                    className: "bg-muted text-muted-foreground",
+                  };
+                  const selectable = isSelectable(r.status);
+                  const isSelected = selectedIds.has(r.id);
+                  return (
+                    <div
+                      key={r.id}
+                      role={selectable ? "button" : undefined}
+                      tabIndex={selectable ? 0 : undefined}
+                      onClick={selectable ? () => toggleSelect(r.id) : undefined}
                       className={cn(
-                        "absolute left-2 top-3 z-10 h-4 w-4 rounded border flex items-center justify-center",
-                        isSelected
-                          ? "bg-primary border-primary"
-                          : "border-muted-foreground/40"
+                        "rounded-lg border border-border p-3 transition-colors",
+                        selectable && "cursor-pointer hover:bg-accent/30",
+                        isSelected && "border-primary/40 bg-primary/5"
                       )}
                     >
-                      {isSelected && (
-                        <svg
-                          className="h-3 w-3 text-primary-foreground"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={3}
-                        >
-                          <path d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                  )}
-                  <Link href={`/finanzas/rendiciones/${r.id}`}>
-                    <div className={cn(
-                      "rounded-lg border border-border p-3 transition-colors hover:bg-accent/30",
-                      showSelection && "pl-8",
-                      isSelected && "border-primary/40 bg-primary/5"
-                    )}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-mono text-xs text-muted-foreground">
+                            {showSelection && selectable && (
+                              <div
+                                className={cn(
+                                  "h-4 w-4 rounded border flex items-center justify-center shrink-0",
+                                  isSelected
+                                    ? "bg-primary border-primary"
+                                    : "border-muted-foreground/40"
+                                )}
+                              >
+                                {isSelected && (
+                                  <svg
+                                    className="h-3 w-3 text-primary-foreground"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={3}
+                                  >
+                                    <path d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/finanzas/rendiciones/${r.id}`);
+                              }}
+                              className="font-mono text-xs text-primary underline hover:text-primary/80"
+                            >
                               {r.code}
-                            </span>
+                            </button>
                             <Badge className={cn("text-[10px]", statusCfg.className)}>
                               {statusCfg.label}
                             </Badge>
@@ -764,57 +829,74 @@ export function RendicionesClient({
                         </p>
                       </div>
                     </div>
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </>
-      ) : (
-        /* Cards view */
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((r) => {
-            const statusCfg = STATUS_CONFIG[r.status] ?? {
-              label: r.status,
-              className: "bg-muted text-muted-foreground",
-            };
-            return (
-              <Link key={r.id} href={`/finanzas/rendiciones/${r.id}`}>
-                <div className="rounded-lg border border-border p-4 transition-colors hover:border-primary/30 hover:bg-accent/30">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="font-mono text-[10px] text-muted-foreground">{r.code}</span>
-                    <Badge className={cn("text-[10px]", statusCfg.className)}>
-                      {statusCfg.label}
-                    </Badge>
-                  </div>
-                  <p className="text-sm font-medium line-clamp-2">
-                    {r.description || r.itemName || TYPE_LABELS[r.type]}
-                  </p>
-                  <p className="text-lg font-semibold tabular-nums mt-2">
-                    {fmtCLP.format(r.amount)}
-                  </p>
-                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                    <span>{format(new Date(r.date), "dd MMM yyyy", { locale: es })}</span>
-                    <span>·</span>
-                    <span className="inline-flex items-center gap-1">
-                      {r.type === "MILEAGE" ? <Car className="h-3 w-3" /> : <Receipt className="h-3 w-3" />}
-                      {TYPE_LABELS[r.type]}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 text-xs">
-                    <span className="text-muted-foreground truncate">
-                      {r.submitterName}
-                    </span>
-                    {r.beneficiaryName && (
-                      <span className="text-emerald-400 truncate">
-                        → {r.beneficiaryName}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+      )}
+
+      {/* ── Tab: Pagos ── */}
+      {activeTab === "pagos" && (
+        <PagosTab payments={payments} pendingRendiciones={pendingRendiciones} />
+      )}
+
+      {/* ── Sticky bottom action bar ── */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm px-4 py-3 md:left-[var(--sidebar-width,0px)]">
+          <div className="mx-auto max-w-screen-xl flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 text-sm">
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="text-xs text-muted-foreground hover:text-foreground underline"
+              >
+                {filtered.filter((r) => isSelectable(r.status)).every((r) => selectedIds.has(r.id))
+                  ? "Deseleccionar todo"
+                  : "Seleccionar todo"}
+              </button>
+              <span className="text-muted-foreground">
+                {selectedIds.size} seleccionada(s) ={" "}
+                <span className="font-medium text-foreground">
+                  {fmtCLP.format(selectedAmount)}
+                </span>
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {canApprove && selectedApprovable.length > 0 && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                    onClick={() => setApproveDialogOpen(true)}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                    Aprobar ({selectedApprovable.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-400 border-red-500/30 hover:bg-red-500/10"
+                    onClick={() => setRejectDialogOpen(true)}
+                  >
+                    <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                    Rechazar ({selectedApprovable.length})
+                  </Button>
+                </>
+              )}
+              {canPay && selectedPayable.length > 0 && (
+                <Button
+                  size="sm"
+                  onClick={() => setPayDialogOpen(true)}
+                >
+                  <Wallet className="h-3.5 w-3.5 mr-1.5" />
+                  Crear pago ({selectedPayable.length})
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1077,5 +1159,15 @@ export function RendicionesClient({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/* ── Exported wrapper with Suspense ── */
+
+export function RendicionesClient(props: RendicionesClientProps) {
+  return (
+    <Suspense fallback={null}>
+      <RendicionesClientInner {...props} />
+    </Suspense>
   );
 }
