@@ -4,6 +4,16 @@ import { z } from "zod";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { resolveTenantFromSlug } from "@/lib/tenant";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
 import {
   AFP_CHILE,
   BANK_ACCOUNT_TYPES,
@@ -142,7 +152,7 @@ export async function POST(
   if (!tenant) {
     return NextResponse.json(
       { success: false, error: "Tenant not found" },
-      { status: 404 },
+      { status: 404, headers: corsHeaders },
     );
   }
   const tenantId = tenant.id;
@@ -152,12 +162,12 @@ export async function POST(
     const parsed = postulacionSchema.safeParse(raw);
     if (!parsed.success) {
       const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
-      return NextResponse.json({ success: false, error: issues }, { status: 400 });
+      return NextResponse.json({ success: false, error: issues }, { status: 400, headers: corsHeaders });
     }
 
     const body = parsed.data;
     if (!isValidPostulacionToken(body.token)) {
-      return NextResponse.json({ success: false, error: "Token de postulación inválido" }, { status: 403 });
+      return NextResponse.json({ success: false, error: "Token de postulación inválido" }, { status: 403, headers: corsHeaders });
     }
 
     const docConfig = await getPostulacionDocumentTypesVisibleOnGuardForm(tenantId);
@@ -168,7 +178,7 @@ export async function POST(
       if (!allowedTypes.has(d.type)) {
         return NextResponse.json(
           { success: false, error: `Tipo de documento no permitido: ${d.type}` },
-          { status: 400 }
+          { status: 400, headers: corsHeaders }
         );
       }
     }
@@ -177,7 +187,7 @@ export async function POST(
         const label = docConfig.find((c) => c.code === code)?.label ?? code;
         return NextResponse.json(
           { success: false, error: `Documento obligatorio faltante: ${label}` },
-          { status: 400 }
+          { status: 400, headers: corsHeaders }
         );
       }
     }
@@ -188,7 +198,7 @@ export async function POST(
     if (existingByRut) {
       return NextResponse.json(
         { success: false, error: "RUT ya ingresado / root ya ingresado. Comunicarse con recursos humanos." },
-        { status: 409 }
+        { status: 409, headers: corsHeaders }
       );
     }
 
@@ -366,13 +376,13 @@ export async function POST(
           message: "Postulación enviada correctamente",
         },
       },
-      { status: 201 }
+      { status: 201, headers: corsHeaders }
     );
   } catch (error) {
     console.error("[POSTULACION] Error creating public postulation:", error);
     return NextResponse.json(
       { success: false, error: "No se pudo enviar la postulación" },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }

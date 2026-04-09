@@ -1,5 +1,9 @@
+/**
+ * API Route: /api/public/[tenantSlug]/messages/upload
+ * POST - Subir archivo adjunto para denuncias legales (Ley Karin evidencia)
+ */
+
 import { NextRequest, NextResponse } from "next/server";
-import { isValidPostulacionToken } from "@/lib/postulacion-token";
 import { uploadFile } from "@/lib/storage";
 import { resolveTenantFromSlug } from "@/lib/tenant";
 
@@ -9,18 +13,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
-}
-
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const ALLOWED_MIME = new Set([
   "application/pdf",
   "image/jpeg",
   "image/png",
   "image/webp",
-  "image/gif",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
 ]);
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
 
 export async function POST(
   request: NextRequest,
@@ -34,55 +42,52 @@ export async function POST(
       { status: 404, headers: corsHeaders },
     );
   }
-  const tenantId = tenant.id;
 
   try {
     const formData = await request.formData();
-    const token = String(formData.get("token") || "");
-    if (!isValidPostulacionToken(token)) {
-      return NextResponse.json({ success: false, error: "Token inválido" }, { status: 403, headers: corsHeaders });
-    }
-
     const file = formData.get("file");
     if (!file || !(file instanceof File)) {
       return NextResponse.json(
         { success: false, error: "Archivo requerido (field: file)" },
-        { status: 400, headers: corsHeaders }
+        { status: 400, headers: corsHeaders },
       );
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
       return NextResponse.json(
         { success: false, error: "El archivo excede el máximo de 8MB" },
-        { status: 400, headers: corsHeaders }
+        { status: 400, headers: corsHeaders },
       );
     }
 
     const mimeType = file.type || "application/octet-stream";
     if (!ALLOWED_MIME.has(mimeType)) {
       return NextResponse.json(
-        { success: false, error: "Tipo de archivo no permitido (solo PDF o imágenes)" },
-        { status: 400, headers: corsHeaders }
+        { success: false, error: "Tipo de archivo no permitido" },
+        { status: 400, headers: corsHeaders },
       );
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await uploadFile(buffer, file.name, mimeType, "guardias", tenantId);
+    const result = await uploadFile(buffer, file.name, mimeType, "denuncias", tenant.id);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        url: result.publicUrl,
-        fileName: result.fileName,
-        mimeType: result.mimeType,
-        size: result.size,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          url: result.publicUrl,
+          fileName: result.fileName,
+          mimeType: result.mimeType,
+          size: result.size,
+        },
       },
-    }, { headers: corsHeaders });
+      { headers: corsHeaders },
+    );
   } catch (error) {
-    console.error("[POSTULACION] Error uploading file:", error);
+    console.error("[MESSAGES] Error uploading file:", error);
     return NextResponse.json(
       { success: false, error: "No se pudo subir el archivo" },
-      { status: 500, headers: corsHeaders }
+      { status: 500, headers: corsHeaders },
     );
   }
 }

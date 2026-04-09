@@ -8108,3 +8108,28 @@ model AtsDistributionChannel {
   @@map("ats_distribution_channels")
   @@schema("ops")
 }
+
+/// Mensajes públicos recibidos desde la web: contacto general, denuncias legales.
+/// Persiste en BD por compliance (especialmente para Ley Karin y programas de cumplimiento).
+model PublicInquiry {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  type       String   /// contacto | denuncia_ley_karin | denuncia_codigo_etica | denuncia_programa_cumplimiento
+  anonymous  Boolean  @default(false)
+  name       String?
+  email      String?
+  phone      String?
+  subject    String?
+  body       String   @db.Text
+  metadata   Json?    @db.JsonB /// campos extra según type (tipo denuncia, testigos, persona involucrada, etc.)
+  fileUrl    String?  @map("file_url") /// evidencia (upload Ley Karin)
+  fileName   String?  @map("file_name")
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "idx_public_inquiries_tenant")
+  @@index([type], map: "idx_public_inquiries_type")
+  @@index([createdAt(sort: Desc)], map: "idx_public_inquiries_created_desc")
+  @@map("public_inquiries")
+  @@schema("crm")
+}
