@@ -53,7 +53,9 @@ export function TerrenoModeSwitcher({ active }: TerrenoModeSwitcherProps) {
     }
   }, []);
 
-  if (!fromTerreno && !isNative) return null;
+  const visible = fromTerreno || isNative;
+
+  if (!visible) return null;
 
   function switchTo(href: string) {
     // Preserve the from=terreno flag so the next screen also shows the switcher.
@@ -61,50 +63,54 @@ export function TerrenoModeSwitcher({ active }: TerrenoModeSwitcherProps) {
   }
 
   return (
-    <div
-      className="fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 rounded-full border backdrop-blur-md"
-      style={{
-        top: "calc(var(--safe-area-top, 0px) + 0.75rem)",
-        background: "rgba(6,10,19,0.72)",
-        borderColor: "rgba(255,255,255,0.08)",
-        padding: "4px",
-        boxShadow: "0 8px 28px rgba(0,0,0,0.35)",
-      }}
-      role="tablist"
-      aria-label="Cambiar de modo"
-    >
-      {MODES.map((mode) => {
-        const Icon = mode.Icon;
-        const isActive = mode.id === active;
-        return (
-          <button
-            key={mode.id}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            aria-label={mode.label}
-            onClick={() => {
-              if (!isActive) switchTo(mode.href);
-            }}
-            className="flex items-center gap-1.5 rounded-full transition-all"
-            style={{
-              padding: isActive ? "7px 14px" : "7px 9px",
-              background: isActive ? `${ACCENT}18` : "transparent",
-              color: isActive ? ACCENT : "#9ca3af",
-              border: isActive
-                ? `1px solid ${ACCENT}35`
-                : "1px solid transparent",
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontWeight: isActive ? 600 : 500,
-              fontSize: "12px",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            <Icon className="w-4 h-4" strokeWidth={2} />
-            {isActive ? <span>{mode.label}</span> : null}
-          </button>
-        );
-      })}
-    </div>
+    <>
+      <div
+        className="fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 rounded-full border backdrop-blur-md"
+        style={{
+          top: "calc(var(--safe-area-top, 0px) + 0.75rem)",
+          background: "rgba(6,10,19,0.72)",
+          borderColor: "rgba(255,255,255,0.08)",
+          padding: "4px",
+          boxShadow: "0 8px 28px rgba(0,0,0,0.35)",
+        }}
+        role="tablist"
+        aria-label="Cambiar de modo"
+      >
+        {MODES.map((mode) => {
+          const Icon = mode.Icon;
+          const isActive = mode.id === active;
+          return (
+            <button
+              key={mode.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-label={mode.label}
+              onClick={() => {
+                if (!isActive) switchTo(mode.href);
+              }}
+              className="flex items-center gap-1.5 rounded-full transition-all"
+              style={{
+                padding: isActive ? "7px 14px" : "7px 9px",
+                background: isActive ? `${ACCENT}18` : "transparent",
+                color: isActive ? ACCENT : "#9ca3af",
+                border: isActive
+                  ? `1px solid ${ACCENT}35`
+                  : "1px solid transparent",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontWeight: isActive ? 600 : 500,
+                fontSize: "12px",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              <Icon className="w-4 h-4" strokeWidth={2} />
+              {isActive ? <span>{mode.label}</span> : null}
+            </button>
+          );
+        })}
+      </div>
+      {/* Spacer to push content below the fixed switcher */}
+      <div className="h-11" aria-hidden="true" />
+    </>
   );
 }
