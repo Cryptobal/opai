@@ -400,7 +400,7 @@ REGLAS DE CONTEXTO DE MÓDULO:
             messages,
             tools,
             temperature: 0.2,
-            maxTokens: 1400,
+            maxTokens: 2800,
           };
 
           /* tool-calling loop (max 4 iterations) — always streaming */
