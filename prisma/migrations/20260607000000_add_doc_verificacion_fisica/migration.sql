@@ -38,7 +38,7 @@ CREATE INDEX "doc_verificacion_fisica_tenantId_tipoDocId_idx" ON "ops"."doc_veri
 CREATE INDEX "doc_verificacion_fisica_tenantId_supervisionId_idx" ON "ops"."doc_verificacion_fisica"("tenantId", "supervisionId");
 
 -- AddForeignKey
-ALTER TABLE "ops"."doc_verificacion_fisica" ADD CONSTRAINT "doc_verificacion_fisica_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "public"."tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ops"."doc_verificacion_fisica" ADD CONSTRAINT "doc_verificacion_fisica_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "public"."Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ops"."doc_verificacion_fisica" ADD CONSTRAINT "doc_verificacion_fisica_installationId_fkey" FOREIGN KEY ("installationId") REFERENCES "crm"."installations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
