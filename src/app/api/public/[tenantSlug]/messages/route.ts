@@ -41,7 +41,7 @@ const messageSchema = z.object({
   phone: z.string().trim().max(30).optional(),
   subject: z.string().trim().max(300).optional(),
   body: z.string().trim().min(1, "Mensaje es requerido").max(10000),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   fileUrl: z.string().trim().max(2000).optional(),
   fileName: z.string().trim().max(300).optional(),
 });
