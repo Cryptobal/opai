@@ -8177,5 +8177,6 @@ model DocVerificacionFisica {
   @@index([tenantId, installationId, guardiaId])
   @@index([tenantId, tipoDocId])
   @@index([tenantId, supervisionId])
+  @@map("doc_verificacion_fisica")
   @@schema("ops")
 }
