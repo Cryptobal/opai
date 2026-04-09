@@ -91,7 +91,7 @@ export async function POST(
         phone: data.anonymous ? null : (data.phone || null),
         subject: data.subject || null,
         body: data.body,
-        metadata: data.metadata ?? undefined,
+        metadata: data.metadata ? (data.metadata as Record<string, string>) : undefined,
         fileUrl: data.fileUrl || null,
         fileName: data.fileName || null,
         ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null,
