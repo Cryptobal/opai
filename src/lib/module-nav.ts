@@ -205,6 +205,7 @@ const PAYROLL_ITEMS: BottomNavItem[] = [
 const DOCS_ITEMS: BottomNavItem[] = [
   { key: "docs-presentaciones", href: "/opai/inicio", label: "Envíos", icon: FileText },
   { key: "docs-gestion", href: "/opai/documentos", label: "Gestión", icon: FolderOpen },
+  { key: "docs-operativos", href: "/opai/documentos-operativos", label: "Operativos", icon: ClipboardCheck },
 ];
 
 /* ── Finance sub-items ── */
@@ -323,6 +324,7 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   {
     test: (p) =>
       p.startsWith("/opai/inicio") ||
+      p.startsWith("/opai/documentos-operativos") ||
       p.startsWith("/opai/documentos") ||
       p.startsWith("/opai/templates"),
     getItems: (_perms, isModEnabled) => isModEnabled("documentos") ? DOCS_ITEMS : [],

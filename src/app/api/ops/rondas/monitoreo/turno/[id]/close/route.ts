@@ -65,6 +65,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           tipo: true, severidad: true, mensaje: true, installationId: true,
           resuelta: true, resolutionNotes: true, resueltaAt: true, createdAt: true,
           installation: { select: { name: true } },
+          guardia: { select: { persona: { select: { firstName: true, lastName: true } } } },
         },
       }),
       prisma.opsRondaIncidente.findMany({

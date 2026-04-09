@@ -28,11 +28,13 @@ interface AlertRow {
   tipo: string;
   severidad: string;
   mensaje: string;
+  resolutionNotes: string | null;
   installationId: string | null;
   resuelta: boolean;
   resueltaAt: Date | null;
   createdAt: Date;
   installation: { name: string } | null;
+  guardia: { persona: { firstName: string | null; lastName: string | null } | null } | null;
 }
 
 // ─── Main builder ──────────────────────────────────────────────────────
@@ -126,14 +128,16 @@ export async function buildTurnoReportData(opts: {
   // ── Pánico details ─────────────────────────────────────────────────
   const currentPanicos = alertsData.filter(a => a.tipo === "panico");
   const panicos: PanicoEmailDetail[] = currentPanicos.map(a => {
-    const inc = roundsData.find(r => r.rondaTemplate?.installation?.name === a.installation?.name);
+    const guardiaName = a.guardia?.persona
+      ? `${a.guardia.persona.firstName ?? ""} ${a.guardia.persona.lastName ?? ""}`.trim()
+      : null;
     return {
-      guardia: "—", // will be enriched from incidentes
+      guardia: guardiaName || "—",
       instalacion: a.installation?.name ?? "—",
       hora: a.createdAt
         ? new Date(a.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
         : "—",
-      resolucion: a.resuelta ? (a.mensaje || "Resuelta") : null,
+      resolucion: a.resuelta ? (a.resolutionNotes || "Resuelta sin comentario") : null,
       tiempoRespuestaMin: a.resueltaAt
         ? Math.round((new Date(a.resueltaAt).getTime() - new Date(a.createdAt).getTime()) / 60000)
         : null,
