@@ -22,6 +22,7 @@ import type {
   SurveyData,
   InstalacionDocumentType,
   DocumentCheckResult,
+  GuardDocCheckResult,
 } from "./types";
 
 export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void } = {}) {
@@ -55,6 +56,10 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
   const [puestoPhotoPreview, setPuestoPhotoPreview] = useState<string | null>(null);
   const [documentTypes, setDocumentTypes] = useState<InstalacionDocumentType[]>([]);
   const [documentResults, setDocumentResults] = useState<DocumentCheckResult[]>([]);
+  const [globalDocTypes, setGlobalDocTypes] = useState<InstalacionDocumentType[]>([]);
+  const [globalDocResults, setGlobalDocResults] = useState<DocumentCheckResult[]>([]);
+  const [guardDocTypes, setGuardDocTypes] = useState<InstalacionDocumentType[]>([]);
+  const [guardDocResults, setGuardDocResults] = useState<GuardDocCheckResult[]>([]);
 
   // Step 4: Photos
   const [photoCategories, setPhotoCategories] = useState<PhotoCategory[]>([]);
@@ -107,6 +112,8 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
     void fetchPhotoCategories(visitData.installationId);
     void fetchOpenFindings(visitData.installationId);
     void fetchDocumentTypes();
+    void fetchGlobalDocTypes();
+    void fetchGuardDocTypes(dotacion);
   }
 
   async function fetchChecklistItems(installationId: string) {
@@ -169,6 +176,133 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
       }
     } catch {
       // Ignore errors
+    }
+  }
+
+  async function fetchGlobalDocTypes() {
+    try {
+      const res = await fetch("/api/operacional/tipos?capa=global");
+      const json = await res.json();
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        const visitTypes = json.data
+          .filter((t: { obligatorioEnVisita?: boolean }) => t.obligatorioEnVisita)
+          .map((t: { codigo: string; nombre: string; obligatorio?: boolean }) => ({
+            code: t.codigo,
+            label: t.nombre,
+            required: t.obligatorio ?? false,
+          }));
+        setGlobalDocTypes(visitTypes);
+        setGlobalDocResults(
+          visitTypes.map((d: InstalacionDocumentType) => ({
+            code: d.code,
+            isChecked: false,
+            lastEntryDate: null,
+            photoFile: null,
+            photoPreview: null,
+            autoFindingId: null,
+            autoTicketCode: null,
+          })),
+        );
+      }
+    } catch {
+      // Ignore — global doc types are optional
+    }
+  }
+
+  async function fetchGuardDocTypes(dotacion: DotacionGuard[]) {
+    try {
+      const res = await fetch("/api/operacional/tipos?capa=guardia");
+      const json = await res.json();
+      if (res.ok && json.success && Array.isArray(json.data)) {
+        const visitTypes = json.data
+          .filter((t: { obligatorioEnVisita?: boolean }) => t.obligatorioEnVisita)
+          .map((t: { codigo: string; nombre: string; obligatorio?: boolean }) => ({
+            code: t.codigo,
+            label: t.nombre,
+            required: t.obligatorio ?? false,
+          }));
+        setGuardDocTypes(visitTypes);
+        // Initialize one result group per guard
+        setGuardDocResults(
+          dotacion.map((g) => ({
+            guardiaId: g.guardId,
+            guardiaName: g.guardName,
+            guardiaRut: g.guardRut,
+            docs: visitTypes.map((d: InstalacionDocumentType) => ({
+              code: d.code,
+              isChecked: false,
+              lastEntryDate: null,
+              photoFile: null,
+              photoPreview: null,
+              autoFindingId: null,
+              autoTicketCode: null,
+            })),
+          })),
+        );
+      }
+    } catch {
+      // Ignore — guard doc types are optional
+    }
+  }
+
+  /** Collect and POST all doc verificaciones to the verificaciones-fisicas endpoint */
+  async function saveVerificaciones() {
+    if (!visit) return;
+
+    const verificaciones: Array<{
+      tipoDocId?: string;
+      guardiaDocType?: string;
+      capa: "global" | "instalacion" | "guardia";
+      installationId: string;
+      guardiaId?: string;
+      presente: boolean;
+      photoUrl?: string;
+    }> = [];
+
+    // Global doc results
+    for (const result of globalDocResults) {
+      verificaciones.push({
+        guardiaDocType: result.code,
+        capa: "global",
+        installationId: visit.installationId,
+        presente: result.isChecked,
+      });
+    }
+
+    // Installation doc results (from the existing documentResults state)
+    for (const result of documentResults) {
+      verificaciones.push({
+        guardiaDocType: result.code,
+        capa: "instalacion",
+        installationId: visit.installationId,
+        presente: result.isChecked,
+      });
+    }
+
+    // Guard doc results
+    for (const guardResult of guardDocResults) {
+      for (const doc of guardResult.docs) {
+        verificaciones.push({
+          guardiaDocType: doc.code,
+          capa: "guardia",
+          installationId: visit.installationId,
+          guardiaId: guardResult.guardiaId,
+          presente: doc.isChecked,
+        });
+      }
+    }
+
+    if (verificaciones.length > 0) {
+      const res = await fetch("/api/operacional/verificaciones-fisicas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ supervisionId: visit.id, verificaciones }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.warn("[WIZARD] Error saving verificaciones:", err);
+        // Non-blocking: don't throw, the core wizard flow shouldn't break
+      }
     }
   }
 
@@ -277,6 +411,9 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
           }
         }
       }
+
+      // Save verificaciones (global + instalacion + guardia docs)
+      await saveVerificaciones();
 
       // Save book data + legacy document checklist
       const documentChecklist: Record<string, boolean> = {};
@@ -740,6 +877,13 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
             setPuestoPhotoPreview(preview);
           }}
           onDocumentResultsChange={setDocumentResults}
+          globalDocumentTypes={globalDocTypes}
+          globalDocumentResults={globalDocResults}
+          onGlobalDocumentResultsChange={setGlobalDocResults}
+          guardDocTypes={guardDocTypes}
+          guardDocResults={guardDocResults}
+          onGuardDocResultsChange={setGuardDocResults}
+          dotacionGuards={guards}
           onFindingCreated={handleFindingCreated}
           onFindingStatusChange={handleFindingStatusChange}
           onNext={handleStep3Next}
