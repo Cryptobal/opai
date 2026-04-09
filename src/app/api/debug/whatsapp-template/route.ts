@@ -82,13 +82,6 @@ export async function GET(request: NextRequest) {
           select: { phoneMobile: true, phone: true, firstName: true, lastName: true },
         });
         tel = persona?.phoneMobile?.trim() || persona?.phone?.trim() || null;
-        if (tel) {
-          return NextResponse.json({
-            info: `Admin.phone es null, pero encontré OpsPersona con email=${admin.email}: ${persona?.firstName} ${persona?.lastName}, tel=${tel}. Usando ese.`,
-            admin,
-            persona: { name: `${persona?.firstName} ${persona?.lastName}`, tel },
-          });
-        }
       }
       if (!tel) {
         return NextResponse.json({
