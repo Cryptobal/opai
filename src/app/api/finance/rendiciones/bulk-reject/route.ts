@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       where: {
         id: { in: rendicionIds },
         tenantId: ctx.tenantId,
-        status: { in: ["SUBMITTED", "IN_APPROVAL"] },
+        status: { in: ["SUBMITTED"] },
       },
     });
 

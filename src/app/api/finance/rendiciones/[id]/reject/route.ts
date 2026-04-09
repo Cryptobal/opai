@@ -46,11 +46,11 @@ export async function POST(
       );
     }
 
-    if (!["SUBMITTED", "IN_APPROVAL"].includes(rendicion.status)) {
+    if (rendicion.status !== "SUBMITTED") {
       return NextResponse.json(
         {
           success: false,
-          error: `Solo se puede rechazar en estado SUBMITTED o IN_APPROVAL (actual: ${rendicion.status})`,
+          error: `Solo se puede rechazar en estado SUBMITTED (actual: ${rendicion.status})`,
         },
         { status: 400 },
       );

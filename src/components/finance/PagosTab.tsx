@@ -308,6 +308,23 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
     [router]
   );
 
+  const handleDeleteReceipt = useCallback(
+    async (paymentId: string) => {
+      try {
+        const res = await fetch(`/api/finance/payments/${paymentId}`, {
+          method: "DELETE",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Error al eliminar comprobante");
+        toast.success("Comprobante eliminado");
+        router.refresh();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Error al eliminar comprobante");
+      }
+    },
+    [router]
+  );
+
   return (
     <div className="space-y-4">
       {/* Summary cards */}
@@ -601,7 +618,7 @@ export function PagosTab({ payments, pendingRendiciones }: PagosTabProps) {
                               url: p.receiptUrl,
                               type: p.receiptFileName?.match(/\.(jpg|jpeg|png|webp)$/i) ? "image/jpeg" : "application/pdf",
                             } : null}
-                            onRemove={() => {/* optional: could add delete receipt endpoint later */}}
+                            onRemove={() => handleDeleteReceipt(p.id)}
                             compact
                           />
 

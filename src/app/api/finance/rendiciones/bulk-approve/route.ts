@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       where: {
         id: { in: rendicionIds },
         tenantId: ctx.tenantId,
-        status: { in: ["SUBMITTED", "IN_APPROVAL"] },
+        status: { in: ["SUBMITTED"] },
       },
       include: { approvals: true },
     });
@@ -48,38 +48,20 @@ export async function POST(request: NextRequest) {
       const approved: string[] = [];
 
       for (const rendicion of rendiciones) {
-        // Find and update the approval record for current user
-        const myApproval = rendicion.approvals.find(
-          (a) => a.approverId === ctx.userId,
-        );
-
-        if (myApproval && !myApproval.decision) {
-          await tx.financeApproval.update({
-            where: { id: myApproval.id },
-            data: {
-              decision: "APPROVED",
-              comment: comment ?? null,
-              decidedAt: new Date(),
-            },
-          });
-        }
-
-        // Check if all approvers have approved
-        const allApprovals = await tx.financeApproval.findMany({
-          where: { rendicionId: rendicion.id },
+        // Mark all approval records as approved
+        await tx.financeApproval.updateMany({
+          where: { rendicionId: rendicion.id, decision: null },
+          data: {
+            decision: "APPROVED",
+            comment: comment ?? null,
+            decidedAt: new Date(),
+          },
         });
 
-        const pendingApprovals = allApprovals.filter(
-          (a) =>
-            (myApproval ? a.id !== myApproval.id : true) && !a.decision,
-        );
-
-        const allApproved = pendingApprovals.length === 0;
-        const newStatus = allApproved ? "APPROVED" : "IN_APPROVAL";
-
+        // Move directly to APPROVED
         await tx.financeRendicion.update({
           where: { id: rendicion.id },
-          data: { status: newStatus },
+          data: { status: "APPROVED" },
         });
 
         await tx.financeRendicionHistory.create({
@@ -87,19 +69,15 @@ export async function POST(request: NextRequest) {
             rendicionId: rendicion.id,
             action: "APPROVED",
             fromStatus: rendicion.status,
-            toStatus: newStatus,
+            toStatus: "APPROVED",
             userId: ctx.userId,
             userName: ctx.userEmail,
             comment: comment ?? null,
-            metadata: allApproved
-              ? { fullyApproved: true, bulkAction: true }
-              : { partialApproval: true, remaining: pendingApprovals.length, bulkAction: true },
+            metadata: { fullyApproved: true, bulkAction: true },
           },
         });
 
-        if (allApproved) {
-          approved.push(rendicion.id);
-        }
+        approved.push(rendicion.id);
       }
 
       return { approved, total: rendiciones.length };

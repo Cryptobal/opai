@@ -147,3 +147,52 @@ export async function POST(
     );
   }
 }
+
+// ── DELETE: remove payment receipt ──
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<Params> },
+) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const perms = await resolveApiPerms(ctx);
+
+    if (!hasCapability(perms, "rendicion_pay")) {
+      return NextResponse.json(
+        { success: false, error: "Sin permisos para gestionar pagos" },
+        { status: 403 },
+      );
+    }
+
+    const { id } = await params;
+
+    const payment = await prisma.financePayment.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    });
+
+    if (!payment) {
+      return NextResponse.json(
+        { success: false, error: "Pago no encontrado" },
+        { status: 404 },
+      );
+    }
+
+    const updated = await prisma.financePayment.update({
+      where: { id },
+      data: {
+        receiptFileName: null,
+        receiptUrl: null,
+      },
+    });
+
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error) {
+    console.error("[Finance] Error deleting payment receipt:", error);
+    return NextResponse.json(
+      { success: false, error: "No se pudo eliminar el comprobante" },
+      { status: 500 },
+    );
+  }
+}

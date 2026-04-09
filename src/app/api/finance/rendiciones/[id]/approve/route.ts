@@ -47,38 +47,20 @@ export async function POST(
       );
     }
 
-    if (!["SUBMITTED", "IN_APPROVAL"].includes(rendicion.status)) {
+    if (rendicion.status !== "SUBMITTED") {
       return NextResponse.json(
         {
           success: false,
-          error: `Solo se puede aprobar en estado SUBMITTED o IN_APPROVAL (actual: ${rendicion.status})`,
+          error: `Solo se puede aprobar en estado SUBMITTED (actual: ${rendicion.status})`,
         },
         { status: 400 },
       );
     }
 
-    // Find approval record for current user
-    const myApproval = rendicion.approvals.find(
-      (a) => a.approverId === ctx.userId,
-    );
-    if (!myApproval) {
-      return NextResponse.json(
-        { success: false, error: "No eres aprobador de esta rendición" },
-        { status: 403 },
-      );
-    }
-
-    if (myApproval.decision) {
-      return NextResponse.json(
-        { success: false, error: "Ya has tomado una decisión sobre esta rendición" },
-        { status: 400 },
-      );
-    }
-
     const result = await prisma.$transaction(async (tx) => {
-      // Update this approval
-      await tx.financeApproval.update({
-        where: { id: myApproval.id },
+      // Mark all approval records as approved
+      await tx.financeApproval.updateMany({
+        where: { rendicionId: id, decision: null },
         data: {
           decision: "APPROVED",
           comment: body.comment ?? null,
@@ -86,22 +68,10 @@ export async function POST(
         },
       });
 
-      // Check if all approvers have approved
-      const allApprovals = await tx.financeApproval.findMany({
-        where: { rendicionId: id },
-      });
-
-      const pendingApprovals = allApprovals.filter(
-        (a) => a.id !== myApproval.id && !a.decision,
-      );
-
-      const allApproved = pendingApprovals.length === 0;
-
-      const newStatus = allApproved ? "APPROVED" : "IN_APPROVAL";
-
+      // Move directly to APPROVED
       const updated = await tx.financeRendicion.update({
         where: { id },
-        data: { status: newStatus },
+        data: { status: "APPROVED" },
       });
 
       await tx.financeRendicionHistory.create({
@@ -109,17 +79,15 @@ export async function POST(
           rendicionId: id,
           action: "APPROVED",
           fromStatus: rendicion.status,
-          toStatus: newStatus,
+          toStatus: "APPROVED",
           userId: ctx.userId,
           userName: ctx.userEmail,
           comment: body.comment ?? null,
-          metadata: allApproved
-            ? { fullyApproved: true }
-            : { partialApproval: true, remaining: pendingApprovals.length },
+          metadata: { fullyApproved: true },
         },
       });
 
-      return { updated, allApproved: allApproved };
+      return { updated, allApproved: true };
     });
 
     // Send email to submitter when fully approved (fire-and-forget)

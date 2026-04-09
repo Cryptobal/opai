@@ -87,10 +87,6 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
     label: "Enviada",
     className: "bg-blue-500/15 text-blue-400 border-blue-500/30",
   },
-  IN_APPROVAL: {
-    label: "En aprobación",
-    className: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  },
   APPROVED: {
     label: "Aprobada",
     className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -113,7 +109,6 @@ const TYPE_LABELS: Record<string, string> = {
 const STATUS_TABS = [
   { value: "ALL", label: "Todos" },
   { value: "SUBMITTED", label: "Enviadas" },
-  { value: "IN_APPROVAL", label: "En aprobación" },
   { value: "APPROVED", label: "Aprobadas" },
   { value: "REJECTED", label: "Rechazadas" },
   { value: "PAID", label: "Pagadas" },
@@ -143,7 +138,7 @@ function extractFilenameFromDisposition(
 }
 
 const isSelectable = (status: string) =>
-  ["SUBMITTED", "IN_APPROVAL", "APPROVED"].includes(status);
+  ["SUBMITTED", "APPROVED"].includes(status);
 
 /* ── Inner Component ── */
 
@@ -259,7 +254,7 @@ function RendicionesClientInner({
   );
 
   const selectedApprovable = useMemo(
-    () => selectedRendiciones.filter((r) => ["SUBMITTED", "IN_APPROVAL"].includes(r.status)),
+    () => selectedRendiciones.filter((r) => ["SUBMITTED"].includes(r.status)),
     [selectedRendiciones]
   );
 
@@ -700,9 +695,11 @@ function RendicionesClientInner({
             </div>
           )}
 
-          {/* Count */}
+          {/* Count + sum */}
           <p className="text-xs text-muted-foreground">
             {filtered.length} rendición(es)
+            {" · "}
+            <span className="font-medium text-foreground">{fmtCLP.format(filtered.reduce((s, r) => s + r.amount, 0))}</span>
           </p>
 
           {/* Table / empty */}
