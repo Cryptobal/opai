@@ -249,6 +249,34 @@ export function OpsDocsGuardiasTab({
                         />
                         <span className="text-xs">Vence</span>
                       </label>
+                      <label className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={!!guardia.obligatorioEnVisita}
+                          onChange={(e) => {
+                            const v = e.target.checked;
+                            if (guardiaIndex >= 0) {
+                              updateGuardiaDocConfigItem(guardiaIndex, {
+                                obligatorioEnVisita: v,
+                              });
+                            } else {
+                              setGuardiaDocConfig((prev) => [
+                                ...prev,
+                                {
+                                  code: doc.code,
+                                  hasExpiration: false,
+                                  alertDaysBefore: 30,
+                                  visibleInGuardForm: true,
+                                  visibleInTeForm: false,
+                                  obligatorioEnVisita: v,
+                                },
+                              ]);
+                            }
+                          }}
+                          className="accent-primary"
+                        />
+                        Oblig. en visita
+                      </label>
                       {guardia.hasExpiration && guardiaIndex >= 0 && (
                         <div className="flex items-center gap-1.5">
                           <span className="text-[11px] text-muted-foreground">Alerta:</span>

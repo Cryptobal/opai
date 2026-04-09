@@ -44,6 +44,7 @@ type TipoDoc = {
   diasAlerta: number;
   order: number;
   capa: string;
+  obligatorioEnVisita: boolean;
   documentoActual: { id: string; status: string; fileName: string; expiresAt: string | null } | null;
 };
 
@@ -345,6 +346,32 @@ function EmpresaTab({
                   )}
                 </div>
                 <div className="shrink-0">{doc ? <DocStatusBadge status={doc.status} expiresAt={doc.expiresAt} /> : <DocStatusBadge status="sin_documento" />}</div>
+                <label className="flex items-center gap-1.5 text-xs whitespace-nowrap shrink-0 cursor-pointer" title="Marcar si supervisores deben verificar físicamente en visita">
+                  <input
+                    type="checkbox"
+                    checked={!!tipo.obligatorioEnVisita}
+                    onChange={async (e) => {
+                      const v = e.target.checked;
+                      try {
+                        const res = await fetch(`/api/operacional/tipos/${tipo.id}`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ obligatorioEnVisita: v }),
+                        });
+                        const json = await res.json();
+                        if (json.success) {
+                          await onRefresh();
+                        } else {
+                          toast.error(json.error || "Error al actualizar");
+                        }
+                      } catch {
+                        toast.error("Error al actualizar");
+                      }
+                    }}
+                    className="accent-primary"
+                  />
+                  Oblig. visita
+                </label>
                 <div className="flex items-center gap-0.5 shrink-0">
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditTipo(tipo); setEditForm({ nombre: tipo.nombre, normativa: tipo.normativa || "", obligatorio: tipo.obligatorio }); }} title="Editar tipo">
                     <Pencil className="h-3 w-3" />

@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
       diasAlerta: t.diasAlerta,
       normativa: t.normativa,
       order: t.order,
+      obligatorioEnVisita: t.obligatorioEnVisita,
       // Para capa global, incluir info del documento actual
       documentoActual: t.capa === "global" && t.documentos.length > 0
         ? {

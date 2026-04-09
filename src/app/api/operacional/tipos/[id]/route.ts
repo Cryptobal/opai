@@ -29,6 +29,7 @@ export async function PUT(
     if (body.tieneVencimiento !== undefined) data.tieneVencimiento = body.tieneVencimiento;
     if (body.diasAlerta !== undefined) data.diasAlerta = body.diasAlerta;
     if (body.order !== undefined) data.order = body.order;
+    if (body.obligatorioEnVisita !== undefined) data.obligatorioEnVisita = body.obligatorioEnVisita;
 
     const updated = await prisma.tipoDocOperacional.update({
       where: { id },
