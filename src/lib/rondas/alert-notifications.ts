@@ -36,7 +36,6 @@ const ALERT_TYPE_LABELS: Record<string, string> = {
   ronda_no_iniciada: "Ronda no iniciada",
   ronda_no_realizada: "Ronda no realizada",
   ronda_libre_timeout: "Ronda libre timeout",
-  sin_movimiento: "Sin movimiento",
   bateria_baja: "Batería baja",
   bateria_estatica: "Batería estática",
   panico: "PÁNICO",

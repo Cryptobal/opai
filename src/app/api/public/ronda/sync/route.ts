@@ -98,7 +98,6 @@ export async function POST(request: NextRequest) {
               speedFromPrevKmh: speed,
               batteryLevel: m.batteryLevel ?? null,
               speedThresholdKmh: speedThreshold,
-              movementScoreThreshold: fullConfig.sin_movimiento?.thresholds?.movementScoreMin,
               batteryLowThreshold: fullConfig.bateria_baja?.thresholds?.batteryLowPercent,
               batteryStaticMinMinutes: fullConfig.bateria_estatica?.thresholds?.batteryStaticMinMinutes,
               elapsedMinutes: prevM ? elapsedSec / 60 : undefined,
@@ -144,12 +143,10 @@ export async function POST(request: NextRequest) {
             createdMarks.push({ status: "COMPLETED", timestamp: new Date(m.marcadoAt), checkpointId: m.checkpointId });
 
             if (alertAnomalies.length > 0) {
-              // Suppress noisy telemetry + dedupe idempotently per ejecución
-              const SUPPRESSED_AT_CREATION = new Set(["sin_movimiento"]);
-              const creatable = alertAnomalies.filter((a: string) => !SUPPRESSED_AT_CREATION.has(a));
-              const TELEMETRY_TYPES = ["sin_movimiento", "bateria_baja", "bateria_estatica"];
-              const telemetryTypes = creatable.filter((a: string) => TELEMETRY_TYPES.includes(a));
-              const actionableTypes = creatable.filter((a: string) => !TELEMETRY_TYPES.includes(a));
+              // Dedupe telemetry alerts idempotently per ejecución
+              const TELEMETRY_TYPES = ["bateria_baja", "bateria_estatica"];
+              const telemetryTypes = alertAnomalies.filter((a: string) => TELEMETRY_TYPES.includes(a));
+              const actionableTypes = alertAnomalies.filter((a: string) => !TELEMETRY_TYPES.includes(a));
 
               let filteredTelemetry: string[] = [];
               if (telemetryTypes.length > 0) {

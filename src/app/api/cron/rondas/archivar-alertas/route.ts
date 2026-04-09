@@ -35,8 +35,10 @@ export async function GET(request: NextRequest) {
     });
 
     let totalArchived = 0;
+    let deprecatedArchived = 0;
 
     for (const tenant of tenants) {
+      // 1) Archive unresolved alerts older than 48h (normal policy)
       const result = await prisma.opsAlertaRonda.updateMany({
         where: {
           tenantId: tenant.id,
@@ -51,6 +53,21 @@ export async function GET(request: NextRequest) {
         },
       });
       totalArchived += result.count;
+
+      // 2) Purge all `sin_movimiento` alerts regardless of age — type deprecated.
+      //    Keeps the DB clean and the UI immediately consistent.
+      const deprecated = await prisma.opsAlertaRonda.updateMany({
+        where: {
+          tenantId: tenant.id,
+          resuelta: false,
+          archivedAt: null,
+          tipo: "sin_movimiento",
+        },
+        data: {
+          archivedAt: new Date(),
+        },
+      });
+      deprecatedArchived += deprecated.count;
     }
 
     return NextResponse.json({
@@ -58,6 +75,7 @@ export async function GET(request: NextRequest) {
       data: {
         tenantsProcessed: tenants.length,
         totalArchived,
+        deprecatedArchived,
         cutoff: cutoff.toISOString(),
       },
     });

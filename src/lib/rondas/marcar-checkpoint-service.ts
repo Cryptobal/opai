@@ -198,33 +198,30 @@ export async function marcarCheckpoint(
   const fullConfig = await getFullAlertConfig(execution.tenantId);
   const speedThreshold = fullConfig.velocidad_anomala?.thresholds?.speedAnomalyKmh ?? DEFAULT_SPEED_THRESHOLD_KMH;
 
-  // 6. Anomaly detection — applies to all marks including ad-hoc GPS marks
+  // 6. Anomaly detection — applies to all marks including ad-hoc GPS marks.
+  // `sin_movimiento` was removed: the per-mark movement sensor check was noisy
+  // (fires whenever the phone rests on a surface during QR scan) and is already
+  // covered more accurately by `guardia_estatico` (post-mark evaluator).
   const anomalies = detectCheckpointAnomalies({
     speedFromPrevKmh: speed,
-    movementScore: Number((motionData?.movementScore as number | undefined) ?? 0),
     batteryLevel: batteryLevel,
     prevBatteryLevel: prev?.batteryLevel ?? null,
     speedThresholdKmh: speedThreshold,
-    movementScoreThreshold: fullConfig.sin_movimiento?.thresholds?.movementScoreMin,
     batteryLowThreshold: fullConfig.bateria_baja?.thresholds?.batteryLowPercent,
     batteryStaticMinMinutes: fullConfig.bateria_estatica?.thresholds?.batteryStaticMinMinutes,
     elapsedMinutes: prev ? elapsedSec / 60 : undefined,
   });
 
   // Filter to only enabled alert types for alert creation / notifications.
-  // `sin_movimiento` is suppressed at creation — too noisy per-mark (fires on every
-  // brief stillness). The signal is still used for trust score below. To re-enable,
-  // remove from SUPPRESSED_AT_CREATION.
-  const SUPPRESSED_AT_CREATION = new Set(["sin_movimiento"]);
   const alertAnomalies = anomalies.filter(
-    (code) => !SUPPRESSED_AT_CREATION.has(code) && fullConfig[code]?.enabled !== false,
+    (code) => fullConfig[code]?.enabled !== false,
   );
 
   // 7. Trust score — calculated normally for all marks (including rondas libres)
   const trustScore = computeCheckpointTrustScore({
     geoValidada: geo.valid,
     hasPhoto: Boolean(fotoEvidenciaUrl),
-    hasMovement: !anomalies.includes("sin_movimiento"),
+    hasMovement: true,
     sameDevice: true,
     batteryLevel: batteryLevel ?? null,
     speedFromPrevKmh: speed,
@@ -339,7 +336,7 @@ export async function marcarCheckpoint(
       const severidad = toAlertSeverityFromAnomalies(alertAnomalies);
 
       // Deduplicate telemetry alerts: only create 1 per type per ejecución
-      const TELEMETRY_TYPES = ["sin_movimiento", "bateria_baja", "bateria_estatica"];
+      const TELEMETRY_TYPES = ["bateria_baja", "bateria_estatica"];
       const telemetryTypes = alertAnomalies.filter(a => TELEMETRY_TYPES.includes(a));
       const actionableTypes = alertAnomalies.filter(a => !TELEMETRY_TYPES.includes(a));
 

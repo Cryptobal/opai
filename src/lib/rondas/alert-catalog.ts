@@ -4,7 +4,6 @@
  */
 
 export type AlertTypeCode =
-  | "sin_movimiento"
   | "velocidad_anomala"
   | "bateria_baja"
   | "bateria_estatica"
@@ -45,18 +44,6 @@ export interface AlertTypeDef {
 }
 
 export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
-  sin_movimiento: {
-    code: "sin_movimiento",
-    label: "Sin movimiento",
-    description: "Sensor de movimiento no detecta actividad física",
-    defaultSeverity: "warning",
-    source: "anomaly_inline",
-    level: "telemetry",
-    configurable: true,
-    thresholds: [
-      { key: "movementScoreMin", label: "Score mínimo", unit: "", defaultValue: 0.05, min: 0.01, max: 0.5, step: 0.01 },
-    ],
-  },
   velocidad_anomala: {
     code: "velocidad_anomala",
     label: "Velocidad anómala",
