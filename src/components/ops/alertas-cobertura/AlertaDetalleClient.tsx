@@ -391,6 +391,7 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Guardia</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Canal</TableHead>
                   <TableHead>Oleada</TableHead>
                   <TableHead>Hora</TableHead>
@@ -403,7 +404,15 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                   const nombre = n.guardia
                     ? `${n.guardia.persona.firstName} ${n.guardia.persona.lastName}`
                     : n.guardiaId.slice(0, 8);
-                  const phone = n.guardia?.persona?.phone;
+                  const phone = n.guardia?.persona?.phoneMobile || n.guardia?.persona?.phone;
+                  const esContratado = n.guardia?.lifecycleStatus === "contratado";
+                  const esPoolTE = n.guardia?.lifecycleStatus === "te";
+                  const tipoLabel = esContratado ? "Contratado" : esPoolTE ? "Turno Extra" : "—";
+                  const tipoClass = esContratado
+                    ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                    : esPoolTE
+                    ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                    : "bg-muted/30 text-muted-foreground";
                   const CanalIcon = n.canal === "WHATSAPP" ? MessageCircle : n.canal === "EMAIL" ? Mail : Bell;
                   return (
                     <TableRow key={n.id}>
@@ -412,6 +421,11 @@ export function AlertaDetalleClient({ alertaId, tenantId }: Props) {
                         {phone && (
                           <span className="text-[10px] text-muted-foreground">{phone}</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`text-[10px] ${tipoClass}`}>
+                          {tipoLabel}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-[10px] gap-1">

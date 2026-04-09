@@ -84,8 +84,10 @@ export async function GET(
             errorDetalle: true,
             guardia: {
               select: {
+                lifecycleStatus: true,
+                availableExtraShifts: true,
                 persona: {
-                  select: { firstName: true, lastName: true, phone: true },
+                  select: { firstName: true, lastName: true, phone: true, phoneMobile: true },
                 },
               },
             },

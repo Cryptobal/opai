@@ -189,10 +189,13 @@ export interface NotificacionRegistro {
   leidaAt: string | null;
   errorDetalle: string | null;
   guardia?: {
+    lifecycleStatus?: string;
+    availableExtraShifts?: boolean;
     persona: {
       firstName: string;
       lastName: string;
       phone: string | null;
+      phoneMobile?: string | null;
     };
   };
 }

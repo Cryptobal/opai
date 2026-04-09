@@ -394,6 +394,7 @@ export async function GET(request: NextRequest) {
             id: true,
             code: true,
             lifecycleStatus: true,
+            availableExtraShifts: true,
             marcacionPin: true,
             faceIdPhotoUrl: true,
             persona: {
@@ -415,7 +416,17 @@ export async function GET(request: NextRequest) {
             g.currentInstallation?.name,
             g.persona.rut ?? "",
           ].filter(Boolean);
-          const lifecycleBadge = LIFECYCLE_BADGE[g.lifecycleStatus] ?? { label: "Guardia", class: "bg-sky-400/20 text-sky-400" };
+          // Badge de tipo: Contratado | Turno Extra | (lo que diga lifecycle)
+          // El badge ahora siempre muestra el tipo de guardia, no el estado del PIN
+          // (el PIN se muestra en pinDisplay arriba a la derecha).
+          let tipoBadge: { label: string; class: string };
+          if (g.lifecycleStatus === "contratado") {
+            tipoBadge = { label: "Contratado", class: "bg-blue-500/20 text-blue-400" };
+          } else if (g.lifecycleStatus === "te") {
+            tipoBadge = { label: "Turno Extra", class: "bg-purple-500/20 text-purple-400" };
+          } else {
+            tipoBadge = LIFECYCLE_BADGE[g.lifecycleStatus] ?? { label: "Guardia", class: "bg-sky-400/20 text-sky-400" };
+          }
           results.push({
             id: g.id,
             type: "guardia",
@@ -423,8 +434,8 @@ export async function GET(request: NextRequest) {
             title,
             subtitle: subtitleParts.join(" · "),
             href: `/personas/guardias/${g.id}`,
-            badgeLabel: hasPin ? lifecycleBadge.label : "PIN No creado",
-            badgeClass: hasPin ? lifecycleBadge.class : "bg-rose-500/20 text-rose-400",
+            badgeLabel: tipoBadge.label,
+            badgeClass: tipoBadge.class,
             imageUrl: g.faceIdPhotoUrl ?? undefined,
             pinDisplay,
           });

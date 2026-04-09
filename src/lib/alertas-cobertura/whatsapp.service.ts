@@ -88,6 +88,10 @@ export async function enviarAlertaWhatsApp(
       //   {{1}} = JWT token (button URL: /alerta/t/{{1}})
       //   {{2}} = Instalación, {{3}} = Dirección
       //   {{4}} = Horario, {{5}} = Monto, {{6}} = Modalidad, {{7}} = Funciones
+      //
+      // urlPath ahora siempre es el token JWT puro (notificacion.service lo
+      // genera con generarTokenExterno también para internos). Compat con el
+      // formato viejo `<alertaId>?token=<jwt>` por si llega algo legacy.
       const buttonToken = params.urlPath.includes("?token=")
         ? params.urlPath.split("?token=")[1]
         : params.urlPath;

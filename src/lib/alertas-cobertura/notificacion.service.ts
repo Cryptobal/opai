@@ -81,16 +81,24 @@ export async function notificarGuardiaAlerta(params: {
   // como "CELULAR", así que ahí es donde usualmente están los números de WhatsApp.
   const telefonoContacto = persona?.phoneMobile || persona?.phone || null;
 
-  // Link de aceptación: interno usa portal, externo usa landing pública con token
-  let linkAceptar = `/portal/guardia?section=alertas-cobertura`;
-  if (!params.esInterno) {
-    try {
-      const token = await generarTokenExterno(params.alertaId, params.guardiaId);
-      linkAceptar = `/alerta/${params.alertaId}?token=${token}`;
-    } catch (e) {
-      console.error("[AlertaCobertura:Notif] Error generando token externo:", e);
-    }
+  // Token externo: lo generamos SIEMPRE (interno o externo). El template de
+  // WhatsApp usa una URL CTA `https://opai.gard.cl/alerta/t/{{1}}` donde {{1}}
+  // debe ser un JWT válido para que la route handler /alerta/t/[token] decodifique
+  // el alertaId y redirija a la página de aceptación. Sin token, el redirect cae
+  // en /alerta/invalid (lo que estaba pasando con guardias internos).
+  let tokenExterno: string | null = null;
+  try {
+    tokenExterno = await generarTokenExterno(params.alertaId, params.guardiaId);
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] Error generando token externo:", e);
   }
+
+  // Link de aceptación para email/push:
+  //  - Interno (con token): la landing pública sirve igual que para externos
+  //  - Sin token (fallback): portal del guardia
+  const linkAceptar = tokenExterno
+    ? `/alerta/${params.alertaId}?token=${tokenExterno}`
+    : `/portal/guardia?section=alertas-cobertura`;
 
   // === PUSH (guardias internos con suscripción al portal guardia) ===
   if (params.esInterno && canalesConfig.includes("PUSH")) {
@@ -160,18 +168,11 @@ export async function notificarGuardiaAlerta(params: {
     } else {
       try {
         if (telefonoContacto) {
-          // URL path para botón: alertaId?token=jwt (externo) o alertaId (interno)
-          let urlPath: string;
-          if (!params.esInterno) {
-            try {
-              const token = await generarTokenExterno(params.alertaId, params.guardiaId);
-              urlPath = `${params.alertaId}?token=${token}`;
-            } catch {
-              urlPath = params.alertaId;
-            }
-          } else {
-            urlPath = params.alertaId;
-          }
+          // El botón del template usa /alerta/t/{{1}} donde {{1}} es un JWT.
+          // Reusamos el tokenExterno generado arriba (interno o externo).
+          // Si falla la generación, usamos el alertaId — fallará el redirect
+          // pero al menos el WhatsApp se manda y el guardia ve el contenido.
+          const urlPath = tokenExterno || params.alertaId;
 
           const waResult = await enviarAlertaWhatsApp({
             telefono: telefonoContacto,
