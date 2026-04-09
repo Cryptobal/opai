@@ -9,12 +9,14 @@ export type InstalacionDocumentItem = {
   code: string;
   label: string;
   required: boolean;
+  /** Si true, el documento debe verificarse físicamente durante visitas de supervisión. */
+  obligatorioEnVisita?: boolean;
 };
 
 export const DEFAULT_INSTALACION_DOCUMENTS: InstalacionDocumentItem[] = [
-  { code: "directiva_funcionamiento", label: "Directiva de funcionamiento", required: true },
-  { code: "contrato_guardias", label: "Contrato de guardias al día", required: true },
-  { code: "os10_guardias", label: "OS10 de los guardias", required: true },
+  { code: "directiva_funcionamiento", label: "Directiva de funcionamiento", required: true, obligatorioEnVisita: true },
+  { code: "contrato_guardias", label: "Contrato de guardias al día", required: true, obligatorioEnVisita: true },
+  { code: "os10_guardias", label: "OS10 de los guardias", required: true, obligatorioEnVisita: true },
 ];
 
 const SETTING_KEY = "ops_instalacion_documentos";

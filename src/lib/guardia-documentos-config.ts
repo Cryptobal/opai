@@ -15,6 +15,8 @@ export type GuardiaDocumentoConfigItem = {
   visibleInGuardForm?: boolean;
   /** Si false, el documento no aparece en el formulario público de ingreso Turno Extra. Default false. */
   visibleInTeForm?: boolean;
+  /** Si true, el documento debe verificarse físicamente durante visitas de supervisión. */
+  obligatorioEnVisita?: boolean;
 };
 
 const SETTING_KEY = "ops_guardia_documentos_config";
@@ -42,6 +44,7 @@ function parseConfig(value: string | null): GuardiaDocumentoConfigItem[] {
             alertDaysBefore: Math.max(1, Math.min(365, Number(c.alertDaysBefore) || DEFAULT_ALERT_DAYS)),
             visibleInGuardForm: c.visibleInGuardForm !== false,
             visibleInTeForm: Boolean(c.visibleInTeForm),
+            obligatorioEnVisita: Boolean(c.obligatorioEnVisita),
           });
         }
       }
@@ -52,6 +55,8 @@ function parseConfig(value: string | null): GuardiaDocumentoConfigItem[] {
   }
 }
 
+const OS10_CODES = new Set(["certificado_os10", "credencial_os10"]);
+
 function getDefaults(): GuardiaDocumentoConfigItem[] {
   return DOCUMENT_TYPES.map((code) => ({
     code,
@@ -59,6 +64,7 @@ function getDefaults(): GuardiaDocumentoConfigItem[] {
     alertDaysBefore: DEFAULT_ALERT_DAYS,
     visibleInGuardForm: true,
     visibleInTeForm: false,
+    obligatorioEnVisita: OS10_CODES.has(code),
   }));
 }
 
@@ -75,6 +81,7 @@ function mergeWithDefaults(partial: GuardiaDocumentoConfigItem[]): GuardiaDocume
       ),
       visibleInGuardForm: existing?.visibleInGuardForm !== false,
       visibleInTeForm: Boolean(existing?.visibleInTeForm),
+      obligatorioEnVisita: existing !== undefined ? Boolean(existing.obligatorioEnVisita) : OS10_CODES.has(code),
     };
   });
   const docCodes = new Set(DOCUMENT_TYPES as readonly string[]);
@@ -90,6 +97,7 @@ function mergeWithDefaults(partial: GuardiaDocumentoConfigItem[]): GuardiaDocume
       alertDaysBefore: Math.max(1, Math.min(365, Number(p.alertDaysBefore) || DEFAULT_ALERT_DAYS)),
       visibleInGuardForm: p.visibleInGuardForm !== false,
       visibleInTeForm: Boolean(p.visibleInTeForm),
+      obligatorioEnVisita: Boolean(p.obligatorioEnVisita),
     });
   }
   return [...base, ...mergedExtras];
