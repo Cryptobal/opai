@@ -144,34 +144,57 @@ export async function POST(request: NextRequest) {
             createdMarks.push({ status: "COMPLETED", timestamp: new Date(m.marcadoAt), checkpointId: m.checkpointId });
 
             if (alertAnomalies.length > 0) {
-              const alertSeveridad = toAlertSeverityFromAnomalies(alertAnomalies);
-              const alertMensaje = `[Sync] Anomalía en checkpoint ${checkpoint.name}: ${alertAnomalies.join(", ")}`;
-              await tx.opsAlertaRonda.create({
-                data: {
-                  tenantId: template.tenantId,
-                  ejecucionId: ejecucion.id,
-                  installationId: round.installationId,
-                  guardiaId: round.guardiaId,
-                  turnoId,
-                  tipo: alertAnomalies[0],
-                  severidad: alertSeveridad,
-                  mensaje: alertMensaje,
+              // Deduplicate telemetry alerts
+              const TELEMETRY_TYPES = ["sin_movimiento", "bateria_baja", "bateria_estatica"];
+              const telemetryTypes = alertAnomalies.filter((a: string) => TELEMETRY_TYPES.includes(a));
+              const actionableTypes = alertAnomalies.filter((a: string) => !TELEMETRY_TYPES.includes(a));
+
+              let filteredTelemetry: string[] = [];
+              if (telemetryTypes.length > 0) {
+                const existingTelemetry = await tx.opsAlertaRonda.findMany({
+                  where: {
+                    ejecucionId: ejecucion.id,
+                    tipo: { in: telemetryTypes },
+                    resuelta: false,
+                  },
+                  select: { tipo: true },
+                });
+                const existingTypes = new Set(existingTelemetry.map((e: any) => e.tipo));
+                filteredTelemetry = telemetryTypes.filter((t: string) => !existingTypes.has(t));
+              }
+
+              const alertsToCreate = [...actionableTypes, ...filteredTelemetry];
+
+              if (alertsToCreate.length > 0) {
+                const alertSeveridad = toAlertSeverityFromAnomalies(alertsToCreate as any);
+                const alertMensaje = `[Sync] Anomalía en checkpoint ${checkpoint.name}: ${alertsToCreate.join(", ")}`;
+                await tx.opsAlertaRonda.create({
                   data: {
-                    anomalies: alertAnomalies,
-                    checkpointId: m.checkpointId,
-                    offline: true,
-                    checkpointLat: checkpoint.lat,
-                    checkpointLng: checkpoint.lng,
-                    checkpointRadius: checkpoint.geoRadiusM,
-                    guardiaLat: m.lat,
-                    guardiaLng: m.lng,
-                    guardiaAccuracy: m.gpsAccuracy ?? null,
-                    distancia: geo.distanceM != null ? Math.round(geo.distanceM) : null,
-                    geoConfidence: geo.confidence,
-                  } as never,
-                },
-              });
-              roundAlerts.push({ tipo: alertAnomalies[0], severidad: alertSeveridad, mensaje: alertMensaje });
+                    tenantId: template.tenantId,
+                    ejecucionId: ejecucion.id,
+                    installationId: round.installationId,
+                    guardiaId: round.guardiaId,
+                    turnoId,
+                    tipo: alertsToCreate[0],
+                    severidad: alertSeveridad,
+                    mensaje: alertMensaje,
+                    data: {
+                      anomalies: alertsToCreate,
+                      checkpointId: m.checkpointId,
+                      offline: true,
+                      checkpointLat: checkpoint.lat,
+                      checkpointLng: checkpoint.lng,
+                      checkpointRadius: checkpoint.geoRadiusM,
+                      guardiaLat: m.lat,
+                      guardiaLng: m.lng,
+                      guardiaAccuracy: m.gpsAccuracy ?? null,
+                      distancia: geo.distanceM != null ? Math.round(geo.distanceM) : null,
+                      geoConfidence: geo.confidence,
+                    } as never,
+                  },
+                });
+                roundAlerts.push({ tipo: alertsToCreate[0], severidad: alertSeveridad, mensaje: alertMensaje });
+              }
             }
           }
 

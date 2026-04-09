@@ -46,6 +46,11 @@ export interface InstallationMapData {
   alertCount?: number;
 }
 
+export interface TrackingPath {
+  ejecucionId: string;
+  points: Array<{ lat: number; lng: number }>;
+}
+
 export interface MonitoreoMapProps {
   checkpoints: CheckpointPoint[];
   guards: GuardPosition[];
@@ -56,6 +61,9 @@ export interface MonitoreoMapProps {
   onFullscreenToggle?: () => void;
   isFullscreen?: boolean;
   onInstallationClick?: (installationId: string) => void;
+  onInstallationDrillDown?: (installationId: string | null) => void;
+  selectedInstallationId?: string | null;
+  trackingPaths?: TrackingPath[];
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -165,6 +173,8 @@ export function MonitoreoMap({
   onFullscreenToggle,
   isFullscreen,
   onInstallationClick,
+  selectedInstallationId,
+  trackingPaths,
 }: MonitoreoMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GMapInstance | null>(null);
@@ -173,6 +183,7 @@ export function MonitoreoMap({
   const installationMarkersRef = useRef<GMarker[]>([]);
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const alertMarkersRef = useRef<(GMarker | GCircle)[]>([]);
+  const polylinesRef = useRef<google.maps.Polyline[]>([]);
   const hasAutoFitRef = useRef(false);
   const zoomListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const [ready, setReady] = useState(false);
@@ -252,6 +263,7 @@ export function MonitoreoMap({
     circlesRef.current.forEach((c) => c.setMap(null));
     installationMarkersRef.current.forEach((m) => m.setMap(null));
     alertMarkersRef.current.forEach((m) => m.setMap(null));
+    polylinesRef.current.forEach((p) => p.setMap(null));
     if (clustererRef.current) {
       clustererRef.current.clearMarkers();
       clustererRef.current = null;
@@ -260,6 +272,7 @@ export function MonitoreoMap({
     circlesRef.current = [];
     installationMarkersRef.current = [];
     alertMarkersRef.current = [];
+    polylinesRef.current = [];
 
     // Checkpoint markers + geofence circles
     checkpoints.forEach((cp) => {
@@ -351,6 +364,12 @@ export function MonitoreoMap({
       (marker as any).addListener("click", () => {
         infoWindow.open(map, marker);
         onInstallationClick?.(inst.id);
+
+        // Drill down: zoom to installation and show checkpoints
+        if (inst.lat != null && inst.lng != null) {
+          map.panTo({ lat: inst.lat, lng: inst.lng });
+          map.setZoom(18);
+        }
       });
 
       instMarkers.push(marker);
@@ -427,6 +446,24 @@ export function MonitoreoMap({
       alertMarkersRef.current.push(alertMarker);
     });
 
+    // Tracking polylines — guard walking paths
+    (trackingPaths ?? []).forEach((track) => {
+      if (track.points.length < 2) return;
+      const polyline = new google.maps.Polyline({
+        path: track.points.map((p) => ({ lat: p.lat, lng: p.lng })),
+        map: map as unknown as google.maps.Map,
+        strokeColor: "#22c55e",
+        strokeOpacity: 0.5,
+        strokeWeight: 3,
+        geodesic: true,
+        icons: [{
+          icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3, strokeColor: "#22c55e" },
+          offset: "100%",
+        }],
+      });
+      polylinesRef.current.push(polyline);
+    });
+
     // Auto-fit bounds on first load
     const instPoints = (installations ?? []).filter((i) => i.lat != null && i.lng != null).map((i) => ({ lat: i.lat!, lng: i.lng! }));
     if (!hasAutoFitRef.current && (checkpoints.length > 0 || guards.length > 0 || instPoints.length > 0)) {
@@ -438,7 +475,7 @@ export function MonitoreoMap({
       ];
       fitToPoints(allPoints);
     }
-  }, [checkpoints, guards, installations, alerts, fitToPoints, onInstallationClick]);
+  }, [checkpoints, guards, installations, alerts, trackingPaths, fitToPoints, onInstallationClick]);
 
   useEffect(() => {
     updateMarkers();
@@ -468,6 +505,16 @@ export function MonitoreoMap({
       if (allPoints.length > 0) fitToPoints(allPoints);
     }
   }, [selectedGuardId, center, guards, checkpoints, installations, fitToPoints]);
+
+  // When selectedInstallationId changes, zoom to that installation
+  useEffect(() => {
+    if (!mapRef.current || !selectedInstallationId) return;
+    const inst = (installations ?? []).find((i) => i.id === selectedInstallationId);
+    if (inst?.lat != null && inst?.lng != null) {
+      mapRef.current.panTo({ lat: inst.lat, lng: inst.lng });
+      mapRef.current.setZoom(18);
+    }
+  }, [selectedInstallationId, installations]);
 
   if (error) {
     return (
@@ -502,14 +549,21 @@ export function MonitoreoMap({
       )}
 
       <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-black/70 backdrop-blur-sm px-4 py-2 text-xs font-medium text-white shadow-lg">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400 ring-1 ring-emerald-400/30" /> Completado</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-400 ring-1 ring-blue-400/30" /> Activo</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-zinc-400 ring-1 ring-zinc-400/30" /> Pendiente</span>
-        <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white/50" /> Guardia</span>
-        <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-red-500 ring-2 ring-white/50" /> Guardia c/ alerta</span>
-        <span className="flex items-center gap-1.5"><span className="h-3 w-3 text-cyan-400">
-          <svg viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-        </span> Instalacion</span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 ring-1 ring-emerald-400/30" /> En ronda
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-red-500 ring-1 ring-red-500/30 animate-pulse" /> Emergencia
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-zinc-500 ring-1 ring-zinc-500/30" /> Sin actividad
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full border-[1.5px] border-zinc-400" /> Checkpoint
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-px w-4 bg-emerald-400/60 border-t border-dashed border-emerald-400" /> Recorrido
+        </span>
       </div>
     </div>
   );

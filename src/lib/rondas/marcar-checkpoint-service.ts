@@ -331,31 +331,57 @@ export async function marcarCheckpoint(
     if (alertAnomalies.length) {
       const cpName = checkpoint?.name ?? "Punto GPS";
       const severidad = toAlertSeverityFromAnomalies(alertAnomalies);
-      await tx.opsAlertaRonda.create({
-        data: {
-          tenantId: execution.tenantId,
-          ejecucionId: execution.id,
-          installationId: cpInstallationId,
-          turnoId,
-          tipo: alertAnomalies[0],
-          severidad,
-          mensaje: `Anomalía detectada en checkpoint ${cpName}: ${alertAnomalies.join(", ")}`,
+
+      // Deduplicate telemetry alerts: only create 1 per type per ejecución
+      const TELEMETRY_TYPES = ["sin_movimiento", "bateria_baja", "bateria_estatica"];
+      const telemetryTypes = alertAnomalies.filter(a => TELEMETRY_TYPES.includes(a));
+      const actionableTypes = alertAnomalies.filter(a => !TELEMETRY_TYPES.includes(a));
+
+      // For telemetry types: check if alert already exists for this ejecución
+      let filteredTelemetry: typeof telemetryTypes = [];
+      if (telemetryTypes.length > 0) {
+        const existingTelemetry = await tx.opsAlertaRonda.findMany({
+          where: {
+            ejecucionId: execution.id,
+            tipo: { in: telemetryTypes },
+            resuelta: false,
+          },
+          select: { tipo: true },
+        });
+        const existingTypes = new Set(existingTelemetry.map(e => e.tipo));
+        filteredTelemetry = telemetryTypes.filter(t => !existingTypes.has(t));
+      }
+
+      // Combine: all actionable + only new telemetry
+      const alertsToCreate = [...actionableTypes, ...filteredTelemetry];
+
+      if (alertsToCreate.length > 0) {
+        await tx.opsAlertaRonda.create({
           data: {
-            checkpointId: checkpoint?.id ?? null,
-            checkpointName: cpName,
-            anomalies: alertAnomalies,
-            trustScore,
-            checkpointLat: checkpoint?.lat ?? null,
-            checkpointLng: checkpoint?.lng ?? null,
-            checkpointRadius: checkpoint?.geoRadiusM ?? null,
-            guardiaLat: lat,
-            guardiaLng: lng,
-            guardiaAccuracy: gpsAccuracy ?? null,
-            distancia: geo.distanceM != null ? Math.round(geo.distanceM) : null,
-            geoConfidence: geo.confidence,
-          } as never,
-        },
-      });
+            tenantId: execution.tenantId,
+            ejecucionId: execution.id,
+            installationId: cpInstallationId,
+            turnoId,
+            tipo: alertsToCreate[0],
+            severidad,
+            mensaje: `Anomalía detectada en checkpoint ${cpName}: ${alertsToCreate.join(", ")}`,
+            data: {
+              checkpointId: checkpoint?.id ?? null,
+              checkpointName: cpName,
+              anomalies: alertsToCreate,
+              trustScore,
+              checkpointLat: checkpoint?.lat ?? null,
+              checkpointLng: checkpoint?.lng ?? null,
+              checkpointRadius: checkpoint?.geoRadiusM ?? null,
+              guardiaLat: lat,
+              guardiaLng: lng,
+              guardiaAccuracy: gpsAccuracy ?? null,
+              distancia: geo.distanceM != null ? Math.round(geo.distanceM) : null,
+              geoConfidence: geo.confidence,
+            } as never,
+          },
+        });
+      }
     }
 
     return mark;

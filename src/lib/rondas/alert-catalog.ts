@@ -16,6 +16,8 @@ export type AlertSeverity = "info" | "warning" | "critical";
 
 export type AlertSource = "anomaly_inline" | "post_mark" | "scheduler" | "manual";
 
+export type AlertLevel = "emergency" | "actionable" | "telemetry";
+
 export interface ThresholdDef {
   key: string;
   label: string;
@@ -32,6 +34,7 @@ export interface AlertTypeDef {
   description: string;
   defaultSeverity: AlertSeverity;
   source: AlertSource;
+  level: AlertLevel;
   /** Whether this alert can be enabled/disabled and have thresholds configured */
   configurable: boolean;
   /** Configurable numeric thresholds (absent = toggle-only) */
@@ -45,6 +48,7 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Sensor de movimiento no detecta actividad física",
     defaultSeverity: "warning",
     source: "anomaly_inline",
+    level: "telemetry",
     configurable: true,
     thresholds: [
       { key: "movementScoreMin", label: "Score mínimo", unit: "", defaultValue: 0.05, min: 0.01, max: 0.5, step: 0.01 },
@@ -56,6 +60,7 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Velocidad entre checkpoints supera el umbral configurado",
     defaultSeverity: "warning",
     source: "anomaly_inline",
+    level: "actionable",
     configurable: true,
     thresholds: [
       { key: "speedAnomalyKmh", label: "Velocidad máxima", unit: "km/h", defaultValue: 15, min: 5, max: 50, step: 1 },
@@ -67,6 +72,7 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Nivel de batería del dispositivo bajo el umbral",
     defaultSeverity: "warning",
     source: "anomaly_inline",
+    level: "telemetry",
     configurable: true,
     thresholds: [
       { key: "batteryLowPercent", label: "Umbral batería", unit: "%", defaultValue: 10, min: 5, max: 30, step: 1 },
@@ -78,6 +84,7 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Nivel de batería sin cambio entre marcaciones (posible suplantación)",
     defaultSeverity: "info",
     source: "anomaly_inline",
+    level: "telemetry",
     configurable: true,
     thresholds: [
       { key: "batteryStaticMinMinutes", label: "Minutos mínimos", unit: "min", defaultValue: 10, min: 5, max: 60, step: 1 },
@@ -89,6 +96,7 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Sin movimiento significativo entre checkpoints por X minutos",
     defaultSeverity: "critical",
     source: "post_mark",
+    level: "emergency",
     configurable: true,
     thresholds: [
       { key: "staticGuardMinutes", label: "Minutos sin movimiento", unit: "min", defaultValue: 5, min: 2, max: 30, step: 1 },
@@ -100,6 +108,7 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Ronda programada no fue iniciada dentro del plazo de tolerancia",
     defaultSeverity: "critical",
     source: "scheduler",
+    level: "actionable",
     configurable: true,
     thresholds: [
       { key: "roundNotStartedMinutes", label: "Tolerancia", unit: "min", defaultValue: 10, min: 5, max: 60, step: 1 },
@@ -111,6 +120,7 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Guardia activó el botón de pánico desde el dispositivo",
     defaultSeverity: "critical",
     source: "manual",
+    level: "emergency",
     configurable: false,
   },
 };
@@ -121,4 +131,15 @@ export const ALERT_TYPE_CODES = Object.keys(ALERT_CATALOG) as AlertTypeCode[];
 /** Only alert types that can be configured (enabled/disabled + thresholds) */
 export const CONFIGURABLE_ALERT_CODES = ALERT_TYPE_CODES.filter(
   (c) => ALERT_CATALOG[c].configurable,
+);
+
+/** Alert types by level */
+export const EMERGENCY_ALERT_TYPES = ALERT_TYPE_CODES.filter(
+  (c) => ALERT_CATALOG[c].level === "emergency",
+);
+export const ACTIONABLE_ALERT_TYPES = ALERT_TYPE_CODES.filter(
+  (c) => ALERT_CATALOG[c].level === "actionable",
+);
+export const TELEMETRY_ALERT_TYPES = ALERT_TYPE_CODES.filter(
+  (c) => ALERT_CATALOG[c].level === "telemetry",
 );

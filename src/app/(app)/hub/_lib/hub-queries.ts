@@ -1233,10 +1233,21 @@ export async function getOpsMetrics(
       },
     }),
     prisma.opsAlertaRonda.count({
-      where: { tenantId, resuelta: false },
+      where: {
+        tenantId,
+        resuelta: false,
+        archivedAt: null,
+        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      },
     }),
     prisma.opsAlertaRonda.count({
-      where: { tenantId, resuelta: false, severidad: "critical" },
+      where: {
+        tenantId,
+        resuelta: false,
+        archivedAt: null,
+        severidad: "critical",
+        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      },
     }),
     hasRefuerzosModel
       ? prismaAny.opsRefuerzoSolicitud!.count({

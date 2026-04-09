@@ -17,7 +17,7 @@ import Pusher from "pusher-js";
 // PanicAlertBanner removed — panic alerts are now handled globally by PanicAlertProvider in AppLayoutClient
 import { CoberturaSheet } from "./CoberturaSheet";
 import { InstallationDetailModal } from "./InstallationDetailModal";
-import { soundCheckpointMarked, soundRondaCompleted, soundRondaStarted, soundAlert } from "@/lib/rondas/monitor-sounds";
+import { soundCheckpointMarked, soundRondaCompleted, soundRondaStarted, soundAlert, soundPanic } from "@/lib/rondas/monitor-sounds";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
@@ -97,6 +97,7 @@ export function RondasMonitoreoClient({
   const [splitPct, setSplitPct] = useState(45);
   const [isMobile, setIsMobile] = useState(false);
   const [detailInstallation, setDetailInstallation] = useState<CNInstalacion | null>(null);
+  const [trackingPaths, setTrackingPaths] = useState<Array<{ ejecucionId: string; points: Array<{ lat: number; lng: number }> }>>([]);
   const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
 
   // Chat side panel: open installation channel via "Mensaje" button
@@ -166,6 +167,25 @@ export function RondasMonitoreoClient({
     return () => clearInterval(interval);
   }, [fetchAlerts, refreshMonitoreo]);
 
+  // Fetch guard tracking paths for live polylines
+  useEffect(() => {
+    const fetchTracking = async () => {
+      try {
+        const res = await fetch("/api/ops/rondas/monitoreo/tracking");
+        const json = await res.json();
+        if (json.success && json.data) {
+          setTrackingPaths(json.data);
+        }
+      } catch {
+        // Silent fail — tracking is non-critical
+      }
+    };
+
+    fetchTracking();
+    const interval = setInterval(fetchTracking, 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Real-time events via Pusher
   useEffect(() => {
     if (!tenantId) return;
@@ -207,7 +227,11 @@ export function RondasMonitoreoClient({
     });
 
     channel.bind("alerta-ronda", (data: any) => {
-      soundAlert();
+      if (data?.tipo === "panico") {
+        soundPanic();
+      } else {
+        soundAlert();
+      }
       fetchAlerts();
       refreshMonitoreo();
       // Browser notification for critical alerts when tab is hidden
@@ -783,6 +807,8 @@ export function RondasMonitoreoClient({
                 alerts={mapAlertMarkers}
                 center={mapCenter}
                 selectedGuardId={selectedRondaId}
+                selectedInstallationId={selectedInstallationId}
+                trackingPaths={trackingPaths}
                 isFullscreen={isFullscreen}
                 onFullscreenToggle={() => setIsFullscreen(false)}
                 onInstallationClick={(id) => setSelectedInstallationId(id)}
@@ -805,6 +831,8 @@ export function RondasMonitoreoClient({
                       alerts={mapAlertMarkers}
                       center={mapCenter}
                       selectedGuardId={selectedRondaId}
+                      selectedInstallationId={selectedInstallationId}
+                      trackingPaths={trackingPaths}
                       isFullscreen={false}
                       onFullscreenToggle={() => setIsFullscreen(true)}
                       onInstallationClick={(id) => setSelectedInstallationId(id)}
