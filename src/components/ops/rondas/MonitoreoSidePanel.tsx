@@ -6,19 +6,7 @@ import { MonitoreoGuardPanel } from "./MonitoreoGuardPanel";
 import { HistorialGridDialog, type HistorialTurno } from "./HistorialGridDialog";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
-
-/* ─── Alert classification ─── */
-const COMPLIANCE_ALERT_TYPES = new Set([
-  "ronda_no_iniciada",
-  "ronda_no_realizada",
-  "ronda_incompleta",
-]);
-
-const COMPLIANCE_LABELS: Record<string, string> = {
-  ronda_no_iniciada: "no iniciadas",
-  ronda_no_realizada: "no realizadas",
-  ronda_incompleta: "incompletas",
-};
+import { ALERT_CATALOG, TELEMETRY_ALERT_TYPES, ACTIONABLE_ALERT_TYPES } from "@/lib/rondas/alert-catalog";
 
 /* ─── Alert types ─── */
 interface AlertRow {
@@ -106,9 +94,12 @@ export function MonitoreoSidePanel({
 
   const openAlerts = useMemo(() => alertRows.filter((a) => !a.resuelta), [alertRows]);
 
-  // Badge only counts operational alerts (not compliance)
+  // Badge counts emergency + actionable alerts (not telemetry)
   const operationalAlertCount = useMemo(
-    () => openAlerts.filter((a) => !COMPLIANCE_ALERT_TYPES.has(a.tipo)).length,
+    () => openAlerts.filter((a) => {
+      const def = (ALERT_CATALOG as Record<string, { level?: string }>)[a.tipo];
+      return def?.level === "emergency" || def?.level === "actionable";
+    }).length,
     [openAlerts],
   );
 
@@ -152,6 +143,7 @@ export function MonitoreoSidePanel({
 
   return (
     <div className="flex flex-col h-full">
+      <PanicBanner alerts={alertRows} onGoToAlert={onGoToAlert} />
       {/* Tab bar */}
       <div className="flex border-b border-[#1a1f2e] shrink-0 bg-[#080c16] overflow-x-auto scrollbar-none">
         {tabs.map((tab) => (
@@ -370,6 +362,44 @@ function RondasTab({
   );
 }
 
+/* ── Panic Banner: always visible when panic alert exists ── */
+function PanicBanner({ alerts, onGoToAlert }: { alerts: AlertRow[]; onGoToAlert: (a: AlertRow) => void }) {
+  const panicAlerts = useMemo(
+    () => alerts.filter((a) => a.tipo === "panico" && !a.resuelta),
+    [alerts],
+  );
+
+  if (panicAlerts.length === 0) return null;
+
+  return (
+    <div className="bg-gradient-to-r from-red-500/25 to-red-500/10 border-b border-red-500/30">
+      {panicAlerts.map((alert) => (
+        <div key={alert.id} className="px-4 py-2.5 flex items-center gap-3">
+          <span className="text-lg flex-shrink-0 animate-pulse">🆘</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-red-400 uppercase tracking-wider">
+              ALERTA DE PÁNICO
+            </p>
+            <p className="text-[11px] text-slate-400 truncate">
+              {alert.installation?.name ?? "Instalación"} ·{" "}
+              {new Date(alert.createdAt).toLocaleTimeString("es-CL", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          </div>
+          <button
+            onClick={() => onGoToAlert(alert)}
+            className="flex-shrink-0 rounded bg-red-500 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-red-600 transition-colors"
+          >
+            Ver
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════
    ALERTAS TAB (Two sections: operational + compliance)
    ═══════════════════════════════════════════════ */
@@ -407,40 +437,54 @@ function AlertasTab({
     return alerts.filter((a) => a.installation?.id === installationFilter.id);
   }, [alerts, installationFilter]);
 
-  // Split into operational vs compliance
-  const operationalAlerts = useMemo(
-    () => filteredAlerts.filter((a) => !COMPLIANCE_ALERT_TYPES.has(a.tipo)),
+  // Split into emergency / actionable / telemetry using alert catalog levels
+  const emergencyAlerts = useMemo(
+    () => filteredAlerts.filter((a) => {
+      const def = (ALERT_CATALOG as Record<string, { level?: string }>)[a.tipo];
+      return def?.level === "emergency";
+    }),
     [filteredAlerts],
   );
-  const complianceAlerts = useMemo(
-    () => filteredAlerts.filter((a) => COMPLIANCE_ALERT_TYPES.has(a.tipo)),
+  const actionableAlerts = useMemo(
+    () => filteredAlerts.filter((a) => {
+      const def = (ALERT_CATALOG as Record<string, { level?: string }>)[a.tipo];
+      return def?.level === "actionable";
+    }),
+    [filteredAlerts],
+  );
+  const telemetryAlerts = useMemo(
+    () => filteredAlerts.filter((a) => {
+      const def = (ALERT_CATALOG as Record<string, { level?: string }>)[a.tipo];
+      return def?.level === "telemetry" || !def; // Unknown types → telemetry
+    }),
     [filteredAlerts],
   );
 
-  // Group compliance by installation
-  const complianceByInstallation = useMemo(() => {
-    const map = new Map<string, { installationId: string; installationName: string; alerts: AlertRow[]; byType: Map<string, number> }>();
-    for (const alert of complianceAlerts) {
-      const instId = alert.installation?.id ?? "sin-instalacion";
-      const instName = alert.installation?.name ?? "Sin instalación";
-      if (!map.has(instId)) {
-        map.set(instId, { installationId: instId, installationName: instName, alerts: [], byType: new Map() });
+  // Group telemetry by tipo (with per-installation breakdown)
+  const telemetryByType = useMemo(() => {
+    const map = new Map<string, { count: number; byInstallation: Map<string, { id: string; name: string; count: number }> }>();
+    for (const a of telemetryAlerts) {
+      if (!map.has(a.tipo)) map.set(a.tipo, { count: 0, byInstallation: new Map() });
+      const entry = map.get(a.tipo)!;
+      entry.count += 1;
+      const instId = a.installation?.id ?? "sin-instalacion";
+      const instName = a.installation?.name ?? "Sin instalación";
+      if (!entry.byInstallation.has(instId)) {
+        entry.byInstallation.set(instId, { id: instId, name: instName, count: 0 });
       }
-      const group = map.get(instId)!;
-      group.alerts.push(alert);
-      group.byType.set(alert.tipo, (group.byType.get(alert.tipo) ?? 0) + 1);
+      entry.byInstallation.get(instId)!.count += 1;
     }
-    return Array.from(map.values()).sort((a, b) => b.alerts.length - a.alerts.length);
-  }, [complianceAlerts]);
+    return Array.from(map.entries()).sort((a, b) => b[1].count - a[1].count);
+  }, [telemetryAlerts]);
 
-  const handleBulkResolve = async (installationId?: string) => {
+  // Expanded telemetry type (shows per-installation breakdown)
+  const [expandedTelemetryType, setExpandedTelemetryType] = useState<string | null>(null);
+
+  const handleBulkResolve = async (tipos: string[], installationId?: string) => {
     const resolveId = installationId ?? "all";
     setBulkResolvingId(resolveId);
     try {
-      await onBulkResolveAlerts({
-        tipos: Array.from(COMPLIANCE_ALERT_TYPES),
-        installationId,
-      });
+      await onBulkResolveAlerts({ tipos, installationId });
     } finally {
       setBulkResolvingId(null);
     }
@@ -486,18 +530,18 @@ function AlertasTab({
         </div>
       )}
 
-      {/* ── Section 1: Operational alerts ── */}
-      {operationalAlerts.length > 0 && (
+      {/* ── Section 1: Emergency alerts ── */}
+      {emergencyAlerts.length > 0 && (
         <>
           <div className="px-4 py-2 border-b border-[#1a1f2e] flex items-center gap-2">
             <AlertTriangle className="h-3 w-3 text-red-400" />
-            <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">Alertas operacionales</p>
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-red-400">Emergencias</p>
             <span className="ml-auto rounded-full bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400">
-              {operationalAlerts.length}
+              {emergencyAlerts.length}
             </span>
           </div>
           <div className="divide-y divide-[#1e293b]">
-            {operationalAlerts.map((alert) => (
+            {emergencyAlerts.map((alert) => (
               <AlertCard
                 key={alert.id}
                 alert={alert}
@@ -513,52 +557,107 @@ function AlertasTab({
         </>
       )}
 
-      {/* ── Section 2: Compliance alerts (collapsible, grouped) ── */}
-      {complianceAlerts.length > 0 && (
+      {/* ── Section 2: Actionable alerts ── */}
+      {actionableAlerts.length > 0 && (
+        <>
+          <div className="px-4 py-2 border-t border-b border-[#1a1f2e] flex items-center gap-2">
+            <AlertTriangle className="h-3 w-3 text-amber-400" />
+            <p className="text-[11px] uppercase tracking-wider font-semibold text-amber-400">Accionables</p>
+            <span className="ml-auto rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400">
+              {actionableAlerts.length}
+            </span>
+          </div>
+          <div className="divide-y divide-[#1e293b]">
+            {actionableAlerts.map((alert) => (
+              <AlertCard
+                key={alert.id}
+                alert={alert}
+                isResolving={resolvingAlertId === alert.id}
+                resolveNotes={resolveNotes}
+                onSetResolvingAlertId={onSetResolvingAlertId}
+                onSetResolveNotes={onSetResolveNotes}
+                onResolveAlert={onResolveAlert}
+                onGoToAlert={onGoToAlert}
+              />
+            ))}
+          </div>
+          {actionableAlerts.length > 3 && (
+            <div className="px-4 py-2 border-b border-[#1a1f2e]">
+              <button
+                onClick={() => handleBulkResolve(ACTIONABLE_ALERT_TYPES, installationFilter?.id)}
+                disabled={bulkResolvingId === "all"}
+                className="w-full flex items-center justify-center gap-1.5 rounded bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 text-[11px] font-medium text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+              >
+                {bulkResolvingId === "all" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                Resolver todo ({actionableAlerts.length})
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Section 3: Telemetry alerts (collapsible, grouped summary) ── */}
+      {telemetryAlerts.length > 0 && (
         <>
           <button
             onClick={() => setComplianceExpanded(!complianceExpanded)}
             className="w-full px-4 py-2 border-t border-b border-[#1a1f2e] flex items-center gap-2 hover:bg-zinc-800/30 transition-colors"
           >
             <ChevronRight className={cn("h-3 w-3 text-zinc-500 transition-transform", complianceExpanded && "rotate-90")} />
-            <span className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b]">Cumplimiento</span>
-            <span className="ml-auto rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-400">
-              {complianceAlerts.length}
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-zinc-400">Telemetría</span>
+            <span className="ml-auto rounded-full bg-zinc-700/40 px-1.5 py-0.5 text-[9px] font-bold text-zinc-400">
+              {telemetryAlerts.length}
             </span>
           </button>
           {complianceExpanded && (
             <div>
-              {complianceByInstallation.map((group) => {
-                const summary = Array.from(group.byType.entries())
-                  .map(([tipo, count]) => `${count} ${COMPLIANCE_LABELS[tipo] ?? tipo}`)
-                  .join(", ");
-                const isResolving = bulkResolvingId === group.installationId;
+              {telemetryByType.map(([tipo, entry]) => {
+                const isTypeExpanded = expandedTelemetryType === tipo;
+                const installations = Array.from(entry.byInstallation.values()).sort(
+                  (a, b) => b.count - a.count,
+                );
                 return (
-                  <div key={group.installationId} className="px-4 py-2.5 border-b border-[#1a1f2e]/50 hover:bg-zinc-800/20">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-foreground truncate flex-1">{group.installationName}</span>
-                      <button
-                        onClick={() => handleBulkResolve(group.installationId)}
-                        disabled={isResolving}
-                        className="flex items-center gap-1 rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[10px] text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
-                      >
-                        {isResolving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                        Resolver todas
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{summary}</p>
+                  <div key={tipo} className="border-b border-[#1a1f2e]/40">
+                    <button
+                      onClick={() => setExpandedTelemetryType(isTypeExpanded ? null : tipo)}
+                      className="w-full flex items-center justify-between gap-2 px-4 py-1.5 text-xs hover:bg-zinc-800/20 transition-colors"
+                    >
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <ChevronRight
+                          className={cn(
+                            "h-3 w-3 text-zinc-600 transition-transform",
+                            isTypeExpanded && "rotate-90",
+                          )}
+                        />
+                        {(ALERT_CATALOG as any)[tipo]?.label ?? tipo}
+                      </span>
+                      <span className="font-semibold text-zinc-400">{entry.count}</span>
+                    </button>
+                    {isTypeExpanded && (
+                      <div className="bg-zinc-900/30 pl-8 pr-4 py-1">
+                        {installations.map((inst) => (
+                          <div
+                            key={inst.id}
+                            className="flex items-center justify-between py-1 text-[11px] text-zinc-400"
+                          >
+                            <span className="truncate">{inst.name}</span>
+                            <span className="font-medium">{inst.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
-              {/* Global bulk resolve */}
+              {/* Bulk archive telemetry */}
               <div className="px-4 py-3 border-b border-[#1a1f2e]">
                 <button
-                  onClick={() => handleBulkResolve(installationFilter?.id)}
+                  onClick={() => handleBulkResolve(TELEMETRY_ALERT_TYPES, installationFilter?.id)}
                   disabled={bulkResolvingId === "all"}
-                  className="w-full flex items-center justify-center gap-1.5 rounded bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 text-[11px] font-medium text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-1.5 rounded bg-zinc-700/30 border border-zinc-600/30 px-3 py-1.5 text-[11px] font-medium text-zinc-300 hover:bg-zinc-700/50 transition-colors disabled:opacity-50"
                 >
                   {bulkResolvingId === "all" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                  Resolver todo cumplimiento ({complianceAlerts.length})
+                  Auto-archivar todo ({telemetryAlerts.length})
                 </button>
               </div>
             </div>

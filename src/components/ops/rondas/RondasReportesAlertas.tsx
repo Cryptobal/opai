@@ -61,7 +61,6 @@ const TIPO_CONFIG: Record<string, { label: string; cls: string; icon: typeof Ale
   ronda_no_iniciada: { label: "No iniciada", cls: "bg-red-500/15 text-red-400", icon: Clock },
   guardia_estatico: { label: "Guardia estático", cls: "bg-red-500/15 text-red-400", icon: Footprints },
   velocidad_anomala: { label: "Velocidad anómala", cls: "bg-amber-500/15 text-amber-400", icon: Gauge },
-  sin_movimiento: { label: "Sin movimiento", cls: "bg-zinc-500/15 text-zinc-400", icon: Eye },
   bateria_baja: { label: "Batería baja", cls: "bg-amber-500/15 text-amber-400", icon: BatteryWarning },
   bateria_estatica: { label: "Batería estática", cls: "bg-blue-500/15 text-blue-400", icon: Battery },
   // Legacy types that may still exist in data:
@@ -71,7 +70,6 @@ const TIPO_CONFIG: Record<string, { label: string; cls: string; icon: typeof Ale
   checkpoint_omitido: { label: "CP omitido", cls: "bg-purple-500/15 text-purple-400", icon: Eye },
 };
 
-/** Alert types with their default visibility. sin_movimiento is OFF by default to reduce noise. */
 const ALERT_TYPE_VISIBILITY: Array<{ tipo: string; label: string; defaultVisible: boolean }> = [
   { tipo: "panico", label: "Pánico", defaultVisible: true },
   { tipo: "incidente_guardia", label: "Incidente guardia", defaultVisible: true },
@@ -80,7 +78,6 @@ const ALERT_TYPE_VISIBILITY: Array<{ tipo: string; label: string; defaultVisible
   { tipo: "velocidad_anomala", label: "Velocidad anómala", defaultVisible: true },
   { tipo: "bateria_baja", label: "Batería baja", defaultVisible: true },
   { tipo: "bateria_estatica", label: "Batería estática", defaultVisible: true },
-  { tipo: "sin_movimiento", label: "Sin movimiento", defaultVisible: false },
 ];
 
 const SEVERIDAD_CONFIG: Record<string, { label: string; cls: string }> = {
@@ -393,7 +390,7 @@ export function RondasReportesAlertas({
                             "w-2 h-2 rounded-full shrink-0",
                             config.tipo === "panico" || config.tipo === "ronda_no_iniciada" || config.tipo === "guardia_estatico"
                               ? "bg-red-500"
-                              : config.tipo === "sin_movimiento" || config.tipo === "bateria_estatica"
+                              : config.tipo === "bateria_estatica"
                                 ? "bg-zinc-500"
                                 : "bg-amber-500",
                           )}

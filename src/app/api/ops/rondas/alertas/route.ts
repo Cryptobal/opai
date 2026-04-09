@@ -47,6 +47,9 @@ export async function GET(request: NextRequest) {
 
     const where: Prisma.OpsAlertaRondaWhereInput = {
       tenantId: ctx.tenantId,
+      // `sin_movimiento` is deprecated (noisy per-mark check). Hide from all listings
+      // regardless of whether they're still in the DB; cron will archive permanently.
+      NOT: { tipo: "sin_movimiento" },
       ...(status === "pendiente" ? { resuelta: false } : status === "resuelta" ? { resuelta: true } : onlyOpen && !isReportesMode ? { resuelta: false } : {}),
       ...(isAcknowledged === "true" ? { isAcknowledged: true } : isAcknowledged === "false" ? { isAcknowledged: false } : {}),
       ...(severidad ? { severidad } : {}),

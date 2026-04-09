@@ -163,6 +163,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       },
     });
 
+    // Auto-archive telemetry alerts for this turno
+    try {
+      const { TELEMETRY_ALERT_TYPES } = await import("@/lib/rondas/alert-catalog");
+      await prisma.opsAlertaRonda.updateMany({
+        where: {
+          tenantId: ctx.tenantId,
+          turnoId: id,
+          resuelta: false,
+          archivedAt: null,
+          tipo: { in: TELEMETRY_ALERT_TYPES },
+        },
+        data: { archivedAt: new Date() },
+      });
+    } catch (archiveErr) {
+      console.error("[MONITOREO] Auto-archive telemetry alerts failed:", archiveErr);
+      // Non-blocking: don't fail turno close if archival fails
+    }
+
     // If turno is linked to a CN in borrador, submit it automatically
     if (turno.controlNocturnoId) {
       prisma.opsControlNocturno.updateMany({

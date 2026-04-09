@@ -60,7 +60,6 @@ const TIPO_LABELS: Record<string, string> = {
   velocidad_anomala: "Velocidad anómala",
   ronda_no_iniciada: "Ronda no iniciada",
   panico: "Botón de pánico",
-  sin_movimiento: "Sin movimiento",
   bateria_baja: "Batería baja",
   bateria_estatica: "Batería estática",
   incidente_guardia: "Incidente reportado por guardia",

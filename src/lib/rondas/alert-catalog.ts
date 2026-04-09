@@ -4,17 +4,21 @@
  */
 
 export type AlertTypeCode =
-  | "sin_movimiento"
   | "velocidad_anomala"
   | "bateria_baja"
   | "bateria_estatica"
   | "guardia_estatico"
   | "ronda_no_iniciada"
+  | "ronda_no_realizada"
+  | "ronda_incompleta"
+  | "ronda_libre_timeout"
   | "panico";
 
 export type AlertSeverity = "info" | "warning" | "critical";
 
 export type AlertSource = "anomaly_inline" | "post_mark" | "scheduler" | "manual";
+
+export type AlertLevel = "emergency" | "actionable" | "telemetry";
 
 export interface ThresholdDef {
   key: string;
@@ -32,6 +36,7 @@ export interface AlertTypeDef {
   description: string;
   defaultSeverity: AlertSeverity;
   source: AlertSource;
+  level: AlertLevel;
   /** Whether this alert can be enabled/disabled and have thresholds configured */
   configurable: boolean;
   /** Configurable numeric thresholds (absent = toggle-only) */
@@ -39,23 +44,13 @@ export interface AlertTypeDef {
 }
 
 export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
-  sin_movimiento: {
-    code: "sin_movimiento",
-    label: "Sin movimiento",
-    description: "Sensor de movimiento no detecta actividad física",
-    defaultSeverity: "warning",
-    source: "anomaly_inline",
-    configurable: true,
-    thresholds: [
-      { key: "movementScoreMin", label: "Score mínimo", unit: "", defaultValue: 0.05, min: 0.01, max: 0.5, step: 0.01 },
-    ],
-  },
   velocidad_anomala: {
     code: "velocidad_anomala",
     label: "Velocidad anómala",
     description: "Velocidad entre checkpoints supera el umbral configurado",
     defaultSeverity: "warning",
     source: "anomaly_inline",
+    level: "actionable",
     configurable: true,
     thresholds: [
       { key: "speedAnomalyKmh", label: "Velocidad máxima", unit: "km/h", defaultValue: 15, min: 5, max: 50, step: 1 },
@@ -67,6 +62,7 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Nivel de batería del dispositivo bajo el umbral",
     defaultSeverity: "warning",
     source: "anomaly_inline",
+    level: "telemetry",
     configurable: true,
     thresholds: [
       { key: "batteryLowPercent", label: "Umbral batería", unit: "%", defaultValue: 10, min: 5, max: 30, step: 1 },
@@ -78,6 +74,7 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Nivel de batería sin cambio entre marcaciones (posible suplantación)",
     defaultSeverity: "info",
     source: "anomaly_inline",
+    level: "telemetry",
     configurable: true,
     thresholds: [
       { key: "batteryStaticMinMinutes", label: "Minutos mínimos", unit: "min", defaultValue: 10, min: 5, max: 60, step: 1 },
@@ -89,6 +86,7 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Sin movimiento significativo entre checkpoints por X minutos",
     defaultSeverity: "critical",
     source: "post_mark",
+    level: "emergency",
     configurable: true,
     thresholds: [
       { key: "staticGuardMinutes", label: "Minutos sin movimiento", unit: "min", defaultValue: 5, min: 2, max: 30, step: 1 },
@@ -100,10 +98,38 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Ronda programada no fue iniciada dentro del plazo de tolerancia",
     defaultSeverity: "critical",
     source: "scheduler",
+    level: "actionable",
     configurable: true,
     thresholds: [
       { key: "roundNotStartedMinutes", label: "Tolerancia", unit: "min", defaultValue: 10, min: 5, max: 60, step: 1 },
     ],
+  },
+  ronda_no_realizada: {
+    code: "ronda_no_realizada",
+    label: "Ronda no realizada",
+    description: "Ronda programada cerrada automáticamente por no haber sido realizada",
+    defaultSeverity: "warning",
+    source: "scheduler",
+    level: "actionable",
+    configurable: false,
+  },
+  ronda_incompleta: {
+    code: "ronda_incompleta",
+    label: "Ronda incompleta",
+    description: "Ronda finalizada sin marcar todos los checkpoints",
+    defaultSeverity: "warning",
+    source: "scheduler",
+    level: "actionable",
+    configurable: false,
+  },
+  ronda_libre_timeout: {
+    code: "ronda_libre_timeout",
+    label: "Ronda libre timeout",
+    description: "Ronda libre cerrada automáticamente por timeout o pérdida de señal",
+    defaultSeverity: "warning",
+    source: "scheduler",
+    level: "actionable",
+    configurable: false,
   },
   panico: {
     code: "panico",
@@ -111,6 +137,7 @@ export const ALERT_CATALOG: Record<AlertTypeCode, AlertTypeDef> = {
     description: "Guardia activó el botón de pánico desde el dispositivo",
     defaultSeverity: "critical",
     source: "manual",
+    level: "emergency",
     configurable: false,
   },
 };
@@ -121,4 +148,15 @@ export const ALERT_TYPE_CODES = Object.keys(ALERT_CATALOG) as AlertTypeCode[];
 /** Only alert types that can be configured (enabled/disabled + thresholds) */
 export const CONFIGURABLE_ALERT_CODES = ALERT_TYPE_CODES.filter(
   (c) => ALERT_CATALOG[c].configurable,
+);
+
+/** Alert types by level */
+export const EMERGENCY_ALERT_TYPES = ALERT_TYPE_CODES.filter(
+  (c) => ALERT_CATALOG[c].level === "emergency",
+);
+export const ACTIONABLE_ALERT_TYPES = ALERT_TYPE_CODES.filter(
+  (c) => ALERT_CATALOG[c].level === "actionable",
+);
+export const TELEMETRY_ALERT_TYPES = ALERT_TYPE_CODES.filter(
+  (c) => ALERT_CATALOG[c].level === "telemetry",
 );
