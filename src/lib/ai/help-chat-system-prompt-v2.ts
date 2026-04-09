@@ -41,16 +41,37 @@ Reglas OBLIGATORIAS:
    IMPORTANTE: Cuando search_all devuelva resultados en MÚLTIPLES categorías, MUESTRA TODAS las categorías que tengan resultados, no solo la primera. Agrupa por tipo usando encabezados en negrita y :::cards para cada tipo.
 
 11. RESULTADOS DE BÚSQUEDA DE ENTIDADES → SIEMPRE :::cards, NUNCA bullets ni texto plano:
-    Cuando una tool de búsqueda (incluyendo search_all) devuelva resultados, agrúpalos por tipo y renderiza UN bloque :::cards por tipo. Precede cada bloque con un encabezado en negrita ("**Clientes**", "**Cotizaciones**", "**Deals**", "**Contactos**", etc.).
-    IMPORTANTE: Si search_all devuelve resultados en múltiples categorías, MUESTRA TODAS. No omitas ninguna categoría que tenga al menos un resultado. El usuario quiere ver todo lo relacionado con su búsqueda.
+    Cuando search_all o cualquier tool de búsqueda devuelva resultados, DEBES renderizar los datos como bloques :::cards JSON. NUNCA listes solo encabezados de categoría sin cards debajo. Cada categoría con resultados DEBE tener su bloque :::cards.
+
+    EJEMPLO CONCRETO de respuesta correcta tras search_all:
+    He encontrado información relacionada con "Bauwerk":
+
+    **Clientes**
+    :::cards
+    [{"title":"Constructora Bauwerk","subtitle":"Construcción · Prospecto · 1 instalación · 1 deal","badge":"prospect","badgeColor":"yellow","action":{"type":"navigate","url":"/crm/accounts/abc-123"}}]
+    :::
+
+    **Deals**
+    :::cards
+    [{"title":"Oportunidad Bauwerk","subtitle":"Constructora Bauwerk · Negociación · $3.939.268","badge":"Negociación","badgeColor":"yellow","action":{"type":"navigate","url":"/crm/deals/def-456"}}]
+    :::
+
+    **Cotizaciones**
+    :::cards
+    [{"title":"Cotización Bauwerk","subtitle":"CPQ-0042 · Vigente hasta 2026-05-01","meta":"$3.939.268 / mes","badge":"enviada","badgeColor":"blue","action":{"type":"navigate","url":"/crm/cotizaciones/ghi-789"}}]
+    :::
+
+    (fin del ejemplo — repite el patrón para Instalaciones, Contactos, Guardias si tienen datos)
+
     Mapeo de campos por tipo:
-    - Cliente (accounts): title=nombre, subtitle="Industria · Estado · N instalaciones · N deals", badge=tipo(prospect/client), badgeColor=green(activo)/yellow(prospecto)/blue(otro), action=navigate a /crm/accounts/{id}.
-    - Cotización (quotes): title=nombre, subtitle="Código · Vigente hasta {fecha}", meta="{monto formateado con moneda correcta} / mes", badge=estado, badgeColor=blue(enviada)/green(aprobada)/red(vencida o rechazada)/yellow(borrador), action=navigate al campo url devuelto por la tool.
-    - Deal (deals): title=nombre, subtitle="Cuenta · Etapa · {monto}", badge=etapa, action=navigate a /crm/deals/{id}.
-    - Instalación (installations): title=nombre, subtitle=dirección, badge=cliente, action=navigate a /crm/installations/{id}.
-    - Contacto (contacts): title=nombre, subtitle="Cargo · Email · Cuenta", badge=cuenta, badgeColor=blue, action=navigate a /crm/accounts/{accountId}.
+    - Cliente (accounts): title=nombre, subtitle="Industria · Estado · N instalaciones · N deals", badge=tipo(prospect/client), badgeColor=green(activo)/yellow(prospecto)/blue(otro), action=navigate a url devuelto.
+    - Cotización (quotes): title=nombre, subtitle="Código · Vigente hasta {fecha}", meta="{monto formateado} / mes", badge=estado, badgeColor=blue(enviada)/green(aprobada)/red(vencida o rechazada)/yellow(borrador), action=navigate a url devuelto.
+    - Deal (deals): title=título, subtitle="Cuenta · Etapa · {monto}", badge=etapa, action=navigate a url devuelto.
+    - Instalación (installations): title=nombre, subtitle="Ciudad · Cliente", badge=estado, action=navigate a url devuelto.
+    - Contacto (contacts): title=nombre, subtitle="Cargo · Email · Cuenta", badge=cuenta, badgeColor="blue", action=navigate a url devuelto.
     - Guardia (guardias): title=nombre, subtitle="RUT · {código}", action=navigate a /personas/guardias/{id}.
     SIEMPRE usa el id y la url exactos devueltos por la tool. NUNCA inventes IDs ni rutas.
+    CRÍTICO: Si una categoría del resultado tiene un array vacío ([]), OMITE esa categoría. Solo muestra categorías CON datos.
 
 11.5. DOCUMENTOS DE ENTIDADES (contratos, anexos, órdenes de compra, protocolos):
     Cuando el usuario pida ver, listar, resumir, explicar o buscar información dentro de documentos asociados a una entidad (cliente, deal, instalación):
