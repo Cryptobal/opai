@@ -27,6 +27,8 @@ interface AlertaAceptadaEmailProps {
   distanciaKm: number | null;
   esInterno: boolean;
   linkAlerta: string;
+  logoUrl?: string;
+  companyName?: string;
 }
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || "";
@@ -44,8 +46,11 @@ export default function AlertaAceptadaEmail({
   distanciaKm,
   esInterno,
   linkAlerta,
+  logoUrl,
+  companyName = "OPAI",
 }: AlertaAceptadaEmailProps) {
   const fullUrl = linkAlerta.startsWith("http") ? linkAlerta : `${SITE_URL}${linkAlerta}`;
+  const logoSrc = logoUrl || `${SITE_URL}/logo-white.png`;
 
   return (
     <Html>
@@ -57,10 +62,9 @@ export default function AlertaAceptadaEmail({
         <Container style={container}>
           <Section style={header}>
             <Img
-              src={`${SITE_URL}/logo-white.png`}
-              alt="OPAI"
-              width={80}
-              height={28}
+              src={logoSrc}
+              alt={companyName}
+              height={32}
               style={logo}
             />
           </Section>

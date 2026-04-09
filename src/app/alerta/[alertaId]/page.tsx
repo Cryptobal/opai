@@ -48,7 +48,19 @@ export default async function AlertaExternaPage({ params, searchParams }: Props)
   }
 
   const yaAceptada = alerta.aceptadaPorGuardiaId != null;
-  const expirada = alerta.estado === "EXPIRADA" || alerta.estado === "CANCELADA" || new Date() > alerta.expiraAt;
+  // La alerta está "expirada" para el guardia si:
+  //  - Está cancelada
+  //  - El backend la marcó EXPIRADA (cron ya la cerró)
+  //  - El turno ya comenzó (fechaInicio <= ahora) — aunque el TTL no haya vencido
+  //
+  // NOTA: no usamos alerta.expiraAt acá porque es un TTL interno (default 4h) que
+  // puede vencer antes de que empiece el turno real. Para el guardia lo que
+  // importa es que el turno aún no haya empezado.
+  const now = new Date();
+  const expirada =
+    alerta.estado === "EXPIRADA" ||
+    alerta.estado === "CANCELADA" ||
+    now >= alerta.fechaInicio;
   const esMiAceptacion = alerta.aceptadaPorGuardiaId === decoded.guardiaId;
 
   return (

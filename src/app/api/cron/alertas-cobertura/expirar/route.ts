@@ -14,10 +14,19 @@ export async function GET(request: NextRequest) {
   try {
     const ahora = new Date();
 
+    // Una alerta ACTIVA se expira cuando:
+    //  - Su TTL venció (expiraAt <= ahora)  Y
+    //  - El turno ya empezó (fechaInicio <= ahora)
+    //
+    // Antes solo se chequeaba TTL, lo que marcaba como expiradas alertas con
+    // TTL de 4h aunque el turno fuera al día siguiente. Así las oleadas seguían
+    // escalando pero la landing pública mostraba "Alerta Expirada" y el guardia
+    // no podía aceptar.
     const resultado = await prisma.opsAlertaCobertura.updateMany({
       where: {
         estado: "ACTIVA",
         expiraAt: { lte: ahora },
+        fechaInicio: { lte: ahora },
       },
       data: {
         estado: "EXPIRADA",

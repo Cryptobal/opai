@@ -387,7 +387,8 @@ export async function notificarSupervisorAceptacion(params: {
     console.error("[AlertaCobertura:Notif] Push supervisor error:", e);
   }
 
-  // 2. Email al admin
+  // 2. Email al admin + (si hay tenant whatsapp configurado) WhatsApp al admin
+  //    con los datos de contacto del guardia que aceptó.
   try {
     const admin = await prisma.admin.findUnique({
       where: { id: params.creadaPorId },
@@ -413,6 +414,8 @@ export async function notificarSupervisorAceptacion(params: {
           distanciaKm: params.distanciaKm,
           esInterno: params.esInterno,
           linkAlerta: `${SITE_URL}${linkAlerta}`,
+          logoUrl: emailConfig.logoUrl,
+          companyName: emailConfig.companyName,
         }),
       );
 
@@ -426,6 +429,73 @@ export async function notificarSupervisorAceptacion(params: {
     }
   } catch (e) {
     console.error("[AlertaCobertura:Notif] Email supervisor error:", e);
+  }
+
+  // 2.5 WhatsApp al admin con los datos de contacto del guardia aceptante.
+  //     Intenta mandar texto plano freeform — requiere que Twilio tenga una
+  //     ventana activa con ese número o se cae silencioso. Para garantizar
+  //     entrega fuera de ventana, crear un template "cobertura_aceptada" y
+  //     setear TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION en Vercel (futuro).
+  try {
+    const { getTenantCompanyConfig } = await import("@/lib/tenant-config");
+    const tenantCfg = await getTenantCompanyConfig(params.tenantId);
+    const telAdmin = tenantCfg.phoneRaw;
+    if (telAdmin) {
+      const montoFmt = params.montoOfrecido
+        ? new Intl.NumberFormat("es-CL", {
+            style: "currency",
+            currency: "CLP",
+            maximumFractionDigits: 0,
+          }).format(params.montoOfrecido)
+        : "";
+      const horarioFmt =
+        params.fechaInicio && params.fechaFin
+          ? formatearRangoHorario(params.fechaInicio, params.fechaFin)
+          : "";
+      const distancia =
+        params.distanciaKm != null ? ` (${params.distanciaKm.toFixed(1)} km)` : "";
+      const body = [
+        "✅ *Cobertura Resuelta*",
+        "",
+        `📍 ${params.instalacionNombre}`,
+        horarioFmt ? `📅 ${horarioFmt}` : "",
+        montoFmt ? `💰 ${montoFmt}` : "",
+        "",
+        "*Guardia que aceptó:*",
+        `👤 ${params.guardiaNombre}${distancia}`,
+        params.guardiaPhone ? `📱 ${params.guardiaPhone}` : "",
+        params.guardiaEmail ? `✉️ ${params.guardiaEmail}` : "",
+        params.esInterno ? "🏢 Personal interno" : "🆔 Pool externo",
+        "",
+        `🔗 ${SITE_URL}${linkAlerta}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      // Usa el cliente Twilio directamente con un mensaje simple (no template)
+      const { default: Twilio } = await import("twilio");
+      const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
+      const tok = process.env.TWILIO_AUTH_TOKEN?.trim();
+      const msSid = process.env.TWILIO_MESSAGING_SERVICE_SID?.trim();
+      const from = process.env.TWILIO_WHATSAPP_FROM?.trim();
+      if (sid && tok && (msSid || from)) {
+        const client = Twilio(sid, tok);
+        const normalized = telAdmin.startsWith("+") ? telAdmin : `+${telAdmin}`;
+        const createParams: Record<string, string> = {
+          to: `whatsapp:${normalized}`,
+          body,
+        };
+        if (msSid) {
+          createParams.messagingServiceSid = msSid;
+        } else {
+          createParams.from = from!.startsWith("whatsapp:") ? from! : `whatsapp:${from!}`;
+        }
+        await client.messages.create(createParams as any);
+        console.log(`[AlertaCobertura:Notif] WhatsApp aceptación enviado a admin ${normalized}`);
+      }
+    }
+  } catch (e) {
+    console.error("[AlertaCobertura:Notif] WhatsApp supervisor error:", e);
   }
 
   // 3. Chat de instalación (solo modo instalación)
