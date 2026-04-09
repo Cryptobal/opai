@@ -8143,25 +8143,25 @@ model PublicInquiry {
 }
 
 model DocVerificacionFisica {
-  id              String   @id @default(uuid())
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId        String
 
-  tipoDocId       String?
+  tipoDocId       String?  @db.Uuid
   guardiaDocType  String?
   capa            String            // "global" | "instalacion" | "guardia"
 
-  installationId  String
-  guardiaId       String?
+  installationId  String   @db.Uuid
+  guardiaId       String?  @db.Uuid
 
   presente        Boolean
   photoUrl        String?
   photoKey        String?
   notes           String?           @db.Text
 
-  supervisionId   String
+  supervisionId   String   @db.Uuid
   supervisorId    String
 
-  hallazgoId      String?   @unique
+  hallazgoId      String?  @unique @db.Uuid
 
   createdAt       DateTime @default(now())
 

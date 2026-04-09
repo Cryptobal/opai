@@ -3,20 +3,20 @@ ALTER TABLE "ops"."tipos_doc_operacional" ADD COLUMN "obligatorio_en_visita" BOO
 
 -- CreateTable
 CREATE TABLE "ops"."doc_verificacion_fisica" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT uuid_generate_v4(),
     "tenantId" TEXT NOT NULL,
-    "tipoDocId" TEXT,
+    "tipoDocId" UUID,
     "guardiaDocType" TEXT,
     "capa" TEXT NOT NULL,
-    "installationId" TEXT NOT NULL,
-    "guardiaId" TEXT,
+    "installationId" UUID NOT NULL,
+    "guardiaId" UUID,
     "presente" BOOLEAN NOT NULL,
     "photoUrl" TEXT,
     "photoKey" TEXT,
     "notes" TEXT,
-    "supervisionId" TEXT NOT NULL,
+    "supervisionId" UUID NOT NULL,
     "supervisorId" TEXT NOT NULL,
-    "hallazgoId" TEXT,
+    "hallazgoId" UUID,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "doc_verificacion_fisica_pkey" PRIMARY KEY ("id")
