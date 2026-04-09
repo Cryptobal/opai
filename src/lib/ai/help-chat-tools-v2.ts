@@ -86,10 +86,11 @@ function v2ToolDefinitions() {
       type: "function" as const,
       function: {
         name: "search_deals",
-        description: "Lista negocios (deals) del CRM con cuenta, etapa, monto y fechas.",
+        description: "Busca negocios (deals) del CRM por nombre, cuenta o etapa; incluye monto y fechas.",
         parameters: {
           type: "object",
           properties: {
+            query: { type: "string", description: "Texto de búsqueda (nombre del deal o cuenta)." },
             status: { type: "string", description: "Filtrar por status del deal (ej. open)." },
             limit: { type: "number" },
           },
@@ -339,6 +340,37 @@ function v2ToolDefinitions() {
     {
       type: "function" as const,
       function: {
+        name: "search_contacts",
+        description: "Busca contactos CRM por nombre, email o cargo; incluye la cuenta asociada.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Texto de búsqueda (nombre, email o cargo)." },
+            limit: { type: "number", description: "Cantidad máxima de resultados (1-20)." },
+          },
+          required: ["query"],
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "search_all",
+        description:
+          "Búsqueda unificada: busca un término en TODAS las entidades del CRM en paralelo (cuentas, deals, cotizaciones, instalaciones, contactos y guardias). Úsala cuando el usuario escriba un nombre, código o término suelto y quieras encontrar TODO lo relacionado de una sola vez.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Texto de búsqueda." },
+            limit: { type: "number", description: "Máximo de resultados por tipo (1-10). Default 5." },
+          },
+          required: ["query"],
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
         name: "get_entity_documents",
         description:
           "Lista los documentos asociados a una entidad (cliente, deal, instalación, contacto). Útil cuando el usuario pide ver o resumir contratos, anexos u órdenes de un cliente. Devuelve documentId, título, categoría, estado y fecha. Para leer el contenido de un documento usa read_document.",
@@ -463,10 +495,18 @@ async function toolSearchAccounts(tenantId: string, query: string, limit: number
   }));
 }
 
-async function toolSearchDeals(tenantId: string, status: string | undefined, limit: number) {
+async function toolSearchDeals(tenantId: string, query: string | undefined, status: string | undefined, limit: number) {
   const take = Math.max(1, Math.min(limit || 12, 25));
   const where: Prisma.CrmDealWhereInput = { tenantId };
   if (status) where.status = status;
+  const q = (query || "").trim();
+  if (q) {
+    where.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { account: { name: { contains: q, mode: "insensitive" } } },
+      { account: { legalName: { contains: q, mode: "insensitive" } } },
+    ];
+  }
   const rows = await prisma.crmDeal.findMany({
     where,
     take,
@@ -587,6 +627,68 @@ async function toolSearchInstallations(tenantId: string, query: string, limit: n
       : null,
     url: `/crm/installations/${r.id}`,
   }));
+}
+
+async function toolSearchContacts(tenantId: string, query: string, limit: number) {
+  const q = query.trim();
+  const take = Math.max(1, Math.min(limit || 10, 20));
+  const where: Prisma.CrmContactWhereInput = {
+    tenantId,
+    OR: [
+      { firstName: { contains: q, mode: "insensitive" } },
+      { lastName: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+      { roleTitle: { contains: q, mode: "insensitive" } },
+      { account: { name: { contains: q, mode: "insensitive" } } },
+    ],
+  };
+  const rows = await prisma.crmContact.findMany({
+    where,
+    take,
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+      roleTitle: true,
+      isPrimary: true,
+      account: { select: { id: true, name: true } },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    name: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim(),
+    email: r.email,
+    phone: r.phone,
+    role: r.roleTitle,
+    isPrimary: r.isPrimary,
+    accountId: r.account.id,
+    accountName: r.account.name,
+    url: `/crm/accounts/${r.account.id}`,
+  }));
+}
+
+async function toolSearchAll(
+  tenantId: string,
+  query: string,
+  limitPerType: number,
+) {
+  const q = query.trim();
+  if (!q) return { accounts: [], deals: [], quotes: [], installations: [], contacts: [], guardias: [] };
+  const lim = Math.max(1, Math.min(limitPerType || 5, 10));
+
+  const [accounts, deals, quotes, installations, contacts, guardias] = await Promise.all([
+    toolSearchAccounts(tenantId, q, lim),
+    toolSearchDeals(tenantId, q, undefined, lim),
+    toolSearchQuotes(tenantId, q, undefined, lim),
+    toolSearchInstallations(tenantId, q, lim),
+    toolSearchContacts(tenantId, q, lim),
+    searchGuardiasByNameOrRut(tenantId, q, lim).catch(() => []),
+  ]);
+
+  return { accounts, deals, quotes, installations, contacts, guardias };
 }
 
 async function toolGetDailyAttendance(tenantId: string, dateStr: string) {
@@ -1690,6 +1792,7 @@ export async function executeToolCallV2(
           ok: true,
           data: await toolSearchDeals(
             tenantId,
+            typeof args.query === "string" ? args.query : undefined,
             typeof args.status === "string" ? args.status : undefined,
             typeof args.limit === "number" ? args.limit : 12,
           ),
@@ -1768,6 +1871,24 @@ export async function executeToolCallV2(
         const status = typeof args.status === "string" ? args.status : undefined;
         return await toolGetExtraShifts(tenantId, dateStr, status);
       }
+      case "search_contacts":
+        return {
+          ok: true,
+          data: await toolSearchContacts(
+            tenantId,
+            typeof args.query === "string" ? args.query : "",
+            typeof args.limit === "number" ? args.limit : 10,
+          ),
+        };
+      case "search_all":
+        return {
+          ok: true,
+          data: await toolSearchAll(
+            tenantId,
+            typeof args.query === "string" ? args.query : "",
+            typeof args.limit === "number" ? args.limit : 5,
+          ),
+        };
       case "search_quotes":
         return {
           ok: true,
