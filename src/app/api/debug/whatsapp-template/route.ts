@@ -39,6 +39,87 @@ export async function GET(request: NextRequest) {
 
   const client = Twilio(accountSid, authToken);
 
+  // Modo: listar admins del tenant con su phone
+  if (request.nextUrl.searchParams.get("currentAdmin") === "1") {
+    try {
+      const { prisma } = await import("@/lib/prisma");
+      const admins = await prisma.admin.findMany({
+        take: 20,
+        select: { id: true, name: true, email: true, phone: true, role: true, tenantId: true },
+        orderBy: { createdAt: "desc" },
+      });
+      return NextResponse.json({ count: admins.length, admins });
+    } catch (err: any) {
+      return NextResponse.json({ error: err?.message }, { status: 500 });
+    }
+  }
+
+  // Modo: dispara el template cobertura_resuelta al phone del admin indicado
+  if (request.nextUrl.searchParams.get("adminAccepted")) {
+    const adminId = request.nextUrl.searchParams.get("adminAccepted")!;
+    const tmplAceptSid = process.env.TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION?.trim();
+    if (!tmplAceptSid) {
+      return NextResponse.json({ error: "TWILIO_WHATSAPP_CONTENT_SID_ACEPTACION not set" });
+    }
+    try {
+      const { prisma } = await import("@/lib/prisma");
+      const admin = await prisma.admin.findUnique({
+        where: { id: adminId },
+        select: { id: true, name: true, phone: true },
+      });
+      if (!admin) return NextResponse.json({ error: "Admin not found" });
+      if (!admin.phone) {
+        return NextResponse.json({
+          error: "Admin no tiene phone configurado",
+          admin,
+        });
+      }
+
+      const from = fromNumber?.startsWith("whatsapp:") ? fromNumber : `whatsapp:${fromNumber}`;
+      const msSid = process.env.TWILIO_MESSAGING_SERVICE_SID?.trim();
+      const to = `whatsapp:${admin.phone}`;
+      const createParams: Record<string, string> = {
+        to,
+        contentSid: tmplAceptSid,
+        contentVariables: JSON.stringify({
+          "1": "Carlos Cristobal Irigoyen Garces",
+          "2": "Cobertura — Las Condes (TEST)",
+          "3": "jue 9 abr | 09:00 - 18:00",
+          "4": "+56982307771",
+        }),
+      };
+      if (msSid) createParams.messagingServiceSid = msSid;
+      else createParams.from = from!;
+
+      try {
+        const msg = await client.messages.create(createParams as any);
+        return NextResponse.json({
+          ok: true,
+          admin,
+          to,
+          messageSid: msg.sid,
+          status: msg.status,
+          templateSid: tmplAceptSid.substring(0, 10) + "...",
+          strategy: msSid ? "messagingService" : "from",
+        });
+      } catch (twErr: any) {
+        return NextResponse.json({
+          ok: false,
+          admin,
+          to,
+          error: twErr?.message,
+          code: twErr?.code,
+          moreInfo: twErr?.moreInfo,
+          details: twErr?.details,
+          templateSid: tmplAceptSid.substring(0, 10) + "...",
+          createParams,
+        });
+      }
+    } catch (err: any) {
+      return NextResponse.json({ error: err?.message }, { status: 500 });
+    }
+  }
+
   // Modo: enviar via REST directo (no SDK) para ver el error CRUDO de Twilio
   // ?rawSend=1&phone=56982307771[&msgService=MG...][&useTemplate=1]
   if (request.nextUrl.searchParams.get("rawSend") === "1") {
