@@ -12,7 +12,14 @@ import {
 } from "@react-email/components";
 import * as React from "react";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || "";
+const SITE_URL = (
+  process.env.NEXTAUTH_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.SITE_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  "https://opai.gard.cl"
+).replace(/\/$/, "");
 
 interface SignatureCompletedNotifyEmailProps {
   documentTitle: string;
