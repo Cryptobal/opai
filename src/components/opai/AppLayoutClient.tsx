@@ -227,6 +227,7 @@ function AppLayoutClientInner({
       children: [
         { href: '/opai/inicio', label: 'Envíos', icon: FileText },
         { href: '/opai/documentos', label: 'Gestión', icon: FolderOpen, badge: notesByModule.document },
+        { href: '/opai/documentos-operativos', label: 'Operativos', icon: ClipboardCheck },
       ],
     },
     {

@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { requireTenantModule } from '@/lib/require-module';
 import { canView } from "@/lib/permissions";
-import { getInstalacionDocumentTypes } from "@/lib/instalacion-documentos";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const modCheck = await requireTenantModule('ops_supervision');
@@ -25,7 +25,27 @@ export async function GET() {
       );
     }
 
-    const documents = await getInstalacionDocumentTypes(ctx.tenantId);
+    const tipos = await prisma.tipoDocOperacional.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        isActive: true,
+        capa: "instalacion",
+        obligatorioEnVisita: true,
+      },
+      orderBy: { order: "asc" },
+      select: {
+        codigo: true,
+        nombre: true,
+        obligatorio: true,
+      },
+    });
+
+    const documents = tipos.map((tipo) => ({
+      code: tipo.codigo,
+      label: tipo.nombre,
+      required: tipo.obligatorio,
+    }));
+
     return NextResponse.json({ success: true, data: documents });
   } catch (error) {
     console.error("[OPS][SUPERVISION] Error fetching document types:", error);

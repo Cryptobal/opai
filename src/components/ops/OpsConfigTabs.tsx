@@ -5,15 +5,13 @@ import { toast } from "sonner";
 import { ConfigTabs } from "@/components/configuracion/ConfigTabs";
 import { OpsMarcacionTab } from "@/components/ops/OpsMarcacionTab";
 import { OpsDocsGuardiasTab } from "@/components/ops/OpsDocsGuardiasTab";
-import { OpsDocsInstalacionTab } from "@/components/ops/OpsDocsInstalacionTab";
 import { OpsEmailsTab } from "@/components/ops/OpsEmailsTab";
 import type { MarcacionConfig } from "@/lib/ops-marcacion-config";
 import type { GuardiaDocumentoConfigItem as GuardiaDocConfigItem } from "@/lib/guardia-documentos-config";
 import { Card, CardContent } from "@/components/ui/card";
-import { Radio, FileText, Building2, Mail } from "lucide-react";
+import { Radio, FileText, Mail } from "lucide-react";
 
 export type PostulacionDocItem = { code: string; label: string; required: boolean };
-export type InstalacionDocItem = { code: string; label: string; required: boolean };
 export type { GuardiaDocConfigItem };
 
 export function OpsConfigTabs() {
@@ -24,8 +22,6 @@ export function OpsConfigTabs() {
   const [postulacionDocs, setPostulacionDocs] = useState<PostulacionDocItem[]>([]);
   const [postulacionDocsLoading, setPostulacionDocsLoading] = useState(true);
   const [documentCountsByType, setDocumentCountsByType] = useState<Record<string, number>>({});
-  const [instalacionDocs, setInstalacionDocs] = useState<InstalacionDocItem[]>([]);
-  const [instalacionDocsLoading, setInstalacionDocsLoading] = useState(true);
   const [guardiaDocConfig, setGuardiaDocConfig] = useState<GuardiaDocConfigItem[]>([]);
   const [guardiaDocConfigLoading, setGuardiaDocConfigLoading] = useState(true);
 
@@ -56,18 +52,6 @@ export function OpsConfigTabs() {
     }
   }, []);
 
-  const fetchInstalacionDocs = useCallback(async () => {
-    try {
-      const res = await fetch("/api/ops/instalacion-documentos");
-      const data = await res.json();
-      if (data.success) setInstalacionDocs(data.data);
-    } catch {
-      toast.error("No se pudo cargar documentos de instalación");
-    } finally {
-      setInstalacionDocsLoading(false);
-    }
-  }, []);
-
   const fetchGuardiaDocConfig = useCallback(async () => {
     try {
       const res = await fetch("/api/ops/guardia-documentos-config");
@@ -87,10 +71,6 @@ export function OpsConfigTabs() {
   useEffect(() => {
     void fetchPostulacionDocs();
   }, [fetchPostulacionDocs]);
-
-  useEffect(() => {
-    void fetchInstalacionDocs();
-  }, [fetchInstalacionDocs]);
 
   useEffect(() => {
     void fetchGuardiaDocConfig();
@@ -176,18 +156,6 @@ export function OpsConfigTabs() {
           guardiaDocConfig={guardiaDocConfig}
           setGuardiaDocConfig={setGuardiaDocConfig}
           guardiaDocConfigLoading={guardiaDocConfigLoading}
-        />
-      ),
-    },
-    {
-      id: "docs-instalacion",
-      label: "Docs. Instalación",
-      icon: Building2,
-      content: (
-        <OpsDocsInstalacionTab
-          instalacionDocs={instalacionDocs}
-          setInstalacionDocs={setInstalacionDocs}
-          instalacionDocsLoading={instalacionDocsLoading}
         />
       ),
     },

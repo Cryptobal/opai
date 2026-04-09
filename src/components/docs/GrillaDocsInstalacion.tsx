@@ -284,11 +284,12 @@ export function GrillaDocsInstalacion() {
                   <th
                     key={tipo.id}
                     className="px-2 py-2.5 text-center font-medium text-muted-foreground border-b border-border"
-                    style={{ minWidth: 90 }}
+                    style={{ minWidth: 110 }}
+                    title={tipo.nombre}
                   >
                     <div className="flex flex-col items-center gap-0.5">
                       <span
-                        className="text-xs leading-tight max-w-[80px] text-center line-clamp-2"
+                        className="text-[11px] leading-snug max-w-[100px] text-center line-clamp-2 break-words"
                         title={tipo.nombre}
                       >
                         {tipo.nombre}

@@ -304,15 +304,6 @@ export const CONFIG_SEARCH_INDEX: ConfigSearchItem[] = [
   {
     type: "setting",
     sectionId: "ops",
-    tab: "docs-instalacion",
-    label: "Documentos de instalación",
-    group: "Módulos",
-    keywords:
-      "instalacion supervision directiva funcionamiento contrato guardia checklist visita",
-  },
-  {
-    type: "setting",
-    sectionId: "ops",
     tab: "emails",
     label: "Aviso de marca manual",
     group: "Módulos",
