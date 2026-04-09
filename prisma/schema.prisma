@@ -81,6 +81,7 @@ model Tenant {
   bneIntegration              BneIntegration? @relation("bne_integration_tenant")
   planChangeLogs              PlanChangeLog[]
   knowledgeBases              KnowledgeBase[]
+  verificacionesFisicas       DocVerificacionFisica[]
 
   @@index([slug])
   @@index([active])
@@ -426,8 +427,9 @@ model Admin {
   inventoryPhoneLineAssignments InventoryPhoneLineAssignment[]
   companyPresentationsSent CrmCompanyPresentation[]
   guardiasPlanSeleccionUpdates   OpsGuardia[] @relation("ops_guardia_intended_plan_updated_by")
-  alertasCoberturaCreadas        OpsAlertaCobertura[] @relation("alertas_cobertura_creador")
-  googleId                       String?              @unique @map("google_id") // Google OAuth sub
+  alertasCoberturaCreadas        OpsAlertaCobertura[]    @relation("alertas_cobertura_creador")
+  googleId                       String?                 @unique @map("google_id") // Google OAuth sub
+  verificacionesFisicas          DocVerificacionFisica[]
 
   @@index([email])
   @@index([status])
@@ -1980,8 +1982,9 @@ model CrmInstallation {
   gamificacionFondosPremio    GamificacionFondoPremio[]     @relation("gamificacion_fondo_installation")
   gamificacionDesafios        GamificacionDesafio[]         @relation("gamificacion_desafio_installation")
   docsOperacionales           DocOperacional[]
-  alertasCobertura            OpsAlertaCobertura[] @relation("alertas_cobertura_installation")
-  atsJobPostings              AtsJobPosting[]      @relation("ats_job_installation")
+  alertasCobertura            OpsAlertaCobertura[]    @relation("alertas_cobertura_installation")
+  atsJobPostings              AtsJobPosting[]         @relation("ats_job_installation")
+  verificacionesFisicas       DocVerificacionFisica[]
 
   @@index([tenantId], map: "idx_crm_installations_tenant")
   @@index([accountId], map: "idx_crm_installations_account")
@@ -2979,6 +2982,7 @@ model OpsGuardia {
   alertasAceptacionIntentos    OpsAlertaAceptacion[]                 @relation("alerta_aceptacion_guardia")
   alertasNotificaciones        OpsAlertaNotificacion[]               @relation("alerta_notificacion_guardia")
   atsApplications              AtsApplication[]                      @relation("ats_application_guardia")
+  verificacionesFisicas        DocVerificacionFisica[]
 
   @@unique([tenantId, code], map: "uq_ops_guardias_tenant_code")
   @@index([tenantId], map: "idx_ops_guardias_tenant")
@@ -3442,9 +3446,10 @@ model OpsVisitaSupervision {
   guardEvaluations   OpsSupervisionGuardEvaluation[]
   findings           OpsSupervisionFinding[]        @relation("supervision_finding_visit")
   verifiedFindings   OpsSupervisionFinding[]        @relation("supervision_finding_verified_visit")
-  checklistResults   OpsSupervisionChecklistResult[]
-  photos             OpsSupervisionPhoto[]
-  encuestaCliente    OpsEncuestaCliente?
+  checklistResults      OpsSupervisionChecklistResult[]
+  photos                OpsSupervisionPhoto[]
+  encuestaCliente       OpsEncuestaCliente?
+  verificacionesFisicas DocVerificacionFisica[]
 
   @@index([tenantId], map: "idx_ops_visitas_supervision_tenant")
   @@index([supervisorId], map: "idx_ops_visitas_supervision_supervisor")
@@ -3522,8 +3527,9 @@ model OpsSupervisionFinding {
   installation    CrmInstallation      @relation("supervision_finding_installation", fields: [installationId], references: [id], onDelete: Cascade)
   guard           OpsGuardia?          @relation("supervision_finding_guard", fields: [guardId], references: [id], onDelete: SetNull)
   ticket          OpsTicket?           @relation("supervision_finding_ticket", fields: [ticketId], references: [id], onDelete: SetNull)
-  verifiedInVisit OpsVisitaSupervision? @relation("supervision_finding_verified_visit", fields: [verifiedInVisitId], references: [id], onDelete: SetNull)
-  checklistResults OpsSupervisionChecklistResult[]
+  verifiedInVisit       OpsVisitaSupervision?   @relation("supervision_finding_verified_visit", fields: [verifiedInVisitId], references: [id], onDelete: SetNull)
+  checklistResults      OpsSupervisionChecklistResult[]
+  verificacionFisica    DocVerificacionFisica?
 
   @@index([tenantId], map: "idx_supervision_findings_tenant")
   @@index([visitId], map: "idx_supervision_findings_visit")
@@ -7690,12 +7696,14 @@ model TipoDocOperacional {
   diasAlerta       Int      @default(30) @map("dias_alerta")
   normativa        String?  // Referencia legal: "D.S. 93 Art.13"
   order            Int      @default(0)
-  isActive         Boolean  @default(true) @map("is_active")
+  isActive             Boolean  @default(true) @map("is_active")
+  obligatorioEnVisita  Boolean  @default(false) @map("obligatorio_en_visita")
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant     Tenant           @relation(fields: [tenantId], references: [id])
-  documentos DocOperacional[]
+  tenant                Tenant                  @relation(fields: [tenantId], references: [id])
+  documentos            DocOperacional[]
+  verificacionesFisicas DocVerificacionFisica[]
 
   @@unique([tenantId, codigo], map: "uq_tipo_doc_operacional_tenant_codigo")
   @@index([tenantId, capa], map: "idx_tipo_doc_operacional_tenant_capa")
@@ -8132,4 +8140,42 @@ model PublicInquiry {
   @@index([createdAt(sort: Desc)], map: "idx_public_inquiries_created_desc")
   @@map("public_inquiries")
   @@schema("crm")
+}
+
+model DocVerificacionFisica {
+  id              String   @id @default(uuid())
+  tenantId        String
+
+  tipoDocId       String?
+  guardiaDocType  String?
+  capa            String            // "global" | "instalacion" | "guardia"
+
+  installationId  String
+  guardiaId       String?
+
+  presente        Boolean
+  photoUrl        String?
+  photoKey        String?
+  notes           String?           @db.Text
+
+  supervisionId   String
+  supervisorId    String
+
+  hallazgoId      String?   @unique
+
+  createdAt       DateTime @default(now())
+
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id])
+  installation    CrmInstallation         @relation(fields: [installationId], references: [id])
+  supervision     OpsVisitaSupervision    @relation(fields: [supervisionId], references: [id])
+  supervisor      Admin                   @relation(fields: [supervisorId], references: [id])
+  tipoDoc         TipoDocOperacional?     @relation(fields: [tipoDocId], references: [id])
+  guardia         OpsGuardia?             @relation(fields: [guardiaId], references: [id])
+  hallazgo        OpsSupervisionFinding?  @relation(fields: [hallazgoId], references: [id])
+
+  @@index([tenantId, installationId])
+  @@index([tenantId, installationId, guardiaId])
+  @@index([tenantId, tipoDocId])
+  @@index([tenantId, supervisionId])
+  @@schema("ops")
 }
