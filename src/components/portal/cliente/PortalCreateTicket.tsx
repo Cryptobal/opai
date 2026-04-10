@@ -1,9 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Loader2, Ticket } from 'lucide-react'
 import { ClienteSession } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
+
+interface TicketTypeOption {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  defaultPriority: string
+  icon: string | null
+}
 
 interface Props {
   session: ClienteSession
@@ -22,8 +31,26 @@ export function PortalCreateTicket({ session, selectedInstallation, onCreated, o
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('p3')
+  const [ticketTypeId, setTicketTypeId] = useState('')
+  const [ticketTypes, setTicketTypes] = useState<TicketTypeOption[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  // Fetch available ticket types for client portal
+  useEffect(() => {
+    fetch('/api/portal/cliente/ticket-types', {
+      headers: {
+        'x-contact-id': session.contactId,
+        'x-tenant-id': session.tenantId,
+        'x-account-id': session.accountId,
+      },
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && Array.isArray(d.data)) setTicketTypes(d.data)
+      })
+      .catch(() => {})
+  }, [session])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -46,6 +73,7 @@ export function PortalCreateTicket({ session, selectedInstallation, onCreated, o
           title: title.trim(),
           description: description.trim() || undefined,
           priority,
+          ...(ticketTypeId ? { ticketTypeId } : {}),
         }),
       })
 
@@ -82,6 +110,31 @@ export function PortalCreateTicket({ session, selectedInstallation, onCreated, o
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {/* Ticket Type */}
+          {ticketTypes.length > 0 && (
+            <div>
+              <label className="text-xs text-zinc-400 mb-1.5 block font-medium">
+                Tipo de solicitud
+              </label>
+              <select
+                value={ticketTypeId}
+                onChange={(e) => {
+                  setTicketTypeId(e.target.value)
+                  const selected = ticketTypes.find((t) => t.id === e.target.value)
+                  if (selected) setPriority(selected.defaultPriority)
+                }}
+                className="w-full h-10 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              >
+                <option value="">Seleccionar tipo...</option>
+                {ticketTypes.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Title */}
           <div>
             <label className="text-xs text-zinc-400 mb-1.5 block font-medium">
