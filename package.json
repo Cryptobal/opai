@@ -39,7 +39,6 @@
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "dependencies": {
-    "@auth/core": "^0.34.3",
     "@aws-sdk/client-rekognition": "^3.1007.0",
     "@aws-sdk/client-s3": "^3.1007.0",
     "@capacitor/android": "^8.2.0",
