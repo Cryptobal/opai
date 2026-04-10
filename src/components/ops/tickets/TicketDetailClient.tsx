@@ -5,11 +5,16 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  BellOff,
+  Calendar,
   Check,
   ChevronRight,
   Clock,
+  History,
   Loader2,
   MessageSquare,
+  Pause,
+  Play,
   Send,
   Shield,
   Trash2,
@@ -31,6 +36,7 @@ import {
   type Ticket,
   type TicketComment,
   type TicketStatus,
+  type SlaExtensionEntry,
   TICKET_STATUS_CONFIG,
   TICKET_PRIORITY_CONFIG,
   TICKET_TEAM_CONFIG,
@@ -73,6 +79,18 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   // Delete state
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // SLA controls state
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [extendDate, setExtendDate] = useState("");
+  const [extendReason, setExtendReason] = useState("");
+  const [extendLoading, setExtendLoading] = useState(false);
+  const [pauseLoading, setPauseLoading] = useState(false);
+  const [pauseReason, setPauseReason] = useState("");
+  const [showPauseReason, setShowPauseReason] = useState(false);
+  const [showSnoozeMenu, setShowSnoozeMenu] = useState(false);
+  const [snoozeLoading, setSnoozeLoading] = useState(false);
+  const [showSlaHistory, setShowSlaHistory] = useState(false);
 
   const fetchTicket = useCallback(async () => {
     setLoading(true);
@@ -273,6 +291,98 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
     }
   }
 
+  // ── SLA Extend ──
+  async function handleExtendSla() {
+    if (!extendDate || !extendReason.trim()) return;
+    setExtendLoading(true);
+    try {
+      const res = await fetch(`/api/ops/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slaDueAt: new Date(extendDate).toISOString(), slaExtensionReason: extendReason.trim() }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setTicket(data.data);
+      setShowExtendModal(false);
+      setExtendDate("");
+      setExtendReason("");
+      toast.success("SLA aplazado");
+      fetchTicket(); // refresh comments
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al aplazar SLA");
+    } finally {
+      setExtendLoading(false);
+    }
+  }
+
+  // ── SLA Pause / Resume ──
+  async function handleTogglePause() {
+    if (!ticket) return;
+    const isPaused = !!ticket.slaPausedAt;
+    if (!isPaused && !showPauseReason) {
+      setShowPauseReason(true);
+      return;
+    }
+    setPauseLoading(true);
+    try {
+      const res = await fetch(`/api/ops/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slaPaused: !isPaused,
+          slaPausedReason: !isPaused ? pauseReason.trim() || undefined : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setTicket(data.data);
+      setShowPauseReason(false);
+      setPauseReason("");
+      toast.success(isPaused ? "SLA reanudado" : "SLA pausado");
+      fetchTicket();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al pausar/reanudar SLA");
+    } finally {
+      setPauseLoading(false);
+    }
+  }
+
+  // ── Snooze ──
+  async function handleSnooze(hours?: number, untilDate?: Date) {
+    setSnoozeLoading(true);
+    try {
+      let snoozedUntil: string | null = null;
+      if (hours !== undefined) {
+        snoozedUntil = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+      } else if (untilDate) {
+        snoozedUntil = untilDate.toISOString();
+      }
+      const res = await fetch(`/api/ops/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ snoozedUntil }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setTicket(data.data);
+      setShowSnoozeMenu(false);
+      toast.success(snoozedUntil ? "Avisos silenciados" : "Silenciamiento removido");
+      fetchTicket();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al silenciar avisos");
+    } finally {
+      setSnoozeLoading(false);
+    }
+  }
+
+  function getTomorrow9am(): Date {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(9, 0, 0, 0);
+    return d;
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -356,6 +466,18 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
             <Badge variant="destructive" className="gap-0.5 text-[10px]">
               <AlertTriangle className="h-2.5 w-2.5" />
               SLA vencido
+            </Badge>
+          )}
+          {ticket.slaPausedAt && (
+            <Badge variant="secondary" className="gap-0.5 text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30">
+              <Pause className="h-2.5 w-2.5" />
+              SLA pausado
+            </Badge>
+          )}
+          {ticket.snoozedUntil && new Date(ticket.snoozedUntil) > new Date() && (
+            <Badge variant="secondary" className="gap-0.5 text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/30">
+              <BellOff className="h-2.5 w-2.5" />
+              Silenciado hasta {new Date(ticket.snoozedUntil).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
             </Badge>
           )}
           {canDelete && (
@@ -518,6 +640,168 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
           </div>
         )}
       </div>
+
+      {/* ── CARD: SLA Controls ── */}
+      {ticket.slaDueAt && !isTerminal && (
+        <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-3">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Controles SLA
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {/* Extend SLA */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1"
+              onClick={() => setShowExtendModal(true)}
+            >
+              <Calendar className="h-3 w-3" />
+              Aplazar SLA
+            </Button>
+
+            {/* Pause / Resume SLA */}
+            <Button
+              variant="outline"
+              size="sm"
+              className={`h-8 text-xs gap-1 ${ticket.slaPausedAt ? "border-amber-500/40 text-amber-400" : ""}`}
+              disabled={pauseLoading}
+              onClick={handleTogglePause}
+            >
+              {pauseLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : ticket.slaPausedAt ? (
+                <Play className="h-3 w-3" />
+              ) : (
+                <Pause className="h-3 w-3" />
+              )}
+              {ticket.slaPausedAt ? "Reanudar SLA" : "Pausar SLA"}
+            </Button>
+
+            {/* Snooze notifications */}
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1"
+                onClick={() => setShowSnoozeMenu(!showSnoozeMenu)}
+              >
+                <BellOff className="h-3 w-3" />
+                Silenciar avisos
+              </Button>
+              {showSnoozeMenu && (
+                <div className="absolute top-full left-0 mt-1 z-50 w-48 rounded-xl border border-border bg-popover shadow-md">
+                  {[
+                    { label: "1 hora", hours: 1 },
+                    { label: "4 horas", hours: 4 },
+                    { label: "1 día", hours: 24 },
+                    { label: "Hasta mañana 9am", hours: undefined, untilDate: getTomorrow9am() },
+                  ].map((opt) => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      disabled={snoozeLoading}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors first:rounded-t-xl last:rounded-b-xl"
+                      onClick={() => handleSnooze(opt.hours, opt.untilDate)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                  {ticket.snoozedUntil && (
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-accent transition-colors rounded-b-xl border-t border-border"
+                      onClick={() => handleSnooze(undefined, undefined)}
+                    >
+                      Quitar silenciamiento
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* SLA History */}
+            {ticket.slaExtensions && ticket.slaExtensions.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs gap-1 text-muted-foreground"
+                onClick={() => setShowSlaHistory(!showSlaHistory)}
+              >
+                <History className="h-3 w-3" />
+                Historial ({ticket.slaExtensions.length})
+              </Button>
+            )}
+          </div>
+
+          {/* Pause reason input */}
+          {showPauseReason && !ticket.slaPausedAt && (
+            <div className="flex items-center gap-2">
+              <Input
+                value={pauseReason}
+                onChange={(e) => setPauseReason(e.target.value)}
+                placeholder="Motivo de pausa (opcional)"
+                className="text-sm h-8 flex-1"
+              />
+              <Button size="sm" className="h-8 text-xs" disabled={pauseLoading} onClick={handleTogglePause}>
+                {pauseLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Pausar"}
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setShowPauseReason(false)}>
+                Cancelar
+              </Button>
+            </div>
+          )}
+
+          {/* Extend modal */}
+          {showExtendModal && (
+            <div className="space-y-2 rounded-lg border border-border p-3 bg-background/50">
+              <p className="text-xs font-medium">Aplazar SLA</p>
+              <input
+                type="datetime-local"
+                value={extendDate}
+                onChange={(e) => setExtendDate(e.target.value)}
+                className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+                min={new Date().toISOString().slice(0, 16)}
+              />
+              <textarea
+                value={extendReason}
+                onChange={(e) => setExtendReason(e.target.value)}
+                placeholder="Motivo del aplazamiento (obligatorio)"
+                className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm min-h-[60px] resize-none"
+              />
+              <div className="flex gap-2">
+                <Button size="sm" className="h-7 text-xs" disabled={extendLoading || !extendDate || !extendReason.trim()} onClick={handleExtendSla}>
+                  {extendLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Aplazar"}
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setShowExtendModal(false); setExtendDate(""); setExtendReason(""); }}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* SLA Extension History */}
+          {showSlaHistory && ticket.slaExtensions && ticket.slaExtensions.length > 0 && (
+            <div className="space-y-1 rounded-lg border border-border p-3 bg-background/50">
+              <p className="text-xs font-medium mb-2">Historial de extensiones</p>
+              {ticket.slaExtensions.map((ext, idx) => (
+                <div key={idx} className="text-xs text-muted-foreground border-l-2 border-border pl-2 py-1">
+                  <span className="text-foreground">
+                    {new Date(ext.at).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {" — "}
+                  {ext.reason}
+                  <br />
+                  <span className="text-[10px]">
+                    {ext.fromDueAt ? new Date(ext.fromDueAt).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                    {" → "}
+                    {new Date(ext.toDueAt).toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── CARD: Description ── */}
       {ticket.description && (

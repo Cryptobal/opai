@@ -110,6 +110,16 @@ export interface TicketApproval {
   createdAt: string;
 }
 
+// ── SLA Extension Audit Entry ──
+
+export interface SlaExtensionEntry {
+  at: string;
+  by: string;
+  fromDueAt: string;
+  toDueAt: string;
+  reason: string;
+}
+
 // ── Ticket ──
 
 export interface Ticket {
@@ -140,6 +150,12 @@ export interface Ticket {
   reportedByName?: string | null;
   slaDueAt: string | null;
   slaBreached: boolean;
+  slaPausedAt: string | null;
+  slaPausedReason: string | null;
+  slaPausedTotalMs: number;
+  slaExtensions: SlaExtensionEntry[] | null;
+  snoozedUntil: string | null;
+  lastSlaNotifiedAt: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
   resolutionNotes: string | null;
