@@ -163,7 +163,7 @@ export async function sendTicketEmail(
       inReplyToMessageId: inReplyToMessageId ?? null,
       threadMessageIds: threadMessageIds ?? [],
       attachments:
-        commentAttachments.length > 0 ? commentAttachments : undefined,
+        commentAttachments.length > 0 ? (commentAttachments as unknown as any) : undefined,
       sentAt: deliveryStatus === "sent" ? new Date() : null,
       deliveryStatus,
       deliveryError,

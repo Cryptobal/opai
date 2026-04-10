@@ -302,7 +302,7 @@ export async function POST(request: NextRequest) {
         inReplyToMessageId: email.inReplyTo ?? null,
         threadMessageIds: email.references ?? [],
         attachments:
-          commentAttachments.length > 0 ? commentAttachments : undefined,
+          commentAttachments.length > 0 ? (commentAttachments as unknown as any) : undefined,
         isInternal: false,
         sentAt: email.date ? new Date(email.date) : new Date(),
         deliveryStatus: "delivered",

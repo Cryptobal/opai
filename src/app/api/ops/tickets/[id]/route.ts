@@ -239,7 +239,7 @@ export async function PATCH(
         reason,
       };
       updateData.slaDueAt = newDueAt;
-      updateData.slaExtensions = [...prevExtensions, extensionEntry];
+      updateData.slaExtensions = [...prevExtensions, extensionEntry] as any;
       updateData.slaBreached = false; // reset breach if extending
       const fmtDate = newDueAt.toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
       auditComments.push(`SLA aplazado hasta ${fmtDate} — Motivo: ${reason}`);
@@ -284,7 +284,7 @@ export async function PATCH(
             toDueAt: extendedDueAt.toISOString(),
             reason: "Reanudación de pausa SLA (extensión automática)",
           };
-          updateData.slaExtensions = [...prevExtensions, extensionEntry];
+          updateData.slaExtensions = [...prevExtensions, extensionEntry] as any;
           if (extendedDueAt > now) updateData.slaBreached = false;
         }
         const pausedHours = Math.round(pausedMs / (1000 * 60 * 60) * 10) / 10;
