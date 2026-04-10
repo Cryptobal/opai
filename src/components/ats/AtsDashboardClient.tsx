@@ -11,7 +11,7 @@ import {
   CheckCircle,
   Plus,
   Eye,
-  MoreHorizontal,
+
   Pencil,
   Trash2,
   Send,
@@ -27,12 +27,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface AtsJob {
   id: string;
@@ -285,58 +279,64 @@ export function AtsDashboardClient({
                   {new Date(job.createdAt).toLocaleDateString("es-CL")}
                 </TableCell>
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link href={`/ops/ats/${job.id}`}>
-                          <Eye className="h-4 w-4 mr-2" /> Ver pipeline
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href={`/ops/ats/${job.id}/editar`}>
-                          <Pencil className="h-4 w-4 mr-2" /> Editar aviso
-                        </Link>
-                      </DropdownMenuItem>
-                      {(() => {
-                        if (job.estado !== "ACTIVO") return null;
-                        const bneCh = job.channels.find(
-                          (c) => c.canal === "bne",
-                        );
-                        // Show the action while BNE is not yet successfully
-                        // published — covers "never tried", "in error" and
-                        // "pending" states. Once estado === "publicado" we
-                        // hide it (use Reenviar a canales for re-publish).
-                        if (bneCh?.estado === "publicado") return null;
-                        const label = bneCh?.estado === "error"
-                          ? "Reintentar BNE"
-                          : "Publicar en BNE";
-                        return (
-                          <DropdownMenuItem
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              handlePublishBne(job.id);
-                            }}
-                          >
-                            <Send className="h-4 w-4 mr-2" /> {label}
-                          </DropdownMenuItem>
-                        );
-                      })()}
-                      <DropdownMenuItem
-                        className="text-red-600 focus:text-red-600"
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          handleDelete(job.id, job._count.applications);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" /> Eliminar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                      title="Ver pipeline"
+                    >
+                      <Link href={`/ops/ats/${job.id}`}>
+                        <Eye className="h-4 w-4" />
+                        <span className="sr-only">Ver pipeline</span>
+                      </Link>
+                    </Button>
+
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                      title="Editar aviso"
+                    >
+                      <Link href={`/ops/ats/${job.id}/editar`}>
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">Editar aviso</span>
+                      </Link>
+                    </Button>
+
+                    {(() => {
+                      if (job.estado !== "ACTIVO") return null;
+                      const bneCh = job.channels.find((c) => c.canal === "bne");
+                      if (bneCh?.estado === "publicado") return null;
+                      const label =
+                        bneCh?.estado === "error" ? "Reintentar BNE" : "Publicar en BNE";
+                      return (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                          title={label}
+                          onClick={() => handlePublishBne(job.id)}
+                        >
+                          <Send className="h-4 w-4" />
+                          <span className="sr-only">{label}</span>
+                        </Button>
+                      );
+                    })()}
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-600 hover:bg-red-500/10 hover:text-red-600"
+                      title="Eliminar aviso"
+                      onClick={() => handleDelete(job.id, job._count.applications)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Eliminar</span>
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

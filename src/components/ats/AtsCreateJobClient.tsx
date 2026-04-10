@@ -247,8 +247,9 @@ export function AtsCreateJobClient({
               id="descripcion"
               value={form.descripcion}
               onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
-              rows={4}
-              placeholder="Describe las funciones, horario y condiciones del cargo..."
+              rows={12}
+              className="w-full min-h-[280px] lg:min-h-[340px] resize-y leading-relaxed"
+              placeholder="Describe las funciones, horario, condiciones del cargo, beneficios y cultura de la empresa. Mientras más detallado, mejor es el match con candidatos calificados..."
             />
             <SnippetPicker
               snippets={snippets.descripcion}
@@ -407,8 +408,9 @@ export function AtsCreateJobClient({
             <Textarea
               value={form.funciones}
               onChange={(e) => setForm((f) => ({ ...f, funciones: e.target.value }))}
-              rows={3}
-              placeholder="Detalla las funciones específicas del cargo..."
+              rows={10}
+              className="w-full min-h-[240px] lg:min-h-[300px] resize-y leading-relaxed"
+              placeholder="Detalla las funciones específicas del cargo. Ej: control de accesos, rondas perimetrales, monitoreo CCTV, registro de novedades, atención al público..."
             />
             <SnippetPicker
               snippets={snippets.funciones}
