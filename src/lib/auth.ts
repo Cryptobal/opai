@@ -33,7 +33,9 @@ declare module 'next-auth' {
     portal?: string;
     impersonating?: boolean;
   }
-  // JWT augmentation (inside 'next-auth' to avoid subpath resolution issues in strict pnpm)
+}
+
+declare module '@auth/core/jwt' {
   interface JWT {
     id: string;
     role: string;

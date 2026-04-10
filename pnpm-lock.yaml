@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@auth/core':
+        specifier: 0.41.0
+        version: 0.41.0
       '@aws-sdk/client-rekognition':
         specifier: ^3.1007.0
         version: 3.1029.0
