@@ -39,7 +39,6 @@
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "dependencies": {
-    "@auth/core": "0.41.0",
     "@aws-sdk/client-rekognition": "^3.1007.0",
     "@aws-sdk/client-s3": "^3.1007.0",
     "@capacitor/android": "^8.2.0",
@@ -76,10 +75,8 @@
     "@react-pdf/renderer": "^4.3.2",
     "@sentry/nextjs": "^10.43.0",
     "@sparticuz/chromium": "^143.0.4",
-    "@tiptap/core": "^3.22.3",
     "@tiptap/extension-color": "^3.19.0",
     "@tiptap/extension-highlight": "^3.19.0",
-    "@tiptap/extension-link": "^3.22.3",
     "@tiptap/extension-mention": "^3.19.0",
     "@tiptap/extension-placeholder": "^3.19.0",
     "@tiptap/extension-table": "^3.19.0",
@@ -146,10 +143,13 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@auth/core": "0.41.0",
     "@prisma/client": "^6.19.2",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/jest-dom": "^6.9.1",
+    "@tiptap/core": "^3.22.3",
+    "@tiptap/extension-link": "^3.22.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/google.maps": "^3.58.1",
     "@types/leaflet": "^1.9.21",
