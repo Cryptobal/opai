@@ -43,7 +43,6 @@ export interface HubClientWrapperProps {
   ticketMetrics: TicketMetrics;
   activities: ActivityEntry[];
   supervisionMetrics: SupervisionMetrics | null;
-  showPortalLink?: boolean;
   upcomingProjects?: import('../_lib/hub-types').UpcomingProject[];
   alerts: HubAlert[];
   atsMetrics: AtsMetrics | null;
@@ -60,7 +59,6 @@ export function HubClientWrapper({
   ticketMetrics,
   activities,
   supervisionMetrics,
-  showPortalLink,
   upcomingProjects,
   alerts,
   atsMetrics,
@@ -75,7 +73,6 @@ export function HubClientWrapper({
       <HubGreeting
         firstName={firstName}
         pendingFollowUpsCount={pendingFollowUpsCount}
-        showPortalLink={showPortalLink}
       />
 
       {/* Quick actions — role-aware */}

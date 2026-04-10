@@ -102,8 +102,6 @@ export default async function HubPage() {
   const alerts = getAlerts(opsMetrics, null, financeMetrics);
 
   const firstName = session.user.name?.split(' ')[0] || 'Usuario';
-  const role = session.user.role as string | undefined;
-  const showPortalLink = role === 'owner' || role === 'admin';
 
   return (
     <HubClientWrapper
@@ -116,7 +114,6 @@ export default async function HubPage() {
       ticketMetrics={ticketMetrics}
       activities={activities}
       supervisionMetrics={supervisionMetrics}
-      showPortalLink={showPortalLink}
       upcomingProjects={upcomingProjects}
       alerts={alerts}
       atsMetrics={atsMetrics}
