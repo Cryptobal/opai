@@ -84,12 +84,11 @@ export async function POST(req: NextRequest) {
     const plainPin = generatePin();
     const hashedPin = await bcrypt.hash(plainPin, 10);
 
-    // Ley 21.719: solo persistimos el hash del PIN. El texto plano se
-    // devuelve UNA vez en la respuesta al admin y no se almacena.
     await prisma.opsGuardia.update({
       where: { id: guardiaId },
       data: {
         marcacionPin: hashedPin,
+        marcacionPinVisible: plainPin,
       },
     });
 

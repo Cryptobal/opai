@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { sendEmailToGuardia } from "@/lib/email/onboarding-email-service";
+import { asignarPin } from "@/lib/ats/pin.service";
 import type { EmailBlock } from "@/lib/email/types";
 export type GuardActivationResult =
   | { ok: true }
@@ -20,6 +21,16 @@ export async function handleGuardActivation(guardiaId: string, tenantId: string)
     });
 
     if (!guardia) return { ok: false, reason: "no_guardia" };
+
+    // Auto-generar PIN si el guardia no tiene uno
+    if (!guardia.marcacionPin) {
+      try {
+        await asignarPin(guardiaId);
+        console.log(`[ONBOARDING] PIN generado automáticamente para guardia ${guardiaId}`);
+      } catch (err) {
+        console.error(`[ONBOARDING] Error generando PIN para guardia ${guardiaId}:`, err);
+      }
+    }
 
     const email =
       guardia.personalEmail ??
