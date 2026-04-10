@@ -34,6 +34,29 @@ export interface FeedJobContext {
   cpaEmail?: string;
 }
 
+/** Convierte códigos internos de turno en texto legible para candidatos. */
+export function formatTurnoLegible(turno: string): string {
+  if (!turno) return "Turno a convenir";
+  const key = turno.toLowerCase().trim();
+  const map: Record<string, string> = {
+    "4x4_dia": "4x4 día (07:00 a 19:00 hrs)",
+    "4x4_noche": "4x4 noche (19:00 a 07:00 hrs)",
+    "4x4": "4x4",
+    "5x2": "5x2 (lunes a viernes)",
+    "5x2_dia": "5x2 día (lunes a viernes)",
+    "5x2_noche": "5x2 noche (lunes a viernes)",
+    "6x1": "6x1",
+    "6x1_dia": "6x1 día",
+    "6x1_noche": "6x1 noche",
+    "7x7_dia": "7x7 día",
+    "7x7_noche": "7x7 noche",
+    "full_time": "Jornada completa",
+    "part_time": "Media jornada",
+    "rotativo": "Turnos rotativos",
+  };
+  return map[key] || turno;
+}
+
 /** Map internal turno code to a feed-friendly job type label. */
 export function mapTurnoToJobType(turno: string): string {
   const t = (turno || "").toLowerCase();
@@ -100,7 +123,7 @@ function buildRequisitosBlock(job: FeedJobInput): string {
     reqs.push("• Movilización propia o residencia cercana al lugar de trabajo.");
   }
 
-  reqs.push(`• Disponibilidad para turno: ${job.turno}.`);
+  reqs.push(`• Disponibilidad para trabajar en turno ${formatTurnoLegible(job.turno)}.`);
   reqs.push(
     "• Documentación al día: cédula de identidad vigente y antecedentes sin observaciones.",
   );
