@@ -174,6 +174,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       userName: "Tú",
       body: newComment.trim(),
       isInternal: false,
+      direction: "internal",
       createdAt: new Date().toISOString(),
     };
     setComments((prev) => [...prev, tempComment]);
