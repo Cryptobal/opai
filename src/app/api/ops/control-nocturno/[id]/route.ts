@@ -369,9 +369,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Send email on submit or resend (must await: serverless kills fire-and-forget on return)
     if (updated && (action === "submit" || action === "resend")) {
       const baseUrl =
-        process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+        process.env.NEXTAUTH_URL ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        process.env.SITE_URL ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+        "https://opai.gard.cl";
 
       // Generate AI summary (non-blocking, best-effort)
       const aiSummaryPromise = generateControlNocturnoSummary(

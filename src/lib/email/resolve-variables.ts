@@ -22,7 +22,7 @@ function getBaseUrl(): string {
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
   ];
   const url = candidates.find((u) => u && u !== "undefined" && !u.includes("undefined"));
-  return url ?? "";
+  return url ?? process.env.SITE_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://opai.gard.cl";
 }
 
 export async function resolveVariables(

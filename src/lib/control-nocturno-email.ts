@@ -56,7 +56,7 @@ function getDeltaSummary(delta: number): { text: string; color: string } {
 }
 
 function buildHtml(data: ControlNocturnoEmailData): string {
-  const baseUrl = data.baseUrl.replace(/\/+$/, "");
+  const baseUrl = (data.baseUrl || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "https://opai.gard.cl").replace(/\/+$/, "");
   const reportUrl = `${baseUrl}/ops/control-nocturno/${data.reporteId}`;
   const weekDelta = data.snapshot
     ? getDeltaSummary(data.snapshot.week.deltaCumplimiento)
@@ -188,7 +188,7 @@ function buildHtml(data: ControlNocturnoEmailData): string {
             </p>
             <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;text-align:center">
               ¿No quieres recibir este tipo de alertas?
-              <a href="${(baseUrl || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl").replace(/\/$/, "")}/opai/perfil/notificaciones" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
+              <a href="${baseUrl}/opai/perfil/notificaciones" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
             </p>
           </td>
         </tr>

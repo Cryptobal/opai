@@ -13,9 +13,12 @@ const resend = process.env.RESEND_API_KEY
   : null;
 
 const SITE_URL =
+  process.env.NEXTAUTH_URL ||
   process.env.NEXT_PUBLIC_SITE_URL ||
   process.env.SITE_URL ||
-  "https://opai.cl";
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  "https://opai.gard.cl";
 
 const FROM = process.env.EMAIL_FROM || "OPAI <noreply@opai.cl>";
 

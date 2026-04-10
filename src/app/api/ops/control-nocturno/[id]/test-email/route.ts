@@ -34,7 +34,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Reporte no encontrado" }, { status: 404 });
     }
 
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) || "https://opai.gard.cl";
 
     // Generate PDF
     let pdfBuffer: Uint8Array | undefined;

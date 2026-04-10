@@ -24,7 +24,7 @@ function fromNumber() { return trimEnv(process.env.TWILIO_WHATSAPP_FROM); }
 function contentSid() { return trimEnv(process.env.TWILIO_WHATSAPP_CONTENT_SID); }
 function messagingServiceSid() { return trimEnv(process.env.TWILIO_MESSAGING_SERVICE_SID); }
 
-const SITE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+const SITE_URL = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "https://opai.gard.cl";
 
 let twilioClient: Twilio.Twilio | null = null;
 

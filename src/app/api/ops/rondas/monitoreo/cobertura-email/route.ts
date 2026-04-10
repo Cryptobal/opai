@@ -187,9 +187,12 @@ export async function POST(request: Request) {
     const cfg = await getTenantCompanyConfig(ctx.tenantId);
     const baseUrl =
       request.headers.get("origin") ||
-      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXTAUTH_URL ||
       process.env.NEXT_PUBLIC_SITE_URL ||
-      "";
+      process.env.SITE_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      "https://opai.gard.cl";
 
     const html = buildCoberturaEmailHtml(snapshot, {
       operatorName: activeTurno.operatorName ?? "Operador",

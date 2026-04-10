@@ -214,7 +214,7 @@ function buildTop5(summaries: InstallationSummary[] | undefined): string {
 }
 
 function buildHtml(data: MonitorEmailData): string {
-  const baseUrl = data.baseUrl.replace(/\/+$/, "");
+  const baseUrl = (data.baseUrl || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "https://opai.gard.cl").replace(/\/+$/, "");
   const monitorUrl = `${baseUrl}/ops/rondas/monitor`;
   const hasPdf = !!data.pdfData;
 
@@ -284,7 +284,7 @@ function buildHtml(data: MonitorEmailData): string {
     <p style="margin:0;font-size:11px;color:#94a3b8;text-align:center">Sistema OPAI — Reporte generado automáticamente</p>
     <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;text-align:center">
       ¿No quieres recibir este tipo de alertas?
-      <a href="${(baseUrl || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://opai.gard.cl").replace(/\/$/, "")}/opai/perfil/notificaciones" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
+      <a href="${baseUrl}/opai/perfil/notificaciones" style="color:#0ea5e9;text-decoration:underline">Administrar notificaciones</a>
     </p>
   </td></tr>
 
