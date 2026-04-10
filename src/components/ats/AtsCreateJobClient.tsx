@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import type { AtsSnippetsConfig, Snippet } from "@/lib/ats/snippets";
+import { getComunasByRegion } from "@/lib/chile/comunas";
 
 interface Installation {
   id: string;
@@ -214,9 +215,15 @@ export function AtsCreateJobClient({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0">
+    <div
+      className={
+        isEdit
+          ? "space-y-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0"
+          : "grid grid-cols-1 lg:grid-cols-3 gap-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-0"
+      }
+    >
       {/* Left column: Job info */}
-      <div className="lg:col-span-2 space-y-6 min-w-0">
+      <div className={isEdit ? "space-y-6 min-w-0" : "lg:col-span-2 space-y-6 min-w-0"}>
         <Card className="p-6 space-y-4">
           <h3 className="font-semibold">Información del cargo</h3>
 
@@ -249,7 +256,7 @@ export function AtsCreateJobClient({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <Label>Turno *</Label>
               <Select value={form.turno} onValueChange={(v) => setForm((f) => ({ ...f, turno: v }))}>
@@ -263,11 +270,39 @@ export function AtsCreateJobClient({
             </div>
             <div>
               <Label>Región *</Label>
-              <Select value={form.region} onValueChange={(v) => setForm((f) => ({ ...f, region: v }))}>
+              <Select
+                value={form.region}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    region: v,
+                    commune: getComunasByRegion(v).includes(f.commune ?? "") ? f.commune : "",
+                  }))
+                }
+              >
                 <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                 <SelectContent>
                   {REGIONES.map((r) => (
                     <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Comuna</Label>
+              <Select
+                value={form.commune || ""}
+                onValueChange={(v) => setForm((f) => ({ ...f, commune: v }))}
+                disabled={!form.region}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={form.region ? "Seleccionar comuna" : "Elige la región primero"}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {getComunasByRegion(form.region).map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -391,67 +426,65 @@ export function AtsCreateJobClient({
         </Card>
       </div>
 
-      {/* Right column: Channels + Actions (barra fija en móvil para publicar sin scroll infinito) */}
-      <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
-        {!isEdit && (
-        <Card className="p-6 space-y-4">
-          <h3 className="font-semibold">Canales de publicación</h3>
-          <div className="space-y-3">
-            {CANALES.map((canal) => (
-              <div
-                key={canal.value}
-                className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                  form.canales.includes(canal.value)
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                }`}
-                onClick={() => toggleCanal(canal.value)}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{canal.label}</span>
-                  {form.canales.includes(canal.value) && (
-                    <Badge variant="default" className="text-xs">Activo</Badge>
-                  )}
+      {/* Right column: Channels (solo en modo create) + Actions */}
+      {!isEdit && (
+        <div className="space-y-6 lg:sticky lg:top-4 lg:self-start">
+          <Card className="p-6 space-y-4">
+            <h3 className="font-semibold">Canales de publicación</h3>
+            <div className="space-y-3">
+              {CANALES.map((canal) => (
+                <div
+                  key={canal.value}
+                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                    form.canales.includes(canal.value)
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                  onClick={() => toggleCanal(canal.value)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{canal.label}</span>
+                    {form.canales.includes(canal.value) && (
+                      <Badge variant="default" className="text-xs">Activo</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{canal.desc}</p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{canal.desc}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-        )}
+              ))}
+            </div>
+          </Card>
 
-        <Card className="p-6 space-y-3 hidden lg:block">
-          {isEdit ? (
-            <>
-              <Button className="w-full" onClick={() => submit(false)} disabled={saving}>
-                Guardar cambios
-              </Button>
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={() => router.push("/ops/ats")}
-                disabled={saving}
-              >
-                Cancelar
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button className="w-full" onClick={() => submit(true)} disabled={saving}>
-                Activar y publicar
-              </Button>
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={() => submit(false)}
-                disabled={saving}
-              >
-                Guardar como borrador
-              </Button>
-            </>
-          )}
+          <Card className="p-6 space-y-3 hidden lg:block">
+            <Button className="w-full" onClick={() => submit(true)} disabled={saving}>
+              Activar y publicar
+            </Button>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={() => submit(false)}
+              disabled={saving}
+            >
+              Guardar como borrador
+            </Button>
+          </Card>
+        </div>
+      )}
+
+      {/* En modo edición: botones inline full-width al final del formulario */}
+      {isEdit && (
+        <Card className="p-6 hidden lg:flex gap-3 justify-end">
+          <Button
+            variant="outline"
+            onClick={() => router.push("/ops/ats")}
+            disabled={saving}
+          >
+            Cancelar
+          </Button>
+          <Button onClick={() => submit(false)} disabled={saving}>
+            Guardar cambios
+          </Button>
         </Card>
-      </div>
+      )}
 
       {/* Móvil: acciones siempre visibles abajo */}
       <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 px-4 shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
