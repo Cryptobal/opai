@@ -4837,12 +4837,34 @@ model OpsTicketComment {
   ticketId   String   @map("ticket_id") @db.Uuid
   userId     String   @map("user_id")
   body       String
+  bodyHtml   String?  @map("body_html")
   isInternal Boolean  @default(false) @map("is_internal")
+
+  // Email fields
+  direction           String   @default("internal") @map("direction")
+  fromEmail           String?  @map("from_email")
+  fromName            String?  @map("from_name")
+  toEmails            String[] @default([]) @map("to_emails")
+  ccEmails            String[] @default([]) @map("cc_emails")
+  bccEmails           String[] @default([]) @map("bcc_emails")
+  subject             String?
+  messageId           String?  @unique @map("message_id")
+  inReplyToMessageId  String?  @map("in_reply_to_message_id")
+  threadMessageIds    String[] @default([]) @map("thread_message_ids")
+  attachments         Json?    @db.JsonB
+  sentAt              DateTime? @map("sent_at") @db.Timestamptz(6)
+  deliveryStatus      String?  @map("delivery_status")
+  deliveryError       String?  @map("delivery_error")
+  resendId            String?  @map("resend_id")
+
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   ticket OpsTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId], map: "idx_ops_ticket_comments_ticket")
+  @@index([messageId], map: "idx_ops_ticket_comments_message_id")
+  @@index([ticketId, direction], map: "idx_ops_ticket_comments_ticket_dir")
   @@map("ops_ticket_comments")
   @@schema("ops")
 }
