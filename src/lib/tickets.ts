@@ -110,6 +110,16 @@ export interface TicketApproval {
   createdAt: string;
 }
 
+// ── SLA Extension Audit Entry ──
+
+export interface SlaExtensionEntry {
+  at: string;
+  by: string;
+  fromDueAt: string;
+  toDueAt: string;
+  reason: string;
+}
+
 // ── Ticket ──
 
 export interface Ticket {
@@ -140,6 +150,12 @@ export interface Ticket {
   reportedByName?: string | null;
   slaDueAt: string | null;
   slaBreached: boolean;
+  slaPausedAt: string | null;
+  slaPausedReason: string | null;
+  slaPausedTotalMs: number;
+  slaExtensions: SlaExtensionEntry[] | null;
+  snoozedUntil: string | null;
+  lastSlaNotifiedAt: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
   resolutionNotes: string | null;
@@ -155,14 +171,41 @@ export interface Ticket {
   attachmentsCount?: number;
 }
 
+export type CommentDirection = "internal" | "email_out" | "email_in";
+
+export interface TicketCommentAttachment {
+  fileName: string;
+  r2Key: string;
+  size: number;
+  contentType: string;
+  url?: string;
+}
+
 export interface TicketComment {
   id: string;
   ticketId: string;
   userId: string;
   userName?: string | null;
   body: string;
+  bodyHtml?: string | null;
   isInternal: boolean;
+  direction: CommentDirection;
+  fromEmail?: string | null;
+  fromName?: string | null;
+  toEmails?: string[];
+  ccEmails?: string[];
+  bccEmails?: string[];
+  subject?: string | null;
+  messageId?: string | null;
+  inReplyToMessageId?: string | null;
+  threadMessageIds?: string[];
+  attachments?: TicketCommentAttachment[] | null;
+  sentAt?: string | null;
+  deliveryStatus?: string | null;
+  deliveryError?: string | null;
+  resendId?: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface TicketAttachment {

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getClientSession } from "@/lib/portal-chat-auth";
+import { sendNotification, sendNotificationToUser } from "@/lib/notification-service";
 
 export async function POST(
   request: NextRequest,
@@ -77,6 +78,45 @@ export async function POST(
         createdAt: true,
       },
     });
+
+    // Notify internal team about new client comment
+    const fullTicket = await prisma.opsTicket.findUnique({
+      where: { id },
+      select: { tenantId: true, code: true, title: true, assignedTo: true, assignedTeam: true },
+    });
+
+    if (fullTicket) {
+      let contactName = "Cliente";
+      try {
+        const contact = await prisma.crmContact.findUnique({
+          where: { id: session.contactId },
+          select: { firstName: true, lastName: true },
+        });
+        if (contact) contactName = [contact.firstName, contact.lastName].filter(Boolean).join(" ") || "Cliente";
+      } catch { /* non-critical */ }
+
+      sendNotification({
+        tenantId: fullTicket.tenantId,
+        type: "ticket_from_client_portal",
+        title: `Comentario en ticket ${fullTicket.code}`,
+        message: `${contactName} comentó en "${fullTicket.title}"`,
+        data: { ticketId: id, code: fullTicket.code, contactName },
+        link: `/ops/tickets/${id}`,
+      }).catch(() => {});
+
+      // Also notify assignee directly if set
+      if (fullTicket.assignedTo) {
+        sendNotificationToUser({
+          tenantId: fullTicket.tenantId,
+          type: "ticket_from_client_portal",
+          title: `Comentario de cliente en ${fullTicket.code}`,
+          message: `${contactName} comentó en "${fullTicket.title}"`,
+          data: { ticketId: id, code: fullTicket.code, contactName },
+          link: `/ops/tickets/${id}`,
+          targetUserId: fullTicket.assignedTo,
+        }).catch(() => {});
+      }
+    }
 
     return NextResponse.json({ success: true, data: comment }, { status: 201 });
   } catch (error) {

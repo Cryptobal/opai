@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { isAdminRole } from "@/lib/access";
-import type { Ticket, TicketApproval } from "@/lib/tickets";
+import type { Ticket, TicketApproval, SlaExtensionEntry } from "@/lib/tickets";
 
 type Params = { id: string };
 
@@ -75,6 +75,12 @@ function mapTicketDetail(t: any): Ticket {
     reportedBy: t.reportedBy,
     slaDueAt: t.slaDueAt instanceof Date ? t.slaDueAt.toISOString() : t.slaDueAt,
     slaBreached: t.slaBreached,
+    slaPausedAt: t.slaPausedAt instanceof Date ? t.slaPausedAt.toISOString() : t.slaPausedAt ?? null,
+    slaPausedReason: t.slaPausedReason ?? null,
+    slaPausedTotalMs: Number(t.slaPausedTotalMs ?? 0),
+    slaExtensions: (t.slaExtensions as SlaExtensionEntry[] | null) ?? null,
+    snoozedUntil: t.snoozedUntil instanceof Date ? t.snoozedUntil.toISOString() : t.snoozedUntil ?? null,
+    lastSlaNotifiedAt: t.lastSlaNotifiedAt instanceof Date ? t.lastSlaNotifiedAt.toISOString() : t.lastSlaNotifiedAt ?? null,
     resolvedAt: t.resolvedAt instanceof Date ? t.resolvedAt.toISOString() : t.resolvedAt,
     closedAt: t.closedAt instanceof Date ? t.closedAt.toISOString() : t.closedAt,
     resolutionNotes: t.resolutionNotes,
@@ -186,10 +192,13 @@ export async function PATCH(
 
     // Build updatable fields (only include those present in body)
     const updateData: Record<string, any> = {};
+    const auditComments: string[] = [];
+    const now = new Date();
+
     if (body.status !== undefined) {
       updateData.status = body.status;
-      if (body.status === "resolved") updateData.resolvedAt = new Date();
-      if (body.status === "closed") updateData.closedAt = new Date();
+      if (body.status === "resolved") updateData.resolvedAt = now;
+      if (body.status === "closed") updateData.closedAt = now;
     }
     if (body.title !== undefined) updateData.title = body.title;
     if (body.description !== undefined) updateData.description = body.description;
@@ -198,6 +207,109 @@ export async function PATCH(
     if (body.assignedTo !== undefined) updateData.assignedTo = body.assignedTo;
     if (body.tags !== undefined) updateData.tags = body.tags;
     if (body.resolutionNotes !== undefined) updateData.resolutionNotes = body.resolutionNotes;
+
+    // ── SLA Extension (aplazar) ──
+    if (body.slaDueAt !== undefined) {
+      const newDueAt = new Date(body.slaDueAt);
+      if (isNaN(newDueAt.getTime()) || newDueAt <= now) {
+        return NextResponse.json(
+          { success: false, error: "slaDueAt debe ser una fecha futura válida" },
+          { status: 400 },
+        );
+      }
+      const reason = (body.slaExtensionReason ?? "").trim();
+      if (!reason) {
+        return NextResponse.json(
+          { success: false, error: "Se requiere slaExtensionReason para aplazar el SLA" },
+          { status: 400 },
+        );
+      }
+      if (!isAdminRole(ctx.userRole) && reason.length < 10) {
+        return NextResponse.json(
+          { success: false, error: "El motivo debe tener al menos 10 caracteres" },
+          { status: 400 },
+        );
+      }
+      const prevExtensions = (existing.slaExtensions as SlaExtensionEntry[] | null) ?? [];
+      const extensionEntry: SlaExtensionEntry = {
+        at: now.toISOString(),
+        by: ctx.userId,
+        fromDueAt: existing.slaDueAt?.toISOString() ?? "",
+        toDueAt: newDueAt.toISOString(),
+        reason,
+      };
+      updateData.slaDueAt = newDueAt;
+      updateData.slaExtensions = [...prevExtensions, extensionEntry] as any;
+      updateData.slaBreached = false; // reset breach if extending
+      const fmtDate = newDueAt.toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      auditComments.push(`SLA aplazado hasta ${fmtDate} — Motivo: ${reason}`);
+    }
+
+    // ── SLA Pause / Resume ──
+    if (body.slaPaused !== undefined) {
+      if (body.slaPaused === true) {
+        if (existing.slaPausedAt) {
+          return NextResponse.json(
+            { success: false, error: "El SLA ya está pausado" },
+            { status: 400 },
+          );
+        }
+        const pauseReason = (body.slaPausedReason ?? "").trim();
+        updateData.slaPausedAt = now;
+        updateData.slaPausedReason = pauseReason || null;
+        auditComments.push(`SLA pausado${pauseReason ? ` — Motivo: ${pauseReason}` : ""}`);
+      } else {
+        // Resume: calculate paused duration, extend slaDueAt
+        if (!existing.slaPausedAt) {
+          return NextResponse.json(
+            { success: false, error: "El SLA no está pausado" },
+            { status: 400 },
+          );
+        }
+        const pausedMs = now.getTime() - new Date(existing.slaPausedAt).getTime();
+        const totalPausedMs = Number(existing.slaPausedTotalMs ?? 0) + pausedMs;
+        updateData.slaPausedTotalMs = BigInt(totalPausedMs);
+        updateData.slaPausedAt = null;
+        updateData.slaPausedReason = null;
+        // Extend slaDueAt by the paused duration
+        if (existing.slaDueAt) {
+          const extendedDueAt = new Date(existing.slaDueAt.getTime() + pausedMs);
+          updateData.slaDueAt = extendedDueAt;
+          // Audit the extension
+          const prevExtensions = (existing.slaExtensions as SlaExtensionEntry[] | null) ?? [];
+          const extensionEntry: SlaExtensionEntry = {
+            at: now.toISOString(),
+            by: ctx.userId,
+            fromDueAt: existing.slaDueAt.toISOString(),
+            toDueAt: extendedDueAt.toISOString(),
+            reason: "Reanudación de pausa SLA (extensión automática)",
+          };
+          updateData.slaExtensions = [...prevExtensions, extensionEntry] as any;
+          if (extendedDueAt > now) updateData.slaBreached = false;
+        }
+        const pausedHours = Math.round(pausedMs / (1000 * 60 * 60) * 10) / 10;
+        auditComments.push(`SLA reanudado (pausado ${pausedHours}h). Plazo extendido automáticamente.`);
+      }
+    }
+
+    // ── Snooze notifications ──
+    if (body.snoozedUntil !== undefined) {
+      if (body.snoozedUntil === null) {
+        updateData.snoozedUntil = null;
+        auditComments.push("Silenciamiento de avisos removido");
+      } else {
+        const snoozeUntil = new Date(body.snoozedUntil);
+        if (isNaN(snoozeUntil.getTime()) || snoozeUntil <= now) {
+          return NextResponse.json(
+            { success: false, error: "snoozedUntil debe ser una fecha futura válida" },
+            { status: 400 },
+          );
+        }
+        updateData.snoozedUntil = snoozeUntil;
+        const fmtDate = snoozeUntil.toLocaleString("es-CL", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+        auditComments.push(`Avisos silenciados hasta ${fmtDate}`);
+      }
+    }
 
     const updResult = await prisma.opsTicket.updateMany({
       where: { id, tenantId: ctx.tenantId },
@@ -208,6 +320,18 @@ export async function PATCH(
         { success: false, error: "Ticket no encontrado" },
         { status: 404 },
       );
+    }
+
+    // Create audit comments for SLA changes
+    if (auditComments.length > 0) {
+      await prisma.opsTicketComment.createMany({
+        data: auditComments.map((body) => ({
+          ticketId: id,
+          userId: ctx.userId,
+          body,
+          isInternal: true,
+        })),
+      });
     }
 
     // Re-fetch with full includes
