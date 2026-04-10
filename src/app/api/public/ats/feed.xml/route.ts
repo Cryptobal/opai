@@ -58,6 +58,10 @@ export async function GET(req: NextRequest) {
           tenantSlug: job.tenant.slug,
           companyName,
           logo,
+          requiereOS10: job.requiereOS10,
+          requiereMovilizacion: job.requiereMovilizacion,
+          genero: job.genero,
+          vacantes: job.vacantes,
         },
         { siteUrl, source },
       );

@@ -22,6 +22,10 @@ export interface FeedJobInput {
   tenantSlug: string;
   companyName: string;
   logo: string;
+  requiereOS10?: boolean;
+  requiereMovilizacion?: boolean;
+  genero?: string | null;
+  vacantes?: number;
 }
 
 export interface FeedJobContext {
@@ -65,13 +69,103 @@ export function buildEducation(text: string | null | undefined): string {
   return "Enseñanza media completa";
 }
 
+/** Formatea un monto CLP sin decimales. */
+function formatCLP(amount: number): string {
+  return `$${amount.toLocaleString("es-CL")} CLP`;
+}
+
+/** Arma bloque de Requisitos derivado de los campos estructurados. */
+function buildRequisitosBlock(job: FeedJobInput): string {
+  const reqs: string[] = [];
+
+  if (job.experienciaMinAnios && job.experienciaMinAnios > 0) {
+    reqs.push(
+      `• Experiencia mínima: ${job.experienciaMinAnios} ${
+        job.experienciaMinAnios === 1 ? "año" : "años"
+      } en cargos similares de seguridad o vigilancia.`,
+    );
+  } else {
+    reqs.push("• Sin experiencia previa requerida — capacitación incluida.");
+  }
+
+  if (job.requiereOS10) {
+    reqs.push(
+      "• Curso OS-10 vigente otorgado por Carabineros de Chile (obligatorio según Ley 21.659).",
+    );
+  }
+
+  reqs.push("• Enseñanza media completa.");
+
+  if (job.requiereMovilizacion) {
+    reqs.push("• Movilización propia o residencia cercana al lugar de trabajo.");
+  }
+
+  reqs.push(`• Disponibilidad para turno: ${job.turno}.`);
+  reqs.push(
+    "• Documentación al día: cédula de identidad vigente y antecedentes sin observaciones.",
+  );
+  reqs.push("• Buena presentación personal y disposición de servicio al cliente.");
+
+  return `\n\nRequisitos:\n${reqs.join("\n")}`;
+}
+
+/** Arma bloque de Beneficios estándar. */
+function buildBeneficiosBlock(job: FeedJobInput): string {
+  const benefits: string[] = ["• Contrato indefinido tras período de prueba"];
+
+  if (job.rentaMin) {
+    const renta =
+      job.rentaMax && job.rentaMax > job.rentaMin
+        ? `${formatCLP(job.rentaMin)} a ${formatCLP(job.rentaMax)}`
+        : formatCLP(job.rentaMin);
+    benefits.push(`• Renta líquida: ${renta} mensuales`);
+  }
+
+  benefits.push(
+    "• Imposiciones legales (AFP, salud, seguro de cesantía)",
+    "• Uniforme y equipamiento completo proporcionado por la empresa",
+    "• Capacitación continua y oportunidades de crecimiento profesional",
+    "• Pago puntual mensual",
+    "• Estabilidad laboral en empresa consolidada del rubro",
+  );
+
+  return `\n\nBeneficios:\n${benefits.join("\n")}`;
+}
+
+/** Bloque de ubicación legible. */
+function buildUbicacionBlock(job: FeedJobInput): string {
+  const ciudad = job.commune || job.installationCommune || "";
+  if (!ciudad) return "";
+  return `\n\nUbicación del puesto: ${ciudad}, Región ${job.region}, Chile.`;
+}
+
+/** Bloque de vacantes si hay más de 1. */
+function buildVacantesBlock(job: FeedJobInput): string {
+  if (!job.vacantes || job.vacantes <= 1) return "";
+  return `\n\nVacantes disponibles: ${job.vacantes}.`;
+}
+
 export function buildJobXml(job: FeedJobInput, ctx: FeedJobContext): string {
   const slug = job.jsonLdSlug || job.id;
   const utm = `utm_source=${encodeURIComponent(ctx.source)}&utm_medium=job_board&utm_campaign=ats_feed`;
   const jobUrl = `${ctx.siteUrl}/empleos/${job.tenantSlug}/${slug}?${utm}`;
   const applyUrl = `${ctx.siteUrl}/empleos/${job.tenantSlug}/${slug}?${utm}#postular`;
+  const descripcionBase = (job.descripcion || "").trim();
+  const funcionesBlock = job.funciones?.trim()
+    ? `\n\nFunciones y Responsabilidades:\n${job.funciones.trim()}`
+    : "";
+  const requisitosBlock = buildRequisitosBlock(job);
+  const beneficiosBlock = buildBeneficiosBlock(job);
+  const ubicacionBlock = buildUbicacionBlock(job);
+  const vacantesBlock = buildVacantesBlock(job);
+
   const description =
-    job.descripcion + (job.funciones ? `\n\nFunciones:\n${job.funciones}` : "");
+    descripcionBase +
+    funcionesBlock +
+    requisitosBlock +
+    beneficiosBlock +
+    ubicacionBlock +
+    vacantesBlock;
   const jobType = mapTurnoToJobType(job.turno);
 
   let salaryXml = "";
