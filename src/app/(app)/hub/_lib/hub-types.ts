@@ -247,7 +247,6 @@ export interface GroupedActivity {
 export interface HubGreetingProps {
   firstName: string;
   pendingFollowUpsCount: number;
-  showPortalLink?: boolean;
 }
 
 export interface HubQuickActionsProps {
