@@ -36,7 +36,7 @@ export type TicketTeam =
 
 export type TicketSource = "manual" | "incident" | "portal" | "guard_event" | "system";
 
-export type TicketOrigin = "guard" | "internal" | "both";
+export type TicketOrigin = "guard" | "internal" | "both" | "client";
 
 export type ApproverType = "group" | "user";
 
@@ -653,6 +653,7 @@ export function getOriginLabel(origin: TicketOrigin): string {
     guard: "Guardia",
     internal: "Interno",
     both: "Ambos",
+    client: "Cliente",
   };
   return labels[origin];
 }
