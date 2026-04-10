@@ -396,6 +396,7 @@ export async function GET(request: NextRequest) {
             lifecycleStatus: true,
             availableExtraShifts: true,
             marcacionPin: true,
+            marcacionPinVisible: true,
             faceIdPhotoUrl: true,
             persona: {
               select: { firstName: true, lastName: true, rut: true },
@@ -409,9 +410,11 @@ export async function GET(request: NextRequest) {
           const primerNombre = g.persona.firstName?.trim().split(/\s+/)[0] ?? "";
           const apellidos = g.persona.lastName?.trim() ?? "";
           const title = apellidos ? `${apellidos}${primerNombre ? `, ${primerNombre}` : ""}` : (g.persona.firstName ?? "").trim() || "Guardia";
-          const hasPin = Boolean(g.marcacionPin);
-          // Ley 21.719: el PIN no se expone en búsqueda global.
-          const pinDisplay = hasPin ? "PIN configurado" : "Sin PIN";
+          const pinDisplay = g.marcacionPinVisible
+            ? `PIN: ${g.marcacionPinVisible}`
+            : g.marcacionPin
+              ? "PIN configurado"
+              : "Sin PIN";
           const subtitleParts = [
             g.currentInstallation?.name,
             g.persona.rut ?? "",

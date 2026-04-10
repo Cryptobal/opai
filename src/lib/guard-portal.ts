@@ -92,11 +92,10 @@ export interface GuardTicket {
 
 /**
  * Controla si el PIN almacenado (`marcacionPinVisible`) se muestra en la ficha
- * del guardia. Por defecto false en producción: el PIN solo se muestra una vez
- * al generarse. Fase 3: eliminar marcacionPinVisible del schema.
+ * del guardia. Habilitado para consulta operativa: los supervisores necesitan
+ * poder ver y entregar el PIN cuando el guardia lo olvida.
  */
-export const SHOW_PIN_IN_PROFILE =
-  process.env.NEXT_PUBLIC_SHOW_PIN_PROFILE === "true";
+export const SHOW_PIN_IN_PROFILE = true;
 
 // ═══════════════════════════════════════════════════════════════
 //  PORTAL SECTIONS

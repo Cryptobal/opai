@@ -150,8 +150,7 @@ export default function MarcacionSection({
           </div>
         ) : marcacionPin ? (
           <p className="mt-2 text-xs text-muted-foreground">
-            PIN configurado. Por privacidad (Ley 21.719), el PIN se muestra una sola
-            vez al generarse. Si el guardia lo olvidó, genera uno nuevo.
+            PIN configurado pero no disponible en texto. Genera uno nuevo para verlo.
           </p>
         ) : (
           <p className="mt-2 text-xs text-muted-foreground">
