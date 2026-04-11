@@ -8,14 +8,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { addDays } from "date-fns";
 import {
   NOTIFICATION_TYPE_MAP,
   NOTIFICATION_TYPES,
   canSeeNotificationType,
   type UserNotifPrefsMap,
 } from "@/lib/notification-types";
-import { getGuardiaDocumentosConfig } from "@/lib/guardia-documentos-config";
 import type { AuthContext } from "@/lib/api-auth";
 import type { Prisma } from "@prisma/client";
 
@@ -94,10 +92,13 @@ const TYPE_SOURCE_MODULE: Record<string, SourceModuleKey> = {
   contract_required: "contrato",
   contract_expiring: "contrato",
   contract_expired: "contrato",
+  contract_adjustment_reminder: "contrato",
+  contract_suggestion: "contrato",
   document_signed_completed: "contrato",
   guardia_doc_expiring: "guardia",
   guardia_doc_expired: "guardia",
   new_postulacion: "guardia",
+  new_te_ingreso: "guardia",
   refuerzo_solicitud_created: "operaciones",
   ticket_created: "operaciones",
   ticket_approved: "operaciones",
@@ -589,81 +590,11 @@ function visibleNotificationsWhere(
   };
 }
 
-async function ensureGuardiaDocExpiryNotifications(tenantId: string, enabled: boolean) {
-  if (!enabled) return;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const config = await getGuardiaDocumentosConfig(tenantId);
-  const byType = new Map(config.filter((c) => c.hasExpiration).map((c) => [c.code, c.alertDaysBefore]));
-
-  const maxDays = Math.max(30, ...Array.from(byType.values()));
-  const limitDate = addDays(today, maxDays);
-
-  const docs = await prisma.opsDocumentoPersona.findMany({
-    where: {
-      tenantId,
-      expiresAt: { not: null, lte: limitDate },
-      status: { not: "vencido" },
-    },
-    include: {
-      guardia: {
-        include: {
-          persona: { select: { firstName: true, lastName: true } },
-        },
-      },
-    },
-    take: 200,
-  });
-
-  for (const doc of docs) {
-    if (!doc.expiresAt) continue;
-    const alertDays = byType.get(doc.type);
-    if (alertDays === undefined) continue;
-    const expiresAt = new Date(doc.expiresAt);
-    const daysRemaining = Math.ceil(
-      (expiresAt.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    if (daysRemaining > alertDays) continue;
-    const type = daysRemaining < 0 ? "guardia_doc_expired" : "guardia_doc_expiring";
-    const personName = `${doc.guardia.persona.firstName} ${doc.guardia.persona.lastName}`.trim();
-    const title =
-      daysRemaining < 0
-        ? `Documento vencido de guardia: ${personName}`
-        : `Documento por vencer de guardia: ${personName}`;
-    const message =
-      daysRemaining < 0
-        ? `${doc.type} venció y requiere renovación.`
-        : `${doc.type} vence en ${daysRemaining} día(s).`;
-
-    const existing = await prisma.notification.findFirst({
-      where: {
-        tenantId,
-        type,
-        data: { path: ["guardiaDocumentId"], equals: doc.id },
-        createdAt: { gte: addDays(today, -1) },
-      },
-      select: { id: true },
-    });
-    if (existing) continue;
-
-    await prisma.notification.create({
-      data: {
-        tenantId,
-        type,
-        title,
-        message,
-        link: `/personas/guardias/${doc.guardiaId}`,
-        data: {
-          guardiaId: doc.guardiaId,
-          guardiaDocumentId: doc.id,
-          expiresAt: doc.expiresAt,
-          docType: doc.type,
-        },
-      },
-    });
-  }
-}
+// NOTE: Anteriormente aquí existía ensureGuardiaDocExpiryNotifications(),
+// que se ejecutaba como side-effect del GET. Ahora las notificaciones de
+// documentos de guardia por vencer/vencidos son creadas por el cron job en
+// /api/cron/guardia-doc-notifications, que usa sendNotification() para
+// respetar las preferencias por usuario (bell/email).
 
 export async function GET(request: NextRequest) {
   try {
