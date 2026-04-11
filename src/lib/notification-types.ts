@@ -211,6 +211,24 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultEmail: true,
   },
   {
+    key: "contract_adjustment_reminder",
+    label: "Reajuste de contrato",
+    description: "Recordatorio de reajuste periódico (IPC/IMO/polinomio) por vencer",
+    module: "docs",
+    category: "Documentos",
+    defaultBell: true,
+    defaultEmail: true,
+  },
+  {
+    key: "contract_suggestion",
+    label: "Sugerencia de edición de contrato",
+    description: "Cuando un cliente sugiere cambios en una cláusula desde el portal",
+    module: "docs",
+    category: "Documentos",
+    defaultBell: true,
+    defaultEmail: true,
+  },
+  {
     key: "document_signed_completed",
     label: "Firma completada",
     description: "Cuando todos los firmantes completan un documento",
@@ -245,6 +263,16 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     key: "new_postulacion",
     label: "Nueva postulación",
     description: "Cuando un guardia envía una postulación",
+    module: "ops",
+    submodule: "guardias",
+    category: "Operaciones - Guardias",
+    defaultBell: true,
+    defaultEmail: false,
+  },
+  {
+    key: "new_te_ingreso",
+    label: "Nuevo ingreso Turno Extra",
+    description: "Cuando un guardia completa el formulario de ingreso para Turno Extra",
     module: "ops",
     submodule: "guardias",
     category: "Operaciones - Guardias",
@@ -374,7 +402,6 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultEmail: true,
   },
 
-  // ── CRM - Portal Cliente ──
   // ── Inventario ──
   {
     key: "inventory_delivery",

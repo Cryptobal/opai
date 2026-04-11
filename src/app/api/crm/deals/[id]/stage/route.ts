@@ -197,42 +197,49 @@ export async function POST(
         }
       }
 
-      // Si el negocio fue ganado, crear notificación de contrato pendiente
-      if (nextStatus === "won") {
-        await tx.notification.create({
-          data: {
-            tenantId: ctx.tenantId,
-            type: "contract_required",
-            title: `Contrato pendiente: ${updated.account.name}`,
-            message: `El negocio "${updated.title}" fue ganado. Se requiere generar un contrato.`,
+      // Si el negocio fue ganado, transición portal: prospect → client_active
+      // (La notificación de contrato pendiente se envía FUERA de la transacción
+      // para respetar las preferencias de usuario vía sendNotification()).
+      if (nextStatus === "won" && updated.account.status === "prospect") {
+        try {
+          await tx.crmAccount.update({
+            where: { id: updated.accountId },
             data: {
-              dealId: deal.id,
-              accountId: updated.accountId,
-              accountName: updated.account.name,
-              dealTitle: updated.title,
+              status: "client_active",
+              portalTourShown: false, // reset tour for active mode
             },
-            link: `/opai/documentos/nuevo?accountId=${updated.accountId}&dealId=${deal.id}`,
-          },
-        });
-
-        // Transición portal: prospect → client_active
-        if (updated.account.status === "prospect") {
-          try {
-            await tx.crmAccount.update({
-              where: { id: updated.accountId },
-              data: {
-                status: "client_active",
-                portalTourShown: false, // reset tour for active mode
-              },
-            });
-          } catch (e) {
-            console.error("Error transitioning portal prospect to active:", e);
-          }
+          });
+        } catch (e) {
+          console.error("Error transitioning portal prospect to active:", e);
         }
       }
 
       return updated;
     });
+
+    // Notificación de contrato pendiente — fuera de la transacción para que
+    // respete las preferencias por usuario (bell/email) y no bloquee el commit
+    // si el envío de email falla.
+    if (nextStatus === "won") {
+      try {
+        const { sendNotification } = await import("@/lib/notification-service");
+        await sendNotification({
+          tenantId: ctx.tenantId,
+          type: "contract_required",
+          title: `Contrato pendiente: ${updatedDeal.account.name}`,
+          message: `El negocio "${updatedDeal.title}" fue ganado. Se requiere generar un contrato.`,
+          data: {
+            dealId: updatedDeal.id,
+            accountId: updatedDeal.accountId,
+            accountName: updatedDeal.account.name,
+            dealTitle: updatedDeal.title,
+          },
+          link: `/opai/documentos/nuevo?accountId=${updatedDeal.accountId}&dealId=${updatedDeal.id}`,
+        });
+      } catch (e) {
+        console.error("Error sending contract_required notification:", e);
+      }
+    }
 
     return NextResponse.json({ success: true, data: updatedDeal });
   } catch (error) {

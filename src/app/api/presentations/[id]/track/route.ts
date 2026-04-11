@@ -52,21 +52,21 @@ async function notifyProposalViewed(presentationId: string, tenantId: string) {
     const clientName = presentation.recipientName || 'Un cliente';
     const dealUrl = `/crm/deals/${deal.id}`;
 
-    // Create internal notification (bell)
-    await prisma.notification.create({
+    // Create internal notification (bell + email) respetando preferencias del usuario.
+    // sendNotificationToUser usa UserNotificationPreference para decidir bell/email.
+    const { sendNotificationToUser } = await import('@/lib/notification-service');
+    await sendNotificationToUser({
+      tenantId,
+      targetUserId,
+      type: 'quote_viewed',
+      title: `${clientName} abrió tu propuesta`,
+      message: deal.title,
       data: {
-        tenantId,
-        type: 'quote_viewed',
-        title: `${clientName} abrió tu propuesta`,
-        message: deal.title,
-        data: {
-          dealId: deal.id,
-          accountId: deal.accountId,
-          presentationId,
-          targetUserId,
-        },
-        link: dealUrl,
+        dealId: deal.id,
+        accountId: deal.accountId,
+        presentationId,
       },
+      link: dealUrl,
     });
 
     // Send web push notification
