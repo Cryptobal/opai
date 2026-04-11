@@ -8,6 +8,11 @@
  * - Re-notifies breached tickets with cadence by priority (escalation)
  * - Batches notifications when >5 tickets breached per team per tenant
  * - Protected with CRON_SECRET env var
+ *
+ * IMPORTANTE: Este cron sólo crea notificaciones BELL (campana en la app).
+ * El envío de EMAILS por SLA se consolida en un digest diario único en
+ * /api/cron/sla-daily-digest (6 AM Chile) para evitar spam. Si quieres
+ * reactivar emails en tiempo real desde aquí, quita `channels: ["bell"]`.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -93,7 +98,7 @@ export async function GET(request: NextRequest) {
         const teamLabel = TICKET_TEAM_CONFIG[assignedTeam as keyof typeof TICKET_TEAM_CONFIG]?.label ?? assignedTeam;
 
         if (tickets.length > BATCH_THRESHOLD) {
-          // Batch notification
+          // Batch notification — sólo bell. El email se envía en el digest diario.
           notifPromises.push(
             sendNotification({
               tenantId,
@@ -102,10 +107,11 @@ export async function GET(request: NextRequest) {
               message: `Hay ${tickets.length} tickets con SLA vencido en ${teamLabel}`,
               data: { count: tickets.length, assignedTeam, ticketIds: tickets.map((t) => t.id) },
               link: `/ops/tickets?status=overdue&team=${assignedTeam}`,
+              channels: ["bell"],
             }),
           );
         } else {
-          // Individual notifications
+          // Individual notifications — sólo bell.
           for (const t of tickets) {
             notifPromises.push(
               sendNotification({
@@ -115,6 +121,7 @@ export async function GET(request: NextRequest) {
                 message: `El ticket "${t.title}" (${t.priority.toUpperCase()}) ha superado su plazo de SLA. Equipo: ${teamLabel}`,
                 data: { ticketId: t.id, code: t.code, priority: t.priority },
                 link: `/ops/tickets/${t.id}`,
+                channels: ["bell"],
               }),
             );
           }
@@ -182,6 +189,7 @@ export async function GET(request: NextRequest) {
               message: `Hay ${tickets.length} tickets con SLA vencido en ${teamLabel}`,
               data: { count: tickets.length, assignedTeam, ticketIds: tickets.map((t) => t.id) },
               link: `/ops/tickets?status=overdue&team=${assignedTeam}`,
+              channels: ["bell"],
             }),
           );
         } else {
@@ -194,6 +202,7 @@ export async function GET(request: NextRequest) {
                 message: `El ticket "${t.title}" (${t.priority.toUpperCase()}) sigue con SLA vencido. Equipo: ${teamLabel}`,
                 data: { ticketId: t.id, code: t.code, priority: t.priority },
                 link: `/ops/tickets/${t.id}`,
+                channels: ["bell"],
               }),
             );
           }
@@ -262,6 +271,7 @@ export async function GET(request: NextRequest) {
               message: `El ticket "${t.title}" vence en ~${minsLeft} minutos`,
               data: { ticketId: t.id, code: t.code, priority: t.priority },
               link: `/ops/tickets/${t.id}`,
+              channels: ["bell"],
             });
           }),
         );
