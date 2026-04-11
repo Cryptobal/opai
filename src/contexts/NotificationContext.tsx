@@ -27,6 +27,7 @@ interface NotificationContextValue {
   notifications: NotificationItem[];
   unreadCount: number;
   isLoading: boolean;
+  isLoadingMore: boolean;
   hasMore: boolean;
   markAsRead: (ids: string[]) => Promise<void>;
   markAsUnread: (ids: string[]) => Promise<void>;
@@ -50,8 +51,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Guard against concurrent loadMore calls (IntersectionObserver can fire
+  // multiple times in rapid succession before state updates). Without this
+  // guard the sentinel fires repeatedly and the spinner never stops.
+  const loadMoreInFlightRef = useRef(false);
 
   const fetchNotifications = useCallback(async (limit = 50) => {
     try {
@@ -219,18 +225,45 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [fetchNotifications]);
 
   const loadMore = useCallback(async () => {
-    if (!hasMore || notifications.length === 0) return;
+    if (!hasMore) return;
+    if (loadMoreInFlightRef.current) return;
+    // Read the latest notifications via functional setState below; guard with ref
+    if (notifications.length === 0) return;
     const lastId = notifications[notifications.length - 1].id;
+    loadMoreInFlightRef.current = true;
+    setIsLoadingMore(true);
     try {
       const res = await fetch(`/api/notifications?limit=50&cursor=${lastId}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        // On API error, stop paginating to avoid an infinite retry loop
+        setHasMore(false);
+        return;
+      }
       const data = await res.json();
       if (data.success) {
-        setNotifications((prev) => [...prev, ...(data.data || [])]);
-        setHasMore(data.meta?.hasMore ?? false);
+        const newItems: NotificationItem[] = data.data || [];
+        // Dedupe by id in case of concurrent fetches or overlapping cursors
+        setNotifications((prev) => {
+          const existingIds = new Set(prev.map((n) => n.id));
+          const merged = [...prev];
+          for (const item of newItems) {
+            if (!existingIds.has(item.id)) merged.push(item);
+          }
+          return merged;
+        });
+        // Stop paginating if the server returned zero items, regardless of
+        // what meta.hasMore says — prevents an infinite loop against a buggy
+        // server or an inconsistent cursor.
+        const apiHasMore = data.meta?.hasMore ?? false;
+        setHasMore(apiHasMore && newItems.length > 0);
+      } else {
+        setHasMore(false);
       }
     } catch {
-      // silent
+      setHasMore(false);
+    } finally {
+      loadMoreInFlightRef.current = false;
+      setIsLoadingMore(false);
     }
   }, [hasMore, notifications]);
 
@@ -240,6 +273,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         notifications,
         unreadCount,
         isLoading,
+        isLoadingMore,
         hasMore,
         markAsRead,
         markAsUnread,

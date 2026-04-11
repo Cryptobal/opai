@@ -62,6 +62,7 @@ export function NotificationSidePanel() {
     notifications,
     unreadCount,
     isLoading: loading,
+    isLoadingMore,
     hasMore,
     markAsRead,
     markAsUnread,
@@ -72,6 +73,13 @@ export function NotificationSidePanel() {
     refetch,
     loadMore,
   } = useNotifications();
+
+  // Stable ref to loadMore so the IntersectionObserver effect doesn't
+  // re-run (and re-trigger) on every notifications state change.
+  const loadMoreRef = useRef(loadMore);
+  useEffect(() => {
+    loadMoreRef.current = loadMore;
+  }, [loadMore]);
 
   const [actionLoading, setActionLoading] = useState(false);
   const [filter, setFilter] = useState<NotificationFilter>("all");
@@ -345,13 +353,17 @@ export function NotificationSidePanel() {
     if (!el) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) void loadMore();
+        // Use the stable ref so the observer doesn't need to be re-created
+        // each time loadMore's identity changes (which happens on every
+        // notifications state update and was causing an infinite loop).
+        if (entries[0]?.isIntersecting) void loadMoreRef.current();
       },
       { rootMargin: "200px" }
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, loadMore, ctx.isPanelOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, ctx.isPanelOpen]);
 
   /* ---- Notification list content (shared desktop/mobile) ---- */
   const notificationListContent = (
@@ -594,10 +606,16 @@ export function NotificationSidePanel() {
               );
             })}
 
-            {/* Infinite scroll sentinel */}
+            {/* Infinite scroll sentinel — only while there is more AND we are
+                 not already fetching the next page (avoids the observer firing
+                 in a tight loop). */}
             {hasMore && (
               <div ref={sentinelRef} className="py-3 flex items-center justify-center">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                {isLoadingMore ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <span className="h-4 w-4" aria-hidden />
+                )}
               </div>
             )}
           </div>
