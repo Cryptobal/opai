@@ -12,6 +12,48 @@ import NotificationEmail from "@/emails/NotificationEmail";
 import { NOTIFICATION_TYPE_MAP, canSeeNotificationType, type UserNotifPrefsMap } from "@/lib/notification-types";
 import { resolvePermissions } from "@/lib/permissions-server";
 
+/**
+ * Resuelve si el canal email debe activarse para un usuario y un tipo.
+ *
+ * Regla:
+ * - Si el usuario tiene una preferencia explícita para este tipo, se respeta.
+ * - Si el usuario tiene un registro de preferencias GUARDADO pero no incluye
+ *   este tipo (porque el tipo fue añadido después de que el usuario configurara),
+ *   se considera desactivado por email. Esto evita que el usuario reciba
+ *   emails para tipos nuevos que nunca ha visto en la UI y por los que nunca
+ *   ha dado su consentimiento explícito.
+ * - Si el usuario NO tiene ningún registro de preferencias (nunca abrió la UI),
+ *   se aplica el default del tipo para que siga recibiendo notificaciones
+ *   relevantes desde el primer día.
+ */
+function resolveEmailEnabled(
+  prefs: UserNotifPrefsMap | undefined,
+  type: string,
+  typeDefDefault: boolean | undefined
+): boolean {
+  const explicit = prefs?.[type];
+  if (explicit && typeof explicit.email === "boolean") return explicit.email;
+  const userHasSavedPrefs = !!prefs && Object.keys(prefs).length > 0;
+  if (userHasSavedPrefs) return false;
+  return typeDefDefault ?? false;
+}
+
+/**
+ * Mismo criterio para el canal bell. Para bell somos menos estrictos: si el
+ * usuario ya guardó preferencias pero el tipo es nuevo, lo dejamos visible
+ * por defecto (true) para que el usuario pueda descubrirlo en el panel y
+ * decidir si lo desactiva. Los bells no son intrusivos como los emails.
+ */
+function resolveBellEnabled(
+  prefs: UserNotifPrefsMap | undefined,
+  type: string,
+  typeDefDefault: boolean | undefined
+): boolean {
+  const explicit = prefs?.[type];
+  if (explicit && typeof explicit.bell === "boolean") return explicit.bell;
+  return typeDefDefault ?? true;
+}
+
 interface CreateNotificationInput {
   tenantId: string;
   type: string;
@@ -70,10 +112,9 @@ export async function sendNotification(input: CreateNotificationInput) {
     if (!canSee) continue;
 
     const prefs = prefsMap.get(user.id);
-    const pref = prefs?.[type];
 
-    const bellEnabled = pref?.bell ?? typeDef?.defaultBell ?? true;
-    const emailEnabled = pref?.email ?? typeDef?.defaultEmail ?? false;
+    const bellEnabled = resolveBellEnabled(prefs, type, typeDef?.defaultBell);
+    const emailEnabled = resolveEmailEnabled(prefs, type, typeDef?.defaultEmail);
 
     if (bellEnabled) anyBellEnabled = true;
     if (emailEnabled && user.email) emailRecipients.push(user.email);
@@ -144,9 +185,8 @@ export async function sendNotificationToUser(
   });
 
   const prefs = prefsRecord?.preferences as unknown as UserNotifPrefsMap | undefined;
-  const pref = prefs?.[type];
 
-  const bellEnabled = pref?.bell ?? typeDef?.defaultBell ?? true;
+  const bellEnabled = resolveBellEnabled(prefs, type, typeDef?.defaultBell);
   // Menciones: siempre enviar email (bypass preferencias) — es una comunicación directa
   const emailEnabled =
     type === "mention" ||
@@ -154,7 +194,7 @@ export async function sendNotificationToUser(
     type === "mention_group" ||
     type === "note_thread_reply"
       ? true
-      : (pref?.email ?? typeDef?.defaultEmail ?? false);
+      : resolveEmailEnabled(prefs, type, typeDef?.defaultEmail);
 
   if (bellEnabled) {
     try {
@@ -237,15 +277,14 @@ export async function sendNotificationToUsers(
 
   for (const user of users) {
     const prefs = prefsMap.get(user.id);
-    const pref = prefs?.[type];
-    const bellEnabled = pref?.bell ?? typeDef?.defaultBell ?? true;
+    const bellEnabled = resolveBellEnabled(prefs, type, typeDef?.defaultBell);
     const emailEnabled =
       type === "mention" ||
       type === "mention_direct" ||
       type === "mention_group" ||
       type === "note_thread_reply"
         ? true
-        : (pref?.email ?? typeDef?.defaultEmail ?? false);
+        : resolveEmailEnabled(prefs, type, typeDef?.defaultEmail);
 
     if (bellEnabled) {
       try {
@@ -344,8 +383,7 @@ export async function getEmailRecipientsForType(
     const canSee = await userCanSeeType(user, typeDef);
     if (!canSee) continue;
     const prefs = prefsMap.get(user.id);
-    const pref = prefs?.[type];
-    const emailEnabled = pref?.email ?? typeDef?.defaultEmail ?? false;
+    const emailEnabled = resolveEmailEnabled(prefs, type, typeDef?.defaultEmail);
     if (emailEnabled && user.email) {
       const email = user.email.trim().toLowerCase();
       if (email.length > 3 && email.includes("@")) emails.push(email);

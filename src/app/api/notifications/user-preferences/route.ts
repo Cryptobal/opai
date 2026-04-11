@@ -13,7 +13,6 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import {
   NOTIFICATION_TYPES,
   canSeeNotificationType,
-  getDefaultUserPrefs,
   type UserNotifPrefsMap,
 } from "@/lib/notification-types";
 
@@ -30,12 +29,16 @@ export async function GET() {
       },
     });
 
-    const defaults = getDefaultUserPrefs();
     const saved: UserNotifPrefsMap = record?.preferences
       ? (record.preferences as unknown as UserNotifPrefsMap)
       : {};
 
-    const merged = { ...defaults, ...saved };
+    // Si el usuario ya tiene preferencias guardadas, las claves NO guardadas
+    // (tipos añadidos después de su último guardado) deben aparecer con email
+    // apagado por defecto. Esta lógica refleja exactamente la que aplica
+    // notification-service al momento de enviar: no sorprender al usuario con
+    // emails de tipos que nunca ha visto/aceptado explícitamente.
+    const userHasSavedPrefs = Object.keys(saved).length > 0;
 
     const accessibleTypes = NOTIFICATION_TYPES.filter((t) =>
       canSeeNotificationType(perms, t)
@@ -43,10 +46,26 @@ export async function GET() {
 
     const filteredPrefs: UserNotifPrefsMap = {};
     for (const t of accessibleTypes) {
-      filteredPrefs[t.key] = merged[t.key] ?? {
-        bell: t.defaultBell,
-        email: t.defaultEmail,
-      };
+      const savedPref = saved[t.key];
+      if (savedPref && typeof savedPref === "object") {
+        filteredPrefs[t.key] = {
+          bell: typeof savedPref.bell === "boolean" ? savedPref.bell : t.defaultBell,
+          email: typeof savedPref.email === "boolean" ? savedPref.email : t.defaultEmail,
+        };
+      } else if (userHasSavedPrefs) {
+        // Tipo nuevo añadido después del último guardado del usuario:
+        // bell visible por defecto (para que lo descubra), email apagado.
+        filteredPrefs[t.key] = {
+          bell: t.defaultBell,
+          email: false,
+        };
+      } else {
+        // Usuario nunca ha guardado: defaults del tipo.
+        filteredPrefs[t.key] = {
+          bell: t.defaultBell,
+          email: t.defaultEmail,
+        };
+      }
     }
 
     return NextResponse.json({
