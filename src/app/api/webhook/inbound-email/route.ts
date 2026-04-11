@@ -133,10 +133,39 @@ export async function POST(request: NextRequest) {
     const email = emailResponse.data;
     const from = email.from || "";
     const subject = email.subject || "(sin asunto)";
-    console.log("[inbound-email] Processing for leads", { from, subject, to: toList });
+    console.log("[inbound-email] Processing", { from, subject, to: toList });
     const html = email.html ?? null;
     const text = email.text ?? null;
     const attachments = email.attachments || [];
+
+    // ─────────────────────────────────────────────────────────
+    // TICKET REPLY DETECTION
+    // Before creating a lead, check if this email is a reply to an
+    // existing ticket. Triggers: `+ticket-{uuid}` in recipient OR
+    // `[TKT-XXX]` in subject. If matched, create an OpsTicketComment
+    // and return early — do NOT create a lead.
+    // ─────────────────────────────────────────────────────────
+    {
+      const ticketResult = await handleTicketReply({
+        tenantId,
+        recipients: allRecipients,
+        subject,
+        from,
+        text,
+        html,
+        emailId,
+        attachments,
+        receivedAt: email.created_at,
+      });
+      if (ticketResult.handled) {
+        return NextResponse.json({
+          success: true,
+          routed: "ticket",
+          ticketId: ticketResult.ticketId,
+          commentId: ticketResult.commentId,
+        });
+      }
+    }
 
     if (isGarbageEmail({ textBody: text, htmlBody: html, subject })) {
       console.log("[inbound-email] Skipped: garbage content", { from, subject });
@@ -316,4 +345,249 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TICKET REPLY HANDLER
+// ═══════════════════════════════════════════════════════════════
+
+interface HandleTicketReplyInput {
+  tenantId: string;
+  recipients: string[];
+  subject: string;
+  from: string;
+  text: string | null;
+  html: string | null;
+  emailId: string;
+  attachments: Array<{ id: string; filename?: string | null; content_type?: string | null }>;
+  receivedAt?: string;
+}
+
+interface HandleTicketReplyResult {
+  handled: boolean;
+  ticketId?: string;
+  commentId?: string;
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function handleTicketReply(
+  input: HandleTicketReplyInput,
+): Promise<HandleTicketReplyResult> {
+  const { tenantId, recipients, subject, from, text, html, emailId, attachments, receivedAt } = input;
+
+  // 1. Try to resolve the ticket:
+  //    a) Plus-addressing: {slug}+ticket-{uuid}@inbound.opai.cl
+  //    b) Subject regex: [TKT-CODE]
+  let ticketId: string | null = null;
+
+  const extractEmail = (addr: string): string => {
+    const s = (addr || "").trim();
+    const match = s.match(/<([^>]+)>/);
+    return match ? match[1].toLowerCase().trim() : s.toLowerCase();
+  };
+
+  // a) Plus-addressing in recipient
+  for (const addr of recipients) {
+    const email = extractEmail(addr);
+    const match = email.match(
+      /\+ticket-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})@/i,
+    );
+    if (match) {
+      ticketId = match[1];
+      break;
+    }
+  }
+
+  // b) Subject regex: [TKT-CODE] → look up by code
+  if (!ticketId) {
+    const subjectMatch = subject?.match(/\[TKT-([A-Z0-9-]+)\]/i);
+    if (subjectMatch) {
+      const code = subjectMatch[1];
+      const ticketByCode = await prisma.opsTicket.findFirst({
+        where: { code: `TK-${code}`, tenantId },
+        select: { id: true },
+      });
+      if (ticketByCode) {
+        ticketId = ticketByCode.id;
+      } else {
+        // Try raw code (without TK- prefix)
+        const ticketByRawCode = await prisma.opsTicket.findFirst({
+          where: { code, tenantId },
+          select: { id: true },
+        });
+        if (ticketByRawCode) ticketId = ticketByRawCode.id;
+      }
+    }
+  }
+
+  if (!ticketId) {
+    return { handled: false };
+  }
+
+  // 2. Verify ticket exists and belongs to tenant
+  const ticket = await prisma.opsTicket.findFirst({
+    where: { id: ticketId, tenantId },
+    select: {
+      id: true,
+      code: true,
+      title: true,
+      status: true,
+      assignedTo: true,
+      assignedTeam: true,
+      tenantId: true,
+    },
+  });
+  if (!ticket) {
+    console.warn("[inbound-email] Ticket found in address but not in DB:", ticketId);
+    return { handled: false };
+  }
+
+  // 3. Idempotency: check if we already have a comment with this resendId
+  const existing = await prisma.opsTicketComment.findFirst({
+    where: { ticketId: ticket.id, resendId: emailId },
+    select: { id: true },
+  });
+  if (existing) {
+    return { handled: true, ticketId: ticket.id, commentId: existing.id };
+  }
+
+  // 4. Loop prevention: skip auto-replies
+  if (/auto-?repl(y|ied)|noreply|no-reply|mailer-daemon|postmaster/i.test(from)) {
+    console.log("[inbound-email] Skipped ticket reply: loop prevention", { from });
+    return { handled: true, ticketId: ticket.id };
+  }
+
+  // 5. Parse from header → email + name
+  const fromMatch = from.match(/^(.*?)\s*<([^>]+)>$/);
+  const fromName = fromMatch?.[1]?.trim().replace(/^["']|["']$/g, "") || null;
+  const fromEmail = (fromMatch?.[2] || from).trim().toLowerCase();
+
+  // 6. Upload attachments to R2
+  const commentAttachments: Array<{
+    fileName: string;
+    r2Key: string;
+    size: number;
+    contentType: string;
+    url: string;
+  }> = [];
+
+  for (const att of attachments) {
+    try {
+      const attResponse = await resend.emails.receiving.attachments.get({
+        emailId,
+        id: att.id,
+      });
+      if (attResponse.error || !attResponse.data?.download_url) continue;
+      const downloadUrl = attResponse.data.download_url;
+      const filename =
+        attResponse.data.filename || att.filename || `attachment-${att.id}`;
+      const contentType =
+        attResponse.data.content_type || att.content_type || "application/octet-stream";
+      const res = await fetch(downloadUrl);
+      if (!res.ok) continue;
+      const buffer = Buffer.from(await res.arrayBuffer());
+      if (buffer.length > MAX_ATTACHMENT_SIZE) continue;
+      const sanitized = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const result = await uploadFile(
+        buffer,
+        sanitized,
+        contentType,
+        `tickets/${tenantId}/${ticket.id}/inbound`,
+        tenantId,
+      );
+      commentAttachments.push({
+        fileName: filename,
+        r2Key: result.storageKey,
+        size: buffer.length,
+        contentType,
+        url: result.publicUrl,
+      });
+    } catch (err) {
+      console.warn("[inbound-email] Skip ticket attachment:", att.id, err);
+    }
+  }
+
+  // 7. Create the comment
+  const bodyText = text || (html ? stripHtml(html) : "");
+  const comment = await prisma.opsTicketComment.create({
+    data: {
+      ticketId: ticket.id,
+      userId: "email-inbound",
+      direction: "email_in",
+      body: bodyText,
+      bodyHtml: html,
+      fromEmail,
+      fromName,
+      toEmails: recipients.map(extractEmail),
+      subject,
+      messageId: emailId,
+      attachments: (commentAttachments.length > 0 ? (commentAttachments as unknown as any) : undefined),
+      isInternal: false,
+      sentAt: receivedAt ? new Date(receivedAt) : new Date(),
+      deliveryStatus: "delivered",
+      resendId: emailId,
+    },
+  });
+
+  // 8. Reopen if resolved/closed
+  if (["resolved", "closed"].includes(ticket.status)) {
+    await prisma.opsTicket.update({
+      where: { id: ticket.id },
+      data: { status: "in_progress" },
+    });
+    await prisma.opsTicketComment.create({
+      data: {
+        ticketId: ticket.id,
+        userId: "system",
+        body: `Ticket reabierto automáticamente por respuesta entrante de ${fromEmail}`,
+        isInternal: true,
+        direction: "internal",
+      },
+    });
+  }
+
+  // 9. Notify assignee or team
+  try {
+    const { sendNotification, sendNotificationToUser } = await import(
+      "@/lib/notification-service"
+    );
+    const notifPayload = {
+      tenantId: ticket.tenantId,
+      type: "ticket_new_email_reply",
+      title: `Respuesta en ${ticket.code}`,
+      message: `${fromName || fromEmail} respondió en "${ticket.title}"`,
+      data: { ticketId: ticket.id, code: ticket.code, fromEmail },
+      link: `/ops/tickets/${ticket.id}`,
+    };
+    if (ticket.assignedTo) {
+      await sendNotificationToUser({
+        ...notifPayload,
+        targetUserId: ticket.assignedTo,
+      });
+    } else {
+      await sendNotification(notifPayload);
+    }
+  } catch (notifErr) {
+    console.warn("[inbound-email] Failed to send ticket notification:", notifErr);
+  }
+
+  console.log("[inbound-email] Routed to ticket:", {
+    ticketId: ticket.id,
+    code: ticket.code,
+    commentId: comment.id,
+  });
+
+  return { handled: true, ticketId: ticket.id, commentId: comment.id };
 }

@@ -614,15 +614,23 @@ export function getSlaRemaining(
 
 /** Whether a ticket can be transitioned to a given status */
 export function canTransitionTo(current: TicketStatus, target: TicketStatus): boolean {
+  // Same status is not a transition
+  if (current === target) return false;
+
+  // Liberal transition rules matching the kanban columns.
+  // Users can freely move tickets between active states and terminal states.
   const transitions: Record<TicketStatus, TicketStatus[]> = {
-    pending_approval: ["cancelled"], // approval flow handles open/rejected
+    // Pending approval: only allow cancel (approval flow handles open/rejected)
+    pending_approval: ["open", "in_progress", "waiting", "cancelled"],
+    // Active states can transition to any other active or terminal state
     open: ["in_progress", "waiting", "resolved", "cancelled"],
-    in_progress: ["waiting", "resolved", "cancelled"],
-    waiting: ["in_progress", "resolved", "cancelled"],
-    resolved: ["in_progress"], // reopen only
-    closed: [], // legacy — no longer reachable
-    rejected: ["open"], // can re-open a rejected ticket
-    cancelled: [],
+    in_progress: ["open", "waiting", "resolved", "cancelled"],
+    waiting: ["open", "in_progress", "resolved", "cancelled"],
+    // Terminal states can be reopened
+    resolved: ["open", "in_progress", "waiting"],
+    closed: ["open", "in_progress"], // legacy compat: allow reopen
+    rejected: ["open"],
+    cancelled: ["open"], // allow reopening a cancelled ticket
   };
   return transitions[current]?.includes(target) ?? false;
 }

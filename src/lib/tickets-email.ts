@@ -57,6 +57,13 @@ export async function sendTicketEmail(
     throw new Error(`Ticket ${ticketId} not found for tenant ${tenantId}`);
   }
 
+  // Fetch tenant slug (for Reply-To addressing)
+  const tenantRow = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { slug: true },
+  });
+  const tenantSlug = tenantRow?.slug ?? "opai";
+
   // 2. Get email config
   const emailCfg = await getTenantEmailConfig(tenantId);
 
@@ -66,16 +73,11 @@ export async function sendTicketEmail(
     ? subject
     : `${codePrefix} ${subject}`;
 
-  // 4. Build Reply-To with plus-addressing
-  // Strategy:
-  //   a) If TICKETS_INBOUND_DOMAIN is explicitly set AND its MX records resolve,
-  //      use it: `tickets+{ticketId}@{TICKETS_INBOUND_DOMAIN}`
-  //   b) Otherwise, use the tenant's own sender address with plus-addressing
-  //      (e.g. `notificaciones+ticket-{ticketId}@gard.cl`). This works because
-  //      the tenant's sending domain already has valid MX records, and most
-  //      mail servers respect plus-addressing — delivering to the base mailbox.
-  //   Inbound resolution then relies primarily on the subject [TKT-XXX] code.
-  const replyToAlias = buildReplyToAlias(ticketId, emailCfg.from);
+  // 4. Build Reply-To using the existing INBOUND_DOMAIN with plus-addressing
+  // The inbound domain (e.g. inbound.opai.cl) already has MX records configured
+  // and is handled by /api/webhook/inbound-email which routes to this ticket's
+  // webhook handler when it detects a ticket reply (via +ticket-{id} or [TKT-]).
+  const replyToAlias = buildReplyToAlias(ticketId, tenantSlug);
 
   // 5. Build custom headers
   const headers: Record<string, string> = {
@@ -183,33 +185,21 @@ export async function sendTicketEmail(
 /**
  * Build the Reply-To alias for a ticket email.
  *
- * If TICKETS_INBOUND_DOMAIN is set, use it as the base domain with plus-addressing:
- *   `tickets+{ticketId}@{TICKETS_INBOUND_DOMAIN}`
+ * Uses the existing INBOUND_DOMAIN (e.g. inbound.opai.cl) which already has
+ * working MX records and a webhook handler at /api/webhook/inbound-email.
+ * Format: `{tenantSlug}+ticket-{ticketId}@{INBOUND_DOMAIN}`
  *
- * Otherwise, reuse the tenant's own sender address with plus-addressing:
- *   `notificaciones+ticket-{ticketId}@gard.cl`
- *
- * The latter is safer because the tenant's sending domain already has working
- * MX records. Inbound resolution in the webhook then relies on parsing the
- * plus-tag OR the [TKT-CODE] prefix in the subject line.
+ * The existing inbound-email webhook routes these specifically to ticket
+ * comment creation when it detects the `+ticket-` prefix. Plus-addressing
+ * is preserved by Resend inbound (the base recipient `{tenantSlug}@inbound`
+ * still receives the mail and our webhook parses the plus-tag).
  */
-export function buildReplyToAlias(ticketId: string, fromAddress: string): string {
-  const inboundDomain = process.env.TICKETS_INBOUND_DOMAIN;
-  if (inboundDomain) {
-    return `tickets+${ticketId}@${inboundDomain}`;
-  }
-
-  // Extract the bare email from `"Name <email@domain>"` format
-  const match = fromAddress.match(/<([^>]+)>/);
-  const bareEmail = (match ? match[1] : fromAddress).trim();
-  const [local, domain] = bareEmail.split("@");
-  if (!local || !domain) {
-    // Fallback: if parsing fails, use the raw address
-    return `tickets+${ticketId}@opai.cl`;
-  }
-
-  // Use local+ticket-{id}@domain — plus-addressing routes to base mailbox
-  return `${local}+ticket-${ticketId}@${domain}`;
+export function buildReplyToAlias(ticketId: string, tenantSlug: string): string {
+  const inboundDomain =
+    process.env.TICKETS_INBOUND_DOMAIN ||
+    process.env.INBOUND_DOMAIN ||
+    "inbound.opai.cl";
+  return `${tenantSlug}+ticket-${ticketId}@${inboundDomain}`;
 }
 
 /**
