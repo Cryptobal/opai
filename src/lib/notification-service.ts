@@ -29,10 +29,16 @@ import { resolvePermissions } from "@/lib/permissions-server";
 function resolveEmailEnabled(
   prefs: UserNotifPrefsMap | undefined,
   type: string,
-  typeDefDefault: boolean | undefined
+  typeDefDefault: boolean | undefined,
+  opts?: { useTypeDefaultForMissing?: boolean }
 ): boolean {
   const explicit = prefs?.[type];
   if (explicit && typeof explicit.email === "boolean") return explicit.email;
+  // Flag de escape para notificaciones "benignas" que SÍ deberían llegar a
+  // usuarios existentes por defecto (ej: resumen diario de SLA). En ese caso
+  // aplicamos el defaultEmail del typeDef aunque el usuario tenga preferencias
+  // guardadas sin esta clave específica.
+  if (opts?.useTypeDefaultForMissing) return typeDefDefault ?? false;
   const userHasSavedPrefs = !!prefs && Object.keys(prefs).length > 0;
   if (userHasSavedPrefs) return false;
   return typeDefDefault ?? false;
@@ -62,6 +68,19 @@ interface CreateNotificationInput {
   emailMessage?: string | null;
   link?: string | null;
   data?: Record<string, unknown>;
+  /**
+   * Canales a usar. Por defecto ['bell', 'email']. Permite, por ejemplo,
+   * enviar sólo bell en tiempo real desde un cron que corre cada 15 min y
+   * diferir el email a un digest diario.
+   */
+  channels?: Array<"bell" | "email">;
+  /**
+   * Si está en true, para usuarios que ya guardaron preferencias pero no
+   * tienen explícitamente este tipo, se usa el defaultEmail del typeDef en
+   * lugar de defaultear a false. Úsalo SÓLO para notificaciones benignas y
+   * de bajo volumen (ej: un digest diario, no un loop cada 15 min).
+   */
+  useTypeDefaultForMissing?: boolean;
 }
 
 interface UserForNotification {
@@ -84,7 +103,11 @@ interface UserForNotification {
  * individualmente a cada usuario que los tenga habilitados.
  */
 export async function sendNotification(input: CreateNotificationInput) {
-  const { tenantId, type, title, message, emailMessage, link, data } = input;
+  const { tenantId, type, title, message, emailMessage, link, data, channels, useTypeDefaultForMissing } = input;
+  const useBell = !channels || channels.includes("bell");
+  const useEmail = !channels || channels.includes("email");
+  if (!useBell && !useEmail) return;
+
   const typeDef = NOTIFICATION_TYPE_MAP.get(type);
 
   const users = await prisma.admin.findMany({
@@ -113,14 +136,19 @@ export async function sendNotification(input: CreateNotificationInput) {
 
     const prefs = prefsMap.get(user.id);
 
-    const bellEnabled = resolveBellEnabled(prefs, type, typeDef?.defaultBell);
-    const emailEnabled = resolveEmailEnabled(prefs, type, typeDef?.defaultEmail);
-
-    if (bellEnabled) anyBellEnabled = true;
-    if (emailEnabled && user.email) emailRecipients.push(user.email);
+    if (useBell) {
+      const bellEnabled = resolveBellEnabled(prefs, type, typeDef?.defaultBell);
+      if (bellEnabled) anyBellEnabled = true;
+    }
+    if (useEmail) {
+      const emailEnabled = resolveEmailEnabled(prefs, type, typeDef?.defaultEmail, {
+        useTypeDefaultForMissing,
+      });
+      if (emailEnabled && user.email) emailRecipients.push(user.email);
+    }
   }
 
-  if (anyBellEnabled) {
+  if (useBell && anyBellEnabled) {
     try {
       await prisma.notification.create({
         data: { tenantId, type, title, message, link, data: (data ?? undefined) as any },
@@ -130,7 +158,7 @@ export async function sendNotification(input: CreateNotificationInput) {
     }
   }
 
-  if (emailRecipients.length > 0) {
+  if (useEmail && emailRecipients.length > 0) {
     try {
       const emailConfig = await getTenantEmailConfig(tenantId);
       const category = typeDef?.category;
