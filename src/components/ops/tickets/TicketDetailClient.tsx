@@ -26,6 +26,7 @@ import {
   Trash2,
   User,
   UserCircle,
+  Users,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
   // Assignee state
   const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; name: string }>>([]);
+  const [availableGroups, setAvailableGroups] = useState<Array<{ id: string; name: string }>>([]);
   const [assigningUser, setAssigningUser] = useState(false);
 
   // Mention autocomplete state
@@ -101,6 +103,9 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   // Composer mode
   const [composerMode, setComposerMode] = useState<"internal" | "email">("internal");
 
+  // Status transition menu
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+
   const fetchTicket = useCallback(async () => {
     setLoading(true);
     try {
@@ -121,7 +126,7 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
 
   useEffect(() => { fetchTicket(); }, [fetchTicket]);
 
-  // Fetch admins for @mention and assignee
+  // Fetch admins and groups for @mention and assignee
   useEffect(() => {
     fetch("/api/ops/admins")
       .then((r) => r.json())
@@ -131,6 +136,20 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
             d.data.map((u: { id: string; name: string | null; email: string }) => ({
               id: u.id,
               name: u.name || u.email,
+            })),
+          );
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/ops/groups")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && Array.isArray(d.data)) {
+          setAvailableGroups(
+            d.data.map((g: { id: string; name: string }) => ({
+              id: g.id,
+              name: g.name,
             })),
           );
         }
@@ -468,7 +487,40 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
         {/* Row 1: Code + Status + Priority + Delete */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-xs text-muted-foreground">{ticket.code}</span>
-          <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => availableTransitions.length > 0 && setShowStatusMenu(!showStatusMenu)}
+              disabled={availableTransitions.length === 0 || transitioning}
+              className={`${availableTransitions.length > 0 ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
+            >
+              <Badge variant={statusCfg.variant} className="gap-1">
+                {statusCfg.label}
+                {availableTransitions.length > 0 && <ChevronRight className="h-3 w-3 rotate-90" />}
+              </Badge>
+            </button>
+            {showStatusMenu && availableTransitions.length > 0 && (
+              <div className="absolute top-full left-0 mt-1 z-50 min-w-[160px] rounded-xl border border-border bg-popover shadow-md">
+                {availableTransitions.map((status) => {
+                  const cfg = TICKET_STATUS_CONFIG[status];
+                  return (
+                    <button
+                      key={status}
+                      type="button"
+                      disabled={transitioning}
+                      onClick={() => {
+                        setShowStatusMenu(false);
+                        handleTransition(status);
+                      }}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors first:rounded-t-xl last:rounded-b-xl"
+                    >
+                      {cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <span className={`text-xs font-semibold ${priorityCfg.color}`}>
             {ticket.priority.toUpperCase()}
           </span>
@@ -823,33 +875,6 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
         </div>
       )}
 
-      {/* ── CARD: Change Status ── */}
-      {availableTransitions.length > 0 && (
-        <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-2">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Cambiar estado
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {availableTransitions.map((status) => {
-              const cfg = TICKET_STATUS_CONFIG[status];
-              const isResolve = status === "resolved";
-              return (
-                <Button
-                  key={status}
-                  size="sm"
-                  variant={isResolve ? "default" : "outline"}
-                  disabled={transitioning}
-                  onClick={() => handleTransition(status)}
-                  className="h-8 text-xs rounded-lg"
-                >
-                  {cfg.label}
-                </Button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* ── CARD: Approval chain ── */}
       {ticket.approvals && ticket.approvals.length > 0 && (
         <div className="rounded-xl border border-border bg-[#161b22] p-4">
@@ -951,7 +976,30 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
                   onBlur={() => setTimeout(() => setShowMentionList(false), 200)}
                 />
                 {showMentionList && (
-                  <div className="absolute bottom-full left-0 mb-1 w-full max-h-40 overflow-y-auto rounded-xl border border-border bg-popover shadow-md z-50">
+                  <div className="absolute bottom-full left-0 mb-1 w-full max-h-60 overflow-y-auto rounded-xl border border-border bg-popover shadow-md z-50">
+                    {/* Groups first */}
+                    {availableGroups
+                      .filter((g) => g.name.toLowerCase().includes(mentionFilter))
+                      .slice(0, 4)
+                      .map((g) => (
+                        <button
+                          key={`group-${g.id}`}
+                          type="button"
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors flex items-center gap-2"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            insertMention(g.name);
+                          }}
+                        >
+                          <Users className="h-3 w-3 text-blue-400" />
+                          <span>{g.name}</span>
+                          <span className="text-[10px] text-muted-foreground ml-auto">grupo</span>
+                        </button>
+                      ))}
+                    {availableGroups.filter((g) => g.name.toLowerCase().includes(mentionFilter)).length > 0 && (
+                      <div className="border-t border-border" />
+                    )}
+                    {/* Users */}
                     {availableUsers
                       .filter((u) => u.name.toLowerCase().includes(mentionFilter))
                       .slice(0, 8)
@@ -969,8 +1017,9 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
                           {u.name}
                         </button>
                       ))}
-                    {availableUsers.filter((u) => u.name.toLowerCase().includes(mentionFilter)).length === 0 && (
-                      <p className="px-3 py-2 text-xs text-muted-foreground">No se encontraron usuarios</p>
+                    {availableUsers.filter((u) => u.name.toLowerCase().includes(mentionFilter)).length === 0 &&
+                     availableGroups.filter((g) => g.name.toLowerCase().includes(mentionFilter)).length === 0 && (
+                      <p className="px-3 py-2 text-xs text-muted-foreground">No se encontraron resultados</p>
                     )}
                   </div>
                 )}

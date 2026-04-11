@@ -67,9 +67,15 @@ export async function sendTicketEmail(
     : `${codePrefix} ${subject}`;
 
   // 4. Build Reply-To with plus-addressing
-  const inboundDomain =
-    process.env.TICKETS_INBOUND_DOMAIN || "reply.opai.cl";
-  const replyToAlias = `tickets+${ticketId}@${inboundDomain}`;
+  // Strategy:
+  //   a) If TICKETS_INBOUND_DOMAIN is explicitly set AND its MX records resolve,
+  //      use it: `tickets+{ticketId}@{TICKETS_INBOUND_DOMAIN}`
+  //   b) Otherwise, use the tenant's own sender address with plus-addressing
+  //      (e.g. `notificaciones+ticket-{ticketId}@gard.cl`). This works because
+  //      the tenant's sending domain already has valid MX records, and most
+  //      mail servers respect plus-addressing — delivering to the base mailbox.
+  //   Inbound resolution then relies primarily on the subject [TKT-XXX] code.
+  const replyToAlias = buildReplyToAlias(ticketId, emailCfg.from);
 
   // 5. Build custom headers
   const headers: Record<string, string> = {
@@ -175,6 +181,38 @@ export async function sendTicketEmail(
 }
 
 /**
+ * Build the Reply-To alias for a ticket email.
+ *
+ * If TICKETS_INBOUND_DOMAIN is set, use it as the base domain with plus-addressing:
+ *   `tickets+{ticketId}@{TICKETS_INBOUND_DOMAIN}`
+ *
+ * Otherwise, reuse the tenant's own sender address with plus-addressing:
+ *   `notificaciones+ticket-{ticketId}@gard.cl`
+ *
+ * The latter is safer because the tenant's sending domain already has working
+ * MX records. Inbound resolution in the webhook then relies on parsing the
+ * plus-tag OR the [TKT-CODE] prefix in the subject line.
+ */
+export function buildReplyToAlias(ticketId: string, fromAddress: string): string {
+  const inboundDomain = process.env.TICKETS_INBOUND_DOMAIN;
+  if (inboundDomain) {
+    return `tickets+${ticketId}@${inboundDomain}`;
+  }
+
+  // Extract the bare email from `"Name <email@domain>"` format
+  const match = fromAddress.match(/<([^>]+)>/);
+  const bareEmail = (match ? match[1] : fromAddress).trim();
+  const [local, domain] = bareEmail.split("@");
+  if (!local || !domain) {
+    // Fallback: if parsing fails, use the raw address
+    return `tickets+${ticketId}@opai.cl`;
+  }
+
+  // Use local+ticket-{id}@domain — plus-addressing routes to base mailbox
+  return `${local}+ticket-${ticketId}@${domain}`;
+}
+
+/**
  * Parse a ticket ID from various email addressing formats.
  * Returns null if no ticket ID can be resolved.
  */
@@ -184,7 +222,7 @@ export function parseTicketIdFromEmail(input: {
   inReplyTo?: string | null;
   references?: string[];
 }): { ticketId: string | null; method: string } {
-  // 1. Plus-addressing: tickets+{uuid}@...
+  // 1a. Plus-addressing: tickets+{uuid}@...
   for (const addr of input.toAddresses) {
     const match = addr.match(
       /tickets\+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})@/i,
@@ -194,8 +232,18 @@ export function parseTicketIdFromEmail(input: {
     }
   }
 
+  // 1b. Plus-addressing variant: local+ticket-{uuid}@domain (tenant's own domain)
+  for (const addr of input.toAddresses) {
+    const match = addr.match(
+      /\+ticket-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})@/i,
+    );
+    if (match) {
+      return { ticketId: match[1], method: "plus_addressing" };
+    }
+  }
+
   // 2. Subject regex: [TKT-XXXX]
-  const subjectMatch = input.subject?.match(/\[TKT-([A-Z0-9]+)\]/i);
+  const subjectMatch = input.subject?.match(/\[TKT-([A-Z0-9-]+)\]/i);
   if (subjectMatch) {
     return { ticketId: subjectMatch[1], method: "subject_code" };
   }

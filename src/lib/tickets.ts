@@ -34,9 +34,9 @@ export type TicketTeam =
   | "finanzas"
   | "it_admin";
 
-export type TicketSource = "manual" | "incident" | "portal" | "guard_event" | "system";
+export type TicketSource = "manual" | "incident" | "portal" | "portal_cliente" | "guard_event" | "system" | "email_inbound_orphan";
 
-export type TicketOrigin = "guard" | "internal" | "both";
+export type TicketOrigin = "guard" | "internal" | "both" | "client";
 
 export type ApproverType = "group" | "user";
 
@@ -270,8 +270,10 @@ export const TICKET_SOURCE_CONFIG: Record<TicketSource, { label: string }> = {
   manual: { label: "Manual" },
   incident: { label: "Incidente postventa" },
   portal: { label: "Portal guardia" },
+  portal_cliente: { label: "Portal cliente" },
   guard_event: { label: "Evento laboral" },
   system: { label: "Sistema" },
+  email_inbound_orphan: { label: "Email huérfano" },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -653,6 +655,7 @@ export function getOriginLabel(origin: TicketOrigin): string {
     guard: "Guardia",
     internal: "Interno",
     both: "Ambos",
+    client: "Cliente",
   };
   return labels[origin];
 }

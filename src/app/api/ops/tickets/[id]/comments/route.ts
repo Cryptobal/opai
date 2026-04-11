@@ -124,7 +124,7 @@ export async function POST(
       },
     });
 
-    // Parse @mentions and send notifications
+    // Parse @mentions (users AND groups) and send notifications
     try {
       const mentionPattern = /@([A-Za-z\u00C0-\u024F]+(?:\s+[A-Za-z\u00C0-\u024F]+)*)/g;
       const mentions: string[] = [];
@@ -133,13 +133,44 @@ export async function POST(
         mentions.push(match[1].trim());
       }
       if (mentions.length > 0) {
-        const allAdmins = await prisma.admin.findMany({
-          where: { tenantId: ctx.tenantId, status: "active" },
-          select: { id: true, name: true },
-        });
+        const [allAdmins, allGroups] = await Promise.all([
+          prisma.admin.findMany({
+            where: { tenantId: ctx.tenantId, status: "active" },
+            select: { id: true, name: true },
+          }),
+          prisma.adminGroup.findMany({
+            where: { tenantId: ctx.tenantId, isActive: true },
+            select: {
+              id: true,
+              name: true,
+              memberships: { select: { adminId: true } },
+            },
+          }),
+        ]);
+
         const mentionedUserIds: string[] = [];
+        const mentionedGroupIds: string[] = [];
+
         for (const mention of mentions) {
           const mentionLower = mention.toLowerCase();
+
+          // 1. Match group by name (exact or substring)
+          const matchingGroup = allGroups.find(
+            (g) => g.name.toLowerCase() === mentionLower ||
+                   g.name.toLowerCase().includes(mentionLower),
+          );
+          if (matchingGroup) {
+            mentionedGroupIds.push(matchingGroup.id);
+            // Expand group: add all members (excluding the author)
+            for (const m of matchingGroup.memberships) {
+              if (m.adminId !== ctx.userId) {
+                mentionedUserIds.push(m.adminId);
+              }
+            }
+            continue;
+          }
+
+          // 2. Match individual user by name
           for (const admin of allAdmins) {
             if (
               admin.name &&
@@ -150,6 +181,7 @@ export async function POST(
             }
           }
         }
+
         const uniqueIds = [...new Set(mentionedUserIds)];
         if (uniqueIds.length > 0) {
           const ticketInfo = await prisma.opsTicket.findFirst({
@@ -158,14 +190,14 @@ export async function POST(
           });
           await sendNotificationToUsers({
             tenantId: ctx.tenantId,
-            type: "ticket_mention",
+            type: mentionedGroupIds.length > 0 ? "mention_group" : "ticket_mention",
             title: `Te mencionaron en ticket ${ticketInfo?.code ?? ""}`,
             message:
               body.body.length > 100
                 ? body.body.slice(0, 100) + "..."
                 : body.body,
             link: `/ops/tickets/${ticketId}`,
-            data: { ticketId, commentId: comment.id },
+            data: { ticketId, commentId: comment.id, groupIds: mentionedGroupIds },
             targetUserIds: uniqueIds,
           });
         }

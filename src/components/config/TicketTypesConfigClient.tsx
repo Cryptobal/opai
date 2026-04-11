@@ -80,6 +80,7 @@ const ORIGIN_BADGE_VARIANT: Record<TicketOrigin, string> = {
   guard: "bg-blue-500/15 text-blue-400 border-blue-500/30",
   internal: "bg-purple-500/15 text-purple-400 border-purple-500/30",
   both: "bg-muted text-muted-foreground border-border",
+  client: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
 };
 
 function slugify(name: string): string {
@@ -488,6 +489,7 @@ function TicketTypeForm({
                   <SelectItem value="guard">Guardia</SelectItem>
                   <SelectItem value="internal">Interno</SelectItem>
                   <SelectItem value="both">Ambos</SelectItem>
+                  <SelectItem value="client">Cliente</SelectItem>
                 </SelectContent>
               </Select>
             </div>

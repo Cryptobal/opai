@@ -84,7 +84,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | TicketStatus>("active");
   const [filterPriorities, setFilterPriorities] = useState<Set<TicketPriority>>(new Set());
-  const [originTab, setOriginTab] = useState<"all" | "internal" | "guard">("all");
+  const [originTab, setOriginTab] = useState<"all" | "internal" | "guard" | "client">("all");
   const [listMode, setListMode] = useState<ListMode>("list");
   const [moduleView, setModuleView] = useState<ModuleView>("tickets");
   const [filterTypeId, setFilterTypeId] = useState<string>("all");
@@ -144,6 +144,10 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
 
     if (originTab !== "all") {
       result = result.filter((t) => {
+        // Client-origin tickets: match both type.origin="client" and source="portal_cliente"
+        if (originTab === "client") {
+          return t.ticketType?.origin === "client" || t.source === "portal_cliente";
+        }
         const typeOrigin = t.ticketType?.origin;
         if (!typeOrigin || typeOrigin === "both") return true;
         return typeOrigin === originTab;
@@ -264,6 +268,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           { value: "all" as const, label: "Todos" },
           { value: "internal" as const, label: "Internos" },
           { value: "guard" as const, label: "Guardias" },
+          { value: "client" as const, label: "Clientes" },
         ]).map((tab) => (
           <button
             key={tab.value}
