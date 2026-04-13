@@ -36,6 +36,8 @@ interface SearchableSelectProps {
   /** Si true, el dropdown se renderiza en portal para no cortarse en contenedores con overflow */
   dropdownInPortal?: boolean;
   onChange: (id: string) => void;
+  /** Callback cuando el usuario escribe en el campo de búsqueda */
+  onInputChange?: (query: string) => void;
 }
 
 export function SearchableSelect({
@@ -46,6 +48,7 @@ export function SearchableSelect({
   disabled,
   dropdownInPortal = false,
   onChange,
+  onInputChange,
 }: SearchableSelectProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -276,7 +279,10 @@ export function SearchableSelect({
                 placeholder="Buscar..."
                 value={query}
                 className="flex-1 min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  onInputChange?.(e.target.value);
+                }}
                 onKeyDown={handleKeyDown}
               />
               {query && (
