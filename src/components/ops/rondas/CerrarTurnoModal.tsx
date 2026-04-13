@@ -33,11 +33,15 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
   const [loadingCobertura, setLoadingCobertura] = useState(false);
   const isAdmin = userRole === "owner" || userRole === "admin";
 
-  // Fetch cobertura status when modal opens
+  const [unresolvedPanicCount, setUnresolvedPanicCount] = useState(0);
+  const [loadingPanics, setLoadingPanics] = useState(false);
+
+  // Fetch cobertura status and unresolved panic alerts when modal opens
   // Try /turno/active first (works for operator), fall back to /monitoreo (works for admin)
   useEffect(() => {
     if (!open || !turnoId) return;
     setLoadingCobertura(true);
+    setLoadingPanics(true);
     fetch("/api/ops/rondas/monitoreo/turno/active")
       .then((r) => r.json())
       .then((json) => {
@@ -56,6 +60,17 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
       })
       .catch(() => {})
       .finally(() => setLoadingCobertura(false));
+
+    // Check for unresolved panic alerts (default open=true filters resuelta=false)
+    fetch("/api/ops/rondas/alertas?tipo=panico")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setUnresolvedPanicCount(json.data.length);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingPanics(false));
   }, [open, turnoId]);
 
   const nocturnaEnviada = !!coberturaStatus.coberturaNocturnaSentAt;
@@ -175,6 +190,23 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
             </div>
           )}
 
+          {/* Unresolved panic alerts warning */}
+          {!loadingPanics && unresolvedPanicCount > 0 && (
+            <div className="rounded-lg border-2 border-red-500/40 bg-red-500/10 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-400" />
+                <p className="text-sm font-medium text-red-300">
+                  {unresolvedPanicCount === 1
+                    ? "1 alerta de pánico sin resolver"
+                    : `${unresolvedPanicCount} alertas de pánico sin resolver`}
+                </p>
+              </div>
+              <p className="text-xs text-red-200/70">
+                Las alertas de pánico deben resolverse escribiendo qué pasó antes de cerrar el turno.
+              </p>
+            </div>
+          )}
+
           {/* Coberturas OK badge */}
           {!loadingCobertura && ambasCoberturas && (
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 flex items-center gap-2">
@@ -282,9 +314,9 @@ export function CerrarTurnoModal({ turnoId, open, onClose, onClosed, onSendCober
           </div>
           <Button
             onClick={handleClose}
-            disabled={saving || deleting || (!ambasCoberturas && !loadingCobertura)}
+            disabled={saving || deleting || (!ambasCoberturas && !loadingCobertura) || (!loadingPanics && unresolvedPanicCount > 0)}
             className="gap-1"
-            title={!ambasCoberturas ? "Envía ambas coberturas primero" : undefined}
+            title={unresolvedPanicCount > 0 ? "Resuelve las alertas de pánico primero" : !ambasCoberturas ? "Envía ambas coberturas primero" : undefined}
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {saving ? "Cerrando..." : "Cerrar turno y enviar"}

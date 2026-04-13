@@ -85,6 +85,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }),
     ]);
 
+    // Block close if there are unresolved panic alerts
+    const unresolvedPanics = alertsData.filter(a => a.tipo === "panico" && !a.resuelta);
+    if (unresolvedPanics.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `No puedes cerrar el turno con ${unresolvedPanics.length} alerta(s) de pánico sin resolver. Resuélvelas primero escribiendo qué pasó.`,
+          code: "UNRESOLVED_PANICS",
+          unresolvedPanicCount: unresolvedPanics.length,
+        },
+        { status: 400 },
+      );
+    }
+
     const totalRounds = roundsData.length;
     const completadas = roundsData.filter(r => r.status === "completada").length;
     const incompletas = roundsData.filter(r => r.status === "incompleta").length;
