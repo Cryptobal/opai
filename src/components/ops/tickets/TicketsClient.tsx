@@ -1002,13 +1002,19 @@ function GuardSearchInput({
   loading: boolean;
 }) {
   const [query, setQuery] = useState("");
+  const onSearchRef = useRef(onSearch);
+  onSearchRef.current = onSearch;
 
   useEffect(() => {
     if (query.length >= 2) {
-      const timer = setTimeout(() => onSearch(query), 300);
+      const timer = setTimeout(() => onSearchRef.current(query), 300);
       return () => clearTimeout(timer);
     }
-  }, [query, onSearch]);
+  }, [query]);
+
+  const handleInputChange = useCallback((q: string) => {
+    setQuery(q);
+  }, []);
 
   return (
     <SearchableSelect
@@ -1017,6 +1023,7 @@ function GuardSearchInput({
       placeholder="Buscar por nombre, RUT o código..."
       emptyText={loading ? "Buscando..." : query.length < 2 ? "Escribe al menos 2 caracteres" : "Sin resultados"}
       onChange={onChange}
+      onInputChange={handleInputChange}
     />
   );
 }
