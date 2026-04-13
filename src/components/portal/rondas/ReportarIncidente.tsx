@@ -98,6 +98,7 @@ export function ReportarIncidente({
       if (photoBlob) {
         const formData = new FormData();
         formData.append("file", photoBlob, "incidente.jpg");
+        formData.append("guardiaId", session.guardiaId);
         const uploadRes = await fetch("/api/portal/rondas/upload", {
           method: "POST",
           body: formData,

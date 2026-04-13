@@ -8,7 +8,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { uploadFile } from "@/lib/storage";
 import { randomUUID } from "node:crypto";
-import { requireTenantModule } from '@/lib/require-module';
 
 const MAX_FILES = 5;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -34,9 +33,6 @@ function isAllowedMime(mime: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    const modCheck = await requireTenantModule('chat');
-    if (!modCheck.authorized) return modCheck.response;
-
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 

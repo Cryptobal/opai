@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFile } from "@/lib/storage";
 import { auth } from "@/lib/auth";
+import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -12,13 +13,25 @@ const ALLOWED_MIME = new Set([
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.tenantId) {
+    const formData = await request.formData();
+
+    // Resolve tenantId: try guard auth from FormData first, fall back to NextAuth session
+    let tenantId: string | undefined;
+    const guardiaId = formData.get("guardiaId") as string | null;
+    if (guardiaId) {
+      const guardAuth = await requirePortalGuardiaAuth(guardiaId);
+      if (guardAuth) {
+        tenantId = guardAuth.tenantId;
+      }
+    }
+    if (!tenantId) {
+      const session = await auth();
+      tenantId = session?.user?.tenantId;
+    }
+    if (!tenantId) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
     }
-    const tenantId = session.user.tenantId;
 
-    const formData = await request.formData();
     const file = formData.get("file");
 
     if (!file || !(file instanceof File)) {
