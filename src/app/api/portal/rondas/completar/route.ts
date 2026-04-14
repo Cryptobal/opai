@@ -62,7 +62,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate guardiaId matches — also handles null guardiaId case
+    // Resolve effective guardiaId: prefer the execution's original guard for audit,
+    // but allow any guard at the same installation to complete the round.
     const effectiveGuardiaId = execution.guardiaId ?? guardiaId;
     if (!effectiveGuardiaId) {
       return NextResponse.json(
@@ -71,9 +72,8 @@ export async function POST(request: NextRequest) {
       );
     }
     if (execution.guardiaId && execution.guardiaId !== guardiaId) {
-      return NextResponse.json(
-        { success: false, error: "guardiaId no coincide con la ejecución" },
-        { status: 403 },
+      console.warn(
+        `[COMPLETAR] guardiaId mismatch: request=${guardiaId}, execution=${execution.guardiaId}, ejecucionId=${ejecucionId}. Allowing completion.`,
       );
     }
 
