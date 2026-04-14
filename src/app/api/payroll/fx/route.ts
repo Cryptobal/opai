@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { requireTenantModule } from "@/lib/require-module";
+import { isAdminRole } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     const forbidden = await ensureModuleAccess(ctx, "payroll");
     if (forbidden) return forbidden;
 
-    if (ctx.userRole !== "admin") {
+    if (!isAdminRole(ctx.userRole)) {
       return NextResponse.json(
         { error: "Solo administradores pueden actualizar valores UF/UTM" },
         { status: 403 }

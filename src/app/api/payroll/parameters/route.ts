@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import type { PayrollParameters } from "@/modules/payroll/engine";
 import { requireTenantModule } from '@/lib/require-module';
+import { isAdminRole } from '@/lib/access';
 
 // NUNCA cachear esta ruta - los parámetros legales deben ser siempre frescos
 export const dynamic = "force-dynamic";
@@ -163,7 +164,7 @@ export async function POST(req: NextRequest) {
     if (forbiddenMod) return forbiddenMod;
 
     // Only admins can create/activate global parameter versions
-    if (ctx.userRole !== "admin") {
+    if (!isAdminRole(ctx.userRole)) {
       return NextResponse.json(
         {
           success: false,
