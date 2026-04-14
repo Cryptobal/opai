@@ -300,8 +300,8 @@ export async function simulatePayslip(
           employer_cost_total: Math.round(employer_cost_total),
         },
         parametersSnapshot: snapshot as any,
-        createdByUserId: null,
-        tenantId: null,
+        createdByUserId: input.user_id ?? null,
+        tenantId: input.tenant_id ?? null,
       },
     });
 

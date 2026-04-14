@@ -177,14 +177,42 @@ export async function runMonthlyPayroll(options: RunPayrollOptions): Promise<Run
       // 3. Calculate bonos
       let bonosImponibles = 0;
       let bonosNoImponibles = 0;
+      const skippedConditionalBonos: string[] = [];
+
       for (const b of salary.bonos) {
         if (b.bonoType === "CONDICIONAL") {
-          // Skip conditional bonos for now - they need evaluation
-          // TODO: evaluate against attendance data
-          continue;
+          // Evaluate condition against attendance data
+          let conditionMet = false;
+          const att = attendanceByGuard.get(guard.id);
+
+          if (b.bonoCode === "ASISTENCIA_PERFECTA" || b.bonoCode?.includes("ASIST")) {
+            // Perfect attendance: zero absences and worked all scheduled days
+            conditionMet = att
+              ? att.daysAbsent === 0 && att.daysWorked > 0 && att.daysUnpaidLeave === 0
+              : false;
+          } else {
+            // For other conditional bonos (CUMPLIMIENTO_RONDAS, CUSTOM, etc.)
+            // Cannot be evaluated automatically — log and skip
+            skippedConditionalBonos.push(`${b.bonoName} (${b.bonoCode}): requiere evaluación manual`);
+            continue;
+          }
+
+          if (!conditionMet) {
+            // Condition not met — bono not applied this period
+            continue;
+          }
+          // Condition met — apply the bono
         }
+
         if (b.isTaxable) bonosImponibles += b.amount;
         else bonosNoImponibles += b.amount;
+      }
+
+      // Log skipped bonos for operator visibility
+      if (skippedConditionalBonos.length > 0) {
+        console.info(
+          `[Payroll] Guard ${guard.id} (${name}): bonos condicionales omitidos — ${skippedConditionalBonos.join("; ")}`
+        );
       }
 
       // 4. Prepare simulation input
@@ -265,6 +293,7 @@ export async function runMonthlyPayroll(options: RunPayrollOptions): Promise<Run
             colacion: salary.colacion,
             movilizacion: salary.movilizacion,
             bonos: salary.bonos,
+            skippedConditionalBonos,
           },
           guardInfo: {
             afpName: afpName,

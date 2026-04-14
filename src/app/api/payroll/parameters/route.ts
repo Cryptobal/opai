@@ -162,6 +162,20 @@ export async function POST(req: NextRequest) {
     const forbiddenMod = await ensureModuleAccess(ctx, "payroll");
     if (forbiddenMod) return forbiddenMod;
 
+    // Only admins can create/activate global parameter versions
+    if (ctx.userRole !== "admin") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "Solo administradores pueden crear versiones de parámetros legales",
+          },
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
 
     // Validar campos requeridos

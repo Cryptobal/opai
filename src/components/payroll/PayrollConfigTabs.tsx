@@ -3,7 +3,7 @@
 import { ConfigTabs } from "@/components/configuracion/ConfigTabs";
 import { HolidaysManager } from "@/components/payroll/HolidaysManager";
 import { BonosCatalogManager } from "@/components/payroll/BonosCatalogManager";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PayrollParametersEditor } from "@/components/payroll/PayrollParametersEditor";
 import { Calendar, Coins, Settings2, Archive } from "lucide-react";
 
 export function PayrollConfigTabs() {
@@ -24,33 +24,13 @@ export function PayrollConfigTabs() {
       id: "parametros",
       label: "Parámetros Base",
       icon: Settings2,
-      content: (
-        <Card>
-          <CardHeader>
-            <CardTitle>Parámetros base</CardTitle>
-            <CardDescription>UF, UTM y supuestos.</CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Próximo paso: editor de parámetros y versiones.
-          </CardContent>
-        </Card>
-      ),
+      content: <PayrollParametersEditor mode="editor" />,
     },
     {
       id: "versionado",
       label: "Versionado",
       icon: Archive,
-      content: (
-        <Card>
-          <CardHeader>
-            <CardTitle>Versionado</CardTitle>
-            <CardDescription>Historial y vigencia.</CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Próximo paso: control de vigencia por periodo.
-          </CardContent>
-        </Card>
-      ),
+      content: <PayrollParametersEditor mode="versions" />,
     },
   ];
 

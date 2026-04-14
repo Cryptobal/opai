@@ -393,6 +393,10 @@ export interface PayslipSimulationInput {
   utm_value?: number;
   utm_month?: string;
   save_simulation?: boolean;
+
+  // Execution context (populated by API routes, not by engine tests)
+  tenant_id?: string;
+  user_id?: string;
 }
 
 export interface PayslipSimulationOutput {

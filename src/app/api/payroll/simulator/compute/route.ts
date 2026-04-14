@@ -99,6 +99,8 @@ export async function POST(req: NextRequest) {
       utm_value: body.utm_value,
       utm_month: body.utm_month,
       save_simulation: body.save_simulation,
+      tenant_id: ctx.tenantId,
+      user_id: ctx.userId,
     };
 
     const result = await simulatePayslip(input);
