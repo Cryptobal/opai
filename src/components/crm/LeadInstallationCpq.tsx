@@ -991,7 +991,7 @@ export function LeadInstallationCpq({
                       value={pos.horaInicio || (pos.shiftType === "night" ? "20:00" : "08:00")}
                       onChange={(e) => updatePosition(idx, { horaInicio: e.target.value })}
                     >
-                      {Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`).map((t) => (
+                      {Array.from({ length: 96 }, (_, i) => { const h = Math.floor(i / 4); const m = (i % 4) * 15; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; }).map((t) => (
                         <option key={t} value={t}>{t}</option>
                       ))}
                     </select>
@@ -1003,7 +1003,7 @@ export function LeadInstallationCpq({
                       value={pos.horaFin || (pos.shiftType === "night" ? "08:00" : "20:00")}
                       onChange={(e) => updatePosition(idx, { horaFin: e.target.value })}
                     >
-                      {Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`).map((t) => (
+                      {Array.from({ length: 96 }, (_, i) => { const h = Math.floor(i / 4); const m = (i % 4) * 15; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; }).map((t) => (
                         <option key={t} value={t}>{t}</option>
                       ))}
                     </select>

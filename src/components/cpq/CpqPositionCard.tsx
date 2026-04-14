@@ -67,7 +67,11 @@ function positionToDraft(p: CpqPosition): PositionDraft {
   };
 }
 
-const HOURS_24 = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, "0")}:00`);
+const HOURS_24 = Array.from({ length: 96 }, (_, i) => {
+  const h = Math.floor(i / 4);
+  const m = (i % 4) * 15;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+});
 
 export function CpqPositionCard({
   quoteId,

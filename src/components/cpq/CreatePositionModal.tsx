@@ -23,12 +23,11 @@ interface CreatePositionModalProps {
   disabled?: boolean;
 }
 
-const TIME_OPTIONS = [
-  "07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30",
-  "11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30",
-  "15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30",
-  "19:00","19:30","20:00",
-];
+const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
+  const h = Math.floor(i / 4);
+  const m = (i % 4) * 15;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+});
 
 const getShiftHours = (startTime: string, endTime: string) => {
   if (!startTime || !endTime) return null;
