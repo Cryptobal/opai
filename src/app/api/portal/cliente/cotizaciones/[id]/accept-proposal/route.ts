@@ -161,7 +161,7 @@ export async function POST(
         title: `Propuesta aceptada: ${account?.name}`,
         message: `${account?.name} aceptó la propuesta ${quote.code} (${quote.monthlyCost} ${quote.currency}/mes). La cuenta ha sido activada.`,
         emailMessage: null,
-        link: quote.dealId ? `/crm/negocios/${quote.dealId}` : null,
+        link: quote.dealId ? `/crm/deals/${quote.dealId}` : `/crm/cotizaciones/${quoteId}`,
         data: { quoteId, quoteCode: quote.code, dealId: quote.dealId },
       });
     } catch (notifErr) {

@@ -35,7 +35,9 @@ import { AuthFormHeader } from "@/components/auth/AuthFormHeader";
 import { AuthTextInput } from "@/components/auth/AuthTextInput";
 import { AuthPinInput } from "@/components/auth/AuthPinInput";
 import { AuthButton } from "@/components/auth/AuthButton";
-import { IdCardIcon, MailIcon } from "@/components/auth/icons";
+import { IdCardIcon, MailIcon, LockIcon, UserIcon } from "@/components/auth/icons";
+import { authenticate } from "@/app/opai/login/actions";
+import { Eye, EyeOff } from "lucide-react";
 import {
   type GuardSession,
   formatRut,
@@ -70,6 +72,8 @@ interface ModeConfig {
   showRutPin: boolean;
   /** Show Email + PIN form (cliente flow) */
   showEmailPin: boolean;
+  /** Show Email + Password form (supervisor / admin flow) */
+  showEmailPassword: boolean;
   /** Show the "¿Eres cliente?" link pointing to /portal/cliente */
   showClienteLink: boolean;
   /** Show the "¿Eres guardia?" link pointing to /portal/personas */
@@ -90,6 +94,7 @@ const MODE_CONFIG: Record<LoginMode, ModeConfig> = {
     showGoogle: true,
     showRutPin: true,
     showEmailPin: false,
+    showEmailPassword: false,
     showClienteLink: true,
     showGuardiaLink: false,
     guardiaSuccessHref: "/portal/guardia",
@@ -105,6 +110,7 @@ const MODE_CONFIG: Record<LoginMode, ModeConfig> = {
     showGoogle: true,
     showRutPin: true,
     showEmailPin: false,
+    showEmailPassword: false,
     showClienteLink: false,
     showGuardiaLink: false,
     guardiaSuccessHref: "/portal/guardia",
@@ -120,6 +126,7 @@ const MODE_CONFIG: Record<LoginMode, ModeConfig> = {
     showGoogle: true,
     showRutPin: false,
     showEmailPin: true,
+    showEmailPassword: false,
     showClienteLink: false,
     showGuardiaLink: true,
     guardiaSuccessHref: "/portal/guardia",
@@ -131,10 +138,11 @@ const MODE_CONFIG: Record<LoginMode, ModeConfig> = {
     portalName: "Portal Supervisor",
     portalSubtitle: "Gestión de equipo e instalaciones",
     headerTitle: "Ingresa",
-    headerSubtitle: "Con tu cuenta Google corporativa",
+    headerSubtitle: "Con Google o tu email + contraseña",
     showGoogle: true,
     showRutPin: false,
     showEmailPin: false,
+    showEmailPassword: true,
     showClienteLink: false,
     showGuardiaLink: false,
     guardiaSuccessHref: "/portal/supervisor",
@@ -191,6 +199,11 @@ export function UnifiedLoginCard({
   /* Cliente state */
   const [email, setEmail] = useState(initialEmail);
   const [clientePin, setClientePin] = useState("");
+
+  /* Supervisor (email + password) state */
+  const [supEmail, setSupEmail] = useState("");
+  const [supPassword, setSupPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   /* Shared state */
   const [loading, setLoading] = useState(false);
@@ -367,7 +380,7 @@ export function UnifiedLoginCard({
       ) : null}
 
       {/* Separator — only when there's both Google AND a form */}
-      {cfg.showGoogle && (cfg.showRutPin || cfg.showEmailPin) ? (
+      {cfg.showGoogle && (cfg.showRutPin || cfg.showEmailPin || cfg.showEmailPassword) ? (
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center" aria-hidden>
             <span className="w-full border-t border-white/[0.08]" />
@@ -470,8 +483,80 @@ export function UnifiedLoginCard({
         </form>
       ) : null}
 
-      {/* Google-only mode (supervisor) — show error box at the card level */}
-      {!cfg.showRutPin && !cfg.showEmailPin && error ? (
+      {/* Email + Password form (supervisor / admin) */}
+      {cfg.showEmailPassword ? (
+        <form action={authenticate}>
+          <input type="hidden" name="callbackUrl" value="/portal/supervisor" />
+          <input type="hidden" name="portal" value="supervisor" />
+
+          <AuthTextInput
+            label="Email"
+            accent={cfg.accent}
+            icon={<UserIcon />}
+            id="sup-email"
+            name="email"
+            type="email"
+            value={supEmail}
+            onChange={(e) => setSupEmail(e.target.value)}
+            placeholder="supervisor@empresa.cl"
+            autoComplete="email"
+            required
+          />
+
+          <div className="mb-4">
+            <label
+              htmlFor="sup-password"
+              className="block text-xs font-medium text-[#9ca3af] mb-[7px]"
+              style={{
+                letterSpacing: "0.02em",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
+            >
+              Contraseña
+            </label>
+            <div className="relative">
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4b5563]">
+                <LockIcon />
+              </div>
+              <input
+                id="sup-password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={supPassword}
+                onChange={(e) => setSupPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+                className="w-full rounded-xl bg-white/[0.03] text-[#f9fafb] text-sm outline-none transition-all duration-300"
+                style={{
+                  padding: "12px 42px 12px 42px",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4b5563] hover:text-[#9ca3af] transition-colors"
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          {error ? <ErrorBox>{error}</ErrorBox> : null}
+
+          <AuthButton
+            accent={cfg.accent}
+            label="Ingresar"
+            type="submit"
+            disabled={!supEmail || supPassword.length < 1}
+          />
+        </form>
+      ) : null}
+
+      {/* Google-only mode — show error box at the card level */}
+      {!cfg.showRutPin && !cfg.showEmailPin && !cfg.showEmailPassword && error ? (
         <div className="mt-4">
           <ErrorBox>{error}</ErrorBox>
         </div>

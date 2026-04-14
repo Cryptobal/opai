@@ -116,7 +116,7 @@ export async function POST(
       title: `Cotización aprobada: ${account?.name}`,
       message: `${account?.name} aprobó la cotización ${quote.code} (${quote.monthlyCost} ${quote.currency}/mes).`,
       emailMessage: null,
-      link: quote.dealId ? `/crm/negocios/${quote.dealId}` : null,
+      link: quote.dealId ? `/crm/deals/${quote.dealId}` : `/crm/cotizaciones/${id}`,
       data: { quoteId: id, quoteCode: quote.code, dealId: quote.dealId },
     });
   } catch (notifErr) {

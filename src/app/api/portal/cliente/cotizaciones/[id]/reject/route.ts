@@ -129,7 +129,7 @@ export async function POST(
       title: `Propuesta rechazada: ${account?.name}`,
       message: `${account?.name} rechazó la propuesta ${quote.code}.${reason ? ` Motivo: ${reason}` : ""}`,
       emailMessage: null,
-      link: quote.dealId ? `/crm/negocios/${quote.dealId}` : null,
+      link: quote.dealId ? `/crm/deals/${quote.dealId}` : `/crm/cotizaciones/${id}`,
       data: { quoteId: id, quoteCode: quote.code, dealId: quote.dealId, reason },
     });
   } catch (notifErr) {
