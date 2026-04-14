@@ -525,7 +525,12 @@ async function enrichCompanyWithAi(
   });
 
   const raw = completion.choices[0]?.message?.content?.trim() || "";
-  const parsed = JSON.parse(extractJsonObject(raw)) as Partial<CompanyAiEnrichment>;
+  let parsed: Partial<CompanyAiEnrichment>;
+  try {
+    parsed = JSON.parse(extractJsonObject(raw)) as Partial<CompanyAiEnrichment>;
+  } catch {
+    parsed = {};
+  }
 
   const regexRut = extractFirstRut(sourceText);
   const regexRep = extractRepresentativeByRegex(sourceText);

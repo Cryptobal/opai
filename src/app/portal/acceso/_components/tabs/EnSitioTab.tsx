@@ -129,6 +129,7 @@ export default function EnSitioTab({
         params.toString() ? `?${params.toString()}` : ""
       }`;
       const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.success) {
         setRecords(json.data.records);

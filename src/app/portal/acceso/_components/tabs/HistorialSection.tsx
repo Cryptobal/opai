@@ -77,6 +77,7 @@ export default function HistorialSection({
         const res = await fetch(
           `/api/access-control/records/${installationId}?${params.toString()}`
         );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
 
         if (json.success) {

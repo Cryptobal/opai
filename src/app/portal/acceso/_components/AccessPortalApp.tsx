@@ -163,6 +163,7 @@ export function AccessPortalApp() {
         const res = await fetch("/api/access-control/device/validate", {
           headers: { Authorization: `Bearer ${storedToken}` },
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
 
         if (json.success && json.data?.valid) {

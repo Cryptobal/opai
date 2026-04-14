@@ -79,8 +79,8 @@ export default function InicioTab({
         fetch(`/api/access-control/records/${installationId}?limit=10`),
       ]);
 
-      const statsJson = await statsRes.json();
-      const recordsJson = await recordsRes.json();
+      const statsJson = statsRes.ok ? await statsRes.json() : { success: false };
+      const recordsJson = recordsRes.ok ? await recordsRes.json() : { success: false };
 
       if (statsJson.success) {
         setStats(statsJson.data);

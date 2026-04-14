@@ -128,7 +128,10 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
     setLoading(true);
     setError(null);
     fetch(`/api/portal/cliente/instalaciones/${installationId}/marcaciones?limit=50`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((json) => {
         if (json.success) {
           setMarcaciones(json.data.marcaciones);

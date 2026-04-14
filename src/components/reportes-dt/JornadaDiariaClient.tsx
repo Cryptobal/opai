@@ -32,6 +32,7 @@ export function JornadaDiariaClient({ installations }: { installations: Installa
       const params = new URLSearchParams({ from, to });
       if (installationId) params.set("installationId", installationId);
       const r = await fetch(`/api/reportes/dt/jornada-diaria?${params}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
       if (d.success) setRecords(d.data);
     } catch {}

@@ -55,6 +55,7 @@ export default function EsperadosHoySection({
       const res = await fetch(
         `/api/access-control/preregistrations/${installationId}/today`
       );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.success) {
         setPreregistrations(json.data ?? []);

@@ -60,7 +60,11 @@ export async function POST(request: NextRequest) {
       }
     } else {
       console.warn("[webhook/inbound-email] RESEND_WEBHOOK_SECRET not set — signature verification SKIPPED");
-      body = JSON.parse(payload);
+      try {
+        body = JSON.parse(payload);
+      } catch {
+        return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+      }
     }
 
     const { type, data } = body;

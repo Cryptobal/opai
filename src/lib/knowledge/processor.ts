@@ -42,6 +42,9 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     model: 'text-embedding-3-small',
     input: text,
   });
+  if (!response.data[0]?.embedding) {
+    throw new Error("OpenAI returned no embedding data");
+  }
   return response.data[0].embedding;
 }
 

@@ -72,7 +72,10 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
   /* ── Load list ── */
   useEffect(() => {
     fetch("/api/portal/cliente/cotizaciones")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((json) => {
         if (json.success) setQuotes(json.data);
         else setError(json.error ?? "Error al cargar cotizaciones");
@@ -100,6 +103,7 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
     setDetailLoading(true);
     try {
       const res = await fetch(`/api/portal/cliente/cotizaciones/${id}`);
+      if (!res.ok) return;
       const json = await res.json();
       if (json.success) {
         setDetail(json.data);

@@ -157,7 +157,10 @@ const sentryOptions = {
   silent: !process.env.CI,
 };
 
-module.exports =
-  process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
-    ? withSentryConfig(nextConfig, sentryOptions)
-    : nextConfig;
+const shouldEnableSentry =
+  process.env.NODE_ENV === "production" &&
+  (process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN);
+
+module.exports = shouldEnableSentry
+  ? withSentryConfig(nextConfig, sentryOptions)
+  : nextConfig;

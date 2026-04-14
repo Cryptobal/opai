@@ -162,9 +162,9 @@ export async function POST(
     return NextResponse.json({
       success: anySent,
       data: {
-        dealId: deal.id,
-        accountId: approveData.data.account.id,
-        contactId: approveData.data.contact.id,
+        dealId: deal?.id,
+        accountId: approveData.data.account?.id ?? null,
+        contactId: approveData.data.contact?.id ?? null,
         results: sendResults,
         // Keep backward-compatible quoteId field (first sent quote)
         quoteId: firstSent?.quoteId ?? quotes[0].id,
