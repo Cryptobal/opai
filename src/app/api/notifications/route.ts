@@ -743,7 +743,7 @@ export async function PATCH(request: NextRequest) {
         body.ids.map((id: string) =>
           prisma.notificationReadState.upsert({
             where: { notificationId_userId: { notificationId: id, userId: ctx.userId } },
-            create: { notificationId: id, userId: ctx.userId, seenAt: now, readAt: now },
+            create: { notificationId: id, userId: ctx.userId, seenAt: now },
             update: { seenAt: now },
           })
         )
