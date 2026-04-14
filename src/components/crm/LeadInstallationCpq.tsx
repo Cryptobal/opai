@@ -931,13 +931,13 @@ export function LeadInstallationCpq({
                 <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
                   <div className="space-y-1">
                     <Label className="text-[10px]">Guardias</Label>
-                    <select
+                    <input
+                      type="number"
+                      min={1}
                       className="flex h-7 w-full rounded-md border border-border/60 bg-[#1a1a1a] px-2 text-xs"
                       value={pos.cantidad || 1}
-                      onChange={(e) => updatePosition(idx, { cantidad: Number(e.target.value) })}
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => <option key={n} value={n}>{n}</option>)}
-                    </select>
+                      onChange={(e) => updatePosition(idx, { cantidad: Math.max(1, Number(e.target.value) || 1) })}
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px]">N° Puestos</Label>

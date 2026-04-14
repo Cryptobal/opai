@@ -352,11 +352,13 @@ export function CpqPositionCard({
         <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
           <div className="space-y-1">
             <Label className="text-sm">Guardias</Label>
-            <select className={selectCls} value={draft.numGuards} onChange={(e) => updateDraft({ numGuards: Number(e.target.value) })}>
-              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
+            <input
+              type="number"
+              min={1}
+              className={selectCls}
+              value={draft.numGuards}
+              onChange={(e) => updateDraft({ numGuards: Math.max(1, Number(e.target.value) || 1) })}
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-sm">Nº Puestos</Label>

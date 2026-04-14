@@ -258,9 +258,13 @@ export function CreatePositionModal({ quoteId, onCreated, disabled }: CreatePosi
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guardias</Label>
-                <select className="flex h-9 w-20 rounded-md border border-input bg-card px-2 text-sm" value={form.numGuards} onChange={(e) => setForm((p) => ({ ...p, numGuards: Number(e.target.value) }))}>
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
+                <input
+                  type="number"
+                  min={1}
+                  className="flex h-9 w-20 rounded-md border border-input bg-card px-2 text-sm"
+                  value={form.numGuards}
+                  onChange={(e) => setForm((p) => ({ ...p, numGuards: Math.max(1, Number(e.target.value) || 1) }))}
+                />
               </div>
 
               <div className="space-y-1.5">
