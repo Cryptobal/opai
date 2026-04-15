@@ -1356,7 +1356,7 @@ export function CpqQuoteDetail({
               variant="outline"
               className={cn(
                 "text-xs h-6 shrink-0 font-medium whitespace-nowrap w-fit max-lg:basis-full max-lg:mt-0.5",
-                quote.status === "sent" && "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
+                quote.status === "sent" && "border-blue-500/30 text-blue-600 dark:text-blue-400",
                 quote.status === "draft" && "border-amber-500/30 text-amber-600 dark:text-amber-400",
                 quote.status === "approved" && "border-emerald-500/30 text-emerald-600 dark:text-emerald-400",
                 quote.status === "rejected" && "border-red-500/30 text-red-600 dark:text-red-400"

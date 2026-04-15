@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { getQuoteStatus } from "@/lib/quoteStatus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -581,17 +582,20 @@ export function CrmContactDetailClient({
             <EmptyState icon={<DollarSign className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a la cuenta de este contacto." compact />
           ) : (
             <CrmRelatedRecordGrid className="!grid-cols-1">
-              {quotes.map((q) => (
-                <CrmRelatedRecordCard
-                  key={q.id}
-                  module="quotes"
-                  title={q.name ? `${q.code} — ${q.name}` : q.code}
-                  subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
-                  meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
-                  badge={{ label: q.status, variant: "secondary" }}
-                  href={`/crm/cotizaciones/${q.id}`}
-                />
-              ))}
+              {quotes.map((q) => {
+                const statusMeta = getQuoteStatus(q.status);
+                return (
+                  <CrmRelatedRecordCard
+                    key={q.id}
+                    module="quotes"
+                    title={q.name ? `${q.code} — ${q.name}` : q.code}
+                    subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
+                    meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
+                    badge={{ label: statusMeta.label, color: statusMeta.color }}
+                    href={`/crm/cotizaciones/${q.id}`}
+                  />
+                );
+              })}
             </CrmRelatedRecordGrid>
           )}
         </div>

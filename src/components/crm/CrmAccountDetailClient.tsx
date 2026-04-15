@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
+import { getQuoteStatus } from "@/lib/quoteStatus";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { EmailHistoryList } from "./EmailHistoryList";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
@@ -887,8 +888,7 @@ export function CrmAccountDetailClient({
           ) : (
             <CrmRelatedRecordGrid className="!grid-cols-1">
               {quotes.map((q) => {
-                const statusLabel = q.status === "draft" ? "Borrador" : q.status === "sent" ? "Enviada" : q.status === "approved" ? "Aprobada" : q.status === "rejected" ? "Rechazada" : q.status || "Borrador";
-                const statusVariant = q.status === "approved" ? "success" : q.status === "rejected" ? "destructive" : q.status === "sent" ? "default" : "secondary";
+                const statusMeta = getQuoteStatus(q.status);
                 return (
                   <CrmRelatedRecordCard
                     key={q.id}
@@ -896,7 +896,7 @@ export function CrmAccountDetailClient({
                     title={q.name ? `${q.code} — ${q.name}` : q.code}
                     subtitle={q.clientName || undefined}
                     meta={formatCLP(q.monthlyCost)}
-                    badge={{ label: statusLabel, variant: statusVariant as any }}
+                    badge={{ label: statusMeta.label, color: statusMeta.color }}
                     href={`/crm/cotizaciones/${q.id}`}
                   />
                 );

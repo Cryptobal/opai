@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
+import { getQuoteStatus } from "@/lib/quoteStatus";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -691,7 +692,8 @@ export function CrmDealDetailClient({
       .map((quoteLink) => ({ quoteLink, quoteInfo: quotesById[quoteLink.quoteId] }))
       .filter(
         (entry): entry is { quoteLink: DealQuote; quoteInfo: QuoteOption } =>
-          Boolean(entry.quoteInfo) && entry.quoteInfo.status === "sent"
+          Boolean(entry.quoteInfo) &&
+          (entry.quoteInfo.status === "sent" || entry.quoteInfo.status === "approved")
       )
       .sort((a, b) => {
         const bTime = new Date(
@@ -1059,21 +1061,29 @@ export function CrmDealDetailClient({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__auto__">
-                Automática{" "}
-                {linkedQuotes.length > 1
-                  ? "(última enviada)"
-                  : "(única cotización)"}
+                {(() => {
+                  const autoSummary = deal.activeQuoteSummary?.code
+                    ? ` · usando ${deal.activeQuoteSummary.code}`
+                    : "";
+                  const baseLabel =
+                    linkedQuotes.length > 1
+                      ? "Automática (última enviada)"
+                      : "Automática (única cotización)";
+                  return `${baseLabel}${autoSummary}`;
+                })()}
               </SelectItem>
               {sentLinkedQuotes.map(({ quoteInfo }) => {
                 const quoteDate = quoteInfo.updatedAt || quoteInfo.createdAt || null;
                 const quoteDateLabel = quoteDate
                   ? formatDealDate(quoteDate)
                   : "sin fecha";
+                const quoteLabel = quoteInfo.name
+                  ? `${quoteInfo.code} — ${quoteInfo.name}`
+                  : quoteInfo.code;
+                const statusSuffix = quoteInfo.status === "approved" ? " · Aprobada" : "";
                 return (
                   <SelectItem key={quoteInfo.id} value={quoteInfo.id}>
-                    {`${quoteInfo.code}${quoteInfo.clientName ? ` — ${quoteInfo.clientName}` : ""} · ${quoteDateLabel} · ${formatQuoteAmounts(
-                      quoteInfo
-                    )}`}
+                    {`${quoteLabel} · ${quoteDateLabel} · ${formatQuoteAmounts(quoteInfo)}${statusSuffix}`}
                   </SelectItem>
                 );
               })}
@@ -1571,26 +1581,28 @@ export function CrmDealDetailClient({
             <CrmRelatedRecordGrid className="!grid-cols-1">
               {linkedQuotes.map((quote) => {
                 const info = quotesById[quote.quoteId];
-                const statusLabel = info?.status === "draft" ? "Borrador" : info?.status === "sent" ? "Enviada" : info?.status === "approved" ? "Aprobada" : info?.status === "rejected" ? "Rechazada" : info?.status || "Borrador";
-                const statusVariant = info?.status === "approved" ? "success" : info?.status === "rejected" ? "destructive" : info?.status === "sent" ? "default" : "secondary";
+                const statusMeta = getQuoteStatus(info?.status);
                 const quoteDate = info?.status === "sent" && info?.updatedAt
                   ? `Enviada: ${formatDealDate(info.updatedAt)}`
                   : info?.createdAt
                     ? `Creada: ${formatDealDate(info.createdAt)}`
                     : undefined;
                 const subtitleParts = [info?.clientName || "Sin cliente", quoteDate].filter(Boolean).join(" · ");
+                const title = info?.name
+                  ? `${info.code} — ${info.name}`
+                  : info?.code || "CPQ";
+                const isActive = info?.id === activeQuotationId;
                 return (
                   <CrmRelatedRecordCard
                     key={quote.id}
                     module="quotes"
-                    title={info?.clientName ? `${info.code} — ${info.clientName}` : info?.code || "CPQ"}
+                    title={title}
                     subtitle={subtitleParts}
                     meta={formatQuoteAmounts(info)}
-                    badge={
-                      info?.id === activeQuotationId
-                        ? { label: `${statusLabel} | Activa`, variant: "success" as any }
-                        : { label: statusLabel, variant: statusVariant as any }
-                    }
+                    badge={{
+                      label: isActive ? `${statusMeta.label} · Activa` : statusMeta.label,
+                      color: statusMeta.color,
+                    }}
                     href={`/crm/cotizaciones/${quote.quoteId}`}
                   />
                 );
