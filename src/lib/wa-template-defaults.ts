@@ -52,7 +52,7 @@ Servicio: {servicio} | Dotación: {dotacion}
     name: "1er seguimiento",
     body: `Hola {contactName}, ¿cómo estás?
 
-Te hago seguimiento a la propuesta de {dealTitle} enviada el {proposalSentDate}.
+Te hago seguimiento a la propuesta de {dealTitle} enviada el {proposalSentDate}. Puedes revisarla en el Portal del Cliente:
 
 {proposalLink}
 
@@ -71,7 +71,7 @@ Cualquier duda quedo atento. Saludos!`,
 
 Te escribo nuevamente respecto a la propuesta de {dealTitle} que te enviamos el {proposalSentDate}.
 
-¿Has tenido oportunidad de revisarla? Si necesitas que ajustemos algo, estoy disponible.
+¿Has tenido oportunidad de revisarla? Si necesitas que ajustemos algo, estoy disponible. Te dejo el acceso al Portal del Cliente:
 
 {proposalLink}
 
@@ -88,7 +88,7 @@ Saludos!`,
     name: "3er seguimiento",
     body: `Hola {contactName}, ¿cómo estás?
 
-Este es nuestro último seguimiento sobre la propuesta de {dealTitle} enviada el {proposalSentDate}.
+Este es nuestro último seguimiento sobre la propuesta de {dealTitle} enviada el {proposalSentDate}. Te dejo nuevamente el acceso al Portal del Cliente:
 
 {proposalLink}
 

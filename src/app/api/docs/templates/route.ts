@@ -55,21 +55,21 @@ const WA_SEEDS: {
     name: "WhatsApp — 1er seguimiento",
     category: "followup_first",
     description: "Mensaje de WhatsApp en la notificación del 1er seguimiento automático.",
-    body: `Hola {contactName}, ¿cómo estás?\n\nTe hago seguimiento a la propuesta de {dealTitle} enviada el {proposalSentDate}.\n\n{proposalLink}\n\nCualquier duda quedo atento. Saludos!`,
+    body: `Hola {contactName}, ¿cómo estás?\n\nTe hago seguimiento a la propuesta de {dealTitle} enviada el {proposalSentDate}. Puedes revisarla en el Portal del Cliente:\n\n{proposalLink}\n\nCualquier duda quedo atento. Saludos!`,
   },
   {
     slug: "followup_second",
     name: "WhatsApp — 2do seguimiento",
     category: "followup_second",
     description: "Mensaje de WhatsApp en la notificación del 2do seguimiento automático.",
-    body: `Hola {contactName}, ¿cómo estás?\n\nTe escribo nuevamente respecto a la propuesta de {dealTitle} que te enviamos el {proposalSentDate}.\n\n¿Has tenido oportunidad de revisarla? Si necesitas que ajustemos algo, estoy disponible.\n\n{proposalLink}\n\nSaludos!`,
+    body: `Hola {contactName}, ¿cómo estás?\n\nTe escribo nuevamente respecto a la propuesta de {dealTitle} que te enviamos el {proposalSentDate}.\n\n¿Has tenido oportunidad de revisarla? Si necesitas que ajustemos algo, estoy disponible. Te dejo el acceso al Portal del Cliente:\n\n{proposalLink}\n\nSaludos!`,
   },
   {
     slug: "followup_third",
     name: "WhatsApp — 3er seguimiento",
     category: "followup_third",
     description: "Mensaje de WhatsApp en la notificación del 3er seguimiento automático.",
-    body: `Hola {contactName}, ¿cómo estás?\n\nEste es nuestro último seguimiento sobre la propuesta de {dealTitle} enviada el {proposalSentDate}.\n\n{proposalLink}\n\nSi te interesa continuar, te leo y avanzamos de inmediato.`,
+    body: `Hola {contactName}, ¿cómo estás?\n\nEste es nuestro último seguimiento sobre la propuesta de {dealTitle} enviada el {proposalSentDate}. Te dejo nuevamente el acceso al Portal del Cliente:\n\n{proposalLink}\n\nSi te interesa continuar, te leo y avanzamos de inmediato.`,
   },
 ];
 
@@ -92,7 +92,7 @@ Espero que se encuentre bien. Me permito hacer un breve seguimiento respecto a l
 
 Entendemos que este tipo de decisiones requieren análisis, y quedamos a su completa disposición para resolver cualquier consulta, ajustar la propuesta a sus requerimientos específicos, o coordinar una reunión para revisar los detalles en conjunto.
 
-Puede revisar la propuesta completa aquí:
+Puede acceder a la propuesta en el Portal del Cliente, donde podrá revisarla en detalle, descargar los documentos y mantener la comunicación con nuestro equipo:
 {deal.proposalLink}
 
 Quedo atento a sus comentarios.
@@ -110,7 +110,7 @@ Le escribo nuevamente respecto a la propuesta que le compartimos el {deal.propos
 
 Nos gustaría saber si ha tenido oportunidad de revisarla y si hay algún aspecto que le gustaría que profundicemos o ajustemos. Estamos abiertos a adaptar nuestra propuesta para que se ajuste mejor a las necesidades de su operación.
 
-Le comparto nuevamente el enlace para su comodidad:
+Le recuerdo que puede acceder a la propuesta en todo momento desde el Portal del Cliente:
 {deal.proposalLink}
 
 Si lo prefiere, podemos coordinar una breve llamada o reunión para revisar los puntos clave juntos. Estaré encantado de agendar en el horario que mejor le acomode.
@@ -128,7 +128,7 @@ Este es nuestro último seguimiento respecto a la propuesta enviada el {deal.pro
 
 Si te interesa continuar, podemos retomar de inmediato con los ajustes que necesites para avanzar.
 
-Te dejo nuevamente el enlace:
+Te dejo nuevamente el acceso al Portal del Cliente para revisar la propuesta:
 {deal.proposalLink}
 
 Si no recibimos respuesta, cerraremos esta oportunidad por ahora.

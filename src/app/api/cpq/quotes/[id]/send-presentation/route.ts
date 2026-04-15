@@ -20,6 +20,7 @@ import { render } from "@react-email/render";
 import { nanoid } from "nanoid";
 import { syncLeadOnProposalSent } from "@/lib/crm/sync-lead-on-proposal-sent";
 import { requireTenantModule } from '@/lib/require-module';
+import { buildPortalClienteInviteUrl } from "@/lib/portal-cliente-url";
 
 export async function POST(
   request: NextRequest,
@@ -330,12 +331,19 @@ export async function POST(
         })
       : undefined;
 
+    // El correo al cliente debe dirigirlo al Portal del Cliente, no a la presentación
+    // interna (`/p/...`). La URL interna se conserva sólo para trazabilidad y registros.
+    const portalUrl = await buildPortalClienteInviteUrl({
+      email: recipientEmail,
+      tenantId: ctx.tenantId,
+    });
+
     const emailHtml = await render(
       PresentationEmail({
         recipientName,
         companyName,
         subject: `Propuesta de Servicio de Seguridad - ${companyName}`,
-        presentationUrl,
+        presentationUrl: portalUrl,
         quoteNumber: quote.code,
         senderName: "Equipo Comercial Gard",
         expiryDate: validUntilStr,
@@ -405,7 +413,9 @@ export async function POST(
         await prisma.crmDeal.update({
           where: { id: quote.dealId },
           data: {
-            proposalLink: presentationUrl,
+            // El `proposalLink` es el link que verá el cliente en los correos de
+            // seguimiento automáticos; debe apuntar al Portal del Cliente.
+            proposalLink: portalUrl,
             proposalSentAt: new Date(),
             amount: salePriceMonthly + totalAdditionalLines,
             totalPuestos: totalGuards,
