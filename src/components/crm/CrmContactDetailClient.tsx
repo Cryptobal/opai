@@ -584,12 +584,20 @@ export function CrmContactDetailClient({
             <CrmRelatedRecordGrid className="!grid-cols-1">
               {quotes.map((q) => {
                 const statusMeta = getQuoteStatus(q.status);
+                const quoteName = q.name?.trim();
+                const title = quoteName || q.code;
+                const subtitle = [
+                  quoteName ? q.code : null,
+                  `${q.totalPositions} puestos · ${q.totalGuards} guardias`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
                 return (
                   <CrmRelatedRecordCard
                     key={q.id}
                     module="quotes"
-                    title={q.name ? `${q.code} — ${q.name}` : q.code}
-                    subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
+                    title={title}
+                    subtitle={subtitle}
                     meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
                     badge={{ label: statusMeta.label, color: statusMeta.color }}
                     href={`/crm/cotizaciones/${q.id}`}

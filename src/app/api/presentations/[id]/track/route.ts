@@ -22,6 +22,7 @@ async function notifyProposalViewed(presentationId: string, tenantId: string) {
       where: { id: presentationId },
       select: {
         recipientName: true,
+        whatsappNumber: true,
         createdBy: true,
         quoteId: true,
       },
@@ -30,7 +31,7 @@ async function notifyProposalViewed(presentationId: string, tenantId: string) {
 
     const quote = await prisma.cpqQuote.findUnique({
       where: { id: presentation.quoteId },
-      select: { dealId: true },
+      select: { dealId: true, contactId: true },
     });
     if (!quote?.dealId) return;
 
@@ -40,7 +41,9 @@ async function notifyProposalViewed(presentationId: string, tenantId: string) {
         id: true,
         title: true,
         accountId: true,
+        primaryContactId: true,
         account: { select: { portalEjecutivoId: true } },
+        primaryContact: { select: { phone: true, firstName: true, lastName: true } },
       },
     });
     if (!deal) return;
@@ -51,6 +54,35 @@ async function notifyProposalViewed(presentationId: string, tenantId: string) {
 
     const clientName = presentation.recipientName || 'Un cliente';
     const dealUrl = `/crm/deals/${deal.id}`;
+
+    // Intentar resolver un teléfono del cliente para el botón de WhatsApp.
+    // Prioridad: whatsappNumber de la presentación > contacto del quote > contacto principal del negocio.
+    let rawPhone: string | null = presentation.whatsappNumber ?? null;
+    if (!rawPhone && quote.contactId) {
+      const quoteContact = await prisma.crmContact.findUnique({
+        where: { id: quote.contactId },
+        select: { phone: true },
+      });
+      rawPhone = quoteContact?.phone ?? null;
+    }
+    if (!rawPhone) {
+      rawPhone = deal.primaryContact?.phone ?? null;
+    }
+
+    // Normalizar a formato wa.me (solo dígitos). Si no tiene código país y parece
+    // chileno (8-9 dígitos), asumir +56.
+    let waDigits: string | null = null;
+    if (rawPhone) {
+      const digits = rawPhone.replace(/\D/g, "");
+      if (digits.length >= 11) {
+        waDigits = digits;
+      } else if (digits.length === 9 || digits.length === 8) {
+        waDigits = `56${digits}`;
+      } else if (digits.length > 0) {
+        waDigits = digits;
+      }
+    }
+    const whatsappUrl = waDigits ? `https://wa.me/${waDigits}` : undefined;
 
     // Create internal notification (bell + email) respetando preferencias del usuario.
     // sendNotificationToUser usa UserNotificationPreference para decidir bell/email.
@@ -67,6 +99,13 @@ async function notifyProposalViewed(presentationId: string, tenantId: string) {
         presentationId,
       },
       link: dealUrl,
+      emailSecondaryAction: whatsappUrl
+        ? {
+            url: whatsappUrl,
+            label: "Enviar WhatsApp",
+            color: "#25D366",
+          }
+        : null,
     });
 
     // Send web push notification

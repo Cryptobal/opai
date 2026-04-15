@@ -239,8 +239,9 @@ export function DatosSection({
   return (
     <div className="space-y-2">
       <div className="space-y-2">
-        {/* ── CRM Context: 2 columnas x 2 filas, cada campo ocupa la mitad del ancho de la sección ── */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 w-full">
+        {/* ── CRM Context: 1 columna en móvil (evita que el nombre se trunque a "S." "C." ...),
+             2 columnas en desktop. ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 w-full">
           <div className="min-w-0">
             <Label className="text-sm uppercase tracking-wider text-muted-foreground font-medium">Cuenta</Label>
             <div className="flex gap-0.5">

@@ -195,23 +195,52 @@ function DealPipelineStepper({
   const wonStage = stages.find((s) => s.isClosedWon);
   const lostStage = stages.find((s) => s.isClosedLost);
   const currentIdx = openStages.findIndex((s) => s.id === currentStageId);
-  const isWon = dealStatus === "won";
-  const isLost = dealStatus === "lost";
+  // El negocio se considera cerrado si dealStatus lo marca, o si la etapa seleccionada
+  // es la etapa "ganado"/"perdido" (esto cubre el caso en que recién se hizo click en
+  // Ganado y aún no se recargó el prop deal.status).
+  const isWonByStage = !!wonStage && currentStageId === wonStage.id;
+  const isLostByStage = !!lostStage && currentStageId === lostStage.id;
+  const isWon = dealStatus === "won" || isWonByStage;
+  const isLost = dealStatus === "lost" || isLostByStage;
   const isClosed = isWon || isLost;
 
   const currentOpenStage = currentIdx >= 0 ? openStages[currentIdx] : undefined;
-  const currentStageColor = currentOpenStage?.color || "#94a3b8";
+  const closedStage = isWon ? wonStage : isLost ? lostStage : undefined;
+  const closedColor = isWon ? "#10b981" : isLost ? "#ef4444" : "#94a3b8";
+  const currentStageColor = isClosed
+    ? closedStage?.color || closedColor
+    : currentOpenStage?.color || "#94a3b8";
+
+  // Etiqueta para el card "Etapa actual" en móvil
+  const currentLabel = isWon
+    ? "Ganado"
+    : isLost
+      ? "Perdido"
+      : currentOpenStage?.name || "Sin etapa";
+  const progressPct = isClosed
+    ? 100
+    : currentIdx >= 0 && openStages.length > 0
+      ? ((currentIdx + 1) / openStages.length) * 100
+      : 0;
 
   return (
     <div className="space-y-2 py-2 sm:space-y-0">
       {/* Mobile: indicador compacto de etapa actual + progreso */}
       <div className="sm:hidden space-y-2">
-        {!isClosed && openStages.length > 0 && (
-          <div className="rounded-md border border-border bg-card/40 px-3 py-2">
+        {openStages.length > 0 && (
+          <div
+            className="rounded-md border px-3 py-2 transition-colors"
+            style={{
+              borderColor: isClosed ? `${currentStageColor}60` : undefined,
+              backgroundColor: isClosed ? `${currentStageColor}10` : undefined,
+            }}
+          >
             <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
               <span className="uppercase tracking-wider">Etapa actual</span>
               <span className="tabular-nums">
-                {currentIdx >= 0 ? `${currentIdx + 1}` : "–"} / {openStages.length}
+                {isClosed
+                  ? "Cerrado"
+                  : `${currentIdx >= 0 ? currentIdx + 1 : "–"} / ${openStages.length}`}
               </span>
             </div>
             <div className="mt-1 flex items-center gap-2">
@@ -219,8 +248,11 @@ function DealPipelineStepper({
                 className="inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: currentStageColor }}
               />
-              <span className="text-sm font-medium truncate">
-                {currentOpenStage?.name || "Sin etapa"}
+              <span
+                className="text-sm font-medium truncate"
+                style={isClosed ? { color: currentStageColor } : undefined}
+              >
+                {currentLabel}
               </span>
             </div>
             {/* Progress bar */}
@@ -228,7 +260,7 @@ function DealPipelineStepper({
               <div
                 className="h-full rounded-full transition-all"
                 style={{
-                  width: currentIdx >= 0 ? `${((currentIdx + 1) / openStages.length) * 100}%` : "0%",
+                  width: `${progressPct}%`,
                   backgroundColor: currentStageColor,
                 }}
               />
@@ -1705,19 +1737,21 @@ export function CrmDealDetailClient({
                   : info?.createdAt
                     ? `Creada: ${formatDealDate(info.createdAt)}`
                     : undefined;
-                // En el contexto del negocio ya conocemos la cuenta, por lo que omitimos clientName
-                // y mostramos solo la fecha como subtítulo para evitar redundancia.
-                const subtitleParts = quoteDate || "";
-                const title = info?.name
-                  ? `${info.code} — ${info.name}`
-                  : info?.code || "CPQ";
+                // El título muestra el nombre escrito (si existe) como identificador principal.
+                // El código CPQ se muestra en el subtítulo junto con la fecha.
+                const quoteName = info?.name?.trim();
+                const code = info?.code || "CPQ";
+                const title = quoteName || code;
+                const subtitleParts = [quoteName ? code : null, quoteDate]
+                  .filter(Boolean)
+                  .join(" · ");
                 const isActive = info?.id === activeQuotationId;
                 return (
                   <CrmRelatedRecordCard
                     key={quote.id}
                     module="quotes"
                     title={title}
-                    subtitle={subtitleParts}
+                    subtitle={subtitleParts || undefined}
                     meta={formatQuoteAmounts(info)}
                     badge={{
                       label: isActive ? `${statusMeta.label} · Activa` : statusMeta.label,

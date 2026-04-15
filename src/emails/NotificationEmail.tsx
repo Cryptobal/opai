@@ -19,6 +19,11 @@ interface NotificationEmailProps {
   message?: string;
   actionUrl?: string;
   actionLabel?: string;
+  /** Acción secundaria opcional (ej: botón de WhatsApp al cliente). */
+  secondaryActionUrl?: string;
+  secondaryActionLabel?: string;
+  /** Color hex del botón secundario (ej: "#25D366" para WhatsApp). */
+  secondaryActionColor?: string;
   category?: string;
   /** Notification type key (e.g. "contract_expiring") for granular unsubscribe link */
   notificationType?: string;
@@ -40,6 +45,9 @@ export default function NotificationEmail({
   message,
   actionUrl,
   actionLabel = "Ver en OPAI",
+  secondaryActionUrl,
+  secondaryActionLabel,
+  secondaryActionColor,
   category,
   notificationType,
 }: NotificationEmailProps) {
@@ -47,6 +55,11 @@ export default function NotificationEmail({
     ? actionUrl.startsWith("http")
       ? actionUrl
       : `${SITE_URL}${actionUrl}`
+    : undefined;
+  const fullSecondaryUrl = secondaryActionUrl
+    ? secondaryActionUrl.startsWith("http")
+      ? secondaryActionUrl
+      : `${SITE_URL}${secondaryActionUrl}`
     : undefined;
 
   return (
@@ -75,11 +88,28 @@ export default function NotificationEmail({
             <Text style={text}>{message}</Text>
           )}
 
-          {fullUrl && (
+          {(fullUrl || fullSecondaryUrl) && (
             <Section style={buttonWrap}>
-              <Button href={fullUrl} style={button}>
-                {actionLabel}
-              </Button>
+              {fullUrl && (
+                <Button href={fullUrl} style={button}>
+                  {actionLabel}
+                </Button>
+              )}
+              {fullSecondaryUrl && (
+                <>
+                  {fullUrl && <span style={{ display: "inline-block", width: "8px" }}>&nbsp;</span>}
+                  <Button
+                    href={fullSecondaryUrl}
+                    style={{
+                      ...button,
+                      backgroundColor: secondaryActionColor || "#25D366",
+                      color: "#ffffff",
+                    }}
+                  >
+                    {secondaryActionLabel || "Contactar"}
+                  </Button>
+                </>
+              )}
             </Section>
           )}
 

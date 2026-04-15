@@ -892,12 +892,15 @@ export function CrmAccountDetailClient({
                 const createdLabel = q.createdAt
                   ? `Creada: ${new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.createdAt))}`
                   : undefined;
+                const quoteName = q.name?.trim();
+                const title = quoteName || q.code;
+                const subtitle = [quoteName ? q.code : null, createdLabel].filter(Boolean).join(" · ");
                 return (
                   <CrmRelatedRecordCard
                     key={q.id}
                     module="quotes"
-                    title={q.name ? `${q.code} — ${q.name}` : q.code}
-                    subtitle={createdLabel}
+                    title={title}
+                    subtitle={subtitle || undefined}
                     meta={formatCLP(q.monthlyCost)}
                     badge={{ label: statusMeta.label, color: statusMeta.color }}
                     href={`/crm/cotizaciones/${q.id}`}

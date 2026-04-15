@@ -69,6 +69,15 @@ interface CreateNotificationInput {
   link?: string | null;
   data?: Record<string, unknown>;
   /**
+   * Acción secundaria opcional para el email (ej: botón de WhatsApp al cliente).
+   * Solo afecta al email; la bell notification sigue usando `link`.
+   */
+  emailSecondaryAction?: {
+    url: string;
+    label: string;
+    color?: string;
+  } | null;
+  /**
    * Canales a usar. Por defecto ['bell', 'email']. Permite, por ejemplo,
    * enviar sólo bell en tiempo real desde un cron que corre cada 15 min y
    * diferir el email a un digest diario.
@@ -198,7 +207,7 @@ export async function sendNotification(input: CreateNotificationInput) {
 export async function sendNotificationToUser(
   input: CreateNotificationInput & { targetUserId: string }
 ) {
-  const { tenantId, type, title, message, emailMessage, link, data, targetUserId } = input;
+  const { tenantId, type, title, message, emailMessage, link, data, targetUserId, emailSecondaryAction } = input;
   const typeDef = NOTIFICATION_TYPE_MAP.get(type);
 
   const user = await prisma.admin.findFirst({
@@ -251,6 +260,9 @@ export async function sendNotificationToUser(
           message: emailMessage ?? message ?? undefined,
           actionUrl: link ?? undefined,
           actionLabel,
+          secondaryActionUrl: emailSecondaryAction?.url,
+          secondaryActionLabel: emailSecondaryAction?.label,
+          secondaryActionColor: emailSecondaryAction?.color,
           category: typeDef?.category,
           notificationType: type,
         })
