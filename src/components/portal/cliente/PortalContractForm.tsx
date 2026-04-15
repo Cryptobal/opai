@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Building2,
   Receipt,
@@ -120,6 +120,67 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
     { name: "", email: "", phone: "", role: "Jefe de Operaciones" },
   ]);
 
+  const [loadingPrefill, setLoadingPrefill] = useState(true);
+
+  /* ── Prefill desde datos de empresa del portal ── */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/portal/cliente/empresa", { cache: "no-store" });
+        const json = await res.json();
+        if (cancelled || !json?.success || !json?.data) return;
+        const a = json.data;
+        const portalContract =
+          (a.portalConfig as { contractData?: { billingData?: FacturacionData; operativeContacts?: ContactoData[]; legalAddress?: string } } | undefined)?.contractData;
+
+        setEmpresa((prev) => ({
+          rut: prev.rut || a.rut || "",
+          legalName: prev.legalName || a.legalName || a.name || "",
+          address:
+            prev.address ||
+            portalContract?.legalAddress ||
+            [a.address, a.commune].filter(Boolean).join(", "),
+        }));
+
+        if (portalContract?.billingData) {
+          setFacturacion((prev) => ({
+            email: prev.email || portalContract.billingData?.email || "",
+            contact: prev.contact || portalContract.billingData?.contact || "",
+            paymentMethod:
+              portalContract.billingData?.paymentMethod || prev.paymentMethod,
+          }));
+        }
+
+        if (
+          Array.isArray(portalContract?.operativeContacts) &&
+          portalContract.operativeContacts.length > 0
+        ) {
+          setContactos(portalContract.operativeContacts);
+        } else if (Array.isArray(a.contacts) && a.contacts.length > 0) {
+          setContactos((prev) => {
+            if (prev.length === 1 && !prev[0].name && !prev[0].email) {
+              return a.contacts.slice(0, 5).map((c: { firstName?: string; lastName?: string; email?: string; phone?: string; roleTitle?: string }) => ({
+                name: `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim(),
+                email: c.email ?? "",
+                phone: c.phone ?? "",
+                role: c.roleTitle ?? "",
+              }));
+            }
+            return prev;
+          });
+        }
+      } catch {
+        /* silent — el usuario puede completar manualmente */
+      } finally {
+        if (!cancelled) setLoadingPrefill(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   /* ── Navigation ── */
 
   function goNext() {
@@ -209,6 +270,13 @@ export function PortalContractForm({ quoteId, accountRut, accountName, onComplet
       <h3 className="text-sm font-semibold text-zinc-200">Datos para el contrato</h3>
 
       <StepIndicator current={step} />
+
+      {loadingPrefill && (
+        <div className="flex items-center gap-2 text-xs text-zinc-500">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          Cargando datos de la empresa…
+        </div>
+      )}
 
       {/* ── Step 1: Empresa ── */}
       {step === "empresa" && (
