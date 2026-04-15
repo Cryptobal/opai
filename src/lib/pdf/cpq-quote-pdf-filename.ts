@@ -1,6 +1,6 @@
 /**
  * Nombres de archivo consistentes para PDFs de cotización / propuesta técnica:
- * Cliente - Instalación - [Nombre cotización] - Código [ - sufijo ].pdf
+ * Cuenta - Código cotización - [Nombre cotización] [ - sufijo ].pdf
  */
 
 const ILLEGAL_FILE_CHARS = /[/\\?%*:|"<>]/g;
@@ -24,15 +24,10 @@ export function buildCpqQuotePdfFileName(options: {
   suffix?: string | null;
 }): string {
   const client = sanitizePdfFileNameSegment(options.clientName || "Cliente", 60);
-  const inst = sanitizePdfFileNameSegment(
-    (options.installationName || "").trim() || "Sin instalación",
-    60,
-  );
   const code = sanitizePdfFileNameSegment(options.quoteCode || "cotizacion", 40);
-  const parts: string[] = [client, inst];
+  const parts: string[] = [client, code];
   const qn = options.quoteName?.trim();
-  if (qn) parts.push(sanitizePdfFileNameSegment(qn, 60));
-  parts.push(code);
+  if (qn) parts.push(sanitizePdfFileNameSegment(qn, 80));
   if (options.suffix?.trim()) {
     parts.push(sanitizePdfFileNameSegment(options.suffix, 40));
   }

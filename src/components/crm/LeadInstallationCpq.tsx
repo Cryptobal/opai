@@ -1434,7 +1434,7 @@ function PdfPreviewSection({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [selectedSlug, setSelectedSlug] = useState("standard");
-  const [mode, setMode] = useState<PdfPreviewMode>("cotizacion");
+  const [mode, setMode] = useState<PdfPreviewMode>("presentacion");
 
   const commonPayload = {
     accountName: accountName || "Cliente",

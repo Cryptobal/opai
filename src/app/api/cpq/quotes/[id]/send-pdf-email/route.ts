@@ -308,6 +308,44 @@ export async function POST(
       installationId: quote.installationId,
     });
 
+    // Log email in CRM inbox (Comunicación > Correos)
+    try {
+      const resendId =
+        emailResult?.data && "id" in emailResult.data
+          ? (emailResult.data as { id: string }).id
+          : null;
+      const thread = await prisma.crmEmailThread.create({
+        data: {
+          tenantId: ctx.tenantId,
+          accountId: quote.accountId ?? undefined,
+          contactId: quote.contactId ?? undefined,
+          dealId: quote.dealId ?? undefined,
+          subject,
+          lastMessageAt: new Date(),
+        },
+      });
+      await prisma.crmEmailMessage.create({
+        data: {
+          tenantId: ctx.tenantId,
+          threadId: thread.id,
+          direction: "out",
+          fromEmail: emailConfig.from,
+          toEmails: toList,
+          ccEmails: ccList,
+          bccEmails: bccList,
+          subject,
+          htmlBody: fullHtml,
+          sentAt: new Date(),
+          createdBy: ctx.userId,
+          resendId,
+          status: "sent",
+          source: "cpq",
+        },
+      });
+    } catch (logErr) {
+      console.error("Error logging CPQ email to CrmEmailMessage:", logErr);
+    }
+
     // Log in CRM history
     await prisma.crmHistoryLog.create({
       data: {

@@ -318,7 +318,7 @@ export function CpqQuoteDetail({
   const [secAiContent, setSecAiContent] = useState(true);
   const [secDesglose, setSecDesglose] = useState(true);
   const [secAuditoria, setSecAuditoria] = useState(false);
-  const [pdfPreviewMode, setPdfPreviewMode] = useState<"cotizacion" | "presentacion">("cotizacion");
+  const [pdfPreviewMode, setPdfPreviewMode] = useState<"cotizacion" | "presentacion">("presentacion");
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const [pdfTemplateSlug, setPdfTemplateSlug] = useState("standard");
@@ -2573,22 +2573,14 @@ export function CpqQuoteDetail({
               onClick={async () => {
                 setPdfPreviewLoading(true);
                 try {
+                  const bust = Date.now();
                   const url = pdfPreviewMode === "presentacion"
-                    ? `/api/cpq/quotes/${quoteId}/proposal-pdf`
-                    : `/api/cpq/quotes/${quoteId}/export-pdf?templateSlug=${encodeURIComponent(pdfTemplateSlug)}`;
-                  const res = await fetch(url);
-                  if (!res.ok) {
-                    const message = await getErrorMessageFromResponse(
-                      res,
-                      pdfPreviewMode === "presentacion"
-                        ? "Error al generar la presentación técnica"
-                        : "Error al generar el PDF de cotización"
-                    );
-                    throw new Error(message);
-                  }
-                  const blob = await res.blob();
-                  if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
-                  setPdfPreviewUrl(URL.createObjectURL(blob));
+                    ? `/api/cpq/quotes/${quoteId}/proposal-pdf?t=${bust}`
+                    : `/api/cpq/quotes/${quoteId}/export-pdf?templateSlug=${encodeURIComponent(pdfTemplateSlug)}&t=${bust}`;
+                  // Use direct URL so the browser's PDF viewer shows the
+                  // filename from Content-Disposition instead of a blob UUID.
+                  if (pdfPreviewUrl && pdfPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(pdfPreviewUrl);
+                  setPdfPreviewUrl(url);
                 } catch (err) {
                   console.error("[CPQ PDF Preview]", err);
                   toast.error(err instanceof Error ? err.message : "Error al generar el PDF");
