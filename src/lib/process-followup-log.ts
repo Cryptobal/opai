@@ -75,7 +75,7 @@ function getDefaultFollowUpHtml(
         <p>Estimado/a ${contactName},</p>
         <p>Espero que se encuentre bien. Me permito hacer un breve seguimiento respecto a la propuesta que le enviamos el ${proposalSentDate} para <strong>${dealTitle}</strong>.</p>
         <p>Entendemos que este tipo de decisiones requieren análisis, y quedamos a su disposición para resolver cualquier consulta o ajustar la propuesta según sus necesidades.</p>
-        ${proposalLink ? `<p>Puede revisar la propuesta completa aquí:<br/><a href="${proposalLink}" style="color:#0059A3;">${proposalLink}</a></p>` : ""}
+        ${proposalLink ? `<p>Puede acceder a la propuesta en el <strong>Portal del Cliente</strong>, donde podrá revisarla en detalle, descargar los documentos y mantener la comunicación con nuestro equipo:<br/><a href="${proposalLink}" style="color:#0059A3;">${proposalLink}</a></p>` : ""}
         <p>Quedo atento a sus comentarios.</p>
         <p>Saludos cordiales</p>
       </div>
@@ -88,7 +88,7 @@ function getDefaultFollowUpHtml(
         <p>Hola ${contactName},</p>
         <p>Le escribo nuevamente respecto a la propuesta que le compartimos el ${proposalSentDate} para <strong>${dealTitle}</strong>.</p>
         <p>Nos gustaría saber si ha tenido oportunidad de revisarla y si hay algún aspecto que le gustaría que profundicemos o ajustemos.</p>
-        ${proposalLink ? `<p>Le comparto nuevamente el enlace para su comodidad:<br/><a href="${proposalLink}" style="color:#0059A3;">${proposalLink}</a></p>` : ""}
+        ${proposalLink ? `<p>Le recuerdo que puede acceder a la propuesta en todo momento desde el <strong>Portal del Cliente</strong>:<br/><a href="${proposalLink}" style="color:#0059A3;">${proposalLink}</a></p>` : ""}
         <p>Si lo prefiere, podemos coordinar una breve llamada para revisar los puntos clave juntos.</p>
         <p>Saludos cordiales</p>
       </div>
@@ -100,7 +100,7 @@ function getDefaultFollowUpHtml(
       <p>Hola ${contactName},</p>
       <p>Este es nuestro último seguimiento respecto a la propuesta enviada el ${proposalSentDate} para <strong>${dealTitle}</strong>.</p>
       <p>Si te interesa continuar, podemos retomar de inmediato con los ajustes necesarios para avanzar.</p>
-      ${proposalLink ? `<p>Te comparto nuevamente el enlace:<br/><a href="${proposalLink}" style="color:#0059A3;">${proposalLink}</a></p>` : ""}
+      ${proposalLink ? `<p>Te dejo nuevamente el acceso al <strong>Portal del Cliente</strong> para revisar la propuesta:<br/><a href="${proposalLink}" style="color:#0059A3;">${proposalLink}</a></p>` : ""}
       <p>Si no recibimos respuesta, cerraremos este proceso por ahora.</p>
       <p>Saludos cordiales</p>
     </div>

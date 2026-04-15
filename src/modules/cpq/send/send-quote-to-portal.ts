@@ -172,6 +172,14 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     monthlyTotal = costSummary.monthlyTotal;
   } catch {}
 
+  // URL pública que verá el cliente: Portal del Cliente (no la presentación /p/...).
+  // Se calcula acá porque se usa tanto para `deal.proposalLink` (y por extensión en los
+  // correos de seguimiento que inyectan {deal.proposalLink}) como para el correo actual.
+  const portalUrl = await buildPortalClienteInviteUrl({
+    email: contact.email,
+    tenantId,
+  });
+
   // Generate Presentation
   let presentationUniqueId: string | null = null;
   try {
@@ -262,9 +270,10 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
           data: { uniqueId, templateId: template.id, tenantId, clientData: payloadWithMeta, quoteId: quote.id, status: "sent", recipientEmail: contact.email, recipientName: `${contact.firstName} ${contact.lastName}`.trim(), emailSentAt: new Date(), tags: ["cpq", "portal-invite"] },
         });
 
-        const proposalLink = `${siteUrl}/p/${uniqueId}?mode=commercial`;
+        // El link público que recibe el cliente (y que se usa en emails/WhatsApp de
+        // seguimiento) apunta al Portal del Cliente, no a la presentación interna.
         if (quote.dealId) {
-          await prisma.crmDeal.updateMany({ where: { id: quote.dealId, tenantId }, data: { proposalLink } });
+          await prisma.crmDeal.updateMany({ where: { id: quote.dealId, tenantId }, data: { proposalLink: portalUrl } });
         }
         presentationUniqueId = uniqueId;
       }
@@ -291,10 +300,6 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
 
   // Send email
   const tenantConfig = await getTenantCompanyConfig(tenantId);
-  const portalUrl = await buildPortalClienteInviteUrl({
-    email: contact.email,
-    tenantId,
-  });
   const contactName = `${contact.firstName} ${contact.lastName}`.trim();
 
   /** Nombre manual en CPQ/lead (prioridad) — mismo criterio que el asunto del correo de portal */
@@ -485,7 +490,8 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     sentTo: contact.email,
     portalUrl,
     pinGenerated: !contact.portalPin,
-    proposalLink: presentationUniqueId ? `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || ""}/p/${presentationUniqueId}?mode=commercial` : null,
+    // El link de la propuesta hacia el cliente es siempre el Portal del Cliente.
+    proposalLink: portalUrl,
     whatsappPhone: normalizePhone(contact.phone),
     whatsappMessage: buildWhatsAppMessage({
       contactName,
