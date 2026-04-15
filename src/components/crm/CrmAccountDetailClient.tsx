@@ -889,12 +889,15 @@ export function CrmAccountDetailClient({
             <CrmRelatedRecordGrid className="!grid-cols-1">
               {quotes.map((q) => {
                 const statusMeta = getQuoteStatus(q.status);
+                const createdLabel = q.createdAt
+                  ? `Creada: ${new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.createdAt))}`
+                  : undefined;
                 return (
                   <CrmRelatedRecordCard
                     key={q.id}
                     module="quotes"
                     title={q.name ? `${q.code} — ${q.name}` : q.code}
-                    subtitle={q.clientName || undefined}
+                    subtitle={createdLabel}
                     meta={formatCLP(q.monthlyCost)}
                     badge={{ label: statusMeta.label, color: statusMeta.color }}
                     href={`/crm/cotizaciones/${q.id}`}

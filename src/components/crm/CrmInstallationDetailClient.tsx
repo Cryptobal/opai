@@ -29,6 +29,7 @@ import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAct
 import { DetailField, DetailFieldGrid } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CRM_MODULES } from "./CrmModuleIcons";
+import { getQuoteStatus } from "@/lib/quoteStatus";
 import { FileAttachments } from "./FileAttachments";
 import { InstallationExpensesSection } from "@/components/finance/InstallationExpensesSection";
 import { InventarioInstallationSection } from "@/components/inventario/InventarioInstallationSection";
@@ -1571,9 +1572,20 @@ function StaffingSection({
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">Cotizaciones asociadas</p>
           <div className="space-y-2">
-            {installation.quotesInstalacion.map((quote) => (
-              <CrmRelatedRecordCard key={quote.id} module="quotes" title={quote.code} subtitle={`${quote.totalPositions} puestos · ${quote.totalGuards} guardias`} badge={{ label: quote.status, variant: "secondary" }} meta={new Date(quote.updatedAt).toLocaleDateString("es-CL")} href={`/crm/cotizaciones/${quote.id}`} />
-            ))}
+            {installation.quotesInstalacion.map((quote) => {
+              const statusMeta = getQuoteStatus(quote.status);
+              return (
+                <CrmRelatedRecordCard
+                  key={quote.id}
+                  module="quotes"
+                  title={quote.name ? `${quote.code} — ${quote.name}` : quote.code}
+                  subtitle={`${quote.totalPositions} puestos · ${quote.totalGuards} guardias`}
+                  badge={{ label: statusMeta.label, color: statusMeta.color }}
+                  meta={new Date(quote.updatedAt).toLocaleDateString("es-CL")}
+                  href={`/crm/cotizaciones/${quote.id}`}
+                />
+              );
+            })}
           </div>
         </div>
       ) : null}
@@ -2301,17 +2313,20 @@ export function CrmInstallationDetailClient({
     />
   ) : (
     <CrmRelatedRecordGrid className="!grid-cols-1">
-      {installation.quotesInstalacion.map((q) => (
-        <CrmRelatedRecordCard
-          key={q.id}
-          module="quotes"
-          title={q.code}
-          subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
-          meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
-          badge={{ label: q.status, variant: "secondary" }}
-          href={`/crm/cotizaciones/${q.id}`}
-        />
-      ))}
+      {installation.quotesInstalacion.map((q) => {
+        const statusMeta = getQuoteStatus(q.status);
+        return (
+          <CrmRelatedRecordCard
+            key={q.id}
+            module="quotes"
+            title={q.name ? `${q.code} — ${q.name}` : q.code}
+            subtitle={`${q.totalPositions} puestos · ${q.totalGuards} guardias`}
+            meta={q.updatedAt ? new Intl.DateTimeFormat("es-CL", { dateStyle: "short" }).format(new Date(q.updatedAt)) : undefined}
+            badge={{ label: statusMeta.label, color: statusMeta.color }}
+            href={`/crm/cotizaciones/${q.id}`}
+          />
+        );
+      })}
     </CrmRelatedRecordGrid>
   );
 

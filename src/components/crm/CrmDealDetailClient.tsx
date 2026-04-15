@@ -199,97 +199,211 @@ function DealPipelineStepper({
   const isLost = dealStatus === "lost";
   const isClosed = isWon || isLost;
 
+  const currentOpenStage = currentIdx >= 0 ? openStages[currentIdx] : undefined;
+  const currentStageColor = currentOpenStage?.color || "#94a3b8";
+
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 sm:overflow-x-auto scrollbar-thin">
-      {/* Open stages: vertical on mobile, chevron arrows on desktop */}
-      <div className="flex flex-col sm:flex-row sm:items-stretch gap-1 sm:gap-0 sm:min-w-0">
-        {openStages.map((stage, idx) => {
-          const isCurrent = !isClosed && stage.id === currentStageId;
-          const isPast = !isClosed && currentIdx >= 0 && idx < currentIdx;
-          const isFuture = !isClosed && currentIdx >= 0 && idx > currentIdx;
-          const isFirst = idx === 0;
-          const isLast = idx === openStages.length - 1;
-          const stageColor = stage.color || "#94a3b8";
+    <div className="space-y-2 py-2 sm:space-y-0">
+      {/* Mobile: indicador compacto de etapa actual + progreso */}
+      <div className="sm:hidden space-y-2">
+        {!isClosed && openStages.length > 0 && (
+          <div className="rounded-md border border-border bg-card/40 px-3 py-2">
+            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+              <span className="uppercase tracking-wider">Etapa actual</span>
+              <span className="tabular-nums">
+                {currentIdx >= 0 ? `${currentIdx + 1}` : "–"} / {openStages.length}
+              </span>
+            </div>
+            <div className="mt-1 flex items-center gap-2">
+              <span
+                className="inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: currentStageColor }}
+              />
+              <span className="text-sm font-medium truncate">
+                {currentOpenStage?.name || "Sin etapa"}
+              </span>
+            </div>
+            {/* Progress bar */}
+            <div className="mt-2 h-1 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: currentIdx >= 0 ? `${((currentIdx + 1) / openStages.length) * 100}%` : "0%",
+                  backgroundColor: currentStageColor,
+                }}
+              />
+            </div>
+          </div>
+        )}
 
-          const chevronVariant = openStages.length === 1 ? "only" : isFirst ? "first" : isLast ? "last" : "middle";
+        {/* Scroll horizontal con chips compactas */}
+        <div className="-mx-1 overflow-x-auto scrollbar-thin">
+          <div className="flex flex-nowrap gap-1.5 px-1 pb-1">
+            {openStages.map((stage, idx) => {
+              const isCurrent = !isClosed && stage.id === currentStageId;
+              const isPast = !isClosed && currentIdx >= 0 && idx < currentIdx;
+              const isFuture = !isClosed && currentIdx >= 0 && idx > currentIdx;
+              const stageColor = stage.color || "#94a3b8";
+              return (
+                <button
+                  key={stage.id}
+                  type="button"
+                  disabled={disabled || isClosed}
+                  onClick={() => onStageClick(stage.id)}
+                  className={cn(
+                    "flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition-all",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    isClosed && "opacity-50 cursor-not-allowed",
+                    !isClosed && !isCurrent && "cursor-pointer hover:brightness-110",
+                    isCurrent && "text-white border-transparent shadow-sm",
+                    isPast && "text-white/90 border-transparent",
+                    isFuture && "bg-background text-muted-foreground border-border",
+                  )}
+                  style={
+                    isCurrent
+                      ? { backgroundColor: stageColor }
+                      : isPast
+                        ? { backgroundColor: `${stageColor}80` }
+                        : undefined
+                  }
+                  title={stage.name}
+                >
+                  {isPast && <Check className="h-3 w-3 shrink-0" />}
+                  <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-black/20 text-[9px] tabular-nums">
+                    {idx + 1}
+                  </span>
+                  <span>{stage.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-          return (
+        {/* Ganado / Perdido */}
+        <div className="flex flex-row gap-2">
+          {wonStage && (
             <button
-              key={stage.id}
               type="button"
-              disabled={disabled || isClosed}
-              onClick={() => onStageClick(stage.id)}
-              data-chevron={openStages.length > 1 ? chevronVariant : undefined}
+              disabled={disabled}
+              onClick={onWonClick}
               className={cn(
-                "relative flex items-center justify-center px-4 py-2 sm:py-1.5 text-xs font-medium whitespace-nowrap transition-all",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-                "sm:min-w-0",
-                "rounded-md sm:rounded-none",
-                openStages.length > 1 && "sm:rounded-none pipeline-step-chevron",
-                !isFirst && "sm:-ml-[6px]",
-                isClosed && "opacity-50 cursor-not-allowed",
-                !isClosed && !isCurrent && "cursor-pointer hover:brightness-110",
-                isCurrent && "text-white shadow-sm",
-                isPast && "text-white/80",
-                isFuture && "bg-muted text-muted-foreground",
+                "flex flex-1 items-center justify-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                isWon
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm"
+                  : "border border-border text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-400 hover:bg-emerald-500/10"
               )}
-              style={
-                isCurrent
-                  ? { backgroundColor: stageColor }
-                  : isPast
-                    ? { backgroundColor: `${stageColor}60` }
-                    : undefined
-              }
-              title={stage.name}
             >
-              {isPast && <Check className="h-3 w-3 mr-1 shrink-0" />}
-              <span className="truncate w-full sm:w-auto sm:max-w-[120px] text-left sm:text-center">{stage.name}</span>
+              <Check className="h-3 w-3" />
+              Ganado
             </button>
-          );
-        })}
+          )}
+          {lostStage && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onLostClick}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                isLost
+                  ? "bg-red-500/20 text-red-400 border border-red-500/40 shadow-sm"
+                  : "border border-border text-muted-foreground hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10"
+              )}
+            >
+              <XCircle className="h-3 w-3" />
+              Perdido
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Separator */}
-      <div className="h-px w-full sm:h-5 sm:w-px sm:min-w-0 bg-border shrink-0" />
+      {/* Desktop: chevrons tradicionales */}
+      <div className="hidden sm:flex sm:items-center gap-2 sm:overflow-x-auto scrollbar-thin">
+        <div className="flex sm:flex-row sm:items-stretch sm:min-w-0">
+          {openStages.map((stage, idx) => {
+            const isCurrent = !isClosed && stage.id === currentStageId;
+            const isPast = !isClosed && currentIdx >= 0 && idx < currentIdx;
+            const isFuture = !isClosed && currentIdx >= 0 && idx > currentIdx;
+            const isFirst = idx === 0;
+            const isLast = idx === openStages.length - 1;
+            const stageColor = stage.color || "#94a3b8";
 
-      {/* Ganado / Perdido — en fila en móvil y desktop */}
-      <div className="flex flex-row gap-2 shrink-0">
-      {wonStage && (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={onWonClick}
-          className={cn(
-            "flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            isWon
-              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm"
-              : "border border-border text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-400 hover:bg-emerald-500/10"
-          )}
-        >
-          <Check className="h-3 w-3" />
-          Ganado
-        </button>
-      )}
+            const chevronVariant = openStages.length === 1 ? "only" : isFirst ? "first" : isLast ? "last" : "middle";
 
-      {/* Perdido button */}
-      {lostStage && (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={onLostClick}
-          className={cn(
-            "flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            isLost
-              ? "bg-red-500/20 text-red-400 border border-red-500/40 shadow-sm"
-              : "border border-border text-muted-foreground hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10"
+            return (
+              <button
+                key={stage.id}
+                type="button"
+                disabled={disabled || isClosed}
+                onClick={() => onStageClick(stage.id)}
+                data-chevron={openStages.length > 1 ? chevronVariant : undefined}
+                className={cn(
+                  "relative flex items-center justify-center px-4 py-1.5 text-xs font-medium whitespace-nowrap transition-all",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+                  "min-w-0",
+                  openStages.length > 1 ? "rounded-none pipeline-step-chevron" : "rounded-md",
+                  !isFirst && "-ml-[6px]",
+                  isClosed && "opacity-50 cursor-not-allowed",
+                  !isClosed && !isCurrent && "cursor-pointer hover:brightness-110",
+                  isCurrent && "text-white shadow-sm",
+                  isPast && "text-white/80",
+                  isFuture && "bg-muted text-muted-foreground",
+                )}
+                style={
+                  isCurrent
+                    ? { backgroundColor: stageColor }
+                    : isPast
+                      ? { backgroundColor: `${stageColor}60` }
+                      : undefined
+                }
+                title={stage.name}
+              >
+                {isPast && <Check className="h-3 w-3 mr-1 shrink-0" />}
+                <span className="truncate max-w-[120px] text-center">{stage.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="h-5 w-px bg-border shrink-0" />
+
+        <div className="flex flex-row gap-2 shrink-0">
+          {wonStage && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onWonClick}
+              className={cn(
+                "flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                isWon
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm"
+                  : "border border-border text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-400 hover:bg-emerald-500/10"
+              )}
+            >
+              <Check className="h-3 w-3" />
+              Ganado
+            </button>
           )}
-        >
-          <XCircle className="h-3 w-3" />
-          Perdido
-        </button>
-      )}
+          {lostStage && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onLostClick}
+              className={cn(
+                "flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                isLost
+                  ? "bg-red-500/20 text-red-400 border border-red-500/40 shadow-sm"
+                  : "border border-border text-muted-foreground hover:border-red-500/40 hover:text-red-400 hover:bg-red-500/10"
+              )}
+            >
+              <XCircle className="h-3 w-3" />
+              Perdido
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1050,7 +1164,7 @@ export function CrmDealDetailClient({
             onValueChange={(value) => void updateActiveQuotation(value)}
             disabled={updatingActiveQuotation || sentLinkedQuotes.length === 0}
           >
-            <SelectTrigger className="h-8 text-xs max-w-xl">
+            <SelectTrigger className="h-auto min-h-8 text-xs max-w-xl">
               <SelectValue
                 placeholder={
                   sentLinkedQuotes.length === 0
@@ -1059,8 +1173,8 @@ export function CrmDealDetailClient({
                 }
               />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__auto__">
+            <SelectContent className="max-w-[calc(100vw-24px)]">
+              <SelectItem value="__auto__" className="whitespace-normal break-words pr-2">
                 {(() => {
                   const autoSummary = deal.activeQuoteSummary?.code
                     ? ` · usando ${deal.activeQuoteSummary.code}`
@@ -1082,7 +1196,11 @@ export function CrmDealDetailClient({
                   : quoteInfo.code;
                 const statusSuffix = quoteInfo.status === "approved" ? " · Aprobada" : "";
                 return (
-                  <SelectItem key={quoteInfo.id} value={quoteInfo.id}>
+                  <SelectItem
+                    key={quoteInfo.id}
+                    value={quoteInfo.id}
+                    className="whitespace-normal break-words pr-2"
+                  >
                     {`${quoteLabel} · ${quoteDateLabel} · ${formatQuoteAmounts(quoteInfo)}${statusSuffix}`}
                   </SelectItem>
                 );
@@ -1587,7 +1705,9 @@ export function CrmDealDetailClient({
                   : info?.createdAt
                     ? `Creada: ${formatDealDate(info.createdAt)}`
                     : undefined;
-                const subtitleParts = [info?.clientName || "Sin cliente", quoteDate].filter(Boolean).join(" · ");
+                // En el contexto del negocio ya conocemos la cuenta, por lo que omitimos clientName
+                // y mostramos solo la fecha como subtítulo para evitar redundancia.
+                const subtitleParts = quoteDate || "";
                 const title = info?.name
                   ? `${info.code} — ${info.name}`
                   : info?.code || "CPQ";
