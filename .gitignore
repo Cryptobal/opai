@@ -67,3 +67,11 @@ android-erp/
 ios-terreno/
 ios-personas/
 ios-erp/
+
+# iCloud/Dropbox/OneDrive sync conflict artifacts
+* 2.*
+* 3.*
+* 4.*
+
+# Personal tooling and scratch (Claude Code superpowers, brainstorming notes)
+.superpowers/
