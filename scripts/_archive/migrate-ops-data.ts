@@ -1,4 +1,17 @@
 /**
+ * ⚠️ ARCHIVED — DO NOT RUN
+ *
+ * One-off migration script executed in 2026. The source CSVs
+ * (Clientes Activos.csv, Clientes Inactivos.csv, ControlRoll Instalación...,
+ * FCM Instalación..., Reporte Colaboradores.csv) no longer exist in the repo;
+ * all operational CSVs were moved to private storage along with the rest of
+ * the PII data (see docs/01-architecture/data-sources.md).
+ *
+ * Kept here for historical reference only. If a similar migration is needed
+ * in the future, write a new script — the schema may have drifted.
+ *
+ * --- Original header below ---
+ *
  * Script de migración masiva: Sistema actual → Base de datos Opai
  *
  * Migra:
