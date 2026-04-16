@@ -1,6 +1,8 @@
 /**
  * Libro de Remuneraciones Exporter
- * Generates a CSV matching the format of "Libro Remuneración General.csv"
+ * Generates a CSV matching the format of docs/02-implementation/payroll/sample-formats/libro-remuneraciones-sample.csv
+ * (real data lives in private storage, see docs/01-architecture/data-sources.md)
+ *
  * Headers: Corr;IdProc.;TipoProceso;Rut-Dv;Nombre Completo;Tipo Empleado;Fecha Ingreso;Fecha Finiquito;
  *   Cli;Sec;Ins;Cliente;Sector;Instalación;Días;SueldoBase;T.HrsExtras;Ant. Gratif.;T.OtrosImponibles;
  *   T.Imponible;T.Tributa;T.AFamiliar;T.Colación;T.Movilización;T.OtrosNoImpo;T.Haber;Afp - Ips;

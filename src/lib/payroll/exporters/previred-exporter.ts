@@ -1,7 +1,8 @@
 /**
  * Previred File Exporter
  * Generates semicolon-delimited CSV for Previred upload.
- * Format based on "Libro Imposiciones Centralizado 2026.csv"
+ * Format based on docs/02-implementation/payroll/sample-formats/libro-imposiciones-sample.csv
+ * (real data lives in private storage, see docs/01-architecture/data-sources.md)
  *
  * Key fields (90+ columns): RUT;DV;Ap.Paterno;Ap.Materno;Nombres;Sexo;...
  * AFP codes, days, salary, AFP amount, health, AFC, etc.
