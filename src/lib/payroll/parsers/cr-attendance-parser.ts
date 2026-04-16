@@ -1,5 +1,8 @@
 /**
- * Parser for "Asistencias mensuales CR" CSV format.
+ * Parser for Asistencias mensuales CR CSV format.
+ * Format based on docs/02-implementation/payroll/sample-formats/asistencias-cr-sample.csv
+ * (real data lives in private storage, see docs/01-architecture/data-sources.md)
+ *
  * Semicolon-delimited with dynamic day columns and summary columns.
  *
  * Daily codes mapping:

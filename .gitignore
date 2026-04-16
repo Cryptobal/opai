@@ -75,3 +75,8 @@ ios-erp/
 
 # Personal tooling and scratch (Claude Code superpowers, brainstorming notes)
 .superpowers/
+
+# Private operational data (PII — must never be committed)
+# Lives in private storage (see docs/01-architecture/data-sources.md)
+Datos Ops/
+/private-data/
