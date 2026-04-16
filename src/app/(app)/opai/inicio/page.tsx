@@ -98,6 +98,10 @@ export default async function DashboardPage() {
             <Link href="/opai/templates" className="text-primary hover:underline font-medium">
               Ver templates
             </Link>
+            {' · '}
+            <span className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
+              Sistema en deprecación
+            </span>
           </>
         }
         actions={<ReloadButton />}

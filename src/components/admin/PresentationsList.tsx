@@ -254,6 +254,14 @@ export function PresentationsList({ presentations: initialPresentations, initial
 
   return (
     <div className="space-y-3">
+      {/* ── Aviso de deprecación ── */}
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+        <p className="text-xs text-amber-400">
+          ⚠️ Las presentaciones públicas /p/* están en deprecación. El cliente accede vía Portal del Cliente.
+          Esta vista se mantiene solo para analytics históricos.
+        </p>
+      </div>
+
       {/* ── Filtros: búsqueda + pills ── */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[180px] max-w-md">

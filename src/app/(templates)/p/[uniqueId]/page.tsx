@@ -149,6 +149,8 @@ export default async function PublicPresentationPage({ params, searchParams }: P
     );
   }
   
+  const showDeprecationBanner = !isAdminPreview && !isPdfMode;
+
   return (
     <div className="relative">
       {/* Banner de Admin Preview */}
@@ -157,6 +159,15 @@ export default async function PublicPresentationPage({ params, searchParams }: P
           <div className="max-w-6xl mx-auto flex items-center justify-center gap-2">
             <span>👁️ VISTA PREVIA DE ADMINISTRADOR</span>
             <span className="text-xs opacity-75">• Esta vista no se contabiliza</span>
+          </div>
+        </div>
+      )}
+
+      {/* Banner de deprecación */}
+      {showDeprecationBanner && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-black py-2 px-4 text-center font-semibold text-sm shadow-lg">
+          <div className="max-w-6xl mx-auto flex items-center justify-center gap-2">
+            <span>⚠️ Página obsoleta — el cliente debe acceder vía Portal del Cliente</span>
           </div>
         </div>
       )}
@@ -171,7 +182,7 @@ export default async function PublicPresentationPage({ params, searchParams }: P
       )}
 
       {/* Presentación */}
-      <div className={isAdminPreview ? 'pt-10' : ''}>
+      <div className={isAdminPreview || showDeprecationBanner ? 'pt-10' : ''}>
         <PresentationRenderer payload={presentationData} hideEconomicSections={isCommercialMode} />
       </div>
 
