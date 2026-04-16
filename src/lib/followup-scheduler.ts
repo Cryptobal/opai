@@ -2,10 +2,8 @@
  * Shared utility for scheduling automatic follow-up emails.
  *
  * Used by:
- *   - /api/cpq/quotes/[id]/send-presentation (after sending presentation)
- *   - /api/cpq/quotes/[id]/send-email (after sending quote email)
- *   - /api/presentations/send-email (legacy presentation flow)
  *   - /api/crm/deals/[id]/stage (manual move to "Cotización enviada")
+ *   - sendQuoteToPortal flow (CPQ portal send)
  *
  * Ensures follow-ups are scheduled consistently from ANY entry point.
  */
