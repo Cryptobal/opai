@@ -1,4 +1,18 @@
 /**
+ * @deprecated DESDE: 2026-04-16
+ *
+ * Este módulo forma parte del Sistema de Presentación Comercial de 29 secciones,
+ * que NO se muestra al cliente final. El flujo activo de envío al cliente usa
+ * el Portal del Cliente (ver `sendQuoteToPortal()` en
+ * `src/modules/cpq/send/send-quote-to-portal.ts`).
+ *
+ * NO USAR EN CÓDIGO NUEVO. Este archivo será eliminado después de
+ * 2026-06-15 una vez confirmada estabilidad.
+ *
+ * Ver: src/lib/_deprecated/README.md
+ */
+
+/**
  * CPQ Data Mapper
  *
  * Convierte datos internos del módulo CPQ al formato PresentationPayload
@@ -106,6 +120,13 @@ export function mapCpqDataToPresentation(
   tenantCfg: TenantCompanyConfig,
   templateSlug: string = "commercial"
 ): PresentationPayload {
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(
+      '[DEPRECATED] mapCpqDataToPresentation: el contenido de las 29 secciones no se muestra al cliente. ' +
+      'Solo se preserva por compatibilidad con el modelo Presentation. ' +
+      'Ver src/lib/_deprecated/README.md'
+    );
+  }
   const { quote, positions, account, deal, contact, installation, ufValue, siteUrl, includePricing = true } = input;
 
   const companyName = account?.name || quote.clientName || "Cliente";
