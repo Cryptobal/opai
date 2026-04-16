@@ -9,6 +9,8 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { getWaTemplate } from "@/lib/whatsapp-templates";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { buildPortalClienteMagicLinkUrl } from "@/lib/portal-cliente-magic-link";
+import { renderFollowUpEmailHtml } from "@/lib/followup-email-layout";
 
 function tiptapJsonToHtml(doc: unknown): string {
   const d = doc as { content?: unknown[] } | null;
@@ -208,6 +210,37 @@ export async function processFollowUpLog(
     ? format(new Date(deal.proposalSentAt), "d 'de' MMMM 'de' yyyy", { locale: es })
     : "reciente";
 
+  const tenantConfig = await getTenantCompanyConfig(followUp.tenantId);
+  const tenantRow = await prisma.tenant.findUnique({
+    where: { id: followUp.tenantId },
+    select: { slug: true },
+  });
+  const siteUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "";
+
+  // Magic-link autologin generado al momento del envío (expira en 30 días).
+  // Reemplaza `deal.proposalLink` en el render de la plantilla para que el
+  // token `{{deal.proposalLink}}` (usado como href de "Ver propuesta enviada")
+  // apunte al autologin y no requiera PIN.
+  let magicLink: string | null = null;
+  try {
+    magicLink = buildPortalClienteMagicLinkUrl({
+      baseSiteUrl: siteUrl,
+      email: contact.email,
+      tenantSlug: tenantRow?.slug ?? null,
+      contactId: contact.id,
+      expiryDays: 30,
+    });
+  } catch (err) {
+    // `PORTAL_COOKIE_SECRET` no configurado: caer al link estándar.
+    console.warn("[followup] magic-link no disponible, usando deal.proposalLink:", (err as Error).message);
+  }
+  const resolvedProposalLink = magicLink || deal.proposalLink || null;
+  const sequenceLabel: 1 | 2 | 3 =
+    followUp.sequence === 1 ? 1 : followUp.sequence === 2 ? 2 : 3;
+
   const templateId =
     followUp.sequence === 1
       ? config?.firstEmailTemplateId
@@ -215,7 +248,7 @@ export async function processFollowUpLog(
         ? config?.secondEmailTemplateId
         : config?.thirdEmailTemplateId;
 
-  let emailHtml: string;
+  let bodyHtml: string;
   let emailSubject: string;
 
   if (templateId) {
@@ -227,17 +260,17 @@ export async function processFollowUpLog(
       const entities = {
         account: deal.account,
         contact: contact,
-        deal: { ...deal, proposalSentDate },
+        deal: { ...deal, proposalLink: resolvedProposalLink, proposalSentDate },
       };
       const { resolvedContent } = resolveDocument(template.content, entities);
-      emailHtml = tiptapJsonToHtml(resolvedContent);
+      bodyHtml = tiptapJsonToHtml(resolvedContent);
       emailSubject = `Seguimiento: ${deal.title} - ${deal.account.name}`;
     } else {
-      emailHtml = getDefaultFollowUpHtml(
+      bodyHtml = getDefaultFollowUpHtml(
         followUp.sequence,
         contactName,
         deal.title,
-        deal.proposalLink,
+        resolvedProposalLink,
         proposalSentDate
       );
       emailSubject =
@@ -248,11 +281,11 @@ export async function processFollowUpLog(
             : `Último seguimiento: ${deal.title} - ${deal.account.name}`;
     }
   } else {
-    emailHtml = getDefaultFollowUpHtml(
+    bodyHtml = getDefaultFollowUpHtml(
       followUp.sequence,
       contactName,
       deal.title,
-      deal.proposalLink,
+      resolvedProposalLink,
       proposalSentDate
     );
     emailSubject =
@@ -272,15 +305,53 @@ export async function processFollowUpLog(
   });
 
   if (signature?.htmlContent) {
-    emailHtml += signature.htmlContent;
+    bodyHtml += signature.htmlContent;
   }
+
+  // Resolver ejecutivo asignado al account (para el bloque de contacto).
+  let ejecutivoName: string | null = null;
+  try {
+    const acct = await prisma.crmAccount.findUnique({
+      where: { id: deal.accountId },
+      select: { portalEjecutivoId: true },
+    });
+    if (acct?.portalEjecutivoId) {
+      const exec = await prisma.admin.findUnique({
+        where: { id: acct.portalEjecutivoId },
+        select: { name: true },
+      });
+      if (exec?.name) ejecutivoName = exec.name;
+    }
+  } catch {}
+
+  const emailHtml = renderFollowUpEmailHtml({
+    bodyHtml,
+    sequence: sequenceLabel,
+    contactFirstName: contactName,
+    dealTitle: deal.title,
+    accountName: deal.account.name,
+    ctaUrl: resolvedProposalLink || "#",
+    // Header del correo va sobre el color primario (oscuro) — priorizamos el
+    // logo blanco/dark-bg. Los demás son fallback.
+    tenantLogoUrl:
+      tenantConfig.brandingLogoWhite ||
+      tenantConfig.brandingLogoFull ||
+      tenantConfig.brandingLogoDark ||
+      tenantConfig.logoUrl ||
+      null,
+    tenantName: tenantConfig.commercialName || tenantConfig.companyName || "",
+    tenantPrimaryColor: tenantConfig.brandingPrimaryColor,
+    tenantPhone: tenantConfig.phone,
+    tenantEmail: tenantConfig.email,
+    tenantWebsite: tenantConfig.website,
+    ejecutivoName,
+  });
 
   const bcc =
     config?.bccEnabled && config?.bccEmail?.trim()
       ? [config.bccEmail.trim()]
       : undefined;
 
-  const tenantConfig = await getTenantCompanyConfig(followUp.tenantId);
   const ccEmail = config?.ccEmail?.trim() || tenantConfig.email?.trim();
   const cc = ccEmail ? [ccEmail] : undefined;
 
@@ -370,7 +441,7 @@ export async function processFollowUpLog(
     contact: contact as Record<string, unknown>,
     deal: {
       ...deal,
-      proposalLink: deal.proposalLink || "",
+      proposalLink: resolvedProposalLink || "",
       proposalSentDate,
     } as Record<string, unknown>,
   };
