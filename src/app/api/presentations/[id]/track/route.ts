@@ -31,7 +31,7 @@ async function notifyProposalViewed(presentationId: string, tenantId: string) {
 
     const quote = await prisma.cpqQuote.findUnique({
       where: { id: presentation.quoteId },
-      select: { dealId: true, contactId: true },
+      select: { dealId: true, contactId: true, name: true },
     });
     if (!quote?.dealId) return;
 
@@ -82,7 +82,14 @@ async function notifyProposalViewed(presentationId: string, tenantId: string) {
         waDigits = digits;
       }
     }
-    const whatsappUrl = waDigits ? `https://wa.me/${waDigits}` : undefined;
+    // Construir mensaje pre-llenado para WhatsApp
+    // Usa solo el primer nombre del cliente y el nombre de la cotización
+    const firstName = clientName.split(' ')[0];
+    const quoteName = quote.name || deal.title;
+    const waText = encodeURIComponent(
+      `Hola ${firstName}, vi que abriste nuestra propuesta "${quoteName}", ¿hay algo en que te pueda ayudar?`
+    );
+    const whatsappUrl = waDigits ? `https://wa.me/${waDigits}?text=${waText}` : undefined;
 
     // Create internal notification (bell + email) respetando preferencias del usuario.
     // sendNotificationToUser usa UserNotificationPreference para decidir bell/email.
