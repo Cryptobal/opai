@@ -97,9 +97,9 @@ export function getMockPresentationPayload(): PresentationPayload {
     assets: {
       logo: '/Logo%20Gard%20Blanco.png',
       guard_photos: [
-        '/guardia_hero.jpg',
-        '/guardia_entrada.jpg',
-        '/guardia_recepcion.jpg',
+        '/guardia_hero.webp',
+        '/guardia_entrada.webp',
+        '/guardia_recepcion.webp',
         '/guardia_conserje.jpeg',
         '/guardia_caseta.jpeg',
         '/guardia_cims.jpg',
@@ -153,7 +153,7 @@ export function getMockPresentationPayload(): PresentationPayload {
         personalization: 'Propuesta para [ACCOUNT_NAME] — [QUOTE_NUMBER]',
         cta_primary_text: 'Agendar visita técnica sin costo',
         cta_secondary_text: 'Solicitar propuesta directa',
-        background_image: '/guardia_hero.jpg',
+        background_image: '/guardia_hero.webp',
         kpi_overlay: {
           value: '99,5%',
           label: 'Cobertura de turnos',
@@ -488,9 +488,9 @@ export function getMockPresentationPayload(): PresentationPayload {
       s16_nuestra_gente: {
         message: 'Guardias comprometidos, entrenados y supervisados',
         photos: [
-          '/guardia_hero.jpg',
-          '/guardia_entrada.jpg',
-          '/guardia_recepcion.jpg',
+          '/guardia_hero.webp',
+          '/guardia_entrada.webp',
+          '/guardia_recepcion.webp',
           '/guardia_conserje.jpeg',
           '/guardia_caseta.jpeg',
           '/guardia_cims.jpg',

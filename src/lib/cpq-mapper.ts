@@ -270,7 +270,7 @@ export function mapCpqDataToPresentation(
         personalization: `Propuesta para ${companyName} — ${quote.code}`,
         cta_primary_text: "Agendar visita técnica sin costo",
         cta_secondary_text: "Solicitar propuesta directa",
-        background_image: "/guardia_hero.jpg",
+        background_image: "/guardia_hero.webp",
         kpi_overlay: { value: "99,5%", label: "Cobertura de turnos" },
       },
 
@@ -347,9 +347,9 @@ export function mapCpqDataToPresentation(
 const TENANT_ASSETS_DEFAULTS = {
   logo: "",
   guard_photos: [
-    "/guardia_hero.jpg",
-    "/guardia_entrada.jpg",
-    "/guardia_recepcion.jpg",
+    "/guardia_hero.webp",
+    "/guardia_entrada.webp",
+    "/guardia_recepcion.webp",
     "/guardia_conserje.jpeg",
     "/guardia_caseta.jpeg",
     "/guardia_cims.jpg",
@@ -592,7 +592,7 @@ function buildSectionsDefaults(cfg: TenantCompanyConfig) { return {
   },
   s16_nuestra_gente: {
     message: "Guardias comprometidos, entrenados y supervisados",
-    photos: ["/guardia_hero.jpg", "/guardia_entrada.jpg", "/guardia_recepcion.jpg", "/guardia_conserje.jpeg", "/guardia_caseta.jpeg", "/guardia_cims.jpg", "/guardia_cims_1.jpg", "/guardia_conserje_1.jpeg"],
+    photos: ["/guardia_hero.webp", "/guardia_entrada.webp", "/guardia_recepcion.webp", "/guardia_conserje.jpeg", "/guardia_caseta.jpeg", "/guardia_cims.jpg", "/guardia_cims_1.jpg", "/guardia_conserje_1.jpeg"],
     values: [
       { title: "Profesionalismo", description: "Capacitación continua y certificaciones" },
       { title: "Compromiso", description: "Identificación con el cliente" },
