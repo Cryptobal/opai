@@ -35,7 +35,7 @@ const industryImages: Record<string, string> = {
   'Manufactura e Industria': '/industria_mineria.webp',
   'Retail y Centros Comerciales': '/industria_retail.webp',
   'Construcción e Inmobiliaria': '/industria_construccion.webp',
-  'Salud y Clínicas': '/industria_salud.jpeg',
+  'Salud y Clínicas': '/industria_salud.webp',
   'Educación': '/industria_educacion.webp',
 };
 

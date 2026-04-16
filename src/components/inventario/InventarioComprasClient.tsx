@@ -82,6 +82,57 @@ function normalizeStr(s: string): string {
     .trim();
 }
 
+// Minimal RFC-4180-ish CSV parser: handles quoted fields, doubled quotes,
+// embedded newlines, and both \n and \r\n line endings.
+function parseCsvRows(text: string): Record<string, unknown>[] {
+  const rows: string[][] = [];
+  let current: string[] = [];
+  let cell = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"' && text[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else if (c === '"') {
+        inQuotes = false;
+      } else {
+        cell += c;
+      }
+      continue;
+    }
+    if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      current.push(cell);
+      cell = "";
+    } else if (c === "\n") {
+      current.push(cell);
+      rows.push(current);
+      current = [];
+      cell = "";
+    } else if (c !== "\r") {
+      cell += c;
+    }
+  }
+  if (cell.length > 0 || current.length > 0) {
+    current.push(cell);
+    rows.push(current);
+  }
+  const nonEmpty = rows.filter((r) => r.some((v) => v.trim() !== ""));
+  if (nonEmpty.length === 0) return [];
+  const headers = nonEmpty[0].map((h) => h.trim());
+  return nonEmpty.slice(1).map((row) => {
+    const obj: Record<string, unknown> = {};
+    headers.forEach((h, idx) => {
+      if (!h) return;
+      obj[h] = row[idx] ?? "";
+    });
+    return obj;
+  });
+}
+
 function matchVariant(
   producto: string,
   talla: string,
@@ -397,11 +448,38 @@ export function InventarioComprasClient() {
     if (!file) return;
 
     try {
-      const XLSX = await import("xlsx");
-      const data = await file.arrayBuffer();
-      const wb = XLSX.read(data, { type: "array" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      let rows: Record<string, unknown>[];
+
+      if (ext === "csv") {
+        rows = parseCsvRows(await file.text());
+      } else {
+        const ExcelJS = (await import("exceljs")).default;
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(await file.arrayBuffer());
+        const ws = wb.worksheets[0];
+        if (!ws) {
+          alert("El archivo no contiene hojas de cálculo");
+          return;
+        }
+        const headerRow = ws.getRow(1);
+        const headers: string[] = [];
+        headerRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
+          headers[colNum - 1] = String(cell.value ?? "").trim();
+        });
+        rows = [];
+        ws.eachRow({ includeEmpty: false }, (row, rowIdx) => {
+          if (rowIdx === 1) return;
+          const values = row.values as unknown[];
+          const obj: Record<string, unknown> = {};
+          headers.forEach((h, i) => {
+            if (!h) return;
+            const v = values[i + 1];
+            obj[h] = v ?? "";
+          });
+          rows.push(obj);
+        });
+      }
 
       if (rows.length === 0) {
         alert("El archivo está vacío");

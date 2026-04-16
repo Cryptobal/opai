@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureInventarioAccess } from "@/lib/inventory";
 import { requireTenantModule } from '@/lib/require-module';
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 /**
  * GET /api/ops/inventario/purchases/template
@@ -38,7 +38,7 @@ export async function GET() {
       }),
     ]);
 
-    const wb = XLSX.utils.book_new();
+    const wb = new ExcelJS.Workbook();
 
     // Sheet 1: "Compra" — template for user to fill
     const templateRows: Record<string, string | number>[] = [];
@@ -75,16 +75,15 @@ export async function GET() {
       });
     }
 
-    const wsTemplate = XLSX.utils.json_to_sheet(templateRows);
-    // Set column widths
-    wsTemplate["!cols"] = [
-      { wch: 25 }, // Producto
-      { wch: 10 }, // Talla
-      { wch: 12 }, // Cantidad
-      { wch: 15 }, // Costo Unitario
-      { wch: 20 }, // Bodega
+    const wsTemplate = wb.addWorksheet("Compra");
+    wsTemplate.columns = [
+      { header: "Producto", key: "Producto", width: 25 },
+      { header: "Talla", key: "Talla", width: 10 },
+      { header: "Cantidad", key: "Cantidad", width: 12 },
+      { header: "Costo Unitario", key: "Costo Unitario", width: 15 },
+      { header: "Bodega", key: "Bodega", width: 20 },
     ];
-    XLSX.utils.book_append_sheet(wb, wsTemplate, "Compra");
+    wsTemplate.addRows(templateRows);
 
     // Sheet 2: "Productos" — reference list
     const productRows: Record<string, string>[] = [];
@@ -107,9 +106,13 @@ export async function GET() {
     }
 
     if (productRows.length > 0) {
-      const wsProducts = XLSX.utils.json_to_sheet(productRows);
-      wsProducts["!cols"] = [{ wch: 25 }, { wch: 10 }, { wch: 12 }];
-      XLSX.utils.book_append_sheet(wb, wsProducts, "Productos");
+      const wsProducts = wb.addWorksheet("Productos");
+      wsProducts.columns = [
+        { header: "Producto", key: "Producto", width: 25 },
+        { header: "Talla", key: "Talla", width: 10 },
+        { header: "Categoría", key: "Categoría", width: 12 },
+      ];
+      wsProducts.addRows(productRows);
     }
 
     // Sheet 3: "Bodegas" — reference list
@@ -118,14 +121,17 @@ export async function GET() {
         Bodega: w.name,
         Tipo: w.type,
       }));
-      const wsWarehouses = XLSX.utils.json_to_sheet(warehouseRows);
-      wsWarehouses["!cols"] = [{ wch: 25 }, { wch: 15 }];
-      XLSX.utils.book_append_sheet(wb, wsWarehouses, "Bodegas");
+      const wsWarehouses = wb.addWorksheet("Bodegas");
+      wsWarehouses.columns = [
+        { header: "Bodega", key: "Bodega", width: 25 },
+        { header: "Tipo", key: "Tipo", width: 15 },
+      ];
+      wsWarehouses.addRows(warehouseRows);
     }
 
-    const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    const buffer = await wb.xlsx.writeBuffer();
 
-    return new NextResponse(buffer, {
+    return new NextResponse(buffer as ArrayBuffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": `attachment; filename="plantilla-compra-inventario.xlsx"`,

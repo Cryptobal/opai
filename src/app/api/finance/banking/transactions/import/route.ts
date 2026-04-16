@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import {
   requireAuth,
   unauthorized,
@@ -75,23 +75,50 @@ export async function POST(request: NextRequest) {
 
     // --- Read Excel file ---
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
 
-    const workbook = XLSX.read(buffer, { type: "buffer" });
-    const sheetName = workbook.SheetNames[0];
-    if (!sheetName) {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(arrayBuffer);
+    const sheet = workbook.worksheets[0];
+    if (!sheet) {
       return NextResponse.json(
         { success: false, error: "El archivo no contiene hojas de calculo" },
         { status: 400 }
       );
     }
 
-    const sheet = workbook.Sheets[sheetName];
-    // Get raw rows (array of arrays), keeping header rows
-    const rows: (string | number | null)[][] = XLSX.utils.sheet_to_json(sheet, {
-      header: 1,
-      defval: null,
-      raw: true,
+    // Normalize an exceljs cell value into the shape the Santander parser expects
+    // (string | number | null). Dates are emitted as DD/MM/YYYY so the parser's
+    // existing regex matching keeps working.
+    const normalizeCell = (v: unknown): string | number | null => {
+      if (v === null || v === undefined || v === "") return null;
+      if (typeof v === "number" || typeof v === "string") return v;
+      if (v instanceof Date) {
+        const d = String(v.getUTCDate()).padStart(2, "0");
+        const m = String(v.getUTCMonth() + 1).padStart(2, "0");
+        const y = v.getUTCFullYear();
+        return `${d}/${m}/${y}`;
+      }
+      if (typeof v === "object" && "richText" in (v as object)) {
+        const rt = (v as { richText: { text: string }[] }).richText;
+        return rt.map((r) => r.text).join("");
+      }
+      if (typeof v === "object" && "result" in (v as object)) {
+        return normalizeCell((v as { result: unknown }).result);
+      }
+      if (typeof v === "object" && "text" in (v as object)) {
+        return String((v as { text: unknown }).text);
+      }
+      return String(v);
+    };
+
+    const rows: (string | number | null)[][] = [];
+    sheet.eachRow({ includeEmpty: true }, (row) => {
+      const values = row.values as unknown[];
+      const rowArr: (string | number | null)[] = [];
+      for (let i = 1; i < values.length; i++) {
+        rowArr.push(normalizeCell(values[i]));
+      }
+      rows.push(rowArr);
     });
 
     // --- Parse with the appropriate parser ---

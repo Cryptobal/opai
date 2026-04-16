@@ -36,7 +36,7 @@ import {
   Download,
 } from "lucide-react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 // ── Types ──────────────────────────────────────────────
 type PhoneLineAssignment = {
@@ -364,7 +364,7 @@ export function InventarioLineasClient() {
 
   const hasActiveFilters = filterCarrier || filterStatus || filterInstallation || filterUnassigned || searchQuery;
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     try {
       const assignmentLabel = (a: PhoneLineAssignment) =>
         a.installation ? a.installation.name : a.assignedToUser ? a.assignedToUser.name : "—";
@@ -391,12 +391,28 @@ export function InventarioLineasClient() {
         };
       });
 
-      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Líneas Telefónicas");
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Líneas Telefónicas");
+      if (dataToExport.length > 0) {
+        worksheet.columns = Object.keys(dataToExport[0]).map((k) => ({
+          header: k,
+          key: k,
+        }));
+        worksheet.addRows(dataToExport);
+      }
 
-      const fileName = `Lineas_Telefonicas_${new Date().toISOString().split("T")[0]}.xlsx`;
-      XLSX.writeFile(workbook, fileName);
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Lineas_Telefonicas_${new Date().toISOString().split("T")[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       toast.success("Excel descargado correctamente");
     } catch (error) {
