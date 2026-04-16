@@ -34,7 +34,6 @@ model Tenant {
   presentations               Presentation[]
   settings                    Setting[]
   templates                   Template[]
-  webhookSessions             WebhookSession[]
   roleTemplates               RoleTemplate[]
   aiChatConversations         AiChatConversation[]
   aiChatMessages              AiChatMessage[]
@@ -281,24 +280,6 @@ model PlanChangeLog {
 
   @@index([tenantId])
   @@map("plan_change_logs")
-  @@schema("public")
-}
-
-model WebhookSession {
-  id        String   @id @default(cuid())
-  sessionId String   @unique
-  zohoData  Json
-  status    String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-
-  @@index([sessionId])
-  @@index([status])
-  @@index([tenantId])
-  @@index([tenantId, createdAt])
   @@schema("public")
 }
 
