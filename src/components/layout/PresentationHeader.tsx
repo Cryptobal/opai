@@ -20,7 +20,6 @@
 
 import { CTALinks } from '@/types';
 import { Calendar, MessageCircle, Sparkles } from 'lucide-react';
-import { ZohoToken } from '@/components/presentation/ZohoToken';
 
 interface PresentationHeaderProps {
   logo?: string;
@@ -69,11 +68,7 @@ export function PresentationHeader({
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-2 gap-y-1 min-w-0">
                 <Sparkles className="w-3.5 h-3.5 text-teal-400 shrink-0" />
                 <span className="text-white/60">Propuesta para</span>
-                {showTokens ? (
-                  <ZohoToken token="account.Account_Name" inline />
-                ) : (
-                  <span className="font-bold text-white truncate max-w-[200px] sm:max-w-none">{companyName}</span>
-                )}
+                <span className="font-bold text-white truncate max-w-[200px] sm:max-w-none">{companyName}</span>
                 {!showTokens && dealName && (
                   <>
                     <span className="text-white/30 hidden sm:inline">·</span>
@@ -91,36 +86,24 @@ export function PresentationHeader({
               </div>
 
               {/* Centro: Nombre de la propuesta (Subject) - solo desktop */}
-              {(quoteName && quoteName !== 'la cotización') || showTokens ? (
+              {quoteName && quoteName !== 'la cotización' ? (
                 <div className="hidden lg:flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-500/10 border border-teal-400/30">
-                  {showTokens ? (
-                    <ZohoToken token="quote.Subject" inline />
-                  ) : (
-                    <span className="font-bold text-teal-400">{quoteName}</span>
-                  )}
+                  <span className="font-bold text-teal-400">{quoteName}</span>
                 </div>
               ) : null}
 
               {/* Lado derecho: Número + Preparado para */}
               <div className="flex items-center gap-3 text-white/70">
-                {(quoteNumber || showTokens) && (
+                {quoteNumber && (
                   <span className="flex items-center gap-1">
                     <span className="text-white/50">N°</span>
-                    {showTokens ? (
-                      <ZohoToken token="quote.Quote_Number" inline />
-                    ) : (
-                      <span className="font-semibold text-teal-400">{quoteNumber}</span>
-                    )}
+                    <span className="font-semibold text-teal-400">{quoteNumber}</span>
                   </span>
                 )}
                 <span className="hidden sm:inline text-white/30">•</span>
                 <span className="hidden sm:inline flex items-center gap-1">
                   Preparado para{' '}
-                  {showTokens ? (
-                    <ZohoToken token="contact.Full_Name" inline />
-                  ) : (
-                    <span className="font-semibold text-white">{contactName}</span>
-                  )}
+                  <span className="font-semibold text-white">{contactName}</span>
                 </span>
               </div>
             </div>

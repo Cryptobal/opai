@@ -27,7 +27,6 @@ import { formatCurrency } from '@/lib/utils';
 import { FileText, Calendar, TrendingUp, Sparkles, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { DownloadPricingButtonV3 } from '../DownloadPricingButtonV3';
-import { ZohoToken } from '../ZohoToken';
 
 interface Section23PropuestaEconomicaProps {
   data: Section23_PropuestaEconomica;
@@ -131,7 +130,7 @@ export function Section23PropuestaEconomica({
           ))}
           <div className="pt-3 border-t-2 border-teal-400/50 flex items-center justify-between">
             <span className="text-sm font-bold text-white">TOTAL NETO MENSUAL</span>
-            <span className="text-xl font-black bg-gradient-to-br from-teal-400 to-blue-400 bg-clip-text text-transparent">{showTokens ? <ZohoToken token="quote.Sub_Total" inline /> : formatPrice(pricing.subtotal)}</span>
+            <span className="text-xl font-black bg-gradient-to-br from-teal-400 to-blue-400 bg-clip-text text-transparent">{formatPrice(pricing.subtotal)}</span>
           </div>
         </div>
         <table className="w-full table-fixed min-w-[480px] hidden sm:table">
@@ -153,24 +152,22 @@ export function Section23PropuestaEconomica({
             {pricing.items.map((item, index) => (
               <tr key={index} className="border-b border-white/5">
                 <td className="px-6 py-5">
-                  {showTokens ? (
-                    <div className="mb-2"><ZohoToken token={`product_details[${index}].product_name`} /></div>
-                  ) : item.name ? (
+                  {item.name ? (
                     <div className="font-bold text-white text-base mb-2">{item.name}</div>
                   ) : null}
                   <div className="font-normal text-white/80 text-sm leading-relaxed">
-                    {showTokens ? <ZohoToken token={`product_details[${index}].description`} /> : item.description}
+                    {item.description}
                   </div>
-                  {item.notes && !showTokens && <div className="text-xs sm:text-sm mt-1 text-white/50">{item.notes}</div>}
+                  {item.notes && <div className="text-xs sm:text-sm mt-1 text-white/50">{item.notes}</div>}
                 </td>
                 <td className="px-4 py-5 text-center text-white/80 font-medium text-sm">
-                  {showTokens ? <ZohoToken token={`product_details[${index}].quantity`} inline /> : item.quantity}
+                  {item.quantity}
                 </td>
                 <td className="px-4 py-5 text-right text-white/70 font-medium text-sm">
-                  {showTokens ? <ZohoToken token={`product_details[${index}].unit_price`} inline /> : formatPrice(item.unit_price)}
+                  {formatPrice(item.unit_price)}
                 </td>
                 <td className="px-6 py-5 text-right font-bold text-white text-base">
-                  {showTokens ? <ZohoToken token={`product_details[${index}].subtotal`} inline /> : formatPrice(item.subtotal)}
+                  {formatPrice(item.subtotal)}
                 </td>
               </tr>
             ))}
@@ -178,7 +175,7 @@ export function Section23PropuestaEconomica({
               <td colSpan={3} className="px-6 py-8 text-right text-xl font-black text-white">TOTAL NETO MENSUAL</td>
               <td className="px-6 py-8 text-right">
                 <div className="text-4xl font-black bg-gradient-to-br from-teal-400 to-blue-400 bg-clip-text text-transparent leading-tight">
-                  {showTokens ? <ZohoToken token="quote.Sub_Total" inline /> : formatPrice(pricing.subtotal)}
+                  {formatPrice(pricing.subtotal)}
                 </div>
                 <div className="text-xs sm:text-sm text-white/50 mt-2">Valores netos. IVA se factura según ley.</div>
               </td>
@@ -208,25 +205,25 @@ export function Section23PropuestaEconomica({
           <FileText className="w-10 h-10 mb-4 text-teal-400" />
           <h4 className="font-bold text-white mb-2">Forma de Pago</h4>
           <p className="text-sm text-white/70">
-            {showTokens ? <ZohoToken token="template.payment_terms" inline /> : pricing.payment_terms}
+            {pricing.payment_terms}
           </p>
         </div>
       )}
-      {(pricing.billing_frequency || showTokens) && (
+      {pricing.billing_frequency && (
         <div className="glass-card rounded-xl p-6 border border-white/10">
           <Calendar className="w-10 h-10 mb-4 text-teal-400" />
           <h4 className="font-bold text-white mb-2">Frecuencia</h4>
           <p className="text-sm text-white/70">
-            {showTokens ? <ZohoToken token="template.billing_frequency" inline /> : `Facturación ${pricing.billing_frequency === 'monthly' ? 'mensual' : pricing.billing_frequency === 'quarterly' ? 'trimestral' : 'anual'}`}
+            {`Facturación ${pricing.billing_frequency === 'monthly' ? 'mensual' : pricing.billing_frequency === 'quarterly' ? 'trimestral' : 'anual'}`}
           </p>
         </div>
       )}
-      {(pricing.adjustment_terms || showTokens) && (
+      {pricing.adjustment_terms && (
         <div className="glass-card rounded-xl p-6 border border-white/10">
           <TrendingUp className="w-10 h-10 mb-4 text-teal-400" />
           <h4 className="font-bold text-white mb-2">Reajuste</h4>
           <p className="text-sm text-white/70">
-            {showTokens ? <ZohoToken token="template.adjustment_terms" inline /> : pricing.adjustment_terms}
+            {pricing.adjustment_terms}
           </p>
         </div>
       )}
@@ -240,7 +237,7 @@ export function Section23PropuestaEconomica({
           {pricing.notes.map((note, index) => (
             <div key={index} className="flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5 text-teal-400" />
-              <span className="text-base text-white/80">{showTokens ? `[NOTE_${index + 1}]` : note}</span>
+              <span className="text-base text-white/80">{note}</span>
             </div>
           ))}
         </div>
@@ -301,17 +298,16 @@ export function Section23PropuestaEconomica({
           {pricing.items.map((item, index) => (
             <motion.div key={index} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}
               className="glass-card rounded-xl p-5 border border-white/10">
-              {showTokens ? <div className="mb-2"><ZohoToken token={`product_details[${index}].product_name`} /></div>
-                : item.name ? <div className="font-bold text-white text-base mb-2">{item.name}</div> : null}
+              {item.name ? <div className="font-bold text-white text-base mb-2">{item.name}</div> : null}
               <div className="font-normal text-white/80 text-sm mb-3">
-                {showTokens ? <ZohoToken token={`product_details[${index}].description`} /> : item.description}
+                {item.description}
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-white/50">Cantidad:</span><span className="ml-2 font-semibold text-white">{showTokens ? <ZohoToken token={`product_details[${index}].quantity`} inline /> : item.quantity}</span></div>
-                <div><span className="text-white/50">P. Unit:</span><span className="ml-2 font-semibold text-white">{showTokens ? <ZohoToken token={`product_details[${index}].unit_price`} inline /> : formatPrice(item.unit_price)}</span></div>
+                <div><span className="text-white/50">Cantidad:</span><span className="ml-2 font-semibold text-white">{item.quantity}</span></div>
+                <div><span className="text-white/50">P. Unit:</span><span className="ml-2 font-semibold text-white">{formatPrice(item.unit_price)}</span></div>
               </div>
               <div className="mt-3 pt-3 border-t border-white/10 text-right text-xl font-bold text-teal-400">
-                {showTokens ? <ZohoToken token={`product_details[${index}].subtotal`} inline /> : formatPrice(item.subtotal)}
+                {formatPrice(item.subtotal)}
               </div>
             </motion.div>
           ))}
@@ -319,7 +315,7 @@ export function Section23PropuestaEconomica({
             <div className="flex justify-between items-center mb-2">
               <span className="text-xl font-black text-white">TOTAL NETO MENSUAL</span>
               <span className="text-3xl font-black bg-gradient-to-br from-teal-400 to-blue-400 bg-clip-text text-transparent">
-                {showTokens ? <ZohoToken token="quote.Sub_Total" inline /> : formatPrice(pricing.subtotal)}
+                {formatPrice(pricing.subtotal)}
               </span>
             </div>
             <p className="text-xs sm:text-sm text-white/50">Valores netos. IVA se factura según ley.</p>

@@ -28,7 +28,6 @@ import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { PresentationRenderer } from '@/components/presentation/PresentationRenderer';
-import { mapZohoDataToPresentation } from '@/lib/zoho-mapper';
 import { PublicPresentationTracker } from '@/components/presentation/PublicPresentationTracker';
 import { DownloadPresentationSection } from '@/components/presentation/DownloadPresentationSection';
 
@@ -97,16 +96,17 @@ export default async function PublicPresentationPage({ params, searchParams }: P
 
   // 5. Extraer datos del cliente
   const clientData = presentation.clientData as any;
-  const isCpqData = !!clientData._cpqQuoteId;
 
-  // 6. Mapear datos a formato de presentación
-  // Para datos CPQ, ya vienen en formato PresentationPayload
-  const presentationData = isCpqData
-    ? { ...clientData, id: uniqueId, template_id: presentation.template.slug }
-    : mapZohoDataToPresentation(clientData, uniqueId, presentation.template.slug);
+  // Solo CPQ data es válido — el legacy flow Zoho se eliminó
+  if (!clientData?._cpqQuoteId) {
+    notFound();
+  }
+
+  // 6. Mapear datos a formato de presentación (CPQ ya vienen en formato PresentationPayload)
+  const presentationData = { ...clientData, id: uniqueId, template_id: presentation.template.slug };
 
   // 6.1 Para datos CPQ: cargar negocio e instalación desde BD si no están en los datos almacenados
-  if (isCpqData && (!presentationData._dealName || !presentationData._installationName)) {
+  if (!presentationData._dealName || !presentationData._installationName) {
     const cpqQuoteId = clientData._cpqQuoteId;
     if (cpqQuoteId) {
       const cpqQuote = await prisma.cpqQuote.findUnique({
@@ -229,13 +229,8 @@ export async function generateMetadata({ params }: PublicPresentationPageProps) 
   }
 
   const clientData = presentation.clientData as any;
-  const isCpq = !!clientData?._cpqQuoteId;
-  const companyName = isCpq
-    ? (clientData?.client?.company_name || 'Cliente')
-    : (clientData?.account?.Account_Name || 'Cliente');
-  const subject = isCpq
-    ? (clientData?.quote?.subject || 'Propuesta')
-    : (clientData?.quote?.Subject || 'Propuesta');
+  const companyName = clientData?.client?.company_name || 'Cliente';
+  const subject = clientData?.quote?.subject || 'Propuesta';
   const title = `${subject} - ${companyName} | OPAI`;
   const description = `Propuesta comercial personalizada para ${companyName}`;
 

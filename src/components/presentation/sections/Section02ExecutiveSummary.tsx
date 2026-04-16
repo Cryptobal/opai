@@ -26,7 +26,6 @@ import { cn } from '@/lib/utils';
 import { KpiGrid } from '../shared/KpiCard';
 import { CheckCircle, XCircle, Sparkles, DollarSign, TrendingUp, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { ZohoToken } from '../ZohoToken';
 
 interface Section02ExecutiveSummaryProps {
   data: Section02_ExecutiveSummary;
@@ -88,11 +87,7 @@ export function Section02ExecutiveSummary({
                 <div>
                   <h3 className="text-2xl font-black text-white mb-2 flex items-center gap-2 flex-wrap">
                     <span>Propuesta personalizada para</span>
-                    {showTokens ? (
-                      <ZohoToken token="account.Account_Name" inline />
-                    ) : (
-                      <span>{(companyName || '').replace(/\*/g, '')}</span>
-                    )}
+                    <span>{(companyName || '').replace(/\*/g, '')}</span>
                   </h3>
                   <p className="text-sm text-teal-400 font-semibold">
                     Diseñada específicamente para sus necesidades
@@ -102,11 +97,7 @@ export function Section02ExecutiveSummary({
               
               <div className="prose prose-invert max-w-none">
                 <p className="text-base text-white/90 leading-relaxed">
-                  {showTokens ? (
-                    <ZohoToken token="quote.Descripcion_AI" />
-                  ) : (
-                    (quoteDescription || '').replace(/\*/g, '')
-                  )}
+                  {(quoteDescription || '').replace(/\*/g, '')}
                 </p>
               </div>
               
@@ -115,11 +106,7 @@ export function Section02ExecutiveSummary({
                 <div className="text-center">
                   <div className="text-sm text-white/50 mb-1">Cobertura</div>
                   <div className="text-lg font-black bg-gradient-to-r from-teal-400 to-blue-400 bg-clip-text text-transparent">
-                    {showTokens ? (
-                      <ZohoToken token="Calculado dinámicamente" inline />
-                    ) : (
-                      coverageHours
-                    )}
+                    {coverageHours}
                   </div>
                 </div>
               </div>
