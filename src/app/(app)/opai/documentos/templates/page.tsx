@@ -11,7 +11,7 @@ export default async function DocTemplatesPage() {
   }
 
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "docs", "presentaciones")) {
+  if (!canView(perms, "docs", "gestion")) {
     redirect("/opai/inicio");
   }
 

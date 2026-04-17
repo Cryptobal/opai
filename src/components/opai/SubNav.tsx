@@ -51,13 +51,21 @@ export function SubNav({ items, className }: SubNavProps) {
     };
   }, [checkOverflow]);
 
+  // Longest-prefix-wins so a more specific item (e.g. /opai/documentos/templates)
+  // doesn't also activate its parent (/opai/documentos).
+  const activeHref = items
+    .filter((i) =>
+      i.exactMatch
+        ? pathname === i.href
+        : pathname === i.href || pathname?.startsWith(i.href + "/")
+    )
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
   return (
     <nav className={cn("mb-4 relative block", className)}>
       <div ref={scrollRef} className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
         {items.map((item) => {
-          const isActive = item.exactMatch
-            ? pathname === item.href
-            : pathname === item.href || pathname?.startsWith(item.href + "/");
+          const isActive = item.href === activeHref;
           const Icon = item.icon;
           return (
             <Link
