@@ -11,10 +11,11 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PreviewBadge } from "./PreviewBadge";
 import { OpaiBadge } from "./OpaiBadge";
-import { DEMO_RONDAS } from "@/lib/portal/demo-data";
+import { usePortalData } from "@/hooks/usePortalData";
+import { portalFetch } from "@/lib/portal-cliente-fetch";
+import { usePortalSession } from "@/contexts/portal-cliente-session-context";
 
 interface Ejecucion {
   id: string;
@@ -91,60 +92,32 @@ const STATUS_CONFIG: Record<
 };
 
 interface Props {
-  session: ClienteSession;
   selectedInstallation: string;
-  isProspect?: boolean;
 }
 
-export function PortalRondas({ session, selectedInstallation, isProspect }: Props) {
-  const [rondas, setRondas] = useState<Ejecucion[]>([]);
-  const [loading, setLoading] = useState(true);
+export function PortalRondas({ selectedInstallation }: Props) {
+  const { session } = usePortalSession();
+  const isProspect = !!session?.isProspect;
+
+  const { data: rondasData, loading, isDemo } = usePortalData<Ejecucion[]>({
+    endpoint: "/api/portal/cliente/rondas",
+    demoKey: "rondas_list",
+    params: selectedInstallation ? { installationId: selectedInstallation } : undefined,
+  });
+  const rondas: Ejecucion[] = rondasData ?? [];
+
   const [selected, setSelected] = useState<EjecucionDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+  // Clear detail when filter changes
   useEffect(() => {
-    if (isProspect) {
-      setRondas(
-        DEMO_RONDAS.map((r, i) => ({
-          id: `demo-${i}`,
-          installationId: "demo",
-          status: r.status,
-          scheduledAt: new Date().toISOString(),
-          startedAt: null,
-          completedAt: null,
-          checkpointsTotal: r.checkpoints,
-          checkpointsCompletados: r.completados,
-          porcentajeCompletado: Math.round((r.completados / r.checkpoints) * 100),
-          trustScore: 9.2,
-          durationMinutes: 25,
-          notes: null,
-          guardia: { persona: { firstName: r.guardia.split(" ")[0], lastName: r.guardia.split(" ")[1] } },
-        }))
-      );
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
     setSelected(null);
-    const url = selectedInstallation
-      ? `/api/portal/cliente/rondas?installationId=${selectedInstallation}`
-      : "/api/portal/cliente/rondas";
-    fetch(url, { credentials: "include" })
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.success) setRondas(j.data);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isProspect, selectedInstallation, session.contactId, session.tenantId, session.accountId]);
+  }, [selectedInstallation]);
 
   async function loadDetail(id: string) {
     setLoadingDetail(true);
     try {
-      const res = await fetch(`/api/portal/cliente/rondas/${id}`, {
-        credentials: "include",
-      });
+      const res = await portalFetch(`/api/portal/cliente/rondas/${id}`);
       const json = await res.json();
       if (json.success) setSelected(json.data);
     } catch {
@@ -328,7 +301,7 @@ export function PortalRondas({ session, selectedInstallation, isProspect }: Prop
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 text-teal-400" />
           <h2 className="text-base font-semibold">Rondas en tiempo real</h2>
-          {isProspect && <PreviewBadge />}
+          {isDemo && <PreviewBadge />}
           <OpaiBadge variant="live" />
           <span className="text-xs text-zinc-500 ml-auto">{rondas.length} registros</span>
         </div>

@@ -1,10 +1,8 @@
 'use client'
-import { useState, useEffect } from 'react'
 import { BookOpen, Loader2 } from 'lucide-react'
-import { ClienteSession } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
 import { PreviewBadge } from './PreviewBadge'
-import { DEMO_POSTA } from '@/lib/portal/demo-data'
+import { usePortalData } from '@/hooks/usePortalData'
 
 const STATUS_CONFIG = {
   normal: { label: 'Normal', color: 'text-emerald-400 bg-emerald-500/10' },
@@ -14,42 +12,16 @@ const STATUS_CONFIG = {
 }
 
 interface Props {
-  session: ClienteSession
   selectedInstallation: string
-  isProspect?: boolean
 }
 
-export function PortalPosta({ session, selectedInstallation, isProspect }: Props) {
-  const [records, setRecords] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (isProspect) {
-      setRecords(
-        DEMO_POSTA.map((p, i) => ({
-          id: `demo-${i}`,
-          statusInstalacion: 'normal',
-          guardiasPresentes: 2,
-          guardiasRequeridos: 2,
-          notes: p.novedades,
-          controlNocturno: {
-            date: new Date().toISOString(),
-            centralOperatorName: 'Central OPAI',
-            generalNotes: null,
-          },
-        }))
-      )
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    fetch(`/api/portal/cliente/posta?installationId=${selectedInstallation}`, {
-      credentials: 'include',
-    })
-      .then(r => r.json())
-      .then(j => { if (j.success) setRecords(j.data) })
-      .finally(() => setLoading(false))
-  }, [isProspect, selectedInstallation, session])
+export function PortalPosta({ selectedInstallation }: Props) {
+  const { data, loading, isDemo } = usePortalData<any[]>({
+    endpoint: '/api/portal/cliente/posta',
+    demoKey: 'posta_list',
+    params: selectedInstallation ? { installationId: selectedInstallation } : undefined,
+  })
+  const records = data ?? []
 
   if (loading) return (
     <div className="flex items-center justify-center h-48">
@@ -62,7 +34,7 @@ export function PortalPosta({ session, selectedInstallation, isProspect }: Props
       <div className="mb-4">
         <h2 className="text-white font-semibold text-lg flex items-center gap-2">
           <BookOpen className="h-5 w-5 text-blue-400" /> Bitácora digital
-          {isProspect && <PreviewBadge />}
+          {isDemo && <PreviewBadge />}
         </h2>
         <p className="text-xs text-zinc-500 mt-1 ml-7">Registro digital de novedades — Adiós al cuaderno</p>
       </div>
