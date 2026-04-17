@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * SubNav — Refactored
+ * SubNav — Pill navigation visible on all breakpoints
  *
- * Desktop (sm+): Pills horizontales con iconos
- * Mobile: Visible with fade-out gradient when overflowing
+ * Desktop (lg+): Pills horizontales con iconos
+ * Mobile/tablet: Scroll horizontal con fade-out cuando desborda
  * Tab activo: borde verde + fondo sutil
  */
 
@@ -52,7 +52,7 @@ export function SubNav({ items, className }: SubNavProps) {
   }, [checkOverflow]);
 
   return (
-    <nav className={cn("mb-4 relative hidden lg:block", className)}>
+    <nav className={cn("mb-4 relative block", className)}>
       <div ref={scrollRef} className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
         {items.map((item) => {
           const isActive = item.exactMatch

@@ -30,9 +30,5 @@ function filterByPermissions(perms: RolePermissions) {
 export function PautasSubnav() {
   const permissions = usePermissions();
   const visibleItems = filterByPermissions(permissions);
-  return (
-    <div className="hidden md:block">
-      <SubNav items={visibleItems} />
-    </div>
-  );
+  return <SubNav items={visibleItems} />;
 }
