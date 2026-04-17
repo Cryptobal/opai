@@ -106,34 +106,10 @@ export function resolveTokenValue(
     if (fromDeal) return String(fromDeal);
   }
 
-  const value = entity[field];
-  if (value === null || value === undefined) return "";
-
-  // Format based on type
-  if (value instanceof Date) {
-    return format(value, "dd/MM/yyyy");
-  }
-
-  if (typeof value === "number") {
-    return value.toLocaleString("es-CL");
-  }
-
-  // Currency formatting for settlement amounts
-  if (
-    module === "labor_event" &&
-    [
-      "vacationPaymentAmount",
-      "pendingRemunerationAmount",
-      "yearsOfServiceAmount",
-      "substituteNoticeAmount",
-      "totalSettlementAmount",
-    ].includes(field)
-  ) {
-    const num = Number(value);
-    if (!isNaN(num)) return `$${num.toLocaleString("es-CL")}`;
-  }
-
-  // Quote: contract-service specific computed tokens
+  // Quote: contract-service specific computed tokens.
+  // Evaluate BEFORE reading entity[field] directly, since these are computed
+  // from other fields — entity[field] for these keys would be undefined and
+  // the early-return below would short-circuit with "".
   if (module === "quote") {
     if (field === "precioNeto") {
       const val = entity.salePriceMonthly ?? entity.monthlyCost;
@@ -197,6 +173,38 @@ export function resolveTokenValue(
       if (isNaN(end.getTime())) return "";
       return formatDateOnly(end) ?? "";
     }
+    if (field === "contractStartDate") {
+      const d = entity.contractStartDate;
+      if (!d) return "";
+      return formatDateOnly(d) ?? "";
+    }
+  }
+
+  const value = entity[field];
+  if (value === null || value === undefined) return "";
+
+  // Format based on type
+  if (value instanceof Date) {
+    return format(value, "dd/MM/yyyy");
+  }
+
+  if (typeof value === "number") {
+    return value.toLocaleString("es-CL");
+  }
+
+  // Currency formatting for settlement amounts
+  if (
+    module === "labor_event" &&
+    [
+      "vacationPaymentAmount",
+      "pendingRemunerationAmount",
+      "yearsOfServiceAmount",
+      "substituteNoticeAmount",
+      "totalSettlementAmount",
+    ].includes(field)
+  ) {
+    const num = Number(value);
+    if (!isNaN(num)) return `$${num.toLocaleString("es-CL")}`;
   }
 
   // Currency formatting for quote pricing fields
