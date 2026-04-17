@@ -203,14 +203,13 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
   }
 
   for (const contact of activeContacts) {
-    if (!contact.portalPin && !contact.portalPinVisible) continue;
+    // portalPinVisible is deprecated. Only bcrypt-hashed PINs count.
+    if (!contact.portalPin) continue;
 
     let pinValid = false;
-    if (contact.portalPin && contact.portalPin.startsWith("$2")) {
+    if (contact.portalPin.startsWith("$2")) {
       pinValid = await bcrypt.compare(pin, contact.portalPin);
     }
-    // TODO: Migrar todos los contactos con portalPinVisible a portalPin (bcrypt)
-    // y luego eliminar el campo portalPinVisible del schema
 
     if (pinValid) {
       try {
