@@ -9,6 +9,7 @@ import {
   resolveDocument,
   buildGuardiaEntityData,
   buildEmpresaEntityData,
+  buildQuoteEnrichedData,
   enrichGuardiaWithSalary,
 } from "./token-resolver";
 
@@ -184,6 +185,120 @@ export async function resolveDocumentContentForDisplay(
       });
       docForResolve = resolvedContent as { type: string; content: unknown[] };
     }
+  }
+
+  // Contratos CRM: resolver con empresa + account + contact + deal + quote + installation
+  if (document.module === "crm") {
+    const [quoteAssoc, dealAssoc, accountAssoc] = await Promise.all([
+      prisma.docAssociation.findFirst({
+        where: { documentId, entityType: "cpq_quote" },
+        select: { entityId: true },
+      }),
+      prisma.docAssociation.findFirst({
+        where: { documentId, entityType: "crm_deal" },
+        select: { entityId: true },
+      }),
+      prisma.docAssociation.findFirst({
+        where: { documentId, entityType: "crm_account" },
+        select: { entityId: true },
+      }),
+    ]);
+
+    // Contracts created by generate-service-contract store quoteId in contractMetadata,
+    // not as a doc association — fall back to that when no cpq_quote association exists.
+    let quoteId: string | null = quoteAssoc?.entityId ?? null;
+    if (!quoteId) {
+      const docMeta = await prisma.document.findUnique({
+        where: { id: documentId },
+        select: { contractMetadata: true },
+      });
+      const meta = docMeta?.contractMetadata as { quoteId?: string } | null;
+      if (meta?.quoteId) quoteId = meta.quoteId;
+    }
+    const dealIdFromAssoc = dealAssoc?.entityId ?? null;
+    const accountIdFromAssoc = accountAssoc?.entityId ?? null;
+
+    let rawEmpresa = await prisma.setting.findMany({
+      where: { tenantId, key: { startsWith: `empresa:${tenantId}:` } },
+    });
+    if (rawEmpresa.length === 0) {
+      rawEmpresa = await prisma.setting.findMany({
+        where: { tenantId, key: { startsWith: "empresa." } },
+      });
+    }
+    const empresaSettings = rawEmpresa.map((s) => ({
+      key: s.key.includes(":") ? s.key.replace(`empresa:${tenantId}:`, "") : s.key,
+      value: s.value,
+    }));
+    const empresaData = buildEmpresaEntityData(empresaSettings);
+
+    let quoteData: Record<string, unknown> | undefined;
+    if (quoteId) {
+      try {
+        quoteData = await buildQuoteEnrichedData(quoteId);
+      } catch (e) {
+        console.warn("[resolveDocContent] buildQuoteEnrichedData failed:", e);
+      }
+    }
+
+    const resolvedAccountId = accountIdFromAssoc ?? (quoteId
+      ? (await prisma.cpqQuote.findUnique({ where: { id: quoteId }, select: { accountId: true } }))?.accountId ?? null
+      : null);
+
+    let accountData: Record<string, unknown> | undefined;
+    let contactData: Record<string, unknown> | undefined;
+    let installationData: Record<string, unknown> | undefined;
+
+    if (resolvedAccountId) {
+      const account = await prisma.crmAccount.findUnique({
+        where: { id: resolvedAccountId },
+        select: {
+          name: true, rut: true, legalName: true,
+          legalRepresentativeName: true, legalRepresentativeRut: true,
+          address: true, commune: true, industry: true, segment: true,
+          size: true, website: true, notaryName: true, notaryDate: true,
+        },
+      });
+      accountData = account ?? undefined;
+
+      const contact = await prisma.crmContact.findFirst({
+        where: { accountId: resolvedAccountId, tenantId },
+        orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        select: { firstName: true, lastName: true, email: true, phone: true, roleTitle: true },
+      });
+      contactData = contact ?? undefined;
+
+      const installation = await prisma.crmInstallation.findFirst({
+        where: { accountId: resolvedAccountId, status: { in: ["active", "prospect"] } },
+        select: { name: true, address: true, commune: true, city: true },
+        orderBy: { status: "asc" },
+      });
+      installationData = installation ?? undefined;
+    }
+
+    let dealData: Record<string, unknown> | undefined;
+    const effectiveDealId = dealIdFromAssoc ?? (quoteId
+      ? (await prisma.cpqQuote.findUnique({ where: { id: quoteId }, select: { dealId: true } }))?.dealId ?? null
+      : null);
+    if (effectiveDealId) {
+      const deal = await prisma.crmDeal.findUnique({
+        where: { id: effectiveDealId },
+        select: { title: true, amount: true, expectedCloseDate: true, service: true },
+      });
+      if (deal) {
+        dealData = { ...deal, amount: deal.amount ? Number(deal.amount) : null };
+      }
+    }
+
+    const { resolvedContent } = resolveDocument(docForResolve, {
+      empresa: empresaData,
+      account: accountData,
+      contact: contactData,
+      deal: dealData,
+      quote: quoteData,
+      installation: installationData,
+    });
+    docForResolve = resolvedContent as { type: string; content: unknown[] };
   }
 
   // Resolver tokens de firma si hay contexto

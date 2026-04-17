@@ -168,7 +168,11 @@ export async function GET(
     }));
 
     const quoteData = await buildQuoteEnrichedData(quoteId);
-    if (quoteData.salePriceMonthly && (!quoteData.salePriceUF || quoteData.salePriceUF === "")) {
+    if (
+      quoteData.currency === "CLP" &&
+      quoteData.salePriceMonthly &&
+      (!quoteData.salePriceUF || quoteData.salePriceUF === "")
+    ) {
       try {
         const ufValue = await getUfValue();
         if (ufValue > 0) {

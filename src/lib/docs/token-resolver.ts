@@ -106,34 +106,10 @@ export function resolveTokenValue(
     if (fromDeal) return String(fromDeal);
   }
 
-  const value = entity[field];
-  if (value === null || value === undefined) return "";
-
-  // Format based on type
-  if (value instanceof Date) {
-    return format(value, "dd/MM/yyyy");
-  }
-
-  if (typeof value === "number") {
-    return value.toLocaleString("es-CL");
-  }
-
-  // Currency formatting for settlement amounts
-  if (
-    module === "labor_event" &&
-    [
-      "vacationPaymentAmount",
-      "pendingRemunerationAmount",
-      "yearsOfServiceAmount",
-      "substituteNoticeAmount",
-      "totalSettlementAmount",
-    ].includes(field)
-  ) {
-    const num = Number(value);
-    if (!isNaN(num)) return `$${num.toLocaleString("es-CL")}`;
-  }
-
-  // Quote: contract-service specific computed tokens
+  // Quote: contract-service specific computed tokens.
+  // Evaluate BEFORE reading entity[field] directly, since these are computed
+  // from other fields — entity[field] for these keys would be undefined and
+  // the early-return below would short-circuit with "".
   if (module === "quote") {
     if (field === "precioNeto") {
       const val = entity.salePriceMonthly ?? entity.monthlyCost;
@@ -197,6 +173,38 @@ export function resolveTokenValue(
       if (isNaN(end.getTime())) return "";
       return formatDateOnly(end) ?? "";
     }
+    if (field === "contractStartDate") {
+      const d = entity.contractStartDate;
+      if (!d) return "";
+      return formatDateOnly(d) ?? "";
+    }
+  }
+
+  const value = entity[field];
+  if (value === null || value === undefined) return "";
+
+  // Format based on type
+  if (value instanceof Date) {
+    return format(value, "dd/MM/yyyy");
+  }
+
+  if (typeof value === "number") {
+    return value.toLocaleString("es-CL");
+  }
+
+  // Currency formatting for settlement amounts
+  if (
+    module === "labor_event" &&
+    [
+      "vacationPaymentAmount",
+      "pendingRemunerationAmount",
+      "yearsOfServiceAmount",
+      "substituteNoticeAmount",
+      "totalSettlementAmount",
+    ].includes(field)
+  ) {
+    const num = Number(value);
+    if (!isNaN(num)) return `$${num.toLocaleString("es-CL")}`;
   }
 
   // Currency formatting for quote pricing fields
@@ -324,7 +332,7 @@ function serializeInlineToString(nodes: any[], entities: EntityData): string {
   }).join("");
 }
 
-/** Procesa bloques {{#if expr}}...{{/if}} a nivel de hijos del doc */
+/** Procesa bloques {{#if expr}}...{{else}}...{{/if}} a nivel de hijos del doc */
 function processConditionalBlocks(
   nodes: any[],
   entities: EntityData,
@@ -336,41 +344,76 @@ function processConditionalBlocks(
     const node = nodes[i];
     const text = getNodeText(node).trim();
 
-    // Solo coincidir cuando el nodo es EXACTAMENTE {{#if expr}} (nada más) — evita tragar párrafos con {{#if}}...{{/if}} inline
+    // Solo coincidir cuando el nodo es EXACTAMENTE {{#if expr}} (nada más)
     const ifMatch = /^\{\{#if\s+([^}]+)\}\}$/.exec(text);
     if (ifMatch) {
       const condition = ifMatch[1].trim();
       const conditionMet = evaluateCondition(condition, entities);
       i++;
-      const block: any[] = [];
+
+      // Accumulate nodes until matching {{/if}}, splitting into true/false branches on {{else}} at depth 1
+      const trueBranch: any[] = [];
+      const falseBranch: any[] = [];
+      let currentBranch: any[] = trueBranch;
       let depth = 1;
+
       while (i < nodes.length) {
         const n = nodes[i];
         const t = getNodeText(n).trim();
+
+        // Nested {{#if}}
         if (/^\{\{#if\s+[^}]+\}\}$/.test(t)) {
           depth++;
-          block.push(n);
+          currentBranch.push(n);
           i++;
-        } else if (/^\{\{\/if\}\}$/.test(t)) {
+          continue;
+        }
+
+        // {{/if}} — if it closes ours, stop; else add to current branch
+        if (/^\{\{\/if\}\}$/.test(t)) {
           depth--;
           if (depth === 0) {
             i++;
             break;
           }
-          block.push(n);
+          currentBranch.push(n);
           i++;
-        } else {
-          block.push(n);
-          i++;
+          continue;
         }
+
+        // {{else}} or {{else}}{{#if ...}} only at depth 1 → switch to false branch
+        if (depth === 1) {
+          const plainElse = /^\{\{else\}\}$/.exec(t);
+          if (plainElse) {
+            currentBranch = falseBranch;
+            i++;
+            continue;
+          }
+          const elseIf = /^\{\{else\}\}\{\{#if\s+([^}]+)\}\}$/.exec(t);
+          if (elseIf) {
+            // Transform into {{#if ...}} in the false branch so recursion handles it.
+            // The closing {{/if}} in the original doc will close BOTH the outer if
+            // and this synthetic one — recursion re-uses the trailing {{/if}}.
+            currentBranch = falseBranch;
+            const synthetic = { type: "paragraph", content: [{ type: "text", text: `{{#if ${elseIf[1].trim()}}}` }] };
+            currentBranch.push(synthetic);
+            depth++;
+            i++;
+            continue;
+          }
+        }
+
+        currentBranch.push(n);
+        i++;
       }
-      if (conditionMet) {
-        result.push(...processConditionalBlocks(block, entities, walkNode).map(walkNode));
-      }
+
+      const chosenBranch = conditionMet ? trueBranch : falseBranch;
+      result.push(...processConditionalBlocks(chosenBranch, entities, walkNode).map(walkNode));
       continue;
     }
 
-    if (/^\{\{\/if\}\}$/.test(text)) {
+    // Orphan {{else}} or {{/if}} → discard so it doesn't render as literal text
+    if (/^\{\{(else|\/if)\}\}$/.test(text) || /^\{\{else\}\}\{\{#if\s+[^}]+\}\}$/.test(text)) {
       i++;
       continue;
     }
@@ -790,16 +833,28 @@ export async function buildQuoteEnrichedData(quoteId: string): Promise<Record<st
 
   const contractMonths = params?.contractMonths ?? 12;
   const contractAmount = salePriceMonthly * contractMonths;
+  const currency = quote.currency ?? "UF";
+
+  // salePriceUF: if the quote is in UF, salePriceMonthly is already in UF.
+  // If stored explicitly in parameters, prefer that. If quote is in CLP, leave
+  // empty and let the endpoint convert via getUfValue().
+  let salePriceUF: string | number = "";
+  const paramsUF = (params as any)?.salePriceUF;
+  if (paramsUF != null && paramsUF !== "") {
+    salePriceUF = Number(paramsUF);
+  } else if (currency === "UF" && salePriceMonthly > 0) {
+    salePriceUF = salePriceMonthly;
+  }
 
   return {
     code: quote.code,
-    currency: quote.currency ?? "UF",
+    currency,
     monthlyCost: Number(quote.monthlyCost ?? 0),
     totalPositions: quote.totalPositions ?? 0,
     totalGuards: quote.totalGuards ?? 0,
     clientName: quote.clientName ?? "",
     salePriceMonthly,
-    salePriceUF: "",
+    salePriceUF,
     contractMonths,
     contractAmount,
     positionsTable,
