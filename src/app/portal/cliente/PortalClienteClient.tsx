@@ -332,6 +332,7 @@ function PortalClienteShell() {
         activeSection={activeSection}
         onSection={setActiveSection}
         isProspect={session.isProspect}
+        hasActivePresentation={session.hasActivePresentation}
       />
 
       <PortalNotificacionesSheet
