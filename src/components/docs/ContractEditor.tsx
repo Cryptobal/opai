@@ -24,6 +24,7 @@ import { findDuplicateClauseIds } from "./editor/clause-utils-client";
 import { DocPreviewDialog, type PageType } from "./DocPreviewDialog";
 import { SIGNER_TOKEN_COLORS } from "@/lib/docs/signature-token-colors";
 import { useCallback, useEffect, useRef, useState } from "react";
+import "./editor/editor-styles.css";
 
 const PAGE_WIDTHS: Record<PageType, string> = {
   a4: "210mm",
