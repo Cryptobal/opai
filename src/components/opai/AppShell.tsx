@@ -192,9 +192,6 @@ function AppShellInner({
           </main>
         </div>
 
-        {/* ── Bottom Nav (mobile) ── */}
-        <BottomNav userRole={userRole} />
-
         {/* ── Command Palette ── */}
         <CommandPalette
           userRole={userRole}
@@ -208,7 +205,8 @@ function AppShellInner({
         <AiHelpChatWidget />
       </div>
 
-      {/* ── Side Panels (outside overflow-x-hidden to avoid fixed clipping) ── */}
+      {/* ── Bottom Nav and Side Panels (outside overflow-x-hidden to avoid fixed clipping on iOS) ── */}
+      <BottomNav userRole={userRole} />
       <ChatSidePanel userRole={userRole} />
       <NotificationSidePanel />
     </>
