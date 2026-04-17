@@ -798,16 +798,28 @@ export async function buildQuoteEnrichedData(quoteId: string): Promise<Record<st
 
   const contractMonths = params?.contractMonths ?? 12;
   const contractAmount = salePriceMonthly * contractMonths;
+  const currency = quote.currency ?? "UF";
+
+  // salePriceUF: if the quote is in UF, salePriceMonthly is already in UF.
+  // If stored explicitly in parameters, prefer that. If quote is in CLP, leave
+  // empty and let the endpoint convert via getUfValue().
+  let salePriceUF: string | number = "";
+  const paramsUF = (params as any)?.salePriceUF;
+  if (paramsUF != null && paramsUF !== "") {
+    salePriceUF = Number(paramsUF);
+  } else if (currency === "UF" && salePriceMonthly > 0) {
+    salePriceUF = salePriceMonthly;
+  }
 
   return {
     code: quote.code,
-    currency: quote.currency ?? "UF",
+    currency,
     monthlyCost: Number(quote.monthlyCost ?? 0),
     totalPositions: quote.totalPositions ?? 0,
     totalGuards: quote.totalGuards ?? 0,
     clientName: quote.clientName ?? "",
     salePriceMonthly,
-    salePriceUF: "",
+    salePriceUF,
     contractMonths,
     contractAmount,
     positionsTable,
