@@ -44,11 +44,7 @@ export function PortalPosta({ session, selectedInstallation, isProspect }: Props
     }
     setLoading(true)
     fetch(`/api/portal/cliente/posta?installationId=${selectedInstallation}`, {
-      headers: {
-        'x-contact-id': session.contactId,
-        'x-tenant-id': session.tenantId,
-        'x-account-id': session.accountId,
-      },
+      credentials: 'include',
     })
       .then(r => r.json())
       .then(j => { if (j.success) setRecords(j.data) })

@@ -5,7 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getClientSession, verifyClientChannelAccess } from "@/lib/portal-chat-auth";
+import { verifyClientChannelAccess } from "@/lib/portal-chat-auth";
+import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 import { syncBadgeAcrossDevices } from "@/lib/pwa/push-service";
 
 export async function POST(
@@ -13,7 +14,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = getClientSession(request);
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json(
         { success: false, error: "No autorizado" },

@@ -102,12 +102,6 @@ export function PortalRondas({ session, selectedInstallation, isProspect }: Prop
   const [selected, setSelected] = useState<EjecucionDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const sessionHeaders = {
-    "x-contact-id": session.contactId,
-    "x-tenant-id": session.tenantId,
-    "x-account-id": session.accountId,
-  };
-
   useEffect(() => {
     if (isProspect) {
       setRondas(
@@ -135,7 +129,7 @@ export function PortalRondas({ session, selectedInstallation, isProspect }: Prop
     const url = selectedInstallation
       ? `/api/portal/cliente/rondas?installationId=${selectedInstallation}`
       : "/api/portal/cliente/rondas";
-    fetch(url, { headers: sessionHeaders })
+    fetch(url, { credentials: "include" })
       .then((r) => r.json())
       .then((j) => {
         if (j.success) setRondas(j.data);
@@ -149,7 +143,7 @@ export function PortalRondas({ session, selectedInstallation, isProspect }: Prop
     setLoadingDetail(true);
     try {
       const res = await fetch(`/api/portal/cliente/rondas/${id}`, {
-        headers: sessionHeaders,
+        credentials: "include",
       });
       const json = await res.json();
       if (json.success) setSelected(json.data);

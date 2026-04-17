@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getClientSession } from "@/lib/portal-chat-auth";
+import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 
 const VALID_PREFERENCES = ["ALL", "MENTIONS_ONLY", "MUTED"] as const;
 
@@ -15,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = getClientSession(request);
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
     }
@@ -45,7 +45,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = getClientSession(request);
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
     }

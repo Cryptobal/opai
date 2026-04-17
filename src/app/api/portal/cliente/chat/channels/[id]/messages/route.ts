@@ -7,7 +7,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getClientSession, verifyClientChannelAccess } from "@/lib/portal-chat-auth";
+import { verifyClientChannelAccess } from "@/lib/portal-chat-auth";
+import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 import { triggerChatEvent, getSenderId, truncatePreview, getPusherServer } from "@/lib/chat";
 import { sendChatPushNotifications, getChatChannelRecipients, filterRecipientsForInAppNotifications } from "@/lib/pwa/push-service";
 import type { ChatSenderType } from "@prisma/client";
@@ -19,7 +20,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = getClientSession(request);
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json(
         { success: false, error: "No autorizado" },
@@ -172,7 +173,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = getClientSession(request);
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json(
         { success: false, error: "No autorizado" },

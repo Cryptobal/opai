@@ -111,24 +111,17 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
   const [submittingComment, setSubmittingComment] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
 
-  const authHeaders = {
-    'x-contact-id': session.contactId,
-    'x-tenant-id': session.tenantId,
-    'x-account-id': session.accountId,
-  }
-
   const loadTickets = useCallback(() => {
     setLoading(true)
     const params = new URLSearchParams()
     if (selectedInstallation) params.set('installationId', selectedInstallation)
     if (activeStatus) params.set('status', activeStatus)
 
-    fetch(`/api/portal/cliente/tickets?${params.toString()}`, { headers: authHeaders })
+    fetch(`/api/portal/cliente/tickets?${params.toString()}`, { credentials: 'include' })
       .then((r) => r.json())
       .then((j) => { if (j.success) setTickets(j.data) })
       .finally(() => setLoading(false))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedInstallation, session, activeStatus])
+  }, [selectedInstallation, activeStatus])
 
   useEffect(() => {
     loadTickets()
@@ -138,7 +131,7 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
     setSelectedTicket(ticket)
     setTicketLoading(true)
     try {
-      const res = await fetch(`/api/portal/cliente/tickets/${ticket.id}`, { headers: authHeaders })
+      const res = await fetch(`/api/portal/cliente/tickets/${ticket.id}`, { credentials: 'include' })
       const json = await res.json()
       if (json.success) setSelectedTicket(json.data)
     } finally {
@@ -152,14 +145,15 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
     try {
       const res = await fetch(`/api/portal/cliente/tickets/${selectedTicket.id}/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: newComment.trim() }),
       })
       const json = await res.json()
       if (json.success) {
         setNewComment('')
         // Refresh ticket detail
-        const refreshRes = await fetch(`/api/portal/cliente/tickets/${selectedTicket.id}`, { headers: authHeaders })
+        const refreshRes = await fetch(`/api/portal/cliente/tickets/${selectedTicket.id}`, { credentials: 'include' })
         const refreshJson = await refreshRes.json()
         if (refreshJson.success) setSelectedTicket(refreshJson.data)
       }

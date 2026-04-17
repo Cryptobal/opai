@@ -38,19 +38,13 @@ export function PortalCreateTicket({ session, selectedInstallation, onCreated, o
 
   // Fetch available ticket types for client portal
   useEffect(() => {
-    fetch('/api/portal/cliente/ticket-types', {
-      headers: {
-        'x-contact-id': session.contactId,
-        'x-tenant-id': session.tenantId,
-        'x-account-id': session.accountId,
-      },
-    })
+    fetch('/api/portal/cliente/ticket-types', { credentials: 'include' })
       .then((r) => r.json())
       .then((d) => {
         if (d.success && Array.isArray(d.data)) setTicketTypes(d.data)
       })
       .catch(() => {})
-  }, [session])
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -62,12 +56,8 @@ export function PortalCreateTicket({ session, selectedInstallation, onCreated, o
     try {
       const res = await fetch('/api/portal/cliente/tickets', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-contact-id': session.contactId,
-          'x-tenant-id': session.tenantId,
-          'x-account-id': session.accountId,
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           installationId: selectedInstallation,
           title: title.trim(),
