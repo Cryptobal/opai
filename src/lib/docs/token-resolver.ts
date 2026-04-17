@@ -245,34 +245,45 @@ function collectTokenKeysFromText(text: string): string[] {
     .filter(Boolean);
 }
 
-/** Evalúa expresiones tipo guardia.bono_X>0, guardia.colacion>0, guardia.isJubilado=="SI", guardia.healthSystem=="isapre" */
+/** Módulos permitidos en expresiones {{#if ...}}. */
+const CONDITIONAL_MODULES = new Set([
+  "guardia", "quote", "empresa", "account", "contract",
+  "installation", "deal", "contact",
+]);
+
+/**
+ * Evalúa expresiones tipo:
+ *   quote.currency=="UF"
+ *   quote.adjustmentType=="POLYNOMIAL"
+ *   quote.ipcWeight>0
+ *   guardia.isJubilado=="SI"
+ *   account.notaryName (truthy)
+ */
 function evaluateCondition(expr: string, entities: EntityData): boolean {
-  const t = expr.trim();
-  // guardia.field>0
-  const m1 = /^guardia\.(\w+)>0$/.exec(t);
-  if (m1) {
-    const entity = entities.guardia;
+  const text = expr.trim();
+  const m1 = /^([a-z]+)\.(\w+)\s*>\s*(-?\d+(?:\.\d+)?)$/i.exec(text);
+  if (m1 && CONDITIONAL_MODULES.has(m1[1])) {
+    const entity = entities[m1[1] as keyof EntityData] as Record<string, any> | undefined;
     if (!entity) return false;
-    const val = entity[m1[1]];
-    const num = Number(val);
-    return !isNaN(num) && num > 0;
+    const num = Number(entity[m1[2]]);
+    return !isNaN(num) && num > Number(m1[3]);
   }
-  // guardia.field=="value" (ej: isJubilado=="SI", healthSystem=="isapre")
-  const m2 = /^guardia\.(\w+)=="([^"]*)"$/.exec(t);
-  if (m2) {
-    const entity = entities.guardia;
+  const m2 = /^([a-z]+)\.(\w+)\s*==\s*"([^"]*)"$/i.exec(text);
+  if (m2 && CONDITIONAL_MODULES.has(m2[1])) {
+    const entity = entities[m2[1] as keyof EntityData] as Record<string, any> | undefined;
     if (!entity) return false;
-    const val = String(entity[m2[1]] ?? "").toLowerCase();
-    const expected = m2[2].toLowerCase();
-    return val === expected;
+    const actual = String(entity[m2[2]] ?? "").toLowerCase();
+    const expected = m2[3].toLowerCase();
+    return actual === expected;
   }
-  // guardia.field (truthy: existe y no vacío)
-  const m3 = /^guardia\.(\w+)$/.exec(t);
-  if (m3) {
-    const entity = entities.guardia;
+  const m3 = /^([a-z]+)\.(\w+)$/i.exec(text);
+  if (m3 && CONDITIONAL_MODULES.has(m3[1])) {
+    const entity = entities[m3[1] as keyof EntityData] as Record<string, any> | undefined;
     if (!entity) return false;
-    const val = entity[m3[1]];
-    return val != null && val !== "" && val !== false;
+    const val = entity[m3[2]];
+    if (val === null || val === undefined) return false;
+    if (val === false || val === 0 || val === "") return false;
+    return true;
   }
   return false;
 }
