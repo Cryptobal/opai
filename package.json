@@ -14,6 +14,7 @@
     "postinstall": "prisma generate",
     "prepare": "husky",
     "check-pii": "node scripts/check-pii.mjs",
+    "audit:portal-cliente": "node scripts/audit-portal-cliente-auth.mjs",
     "generate-icons": "node scripts/generate-gard-icons.mjs",
     "migrate:soho": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/migrate-soho-crm.ts",
     "db:migrate": "prisma migrate deploy",

@@ -59,12 +59,54 @@ export async function GET(request: NextRequest) {
 
     if (sections.length > 0) {
       const latestVersion = versions[0];
+
+      // Fetch latest acceptance for this contact against the current version
+      let lastAcceptance: {
+        id: string;
+        acceptedAt: string;
+        firmanteNombre: string;
+        versionNumber: number;
+      } | null = null;
+      let requiresSignature = true;
+
+      if (latestVersion) {
+        try {
+          const acc = await prisma.protocolAcceptance.findFirst({
+            where: {
+              contactId: session.contactId,
+              installationId,
+              protocolVersionId: latestVersion.id,
+            },
+            orderBy: { acceptedAt: "desc" },
+            select: {
+              id: true,
+              acceptedAt: true,
+              firmanteNombre: true,
+              versionNumber: true,
+            },
+          });
+          if (acc) {
+            lastAcceptance = {
+              id: acc.id,
+              acceptedAt: acc.acceptedAt.toISOString(),
+              firmanteNombre: acc.firmanteNombre,
+              versionNumber: acc.versionNumber,
+            };
+            requiresSignature = acc.versionNumber < latestVersion.versionNumber;
+          }
+        } catch {
+          // Table may not exist yet in some environments
+        }
+      }
+
       protocols.push({
         id: latestVersion?.id ?? `current-${installationId}`,
         title: "Protocolo de Seguridad",
         version: latestVersion ? `v${latestVersion.versionNumber}` : "v1.0",
         updatedAt: latestVersion?.publishedAt?.toISOString() ?? new Date().toISOString(),
         status: "active",
+        lastAcceptance,
+        requiresSignature: !!latestVersion && requiresSignature,
         sections: sections.map((s) => ({
           title: s.title,
           items: s.items.map((item) => item.title),

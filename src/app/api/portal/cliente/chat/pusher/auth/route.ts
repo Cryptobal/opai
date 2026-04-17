@@ -5,12 +5,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getClientSession, verifyClientChannelAccess } from "@/lib/portal-chat-auth";
+import { verifyClientChannelAccess } from "@/lib/portal-chat-auth";
+import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 import { authorizePusherChannel, authorizePrivateChannel } from "@/lib/chat";
 
 export async function POST(request: NextRequest) {
   try {
-    const session = getClientSession(request);
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json(
         { success: false, error: "No autorizado" },

@@ -260,23 +260,16 @@ function AlertasConfig({ session }: { session: ClienteSession }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  const headers: Record<string, string> = {
-    "x-contact-id": session.contactId,
-    "x-tenant-id": session.tenantId,
-    "x-account-id": session.accountId,
-    "Content-Type": "application/json",
-  };
-
   useEffect(() => {
     setIsLoading(true);
-    fetch("/api/portal/cliente/alertas/config", { headers })
+    fetch("/api/portal/cliente/alertas/config", { credentials: "include" })
       .then((r) => r.json())
       .then((res) => {
         if (res.success) setConfigs(res.data ?? []);
       })
       .catch(() => {})
       .finally(() => setIsLoading(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const save = useCallback(
     async (updated: AlertConfig[]) => {
@@ -284,7 +277,8 @@ function AlertasConfig({ session }: { session: ClienteSession }) {
       try {
         const res = await fetch("/api/portal/cliente/alertas/config", {
           method: "PUT",
-          headers,
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
             updated.map((c) => ({
               alertType: c.alertType,

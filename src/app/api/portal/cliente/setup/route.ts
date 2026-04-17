@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
     where: { id: contact.id },
     data: {
       portalPin: hashedPin,
+      portalPinVisible: null,
       portalEnabled: true,
       portalMagicToken: null,
       portalMagicTokenExp: null,

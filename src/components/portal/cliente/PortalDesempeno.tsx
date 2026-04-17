@@ -25,7 +25,7 @@ interface GuardRanking {
 
 interface DesempenoData {
   trustScore: number;
-  promedioIndustria: number;
+  promedioIndustria: number | null;
   kpis: {
     guardiasActivos: number;
     asistenciaMes: number;
@@ -43,7 +43,7 @@ interface Props {
 
 const DEMO_GAMIFICATION: DesempenoData = {
   trustScore: 8.6,
-  promedioIndustria: 7.8,
+  promedioIndustria: null,
   kpis: {
     guardiasActivos: 3,
     asistenciaMes: 95.3,
@@ -83,7 +83,7 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
         const avgScore = apiData.trustScoreAvg ?? 0;
         setData({
           trustScore: avgScore,
-          promedioIndustria: avgScore > 0 ? Math.max(avgScore - 0.8, 0) : 0,
+          promedioIndustria: apiData.promedioIndustria ?? null,
           kpis: {
             guardiasActivos: ranking.length,
             asistenciaMes: ranking.length > 0
@@ -92,7 +92,7 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
             rondasCompletadas: ranking.length > 0
               ? Math.round(ranking.reduce((s: number, g: { scoreRondas: number }) => s + (g.scoreRondas ?? 0), 0) / ranking.length)
               : 0,
-            diasSinIncidentes: 0,
+            diasSinIncidentes: typeof apiData.diasSinIncidentes === "number" ? apiData.diasSinIncidentes : 0,
           },
           guardias: ranking.map((g: { guardiaId: string; nombre: string; nivelActual: string; trustScore: number; scoreAsistencia: number; rachaActual: number }) => ({
             guardiaId: g.guardiaId,
@@ -140,7 +140,9 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
 
   /* ── Derived values ── */
 
-  const diff = data.trustScore - data.promedioIndustria;
+  const industryAvg = data.promedioIndustria;
+  const hasIndustryAvg = typeof industryAvg === "number";
+  const diff = hasIndustryAvg ? data.trustScore - industryAvg : 0;
   const diffSign = diff >= 0 ? "+" : "";
   const diffColor = diff >= 0 ? "text-emerald-400" : "text-red-400";
   const sortedGuards = [...data.guardias].sort((a, b) => b.trustScore - a.trustScore);
@@ -173,15 +175,21 @@ export function PortalDesempeno({ session, selectedInstallation, isProspect }: P
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-6">
           <TrustScoreGauge score={data.trustScore} size="lg" />
-          <p className="text-sm text-muted-foreground text-center">
-            <span className="font-semibold text-foreground">{data.trustScore.toFixed(1)}</span>
-            {" vs "}
-            <span>{data.promedioIndustria.toFixed(1)} promedio industria</span>
-            {" "}
-            <span className={diffColor}>
-              ({diffSign}{diff.toFixed(1)})
-            </span>
-          </p>
+          {hasIndustryAvg ? (
+            <p className="text-sm text-muted-foreground text-center">
+              <span className="font-semibold text-foreground">{data.trustScore.toFixed(1)}</span>
+              {" vs "}
+              <span>{industryAvg.toFixed(1)} promedio industria</span>
+              {" "}
+              <span className={diffColor}>
+                ({diffSign}{diff.toFixed(1)})
+              </span>
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center">
+              Comparativa disponible con más historial
+            </p>
+          )}
         </CardContent>
       </Card>
 

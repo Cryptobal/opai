@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getClientSession } from "@/lib/portal-chat-auth";
+import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 import { uploadFile } from "@/lib/storage";
 import { randomUUID } from "node:crypto";
 
@@ -26,7 +26,7 @@ function isAllowedMime(mime: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = getClientSession(request);
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json(
         { success: false, error: "No autorizado" },

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, unauthorized } from '@/lib/api-auth';
-import { getGuardSession, getClientSession } from '@/lib/portal-chat-auth';
+import { getGuardSession } from '@/lib/portal-chat-auth';
+import { requirePortalClienteAuth } from '@/lib/portal-cliente';
 
 const VALID_USER_TYPES = new Set(['contact', 'guardia', 'admin']);
 const VALID_PORTAL_TYPES = new Set(['cliente', 'guardia', 'rondas', 'app', 'supervisor', 'marcacion', 'acceso']);
@@ -45,9 +46,9 @@ export async function POST(req: NextRequest) {
         resolvedUserId = session.guardiaId;
         resolvedTenantId = session.tenantId;
       } else if (userType === 'contact') {
-        const session = getClientSession(req);
+        const session = await requirePortalClienteAuth(req);
         if (!session) {
-          return NextResponse.json({ error: 'Portal session required (x-contact-id, x-tenant-id)' }, { status: 401 });
+          return NextResponse.json({ error: 'Portal session required' }, { status: 401 });
         }
         if (session.tenantId !== tenantId || session.contactId !== userId) {
           return NextResponse.json({ error: 'Session mismatch' }, { status: 403 });
@@ -131,15 +132,15 @@ export async function DELETE(req: NextRequest) {
       }
     } else {
       const guardSession = getGuardSession(req);
-      const clientSession = getClientSession(req);
+      const clientSession = guardSession ? null : await requirePortalClienteAuth(req);
       if (guardSession || clientSession) {
-        const session = guardSession ?? clientSession!;
+        const tenantIdFromSession = guardSession ? guardSession.tenantId : clientSession!.tenantId;
+        const expectedId = guardSession ? guardSession.guardiaId : clientSession!.contactId;
         const sub = await prisma.chatPushSubscription.findUnique({
           where: { endpoint },
           select: { tenantId: true, subscriberId: true },
         });
-        const expectedId = guardSession ? guardSession.guardiaId : clientSession!.contactId;
-        if (!sub || sub.tenantId !== session.tenantId || sub.subscriberId !== expectedId) {
+        if (!sub || sub.tenantId !== tenantIdFromSession || sub.subscriberId !== expectedId) {
           return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
       } else {

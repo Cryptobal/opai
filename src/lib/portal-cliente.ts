@@ -1,5 +1,6 @@
 import 'server-only';
 import { cookies } from "next/headers";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PortalConfig, DEFAULT_PORTAL_CONFIG, ClienteSession } from "@/lib/portal-cliente-types";
 import { verifyCookie } from "@/lib/cookie-signature";
@@ -34,25 +35,37 @@ export interface PortalClienteAuthResult {
   accountId: string;
   tenantId: string;
   installationIds: string[];
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  isProspect: boolean;
+  contactName: string;
 }
 
 /**
  * Valida la cookie de sesión del portal cliente y retorna datos de la BD.
  * El tenantId SIEMPRE viene de la BD, nunca del request.
+ * Si se pasa un `request`, cualquier header `x-tenant-id`/`x-account-id`/`x-contact-id`
+ * distinto a la cookie se tratará como intento de spoofing → null + auditoría.
  * Retorna null si la sesión es inválida o el contacto no existe/inactivo.
  */
-export async function requirePortalClienteAuth(): Promise<PortalClienteAuthResult | null> {
+export async function requirePortalClienteAuth(
+  request?: NextRequest
+): Promise<PortalClienteAuthResult | null> {
   const cookieStore = await cookies();
   const raw = cookieStore.get("portal_cliente_session")?.value;
-  const session = parsePortalClienteSessionCookie(raw);
-  if (!session) return null;
+  const cookieSession = parsePortalClienteSessionCookie(raw);
+  if (!cookieSession) return null;
 
   const contact = await prisma.crmContact.findUnique({
-    where: { id: session.contactId },
+    where: { id: cookieSession.contactId },
     select: {
       id: true,
       tenantId: true,
       accountId: true,
+      firstName: true,
+      lastName: true,
+      email: true,
       portalEnabled: true,
       account: {
         select: {
@@ -76,11 +89,51 @@ export async function requirePortalClienteAuth(): Promise<PortalClienteAuthResul
     (acct.isActive && acct.status !== "client_inactive");
   if (!isActive) return null;
 
+  // Security: if request headers carry x-tenant-id/x-account-id/x-contact-id
+  // that do NOT match the cookie-resolved identity, block and log.
+  if (request) {
+    const hdrTenant = request.headers.get("x-tenant-id");
+    const hdrContact = request.headers.get("x-contact-id");
+    const hdrAccount = request.headers.get("x-account-id");
+    const mismatch =
+      (hdrTenant && hdrTenant !== contact.tenantId) ||
+      (hdrContact && hdrContact !== contact.id) ||
+      (hdrAccount && hdrAccount !== contact.accountId);
+    if (mismatch) {
+      console.warn("[portal-cliente][SEC] Header/cookie mismatch", {
+        cookieContact: contact.id,
+        hdrTenant,
+        hdrContact,
+        hdrAccount,
+        realTenant: contact.tenantId,
+        realAccount: contact.accountId,
+      });
+      try {
+        await prisma.portalClienteAuditLog.create({
+          data: {
+            tenantId: contact.tenantId,
+            contactId: contact.id,
+            action: "header_mismatch_blocked",
+            metadata: { hdrTenant, hdrContact, hdrAccount },
+          },
+        });
+      } catch {
+        // Audit log best-effort
+      }
+      return null;
+    }
+  }
+
   return {
     contactId: contact.id,
     accountId: contact.accountId,
     tenantId: contact.tenantId,
     installationIds: acct.installations.map((i) => i.id),
+    firstName: contact.firstName,
+    lastName: contact.lastName,
+    email: contact.email,
+    isProspect: acct.status === "prospect",
+    contactName: `${contact.firstName} ${contact.lastName}`.trim(),
   };
 }
 
@@ -150,14 +203,13 @@ export async function validateClienteSession(email: string, pin: string, ip?: st
   }
 
   for (const contact of activeContacts) {
-    if (!contact.portalPin && !contact.portalPinVisible) continue;
+    // portalPinVisible is deprecated. Only bcrypt-hashed PINs count.
+    if (!contact.portalPin) continue;
 
     let pinValid = false;
-    if (contact.portalPin && contact.portalPin.startsWith("$2")) {
+    if (contact.portalPin.startsWith("$2")) {
       pinValid = await bcrypt.compare(pin, contact.portalPin);
     }
-    // TODO: Migrar todos los contactos con portalPinVisible a portalPin (bcrypt)
-    // y luego eliminar el campo portalPinVisible del schema
 
     if (pinValid) {
       try {

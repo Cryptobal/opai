@@ -5,11 +5,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getClientSession } from "@/lib/portal-chat-auth";
+import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = getClientSession(request);
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json(
         { success: false, error: "No autorizado" },

@@ -81,6 +81,29 @@ export async function GET(
         ? Math.round(trustScores.reduce((a, b) => a + b, 0) / trustScores.length)
         : 0;
 
+    // Days since last critical/high-severity incident for this installation
+    let diasSinIncidentes: number | null = null;
+    try {
+      const lastIncident = await prisma.opsRondaIncidente.findFirst({
+        where: {
+          tenantId,
+          installationId,
+          tipo: { in: ["critico", "alta"] },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      });
+      if (lastIncident) {
+        diasSinIncidentes = Math.floor(
+          (Date.now() - lastIncident.createdAt.getTime()) / 86400000,
+        );
+      } else {
+        diasSinIncidentes = 999;
+      }
+    } catch {
+      diasSinIncidentes = null;
+    }
+
     const ranking = scores.map((s, index) => ({
       posicion: index + 1,
       guardiaId: s.guardiaId,
@@ -100,6 +123,8 @@ export async function GET(
         periodo,
         ranking,
         trustScoreAvg,
+        diasSinIncidentes,
+        promedioIndustria: null,
       },
     });
   } catch (error) {

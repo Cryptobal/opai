@@ -1987,7 +1987,8 @@ model CrmContact {
   roleTitle String?  @map("role_title")
   isPrimary Boolean  @default(false) @map("is_primary")
   portalPin          String?   @map("portal_pin") // bcrypt hash del PIN de 4-6 dígitos
-  portalPinVisible   String?   @map("portal_pin_visible") // PIN visible para operación
+  /// @deprecated Use portalPin (bcrypt). Plaintext field scheduled for removal.
+  portalPinVisible   String?   @map("portal_pin_visible")
   portalEnabled      Boolean   @default(false) @map("portal_enabled")
   portalInvitationSentAt DateTime? @map("portal_invitation_sent_at") @db.Timestamptz(6)
   portalLastAccessAt   DateTime? @map("portal_last_access_at") @db.Timestamptz(6)
@@ -2607,11 +2608,44 @@ model ProtocolVersion {
   publishedBy    String?   @map("published_by")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  installation CrmInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  installation CrmInstallation      @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  acceptances  ProtocolAcceptance[]
 
   @@index([installationId], map: "idx_protocol_version_installation")
   @@index([installationId, versionNumber], map: "idx_protocol_version_number")
   @@map("protocol_versions")
+  @@schema("crm")
+}
+
+model ProtocolAcceptance {
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId           String   @map("tenant_id")
+  accountId          String   @map("account_id") @db.Uuid
+  installationId     String   @map("installation_id") @db.Uuid
+  contactId          String   @map("contact_id") @db.Uuid
+  protocolVersionId  String   @map("protocol_version_id")
+  versionNumber      Int      @map("version_number")
+  snapshot           Json     @db.JsonB
+
+  firmanteNombre     String   @map("firmante_nombre")
+  firmanteRut        String?  @map("firmante_rut")
+  firmanteEmail      String   @map("firmante_email")
+
+  ipAddress          String?  @map("ip_address")
+  userAgent          String?  @map("user_agent") @db.Text
+
+  acceptedAt         DateTime @default(now()) @map("accepted_at") @db.Timestamptz(6)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  protocolVersion ProtocolVersion @relation(fields: [protocolVersionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId], map: "idx_protocol_acceptance_tenant")
+  @@index([accountId], map: "idx_protocol_acceptance_account")
+  @@index([installationId], map: "idx_protocol_acceptance_installation")
+  @@index([contactId], map: "idx_protocol_acceptance_contact")
+  @@index([protocolVersionId], map: "idx_protocol_acceptance_version")
+  @@index([installationId, versionNumber], map: "idx_protocol_acceptance_inst_version")
+  @@map("protocol_acceptances")
   @@schema("crm")
 }
 

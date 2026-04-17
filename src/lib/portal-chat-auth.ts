@@ -7,13 +7,6 @@ export type GuardChatSession = {
   guardiaName: string;
 };
 
-export type ClientChatSession = {
-  contactId: string;
-  tenantId: string;
-  accountId: string;
-  contactName: string;
-};
-
 export function getGuardSession(request: NextRequest): GuardChatSession | null {
   const guardiaId = request.headers.get("x-guardia-id");
   const tenantId = request.headers.get("x-tenant-id");
@@ -21,16 +14,6 @@ export function getGuardSession(request: NextRequest): GuardChatSession | null {
   const guardiaName = decodeURIComponent(rawGuardiaName);
   if (!guardiaId || !tenantId) return null;
   return { guardiaId, tenantId, guardiaName };
-}
-
-export function getClientSession(request: NextRequest): ClientChatSession | null {
-  const contactId = request.headers.get("x-contact-id");
-  const tenantId = request.headers.get("x-tenant-id");
-  const accountId = request.headers.get("x-account-id");
-  const rawContactName = request.headers.get("x-contact-name") || "Cliente";
-  const contactName = decodeURIComponent(rawContactName);
-  if (!contactId || !tenantId || !accountId) return null;
-  return { contactId, tenantId, accountId, contactName };
 }
 
 export async function verifyGuardChannelAccess(guardiaId: string, channelId: string): Promise<boolean> {
