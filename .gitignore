@@ -80,3 +80,53 @@ ios-erp/
 # Lives in private storage (see docs/01-architecture/data-sources.md)
 Datos Ops/
 /private-data/
+
+# ═══════════════════════════════════════════════════════════════════
+# Data files con PII potencial — NUNCA commitear
+# Si necesitás samples para documentación, ponelos en
+# docs/02-implementation/payroll/sample-formats/ con datos anonimizados.
+# ═══════════════════════════════════════════════════════════════════
+
+# Carpetas comunes de data operativa
+Datos Ops/
+datos-ops/
+Datos/
+/data/
+/datos/
+data-private/
+private-data/
+/uploads-local/
+
+# CSVs en raíz del repo (los samples válidos viven en docs/)
+/*.csv
+/*.CSV
+
+# Excels en raíz
+/*.xlsx
+/*.xls
+/*.XLSX
+/*.XLS
+
+# Dumps de base de datos
+*.sql.gz
+*.dump
+backup-*.sql
+dump-*.sql
+db-export-*.sql
+
+# Filenames sospechosos de PII chilena (libros de payroll, F30, Previred)
+*libro_remuneraciones*
+*libro_imposiciones*
+*Libro_Remuneracion*
+*Libro_Imposicion*
+*LIBRO_REMUNERACION*
+*LIBRO_IMPOSICION*
+LIBRO_*
+*previred*
+*Previred*
+*PREVIRED*
+*F30*
+*nomina*
+*Nomina*
+*remuneraciones-*.csv
+*imposiciones-*.csv

@@ -1,0 +1,44 @@
+name: PII Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-pii:
+    name: Scan diff for PII patterns
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Get changed files
+        id: changes
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          CHANGED=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...HEAD)
+          echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Run PII scan on changed files
+        env:
+          CHANGED_FILES: ${{ steps.changes.outputs.changed_files }}
+        run: |
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No files changed, skipping PII check."
+            exit 0
+          fi
+
+          echo "$CHANGED_FILES" | while read -r f; do
+            [ -f "$f" ] && git add "$f" 2>/dev/null || true
+          done
+
+          node scripts/check-pii.mjs
