@@ -1,14 +1,30 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { BookOpen, ChevronDown, ChevronRight, CheckCircle2, Loader2 } from "lucide-react";
+import { useState } from "react";
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  CheckCircle2,
+  FileCheck2,
+  Loader2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PreviewBadge } from "./PreviewBadge";
+import { usePortalData } from "@/hooks/usePortalData";
+import { ProtocolSignModal } from "./ProtocolSignModal";
 
 interface ProtocolSection {
   title: string;
   items: string[];
+}
+
+interface ProtocolAcceptance {
+  id: string;
+  acceptedAt: string;
+  firmanteNombre: string;
+  versionNumber: number;
 }
 
 interface Protocol {
@@ -17,6 +33,8 @@ interface Protocol {
   version: string;
   updatedAt: string;
   status: string;
+  lastAcceptance: ProtocolAcceptance | null;
+  requiresSignature: boolean;
   sections: ProtocolSection[];
 }
 
@@ -26,70 +44,19 @@ interface Props {
   isProspect?: boolean;
 }
 
-const DEMO_PROTOCOLOS: Protocol[] = [
-  {
-    id: "demo-1",
-    title: "Protocolo General de Seguridad",
-    version: "v2.1",
-    updatedAt: "2026-02-15",
-    status: "active",
-    sections: [
-      {
-        title: "Control de Acceso",
-        items: [
-          "Verificación de identidad obligatoria para todo visitante",
-          "Registro fotográfico en bitácora digital",
-          "Notificación al responsable del área visitada",
-        ],
-      },
-      {
-        title: "Rondas de Seguridad",
-        items: [
-          "Rondas cada 2 horas en horario nocturno",
-          "Verificación de perímetro y puntos de acceso",
-          "Reporte inmediato de anomalías vía app",
-        ],
-      },
-      {
-        title: "Emergencias",
-        items: [
-          "Protocolo de evacuación según plano de emergencia",
-          "Contacto inmediato con central de monitoreo",
-          "Coordinación con Carabineros y Bomberos según tipo de emergencia",
-        ],
-      },
-    ],
-  },
-];
-
-export function PortalProtocolos({ session, selectedInstallation, isProspect }: Props) {
-  const [protocols, setProtocols] = useState<Protocol[]>([]);
-  const [loading, setLoading] = useState(false);
+export function PortalProtocolos({ selectedInstallation }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [signingId, setSigningId] = useState<string | null>(null);
+  const [localSigned, setLocalSigned] = useState<Record<string, string>>({});
 
-  const fetchProtocols = useCallback(async () => {
-    if (isProspect) {
-      setProtocols(DEMO_PROTOCOLOS);
-      return;
-    }
-    if (!selectedInstallation) return;
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/portal/cliente/protocolos?installationId=${encodeURIComponent(selectedInstallation)}`
-      );
-      const j = await res.json();
-      if (j.success) setProtocols(j.data);
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedInstallation, isProspect]);
+  const { data, loading, isDemo, refetch } = usePortalData<Protocol[]>({
+    endpoint: "/api/portal/cliente/protocolos",
+    demoKey: "protocolos_list",
+    params: selectedInstallation ? { installationId: selectedInstallation } : undefined,
+    skip: !selectedInstallation,
+  });
 
-  useEffect(() => {
-    fetchProtocols();
-  }, [fetchProtocols]);
+  const protocols = data ?? [];
 
   if (loading) {
     return (
@@ -108,9 +75,11 @@ export function PortalProtocolos({ session, selectedInstallation, isProspect }: 
     );
   }
 
+  const signingProtocol = protocols.find((p) => p.id === signingId);
+
   return (
     <div className="space-y-3">
-      {isProspect && (
+      {isDemo && (
         <div className="flex items-center gap-2 mb-2">
           <h3 className="text-sm font-semibold">Protocolos de seguridad</h3>
           <PreviewBadge />
@@ -118,6 +87,11 @@ export function PortalProtocolos({ session, selectedInstallation, isProspect }: 
       )}
       {protocols.map((protocol) => {
         const isExpanded = expandedId === protocol.id;
+        const localSignedAt = localSigned[protocol.id];
+        const acceptance = protocol.lastAcceptance;
+        const signedDisplay = localSignedAt ?? acceptance?.acceptedAt ?? null;
+        const needsSign =
+          !isDemo && (protocol.requiresSignature || !acceptance) && !localSignedAt;
         return (
           <div
             key={protocol.id}
@@ -150,11 +124,16 @@ export function PortalProtocolos({ session, selectedInstallation, isProspect }: 
                       "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border",
                       protocol.status === "active"
                         ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                        : "text-zinc-400 bg-zinc-500/10 border-zinc-500/20"
+                        : "text-zinc-400 bg-zinc-500/10 border-zinc-500/20",
                     )}
                   >
                     {protocol.status === "active" ? "Vigente" : "Borrador"}
                   </span>
+                  {signedDisplay && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+                      ✓ Firmado
+                    </span>
+                  )}
                 </div>
               </div>
             </button>
@@ -176,11 +155,50 @@ export function PortalProtocolos({ session, selectedInstallation, isProspect }: 
                     </ul>
                   </div>
                 ))}
+
+                {signedDisplay && (
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+                    <p className="text-xs text-emerald-300">
+                      ✓ Firmado
+                      {acceptance?.firmanteNombre ? ` por ${acceptance.firmanteNombre}` : ""} el{" "}
+                      {new Date(signedDisplay).toLocaleDateString("es-CL")}
+                    </p>
+                    {protocol.requiresSignature && !localSignedAt && (
+                      <p className="text-xs text-amber-400 mt-1">
+                        Nueva versión disponible — firma requerida.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {needsSign && (
+                  <button
+                    onClick={() => setSigningId(protocol.id)}
+                    className="w-full mt-3 h-10 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold flex items-center justify-center gap-2"
+                  >
+                    <FileCheck2 className="w-4 h-4" />
+                    {acceptance ? "Firmar nueva versión" : "Aceptar y firmar protocolo"}
+                  </button>
+                )}
               </div>
             )}
           </div>
         );
       })}
+
+      {signingProtocol && (
+        <ProtocolSignModal
+          protocolId={signingProtocol.id}
+          protocolTitle={signingProtocol.title}
+          protocolVersion={signingProtocol.version}
+          onClose={() => setSigningId(null)}
+          onSigned={(acceptedAt) => {
+            setLocalSigned((prev) => ({ ...prev, [signingProtocol.id]: acceptedAt }));
+            setSigningId(null);
+            void refetch();
+          }}
+        />
+      )}
     </div>
   );
 }

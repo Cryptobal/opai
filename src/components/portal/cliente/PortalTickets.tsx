@@ -1,11 +1,25 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Loader2, Ticket, ChevronLeft, Send, Plus, MessageSquare } from 'lucide-react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
+import { Loader2, Ticket, ChevronLeft, Send, Plus, MessageSquare, Clock } from 'lucide-react'
 import { ClienteSession } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
 import { PortalCreateTicket } from './PortalCreateTicket'
-import { PreviewBadge } from './PreviewBadge'
+
+function slaCountdown(
+  dueAt: string | null | undefined,
+  status: string,
+): { text: string; color: string } | null {
+  if (!dueAt) return null
+  if (status === 'resolved' || status === 'closed') return null
+  const diff = new Date(dueAt).getTime() - Date.now()
+  const hours = Math.floor(diff / (3600 * 1000))
+  const minutes = Math.floor((diff % (3600 * 1000)) / (60 * 1000))
+  if (diff < 0) return { text: `Vencido hace ${Math.abs(hours)}h`, color: 'text-red-400' }
+  if (hours < 2) return { text: `Vence en ${hours}h ${minutes}m`, color: 'text-red-400' }
+  if (hours < 24) return { text: `Vence en ${hours}h`, color: 'text-amber-400' }
+  return { text: `Vence en ${Math.floor(hours / 24)}d`, color: 'text-emerald-400' }
+}
 
 interface TicketComment {
   id: string
@@ -79,28 +93,13 @@ function formatDateTime(iso: string) {
 }
 
 export function PortalTickets({ session, selectedInstallation, isProspect }: Props) {
-  if (isProspect) {
-    return (
-      <div className="px-4 py-4 pb-28 max-w-lg mx-auto">
-        <h2 className="text-white font-semibold text-lg mb-1 flex items-center gap-2">
-          <Ticket className="h-5 w-5 text-blue-400" />
-          Tickets de Soporte
-          <PreviewBadge />
-        </h2>
-        <p className="text-xs text-zinc-500 mb-4 ml-7">Seguimiento de incidentes con trazabilidad completa</p>
-        <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
-          <p className="text-sm text-zinc-300 font-medium">Sistema de tickets disponible</p>
-          <ul className="space-y-2 text-xs text-zinc-400">
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Crea solicitudes y reporta incidencias</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Seguimiento en tiempo real del estado</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Comunicación directa con el equipo de seguridad</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Historial completo de todas tus solicitudes</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Prioridades y SLA automáticos</li>
-          </ul>
-        </div>
-      </div>
-    )
-  }
+  const installationNameMap = useMemo(
+    () =>
+      Object.fromEntries(
+        (session?.installations ?? []).map((i) => [i.id, i.name]),
+      ) as Record<string, string>,
+    [session?.installations],
+  )
 
   const [tickets, setTickets] = useState<TicketItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -308,7 +307,23 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
                   )}
                 </div>
                 <p className="text-white text-sm font-medium leading-snug">{ticket.title}</p>
-                <p className="text-zinc-500 text-xs mt-1.5">{formatDate(ticket.createdAt)}</p>
+                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                  <p className="text-zinc-500 text-xs">{formatDate(ticket.createdAt)}</p>
+                  {ticket.installationId && installationNameMap[ticket.installationId] && (
+                    <span className="text-xs text-zinc-500">
+                      📍 {installationNameMap[ticket.installationId]}
+                    </span>
+                  )}
+                  {(() => {
+                    const sla = slaCountdown(ticket.slaDueAt, ticket.status)
+                    if (!sla) return null
+                    return (
+                      <span className={cn('text-[10px] flex items-center gap-0.5', sla.color)}>
+                        <Clock className="w-3 h-3" /> {sla.text}
+                      </span>
+                    )
+                  })()}
+                </div>
               </button>
             )
           })}
