@@ -332,7 +332,7 @@ function serializeInlineToString(nodes: any[], entities: EntityData): string {
   }).join("");
 }
 
-/** Procesa bloques {{#if expr}}...{{/if}} a nivel de hijos del doc */
+/** Procesa bloques {{#if expr}}...{{else}}...{{/if}} a nivel de hijos del doc */
 function processConditionalBlocks(
   nodes: any[],
   entities: EntityData,
@@ -344,41 +344,76 @@ function processConditionalBlocks(
     const node = nodes[i];
     const text = getNodeText(node).trim();
 
-    // Solo coincidir cuando el nodo es EXACTAMENTE {{#if expr}} (nada más) — evita tragar párrafos con {{#if}}...{{/if}} inline
+    // Solo coincidir cuando el nodo es EXACTAMENTE {{#if expr}} (nada más)
     const ifMatch = /^\{\{#if\s+([^}]+)\}\}$/.exec(text);
     if (ifMatch) {
       const condition = ifMatch[1].trim();
       const conditionMet = evaluateCondition(condition, entities);
       i++;
-      const block: any[] = [];
+
+      // Accumulate nodes until matching {{/if}}, splitting into true/false branches on {{else}} at depth 1
+      const trueBranch: any[] = [];
+      const falseBranch: any[] = [];
+      let currentBranch: any[] = trueBranch;
       let depth = 1;
+
       while (i < nodes.length) {
         const n = nodes[i];
         const t = getNodeText(n).trim();
+
+        // Nested {{#if}}
         if (/^\{\{#if\s+[^}]+\}\}$/.test(t)) {
           depth++;
-          block.push(n);
+          currentBranch.push(n);
           i++;
-        } else if (/^\{\{\/if\}\}$/.test(t)) {
+          continue;
+        }
+
+        // {{/if}} — if it closes ours, stop; else add to current branch
+        if (/^\{\{\/if\}\}$/.test(t)) {
           depth--;
           if (depth === 0) {
             i++;
             break;
           }
-          block.push(n);
+          currentBranch.push(n);
           i++;
-        } else {
-          block.push(n);
-          i++;
+          continue;
         }
+
+        // {{else}} or {{else}}{{#if ...}} only at depth 1 → switch to false branch
+        if (depth === 1) {
+          const plainElse = /^\{\{else\}\}$/.exec(t);
+          if (plainElse) {
+            currentBranch = falseBranch;
+            i++;
+            continue;
+          }
+          const elseIf = /^\{\{else\}\}\{\{#if\s+([^}]+)\}\}$/.exec(t);
+          if (elseIf) {
+            // Transform into {{#if ...}} in the false branch so recursion handles it.
+            // The closing {{/if}} in the original doc will close BOTH the outer if
+            // and this synthetic one — recursion re-uses the trailing {{/if}}.
+            currentBranch = falseBranch;
+            const synthetic = { type: "paragraph", content: [{ type: "text", text: `{{#if ${elseIf[1].trim()}}}` }] };
+            currentBranch.push(synthetic);
+            depth++;
+            i++;
+            continue;
+          }
+        }
+
+        currentBranch.push(n);
+        i++;
       }
-      if (conditionMet) {
-        result.push(...processConditionalBlocks(block, entities, walkNode).map(walkNode));
-      }
+
+      const chosenBranch = conditionMet ? trueBranch : falseBranch;
+      result.push(...processConditionalBlocks(chosenBranch, entities, walkNode).map(walkNode));
       continue;
     }
 
-    if (/^\{\{\/if\}\}$/.test(text)) {
+    // Orphan {{else}} or {{/if}} → discard so it doesn't render as literal text
+    if (/^\{\{(else|\/if)\}\}$/.test(text) || /^\{\{else\}\}\{\{#if\s+[^}]+\}\}$/.test(text)) {
       i++;
       continue;
     }
