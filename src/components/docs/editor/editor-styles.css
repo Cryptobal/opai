@@ -1,0 +1,40 @@
+/**
+ * editor-styles — Estilos visuales para el editor de contratos.
+ * Aplica borde + badge a headings marcados como cláusula editable,
+ * y refuerza el look de los contract tokens.
+ */
+
+/* Heading con clauseId: borde teal a la izquierda + badge sutil con el slug */
+.ProseMirror h1[data-clause-id],
+.ProseMirror h2[data-clause-id],
+.ProseMirror h3[data-clause-id],
+.ProseMirror h4[data-clause-id] {
+  position: relative;
+  border-left: 3px solid rgb(20 184 166 / 0.6);
+  padding-left: 0.75rem;
+  margin-left: -0.75rem;
+}
+
+.ProseMirror h1[data-clause-id]::after,
+.ProseMirror h2[data-clause-id]::after,
+.ProseMirror h3[data-clause-id]::after,
+.ProseMirror h4[data-clause-id]::after {
+  content: "📌 " attr(data-clause-id);
+  display: inline-block;
+  margin-left: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: ui-monospace, monospace;
+  color: rgb(15 118 110);
+  background: rgb(204 251 241 / 0.5);
+  border-radius: 0.25rem;
+  vertical-align: middle;
+  opacity: 0.7;
+}
+
+/* Hover suave sobre heading editable */
+.ProseMirror h2[data-clause-id]:hover,
+.ProseMirror h3[data-clause-id]:hover {
+  background: rgb(204 251 241 / 0.15);
+}

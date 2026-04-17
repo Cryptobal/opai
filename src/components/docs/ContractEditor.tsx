@@ -19,9 +19,12 @@ import { Columns, Column, ColumnsCommands } from "./ColumnsExtension";
 import { TokenSuggestionExtension } from "./TokenSuggestionExtension";
 import { HeadingClause } from "./HeadingClauseExtension";
 import { EditorToolbar } from "./EditorToolbar";
+import { ClauseBubbleMenu } from "./editor/ClauseBubbleMenu";
+import { findDuplicateClauseIds } from "./editor/clause-utils-client";
 import { DocPreviewDialog, type PageType } from "./DocPreviewDialog";
 import { SIGNER_TOKEN_COLORS } from "@/lib/docs/signature-token-colors";
 import { useCallback, useEffect, useRef, useState } from "react";
+import "./editor/editor-styles.css";
 
 const PAGE_WIDTHS: Record<PageType, string> = {
   a4: "210mm",
@@ -119,6 +122,21 @@ export function ContractEditor({
   [editable, placeholder, filterModules]
   );
 
+  // Warning de clauseIds duplicados (solo console — banner UI queda para iteración futura)
+  useEffect(() => {
+    if (!editor) return;
+    const checkDupes = () => {
+      const dupes = findDuplicateClauseIds(editor.getJSON());
+      if (dupes.size > 0) {
+        console.warn("[ContractEditor] Duplicated clauseIds:", Array.from(dupes));
+      }
+    };
+    editor.on("update", checkDupes);
+    return () => {
+      editor.off("update", checkDupes);
+    };
+  }, [editor]);
+
   // Sincronizar contenido externo solo cuando no está editando (evita pérdida de foco)
   useEffect(() => {
     if (!editor || !content || editor.isFocused) return;
@@ -172,6 +190,8 @@ export function ContractEditor({
           />
         </div>
       )}
+
+      {editable && <ClauseBubbleMenu editor={editor} />}
 
       {/* Contenido scrolleable — la toolbar queda fija arriba */}
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
