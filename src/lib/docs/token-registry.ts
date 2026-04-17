@@ -130,6 +130,8 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "quote.adjustmentType", label: "Tipo de Reajuste", path: "adjustmentType" },
       { key: "quote.adjustmentFreq", label: "Frecuencia de Reajuste", path: "adjustmentFreq" },
       { key: "quote.polinomioDescripcion", label: "Descripción Polinomio", path: "polinomioDescripcion" },
+      { key: "quote.ipcWeight", label: "% IPC (polinomio)", path: "ipcWeight" },
+      { key: "quote.imoWeight", label: "% IMO (polinomio)", path: "imoWeight" },
       { key: "quote.insurancePolicyUF", label: "Monto Póliza (UF)", path: "insurancePolicyUF" },
       { key: "quote.liabilityMonths", label: "Meses Límite Responsabilidad", path: "liabilityMonths", type: "number" },
       { key: "quote.cctvRetentionDays", label: "Días Retención CCTV", path: "cctvRetentionDays", type: "number" },

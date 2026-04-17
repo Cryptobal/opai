@@ -166,6 +166,20 @@ export function resolveTokenValue(
       };
       return map[entity.adjustmentFreq] ?? entity.adjustmentFreq ?? "";
     }
+    if (field === "ipcWeight") {
+      const w = entity.ipcWeight;
+      if (w == null || w === "") return "";
+      const n = Number(w);
+      if (isNaN(n)) return "";
+      return `${n}%`;
+    }
+    if (field === "imoWeight") {
+      const w = entity.imoWeight;
+      if (w == null || w === "") return "";
+      const n = Number(w);
+      if (isNaN(n)) return "";
+      return `${n}%`;
+    }
     if (field === "polinomioDescripcion") {
       const ipc = entity.ipcWeight ?? 0;
       const imo = entity.imoWeight ?? 0;
