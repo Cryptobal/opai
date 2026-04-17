@@ -3,10 +3,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   Loader2, Building2, Users, FileText, Contact, MapPin,
-  Plus, Trash2, Save, CheckCircle2,
+  Plus, Trash2, Save, CheckCircle2, AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ClienteSession } from '@/lib/portal-cliente-types'
+import { isValidRut, formatRut } from '@/lib/chile-rut'
 
 /* ── Types ── */
 
@@ -151,6 +152,7 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
   // Section-level form states
   const [legalName, setLegalName] = useState('')
   const [rut, setRut] = useState('')
+  const [rutError, setRutError] = useState<string | null>(null)
   const [address, setAddress] = useState('')
   const [commune, setCommune] = useState('')
   const [savingDatos, setSavingDatos] = useState(false)
@@ -220,6 +222,11 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
   /* ── Save handlers ── */
 
   async function saveDatos() {
+    if (rut && !isValidRut(rut)) {
+      setRutError('RUT inválido')
+      return
+    }
+    setRutError(null)
     setSavingDatos(true)
     try {
       const res = await fetch('/api/portal/cliente/empresa', {
@@ -393,7 +400,30 @@ export function PortalEmpresa({ session }: { session: ClienteSession }) {
         <SectionHeader icon={Building2} title="Datos de la empresa" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <InputField label="Razón social" value={legalName} onChange={setLegalName} placeholder="Razón social" />
-          <InputField label="RUT" value={rut} onChange={setRut} placeholder="12.345.678-9" />
+          <div>
+            <label className="block text-[11px] text-zinc-400 mb-1 uppercase tracking-wider">RUT</label>
+            <input
+              type="text"
+              value={rut}
+              onChange={(e) => { setRut(e.target.value); if (rutError) setRutError(null) }}
+              onBlur={() => {
+                if (!rut) { setRutError(null); return }
+                if (!isValidRut(rut)) { setRutError('RUT inválido'); return }
+                setRutError(null)
+                setRut(formatRut(rut))
+              }}
+              placeholder="12.345.678-9"
+              className={cn(
+                'w-full h-9 rounded-lg border bg-zinc-800 px-3 text-sm text-white focus:outline-none',
+                rutError ? 'border-red-500 focus:border-red-400' : 'border-zinc-700 focus:border-teal-400',
+              )}
+            />
+            {rutError && (
+              <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> {rutError}
+              </p>
+            )}
+          </div>
           <InputField label="Dirección" value={address} onChange={setAddress} placeholder="Dirección" />
           <InputField label="Comuna" value={commune} onChange={setCommune} placeholder="Comuna" />
         </div>
