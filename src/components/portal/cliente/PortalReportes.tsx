@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { FileText, Download, Loader2, BarChart3 } from "lucide-react";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { cn } from "@/lib/utils";
@@ -51,30 +51,13 @@ interface Props {
 /* ══════════════════════════════════════════════════════ */
 
 export function PortalReportes({ session, isProspect }: Props) {
-  if (isProspect) {
-    return (
-      <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24 space-y-3">
-        <div className="mb-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold">Reportes</h2>
-            <PreviewBadge />
-          </div>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Informes detallados de tu servicio de seguridad
-          </p>
-        </div>
-        <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
-          <p className="text-sm text-zinc-300 font-medium">Reportes mensuales automáticos</p>
-          <ul className="space-y-2 text-xs text-zinc-400">
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Métricas de cumplimiento y operación</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Evaluación de guardias y desempeño</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Recomendaciones de mejora</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Descarga en PDF</li>
-          </ul>
-        </div>
-      </div>
-    );
-  }
+  const installationMap = useMemo(
+    () =>
+      Object.fromEntries(
+        (session?.installations ?? []).map((i) => [i.id, i.name]),
+      ) as Record<string, string>,
+    [session?.installations],
+  );
 
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,6 +100,32 @@ export function PortalReportes({ session, isProspect }: Props) {
     } finally {
       setDownloading(null);
     }
+  }
+
+  /* ── Prospect placeholder (after hooks to respect Rules of Hooks) ── */
+  if (isProspect) {
+    return (
+      <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24 space-y-3">
+        <div className="mb-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold">Reportes</h2>
+            <PreviewBadge />
+          </div>
+          <p className="text-xs text-zinc-400 mt-0.5">
+            Informes detallados de tu servicio de seguridad
+          </p>
+        </div>
+        <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
+          <p className="text-sm text-zinc-300 font-medium">Reportes mensuales automáticos</p>
+          <ul className="space-y-2 text-xs text-zinc-400">
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Métricas de cumplimiento y operación</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Evaluación de guardias y desempeño</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Recomendaciones de mejora</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Descarga en PDF</li>
+          </ul>
+        </div>
+      </div>
+    );
   }
 
   /* ── Loading ── */
@@ -195,7 +204,7 @@ export function PortalReportes({ session, isProspect }: Props) {
               <div className="flex items-center gap-2 mt-0.5">
                 {reporte.installationId && (
                   <span className="text-xs text-zinc-500 truncate">
-                    Instalacion: {reporte.installationId.slice(0, 8)}...
+                    Instalación: {installationMap[reporte.installationId] ?? reporte.installationId.slice(0, 8) + "..."}
                   </span>
                 )}
                 {compliance !== null && (
