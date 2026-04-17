@@ -51,3 +51,42 @@ export function findDuplicateClauseIds(doc: any): Set<string> {
   walk(doc);
   return dupes;
 }
+
+/** Busca en el editor si un clauseId ya está en uso por otro heading. */
+export function isClauseIdUsed(
+  editor: { state: { doc: any } },
+  id: string,
+  exceptId?: string | null
+): boolean {
+  let found = false;
+  editor.state.doc.descendants((node: any) => {
+    if (found) return false;
+    if (node.type.name === "heading" && node.attrs?.clauseId === id && id !== exceptId) {
+      found = true;
+    }
+    return true;
+  });
+  return found;
+}
+
+/** Borra el heading actual y todo el contenido hasta el próximo heading. */
+export function deleteClauseBlock(editor: any) {
+  const { state } = editor;
+  const $from = state.doc.resolve(state.selection.from);
+  let start: number | null = null;
+  let end: number | null = null;
+  state.doc.descendants((node: any, pos: number) => {
+    if (start !== null && end !== null) return false;
+    if (node.type.name === "heading" && pos <= $from.pos && pos + node.nodeSize > $from.pos) {
+      start = pos;
+    }
+    if (start !== null && pos > start && node.type.name === "heading") {
+      end = pos;
+      return false;
+    }
+    return true;
+  });
+  if (start === null) return;
+  if (end === null) end = state.doc.content.size;
+  editor.chain().focus().deleteRange({ from: start, to: end }).run();
+}
