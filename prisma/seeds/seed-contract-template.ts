@@ -540,3 +540,30 @@ if (require.main === module) {
     })
     .finally(() => prisma.$disconnect());
 }
+
+export async function archiveLegacyContractTemplate(tenantId: string) {
+  const existing = await prisma.docTemplate.findFirst({
+    where: {
+      tenantId,
+      module: "crm",
+      name: "Contrato Prestación Servicios de Vigilancia",
+    },
+  });
+  if (!existing) {
+    console.log("  → Legacy template not found, skipping");
+    return;
+  }
+  await prisma.docTemplate.update({
+    where: { id: existing.id },
+    data: {
+      isActive: false,
+      isDefault: false,
+      description:
+        (existing.description ?? "") +
+        " [ARCHIVADO el " + new Date().toISOString().slice(0, 10) +
+        " — reemplazado por Contrato de Servicio de Seguridad v2]",
+      updatedAt: new Date(),
+    },
+  });
+  console.log(`  → Legacy template archived: ${existing.id}`);
+}

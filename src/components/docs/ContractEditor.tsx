@@ -17,6 +17,7 @@ import { ContractToken } from "./ContractTokenExtension";
 import { PageBreak } from "./PageBreakExtension";
 import { Columns, Column, ColumnsCommands } from "./ColumnsExtension";
 import { TokenSuggestionExtension } from "./TokenSuggestionExtension";
+import { HeadingClause } from "./HeadingClauseExtension";
 import { EditorToolbar } from "./EditorToolbar";
 import { DocPreviewDialog, type PageType } from "./DocPreviewDialog";
 import { SIGNER_TOKEN_COLORS } from "@/lib/docs/signature-token-colors";
@@ -55,11 +56,10 @@ export function ContractEditor({
       immediatelyRender: false,
       extensions: [
       StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3, 4],
-        },
+        heading: false,
         underline: false,
       }),
+      HeadingClause.configure({ levels: [1, 2, 3, 4] }),
       Placeholder.configure({
         placeholder,
       }),

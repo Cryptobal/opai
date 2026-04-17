@@ -40,9 +40,6 @@ interface Suggestion {
   createdAt: string;
 }
 
-/** All clause numbers that can appear in the contract */
-const CLAUSE_PATTERN = /^(PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|SÉPTIMA|OCTAVA|NOVENA|DÉCIMA TERCERA|DÉCIMA CUARTA|DÉCIMA QUINTA|DÉCIMA SEXTA|DÉCIMA|UNDÉCIMA|DUODÉCIMA)\s*[:.]/;
-
 interface Props {
   quoteId: string;
   onBack: () => void;
@@ -112,45 +109,35 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
 
   useEffect(() => {
     if (!contractMounted || !contractRef.current) return;
-
     const container = contractRef.current;
-
-    // Remove previously injected buttons
     container.querySelectorAll("[data-suggest-btn]").forEach((b) => b.remove());
-
-    // Find all elements containing clause names
-    container.querySelectorAll("h1, h2, h3, h4, p, strong").forEach((el) => {
-      const text = el.textContent?.trim() ?? "";
-      if (!CLAUSE_PATTERN.test(text)) return;
-
-      const clauseMatch = text.match(/^(PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|SÉPTIMA|OCTAVA|NOVENA|DÉCIMA TERCERA|DÉCIMA CUARTA|DÉCIMA QUINTA|DÉCIMA SEXTA|DÉCIMA|UNDÉCIMA|DUODÉCIMA)/);
-      if (!clauseMatch) return;
-      const clauseName = clauseMatch[1];
-
-      const target = el.tagName.match(/^H[1-4]$/) ? el : el.closest("p, h1, h2, h3, h4") ?? el;
-      if (target.querySelector("[data-suggest-btn]")) return;
-
+    container.querySelectorAll<HTMLElement>("[data-clause-id]").forEach((el) => {
+      const clauseId = el.getAttribute("data-clause-id");
+      if (!clauseId) return;
+      if (el.querySelector("[data-suggest-btn]")) return;
+      const clauseTitle = el.textContent?.trim() ?? clauseId;
       const btn = document.createElement("button");
-      btn.setAttribute("data-suggest-btn", clauseName);
-      btn.className = "ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-500/20 text-teal-700 hover:bg-teal-500/30 transition-colors align-middle cursor-pointer";
+      btn.setAttribute("data-suggest-btn", clauseId);
+      btn.className =
+        "ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-500/20 text-teal-700 hover:bg-teal-500/30 transition-colors align-middle cursor-pointer";
       btn.style.cssText = "display:inline-flex !important; visibility:visible !important;";
-      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Sugerir edición`;
+      btn.innerHTML =
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Sugerir edición';
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const headingEl = target.tagName.match(/^H[1-4]$/) ? target : target.closest("h1, h2, h3, h4") ?? target;
         const paragraphs: string[] = [];
-        let sibling = headingEl.nextElementSibling;
+        let sibling = el.nextElementSibling;
         while (sibling && !sibling.tagName.match(/^H[1-4]$/)) {
           const pText = sibling.textContent?.trim();
           if (pText) paragraphs.push(pText);
           sibling = sibling.nextElementSibling;
         }
         const originalText = paragraphs.join("\n\n");
-        setEditModal({ clauseNumber: clauseName, clauseTitle: text, originalText });
+        setEditModal({ clauseNumber: clauseId, clauseTitle, originalText });
         setEditForm({ suggestedContent: originalText, clientNote: "" });
       });
-      target.appendChild(btn);
+      el.appendChild(btn);
     });
   }, [contractMounted, injectTick]);
 

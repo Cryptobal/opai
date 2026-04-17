@@ -27,7 +27,6 @@ import {
   MoreHorizontal,
   Trash2,
   ExternalLink,
-  LayoutTemplate,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -246,16 +245,6 @@ export function DocsClient() {
         </div>
 
         <div className="flex-1" />
-
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => router.push("/opai/documentos/templates")}
-        >
-          <LayoutTemplate className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Templates</span>
-        </Button>
 
         <Button
           size="sm"
