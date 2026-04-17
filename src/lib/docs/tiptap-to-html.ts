@@ -134,10 +134,15 @@ export function tiptapToPreviewHtml(doc: unknown): string {
         return `<p${style} style="margin:0 0 8px;">${children || "&nbsp;"}</p>`;
       }
       case "heading": {
-        const lvl = ((n.attrs as Record<string, number>)?.level) || 2;
-        const align = (n.attrs as Record<string, string>)?.textAlign;
-        const style = align && align !== "left" ? ` style="text-align:${align}"` : "";
-        return `<h${lvl}${style} style="margin:12px 0 8px;">${children}</h${lvl}>`;
+        const attrs = (n.attrs as Record<string, any>) ?? {};
+        const lvl = (attrs.level as number) || 2;
+        const align = attrs.textAlign as string | undefined;
+        const clauseId = attrs.clauseId as string | null;
+        const alignStyle = align && align !== "left" ? `text-align:${align};` : "";
+        const dataAttr = clauseId
+          ? ` data-clause-id="${String(clauseId).replace(/"/g, "&quot;")}"`
+          : "";
+        return `<h${lvl}${dataAttr} style="${alignStyle}margin:12px 0 8px;">${children}</h${lvl}>`;
       }
       case "bulletList": return `<ul style="margin:0 0 8px;padding-left:24px;">${children}</ul>`;
       case "orderedList": return `<ol style="margin:0 0 8px;padding-left:24px;">${children}</ol>`;
