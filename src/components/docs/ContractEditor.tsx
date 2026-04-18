@@ -137,18 +137,23 @@ export function ContractEditor({
     };
   }, [editor]);
 
-  // Sincronizar contenido externo solo cuando no está editando (evita pérdida de foco)
+  // Sincronizar contenido externo. Cuando se trata del primer sync (editor recién
+  // creado vacío), ignoramos el check de `isFocused` para garantizar que el
+  // contenido real se inyecte aunque el editor ya haya recibido foco.
   useEffect(() => {
-    if (!editor || !content || editor.isFocused) return;
+    if (!editor || !content) return;
     if (isInternalUpdate.current) {
       isInternalUpdate.current = false;
       return;
     }
     const currentJSON = JSON.stringify(editor.getJSON());
     const newJSON = JSON.stringify(content);
-    if (currentJSON !== newJSON) {
-      editor.commands.setContent(content);
-    }
+    if (currentJSON === newJSON) return;
+    // Si el editor está vacío (tamaño mínimo) o nunca se cargó contenido real,
+    // siempre sincronizamos. En otros casos, respetamos el foco del usuario.
+    const editorIsEmpty = editor.state.doc.content.size <= 2;
+    if (editor.isFocused && !editorIsEmpty) return;
+    editor.commands.setContent(content);
   }, [content, editor]);
 
   const insertToken = useCallback(

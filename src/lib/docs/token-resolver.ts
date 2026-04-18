@@ -479,6 +479,10 @@ export function resolveDocument(
       if (value && /<(table|div|ul|ol)\b/i.test(value)) {
         return { type: "rawHtml", attrs: { html: value } };
       }
+      // ProseMirror/Tiptap rechaza text nodes con string vacío. Si el token
+      // resuelve a "" (dato faltante), dejamos el nodo original para que se
+      // vea el badge del token sin resolver en lugar de corromper el doc.
+      if (!value) return node;
       return {
         type: "text",
         text: value,
@@ -499,6 +503,8 @@ export function resolveDocument(
             return attrs === mark.attrs ? mark : { ...mark, attrs };
           })
         : node.marks;
+      // Evita text nodes vacíos que rompen ProseMirror/Tiptap al cargar.
+      if (!resolved) return null;
       return {
         ...node,
         text: resolved,
@@ -511,7 +517,7 @@ export function resolveDocument(
     if (node.content && Array.isArray(node.content)) {
       const isDoc = node.type === "doc";
       if (isDoc) {
-        const newContent = processConditionalBlocks(node.content, entities, walkNode);
+        const newContent = processConditionalBlocks(node.content, entities, walkNode).filter(Boolean);
         return { ...node, ...(resolvedNodeAttrs ? { attrs: resolvedNodeAttrs } : {}), content: newContent };
       }
       // Párrafos y headings: si el contenido inline tiene {{#if}} repartido en varios nodos,
@@ -527,10 +533,13 @@ export function resolveDocument(
           });
           const firstText = node.content.find((n: any) => n.type === "text");
           const marks = firstText?.marks || (node.type === "heading" ? [{ type: "bold" }] : undefined);
+          // Si el texto unificado queda vacío, devolvemos el párrafo/heading vacío
+          // (sin children) — Tiptap permite párrafos vacíos, pero no text nodes vacíos.
+          if (!resolved) return { ...node, content: [] };
           return { ...node, content: [{ type: "text", text: resolved, marks }] };
         }
       }
-      const newContent = node.content.map((n: any) => walkNode(n));
+      const newContent = node.content.map((n: any) => walkNode(n)).filter(Boolean);
       return { ...node, ...(resolvedNodeAttrs ? { attrs: resolvedNodeAttrs } : {}), content: newContent };
     }
 

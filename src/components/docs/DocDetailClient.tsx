@@ -41,6 +41,26 @@ interface DocDetailClientProps {
   documentId: string;
 }
 
+/**
+ * Limpia text nodes vacíos o inválidos que ProseMirror/Tiptap rechaza al
+ * cargar. Los documentos viejos generados antes del fix del resolver pueden
+ * tener nodos `{type:"text", text:""}` que rompen el editor entero.
+ */
+function sanitizeTiptapContent(node: any): any {
+  if (!node || typeof node !== "object") return node;
+  if (node.type === "text") {
+    if (typeof node.text !== "string" || node.text.length === 0) return null;
+    return node;
+  }
+  if (Array.isArray(node.content)) {
+    const cleaned = node.content
+      .map(sanitizeTiptapContent)
+      .filter((n: any) => n != null);
+    return { ...node, content: cleaned };
+  }
+  return node;
+}
+
 const ENTITY_ICONS: Record<string, React.ComponentType<any>> = {
   crm_account: Building2,
   crm_contact: User,
@@ -103,7 +123,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
       const data = await res.json();
       if (data.success && data.data) {
         setDoc(data.data);
-        setContent(data.data.content);
+        setContent(sanitizeTiptapContent(data.data.content));
         setStatus(data.data.status);
         setHistory(data.data.history || []);
       }
@@ -150,17 +170,14 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
     fetchSuggestions();
   }, [fetchDocument, fetchSignatureRequest, fetchSuggestions]);
 
-  // Cuando el doc está firmado y es solo lectura, cargar contenido resuelto (con firmas reales, no [Token])
-  // For service contracts (have contractMetadata), always load HTML view
-  // because resolved tokens produce text nodes that the Tiptap editor may not render
-  const isServiceContract = !!(doc?.contractMetadata);
-
+  // Cargar vista HTML resuelta solo cuando el documento es read-only (firmado o
+  // fuera de draft/review). En draft/review usamos el editor Tiptap directamente
+  // para permitir edición. Contratos de servicio siguen el mismo flujo — los
+  // tokens ya resueltos se rendean como text nodes nativos del editor.
   useEffect(() => {
     if (!doc || !documentId) return;
-    const isSigned = !!(doc.signedAt || doc.signatureStatus === "completed");
     const isReadOnly = !["draft", "review"].includes(doc.status);
-    const needsHtml = (isSigned && isReadOnly) || isServiceContract;
-    if (!needsHtml) {
+    if (!isReadOnly) {
       setContentHtml(null);
       return;
     }
