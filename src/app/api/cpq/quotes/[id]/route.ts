@@ -106,6 +106,10 @@ export async function PATCH(
     if (body.cctvRetentionDays !== undefined) updateData.cctvRetentionDays = body.cctvRetentionDays != null ? Number(body.cctvRetentionDays) : null;
     if (body.contractTemplateId !== undefined) updateData.contractTemplateId = body.contractTemplateId || null;
     if (body.paymentDays !== undefined) updateData.paymentDays = Number(body.paymentDays) || 5;
+    if (body.realAnnualIncrement !== undefined) {
+      const n = Number(body.realAnnualIncrement);
+      updateData.realAnnualIncrement = Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 3;
+    }
     if (body.includedItems !== undefined) updateData.includedItems = { set: Array.isArray(body.includedItems) ? body.includedItems : [] };
     if (body.proposalTemplateId !== undefined) updateData.proposalTemplateId = body.proposalTemplateId || null;
     if (body.visibleInClientPortal !== undefined) {

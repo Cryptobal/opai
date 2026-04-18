@@ -20,6 +20,7 @@ export interface CommercialConditionsData {
   cctvRetentionDays?: number | null;
   contractTemplateId?: string | null;
   paymentDays?: number;
+  realAnnualIncrement?: number;
 }
 
 interface CommercialConditionsSectionProps {
@@ -245,6 +246,27 @@ export function CommercialConditionsSection({
                 className="h-8 bg-card text-foreground border-border text-xs w-16"
               />
               <span className="text-xs text-muted-foreground">meses</span>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-sm text-muted-foreground">Incremento real anual</Label>
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={value.realAnnualIncrement ?? 3}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const n = raw === "" ? 0 : Number(raw);
+                  update({ realAnnualIncrement: Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0 });
+                }}
+                disabled={isLocked}
+                className="h-8 bg-card text-foreground border-border text-xs w-16"
+              />
+              <span className="text-xs text-muted-foreground">%</span>
             </div>
           </div>
 

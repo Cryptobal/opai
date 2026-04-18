@@ -8,6 +8,7 @@
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CAUSALES_DT } from "@/lib/guard-events";
+import { clpToUf } from "@/lib/uf-utils";
 
 /** Formatea fechas tipo YYYY-MM-DD como dd/MM/yyyy sin desfase por zona horaria.
  *  new Date("2026-02-01") = medianoche UTC → en Chile muestra 31/01. Esta función evita eso. */
@@ -106,10 +107,12 @@ export function resolveTokenValue(
     if (fromDeal) return String(fromDeal);
   }
 
-  // Quote: contract-service specific computed tokens.
-  // Evaluate BEFORE reading entity[field] directly, since these are computed
-  // from other fields — entity[field] for these keys would be undefined and
-  // the early-return below would short-circuit with "".
+  // Quote: contract-service specific COMPUTED tokens.
+  // Must run BEFORE the `entity[field]` generic lookup below, because these
+  // tokens don't map 1:1 to a quote column — they derive their value from
+  // other fields (salePriceUF, salePriceMonthly, contractStartDate, etc.).
+  // If we let the generic lookup run first, it returns undefined and the
+  // early-return kills the token.
   if (module === "quote") {
     if (field === "precioNeto") {
       const val = entity.salePriceMonthly ?? entity.monthlyCost;
@@ -120,11 +123,65 @@ export function resolveTokenValue(
       return entity.salePriceUF ? `${Number(entity.salePriceUF).toFixed(2)} UF` : "";
     }
     if (field === "precioTotal") {
-      const monthly = Number(entity.salePriceMonthly ?? entity.monthlyCost ?? 0);
       const months = entity.contractMonths ?? entity.contractDuration ?? 12;
+      if (entity.currency === "UF") {
+        const ufMonthly = Number(entity.salePriceUF ?? 0);
+        if (!ufMonthly || !Number.isFinite(ufMonthly)) return "";
+        const total = ufMonthly * months;
+        return `${total.toFixed(2)} UF`;
+      }
+      const monthly = Number(entity.salePriceMonthly ?? entity.monthlyCost ?? 0);
       const total = monthly * months;
       return total ? total.toLocaleString("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }) : "";
     }
+    if (field === "polinomioDescripcion") {
+      const ipc = entity.ipcWeight ?? 0;
+      const imo = entity.imoWeight ?? 0;
+      if (ipc === 0 && imo === 0) return "";
+      return `${imo}% IMO + ${ipc}% IPC`;
+    }
+    if (field === "contractEndDate") {
+      if (!entity.contractStartDate) return "";
+      const start = new Date(entity.contractStartDate);
+      if (isNaN(start.getTime())) return "";
+      const months = entity.contractDuration ?? entity.contractMonths ?? 12;
+      const end = new Date(start);
+      end.setMonth(end.getMonth() + months);
+      end.setDate(end.getDate() - 1);
+      if (isNaN(end.getTime())) return "";
+      return formatDateOnly(end) ?? "";
+    }
+  }
+
+  const value = entity[field];
+  if (value === null || value === undefined) return "";
+
+  // Format based on type
+  if (value instanceof Date) {
+    return format(value, "dd/MM/yyyy");
+  }
+
+  if (typeof value === "number") {
+    return value.toLocaleString("es-CL");
+  }
+
+  // Currency formatting for settlement amounts
+  if (
+    module === "labor_event" &&
+    [
+      "vacationPaymentAmount",
+      "pendingRemunerationAmount",
+      "yearsOfServiceAmount",
+      "substituteNoticeAmount",
+      "totalSettlementAmount",
+    ].includes(field)
+  ) {
+    const num = Number(value);
+    if (!isNaN(num)) return `$${num.toLocaleString("es-CL")}`;
+  }
+
+  // Quote: non-computed tokens with custom formatting
+  if (module === "quote") {
     if (field === "adjustmentType") {
       const map: Record<string, string> = {
         NONE: "Sin reajuste",
@@ -156,55 +213,6 @@ export function resolveTokenValue(
       if (isNaN(n)) return "";
       return `${n}%`;
     }
-    if (field === "polinomioDescripcion") {
-      const ipc = entity.ipcWeight ?? 0;
-      const imo = entity.imoWeight ?? 0;
-      if (ipc === 0 && imo === 0) return "";
-      return `${imo}% IMO + ${ipc}% IPC`;
-    }
-    if (field === "contractEndDate") {
-      if (!entity.contractStartDate) return "";
-      const start = new Date(entity.contractStartDate);
-      if (isNaN(start.getTime())) return "";
-      const months = entity.contractDuration ?? entity.contractMonths ?? 12;
-      const end = new Date(start);
-      end.setMonth(end.getMonth() + months);
-      end.setDate(end.getDate() - 1);
-      if (isNaN(end.getTime())) return "";
-      return formatDateOnly(end) ?? "";
-    }
-    if (field === "contractStartDate") {
-      const d = entity.contractStartDate;
-      if (!d) return "";
-      return formatDateOnly(d) ?? "";
-    }
-  }
-
-  const value = entity[field];
-  if (value === null || value === undefined) return "";
-
-  // Format based on type
-  if (value instanceof Date) {
-    return format(value, "dd/MM/yyyy");
-  }
-
-  if (typeof value === "number") {
-    return value.toLocaleString("es-CL");
-  }
-
-  // Currency formatting for settlement amounts
-  if (
-    module === "labor_event" &&
-    [
-      "vacationPaymentAmount",
-      "pendingRemunerationAmount",
-      "yearsOfServiceAmount",
-      "substituteNoticeAmount",
-      "totalSettlementAmount",
-    ].includes(field)
-  ) {
-    const num = Number(value);
-    if (!isNaN(num)) return `$${num.toLocaleString("es-CL")}`;
   }
 
   // Currency formatting for quote pricing fields
@@ -332,95 +340,81 @@ function serializeInlineToString(nodes: any[], entities: EntityData): string {
   }).join("");
 }
 
-/** Procesa bloques {{#if expr}}...{{else}}...{{/if}} a nivel de hijos del doc */
+/**
+ * Procesa bloques {{#if expr}}...{{else}}...{{/if}} a nivel de hijos del doc.
+ *
+ * Soporta:
+ *  - Bloques {{#if}}...{{/if}} simples y anidados.
+ *  - Rama {{else}} (incluyendo "else-if" escrito como {{else}}{{#if ...}} ... {{/if}}{{/if}}).
+ *  - Múltiples markers en un solo nodo (ej.: "{{else}}{{#if X}}" o "{{/if}}{{/if}}"),
+ *    siempre que el texto del nodo consista ÚNICAMENTE de markers de control.
+ *
+ * Algoritmo: tokeniza la lista de nodos a (control|node), luego camina con
+ * stack de scopes. Cada scope registra si la rama actual emite contenido
+ * (`inBranch`) y si ya se emitió alguna rama true (`hasTrueBranch`) para
+ * decidir el destino del `{{else}}`.
+ */
 function processConditionalBlocks(
   nodes: any[],
   entities: EntityData,
   walkNode: (n: any) => any
 ): any[] {
-  const result: any[] = [];
-  let i = 0;
-  while (i < nodes.length) {
-    const node = nodes[i];
+  type ControlToken =
+    | { type: "control"; kind: "if"; expr: string }
+    | { type: "control"; kind: "else" }
+    | { type: "control"; kind: "endif" };
+  type NodeToken = { type: "node"; node: any };
+  type Token = ControlToken | NodeToken;
+
+  const CONTROL_ONLY = /^(?:\{\{#if\s+[^}]+\}\}|\{\{else\}\}|\{\{\/if\}\})+$/;
+  const CONTROL_SPLIT = /\{\{#if\s+([^}]+)\}\}|\{\{else\}\}|\{\{\/if\}\}/g;
+
+  const tokens: Token[] = [];
+  for (const node of nodes) {
     const text = getNodeText(node).trim();
-
-    // Solo coincidir cuando el nodo es EXACTAMENTE {{#if expr}} (nada más)
-    const ifMatch = /^\{\{#if\s+([^}]+)\}\}$/.exec(text);
-    if (ifMatch) {
-      const condition = ifMatch[1].trim();
-      const conditionMet = evaluateCondition(condition, entities);
-      i++;
-
-      // Accumulate nodes until matching {{/if}}, splitting into true/false branches on {{else}} at depth 1
-      const trueBranch: any[] = [];
-      const falseBranch: any[] = [];
-      let currentBranch: any[] = trueBranch;
-      let depth = 1;
-
-      while (i < nodes.length) {
-        const n = nodes[i];
-        const t = getNodeText(n).trim();
-
-        // Nested {{#if}}
-        if (/^\{\{#if\s+[^}]+\}\}$/.test(t)) {
-          depth++;
-          currentBranch.push(n);
-          i++;
-          continue;
+    if (text && CONTROL_ONLY.test(text)) {
+      for (const m of text.matchAll(CONTROL_SPLIT)) {
+        if (m[1] !== undefined) {
+          tokens.push({ type: "control", kind: "if", expr: m[1].trim() });
+        } else if (m[0] === "{{else}}") {
+          tokens.push({ type: "control", kind: "else" });
+        } else {
+          tokens.push({ type: "control", kind: "endif" });
         }
-
-        // {{/if}} — if it closes ours, stop; else add to current branch
-        if (/^\{\{\/if\}\}$/.test(t)) {
-          depth--;
-          if (depth === 0) {
-            i++;
-            break;
-          }
-          currentBranch.push(n);
-          i++;
-          continue;
-        }
-
-        // {{else}} or {{else}}{{#if ...}} only at depth 1 → switch to false branch
-        if (depth === 1) {
-          const plainElse = /^\{\{else\}\}$/.exec(t);
-          if (plainElse) {
-            currentBranch = falseBranch;
-            i++;
-            continue;
-          }
-          const elseIf = /^\{\{else\}\}\{\{#if\s+([^}]+)\}\}$/.exec(t);
-          if (elseIf) {
-            // Transform into {{#if ...}} in the false branch so recursion handles it.
-            // The closing {{/if}} in the original doc will close BOTH the outer if
-            // and this synthetic one — recursion re-uses the trailing {{/if}}.
-            currentBranch = falseBranch;
-            const synthetic = { type: "paragraph", content: [{ type: "text", text: `{{#if ${elseIf[1].trim()}}}` }] };
-            currentBranch.push(synthetic);
-            depth++;
-            i++;
-            continue;
-          }
-        }
-
-        currentBranch.push(n);
-        i++;
       }
-
-      const chosenBranch = conditionMet ? trueBranch : falseBranch;
-      result.push(...processConditionalBlocks(chosenBranch, entities, walkNode).map(walkNode));
-      continue;
+    } else {
+      tokens.push({ type: "node", node });
     }
-
-    // Orphan {{else}} or {{/if}} → discard so it doesn't render as literal text
-    if (/^\{\{(else|\/if)\}\}$/.test(text) || /^\{\{else\}\}\{\{#if\s+[^}]+\}\}$/.test(text)) {
-      i++;
-      continue;
-    }
-
-    result.push(walkNode(node));
-    i++;
   }
+
+  type Scope = { inBranch: boolean; hasTrueBranch: boolean };
+  const stack: Scope[] = [];
+  const isEmitting = () =>
+    stack.length === 0 ? true : stack[stack.length - 1].inBranch;
+  const parentEmitting = () =>
+    stack.length <= 1 ? true : stack[stack.length - 2].inBranch;
+
+  const result: any[] = [];
+  for (const tk of tokens) {
+    if (tk.type === "node") {
+      if (isEmitting()) result.push(walkNode(tk.node));
+      continue;
+    }
+    if (tk.kind === "if") {
+      const conditionMet = evaluateCondition(tk.expr, entities);
+      const inBranch = isEmitting() && conditionMet;
+      stack.push({ inBranch, hasTrueBranch: inBranch });
+    } else if (tk.kind === "else") {
+      const top = stack[stack.length - 1];
+      if (!top) continue;
+      const inBranch = parentEmitting() && !top.hasTrueBranch;
+      top.inBranch = inBranch;
+      if (inBranch) top.hasTrueBranch = true;
+    } else {
+      if (stack.length > 0) stack.pop();
+    }
+  }
+
   return result;
 }
 
@@ -767,7 +761,10 @@ export function buildEmpresaEntityData(settings: Array<{ key: string; value: str
  * Build enriched quote entity data with positions table, installations table, and pricing.
  * Used for contract generation from CRM accounts.
  */
-export async function buildQuoteEnrichedData(quoteId: string): Promise<Record<string, any>> {
+export async function buildQuoteEnrichedData(
+  quoteId: string,
+  opts?: { ufValue?: number | null }
+): Promise<Record<string, any>> {
   const { prisma } = await import("@/lib/prisma");
 
   const quote = await prisma.cpqQuote.findUnique({
@@ -826,25 +823,37 @@ export async function buildQuoteEnrichedData(quoteId: string): Promise<Record<st
     return `${guards * puestos}x ${name} (${days} ${schedule})`;
   }).join(", ");
 
-  // Sale price
+  // Sale price (stored in CLP regardless of quote currency)
   const salePriceMonthly = params?.salePriceMonthly
     ? Number(params.salePriceMonthly)
     : (params?.salePriceBase ? Number(params.salePriceBase) : Number(quote.monthlyCost ?? 0));
 
-  const contractMonths = params?.contractMonths ?? 12;
-  const contractAmount = salePriceMonthly * contractMonths;
   const currency = quote.currency ?? "UF";
 
-  // salePriceUF: if the quote is in UF, salePriceMonthly is already in UF.
-  // If stored explicitly in parameters, prefer that. If quote is in CLP, leave
-  // empty and let the endpoint convert via getUfValue().
-  let salePriceUF: string | number = "";
-  const paramsUF = (params as any)?.salePriceUF;
-  if (paramsUF != null && paramsUF !== "") {
-    salePriceUF = Number(paramsUF);
-  } else if (currency === "UF" && salePriceMonthly > 0) {
-    salePriceUF = salePriceMonthly;
+  // Compute UF equivalent when currency is UF (using today's UF value).
+  // We query fxUfRate DIRECTLY with the same `prisma` client above, to avoid
+  // importing `@/lib/uf` (which has `import "server-only"` — pollutes client
+  // bundles because token-resolver is also imported from Client Components).
+  let salePriceUF: string = "";
+  if (currency === "UF" && salePriceMonthly > 0) {
+    let ufValue = Number(opts?.ufValue ?? 0);
+    if (!ufValue || ufValue <= 0) {
+      try {
+        const rate = await prisma.fxUfRate.findFirst({ orderBy: { date: "desc" } });
+        if (rate) ufValue = Number(rate.value);
+      } catch (e) {
+        console.error("[buildQuoteEnrichedData] fxUfRate lookup failed:", e);
+      }
+    }
+    if (ufValue > 0) {
+      salePriceUF = clpToUf(salePriceMonthly, ufValue).toFixed(2);
+    } else {
+      console.warn("[buildQuoteEnrichedData] salePriceUF empty: ufValue=%s salePriceMonthly=%s", ufValue, salePriceMonthly);
+    }
   }
+
+  const contractMonths = params?.contractMonths ?? 12;
+  const contractAmount = salePriceMonthly * contractMonths;
 
   return {
     code: quote.code,
@@ -872,6 +881,7 @@ export async function buildQuoteEnrichedData(quoteId: string): Promise<Record<st
     hasCCTV: (quote as any).hasCCTV ?? false,
     cctvRetentionDays: (quote as any).cctvRetentionDays ?? 30,
     paymentDays: (quote as any).paymentDays ?? 5,
+    realAnnualIncrement: (quote as any).realAnnualIncrement ?? 3,
   };
 }
 

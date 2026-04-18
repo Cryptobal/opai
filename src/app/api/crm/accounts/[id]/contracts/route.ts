@@ -278,7 +278,7 @@ export async function POST(
     const activeQuoteId =
       deal.activeQuotationId ?? deal.quotes[0]?.quoteId ?? null;
 
-    // Fetch all entity data in parallel
+    // Fetch all entity data in parallel (buildQuoteEnrichedData loads UF internally)
     const [account, primaryContact, empresaSettings, quoteData] =
       await Promise.all([
         prisma.crmAccount.findFirst({

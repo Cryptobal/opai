@@ -70,8 +70,10 @@ export async function generateServiceContract(
     where: { tenantId, key: { startsWith: "empresa." } },
   });
 
-  // 5. Build enriched quote data
+  // 5. Build enriched quote data — buildQuoteEnrichedData loads UF internally.
   const quoteEnriched = await buildQuoteEnrichedData(quoteId);
+  console.log("[generate-service-contract] currency=%s salePriceMonthly=%s salePriceUF=%s realAnnualIncrement=%s",
+    quoteEnriched.currency, quoteEnriched.salePriceMonthly, quoteEnriched.salePriceUF, quoteEnriched.realAnnualIncrement);
 
   // Merge with contract-specific fields from quote
   const quoteData = {

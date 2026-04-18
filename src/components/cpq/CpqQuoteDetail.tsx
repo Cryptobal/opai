@@ -219,6 +219,7 @@ export function CpqQuoteDetail({
     cctvRetentionDays: null as number | null,
     contractTemplateId: null as string | null,
     paymentDays: 5,
+    realAnnualIncrement: 3,
   });
   const [quoteDirty, setQuoteDirty] = useState(false);
   const [savingQuote, setSavingQuote] = useState(false);
@@ -369,12 +370,17 @@ export function CpqQuoteDetail({
         fetch(`/api/cpq/quotes/${quoteId}`),
         fetch(`/api/cpq/quotes/${quoteId}/costs`),
       ]);
-      if (!quoteRes.ok || !costsRes.ok) {
-        console.error("CPQ fetch error", quoteRes.status, costsRes.status);
+      if (!quoteRes.ok) {
+        console.error("CPQ quote fetch error", quoteRes.status);
         return;
       }
+      if (!costsRes.ok) {
+        // Degrade gracefully — costs endpoint may 404/500 but we still want
+        // to render the quote header/form so the user can edit.
+        console.warn("CPQ costs fetch non-OK (degrading):", costsRes.status);
+      }
       const quoteData = await quoteRes.json();
-      const costsData = await costsRes.json();
+      const costsData = costsRes.ok ? await costsRes.json() : { success: false };
       if (quoteData.success) {
         setQuote(quoteData.data);
         setPositions(quoteData.data.positions || []);
@@ -428,7 +434,7 @@ export function CpqQuoteDetail({
       saveQuoteBasics();
     }, 2000);
     return () => clearTimeout(quoteFormAutoSaveTimer.current);
-  }, [quoteForm.name, quoteForm.validUntil, quoteForm.notes, quoteForm.paymentTerms, quoteForm.serviceStartDays, quoteForm.contractDuration, quoteForm.adjustmentType, quoteForm.adjustmentFreq, quoteForm.ipcWeight, quoteForm.imoWeight, quoteForm.insurancePolicyUF, quoteForm.contractStartDate, quoteForm.liabilityMonths, quoteForm.hasCCTV, quoteForm.cctvRetentionDays, quoteForm.contractTemplateId, quoteForm.paymentDays]);
+  }, [quoteForm.name, quoteForm.validUntil, quoteForm.notes, quoteForm.paymentTerms, quoteForm.serviceStartDays, quoteForm.contractDuration, quoteForm.adjustmentType, quoteForm.adjustmentFreq, quoteForm.ipcWeight, quoteForm.imoWeight, quoteForm.insurancePolicyUF, quoteForm.contractStartDate, quoteForm.liabilityMonths, quoteForm.hasCCTV, quoteForm.cctvRetentionDays, quoteForm.contractTemplateId, quoteForm.paymentDays, quoteForm.realAnnualIncrement]);
 
   // Auto-calc salePriceBase when costSummary changes
   useEffect(() => {
@@ -484,6 +490,7 @@ export function CpqQuoteDetail({
       cctvRetentionDays: (quote as any).cctvRetentionDays ?? null,
       contractTemplateId: (quote as any).contractTemplateId ?? null,
       paymentDays: (quote as any).paymentDays ?? 5,
+      realAnnualIncrement: (quote as any).realAnnualIncrement ?? 3,
     }));
     setCrmContext({
       accountId: quote.accountId ?? "",
@@ -614,6 +621,27 @@ export function CpqQuoteDetail({
     const updated = { ...crmContext, ...patch };
     setCrmContext(updated);
     setQuoteDirty(true);
+
+    // When currency flips, apply the default adjustmentType:
+    //   UF  → NONE (UF already carries implicit IPC)
+    //   CLP → IPC
+    const currencyChanged =
+      patch.currency !== undefined && patch.currency !== crmContext.currency;
+    const nextAdjustmentType = currencyChanged
+      ? (updated.currency === "UF" ? "NONE" : "IPC")
+      : undefined;
+
+    if (nextAdjustmentType !== undefined) {
+      setQuoteForm((prev) => ({
+        ...prev,
+        adjustmentType: nextAdjustmentType,
+        // Reset polynomial weights when dropping polynomial
+        ipcWeight: null,
+        imoWeight: null,
+        adjustmentFreq: nextAdjustmentType === "NONE" ? null : prev.adjustmentFreq,
+      }));
+    }
+
     try {
       await fetch(`/api/cpq/quotes/${quoteId}`, {
         method: "PATCH",
@@ -624,6 +652,14 @@ export function CpqQuoteDetail({
           contactId: updated.contactId || null,
           dealId: updated.dealId || null,
           currency: updated.currency,
+          ...(nextAdjustmentType !== undefined
+            ? {
+                adjustmentType: nextAdjustmentType,
+                ipcWeight: null,
+                imoWeight: null,
+                ...(nextAdjustmentType === "NONE" ? { adjustmentFreq: null } : {}),
+              }
+            : {}),
         }),
       });
     } catch {}
@@ -706,6 +742,7 @@ export function CpqQuoteDetail({
           cctvRetentionDays: quoteForm.cctvRetentionDays,
           contractTemplateId: quoteForm.contractTemplateId,
           paymentDays: quoteForm.paymentDays,
+          realAnnualIncrement: quoteForm.realAnnualIncrement,
         }),
       });
       const data = await res.json();
@@ -1755,6 +1792,22 @@ export function CpqQuoteDetail({
                       onChange={(e) => { setQuoteForm(prev => ({ ...prev, liabilityMonths: Number(e.target.value) || 3 })); setQuoteDirty(true); }}
                       disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
                     <span className="text-xs text-muted-foreground">meses</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-sm text-muted-foreground">Incremento real anual</Label>
+                  <div className="flex items-center gap-1">
+                    <Input type="number" min={0} max={100} step={1} value={quoteForm.realAnnualIncrement ?? 3}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const n = raw === "" ? 0 : Number(raw);
+                        const clamped = Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0;
+                        setQuoteForm(prev => ({ ...prev, realAnnualIncrement: clamped }));
+                        setQuoteDirty(true);
+                      }}
+                      disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
+                    <span className="text-xs text-muted-foreground">%</span>
                   </div>
                 </div>
 

@@ -11,12 +11,14 @@ export const CLAUSE_5_QUINTA = [
     bold("implícito en la variación diaria del valor de la UF"),
     t(" publicada por el Banco Central de Chile, no siendo necesario aplicar un reajuste adicional por dicho concepto. Sin perjuicio de lo anterior, el precio del servicio se reajustará conforme al siguiente mecanismo acumulativo:"),
   ]),
+  p([t("{{#if quote.realAnnualIncrement > 0}}")]),
   p([
     bold("a) Incremento real anual: "),
     t("El precio mensual expresado en UF y el valor de la hora adicional se incrementarán cada 12 meses de contrato en un "),
-    bold("3% real anual"),
+    tk("quote.realAnnualIncrement"), bold("% real anual"),
     t(", destinado a cubrir los incrementos reales y beneficios del personal asignado que superen la variación cubierta por la UF."),
   ]),
+  p([t("{{/if}}")]),
   p([t('{{#if quote.adjustmentType=="POLYNOMIAL"}}')]),
   p([
     bold("b) Ajuste por polinomio IPC/IMO: "),
@@ -48,12 +50,14 @@ export const CLAUSE_5_QUINTA = [
     t(" de la variación del "), bold("Índice de Mano de Obra (IMO)"),
     t(", ambos publicados por el Instituto Nacional de Estadísticas (INE), aplicados sobre el precio base vigente al inicio de cada período de reajuste."),
   ]),
+  p([t("{{#if quote.realAnnualIncrement > 0}}")]),
   p([
     bold("Incremento real anual: "),
     t("Adicionalmente, el precio y el valor de la hora adicional se incrementarán cada 12 meses de contrato en un "),
-    bold("3% real anual"),
+    tk("quote.realAnnualIncrement"), bold("% real anual"),
     t(", destinado a cubrir los incrementos reales y beneficios del personal."),
   ]),
+  p([t("{{/if}}")]),
   p([
     bold("Reajuste por modificaciones legales y regulatorias: "),
     t("Se incluirá en carácter de reajuste sobre la tarifa el "),
@@ -71,12 +75,14 @@ export const CLAUSE_5_QUINTA = [
     t("mente, de acuerdo a la variación del "), tk("quote.adjustmentType"),
     t(" publicado por el Instituto Nacional de Estadísticas (INE) en el período inmediatamente anterior."),
   ]),
+  p([t("{{#if quote.realAnnualIncrement > 0}}")]),
   p([
     bold("b) Incremento real anual: "),
     t("Adicionalmente, el precio y el valor de la hora adicional se incrementarán cada 12 meses de contrato en un "),
-    bold("3% real anual"),
+    tk("quote.realAnnualIncrement"), bold("% real anual"),
     t(", destinado a cubrir los incrementos reales y beneficios del personal."),
   ]),
+  p([t("{{/if}}")]),
   p([
     bold("c) Reajuste por modificaciones legales y regulatorias: "),
     t("Se incluirá en carácter de reajuste sobre la tarifa el "),

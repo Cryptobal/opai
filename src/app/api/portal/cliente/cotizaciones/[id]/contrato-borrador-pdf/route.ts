@@ -167,18 +167,17 @@ export async function GET(
       value: s.value,
     }));
 
-    const quoteData = await buildQuoteEnrichedData(quoteId);
+    let ufValue: number | null = null;
+    try { ufValue = await getUfValue(); } catch { ufValue = null; }
+    const quoteData = await buildQuoteEnrichedData(quoteId, { ufValue });
     if (
       quoteData.currency === "CLP" &&
       quoteData.salePriceMonthly &&
       (!quoteData.salePriceUF || quoteData.salePriceUF === "")
     ) {
-      try {
-        const ufValue = await getUfValue();
-        if (ufValue > 0) {
-          quoteData.salePriceUF = clpToUf(Number(quoteData.salePriceMonthly), ufValue).toFixed(2);
-        }
-      } catch { /* UF not available */ }
+      if (ufValue && ufValue > 0) {
+        quoteData.salePriceUF = clpToUf(Number(quoteData.salePriceMonthly), ufValue).toFixed(2);
+      }
     }
 
     const contractMonths = quote.parameters?.contractMonths ?? quoteData.contractMonths ?? null;

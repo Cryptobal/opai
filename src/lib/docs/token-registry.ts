@@ -134,6 +134,7 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "quote.imoWeight", label: "% IMO (polinomio)", path: "imoWeight" },
       { key: "quote.insurancePolicyUF", label: "Monto Póliza (UF)", path: "insurancePolicyUF" },
       { key: "quote.liabilityMonths", label: "Meses Límite Responsabilidad", path: "liabilityMonths", type: "number" },
+      { key: "quote.realAnnualIncrement", label: "% Incremento Real Anual", path: "realAnnualIncrement", type: "number" },
       { key: "quote.cctvRetentionDays", label: "Días Retención CCTV", path: "cctvRetentionDays", type: "number" },
       { key: "quote.contractStartDate", label: "Fecha Inicio Contrato", path: "contractStartDate", type: "date" },
       { key: "quote.contractEndDate", label: "Fecha Término Contrato", path: "contractEndDate", type: "date" },

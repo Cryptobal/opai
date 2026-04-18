@@ -34,9 +34,7 @@ export const CLAUSES_1_4 = [
   p([
     t("El precio mensual por los servicios contratados asciende a la suma de "),
     tk("quote.precioUF"),
-    t(" (Unidades de Fomento), equivalente aproximadamente a "),
-    tk("quote.precioNeto"),
-    t(" a la fecha de suscripción del presente contrato, "),
+    t(" (Unidades de Fomento), "),
     bold("más el Impuesto al Valor Agregado (IVA)"),
     t(". Para efectos de facturación se considerará el valor de la UF del último día del mes en que se prestó el servicio."),
   ]),

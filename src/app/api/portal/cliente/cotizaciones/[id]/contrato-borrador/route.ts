@@ -180,20 +180,21 @@ export async function GET(
     value: s.value,
   }));
 
-  // Quote enriched data + UF conversion
-  const quoteData = await buildQuoteEnrichedData(quoteId);
+  // Quote enriched data (buildQuoteEnrichedData computes salePriceUF internally
+  // for UF quotes via fxUfRate). For CLP quotes we still compute the UF
+  // equivalent here for portal preview display.
+  let ufValue: number | null = null;
+  try { ufValue = await getUfValue(); } catch { ufValue = null; }
+  const quoteData = await buildQuoteEnrichedData(quoteId, { ufValue });
   if (
     quoteData.currency === "CLP" &&
     quoteData.salePriceMonthly &&
     (!quoteData.salePriceUF || quoteData.salePriceUF === "")
   ) {
-    try {
-      const ufValue = await getUfValue();
-      if (ufValue > 0) {
-        const uf = clpToUf(Number(quoteData.salePriceMonthly), ufValue);
-        quoteData.salePriceUF = uf.toFixed(2);
-      }
-    } catch { /* UF not available, leave empty */ }
+    if (ufValue && ufValue > 0) {
+      const uf = clpToUf(Number(quoteData.salePriceMonthly), ufValue);
+      quoteData.salePriceUF = uf.toFixed(2);
+    }
   }
 
   // First installation for the account (active preferred, fallback to prospect)
