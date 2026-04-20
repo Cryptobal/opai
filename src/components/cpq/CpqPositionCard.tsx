@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatWeekdaysShort, getShiftType, WEEKDAY_ORDER } from "@/components/cpq/utils";
+import { formatWeekdaysShort, getShiftType, normalizeWeekdays, WEEKDAY_ORDER } from "@/components/cpq/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import {
   CPQ_BREAKDOWN_SHELL,
@@ -55,7 +55,7 @@ function positionToDraft(p: CpqPosition): PositionDraft {
     puestoTrabajoId: p.puestoTrabajoId,
     cargoId: p.cargoId,
     rolId: p.rolId,
-    weekdays: [...(p.weekdays || [])],
+    weekdays: normalizeWeekdays(p.weekdays),
     startTime: p.startTime,
     endTime: p.endTime,
     numGuards: p.numGuards,
@@ -194,6 +194,19 @@ export function CpqPositionCard({
       return;
     }
     updateDraft({ weekdays: nextDays });
+  };
+
+  const applyWeekdayPreset = (preset: "weekdays" | "weekend" | "all" | "clear") => {
+    if (preset === "clear") {
+      toast.error("Debe quedar al menos un día");
+      return;
+    }
+    const map = {
+      all: [...WEEKDAY_ORDER],
+      weekdays: WEEKDAY_ORDER.slice(0, 5),
+      weekend: WEEKDAY_ORDER.slice(5),
+    } as const;
+    updateDraft({ weekdays: [...map[preset]] });
   };
 
   const handleRecalculate = async () => {
@@ -463,24 +476,37 @@ export function CpqPositionCard({
           </div>
         )}
 
-        <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-sm text-muted-foreground mr-1">Días:</span>
-          {WEEKDAY_ORDER.map((d) => {
-            const active = draft.weekdays.includes(d);
-            return (
-              <button
-                key={d}
-                type="button"
-                className={cn(
-                  "h-6 min-w-[2rem] px-1 rounded text-xs font-bold transition-colors",
-                  active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent"
-                )}
-                onClick={() => toggleWeekday(d)}
-              >
-                {d}
-              </button>
-            );
-          })}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-sm text-muted-foreground mr-1">Días:</span>
+            {WEEKDAY_ORDER.map((d) => {
+              const active = draft.weekdays.includes(d);
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  className={cn(
+                    "h-6 min-w-[2rem] px-1 rounded text-xs font-bold transition-colors",
+                    active ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-transparent"
+                  )}
+                  onClick={() => toggleWeekday(d)}
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-1 flex-wrap">
+            <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => applyWeekdayPreset("weekdays")}>
+              Lun-Vie
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => applyWeekdayPreset("weekend")}>
+              Sáb-Dom
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => applyWeekdayPreset("all")}>
+              Todos
+            </Button>
+          </div>
         </div>
 
         <div className="text-sm space-y-1 pt-1 border-t border-border/40">

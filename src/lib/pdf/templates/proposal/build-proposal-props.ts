@@ -10,6 +10,7 @@ import { formatCurrency, formatUFSuffix } from '@/lib/utils';
 import { getUfValue, clpToUf } from '@/lib/uf';
 import { generateProposalAIContent } from './proposal-ai';
 import { buildCpqQuotePdfFileName } from '@/lib/pdf/cpq-quote-pdf-filename';
+import { formatWeekdaysLong } from '@/lib/cpq/weekdays';
 import type { ProposalAIContent } from './proposal-ai';
 import type { QuoteBreakdownData, PositionBreakdownItem, ResourceBreakdownCategory, ResourceBreakdownItem } from '@/types/cpq-breakdown';
 
@@ -181,7 +182,7 @@ export async function buildProposalProps(
     const salePrice = totalSalePrice * proportion;
     const name = pos.customName || pos.puestoTrabajo?.name || 'Puesto';
     const schedule = `${pos.startTime || '-'} - ${pos.endTime || '-'}`;
-    const days = (pos.weekdays?.join(', ') || '-').replace(/,/g, ', ');
+    const days = formatWeekdaysLong(pos.weekdays);
     const unitPrice = guardsInPos > 0 ? salePrice / guardsInPos : salePrice;
 
     items.push({
@@ -220,7 +221,7 @@ export async function buildProposalProps(
 
   const firstPos = positions[0];
   const coverageSchedule = firstPos
-    ? `${firstPos.startTime || '08:00'} - ${firstPos.endTime || '20:00'}, ${(firstPos.weekdays || []).join(', ')}`
+    ? `${firstPos.startTime || '08:00'} - ${firstPos.endTime || '20:00'}, ${formatWeekdaysLong(firstPos.weekdays)}`
     : 'A definir';
 
   const staffingRegime = positions.length > 0

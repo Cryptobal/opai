@@ -13,6 +13,7 @@ import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-c
 import { buildCpqStyleEmployerCostInput } from "@/lib/cpq/cpq-employer-cost-input";
 import { refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
 import { requireTenantModule } from '@/lib/require-module';
+import { normalizeWeekdays } from "@/lib/cpq/weekdays";
 
 export async function PATCH(
   request: NextRequest,
@@ -63,6 +64,17 @@ export async function PATCH(
       if (body[field] !== undefined) {
         updateData[field] = body[field];
       }
+    }
+
+    if (updateData.weekdays !== undefined) {
+      const normalized = normalizeWeekdays(updateData.weekdays);
+      if (normalized.length === 0) {
+        return NextResponse.json(
+          { success: false, error: "weekdays must contain at least one valid day" },
+          { status: 400 }
+        );
+      }
+      updateData.weekdays = normalized;
     }
 
     const nextBaseSalary = Number(updateData.baseSalary ?? current.baseSalary);

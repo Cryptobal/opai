@@ -18,6 +18,7 @@ function sanitizeAiDescription(text: string | null | undefined): string | undefi
 }
 import { formatCurrency, formatUFSuffix } from '@/lib/utils';
 import { getUfValue, clpToUf } from '@/lib/uf';
+import { formatWeekdaysLong } from '@/lib/cpq/weekdays';
 import { computeCpqQuoteCosts } from '@/modules/cpq/costing/compute-quote-costs';
 import { getTenantCompanyConfig } from '@/lib/tenant-config';
 import type { ProposalTemplateSections } from '@/types/cpq';
@@ -265,7 +266,7 @@ export async function buildQuotationProps(
         name: pos.customName || pos.puestoTrabajo?.name || 'Puesto',
         guards: pos.numGuards,
         quantity: pos.numPuestos || 1,
-        days: (pos.weekdays?.join(', ') || '-').replace(/,/g, ', '),
+        days: formatWeekdaysLong(pos.weekdays),
         schedule: `${pos.startTime || '-'} - ${pos.endTime || '-'}`,
         monthlyValue: fmt(salePrice),
       };

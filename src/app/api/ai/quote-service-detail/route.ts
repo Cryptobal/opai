@@ -10,6 +10,7 @@ import { aiService } from "@/lib/ai-service";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { formatWeekdaysLong } from "@/lib/cpq/weekdays";
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     const positionsSummary = quote.positions
       .map(
         (p) =>
-          `${p.customName || p.puestoTrabajo?.name || "Puesto"}: ${Math.max(1, Number(p.numPuestos || 1))} puesto(s), ${p.numGuards} guardia(s) por puesto, horario ${p.startTime}-${p.endTime}, días: ${(p.weekdays || []).join(", ")}`
+          `${p.customName || p.puestoTrabajo?.name || "Puesto"}: ${Math.max(1, Number(p.numPuestos || 1))} puesto(s), ${p.numGuards} guardia(s) por puesto, horario ${p.startTime}-${p.endTime}, días: ${formatWeekdaysLong(p.weekdays)}`
       )
       .join("\n  ");
 

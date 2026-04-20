@@ -12,6 +12,7 @@ import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-c
 import { buildCpqStyleEmployerCostInput } from "@/lib/cpq/cpq-employer-cost-input";
 import { refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
 import { requireTenantModule } from '@/lib/require-module';
+import { normalizeWeekdays } from "@/lib/cpq/weekdays";
 
 export async function POST(
   request: NextRequest,
@@ -62,6 +63,14 @@ export async function POST(
       );
     }
 
+    const normalizedWeekdays = normalizeWeekdays(weekdays);
+    if (normalizedWeekdays.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "weekdays must contain at least one valid day" },
+        { status: 400 }
+      );
+    }
+
     const healthPlan =
       healthSystem === "isapre"
         ? healthPlanPct ?? 0.07
@@ -87,7 +96,7 @@ export async function POST(
           puestoTrabajoId,
           customName: customName?.trim() || null,
           description: description?.trim() || null,
-          weekdays,
+          weekdays: normalizedWeekdays,
           startTime,
           endTime,
           numGuards: Number(numGuards),

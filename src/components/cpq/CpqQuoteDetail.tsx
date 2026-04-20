@@ -323,7 +323,6 @@ export function CpqQuoteDetail({
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const [pdfTemplateSlug, setPdfTemplateSlug] = useState("standard");
-  const [docAiTab, setDocAiTab] = useState<"description" | "service">("description");
   const initialLoadDone = useRef(false);
   const skipAutoSave = useRef(false);
   const financialsAutoSaveTimer = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -2457,109 +2456,84 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secAiContent && "rotate-180")} />
         </button>
         {secAiContent && (
-          <div className="px-4 pb-4 space-y-3">
-            <div className="inline-flex rounded-md border border-border overflow-hidden">
-              <button
-                type="button"
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium transition-colors",
-                  docAiTab === "description"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent/50",
-                )}
-                onClick={() => setDocAiTab("description")}
-              >
+          <div className="px-4 pb-4 grid gap-4 lg:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Descripción AI
-              </button>
-              <button
-                type="button"
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium border-l border-border transition-colors",
-                  docAiTab === "service"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent/50",
-                )}
-                onClick={() => setDocAiTab("service")}
-              >
-                Detalle servicio
-              </button>
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={aiCustomInstruction}
+                  onChange={(e) => setAiCustomInstruction(e.target.value)}
+                  placeholder="Instrucción AI (opcional)"
+                  className="h-8 text-xs flex-1"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1 text-xs shrink-0"
+                  onClick={generateAiDescription}
+                  disabled={generatingAi}
+                >
+                  {generatingAi ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {generatingAi ? "..." : "Generar"}
+                </Button>
+              </div>
+              <textarea
+                value={quote.aiDescription ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setQuote({ ...quote, aiDescription: v });
+                  fetch(`/api/cpq/quotes/${quoteId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ aiDescription: v }),
+                  }).catch(() => {});
+                }}
+                placeholder="Clic en 'Generar' para crear una descripción profesional..."
+                className="w-full min-h-[160px] rounded-md border border-input bg-background px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                rows={8}
+              />
             </div>
 
-            {docAiTab === "description" && (
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={aiCustomInstruction}
-                    onChange={(e) => setAiCustomInstruction(e.target.value)}
-                    placeholder="Instrucción AI (opcional)"
-                    className="h-8 text-xs flex-1"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 gap-1 text-xs shrink-0"
-                    onClick={generateAiDescription}
-                    disabled={generatingAi}
-                  >
-                    {generatingAi ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                    {generatingAi ? "..." : "Generar"}
-                  </Button>
-                </div>
-                <textarea
-                  value={quote.aiDescription ?? ""}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setQuote({ ...quote, aiDescription: v });
-                    fetch(`/api/cpq/quotes/${quoteId}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ aiDescription: v }),
-                    }).catch(() => {});
-                  }}
-                  placeholder="Clic en 'Generar' para crear una descripción profesional..."
-                  className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  rows={5}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Detalle servicio
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={serviceDetailInstruction}
+                  onChange={(e) => setServiceDetailInstruction(e.target.value)}
+                  placeholder="Instrucción AI (opcional)"
+                  className="h-8 text-xs flex-1"
                 />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1 text-xs shrink-0"
+                  onClick={generateServiceDetail}
+                  disabled={generatingServiceDetail}
+                >
+                  {generatingServiceDetail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {generatingServiceDetail ? "..." : "Generar"}
+                </Button>
               </div>
-            )}
-
-            {docAiTab === "service" && (
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={serviceDetailInstruction}
-                    onChange={(e) => setServiceDetailInstruction(e.target.value)}
-                    placeholder="Instrucción AI (opcional)"
-                    className="h-8 text-xs flex-1"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 gap-1 text-xs shrink-0"
-                    onClick={generateServiceDetail}
-                    disabled={generatingServiceDetail}
-                  >
-                    {generatingServiceDetail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                    {generatingServiceDetail ? "..." : "Generar"}
-                  </Button>
-                </div>
-                <textarea
-                  value={quote.serviceDetail ?? ""}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setQuote({ ...quote, serviceDetail: v });
-                    fetch(`/api/cpq/quotes/${quoteId}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ serviceDetail: v }),
-                    }).catch(() => {});
-                  }}
-                  placeholder="Clic en 'Generar' para detalle de servicios..."
-                  className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  rows={5}
-                />
-              </div>
-            )}
+              <textarea
+                value={quote.serviceDetail ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setQuote({ ...quote, serviceDetail: v });
+                  fetch(`/api/cpq/quotes/${quoteId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ serviceDetail: v }),
+                  }).catch(() => {});
+                }}
+                placeholder="Clic en 'Generar' para detalle de servicios..."
+                className="w-full min-h-[160px] rounded-md border border-input bg-background px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                rows={8}
+              />
+            </div>
           </div>
         )}
       </Card>
