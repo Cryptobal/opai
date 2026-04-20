@@ -161,6 +161,68 @@ export async function PATCH(
         data: updateData,
       });
 
+      // Mirror sync: flat representante / personería columns ↔ relation tables.
+      // Portal (AccountRepresentanteLegal / AccountPersoneria) is the canonical
+      // UI for these, but ERP edits the flat columns directly. Keep them in sync
+      // so the portal reflects ERP edits (and tokens resolve from either source).
+      const repNameChanged =
+        parsed.data.legalRepresentativeName !== undefined &&
+        parsed.data.legalRepresentativeName !== existing.legalRepresentativeName;
+      const repRutChanged =
+        parsed.data.legalRepresentativeRut !== undefined &&
+        parsed.data.legalRepresentativeRut !== existing.legalRepresentativeRut;
+      if (repNameChanged || repRutChanged) {
+        const nextName = (parsed.data.legalRepresentativeName ?? existing.legalRepresentativeName ?? "").trim();
+        const nextRut = (parsed.data.legalRepresentativeRut ?? existing.legalRepresentativeRut ?? "").trim();
+        if (nextName && nextRut) {
+          const firstRep = await tx.accountRepresentanteLegal.findFirst({
+            where: { accountId: id },
+            orderBy: { createdAt: "asc" },
+            select: { id: true },
+          });
+          if (firstRep) {
+            await tx.accountRepresentanteLegal.update({
+              where: { id: firstRep.id },
+              data: { nombre: nextName, rut: nextRut },
+            });
+          } else {
+            await tx.accountRepresentanteLegal.create({
+              data: {
+                tenantId: ctx.tenantId,
+                accountId: id,
+                nombre: nextName,
+                rut: nextRut,
+              },
+            });
+          }
+        }
+      }
+
+      const notaryNameChanged =
+        parsed.data.notaryName !== undefined &&
+        parsed.data.notaryName !== existing.notaryName;
+      const notaryDateChanged =
+        parsed.data.notaryDate !== undefined &&
+        parsed.data.notaryDate !== existing.notaryDate;
+      if (notaryNameChanged || notaryDateChanged) {
+        const nextNotaria = parsed.data.notaryName ?? existing.notaryName ?? null;
+        const nextDateStr = parsed.data.notaryDate ?? existing.notaryDate ?? null;
+        const nextDate = nextDateStr ? new Date(nextDateStr) : null;
+        await tx.accountPersoneria.upsert({
+          where: { accountId: id },
+          create: {
+            tenantId: ctx.tenantId,
+            accountId: id,
+            notaria: nextNotaria,
+            fechaEscritura: nextDate && !isNaN(nextDate.getTime()) ? nextDate : null,
+          },
+          update: {
+            notaria: nextNotaria,
+            fechaEscritura: nextDate && !isNaN(nextDate.getTime()) ? nextDate : null,
+          },
+        });
+      }
+
       // Invariant: no account out of operation can keep active installations.
       if (legacy.isActive === false) {
         await tx.crmInstallation.updateMany({

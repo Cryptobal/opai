@@ -147,10 +147,11 @@ export function EditorToolbar({
       {/* ── Grupo 1: Formato página + Preview ── */}
       {onPageTypeChange && (
         <Select value={pageType} onValueChange={(v) => onPageTypeChange(v as PageType)}>
-          <SelectTrigger className="h-7 w-[100px] text-xs border-border/80">
+          <SelectTrigger className="h-7 w-[130px] text-xs border-border/80">
             <SelectValue placeholder="Página" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="auto">Ancho completo</SelectItem>
             <SelectItem value="a4">A4</SelectItem>
             <SelectItem value="carta">Carta</SelectItem>
             <SelectItem value="oficio">Oficio</SelectItem>

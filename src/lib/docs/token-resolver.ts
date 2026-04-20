@@ -123,7 +123,9 @@ export function resolveTokenValue(
       return entity.salePriceUF ? `${Number(entity.salePriceUF).toFixed(2)} UF` : "";
     }
     if (field === "precioTotal") {
-      const months = entity.contractMonths ?? entity.contractDuration ?? 12;
+      // Same precedence as buildQuoteEnrichedData: contractDuration (user-set)
+      // beats contractMonths (legacy default).
+      const months = entity.contractDuration ?? entity.contractMonths ?? 12;
       if (entity.currency === "UF") {
         const ufMonthly = Number(entity.salePriceUF ?? 0);
         if (!ufMonthly || !Number.isFinite(ufMonthly)) return "";
@@ -140,14 +142,41 @@ export function resolveTokenValue(
       if (ipc === 0 && imo === 0) return "";
       return `${imo}% IMO + ${ipc}% IPC`;
     }
+    if (field === "contractStartDate") {
+      // Pre-normalized in buildQuoteEnrichedData to YYYY-MM-DD. Format via
+      // formatDateOnly so "2026-04-01" displays as "01/04/2026" without TZ drift.
+      if (!entity.contractStartDate) return "";
+      return formatDateOnly(entity.contractStartDate) ?? "";
+    }
     if (field === "contractEndDate") {
       if (!entity.contractStartDate) return "";
-      const start = new Date(entity.contractStartDate);
-      if (isNaN(start.getTime())) return "";
       const months = entity.contractDuration ?? entity.contractMonths ?? 12;
-      const end = new Date(start);
-      end.setMonth(end.getMonth() + months);
-      end.setDate(end.getDate() - 1);
+      // Parse as a plain calendar date (YYYY-MM-DD) to avoid local-vs-UTC
+      // timezone drift: `new Date("2026-04-01")` is UTC midnight, whose local
+      // representation can be the previous day, which then poisons the end-date
+      // arithmetic (returns 01/07 instead of 30/06 in western timezones).
+      const raw = typeof entity.contractStartDate === "string"
+        ? entity.contractStartDate
+        : entity.contractStartDate instanceof Date
+        ? entity.contractStartDate.toISOString()
+        : String(entity.contractStartDate);
+      const m = raw.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      let y: number, mo: number, d: number;
+      if (m) {
+        y = Number(m[1]);
+        mo = Number(m[2]) - 1;
+        d = Number(m[3]);
+      } else {
+        const start = new Date(raw);
+        if (isNaN(start.getTime())) return "";
+        y = start.getUTCFullYear();
+        mo = start.getUTCMonth();
+        d = start.getUTCDate();
+      }
+      // start + N months, minus 1 day. We use UTC Date arithmetic so overflow
+      // (e.g. March 31 + 3 months → July 1 → rollback to June 30) is deterministic.
+      const end = new Date(Date.UTC(y, mo + months, d));
+      end.setUTCDate(end.getUTCDate() - 1);
       if (isNaN(end.getTime())) return "";
       return formatDateOnly(end) ?? "";
     }
@@ -861,7 +890,12 @@ export async function buildQuoteEnrichedData(
     }
   }
 
-  const contractMonths = params?.contractMonths ?? 12;
+  // Prefer quote.contractDuration (user-facing commercial-conditions field).
+  // `params.contractMonths` is a legacy/default column (Int default 12) and
+  // is rarely updated by the UI, so it must not win over the user's explicit
+  // contractDuration.
+  const contractMonths =
+    quote.contractDuration ?? params?.contractMonths ?? 12;
   const contractAmount = salePriceMonthly * contractMonths;
 
   return {
@@ -884,7 +918,16 @@ export async function buildQuoteEnrichedData(
     ipcWeight: (quote as any).ipcWeight ?? 0,
     imoWeight: (quote as any).imoWeight ?? 0,
     insurancePolicyUF: (quote as any).insurancePolicyUF != null ? Number((quote as any).insurancePolicyUF) : null,
-    contractStartDate: (quote as any).contractStartDate ?? null,
+    // Stored as YYYY-MM-DD string (canonical, TZ-independent). The resolver
+    // renders {{quote.contractStartDate}} as dd/MM/yyyy via a dedicated case
+    // (see `resolveTokenValue` above), and {{quote.contractEndDate}} uses
+    // this same ISO string for UTC-safe date arithmetic.
+    contractStartDate: (() => {
+      const raw = (quote as any).contractStartDate;
+      if (!raw) return null;
+      const iso = raw instanceof Date ? raw.toISOString() : String(raw);
+      return iso.slice(0, 10);
+    })(),
     contractDuration: quote.contractDuration ?? 12,
     liabilityMonths: (quote as any).liabilityMonths ?? 3,
     hasCCTV: (quote as any).hasCCTV ?? false,

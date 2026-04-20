@@ -257,9 +257,43 @@ export async function resolveDocumentContentForDisplay(
           legalRepresentativeName: true, legalRepresentativeRut: true,
           address: true, commune: true, industry: true, segment: true,
           size: true, website: true, notaryName: true, notaryDate: true,
+          // Mirror source from portal: relations are the canonical editor UI;
+          // flat fields above may lag when sync didn't run (legacy data).
+          representantesLegales: {
+            select: { nombre: true, rut: true, email: true },
+            orderBy: { createdAt: "asc" },
+            take: 1,
+          },
+          personeria: {
+            select: { notaria: true, fechaEscritura: true, tipoEscritura: true },
+          },
         },
       });
-      accountData = account ?? undefined;
+      if (account) {
+        const firstRep = account.representantesLegales?.[0];
+        const pers = account.personeria;
+        // Format personeria date to YYYY-MM-DD (plain date string) so the
+        // generic resolver path (Date formatter / String passthrough) gives
+        // a stable display value regardless of server timezone.
+        let personeriaDateStr: string | null = null;
+        if (pers?.fechaEscritura) {
+          const iso = pers.fechaEscritura instanceof Date
+            ? pers.fechaEscritura.toISOString()
+            : String(pers.fechaEscritura);
+          personeriaDateStr = iso.slice(0, 10);
+        }
+        accountData = {
+          ...account,
+          legalRepresentativeName: account.legalRepresentativeName || firstRep?.nombre || null,
+          legalRepresentativeRut: account.legalRepresentativeRut || firstRep?.rut || null,
+          legalRepresentativeEmail: firstRep?.email ?? null,
+          notaryName: account.notaryName || pers?.notaria || null,
+          notaryDate: account.notaryDate || personeriaDateStr,
+          notaryEscrituraType: pers?.tipoEscritura ?? null,
+        };
+      } else {
+        accountData = undefined;
+      }
 
       const contact = await prisma.crmContact.findFirst({
         where: { accountId: resolvedAccountId, tenantId },

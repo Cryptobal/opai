@@ -27,6 +27,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import "./editor/editor-styles.css";
 
 const PAGE_WIDTHS: Record<PageType, string> = {
+  // "auto" lets the editor fill the container so text doesn't squeeze into
+  // an A4-sized column on wide monitors. The preview dialog still renders
+  // at real paper size.
+  auto: "100%",
   a4: "210mm",
   carta: "216mm",
   oficio: "216mm",
@@ -51,7 +55,9 @@ export function ContractEditor({
   filterModules,
   showPagePreview = true,
 }: ContractEditorProps) {
-  const [pageType, setPageType] = useState<PageType>("a4");
+  // Default to "auto" (full container width) — readable on wide monitors.
+  // Users can switch to A4/Carta/Oficio if they want page-width editing.
+  const [pageType, setPageType] = useState<PageType>("auto");
   const [previewOpen, setPreviewOpen] = useState(false);
   const isInternalUpdate = useRef(false);
   const editor = useEditor(

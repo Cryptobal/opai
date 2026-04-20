@@ -56,9 +56,23 @@ export async function generateServiceContract(
     return { success: false, error: "No hay template de contrato. Cree uno en Documentos > Plantillas con categoría 'Contrato de Servicio'." };
   }
 
-  // 3. Load account and contact
+  // 3. Load account (with relations — portal stores rep legal + personería in
+  // AccountRepresentanteLegal and AccountPersoneria; the flat fields on
+  // CrmAccount may lag if the portal sync didn't run, so we prefer relations.
   const account = quote.accountId
-    ? await prisma.crmAccount.findUnique({ where: { id: quote.accountId } })
+    ? await prisma.crmAccount.findUnique({
+        where: { id: quote.accountId },
+        include: {
+          representantesLegales: {
+            select: { nombre: true, rut: true, email: true },
+            orderBy: { createdAt: "asc" },
+            take: 1,
+          },
+          personeria: {
+            select: { notaria: true, fechaEscritura: true, tipoEscritura: true },
+          },
+        },
+      })
     : null;
 
   const contact = quote.contactId
@@ -91,17 +105,67 @@ export async function generateServiceContract(
     paymentDays: (quote as any).paymentDays ?? 5,
   };
 
-  // 6. Calculate dates
-  const startDate = quoteData.contractStartDate ? new Date(quoteData.contractStartDate) : new Date();
+  // 6. Calculate dates (UTC-safe: avoid TZ drift where new Date("2026-04-01")
+  //    becomes the previous day in western timezones and then skews endDate).
   const durationMonths = quoteData.contractDuration;
-  const endDate = new Date(startDate);
-  endDate.setMonth(endDate.getMonth() + durationMonths);
-  endDate.setDate(endDate.getDate() - 1);
+  let startYear: number, startMonth: number, startDay: number;
+  if (quoteData.contractStartDate) {
+    const raw = typeof quoteData.contractStartDate === "string"
+      ? quoteData.contractStartDate
+      : quoteData.contractStartDate instanceof Date
+      ? (quoteData.contractStartDate as Date).toISOString()
+      : String(quoteData.contractStartDate);
+    const m = raw.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      startYear = Number(m[1]);
+      startMonth = Number(m[2]) - 1;
+      startDay = Number(m[3]);
+    } else {
+      const d = new Date(raw);
+      startYear = d.getUTCFullYear();
+      startMonth = d.getUTCMonth();
+      startDay = d.getUTCDate();
+    }
+  } else {
+    const now = new Date();
+    startYear = now.getUTCFullYear();
+    startMonth = now.getUTCMonth();
+    startDay = now.getUTCDate();
+  }
+  const startDate = new Date(Date.UTC(startYear, startMonth, startDay));
+  const endDate = new Date(Date.UTC(startYear, startMonth + durationMonths, startDay));
+  endDate.setUTCDate(endDate.getUTCDate() - 1);
 
   // 7. Build entity data for token resolution
+  // Merge relation fallbacks into flat account fields so {{account.legalRepresentativeName}},
+  // {{account.notaryName}}, {{account.notaryDate}} resolve even if the portal sync didn't
+  // backfill the flat columns.
+  const accountMerged = account
+    ? (() => {
+        const firstRep = (account as any).representantesLegales?.[0];
+        const pers = (account as any).personeria;
+        let personeriaDateStr: string | null = null;
+        if (pers?.fechaEscritura) {
+          const iso = pers.fechaEscritura instanceof Date
+            ? pers.fechaEscritura.toISOString()
+            : String(pers.fechaEscritura);
+          personeriaDateStr = iso.slice(0, 10);
+        }
+        return {
+          ...account,
+          legalRepresentativeName: account.legalRepresentativeName || firstRep?.nombre || null,
+          legalRepresentativeRut: account.legalRepresentativeRut || firstRep?.rut || null,
+          legalRepresentativeEmail: firstRep?.email ?? null,
+          notaryName: account.notaryName || pers?.notaria || null,
+          notaryDate: account.notaryDate || personeriaDateStr,
+          notaryEscrituraType: pers?.tipoEscritura ?? null,
+        };
+      })()
+    : null;
+
   const entityData = {
     empresa: buildEmpresaEntityData(empresaSettings as Array<{ key: string; value: string }>),
-    account: account ? { ...account } : null,
+    account: accountMerged,
     contact: contact
       ? { ...contact, fullName: `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim() }
       : null,

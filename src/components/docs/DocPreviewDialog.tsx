@@ -10,9 +10,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { tiptapToPreviewHtml } from "@/lib/docs/tiptap-to-html";
 
-export type PageType = "a4" | "carta" | "oficio";
+export type PageType = "auto" | "a4" | "carta" | "oficio";
 
 const PAGE_SIZES: Record<PageType, { width: string; height: string; label: string }> = {
+  // "auto" = full container width. Used by the editor to avoid the narrow
+  // "column" feel on wide screens. Height is ignored for auto since the
+  // preview dialog falls back to A4 if the user opens it.
+  auto: { width: "100%", height: "100%", label: "Ancho completo" },
   a4: { width: "210mm", height: "297mm", label: "A4" },
   carta: { width: "216mm", height: "279mm", label: "Carta" },
   oficio: { width: "216mm", height: "330mm", label: "Oficio" },
@@ -45,7 +49,10 @@ export function DocPreviewDialog({
   const containerRef = useRef<HTMLDivElement>(null);
   const normalized = normalizeContent(content);
   const html = tiptapToPreviewHtml(normalized);
-  const size = PAGE_SIZES[pageType];
+  // Preview always shows a real paper size — if the editor is in "auto"
+  // (wide) mode, fall back to A4 so the preview renders as a page.
+  const effectivePageType: PageType = pageType === "auto" ? "a4" : pageType;
+  const size = PAGE_SIZES[effectivePageType];
   const isEmpty = !html || html.trim().length < 20;
 
   useEffect(() => {
