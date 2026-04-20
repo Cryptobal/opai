@@ -108,6 +108,10 @@ export async function POST(request: NextRequest) {
             clientName,
             validUntil,
             notes,
+            // Standard initial poliza amount for security-service contracts
+            // (token {{quote.insurancePolicyUF}} in CUARTA/SÉPTIMA clauses).
+            // Users can override in Commercial Conditions.
+            insurancePolicyUF: 1500,
             ...(accountId ? { accountId } : {}),
             ...(dealId ? { dealId } : {}),
             ...(installationId ? { installationId } : {}),

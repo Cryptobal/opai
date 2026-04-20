@@ -92,26 +92,35 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
   const [daysRange, setDaysRange] = useState(30);
 
   const baseParams = selectedInstallation ? { installationId: selectedInstallation } : undefined;
+  // Skip dashboard fetches until an installation is selected — the four
+  // endpoints below 403 without `installationId`. Without `skip` the user
+  // sees a flash of red errors in the network tab while the shell decides
+  // which installation to default to.
+  const skipDashboard = !selectedInstallation;
 
   const summary = usePortalData<Summary>({
     endpoint: "/api/portal/cliente/summary",
     demoKey: "dashboard_summary",
     params: baseParams,
+    skip: skipDashboard,
   });
   const compliance = usePortalData<DailyPoint[]>({
     endpoint: "/api/portal/cliente/compliance",
     demoKey: "dashboard_compliance",
     params: { ...(baseParams ?? {}), days: String(daysRange) },
+    skip: skipDashboard,
   });
   const guards = usePortalData<Guard[]>({
     endpoint: "/api/portal/cliente/guards",
     demoKey: "dashboard_guards",
     params: baseParams,
+    skip: skipDashboard,
   });
   const activity = usePortalData<Activity[]>({
     endpoint: "/api/portal/cliente/activity",
     demoKey: "dashboard_activity",
     params: baseParams,
+    skip: skipDashboard,
   });
 
   const isProspect = !!session?.isProspect;

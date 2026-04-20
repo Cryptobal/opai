@@ -43,6 +43,8 @@ export async function GET(
 
   const { id: quoteId } = await params;
 
+  try {
+
   /* ── 1. Fetch the quote and verify access ── */
   const quote = await prisma.cpqQuote.findFirst({
     where: {
@@ -132,9 +134,16 @@ export async function GET(
       accountData.notaryName = account.personeria.notaria;
     }
     if (!accountData.notaryDate && account.personeria?.fechaEscritura) {
-      accountData.notaryDate = account.personeria.fechaEscritura
-        .toISOString()
-        .slice(0, 10);
+      // Defensive: Prisma normally returns Date for DateTime?, but accept
+      // string as well in case the shape was massaged upstream.
+      const raw = account.personeria.fechaEscritura as unknown;
+      const iso =
+        raw instanceof Date
+          ? raw.toISOString()
+          : typeof raw === "string"
+          ? raw
+          : null;
+      if (iso) accountData.notaryDate = iso.slice(0, 10);
     }
   }
 
@@ -333,4 +342,24 @@ export async function GET(
       canCompleteInPortal: missingPortal.length > 0,
     },
   });
+  } catch (error) {
+    // Surface the real error so the client receives a useful message
+    // instead of a bare 500. The handler used to crash silently — leaving
+    // the user with a red toast and no way to know what to fix.
+    console.error(
+      "[portal/cliente/contrato-borrador] error for quote",
+      quoteId,
+      error instanceof Error ? { message: error.message, stack: error.stack } : error
+    );
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? `No se pudo generar el borrador: ${error.message}`
+            : "No se pudo generar el borrador",
+      },
+      { status: 500 }
+    );
+  }
 }

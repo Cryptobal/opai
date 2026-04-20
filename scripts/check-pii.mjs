@@ -30,6 +30,8 @@ const ALLOWED_RUT_PLACEHOLDERS = new Set([
   "11111111-1", "22222222-2", "33333333-3", "44444444-4", "55555555-5",
   "66666666-6", "77777777-7", "88888888-8", "99999999-9", "12345678-5",
   "11.111.111-1", "22.222.222-2", "12.345.678-5",
+  // Common placeholder values used in input fields across the UI.
+  "12.345.678-9", "76.123.456-7",
 ]);
 
 const SAMPLE_PATHS_ALLOWLIST = [
@@ -123,7 +125,10 @@ function checkContent(path) {
     return issues;
   }
 
-  const ruts = content.match(RUT_PATTERN) || [];
+  // Strip SVG path data so coordinates like "M17.472 14.382 ..." don't get
+  // flagged as RUTs (the RUT regex matches numbers separated by dots).
+  const contentWithoutSvgPaths = content.replace(/\sd=["'][^"']*["']/g, "");
+  const ruts = contentWithoutSvgPaths.match(RUT_PATTERN) || [];
   const realRuts = ruts.filter((r) => !ALLOWED_RUT_PLACEHOLDERS.has(r));
   if (realRuts.length > 0) {
     const sample = [...new Set(realRuts)].slice(0, 3).join(", ");

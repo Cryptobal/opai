@@ -18,6 +18,7 @@ import {
   Trash2,
   ShieldCheck,
   ExternalLink,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -108,6 +109,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   const [signatureLoading, setSignatureLoading] = useState(false);
   const [activeSignatureRequest, setActiveSignatureRequest] = useState<any | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [sendingReview, setSendingReview] = useState(false);
   const [contentHtml, setContentHtml] = useState<string | null>(null);
   const [contentHtmlLoading, setContentHtmlLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -220,6 +222,41 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
       toast.error("Error al guardar");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSendForReview = async () => {
+    const confirmed = window.confirm(
+      "Se enviará el borrador al contacto principal del cliente para que lo revise y proponga cambios antes de la firma. ¿Continuar?"
+    );
+    if (!confirmed) return;
+    setSendingReview(true);
+    try {
+      const res = await fetch(
+        `/api/docs/documents/${documentId}/send-review`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "No se pudo enviar la revisión");
+      }
+      const sent = data?.data?.results ?? [];
+      toast.success(
+        sent.length === 1
+          ? `Borrador enviado a ${sent[0].email}`
+          : `Borrador enviado a ${sent.length} destinatarios`
+      );
+      fetchDocument();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Error al enviar a revisión"
+      );
+    } finally {
+      setSendingReview(false);
     }
   };
 
@@ -360,15 +397,31 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
               Descargar PDF
             </Button>
             {!(doc.signedAt || doc.signatureStatus === "completed") && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => setSignatureModalOpen(true)}
-              >
-                <FileSignature className="h-3.5 w-3.5" />
-                Enviar a firma
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => void handleSendForReview()}
+                  disabled={sendingReview}
+                >
+                  {sendingReview ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5" />
+                  )}
+                  Enviar a revisión
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setSignatureModalOpen(true)}
+                >
+                  <FileSignature className="h-3.5 w-3.5" />
+                  Enviar a firma
+                </Button>
+              </>
             )}
           </>
         }

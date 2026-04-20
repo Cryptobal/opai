@@ -164,6 +164,20 @@ type AccountDetail = {
   contacts: ContactRow[];
   deals: DealRow[];
   installations: InstallationRow[];
+  // Canonical source for legal reps / personería. The portal edits these
+  // tables directly; the flat columns above are a cache for token resolution.
+  representantesLegales?: Array<{
+    id: string;
+    nombre: string;
+    rut: string;
+    email: string | null;
+  }>;
+  personeria?: {
+    id: string;
+    fechaEscritura: string | null;
+    tipoEscritura: string | null;
+    notaria: string | null;
+  } | null;
   encuestasCliente?: Array<{
     id: string;
     contactName: string;
@@ -238,19 +252,28 @@ export function CrmAccountDetailClient({
   const [accountStatusNextValue, setAccountStatusNextValue] = useState<boolean>(false);
   const [accountTypeConfirmOpen, setAccountTypeConfirmOpen] = useState(false);
   const [accountTypeNextValue, setAccountTypeNextValue] = useState<"prospect" | "client">("client");
+  // Relations pre-fill when flat columns lag (portal is the canonical editor).
+  const firstRepForForm = account.representantesLegales?.[0];
+  const personeriaForForm = account.personeria;
   const [accountForm, setAccountForm] = useState({
     name: account.name,
     rut: account.rut || "",
     legalName: account.legalName || "",
-    legalRepresentativeName: account.legalRepresentativeName || "",
-    legalRepresentativeRut: account.legalRepresentativeRut || "",
+    legalRepresentativeName:
+      account.legalRepresentativeName || firstRepForForm?.nombre || "",
+    legalRepresentativeRut:
+      account.legalRepresentativeRut || firstRepForForm?.rut || "",
     industry: account.industry || "",
     segment: account.segment || "",
     website: account.website || "",
     address: account.address || "",
     commune: account.commune || "",
-    notaryName: account.notaryName || "",
-    notaryDate: account.notaryDate || "",
+    notaryName: account.notaryName || personeriaForForm?.notaria || "",
+    notaryDate:
+      account.notaryDate ||
+      (personeriaForForm?.fechaEscritura
+        ? personeriaForForm.fechaEscritura.slice(0, 10)
+        : ""),
     startDate: account.startDate ? new Date(account.startDate).toISOString().slice(0, 10) : "",
     endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
     notes: stripAccountLogoMarker(account.notes),
@@ -325,19 +348,25 @@ export function CrmAccountDetailClient({
 
   // ── Account handlers ──
   const openAccountEdit = () => {
+    const firstRep = account.representantesLegales?.[0];
+    const pers = account.personeria;
     setAccountForm({
       name: account.name,
       rut: account.rut || "",
       legalName: account.legalName || "",
-      legalRepresentativeName: account.legalRepresentativeName || "",
-      legalRepresentativeRut: account.legalRepresentativeRut || "",
+      legalRepresentativeName:
+        account.legalRepresentativeName || firstRep?.nombre || "",
+      legalRepresentativeRut:
+        account.legalRepresentativeRut || firstRep?.rut || "",
       industry: account.industry || "",
       segment: account.segment || "",
       website: account.website || "",
       address: account.address || "",
       commune: account.commune || "",
-      notaryName: account.notaryName || "",
-      notaryDate: account.notaryDate || "",
+      notaryName: account.notaryName || pers?.notaria || "",
+      notaryDate:
+        account.notaryDate ||
+        (pers?.fechaEscritura ? pers.fechaEscritura.slice(0, 10) : ""),
       startDate: account.startDate ? new Date(account.startDate).toISOString().slice(0, 10) : "",
       endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
       notes: stripAccountLogoMarker(account.notes),
@@ -1011,10 +1040,37 @@ export function CrmAccountDetailClient({
         <DetailField label="RUT" value={account.rut} mono copyable />
         <DetailField label="Razón social" value={account.legalName} />
         <DetailField label="Industria" value={account.industry} />
-        <DetailField label="Representante legal" value={account.legalRepresentativeName} />
-        <DetailField label="RUT representante" value={account.legalRepresentativeRut} mono copyable />
-        <DetailField label="Notaría" value={account.notaryName} />
-        <DetailField label="Fecha escritura" value={account.notaryDate} />
+        <DetailField
+          label="Representante legal"
+          value={
+            account.legalRepresentativeName ||
+            account.representantesLegales?.[0]?.nombre ||
+            null
+          }
+        />
+        <DetailField
+          label="RUT representante"
+          value={
+            account.legalRepresentativeRut ||
+            account.representantesLegales?.[0]?.rut ||
+            null
+          }
+          mono
+          copyable
+        />
+        <DetailField
+          label="Notaría"
+          value={account.notaryName || account.personeria?.notaria || null}
+        />
+        <DetailField
+          label="Fecha escritura"
+          value={
+            account.notaryDate ||
+            (account.personeria?.fechaEscritura
+              ? account.personeria.fechaEscritura.slice(0, 10)
+              : null)
+          }
+        />
         <DetailField label="Segmento" value={account.segment} />
         <DetailField
           label="Dirección"

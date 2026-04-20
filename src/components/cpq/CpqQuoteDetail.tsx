@@ -482,7 +482,12 @@ export function CpqQuoteDetail({
       adjustmentFreq: (quote as any).adjustmentFreq ?? null,
       ipcWeight: (quote as any).ipcWeight ?? null,
       imoWeight: (quote as any).imoWeight ?? null,
-      insurancePolicyUF: (quote as any).insurancePolicyUF != null ? Number((quote as any).insurancePolicyUF) : null,
+      // Default 1500 UF when missing (póliza estándar para servicios de seguridad).
+      insurancePolicyUF: (() => {
+        const raw = (quote as any).insurancePolicyUF;
+        const n = raw != null ? Number(raw) : NaN;
+        return Number.isFinite(n) && n > 0 ? n : 1500;
+      })(),
       contractStartDate: (quote as any).contractStartDate ? formatDateInput((quote as any).contractStartDate) : null,
       liabilityMonths: (quote as any).liabilityMonths ?? 3,
       hasCCTV: (quote as any).hasCCTV ?? false,
@@ -1777,8 +1782,8 @@ export function CpqQuoteDetail({
                 <div className="space-y-1">
                   <Label className="text-sm text-muted-foreground">Monto póliza</Label>
                   <div className="flex items-center gap-1">
-                    <Input type="number" min={0} step={0.01} value={quoteForm.insurancePolicyUF ?? ""} placeholder="0.00"
-                      onChange={(e) => { setQuoteForm(prev => ({ ...prev, insurancePolicyUF: e.target.value ? Number(e.target.value) : null })); setQuoteDirty(true); }}
+                    <Input type="number" min={0} step={0.01} value={quoteForm.insurancePolicyUF ?? 1500} placeholder="1500"
+                      onChange={(e) => { setQuoteForm(prev => ({ ...prev, insurancePolicyUF: e.target.value ? Number(e.target.value) : 1500 })); setQuoteDirty(true); }}
                       disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-20" />
                     <span className="text-xs text-muted-foreground">UF</span>
                   </div>

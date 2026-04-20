@@ -31,6 +31,16 @@ export default async function CrmAccountDetailPage({
           orderBy: { createdAt: "desc" },
         },
         installations: { orderBy: { createdAt: "desc" } },
+        // Mirror of Portal Cliente edit surface — these relations are the
+        // canonical editor for legal reps / personería and must be visible
+        // here even when the flat columns are still empty.
+        representantesLegales: {
+          select: { id: true, nombre: true, rut: true, email: true },
+          orderBy: { createdAt: "asc" },
+        },
+        personeria: {
+          select: { id: true, fechaEscritura: true, tipoEscritura: true, notaria: true },
+        },
         _count: { select: { contacts: true, deals: true, installations: true } },
       },
     }),
@@ -65,6 +75,13 @@ export default async function CrmAccountDetailPage({
         contacts: { orderBy: { createdAt: "desc" } },
         deals: { include: { stage: true, primaryContact: true }, orderBy: { createdAt: "desc" } },
         installations: { orderBy: { createdAt: "desc" } },
+        representantesLegales: {
+          select: { id: true, nombre: true, rut: true, email: true },
+          orderBy: { createdAt: "asc" },
+        },
+        personeria: {
+          select: { id: true, fechaEscritura: true, tipoEscritura: true, notaria: true },
+        },
         _count: { select: { contacts: true, deals: true, installations: true } },
       },
     }) ?? account;

@@ -4,6 +4,7 @@ import SignatureRequestEmail from "@/emails/SignatureRequestEmail";
 import SignatureCompletedNotifyEmail from "@/emails/SignatureCompletedNotifyEmail";
 import SignatureAllCompletedEmail from "@/emails/SignatureAllCompletedEmail";
 import SignatureReminderEmail from "@/emails/SignatureReminderEmail";
+import ContractReviewRequestEmail from "@/emails/ContractReviewRequestEmail";
 
 type SignatureMailResult = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -79,6 +80,32 @@ export async function sendSignatureCompletedNotifyEmail(input: {
       subject: `Firma registrada: ${input.documentTitle}`,
       html,
       tags: [{ name: "type", value: "doc_signature_signed" }],
+    });
+    if (response.error) return { ok: false, error: JSON.stringify(response.error) };
+    return { ok: true, id: response.data?.id };
+  } catch (error) {
+    return { ok: false, error: toErrorMessage(error) };
+  }
+}
+
+export async function sendContractReviewRequestEmail(input: {
+  to: string;
+  recipientName: string;
+  documentTitle: string;
+  reviewUrl: string;
+  senderName?: string;
+  senderCompany?: string;
+  message?: string | null;
+}): Promise<SignatureMailResult> {
+  try {
+    const html = await render(ContractReviewRequestEmail(input));
+    const response = await resend.emails.send({
+      from: EMAIL_CONFIG.from,
+      to: input.to,
+      replyTo: EMAIL_CONFIG.replyTo,
+      subject: `Revisión de contrato: ${input.documentTitle}`,
+      html,
+      tags: [{ name: "type", value: "doc_contract_review_request" }],
     });
     if (response.error) return { ok: false, error: JSON.stringify(response.error) };
     return { ok: true, id: response.data?.id };

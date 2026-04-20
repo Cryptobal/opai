@@ -917,7 +917,14 @@ export async function buildQuoteEnrichedData(
     adjustmentFreq: (quote as any).adjustmentFreq ?? null,
     ipcWeight: (quote as any).ipcWeight ?? 0,
     imoWeight: (quote as any).imoWeight ?? 0,
-    insurancePolicyUF: (quote as any).insurancePolicyUF != null ? Number((quote as any).insurancePolicyUF) : null,
+    // Default 1500 UF when the quote has no póliza set (null / 0). This
+    // keeps the CUARTA / SÉPTIMA clauses from rendering as "0 UF" or an
+    // unresolved token. User can override from Condiciones Comerciales.
+    insurancePolicyUF: (() => {
+      const raw = (quote as any).insurancePolicyUF;
+      const n = raw != null ? Number(raw) : NaN;
+      return Number.isFinite(n) && n > 0 ? n : 1500;
+    })(),
     // Stored as YYYY-MM-DD string (canonical, TZ-independent). The resolver
     // renders {{quote.contractStartDate}} as dd/MM/yyyy via a dedicated case
     // (see `resolveTokenValue` above), and {{quote.contractEndDate}} uses

@@ -87,6 +87,47 @@ export function SignatureRequestModal({
     }
   }, [open, initialRecipients]);
 
+  // Auto-load suggested signers (empresa rep + client reps) from the backend
+  // when the modal opens without explicit initialRecipients. The endpoint reads
+  // the document's signature.signer_N tokens and matches them with:
+  //   - signer_1 ← Settings empresa.repLegal*
+  //   - signer_N≥2 ← AccountRepresentanteLegal
+  useEffect(() => {
+    if (!open) return;
+    if (initialRecipients && initialRecipients.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/docs/documents/${documentId}/suggested-signers`
+        );
+        if (!res.ok) return;
+        const json = await res.json();
+        if (cancelled) return;
+        const data = json?.data as
+          | Array<{ name: string; rut: string; email: string; signingOrder: number }>
+          | undefined;
+        if (!data || data.length === 0) return;
+        setRows(
+          data.map((r) =>
+            createRecipient({
+              name: r.name ?? "",
+              email: r.email ?? "",
+              rut: r.rut ?? "",
+              role: "signer",
+              signingOrder: r.signingOrder ?? 1,
+            })
+          )
+        );
+      } catch {
+        // Non-blocking: modal stays usable with empty rows.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, documentId, initialRecipients]);
+
   const signerCount = useMemo(() => rows.filter((r) => r.role === "signer").length, [rows]);
 
   const addRow = () => {
