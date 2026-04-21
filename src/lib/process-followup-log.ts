@@ -308,22 +308,6 @@ export async function processFollowUpLog(
     bodyHtml += signature.htmlContent;
   }
 
-  // Resolver ejecutivo asignado al account (para el bloque de contacto).
-  let ejecutivoName: string | null = null;
-  try {
-    const acct = await prisma.crmAccount.findUnique({
-      where: { id: deal.accountId },
-      select: { portalEjecutivoId: true },
-    });
-    if (acct?.portalEjecutivoId) {
-      const exec = await prisma.admin.findUnique({
-        where: { id: acct.portalEjecutivoId },
-        select: { name: true },
-      });
-      if (exec?.name) ejecutivoName = exec.name;
-    }
-  } catch {}
-
   const emailHtml = renderFollowUpEmailHtml({
     bodyHtml,
     sequence: sequenceLabel,
@@ -344,7 +328,6 @@ export async function processFollowUpLog(
     tenantPhone: tenantConfig.phone,
     tenantEmail: tenantConfig.email,
     tenantWebsite: tenantConfig.website,
-    ejecutivoName,
   });
 
   const bcc =
