@@ -6,7 +6,7 @@
  *   - Hero (saludo + título de la oportunidad)
  *   - Body (contenido editable)
  *   - CTA botón principal al Portal del Cliente
- *   - Footer (ejecutivo asignado + datos del tenant)
+ *   - Footer (datos del tenant)
  *
  * Se renderiza en HTML plano con estilos inline para máxima compatibilidad con
  * clientes de correo (Gmail, Outlook, iOS Mail). Mantiene la misma paleta que
@@ -26,7 +26,6 @@ export interface FollowUpLayoutOptions {
   tenantPhone?: string | null;
   tenantEmail?: string | null;
   tenantWebsite?: string | null;
-  ejecutivoName?: string | null;
 }
 
 const EYEBROWS: Record<1 | 2 | 3, string> = {
@@ -125,17 +124,6 @@ export function renderFollowUpEmailHtml(opts: FollowUpLayoutOptions): string {
                 <p style="margin:10px 0 0;color:#64748B;font-size:12px;">Acceso directo — no necesitás ingresar el PIN.</p>
               </td>
             </tr>
-
-            ${opts.ejecutivoName ? `
-            <!-- Ejecutivo -->
-            <tr>
-              <td style="padding:18px 32px 0;">
-                <div style="padding:14px 16px;background:#F8FAFC;border-left:3px solid ${primary};border-radius:4px;">
-                  <p style="margin:0;color:#64748B;font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">Tu ejecutivo</p>
-                  <p style="margin:4px 0 0;color:#0F172A;font-size:14px;font-weight:600;">${escapeHtml(opts.ejecutivoName)}</p>
-                </div>
-              </td>
-            </tr>` : ""}
 
             <!-- Divider -->
             <tr>
