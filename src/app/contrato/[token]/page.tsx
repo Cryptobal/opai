@@ -606,7 +606,10 @@ function ContractContent({
 }) {
   if (!content || !content.content) return null;
   const nodes = content.content as any[];
-  const canEdit = ["draft", "review"].includes(docStatus);
+  // "in_review" is the status set by POST /api/docs/documents/[id]/send-review
+  // when the company pushes the draft to the client portal. "review" is kept for
+  // backward compatibility with older documents.
+  const canEdit = ["draft", "review", "in_review"].includes(docStatus);
 
   // Group nodes into [preamble, clause1, clause2, ...] based on headings whose
   // text starts with a Spanish ordinal.

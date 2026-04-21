@@ -111,18 +111,53 @@ export function ContratoBorradorView({ quoteId, onBack, onNavigateToEmpresa }: P
     if (!contractMounted || !contractRef.current) return;
     const container = contractRef.current;
     container.querySelectorAll("[data-suggest-btn]").forEach((b) => b.remove());
-    container.querySelectorAll<HTMLElement>("[data-clause-id]").forEach((el) => {
-      const clauseId = el.getAttribute("data-clause-id");
-      if (!clauseId) return;
+
+    // Primary detection: explicit `data-clause-id` set by the HeadingClause
+    // Tiptap extension. Fallback detection: heading whose text starts with a
+    // Spanish ordinal ("PRIMERA:", "SEGUNDA:", …). This keeps legacy templates
+    // (authored before HeadingClause) usable — otherwise the "Sugerir edición"
+    // buttons silently disappear because no heading carries the attribute.
+    const CLAUSE_ORDINAL_RE =
+      /^(PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|S[ÉE]PTIMA|OCTAVA|NOVENA|D[ÉE]CIMA(?:\s+(?:PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|S[ÉE]PTIMA|OCTAVA|NOVENA))?|UND[ÉE]CIMA|DUOD[ÉE]CIMA)\b/i;
+
+    const headings = new Set<HTMLElement>();
+    container.querySelectorAll<HTMLElement>("[data-clause-id]").forEach((el) => headings.add(el));
+    container.querySelectorAll<HTMLElement>("h1, h2, h3, h4").forEach((el) => {
+      const text = (el.textContent ?? "").trim();
+      if (CLAUSE_ORDINAL_RE.test(text)) headings.add(el);
+    });
+
+    const buildPencilIcon = (): SVGSVGElement => {
+      const svgNs = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(svgNs, "svg");
+      svg.setAttribute("width", "12");
+      svg.setAttribute("height", "12");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      svg.setAttribute("fill", "none");
+      svg.setAttribute("stroke", "currentColor");
+      svg.setAttribute("stroke-width", "2");
+      svg.setAttribute("stroke-linecap", "round");
+      svg.setAttribute("stroke-linejoin", "round");
+      const path = document.createElementNS(svgNs, "path");
+      path.setAttribute("d", "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z");
+      svg.appendChild(path);
+      return svg;
+    };
+
+    headings.forEach((el) => {
       if (el.querySelector("[data-suggest-btn]")) return;
-      const clauseTitle = el.textContent?.trim() ?? clauseId;
+      const attrClauseId = el.getAttribute("data-clause-id");
+      const headingText = (el.textContent ?? "").trim();
+      const ordinalMatch = headingText.match(CLAUSE_ORDINAL_RE);
+      const clauseId = attrClauseId ?? ordinalMatch?.[0] ?? headingText;
+      const clauseTitle = headingText || clauseId;
       const btn = document.createElement("button");
       btn.setAttribute("data-suggest-btn", clauseId);
       btn.className =
         "ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-500/20 text-teal-700 hover:bg-teal-500/30 transition-colors align-middle cursor-pointer";
       btn.style.cssText = "display:inline-flex !important; visibility:visible !important;";
-      btn.innerHTML =
-        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Sugerir edición';
+      btn.appendChild(buildPencilIcon());
+      btn.appendChild(document.createTextNode(" Sugerir edición"));
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();

@@ -194,7 +194,22 @@ export async function GET(
   // equivalent here for portal preview display.
   let ufValue: number | null = null;
   try { ufValue = await getUfValue(); } catch { ufValue = null; }
-  const quoteData = await buildQuoteEnrichedData(quoteId, { ufValue });
+  let quoteData: Record<string, any> = {};
+  try {
+    quoteData = await buildQuoteEnrichedData(quoteId, { ufValue });
+  } catch (quoteErr) {
+    console.error(
+      "[portal/cliente/contrato-borrador] buildQuoteEnrichedData failed — continuing with minimal quote data",
+      quoteId,
+      quoteErr instanceof Error ? { message: quoteErr.message, stack: quoteErr.stack } : quoteErr
+    );
+    quoteData = {
+      code: quote.code,
+      currency: quote.currency,
+      clientName: account?.name ?? "",
+      contractMonths: quote.parameters?.contractMonths ?? 12,
+    };
+  }
   if (
     quoteData.currency === "CLP" &&
     quoteData.salePriceMonthly &&
@@ -310,11 +325,44 @@ export async function GET(
   }
 
   /* ── 7. Resolve template with enriched entities ── */
+  // Token resolution walks user-authored tiptap JSON — if the template has
+  // an unexpected node shape (corrupted content, legacy marks, etc.) the
+  // walk can throw. In that case we still want to show the contract, so
+  // we fall back to rendering the unresolved template content. Tokens
+  // display as their raw `{{key}}` / `[Token]` form, which is strictly
+  // better than a 500 with no preview.
   const content = template.content as { type: string; content: unknown[] };
-  const { resolvedContent } = resolveDocument(content, entitiesForRender);
+  let resolvedContent: unknown = content;
+  try {
+    resolvedContent = resolveDocument(content, entitiesForRender).resolvedContent;
+  } catch (resolveErr) {
+    console.error(
+      "[portal/cliente/contrato-borrador] resolveDocument failed, falling back to raw template",
+      quoteId,
+      resolveErr instanceof Error
+        ? { message: resolveErr.message, stack: resolveErr.stack }
+        : resolveErr
+    );
+  }
 
   /* ── 8. Convert to HTML ── */
-  let html = tiptapToPreviewHtml(resolvedContent);
+  let html: string;
+  try {
+    html = tiptapToPreviewHtml(resolvedContent);
+  } catch (htmlErr) {
+    console.error(
+      "[portal/cliente/contrato-borrador] tiptapToPreviewHtml failed",
+      quoteId,
+      htmlErr instanceof Error ? { message: htmlErr.message, stack: htmlErr.stack } : htmlErr
+    );
+    // Second fallback: render from the raw (unresolved) template, which has
+    // been rendered successfully many times before.
+    try {
+      html = tiptapToPreviewHtml(content);
+    } catch {
+      html = "<p>No se pudo generar el borrador visual. Descarga el PDF o contacta al ejecutivo.</p>";
+    }
+  }
 
   // Highlight missing-portal placeholders in yellow
   for (const f of missingPortal) {
