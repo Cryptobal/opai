@@ -45,6 +45,12 @@ export async function GET(
       );
     }
 
+    const metadata = (document.contractMetadata ?? {}) as Record<string, unknown>;
+    const reviewSubmittedAt =
+      typeof metadata.reviewSubmittedAt === "string"
+        ? (metadata.reviewSubmittedAt as string)
+        : null;
+
     return NextResponse.json({
       success: true,
       data: {
@@ -56,6 +62,7 @@ export async function GET(
           effectiveDate: document.effectiveDate,
           expirationDate: document.expirationDate,
           contractMetadata: document.contractMetadata,
+          reviewSubmittedAt,
         },
         suggestions: document.contractSuggestions,
       },
