@@ -48,7 +48,10 @@ export async function POST(
       );
     }
 
-    if (!["draft", "review"].includes(document.status)) {
+    // Accept "in_review" (set by the company when pushing to the client),
+    // "review" (legacy alias), and "draft" (auto-generated drafts). Everything
+    // else means the contract has advanced beyond review (approved / active).
+    if (!["draft", "review", "in_review"].includes(document.status)) {
       return NextResponse.json(
         { success: false, error: "El contrato ya no acepta nuevas revisiones" },
         { status: 400 }

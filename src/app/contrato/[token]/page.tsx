@@ -81,7 +81,10 @@ export default function ContratoReviewPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // `suggestionId` is set when the user re-opens an existing pending
+  // suggestion to edit it; null means we're authoring a brand-new one.
   const [editingClause, setEditingClause] = useState<{
+    suggestionId: string | null;
     clauseNumber: string;
     originalContent: string;
   } | null>(null);
@@ -91,6 +94,7 @@ export default function ContratoReviewPage() {
   const [reviewJustSent, setReviewJustSent] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [showAcceptConfirm, setShowAcceptConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Suggestion | null>(null);
 
   const fetchDocument = useCallback(async () => {
     try {
@@ -114,27 +118,60 @@ export default function ContratoReviewPage() {
     if (!editingClause || !editForm.suggestedContent.trim()) return;
     setSubmitting(true);
     try {
-      const res = await fetch("/api/portal/cliente/contract-suggestions", {
-        method: "POST",
+      const isEditingExisting = Boolean(editingClause.suggestionId);
+      const url = isEditingExisting
+        ? `/api/portal/cliente/contract-suggestions/${editingClause.suggestionId}`
+        : "/api/portal/cliente/contract-suggestions";
+      const method = isEditingExisting ? "PATCH" : "POST";
+      const body = isEditingExisting
+        ? {
+            contractClientToken: token,
+            suggestedContent: editForm.suggestedContent,
+            clientNote: editForm.clientNote || null,
+          }
+        : {
+            contractClientToken: token,
+            clauseNumber: editingClause.clauseNumber,
+            clauseTitle: editingClause.clauseNumber,
+            originalContent: editingClause.originalContent,
+            suggestedContent: editForm.suggestedContent,
+            clientNote: editForm.clientNote || null,
+          };
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contractClientToken: token,
-          clauseNumber: editingClause.clauseNumber,
-          clauseTitle: editingClause.clauseNumber,
-          originalContent: editingClause.originalContent,
-          suggestedContent: editForm.suggestedContent,
-          clientNote: editForm.clientNote || null,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setEditingClause(null);
       setEditForm({ suggestedContent: "", clientNote: "" });
       setReviewJustSent(false);
-      toast.success("Sugerencia guardada");
+      toast.success(isEditingExisting ? "Sugerencia actualizada" : "Sugerencia guardada");
       fetchDocument();
     } catch (e: any) {
       toast.error(e.message || "Error al guardar el comentario");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteSuggestion = async (suggestion: Suggestion) => {
+    setDeleteTarget(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch(
+        `/api/portal/cliente/contract-suggestions/${suggestion.id}?contractClientToken=${encodeURIComponent(token)}`,
+        { method: "DELETE" },
+      );
+      const data = await res.json().catch(() => ({ success: res.ok }));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "No se pudo eliminar el comentario");
+      }
+      toast.success("Comentario eliminado");
+      fetchDocument();
+    } catch (e: any) {
+      toast.error(e.message || "Error al eliminar el comentario");
     } finally {
       setSubmitting(false);
     }
@@ -282,6 +319,18 @@ export default function ContratoReviewPage() {
             unsentCount={unsentPendingSuggestions.length}
             awaitingResponseCount={awaitingResponseCount}
             reviewJustSent={reviewJustSent}
+            onEdit={(s) => {
+              setEditingClause({
+                suggestionId: s.id,
+                clauseNumber: s.clauseNumber,
+                originalContent: s.originalContent,
+              });
+              setEditForm({
+                suggestedContent: s.suggestedContent,
+                clientNote: s.clientNote ?? "",
+              });
+            }}
+            onDelete={(s) => setDeleteTarget(s)}
           />
         )}
 
@@ -291,10 +340,21 @@ export default function ContratoReviewPage() {
             content={doc.content}
             docStatus={doc.status}
             onSuggestEdit={(clauseNumber, originalContent) => {
-              setEditingClause({ clauseNumber, originalContent });
+              // If there's already a pending suggestion for this clause, open
+              // it in edit mode instead of authoring a duplicate. Preserves
+              // the user's previous draft text when re-clicking "Sugerir
+              // edición" on the same clause.
+              const existing = suggestions.find(
+                (s) => s.status === "pending" && s.clauseNumber === clauseNumber,
+              );
+              setEditingClause({
+                suggestionId: existing?.id ?? null,
+                clauseNumber,
+                originalContent: existing?.originalContent ?? originalContent,
+              });
               setEditForm({
-                suggestedContent: originalContent,
-                clientNote: "",
+                suggestedContent: existing?.suggestedContent ?? originalContent,
+                clientNote: existing?.clientNote ?? "",
               });
             }}
           />
@@ -362,6 +422,7 @@ export default function ContratoReviewPage() {
       {/* Edit suggestion modal */}
       {editingClause && (
         <EditSuggestionModal
+          mode={editingClause.suggestionId ? "edit" : "create"}
           clauseNumber={editingClause.clauseNumber}
           originalContent={editingClause.originalContent}
           suggestedContent={editForm.suggestedContent}
@@ -380,6 +441,16 @@ export default function ContratoReviewPage() {
           submitting={submitting}
           onCancel={() => setShowAcceptConfirm(false)}
           onConfirm={handleAccept}
+        />
+      )}
+
+      {/* Delete suggestion confirmation */}
+      {deleteTarget && (
+        <DeleteConfirmModal
+          clauseNumber={deleteTarget.clauseNumber}
+          submitting={submitting}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => handleDeleteSuggestion(deleteTarget)}
         />
       )}
     </div>
@@ -438,11 +509,15 @@ function SuggestionsPanel({
   unsentCount,
   awaitingResponseCount,
   reviewJustSent,
+  onEdit,
+  onDelete,
 }: {
   suggestions: Suggestion[];
   unsentCount: number;
   awaitingResponseCount: number;
   reviewJustSent: boolean;
+  onEdit: (s: Suggestion) => void;
+  onDelete: (s: Suggestion) => void;
 }) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4 space-y-3">
@@ -469,51 +544,123 @@ function SuggestionsPanel({
           )}
         </div>
       </div>
-      <ul className="space-y-2">
+      <ul className="space-y-3">
         {suggestions.map((s) => (
-          <li
+          <SuggestionCard
             key={s.id}
-            className={`rounded-md border p-2.5 text-xs ${
-              s.status === "pending"
-                ? "border-amber-700/40 bg-amber-950/20"
-                : s.status === "approved"
-                  ? "border-teal-700/40 bg-teal-950/20"
-                  : "border-red-800/40 bg-red-950/20"
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-zinc-200">
-                Cláusula {s.clauseNumber}
-              </span>
-              <span
-                className={
-                  s.status === "pending"
-                    ? "text-amber-300"
-                    : s.status === "approved"
-                      ? "text-teal-300"
-                      : "text-red-300"
-                }
-              >
-                {s.status === "pending"
-                  ? "Pendiente"
-                  : s.status === "approved"
-                    ? "Aprobada"
-                    : "Rechazada"}
-              </span>
-            </div>
-            {s.adminComment && (
-              <p className="mt-1 text-zinc-300">
-                <span className="text-zinc-500">Respuesta:</span> {s.adminComment}
-              </p>
-            )}
-          </li>
+            suggestion={s}
+            onEdit={() => onEdit(s)}
+            onDelete={() => onDelete(s)}
+          />
         ))}
       </ul>
     </div>
   );
 }
 
+function SuggestionCard({
+  suggestion,
+  onEdit,
+  onDelete,
+}: {
+  suggestion: Suggestion;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const s = suggestion;
+  const canMutate = s.status === "pending";
+  return (
+    <li
+      className={`rounded-md border text-xs overflow-hidden ${
+        s.status === "pending"
+          ? "border-amber-700/40 bg-amber-950/20"
+          : s.status === "approved"
+            ? "border-teal-700/40 bg-teal-950/20"
+            : "border-red-800/40 bg-red-950/20"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-white/5">
+        <span className="font-medium text-zinc-200">Cláusula {s.clauseNumber}</span>
+        <span
+          className={
+            s.status === "pending"
+              ? "text-amber-300"
+              : s.status === "approved"
+                ? "text-teal-300"
+                : "text-red-300"
+          }
+        >
+          {s.status === "pending"
+            ? "Pendiente"
+            : s.status === "approved"
+              ? "Aprobada"
+              : "Rechazada"}
+        </span>
+      </div>
+      <div className="px-3 py-2 space-y-2">
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-0.5">
+            Texto original
+          </p>
+          <p className="text-zinc-400 whitespace-pre-wrap line-clamp-4 leading-relaxed">
+            {s.originalContent}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-0.5">
+            Su propuesta
+          </p>
+          <p className="text-zinc-100 whitespace-pre-wrap leading-relaxed">
+            {s.suggestedContent}
+          </p>
+        </div>
+        {s.clientNote && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-0.5">
+              Nota
+            </p>
+            <p className="text-zinc-300 whitespace-pre-wrap italic leading-relaxed">
+              {s.clientNote}
+            </p>
+          </div>
+        )}
+        {s.adminComment && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-0.5">
+              Respuesta del ejecutivo
+            </p>
+            <p className="text-zinc-200 whitespace-pre-wrap leading-relaxed">
+              {s.adminComment}
+            </p>
+          </div>
+        )}
+      </div>
+      {canMutate && (
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-white/5 bg-black/10">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium bg-teal-500/15 hover:bg-teal-500/25 text-teal-200 border border-teal-500/30"
+          >
+            <Pencil className="h-3 w-3" />
+            Editar
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30"
+          >
+            <X className="h-3 w-3" />
+            Eliminar
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
 function EditSuggestionModal({
+  mode,
   clauseNumber,
   originalContent,
   suggestedContent,
@@ -524,6 +671,7 @@ function EditSuggestionModal({
   onCancel,
   onSubmit,
 }: {
+  mode: "create" | "edit";
   clauseNumber: string;
   originalContent: string;
   suggestedContent: string;
@@ -534,13 +682,17 @@ function EditSuggestionModal({
   onCancel: () => void;
   onSubmit: () => void;
 }) {
+  const title =
+    mode === "edit"
+      ? `Editar comentario — Cláusula ${clauseNumber}`
+      : `Sugerir edición — Cláusula ${clauseNumber}`;
+  const submitLabel = mode === "edit" ? "Actualizar comentario" : "Guardar comentario";
+  const submitBusyLabel = mode === "edit" ? "Actualizando..." : "Guardando...";
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
       <div className="bg-zinc-900 border-t sm:border border-zinc-700 w-full sm:max-w-2xl sm:rounded-xl rounded-t-xl max-h-[92vh] overflow-y-auto">
         <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-4 py-3 flex items-center justify-between">
-          <h3 className="text-base font-semibold">
-            Sugerir edición — Cláusula {clauseNumber}
-          </h3>
+          <h3 className="text-base font-semibold">{title}</h3>
           <button
             onClick={onCancel}
             aria-label="Cerrar"
@@ -593,7 +745,59 @@ function EditSuggestionModal({
             ) : (
               <Pencil className="h-4 w-4" />
             )}
-            {submitting ? "Guardando..." : "Guardar comentario"}
+            {submitting ? submitBusyLabel : submitLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteConfirmModal({
+  clauseNumber,
+  submitting,
+  onCancel,
+  onConfirm,
+}: {
+  clauseNumber: string;
+  submitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
+      <div className="bg-zinc-900 border-t sm:border border-zinc-700 w-full sm:max-w-md sm:rounded-xl rounded-t-xl">
+        <div className="px-5 pt-5 pb-3 flex items-start gap-3">
+          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center">
+            <AlertTriangle className="h-5 w-5 text-red-300" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-semibold text-zinc-100">Eliminar comentario</h3>
+            <p className="mt-1 text-sm text-zinc-400">
+              ¿Eliminar el comentario de la cláusula {clauseNumber}? Esta acción no se
+              puede deshacer.
+            </p>
+          </div>
+        </div>
+        <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-2 border-t border-zinc-800">
+          <button
+            onClick={onCancel}
+            disabled={submitting}
+            className="flex-1 px-4 py-2.5 text-sm bg-zinc-800 hover:bg-zinc-700 rounded border border-zinc-700 text-zinc-200 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={submitting}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-red-600 hover:bg-red-500 rounded text-white font-semibold disabled:opacity-50"
+          >
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <X className="h-4 w-4" />
+            )}
+            {submitting ? "Eliminando..." : "Eliminar"}
           </button>
         </div>
       </div>
