@@ -38,6 +38,7 @@ import { toast } from "sonner";
 import type { DocDocument, DocHistory } from "@/types/docs";
 import { useCanDelete } from "@/lib/permissions-context";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
+import { cn } from "@/lib/utils";
 
 interface DocDetailClientProps {
   documentId: string;
@@ -308,44 +309,55 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
 
   const statusConfig = DOC_STATUS_CONFIG[doc.status];
   const isEditable = ["draft", "review"].includes(doc.status);
+  const isSigned = !!(doc.signedAt || doc.signatureStatus === "completed");
+  const pendingSuggestionsCount = suggestions.filter(
+    (s: any) => s.status === "pending",
+  ).length;
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Header — mobile-first: status pill prominent, actions compact */}
       <PageHeader
         backHref="/opai/documentos"
         backLabel="Documentos"
         title={doc.title}
-        description={`${doc.module.toUpperCase()} · ${getCategoryLabel(doc.module, doc.category)}${doc.template ? ` · Template: ${doc.template.name}` : ""}`}
+        description={
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wider border",
+                statusConfig?.color ?? "bg-muted text-muted-foreground border-border",
+              )}
+            >
+              {statusConfig?.label ?? doc.status}
+            </span>
+            {pendingSuggestionsCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-yellow-500/20 text-yellow-700 border border-yellow-500/40">
+                {pendingSuggestionsCount} sugerencia(s) del cliente
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {doc.module.toUpperCase()} · {getCategoryLabel(doc.module, doc.category)}
+              {doc.template ? ` · ${doc.template.name}` : ""}
+            </span>
+          </div>
+        }
         actions={
           <>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => setShowHistory(!showHistory)}
-            >
-              <History className="h-3.5 w-3.5" />
-              Historial
-            </Button>
-            {canDeleteDocument ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1.5 text-destructive"
-                onClick={handleDelete}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            ) : null}
             {isEditable && (
-              <Button size="sm" className="gap-1.5" onClick={handleSave} disabled={saving}>
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={handleSave}
+                disabled={saving}
+                aria-label="Guardar"
+              >
                 {saving ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Save className="h-3.5 w-3.5" />
                 )}
-                Guardar
+                <span className="hidden sm:inline">Guardar</span>
               </Button>
             )}
             <Button
@@ -354,50 +366,75 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
               className="gap-1.5"
               onClick={() => void handleDownloadPdf()}
               disabled={downloadingPdf}
+              aria-label="Descargar PDF"
             >
               {downloadingPdf ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <Download className="h-3.5 w-3.5" />
               )}
-              Descargar PDF
+              <span className="hidden sm:inline">PDF</span>
             </Button>
-            {!(doc.signedAt || doc.signatureStatus === "completed") && (
+            {!isSigned && (
               <>
                 <Button
                   size="sm"
                   variant="outline"
                   className="gap-1.5"
                   onClick={() => setReviewModalOpen(true)}
+                  aria-label="Enviar a revisión"
                 >
                   <Eye className="h-3.5 w-3.5" />
-                  Enviar a revisión
+                  <span className="hidden sm:inline">Revisión</span>
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   className="gap-1.5"
                   onClick={() => setSignatureModalOpen(true)}
+                  aria-label="Enviar a firma"
                 >
                   <FileSignature className="h-3.5 w-3.5" />
-                  Enviar a firma
+                  <span className="hidden sm:inline">Firma</span>
                 </Button>
               </>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setShowHistory(!showHistory)}
+              aria-label="Historial"
+            >
+              <History className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Historial</span>
+            </Button>
+            {canDeleteDocument ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-destructive"
+                onClick={handleDelete}
+                aria-label="Eliminar"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
           </>
         }
       />
 
-      {/* Document info panel */}
-      <div className="flex items-center gap-4 flex-wrap p-4 rounded-lg border border-border bg-card">
+      {/* Document info panel — compact on mobile */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3 sm:p-4 rounded-lg border border-border bg-card">
         {/* Status selector */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs text-muted-foreground">Estado</span>
           <Select
             value={status}
             onValueChange={setStatus}
             disabled={!isEditable && doc.status !== "approved"}
           >
-            <SelectTrigger className="w-full max-w-[160px] h-9 text-sm">
+            <SelectTrigger className="h-8 text-xs w-[140px]">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
             <SelectContent>
@@ -416,20 +453,22 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
         </div>
 
         {/* Dates */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          {doc.effectiveDate && (
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              Inicio: {new Date(doc.effectiveDate).toLocaleDateString("es-CL")}
-            </span>
-          )}
-          {doc.expirationDate && (
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              Vence: {new Date(doc.expirationDate).toLocaleDateString("es-CL")}
-            </span>
-          )}
-        </div>
+        {(doc.effectiveDate || doc.expirationDate) && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {doc.effectiveDate && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Inicio: {new Date(doc.effectiveDate).toLocaleDateString("es-CL")}
+              </span>
+            )}
+            {doc.expirationDate && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Vence: {new Date(doc.expirationDate).toLocaleDateString("es-CL")}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Associations */}
@@ -468,32 +507,38 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
         </div>
       )}
 
-      {/* Contract client portal link */}
+      {/* Contract client portal link — compact mobile */}
       {doc?.contractClientToken && (
-        <div className="flex items-center gap-2 flex-wrap p-3 rounded-lg border border-teal-600/30 bg-teal-950/20">
+        <div className="flex flex-wrap items-center gap-2 p-2.5 sm:p-3 rounded-lg border border-teal-600/30 bg-teal-950/20">
           <FileSignature className="h-4 w-4 text-teal-400 shrink-0" />
-          <span className="text-xs text-teal-300 font-medium">Portal cliente:</span>
-          <code className="text-xs text-teal-400 bg-teal-950/50 px-2 py-0.5 rounded select-all">
-            {typeof window !== "undefined" ? `${window.location.origin}/contrato/${doc.contractClientToken}` : `/contrato/${doc.contractClientToken}`}
+          <span className="text-xs text-teal-300 font-medium shrink-0">
+            Portal cliente
+          </span>
+          <code className="hidden md:inline text-xs text-teal-400 bg-teal-950/50 px-2 py-0.5 rounded select-all truncate max-w-[280px]">
+            {typeof window !== "undefined"
+              ? `${window.location.origin}/contrato/${doc.contractClientToken}`
+              : `/contrato/${doc.contractClientToken}`}
           </code>
-          <button
-            className="text-xs text-teal-400 hover:text-teal-300 underline"
-            onClick={() => {
-              const url = `${window.location.origin}/contrato/${doc.contractClientToken}`;
-              navigator.clipboard.writeText(url);
-              toast.success("Link copiado");
-            }}
-          >
-            Copiar
-          </button>
-          <a
-            href={`/contrato/${doc.contractClientToken}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-teal-400 hover:text-teal-300 underline"
-          >
-            Abrir
-          </a>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              className="text-xs text-teal-400 hover:text-teal-300 underline px-2 py-1"
+              onClick={() => {
+                const url = `${window.location.origin}/contrato/${doc.contractClientToken}`;
+                navigator.clipboard.writeText(url);
+                toast.success("Link copiado");
+              }}
+            >
+              Copiar
+            </button>
+            <a
+              href={`/contrato/${doc.contractClientToken}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-teal-400 hover:text-teal-300 underline px-2 py-1"
+            >
+              Abrir
+            </a>
+          </div>
         </div>
       )}
 

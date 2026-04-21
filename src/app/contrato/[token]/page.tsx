@@ -1,7 +1,18 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
+import {
+  Pencil,
+  Send,
+  CheckCircle2,
+  Clock,
+  FileText,
+  X,
+  AlertTriangle,
+  Loader2,
+  Inbox,
+} from "lucide-react";
 
 interface ContractDocument {
   id: string;
@@ -11,11 +22,13 @@ interface ContractDocument {
   effectiveDate: string | null;
   expirationDate: string | null;
   contractMetadata: {
-    clauseEditability: Record<string, boolean>;
-    adjustmentType: string;
-    hasCCTV: boolean;
-    currency: string;
+    clauseEditability?: Record<string, boolean>;
+    adjustmentType?: string;
+    hasCCTV?: boolean;
+    currency?: string;
+    reviewSubmittedAt?: string;
   } | null;
+  reviewSubmittedAt?: string | null;
 }
 
 interface Suggestion {
@@ -30,6 +43,35 @@ interface Suggestion {
   createdAt: string;
 }
 
+const CLAUSE_ORDINALS = [
+  "PRIMERA",
+  "SEGUNDA",
+  "TERCERA",
+  "CUARTA",
+  "QUINTA",
+  "SEXTA",
+  "SÉPTIMA",
+  "SEPTIMA",
+  "OCTAVA",
+  "NOVENA",
+  "DÉCIMA",
+  "DECIMA",
+  "UNDÉCIMA",
+  "UNDECIMA",
+  "DUODÉCIMA",
+  "DUODECIMA",
+  "DÉCIMA TERCERA",
+  "DECIMA TERCERA",
+  "DÉCIMA CUARTA",
+  "DECIMA CUARTA",
+  "DÉCIMA QUINTA",
+  "DECIMA QUINTA",
+  "DÉCIMA SEXTA",
+  "DECIMA SEXTA",
+];
+
+const CLAUSE_REGEX = new RegExp(`^(${CLAUSE_ORDINALS.join("|")})`, "i");
+
 export default function ContratoReviewPage() {
   const params = useParams();
   const token = params.token as string;
@@ -38,9 +80,14 @@ export default function ContratoReviewPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editingClause, setEditingClause] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ originalContent: "", suggestedContent: "", clientNote: "" });
+  const [editingClause, setEditingClause] = useState<{
+    clauseNumber: string;
+    originalContent: string;
+  } | null>(null);
+  const [editForm, setEditForm] = useState({ suggestedContent: "", clientNote: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [sendingReview, setSendingReview] = useState(false);
+  const [reviewJustSent, setReviewJustSent] = useState(false);
   const [accepted, setAccepted] = useState(false);
 
   const fetchDocument = useCallback(async () => {
@@ -65,15 +112,14 @@ export default function ContratoReviewPage() {
     if (!editingClause || !editForm.suggestedContent.trim()) return;
     setSubmitting(true);
     try {
-      const clauseTitle = editingClause;
       const res = await fetch("/api/portal/cliente/contract-suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contractClientToken: token,
-          clauseNumber: editingClause,
-          clauseTitle,
-          originalContent: editForm.originalContent,
+          clauseNumber: editingClause.clauseNumber,
+          clauseTitle: editingClause.clauseNumber,
+          originalContent: editingClause.originalContent,
           suggestedContent: editForm.suggestedContent,
           clientNote: editForm.clientNote || null,
         }),
@@ -81,17 +127,40 @@ export default function ContratoReviewPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setEditingClause(null);
-      setEditForm({ originalContent: "", suggestedContent: "", clientNote: "" });
+      setEditForm({ suggestedContent: "", clientNote: "" });
+      setReviewJustSent(false);
       fetchDocument();
     } catch (e: any) {
-      alert(e.message || "Error al enviar sugerencia");
+      alert(e.message || "Error al guardar el comentario");
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleSendReview = async () => {
+    setSendingReview(true);
+    try {
+      const res = await fetch(`/api/portal/cliente/contrato/${token}/send-review`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setReviewJustSent(true);
+      fetchDocument();
+    } catch (e: any) {
+      alert(e.message || "Error al enviar la revisión");
+    } finally {
+      setSendingReview(false);
+    }
+  };
+
   const handleAccept = async () => {
-    if (!confirm("¿Confirma que acepta el contrato? Esta acción no se puede deshacer.")) return;
+    if (
+      !confirm(
+        "¿Confirma que acepta el contrato tal como está? Esta acción no se puede deshacer."
+      )
+    )
+      return;
     setSubmitting(true);
     try {
       const res = await fetch(`/api/portal/cliente/contrato/${token}/accept`, {
@@ -108,200 +177,518 @@ export default function ContratoReviewPage() {
     }
   };
 
+  const reviewSubmittedAt = doc?.reviewSubmittedAt ?? null;
+
+  const unsentPendingSuggestions = useMemo(() => {
+    if (!reviewSubmittedAt) {
+      return suggestions.filter((s) => s.status === "pending");
+    }
+    const submittedAt = new Date(reviewSubmittedAt).getTime();
+    return suggestions.filter(
+      (s) => s.status === "pending" && new Date(s.createdAt).getTime() > submittedAt
+    );
+  }, [suggestions, reviewSubmittedAt]);
+
+  const awaitingResponseCount = useMemo(() => {
+    if (!reviewSubmittedAt) return 0;
+    const submittedAt = new Date(reviewSubmittedAt).getTime();
+    return suggestions.filter(
+      (s) => s.status === "pending" && new Date(s.createdAt).getTime() <= submittedAt
+    ).length;
+  }, [suggestions, reviewSubmittedAt]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="text-zinc-400">Cargando contrato...</div>
+        <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
       </div>
     );
   }
 
   if (error || !doc) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="text-red-400">{error || "Contrato no encontrado"}</div>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-6">
+        <div className="flex items-center gap-3 text-red-400">
+          <AlertTriangle className="h-5 w-5" />
+          {error || "Contrato no encontrado"}
+        </div>
       </div>
     );
   }
 
   const pendingSuggestions = suggestions.filter((s) => s.status === "pending");
-  const canAccept = pendingSuggestions.length === 0 && doc.status !== "approved" && doc.status !== "active";
+  const canAccept =
+    pendingSuggestions.length === 0 &&
+    !["approved", "active"].includes(doc.status);
+  const isFinalized = ["approved", "active"].includes(doc.status);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="max-w-4xl mx-auto py-8 px-4">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold mb-2">{doc.title}</h1>
-          <div className="flex items-center gap-3 text-sm text-zinc-400">
-            <span>Estado: <span className="text-teal-400 font-medium">{getStatusLabel(doc.status)}</span></span>
-            {doc.effectiveDate && <span>Vigencia: {formatDate(doc.effectiveDate)} — {formatDate(doc.expirationDate)}</span>}
-          </div>
-          {accepted && (
-            <div className="mt-4 p-3 bg-teal-900/30 border border-teal-700 rounded-lg text-teal-300">
-              Contrato aceptado exitosamente. Recibirá un correo con los pasos siguientes para la firma.
+      {/* Sticky mobile-first header */}
+      <header className="sticky top-0 z-30 bg-zinc-950/95 backdrop-blur border-b border-zinc-800">
+        <div className="max-w-4xl mx-auto px-4 py-3 sm:py-4">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 mt-0.5">
+              <StatusBadge status={doc.status} />
             </div>
-          )}
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-xl font-semibold leading-tight truncate">
+                {doc.title}
+              </h1>
+              {(doc.effectiveDate || doc.expirationDate) && (
+                <p className="text-[11px] sm:text-xs text-zinc-400 mt-0.5">
+                  {doc.effectiveDate && <>Vigencia: {formatDate(doc.effectiveDate)}</>}
+                  {doc.expirationDate && <> — {formatDate(doc.expirationDate)}</>}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
+      </header>
 
-        {/* Suggestions status */}
-        {suggestions.length > 0 && (
-          <div className="mb-6 p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
-            <h3 className="text-sm font-semibold mb-2">Sugerencias de edición</h3>
-            <div className="space-y-2">
-              {suggestions.map((s) => (
-                <div key={s.id} className="flex items-center justify-between text-sm">
-                  <span>Cláusula {s.clauseNumber}</span>
-                  <span className={
-                    s.status === "pending" ? "text-yellow-400" :
-                    s.status === "approved" ? "text-green-400" : "text-red-400"
-                  }>
-                    {s.status === "pending" ? "Pendiente" : s.status === "approved" ? "Aprobada" : "Rechazada"}
-                    {s.adminComment && ` — ${s.adminComment}`}
-                  </span>
-                </div>
-              ))}
+      <main className="max-w-4xl mx-auto px-4 py-4 sm:py-6 space-y-4 pb-40">
+        {/* Acceptance banner */}
+        {accepted && (
+          <div className="p-4 bg-teal-900/30 border border-teal-700 rounded-lg text-teal-200 text-sm flex items-start gap-2">
+            <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
+            <div>
+              Contrato aceptado. Recibirá un correo con los pasos siguientes para la firma.
             </div>
           </div>
         )}
 
-        {/* Contract content rendered as clauses */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
+        {/* Onboarding help (only while draft, no suggestions yet) */}
+        {!isFinalized && suggestions.length === 0 && !accepted && (
+          <div className="p-4 rounded-lg border border-teal-600/40 bg-teal-950/30 text-sm text-teal-100 flex items-start gap-3">
+            <Pencil className="h-4 w-4 shrink-0 mt-0.5 text-teal-300" />
+            <div className="space-y-1">
+              <p className="font-medium">¿Necesita cambios?</p>
+              <p className="text-teal-200/80 text-xs leading-relaxed">
+                Toque el botón{" "}
+                <span className="inline-flex items-center gap-1 bg-teal-500/20 text-teal-200 px-1.5 py-0.5 rounded text-[10px] font-semibold align-middle">
+                  <Pencil className="h-2.5 w-2.5" /> Sugerir edición
+                </span>{" "}
+                junto a cualquier cláusula. Cuando termine, presione{" "}
+                <strong>Enviar revisión</strong> al final para que la empresa reciba
+                todos sus comentarios juntos.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Suggestions summary */}
+        {suggestions.length > 0 && (
+          <SuggestionsPanel
+            suggestions={suggestions}
+            unsentCount={unsentPendingSuggestions.length}
+            awaitingResponseCount={awaitingResponseCount}
+            reviewJustSent={reviewJustSent}
+          />
+        )}
+
+        {/* Contract body */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 sm:p-6">
           <ContractContent
             content={doc.content}
-            clauseEditability={doc.contractMetadata?.clauseEditability ?? {}}
-            onSuggestEdit={(clauseNumber, originalContent) => {
-              setEditingClause(clauseNumber);
-              setEditForm({ originalContent, suggestedContent: originalContent, clientNote: "" });
-            }}
             docStatus={doc.status}
+            onSuggestEdit={(clauseNumber, originalContent) => {
+              setEditingClause({ clauseNumber, originalContent });
+              setEditForm({
+                suggestedContent: originalContent,
+                clientNote: "",
+              });
+            }}
           />
         </div>
 
-        {/* Edit suggestion modal */}
-        {editingClause && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-            <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-              <h3 className="text-lg font-semibold mb-4">Sugerir edición — Cláusula {editingClause}</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm text-zinc-400 block mb-1">Texto original</label>
-                  <div className="text-sm bg-zinc-800 p-3 rounded border border-zinc-700 max-h-40 overflow-y-auto">
-                    {editForm.originalContent}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm text-zinc-400 block mb-1">Su propuesta</label>
-                  <textarea
-                    value={editForm.suggestedContent}
-                    onChange={(e) => setEditForm((f) => ({ ...f, suggestedContent: e.target.value }))}
-                    className="w-full h-40 bg-zinc-800 border border-zinc-700 rounded p-3 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-zinc-400 block mb-1">Nota (opcional)</label>
-                  <textarea
-                    value={editForm.clientNote}
-                    onChange={(e) => setEditForm((f) => ({ ...f, clientNote: e.target.value }))}
-                    placeholder="Explique brevemente el motivo de la modificación..."
-                    className="w-full h-20 bg-zinc-800 border border-zinc-700 rounded p-3 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                  />
-                </div>
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => setEditingClause(null)}
-                    className="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 rounded border border-zinc-700"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleSuggest}
-                    disabled={submitting || !editForm.suggestedContent.trim()}
-                    className="px-4 py-2 text-sm bg-teal-600 hover:bg-teal-500 rounded text-white disabled:opacity-50"
-                  >
-                    {submitting ? "Enviando..." : "Enviar sugerencia"}
-                  </button>
-                </div>
+        {pendingSuggestions.length > 0 && (
+          <p className="text-center text-xs text-amber-300/80 px-2">
+            Tiene {pendingSuggestions.length} sugerencia(s) en revisión. Podrá aceptar el
+            contrato una vez que el ejecutivo las resuelva.
+          </p>
+        )}
+      </main>
+
+      {/* Sticky bottom action bar */}
+      {!isFinalized && !accepted && (
+        <div className="fixed bottom-0 inset-x-0 z-30 bg-zinc-950/95 backdrop-blur border-t border-zinc-800">
+          <div className="max-w-4xl mx-auto px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            {unsentPendingSuggestions.length > 0 ? (
+              <button
+                onClick={handleSendReview}
+                disabled={sendingReview}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-semibold text-base disabled:opacity-50 active:scale-[0.99] transition-transform"
+              >
+                {sendingReview ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
+                {sendingReview
+                  ? "Enviando..."
+                  : `Enviar revisión (${unsentPendingSuggestions.length} ${
+                      unsentPendingSuggestions.length === 1 ? "cambio" : "cambios"
+                    })`}
+              </button>
+            ) : awaitingResponseCount > 0 ? (
+              <div className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-zinc-800/80 text-zinc-300 rounded-lg font-medium text-sm">
+                <Inbox className="h-4 w-4 text-amber-300" />
+                Esperando respuesta del ejecutivo ({awaitingResponseCount} en revisión)
               </div>
+            ) : canAccept ? (
+              <button
+                onClick={handleAccept}
+                disabled={submitting}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-semibold text-base disabled:opacity-50 active:scale-[0.99] transition-transform"
+              >
+                {submitting ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-5 w-5" />
+                )}
+                {submitting ? "Procesando..." : "Aceptar contrato"}
+              </button>
+            ) : null}
+
+            {/* Helper line */}
+            {unsentPendingSuggestions.length === 0 && canAccept && (
+              <p className="text-[11px] text-zinc-500 text-center mt-2">
+                O sugiera cambios tocando cualquier cláusula editable.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit suggestion modal */}
+      {editingClause && (
+        <EditSuggestionModal
+          clauseNumber={editingClause.clauseNumber}
+          originalContent={editingClause.originalContent}
+          suggestedContent={editForm.suggestedContent}
+          clientNote={editForm.clientNote}
+          submitting={submitting}
+          onChangeSuggested={(v) => setEditForm((f) => ({ ...f, suggestedContent: v }))}
+          onChangeNote={(v) => setEditForm((f) => ({ ...f, clientNote: v }))}
+          onCancel={() => setEditingClause(null)}
+          onSubmit={handleSuggest}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<
+    string,
+    { label: string; bg: string; text: string; border: string; icon: React.ReactNode }
+  > = {
+    draft: {
+      label: "Borrador",
+      bg: "bg-zinc-800",
+      text: "text-zinc-100",
+      border: "border-zinc-600",
+      icon: <FileText className="h-3 w-3" />,
+    },
+    review: {
+      label: "En revisión",
+      bg: "bg-amber-500/20",
+      text: "text-amber-200",
+      border: "border-amber-500/40",
+      icon: <Clock className="h-3 w-3" />,
+    },
+    approved: {
+      label: "Aprobado",
+      bg: "bg-teal-500/20",
+      text: "text-teal-200",
+      border: "border-teal-500/40",
+      icon: <CheckCircle2 className="h-3 w-3" />,
+    },
+    active: {
+      label: "Activo",
+      bg: "bg-teal-500/20",
+      text: "text-teal-200",
+      border: "border-teal-500/40",
+      icon: <CheckCircle2 className="h-3 w-3" />,
+    },
+  };
+  const cfg = map[status] ?? map.draft;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[10px] font-semibold uppercase tracking-wider ${cfg.bg} ${cfg.text} ${cfg.border}`}
+    >
+      {cfg.icon}
+      {cfg.label}
+    </span>
+  );
+}
+
+function SuggestionsPanel({
+  suggestions,
+  unsentCount,
+  awaitingResponseCount,
+  reviewJustSent,
+}: {
+  suggestions: Suggestion[];
+  unsentCount: number;
+  awaitingResponseCount: number;
+  reviewJustSent: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Pencil className="h-4 w-4 text-teal-300" />
+          Mis comentarios
+        </h3>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {unsentCount > 0 && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-500/20 text-teal-200 border border-teal-500/30">
+              {unsentCount} por enviar
+            </span>
+          )}
+          {awaitingResponseCount > 0 && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-500/20 text-amber-200 border border-amber-500/30">
+              {awaitingResponseCount} esperando
+            </span>
+          )}
+          {reviewJustSent && unsentCount === 0 && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-500/20 text-teal-200 border border-teal-500/30">
+              Enviado ✓
+            </span>
+          )}
+        </div>
+      </div>
+      <ul className="space-y-2">
+        {suggestions.map((s) => (
+          <li
+            key={s.id}
+            className={`rounded-md border p-2.5 text-xs ${
+              s.status === "pending"
+                ? "border-amber-700/40 bg-amber-950/20"
+                : s.status === "approved"
+                  ? "border-teal-700/40 bg-teal-950/20"
+                  : "border-red-800/40 bg-red-950/20"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-zinc-200">
+                Cláusula {s.clauseNumber}
+              </span>
+              <span
+                className={
+                  s.status === "pending"
+                    ? "text-amber-300"
+                    : s.status === "approved"
+                      ? "text-teal-300"
+                      : "text-red-300"
+                }
+              >
+                {s.status === "pending"
+                  ? "Pendiente"
+                  : s.status === "approved"
+                    ? "Aprobada"
+                    : "Rechazada"}
+              </span>
+            </div>
+            {s.adminComment && (
+              <p className="mt-1 text-zinc-300">
+                <span className="text-zinc-500">Respuesta:</span> {s.adminComment}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function EditSuggestionModal({
+  clauseNumber,
+  originalContent,
+  suggestedContent,
+  clientNote,
+  submitting,
+  onChangeSuggested,
+  onChangeNote,
+  onCancel,
+  onSubmit,
+}: {
+  clauseNumber: string;
+  originalContent: string;
+  suggestedContent: string;
+  clientNote: string;
+  submitting: boolean;
+  onChangeSuggested: (v: string) => void;
+  onChangeNote: (v: string) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
+      <div className="bg-zinc-900 border-t sm:border border-zinc-700 w-full sm:max-w-2xl sm:rounded-xl rounded-t-xl max-h-[92vh] overflow-y-auto">
+        <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-4 py-3 flex items-center justify-between">
+          <h3 className="text-base font-semibold">
+            Sugerir edición — Cláusula {clauseNumber}
+          </h3>
+          <button
+            onClick={onCancel}
+            aria-label="Cerrar"
+            className="p-2 -m-2 text-zinc-400 hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div>
+            <label className="text-xs text-zinc-400 block mb-1.5">Texto original</label>
+            <div className="text-sm bg-zinc-800 p-3 rounded border border-zinc-700 max-h-36 overflow-y-auto whitespace-pre-wrap text-zinc-300">
+              {originalContent}
             </div>
           </div>
-        )}
-
-        {/* Accept button */}
-        {canAccept && !accepted && (
-          <div className="flex justify-center">
-            <button
-              onClick={handleAccept}
-              disabled={submitting}
-              className="px-8 py-3 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-lg text-lg disabled:opacity-50"
-            >
-              {submitting ? "Procesando..." : "Aceptar Contrato"}
-            </button>
+          <div>
+            <label className="text-xs text-zinc-400 block mb-1.5">Su propuesta</label>
+            <textarea
+              value={suggestedContent}
+              onChange={(e) => onChangeSuggested(e.target.value)}
+              className="w-full h-40 sm:h-44 bg-zinc-800 border border-zinc-700 rounded p-3 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-teal-500 resize-y"
+            />
           </div>
-        )}
-
-        {pendingSuggestions.length > 0 && (
-          <div className="text-center text-sm text-yellow-400 mt-4">
-            Tiene {pendingSuggestions.length} sugerencia(s) pendiente(s) de revisión. Podrá aceptar el contrato una vez resueltas.
+          <div>
+            <label className="text-xs text-zinc-400 block mb-1.5">
+              Nota (opcional)
+            </label>
+            <textarea
+              value={clientNote}
+              onChange={(e) => onChangeNote(e.target.value)}
+              placeholder="Explique brevemente el motivo de la modificación..."
+              className="w-full h-20 bg-zinc-800 border border-zinc-700 rounded p-3 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-teal-500 resize-y"
+            />
           </div>
-        )}
+        </div>
+        <div className="sticky bottom-0 bg-zinc-900 border-t border-zinc-800 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 sm:flex-none px-4 py-2.5 text-sm bg-zinc-800 hover:bg-zinc-700 rounded border border-zinc-700 text-zinc-200"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onSubmit}
+            disabled={submitting || !suggestedContent.trim()}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-teal-600 hover:bg-teal-500 rounded text-white font-medium disabled:opacity-50"
+          >
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Pencil className="h-4 w-4" />
+            )}
+            {submitting ? "Guardando..." : "Guardar comentario"}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-/** Render contract content, with edit buttons on editable clauses */
+/** Render contract content grouped by clause; Sugerir edición button visible
+ * next to each clause title on every viewport (no hover required). */
 function ContractContent({
   content,
-  clauseEditability,
   onSuggestEdit,
   docStatus,
 }: {
   content: any;
-  clauseEditability: Record<string, boolean>;
   onSuggestEdit: (clauseNumber: string, originalContent: string) => void;
   docStatus: string;
 }) {
   if (!content || !content.content) return null;
-
   const nodes = content.content as any[];
-  const elements: React.ReactNode[] = [];
-  let currentClause: string | null = null;
+  const canEdit = ["draft", "review"].includes(docStatus);
 
-  for (let i = 0; i < nodes.length; i++) {
-    const node = nodes[i];
-    const text = getNodeText(node);
+  // Group nodes into [preamble, clause1, clause2, ...] based on headings whose
+  // text starts with a Spanish ordinal.
+  type Section =
+    | { kind: "preamble"; nodes: any[] }
+    | { kind: "clause"; clauseNumber: string; heading: any; nodes: any[] };
 
-    // Detect clause headings
-    if (node.type === "heading") {
-      const clauseMatch = text.match(/^(PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|SÉPTIMA|OCTAVA|NOVENA|DÉCIMA|UNDÉCIMA|DUODÉCIMA|DÉCIMA TERCERA|DÉCIMA CUARTA|DÉCIMA QUINTA|DÉCIMA SEXTA)/);
-      if (clauseMatch) {
-        currentClause = clauseMatch[1];
+  const sections: Section[] = [];
+  let current: Section | null = null;
+
+  for (const node of nodes) {
+    if (node?.type === "heading") {
+      const text = getNodeText(node).trim();
+      const match = text.match(CLAUSE_REGEX);
+      if (match) {
+        if (current) sections.push(current);
+        current = {
+          kind: "clause",
+          clauseNumber: match[1].toUpperCase(),
+          heading: node,
+          nodes: [],
+        };
+        continue;
       }
     }
-
-    const isEditable = currentClause && clauseEditability[currentClause] === true;
-    const canEdit = isEditable && ["draft", "review"].includes(docStatus);
-
-    elements.push(
-      <div key={i} className="relative group">
-        <TiptapNodeRender node={node} />
-        {canEdit && node.type === "paragraph" && text.trim().length > 20 && (
-          <button
-            onClick={() => onSuggestEdit(currentClause!, text)}
-            className="absolute -right-2 top-0 opacity-0 group-hover:opacity-100 transition-opacity text-xs bg-teal-600 hover:bg-teal-500 text-white px-2 py-1 rounded"
-          >
-            Editar
-          </button>
-        )}
-      </div>
-    );
+    if (!current) {
+      current = { kind: "preamble", nodes: [] };
+    }
+    current.nodes.push(node);
   }
+  if (current) sections.push(current);
 
-  return <div className="prose prose-invert prose-sm max-w-none">{elements}</div>;
+  return (
+    <div className="prose prose-invert prose-sm max-w-none">
+      {sections.map((section, i) => {
+        if (section.kind === "preamble") {
+          return (
+            <div key={`pre-${i}`}>
+              {section.nodes.map((n, j) => (
+                <TiptapNodeRender key={j} node={n} />
+              ))}
+            </div>
+          );
+        }
+        const bodyText = section.nodes.map(getNodeText).join("\n\n").trim();
+        return (
+          <section key={`c-${i}`} className="not-prose mt-6 first:mt-0">
+            <div className="flex items-start sm:items-center gap-2 flex-wrap mb-2">
+              <TiptapHeading node={section.heading} />
+              {canEdit && bodyText.length > 0 && (
+                <button
+                  onClick={() => onSuggestEdit(section.clauseNumber, bodyText)}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-teal-500/15 text-teal-200 hover:bg-teal-500/25 active:bg-teal-500/30 border border-teal-500/30 text-[11px] font-semibold min-h-[32px]"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Sugerir edición
+                </button>
+              )}
+            </div>
+            <div className="prose prose-invert prose-sm max-w-none">
+              {section.nodes.map((n, j) => (
+                <TiptapNodeRender key={j} node={n} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
 }
 
-/** Minimal Tiptap node renderer */
+function TiptapHeading({ node }: { node: any }) {
+  const children = (node.content ?? []).map((child: any, i: number) => (
+    <TiptapNodeRender key={i} node={child} />
+  ));
+  const level = node.attrs?.level ?? 2;
+  const cls = "font-bold text-zinc-100 m-0";
+  if (level === 1) return <h1 className={`${cls} text-lg`}>{children}</h1>;
+  if (level === 3) return <h3 className={`${cls} text-sm`}>{children}</h3>;
+  return <h2 className={`${cls} text-base`}>{children}</h2>;
+}
+
 function TiptapNodeRender({ node }: { node: any }) {
   if (!node) return null;
 
@@ -319,7 +706,7 @@ function TiptapNodeRender({ node }: { node: any }) {
 
   if (node.type === "paragraph") {
     return (
-      <p className="mb-3 leading-relaxed">
+      <p className="mb-3 leading-relaxed text-zinc-200">
         {(node.content ?? []).map((child: any, i: number) => (
           <TiptapNodeRender key={i} node={child} />
         ))}
@@ -328,14 +715,7 @@ function TiptapNodeRender({ node }: { node: any }) {
   }
 
   if (node.type === "heading") {
-    const level = node.attrs?.level ?? 2;
-    const children = (node.content ?? []).map((child: any, i: number) => (
-      <TiptapNodeRender key={i} node={child} />
-    ));
-    const cls = "font-bold mt-6 mb-3";
-    if (level === 1) return <h1 className={cls}>{children}</h1>;
-    if (level === 3) return <h3 className={cls}>{children}</h3>;
-    return <h2 className={cls}>{children}</h2>;
+    return <TiptapHeading node={node} />;
   }
 
   if (node.type === "horizontalRule") {
@@ -346,7 +726,6 @@ function TiptapNodeRender({ node }: { node: any }) {
     return <br />;
   }
 
-  // Fallback for other node types
   if (node.content) {
     return (
       <div>
@@ -367,16 +746,6 @@ function getNodeText(node: any): string {
     return node.content.map(getNodeText).join("");
   }
   return "";
-}
-
-function getStatusLabel(status: string): string {
-  const map: Record<string, string> = {
-    draft: "Borrador",
-    review: "En Revisión",
-    approved: "Aprobado",
-    active: "Activo",
-  };
-  return map[status] ?? status;
 }
 
 function formatDate(date: string | null | undefined): string {
