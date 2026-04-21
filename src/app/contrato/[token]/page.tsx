@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
+import { toast } from "sonner";
 import {
   Pencil,
   Send,
@@ -89,6 +90,7 @@ export default function ContratoReviewPage() {
   const [sendingReview, setSendingReview] = useState(false);
   const [reviewJustSent, setReviewJustSent] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [showAcceptConfirm, setShowAcceptConfirm] = useState(false);
 
   const fetchDocument = useCallback(async () => {
     try {
@@ -129,9 +131,10 @@ export default function ContratoReviewPage() {
       setEditingClause(null);
       setEditForm({ suggestedContent: "", clientNote: "" });
       setReviewJustSent(false);
+      toast.success("Sugerencia guardada");
       fetchDocument();
     } catch (e: any) {
-      alert(e.message || "Error al guardar el comentario");
+      toast.error(e.message || "Error al guardar el comentario");
     } finally {
       setSubmitting(false);
     }
@@ -146,21 +149,17 @@ export default function ContratoReviewPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setReviewJustSent(true);
+      toast.success("Revisión enviada");
       fetchDocument();
     } catch (e: any) {
-      alert(e.message || "Error al enviar la revisión");
+      toast.error(e.message || "Error al enviar la revisión");
     } finally {
       setSendingReview(false);
     }
   };
 
   const handleAccept = async () => {
-    if (
-      !confirm(
-        "¿Confirma que acepta el contrato tal como está? Esta acción no se puede deshacer."
-      )
-    )
-      return;
+    setShowAcceptConfirm(false);
     setSubmitting(true);
     try {
       const res = await fetch(`/api/portal/cliente/contrato/${token}/accept`, {
@@ -171,7 +170,7 @@ export default function ContratoReviewPage() {
       setAccepted(true);
       fetchDocument();
     } catch (e: any) {
-      alert(e.message || "Error al aceptar contrato");
+      toast.error(e.message || "Error al aceptar contrato");
     } finally {
       setSubmitting(false);
     }
@@ -337,7 +336,7 @@ export default function ContratoReviewPage() {
               </div>
             ) : canAccept ? (
               <button
-                onClick={handleAccept}
+                onClick={() => setShowAcceptConfirm(true)}
                 disabled={submitting}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-semibold text-base disabled:opacity-50 active:scale-[0.99] transition-transform"
               >
@@ -372,6 +371,15 @@ export default function ContratoReviewPage() {
           onChangeNote={(v) => setEditForm((f) => ({ ...f, clientNote: v }))}
           onCancel={() => setEditingClause(null)}
           onSubmit={handleSuggest}
+        />
+      )}
+
+      {/* Accept contract confirmation (replaces native confirm()) */}
+      {showAcceptConfirm && (
+        <AcceptConfirmModal
+          submitting={submitting}
+          onCancel={() => setShowAcceptConfirm(false)}
+          onConfirm={handleAccept}
         />
       )}
     </div>
@@ -586,6 +594,56 @@ function EditSuggestionModal({
               <Pencil className="h-4 w-4" />
             )}
             {submitting ? "Guardando..." : "Guardar comentario"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AcceptConfirmModal({
+  submitting,
+  onCancel,
+  onConfirm,
+}: {
+  submitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
+      <div className="bg-zinc-900 border-t sm:border border-zinc-700 w-full sm:max-w-md sm:rounded-xl rounded-t-xl">
+        <div className="px-5 pt-5 pb-3 flex items-start gap-3">
+          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-teal-500/15 border border-teal-500/30 flex items-center justify-center">
+            <CheckCircle2 className="h-5 w-5 text-teal-300" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-semibold text-zinc-100">Aceptar contrato</h3>
+            <p className="mt-1 text-sm text-zinc-400">
+              ¿Confirma que acepta el contrato tal como está? Esta acción no se puede
+              deshacer.
+            </p>
+          </div>
+        </div>
+        <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-2 border-t border-zinc-800">
+          <button
+            onClick={onCancel}
+            disabled={submitting}
+            className="flex-1 px-4 py-2.5 text-sm bg-zinc-800 hover:bg-zinc-700 rounded border border-zinc-700 text-zinc-200 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={submitting}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm bg-teal-600 hover:bg-teal-500 rounded text-white font-semibold disabled:opacity-50"
+          >
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
+            {submitting ? "Procesando..." : "Aceptar"}
           </button>
         </div>
       </div>

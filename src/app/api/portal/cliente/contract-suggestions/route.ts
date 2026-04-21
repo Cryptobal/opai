@@ -86,12 +86,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate document status allows suggestions
+    // Validate document status allows suggestions.
+    // "in_review" is the status set by POST /api/docs/documents/[id]/send-review
+    // when the company pushes a draft to the client for review — the whole
+    // point of that flow is to let the client send back suggestions, so it
+    // must be accepted here. "review" is the legacy alias.
     const doc = await prisma.document.findUnique({
       where: { id: documentId },
       select: { status: true, contractMetadata: true },
     });
-    if (doc && !["draft", "review"].includes(doc.status)) {
+    if (doc && !["draft", "review", "in_review"].includes(doc.status)) {
       return NextResponse.json(
         { success: false, error: "El documento no acepta sugerencias en su estado actual" },
         { status: 400 }
