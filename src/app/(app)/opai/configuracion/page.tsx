@@ -24,16 +24,16 @@ const CONFIG_SECTIONS: ConfigSection[] = [
     key: "general",
     title: "General",
     items: [
-      { submodule: "usuarios", href: "/opai/configuracion/empresa", title: "Datos de la Empresa", description: "Razón social, RUT, dirección, representante legal", icon: "building", adminOnly: true },
+      { submodule: "empresa", href: "/opai/configuracion/empresa", title: "Datos de la Empresa", description: "Razón social, RUT, dirección, representante legal", icon: "building", adminOnly: true },
       { submodule: "usuarios", href: "/opai/configuracion/usuarios", title: "Usuarios", description: "Gestión de usuarios y asignación de roles", icon: "users" },
-      { submodule: "usuarios", href: "/opai/configuracion/roles", title: "Roles y Permisos", description: "Configurar permisos por módulo y submódulo", icon: "shield-check", adminOnly: true },
+      { submodule: "roles", href: "/opai/configuracion/roles", title: "Roles y Permisos", description: "Configurar permisos por módulo y submódulo", icon: "shield-check", adminOnly: true },
       { submodule: "grupos", href: "/opai/configuracion/grupos", title: "Grupos", description: "Grupos organizacionales para cadenas de aprobación", icon: "users" },
       { submodule: "integraciones", href: "/opai/configuracion/integraciones", title: "Integraciones", description: "Gmail y conectores externos", icon: "plug" },
       { submodule: "notificaciones", href: "/opai/configuracion/notificaciones", title: "Notificaciones", description: "Parámetros globales", icon: "bell" },
-      { submodule: "notificaciones", href: "/opai/configuracion/asistente-ia", title: "Asistente IA", description: "Control de roles, acceso y alcance del chat", icon: "bot", adminOnly: true },
-      { submodule: "usuarios", href: "/opai/configuracion/auditoria", title: "Auditoría", description: "Registro de acciones y cambios por usuario", icon: "clipboard-check", adminOnly: true },
-      { submodule: "usuarios", href: "/opai/configuracion/documentos-operacionales", title: "Documentos Operacionales", description: "OS10, seguros, documentos por instalación, guardias", icon: "file-text", adminOnly: true },
-      { submodule: "usuarios", href: "/opai/configuracion/mi-plan", title: "Mi Plan", description: "Plan actual, módulos, add-ons y solicitar upgrade", icon: "credit-card", adminOnly: true },
+      { submodule: "asistente_ia", href: "/opai/configuracion/asistente-ia", title: "Asistente IA", description: "Control de roles, acceso y alcance del chat", icon: "bot", adminOnly: true },
+      { submodule: "auditoria", href: "/opai/configuracion/auditoria", title: "Auditoría", description: "Registro de acciones y cambios por usuario", icon: "clipboard-check", adminOnly: true },
+      { submodule: "documentos_operacionales", href: "/opai/configuracion/documentos-operacionales", title: "Documentos Operacionales", description: "OS10, seguros, documentos por instalación, guardias", icon: "file-text", adminOnly: true },
+      { submodule: "mi_plan", href: "/opai/configuracion/mi-plan", title: "Mi Plan", description: "Plan actual, módulos, add-ons y solicitar upgrade", icon: "credit-card", adminOnly: true },
     ],
   },
   {
@@ -48,7 +48,7 @@ const CONFIG_SECTIONS: ConfigSection[] = [
     key: "compliance",
     title: "Compliance",
     items: [
-      { submodule: "usuarios", href: "/opai/configuracion/cumplimiento", title: "Cumplimiento (Ley 21.719)", description: "Contacto del DPO y estado del DPA", icon: "shield-check", adminOnly: true },
+      { submodule: "cumplimiento", href: "/opai/configuracion/cumplimiento", title: "Cumplimiento (Ley 21.719)", description: "Contacto del DPO y estado del DPA", icon: "shield-check", adminOnly: true },
     ],
   },
   {
