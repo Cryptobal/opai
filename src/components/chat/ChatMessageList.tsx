@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ArrowDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatMessageData } from "@/lib/chat-types";
 import { ChatMessage } from "./ChatMessage";
@@ -19,6 +19,10 @@ interface ChatMessageListProps {
   onOpenThread?: (messageId: string) => void;
   onEdit?: (messageId: string, content: string) => void;
   onDelete?: (messageId: string) => void;
+  /** Retry a previously-failed optimistic message (tempId) */
+  onRetry?: (messageId: string) => void;
+  /** Discard a failed optimistic message */
+  onDiscard?: (messageId: string) => void;
   channelId?: string;
   currentUserId?: string;
   getReadByCount?: (message: ChatMessageData) => number;
@@ -80,6 +84,8 @@ export function ChatMessageList({
   onOpenThread,
   onEdit,
   onDelete,
+  onRetry,
+  onDiscard,
   channelId,
   currentUserId,
   getReadByCount,
@@ -92,6 +98,8 @@ export function ChatMessageList({
   const prevMessageCountRef = useRef(messages.length);
   const prevScrollHeightRef = useRef(0);
   const isLoadingMoreRef = useRef(false);
+  // Count of messages that arrived while scrolled up — shown in jump-to-latest pill
+  const [unseenCount, setUnseenCount] = useState(0);
 
   // Track scroll position (throttled via rAF to reduce re-renders during scroll)
   const scrollThrottleRef = useRef<number | null>(null);
@@ -126,7 +134,8 @@ export function ChatMessageList({
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    const messageCountChanged = messages.length !== prevMessageCountRef.current;
+    const prevCount = prevMessageCountRef.current;
+    const messageCountChanged = messages.length !== prevCount;
     prevMessageCountRef.current = messages.length;
 
     if (!messageCountChanged) return;
@@ -145,8 +154,22 @@ export function ChatMessageList({
     // Auto-scroll to bottom for new messages (auto = instant, avoids jank on mobile)
     if (isNearBottom) {
       bottomRef.current?.scrollIntoView({ behavior: "auto" });
+      setUnseenCount(0);
+    } else if (messages.length > prevCount) {
+      // New messages arrived while user is scrolled up — bump the pill counter
+      setUnseenCount((n) => n + (messages.length - prevCount));
     }
   }, [messages.length, isNearBottom]);
+
+  // Reset unseen counter the moment user scrolls back to the bottom
+  useEffect(() => {
+    if (isNearBottom && unseenCount > 0) setUnseenCount(0);
+  }, [isNearBottom, unseenCount]);
+
+  const scrollToLatest = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    setUnseenCount(0);
+  }, []);
 
   // Initial scroll to bottom
   useEffect(() => {
@@ -181,10 +204,11 @@ export function ChatMessageList({
     msg.senderId === "current-user" || (currentUserId ? msg.senderId === currentUserId : false);
 
   return (
+    <div className="relative flex-1 min-h-0">
     <div
       ref={scrollContainerRef}
       onScroll={handleScroll}
-      className="flex-1 min-h-0 overflow-y-auto px-4 py-3"
+      className="absolute inset-0 overflow-y-auto px-4 py-3"
     >
       {/* Loading spinner for older messages */}
       {isLoading && hasMore && messages.length > 0 && (
@@ -247,6 +271,8 @@ export function ChatMessageList({
                 onOpenThread={onOpenThread}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onRetry={onRetry}
+                onDiscard={onDiscard}
                 channelId={channelId}
                 currentUserId={currentUserId}
                 readByCount={getReadByCount?.(msg)}
@@ -260,6 +286,33 @@ export function ChatMessageList({
 
       {/* Anchor for auto-scrolling */}
       <div ref={bottomRef} />
+    </div>
+
+    {/* Jump-to-latest pill (visible when user has scrolled up) */}
+    {!isNearBottom && messages.length > 0 && (
+      <button
+        type="button"
+        onClick={scrollToLatest}
+        className={cn(
+          "absolute left-1/2 -translate-x-1/2 bottom-3 z-10",
+          "inline-flex items-center gap-1.5 rounded-full",
+          "border border-white/[0.08] bg-[#111827]/95 backdrop-blur",
+          "px-3 py-1.5 text-xs font-medium text-zinc-200",
+          "shadow-lg shadow-black/40 transition-all",
+          "hover:bg-[#1a2234] active:scale-95"
+        )}
+        aria-label={unseenCount > 0 ? `${unseenCount} mensajes nuevos` : "Ir al último mensaje"}
+      >
+        <ArrowDown className="h-3.5 w-3.5" />
+        {unseenCount > 0 ? (
+          <>
+            {unseenCount} nuevo{unseenCount === 1 ? "" : "s"}
+          </>
+        ) : (
+          <>Ir abajo</>
+        )}
+      </button>
+    )}
     </div>
   );
 }

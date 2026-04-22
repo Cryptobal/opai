@@ -85,6 +85,13 @@ export type ChatMessageData = {
   systemEventData: Record<string, unknown> | null;
   isEdited: boolean;
   createdAt: string;
+  /**
+   * Delivery status for optimistic messages. Set client-side only.
+   * - "sending": request in flight
+   * - "failed": request failed / aborted; user can retry
+   * - undefined: server-confirmed message
+   */
+  sendStatus?: "sending" | "failed";
 };
 
 // ── Pusher Events ──
