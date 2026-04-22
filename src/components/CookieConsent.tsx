@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 
 const CONSENT_KEY = "opai-cookie-consent";
@@ -81,9 +82,9 @@ export function CookieConsentBanner() {
       <p style={{ maxWidth: "700px", margin: 0, lineHeight: 1.5 }}>
         Usamos cookies de análisis (Google Analytics) para mejorar tu experiencia.
         Puedes aceptar o rechazar su uso. Más info en nuestra{" "}
-        <a href="/privacidad" style={{ color: "#60a5fa", textDecoration: "underline" }}>
+        <Link href="/privacidad" style={{ color: "#60a5fa", textDecoration: "underline" }}>
           Política de Privacidad
-        </a>
+        </Link>
         .
       </p>
       <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>

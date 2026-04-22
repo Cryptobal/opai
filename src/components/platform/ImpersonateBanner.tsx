@@ -1,9 +1,13 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+
 export function ImpersonateBanner() {
+  const router = useRouter();
   const handleExit = async () => {
     await fetch('/api/platform/impersonate', { method: 'DELETE' });
-    window.location.href = '/platform/dashboard';
+    router.push('/platform/dashboard');
+    router.refresh();
   };
 
   return (

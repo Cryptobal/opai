@@ -1,4 +1,4 @@
-const CACHE_NAME = 'opai-v3';
+const CACHE_NAME = 'opai-v4';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [
@@ -78,18 +78,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation: network-first with offline fallback
+  // Navigation: network-first with a 3s timeout fallback.
+  // iOS PWA can bail out of standalone mode if a navigation hangs, so we
+  // proactively fall back to cache rather than letting the request stall.
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(() =>
+    event.respondWith((async () => {
+      const cacheFallback = () =>
         caches.match(request).then((cached) => {
           if (cached) return cached;
           return caches.match(OFFLINE_URL).then((offline) =>
             offline || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
           );
-        })
-      )
-    );
+        });
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const response = await fetch(request, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        return response;
+      } catch (_) {
+        return cacheFallback();
+      }
+    })());
     return;
   }
 

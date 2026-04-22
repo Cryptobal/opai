@@ -6,6 +6,10 @@
   "start_url": "/hub",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["fullscreen", "standalone", "minimal-ui"],
+  "launch_handler": {
+    "client_mode": ["focus-existing", "auto"]
+  },
   "orientation": "portrait",
   "theme_color": "#060a13",
   "background_color": "#060a13",
