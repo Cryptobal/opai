@@ -1,0 +1,957 @@
+==========
+FILE: src/app/(app)/opai/configuracion/alertas-cobertura/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { AlertasCoberturaConfig } from "@/components/opai/configuracion/AlertasCoberturaConfig";
+import { Siren } from "lucide-react";
+
+export default async function ConfigAlertasCoberturaPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion/alertas-cobertura");
+  }
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "alertas_cobertura")) {
+    redirect("/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Alertas de Cobertura"
+      description="Configuración de oleadas, tiempos, canales de notificación y parámetros del módulo."
+      icon={<Siren className="h-[18px] w-[18px]" />}
+    >
+      <AlertasCoberturaConfig />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/asistente-ia/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import { AiHelpChatConfigClient } from "@/components/opai/AiHelpChatConfigClient";
+import { KnowledgeBaseManager } from "@/components/knowledge/KnowledgeBaseManager";
+import { Bot } from "lucide-react";
+
+export default async function AsistenteIaConfigPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/opai/login");
+
+  const role = session.user.role;
+  if (!hasPermission(role as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    redirect("/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Asistente IA"
+      description="Configura acceso por roles, alcance del chat conversacional y bases de conocimiento"
+      icon={<Bot className="h-[18px] w-[18px]" />}
+    >
+      <div className="space-y-10">
+        <AiHelpChatConfigClient />
+
+        <div>
+          <div className="mb-4">
+            <h3 className="text-base font-semibold text-foreground">Bases de conocimiento</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Los documentos que subas aquí solo estarán disponibles para usuarios de tu empresa.
+              Además, tu chatbot tiene acceso a la documentación general de OPAI.
+            </p>
+          </div>
+          <KnowledgeBaseManager />
+        </div>
+      </div>
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/ats/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { getAtsConfig } from "@/lib/ats/config";
+import { getAtsSnippets } from "@/lib/ats/snippets";
+import { AtsConfigClient } from "@/components/ats/AtsConfigClient";
+import { maskSecret } from "@/lib/ats/bne.service";
+import { Briefcase } from "lucide-react";
+
+export default async function AtsConfigPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion/ats");
+  }
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "ops", "ats")) {
+    redirect("/hub");
+  }
+
+  const tenantId = session.user.tenantId;
+  const [config, snippets, tenantRow, bneRow] = await Promise.all([
+    getAtsConfig(tenantId),
+    getAtsSnippets(tenantId),
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true },
+    }),
+    prisma.bneIntegration
+      .findUnique({ where: { tenantId } })
+      .catch(() => null),
+  ]);
+
+  const initialBneConfig = bneRow
+    ? {
+        configured: !!bneRow.consumerKey,
+        consumerKeyPreview: maskSecret(bneRow.consumerKey),
+        hasSecret: !!bneRow.consumerSecretEncrypted,
+        environment: (bneRow.environment as "prod" | "test") ?? "prod",
+        rutEmpleador: bneRow.rutEmpleador,
+        idEmpleador: bneRow.idEmpleador,
+        idUsuarioPublicador: bneRow.idUsuarioPublicador,
+        mostrarNombreEmpresa: bneRow.mostrarNombreEmpresa,
+        defaultDiasPublicacion: bneRow.defaultDiasPublicacion,
+        status: bneRow.status as "pending" | "active" | "error",
+        lastSyncAt: bneRow.lastSyncAt?.toISOString() ?? null,
+        lastError: bneRow.lastError,
+        jobCount: bneRow.jobCount,
+      }
+    : { configured: false as const };
+
+  return (
+    <ConfigPageLayout
+      title="ATS — Reclutamiento"
+      description="Ajusta los pesos del match score, canales y parámetros de distribución."
+      icon={<Briefcase className="h-[18px] w-[18px]" />}
+    >
+      <AtsConfigClient
+        initialConfig={config}
+        tenantSlug={tenantRow?.slug || ""}
+        initialSnippets={snippets}
+        initialBneConfig={initialBneConfig}
+      />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/auditoria/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { DataTable, type DataTableColumn } from "@/components/opai";
+import { ClipboardCheck } from "lucide-react";
+
+type AuditPageProps = {
+  searchParams?: Promise<{
+    q?: string;
+    action?: string;
+    entity?: string;
+  }>;
+};
+
+const AUDIT_COLUMNS: DataTableColumn[] = [
+  {
+    key: "createdAt",
+    label: "Fecha",
+    className: "whitespace-nowrap",
+    render: (v) => new Date(v).toLocaleString("es-CL"),
+  },
+  {
+    key: "userEmail",
+    label: "Usuario",
+    render: (v) => v || "—",
+  },
+  { key: "action", label: "Acción" },
+  { key: "entity", label: "Entidad" },
+  {
+    key: "entityId",
+    label: "ID ficha",
+    render: (v) => v || "—",
+  },
+  {
+    key: "ipAddress",
+    label: "IP",
+    render: (v) => v || "—",
+  },
+];
+
+export default async function AuditoriaPage({ searchParams }: AuditPageProps) {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion/auditoria");
+  }
+
+  const role = session.user.role;
+  const isAdmin = role === "owner" || role === "admin";
+  if (!isAdmin) {
+    redirect("/opai/configuracion");
+  }
+
+  const tenantId = session.user.tenantId;
+  const params = (await searchParams) ?? {};
+  const q = (params.q || "").trim();
+  const action = (params.action || "").trim();
+  const entity = (params.entity || "").trim();
+
+  const logs = await prisma.auditLog.findMany({
+    where: {
+      tenantId,
+      ...(action ? { action } : {}),
+      ...(entity ? { entity } : {}),
+      ...(q
+        ? {
+            OR: [
+              { userEmail: { contains: q, mode: "insensitive" } },
+              { action: { contains: q, mode: "insensitive" } },
+              { entity: { contains: q, mode: "insensitive" } },
+==========
+FILE: src/app/(app)/opai/configuracion/categorias-plantillas/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { DocCategoriesClient } from "@/components/docs/DocCategoriesClient";
+import { FolderTree } from "lucide-react";
+
+export default async function CategoriasPlantillasPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion/categorias-plantillas");
+  }
+
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "categorias")) {
+    redirect("/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Categorías de Plantillas"
+      description="Gestiona las categorías por módulo para Gestión Documental (documentos y mails)"
+      icon={<FolderTree className="h-[18px] w-[18px]" />}
+    >
+      <DocCategoriesClient />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/cpq/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { CpqConfigTabs } from "@/components/cpq/CpqConfigTabs";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { DollarSign } from "lucide-react";
+
+export default async function CpqConfigPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion/cpq");
+  }
+
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "cpq")) {
+    redirect("/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Cotizaciones (CPQ)"
+      description="Catálogo, puestos, cargos, roles y parámetros de pricing"
+      icon={<DollarSign className="h-[18px] w-[18px]" />}
+    >
+      <CpqConfigTabs />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/crm/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { CrmConfigTabs } from "@/components/crm/CrmConfigTabs";
+import { FollowUpConfigSection } from "@/components/crm/FollowUpConfigSection";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { TrendingUp } from "lucide-react";
+
+export default async function CrmConfigPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion/crm");
+  }
+
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "crm")) {
+    redirect("/opai/configuracion");
+  }
+
+  const tenantId = session.user.tenantId;
+  const tenant = await prisma.tenant.findUniqueOrThrow({
+    where: { id: tenantId },
+    select: { slug: true },
+  });
+  const [stages, fields] = await Promise.all([
+    prisma.crmPipelineStage.findMany({
+      where: { tenantId, isActive: true },
+      orderBy: { order: "asc" },
+    }),
+    prisma.crmCustomField.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  return (
+    <ConfigPageLayout
+      title="CRM"
+      description="Pipeline, campos y automatizaciones"
+      icon={<TrendingUp className="h-[18px] w-[18px]" />}
+    >
+      <CrmConfigTabs
+        initialStages={stages}
+        initialFields={fields}
+        followUpSection={<FollowUpConfigSection />}
+        tenantSlug={tenant.slug}
+      />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/cumplimiento/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { ComplianceConfigClient } from "@/components/configuracion/ComplianceConfigClient";
+import { Shield } from "lucide-react";
+
+export default async function CumplimientoConfigPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/opai/login?callbackUrl=/opai/configuracion/cumplimiento");
+
+  const role = session.user.role;
+  if (!["owner", "admin"].includes(role)) redirect("/opai/configuracion");
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: session.user.tenantId },
+    select: {
+      dpoContactEmail: true,
+      dpaAcceptedAt: true,
+      dpaAcceptedBy: true,
+      dpaVersion: true,
+    },
+  });
+
+  return (
+    <ConfigPageLayout
+      title="Cumplimiento"
+      description="Ley 21.719 de Protección de Datos Personales. Contacto del DPO y estado del DPA."
+      icon={<Shield className="h-[18px] w-[18px]" />}
+    >
+      <ComplianceConfigClient
+        initialDpoContactEmail={tenant?.dpoContactEmail ?? null}
+        dpaAcceptedAt={tenant?.dpaAcceptedAt?.toISOString() ?? null}
+        dpaAcceptedBy={tenant?.dpaAcceptedBy ?? null}
+        dpaVersion={tenant?.dpaVersion ?? null}
+      />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/documentos-operacionales/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { GlobalDocumentsClient } from "@/components/opai/GlobalDocumentsClient";
+import { FileText } from "lucide-react";
+
+export const metadata = { title: "Documentos Operacionales — Configuración" };
+
+export default async function OperationalDocumentsPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion/documentos-operacionales");
+  }
+
+  const role = session.user.role;
+  if (role !== "admin" && role !== "owner") {
+    redirect("/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Documentos Operacionales"
+      description="Tipos de documentos operativos que se controlan a nivel empresa (Global), por instalación o para guardias."
+      icon={<FileText className="h-[18px] w-[18px]" />}
+    >
+      <GlobalDocumentsClient />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/email-templates/page.tsx
+/**
+ * Redirige a Configuración. Las plantillas de correo se gestionan en
+ * Gestión Documental → Templates (módulo Mail).
+ */
+import { redirect } from "next/navigation";
+
+export default function EmailTemplatesPage() {
+  redirect("/opai/configuracion");
+}
+==========
+FILE: src/app/(app)/opai/configuracion/empresa/page.tsx
+"use client";
+
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { EmpresaConfigTabs } from "@/components/configuracion/EmpresaConfigTabs";
+import { Building } from "lucide-react";
+
+export default function EmpresaConfigPage() {
+  return (
+    <ConfigPageLayout
+      title="Empresa"
+      description="Datos de la empresa empleadora. Estos datos se usan como tokens en contratos, finiquitos, cartas de aviso y otros documentos laborales."
+      icon={<Building className="h-[18px] w-[18px]" />}
+    >
+      <EmpresaConfigTabs />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/finanzas/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import {
+  resolvePagePerms,
+  hasModuleAccess,
+  hasCapability,
+} from "@/lib/permissions-server";
+import { prisma } from "@/lib/prisma";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { ConfigClient } from "@/components/finance/ConfigClient";
+import { Receipt } from "lucide-react";
+
+export default async function FinanzasConfiguracionPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion/finanzas");
+  }
+  const perms = await resolvePagePerms(session.user);
+  if (!hasModuleAccess(perms, "config")) {
+    redirect("/hub");
+  }
+  if (!hasCapability(perms, "rendicion_configure")) {
+    redirect("/opai/configuracion");
+  }
+
+  const tenantId = session.user.tenantId;
+
+  const [config, items, costCenters, approvers] = await Promise.all([
+    prisma.financeRendicionConfig.findUnique({
+      where: { tenantId },
+    }),
+    prisma.financeRendicionItem.findMany({
+      where: { tenantId },
+      orderBy: { name: "asc" },
+    }),
+    prisma.financeCostCenter.findMany({
+      where: { tenantId },
+      orderBy: { name: "asc" },
+    }),
+    prisma.admin.findMany({
+      where: { tenantId, status: "active" },
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  const configData = config
+    ? {
+        kmPerLiter: Number(config.kmPerLiter),
+        fuelPricePerLiter: config.fuelPricePerLiter,
+        vehicleFeePct: Number(config.vehicleFeePct),
+        requireImage: config.requireImage,
+        requireObservations: config.requireObservations,
+        requireTollImage: config.requireTollImage,
+        defaultApprover1Id: config.defaultApprover1Id,
+        defaultApprover2Id: config.defaultApprover2Id,
+        maxDailyAmount: config.maxDailyAmount,
+        maxMonthlyAmount: config.maxMonthlyAmount,
+        pendingAlertDays: config.pendingAlertDays,
+        approvalAlertDays: config.approvalAlertDays,
+        santanderAccountNumber: config.santanderAccountNumber,
+      }
+    : null;
+
+  const itemsData = items.map((i) => ({
+    id: i.id,
+    name: i.name,
+    code: i.code,
+    category: i.category,
+    active: i.active,
+==========
+FILE: src/app/(app)/opai/configuracion/firmas/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { prisma } from "@/lib/prisma";
+import { SignatureManagerClient } from "@/components/crm/SignatureManagerClient";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { PenLine } from "lucide-react";
+
+export default async function FirmasPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion/firmas");
+  }
+
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "firmas")) {
+    redirect("/opai/configuracion");
+  }
+
+  const tenantId = session.user.tenantId;
+
+  const signatures = await prisma.crmEmailSignature.findMany({
+    where: { tenantId, isActive: true },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+  });
+
+  const initialSignatures = JSON.parse(JSON.stringify(signatures));
+
+  return (
+    <ConfigPageLayout
+      title="Firmas"
+      description="Gestiona las firmas que se incluyen al final de los correos enviados desde el CRM"
+      icon={<PenLine className="h-[18px] w-[18px]" />}
+    >
+      <SignatureManagerClient initialSignatures={initialSignatures} />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/gamificacion/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { GamificacionConfigClient } from "./GamificacionConfigClient";
+import { Trophy } from "lucide-react";
+
+export default async function GamificacionConfigPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion/gamificacion");
+  }
+
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "ops", "gamificacion")) {
+    redirect("/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Gamificación"
+      description="Parámetros del Trust Score, pesos y configuración general"
+      icon={<Trophy className="h-[18px] w-[18px]" />}
+    >
+      <GamificacionConfigClient />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/grupos/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import GroupsConfigClient from "@/components/config/GroupsConfigClient";
+import { Users } from "lucide-react";
+
+export default async function GruposConfigPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/opai/login");
+
+  const role = session.user.role;
+  if (!hasPermission(role as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    redirect("/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Grupos"
+      description="Crea y administra grupos organizacionales (RRHH, Operaciones, etc.) para cadenas de aprobación y asignación de equipo"
+      icon={<Users className="h-[18px] w-[18px]" />}
+    >
+      <GroupsConfigClient userRole={role} />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/integraciones/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { IntegrationsGmailClient } from "@/components/opai";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { prisma } from "@/lib/prisma";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { Plug } from "lucide-react";
+
+export default async function IntegracionesPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion/integraciones");
+  }
+
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "integraciones")) {
+    redirect("/opai/configuracion");
+  }
+
+  const tenantId = session.user.tenantId;
+  const gmailAccount = await prisma.crmEmailAccount.findFirst({
+    where: {
+      tenantId,
+      userId: session.user.id,
+      provider: "gmail",
+      status: "active",
+    },
+  });
+
+  return (
+    <ConfigPageLayout
+      title="Integraciones"
+      description="Configura conexiones globales para el CRM"
+      icon={<Plug className="h-[18px] w-[18px]" />}
+    >
+      <IntegrationsGmailClient connected={Boolean(gmailAccount)} />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/inteligencia-artificial/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { Sparkles } from "lucide-react";
+
+export default async function InteligenciaArtificialPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Inteligencia Artificial"
+      description="La configuración de proveedores de IA es gestionada centralmente por el administrador de la plataforma OPAI."
+      icon={<Sparkles className="h-[18px] w-[18px]" />}
+    >
+      <div className="rounded-xl border border-border bg-muted/30 p-8 text-center">
+        <Sparkles className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+        <h3 className="text-sm font-medium text-foreground">
+          Gestión centralizada
+        </h3>
+        <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
+          Los proveedores y API keys de IA se configuran a nivel de plataforma.
+          Si necesitas realizar cambios, contacta al administrador de OPAI.
+        </p>
+      </div>
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/mi-plan/page.tsx
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+
+interface PlanInfo {
+  plan: string;
+  maxGuards: number;
+  maxAdmins: number;
+  maxStorageMb: number;
+  basePrice: number;
+  pricePerGuard: number;
+  customPricePerGuard: number | null;
+  customBaseMinimum: number | null;
+  currency: string;
+  billingStatus: string;
+  trialEndsAt: string | null;
+}
+
+interface AddonInfo {
+  slug: string;
+  name: string;
+  price: number;
+  priceUnit: string | null;
+}
+
+interface CatalogPlan {
+  slug: string;
+  name: string;
+  headline: string | null;
+  description: string | null;
+  pricePerGuard: number;
+  baseMinimum: number;
+  maxGuards: number;
+  maxAdmins: number;
+  includedModules: string[];
+  featured: boolean;
+}
+
+interface PlanData {
+  plan: PlanInfo | null;
+  modules: string[];
+  addons: AddonInfo[];
+  planCatalog: CatalogPlan[];
+}
+
+const planOrder = ['free', 'starter', 'profesional', 'enterprise'];
+
+const planBadge: Record<string, string> = {
+  free: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  starter: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  profesional: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300',
+  enterprise: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+};
+
+const MODULE_LABELS: Record<string, string> = {
+  hub: 'Hub', config: 'Configuracion', portal_guardia: 'Portal Guardia',
+  portal_marcacion: 'Portal Marcacion', ops_asistencia: 'Asistencia',
+  ops_pauta: 'Pauta', ops_pce: 'PCE', ops_turnos_extra: 'Turnos Extra',
+  ops_refuerzos: 'Refuerzos', ops_onboarding: 'Onboarding', ops_audit: 'Auditoria',
+  personas: 'Personas', tickets: 'Tickets', documentos: 'Documentos',
+  contratos: 'Contratos', ops_supervision: 'Supervision', portal_supervisor: 'Portal Supervisor',
+  alertas_cobertura: 'Alertas Cobertura', chat: 'Chat', gamificacion: 'Gamificacion',
+  protocolos_ia: 'Protocolos IA', reportes_dt: 'Reportes DT', crm: 'CRM',
+  cpq: 'CPQ', ops_rondas: 'Rondas', ops_inventario: 'Inventario',
+  portal_cliente: 'Portal Cliente', payroll: 'Payroll', finanzas: 'Finanzas',
+  ats: 'ATS / Reclutamiento', face_id: 'Face ID', ia_operacional: 'IA Operacional',
+  control_acceso: 'Control Acceso', fiscalizacion: 'Fiscalizacion',
+  control_nocturno: 'Control Nocturno', white_label: 'White-label', app_nativa: 'App Nativa',
+};
+
+==========
+FILE: src/app/(app)/opai/configuracion/notificaciones/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { NotificationConfigClient } from "@/components/opai/NotificationConfigClient";
+import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import { Bell } from "lucide-react";
+
+export default async function NotificacionesConfigPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/opai/login");
+
+  const role = session.user.role;
+  if (!hasPermission(role as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    redirect("/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Notificaciones"
+      description="Parámetros globales. Cada usuario configura sus preferencias en Perfil → Mis notificaciones"
+      icon={<Bell className="h-[18px] w-[18px]" />}
+    >
+      <NotificationConfigClient />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/ops/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import { OpsConfigTabs } from "@/components/ops/OpsConfigTabs";
+import { ClipboardList } from "lucide-react";
+
+export default async function OpsConfigPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/opai/login");
+
+  const role = session.user.role;
+  if (!hasPermission(role as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    redirect("/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Operaciones"
+      description="Configuración de marcaciones, rondas, emails automáticos y parámetros operativos"
+      icon={<ClipboardList className="h-[18px] w-[18px]" />}
+    >
+      <OpsConfigTabs />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/payroll/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { PayrollConfigTabs } from "@/components/payroll/PayrollConfigTabs";
+import { Calculator } from "lucide-react";
+
+export default async function PayrollConfigPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/opai/configuracion/payroll");
+  }
+
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "payroll")) {
+    redirect("/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Payroll"
+      description="Parámetros, bonos y supuestos para remuneraciones"
+      icon={<Calculator className="h-[18px] w-[18px]" />}
+    >
+      <PayrollConfigTabs />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/roles/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { RoleTemplatesClient } from "@/components/opai/RoleTemplatesClient";
+import { ShieldCheck } from "lucide-react";
+
+export default async function RolesConfigPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/opai/login");
+
+  const role = session.user.role;
+
+  // Solo owner/admin pueden gestionar roles
+  if (role !== "owner" && role !== "admin") {
+    redirect("/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Roles y Permisos"
+      description="Configura permisos por módulo y submódulo para cada rol"
+      icon={<ShieldCheck className="h-[18px] w-[18px]" />}
+    >
+      <RoleTemplatesClient isOwner={role === "owner"} />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/tipos-ticket/page.tsx
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import { TicketTypesConfigTabs } from "@/components/config/TicketTypesConfigTabs";
+import { Ticket } from "lucide-react";
+
+export default async function TiposTicketConfigPage() {
+  const session = await auth();
+  if (!session?.user) redirect("/opai/login");
+
+  const role = session.user.role;
+  if (!hasPermission(role as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    redirect("/opai/configuracion");
+  }
+
+  return (
+    <ConfigPageLayout
+      title="Tipos de Ticket"
+      description="Define tipos de solicitud (vacaciones, desvinculaciones, etc.), su origen y cadena de aprobación"
+      icon={<Ticket className="h-[18px] w-[18px]" />}
+    >
+      <TicketTypesConfigTabs userRole={role} />
+    </ConfigPageLayout>
+  );
+}
+==========
+FILE: src/app/(app)/opai/configuracion/usuarios/page.tsx
+/**
+ * Gestión de Usuarios (Configuración)
+ */
+
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { listUsers, listPendingInvitations, listRoleTemplates } from "@/app/(app)/opai/actions/users";
+import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import UsersTable from "@/components/usuarios/UsersTable";
+import InvitationsTable from "@/components/usuarios/InvitationsTable";
+import InviteUserButton from "@/components/usuarios/InviteUserButton";
+import RolesHelpCard from "@/components/usuarios/RolesHelpCard";
+import { resolvePagePerms, canView, hasCapability } from "@/lib/permissions-server";
+import { Users } from "lucide-react";
+
+export default async function UsuariosConfigPage() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/opai/login");
+  }
+
+  const perms = await resolvePagePerms(session.user);
+
+  if (!canView(perms, "config", "usuarios") || !hasCapability(perms, "manage_users")) {
+    redirect("/opai/inicio");
+  }
+
+  const [usersResult, invitationsResult, templatesResult] = await Promise.all([
+    listUsers(),
+    listPendingInvitations(),
+    listRoleTemplates(),
+  ]);
+
+  const users = usersResult.success && usersResult.users ? usersResult.users : [];
+  const invitations =
+    invitationsResult.success && invitationsResult.invitations
+      ? invitationsResult.invitations
+      : [];
+  const roleTemplates = templatesResult.success && templatesResult.templates ? templatesResult.templates : [];
+
+  return (
+    <ConfigPageLayout
+      title="Usuarios"
+      description="Administra los usuarios y permisos de tu equipo"
+      icon={<Users className="h-[18px] w-[18px]" />}
+      actions={
+        <div className="flex items-center gap-3">
+          <RolesHelpCard />
+          <InviteUserButton roleTemplates={roleTemplates} />
+        </div>
+      }
+    >
+      <Card>
+        <CardHeader>
+          <CardTitle>Usuarios Activos</CardTitle>
+          <CardDescription>
+            {users.length} {users.length === 1 ? "usuario" : "usuarios"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <UsersTable
+            users={users}
+            roleTemplates={roleTemplates}
+            currentUserId={session.user.id}
+            currentUserRole={session.user.role}
+          />
+        </CardContent>
+        <CardContent className="border-t border-border">
