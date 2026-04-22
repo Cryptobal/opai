@@ -68,10 +68,6 @@ import {
   FileBarChart,
 } from "lucide-react";
 import {
-  CRM_SECTIONS,
-  MODULE_DETAIL_SECTIONS,
-} from "@/components/crm/CrmModuleIcons";
-import {
   type RolePermissions,
   getDefaultPermissions,
   hasModuleAccess,
@@ -86,8 +82,6 @@ export interface BottomNavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  /** Si true, el item es un ancla de sección (scroll) en vez de un link de navegación */
-  isSection?: boolean;
 }
 
 /* ── Main nav items ── */
@@ -347,68 +341,13 @@ const MODULE_DETECTIONS: ModuleDetection[] = [
   },
 ];
 
-/* ── CRM detail page → section items ── */
-
-const CRM_MODULE_MAP: Record<string, string> = {
-  leads: "leads",
-  accounts: "accounts",
-  contacts: "contacts",
-  deals: "deals",
-  installations: "installations",
-  cotizaciones: "quotes",
-};
-
-/** Abreviaciones para el bottom nav (espacio limitado) */
-const SECTION_SHORT_LABELS: Record<string, string> = {
-  general: "Info",
-  account: "Cuenta",
-  contacts: "Contacto",
-  deals: "Negocio",
-  installations: "Instal.",
-  quotes: "CPQ",
-  followup: "Seguim.",
-  communication: "Correos",
-  notes: "Notas",
-  staffing: "Puestos",
-  dotacion: "Dotación",
-  files: "Archivos",
-};
-
-/**
- * Detecta si el pathname es una página de detalle CRM (ej: /crm/leads/cm7xxx)
- * y devuelve los items de sección para la bottom nav.
- */
-function getCrmDetailSectionItems(pathname: string): BottomNavItem[] | null {
-  // Patrón: /crm/{module}/{id} donde id es un cuid (cm...) u otro identificador
-  const match = pathname.match(
-    /^\/crm\/(leads|accounts|contacts|deals|installations|cotizaciones)\/([^/]+)$/
-  );
-  if (!match) return null;
-
-  const moduleKey = CRM_MODULE_MAP[match[1]];
-  if (!moduleKey) return null;
-
-  const sectionKeys = MODULE_DETAIL_SECTIONS[moduleKey];
-  if (!sectionKeys || sectionKeys.length === 0) return null;
-
-  return sectionKeys.map((key) => {
-    const section = CRM_SECTIONS[key];
-    return {
-      key: `section-${key}`,
-      href: `#section-${key}`,
-      label: SECTION_SHORT_LABELS[key] || section.label,
-      icon: section.icon,
-      isSection: true,
-    };
-  });
-}
-
 /**
  * Devuelve los items del bottom nav según la ruta actual y el rol del usuario.
  *
- * - En detalle CRM: muestra secciones del registro (scroll a anclas)
- * - Dentro de un módulo: muestra subcategorías del módulo
- * - En ruta general: muestra navegación principal
+ * En páginas de detalle CRM (leads / accounts / contacts / deals / installations)
+ * NO devolvemos section items: esas páginas usan EntityDetailLayout con ChipTabs
+ * horizontales en el header para navegar entre secciones, y la bottom nav se
+ * reserva para navegación entre módulos (patrón HubSpot / Salesforce / Pipedrive).
  *
  * Acepta un role string (usa defaults) o un RolePermissions object.
  */
@@ -424,11 +363,6 @@ export function getBottomNavItems(
 
   const isModEnabled = (mod: string) => !enabledModules || enabledModules.has(mod);
 
-  // Prioridad 1: páginas de detalle CRM → secciones del registro
-  const sectionItems = getCrmDetailSectionItems(pathname);
-  if (sectionItems) return sectionItems;
-
-  // Prioridad 2: módulos → subcategorías
   for (const detection of MODULE_DETECTIONS) {
     if (detection.test(pathname)) {
       const items = detection.getItems(perms, isModEnabled);
@@ -437,35 +371,6 @@ export function getBottomNavItems(
   }
 
   // Default: empty array — BottomNav uses its own MainNav component
-  return [];
-}
-
-/**
- * Devuelve los items del nav de módulo (sin la detección de detalle CRM).
- *
- * Útil como fallback cuando la página de detalle no renderiza las anclas
- * `section-*` esperadas (p. ej. cuando usa tabs internas). En ese caso
- * `getBottomNavItems` devolvería section items rotos; con esta función
- * podemos mostrar las subcategorías del módulo en su lugar.
- */
-export function getModuleSubNavItems(
-  pathname: string,
-  roleOrPerms: string | RolePermissions,
-  enabledModules?: Set<string>,
-): BottomNavItem[] {
-  const perms: RolePermissions =
-    typeof roleOrPerms === "string"
-      ? getDefaultPermissions(roleOrPerms)
-      : roleOrPerms;
-
-  const isModEnabled = (mod: string) => !enabledModules || enabledModules.has(mod);
-
-  for (const detection of MODULE_DETECTIONS) {
-    if (detection.test(pathname)) {
-      const items = detection.getItems(perms, isModEnabled);
-      if (items.length > 0) return items;
-    }
-  }
   return [];
 }
 

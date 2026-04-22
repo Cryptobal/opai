@@ -13,7 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getBottomNavItems, getModuleSubNavItems, type BottomNavItem } from '@/lib/module-nav';
+import { getBottomNavItems, type BottomNavItem } from '@/lib/module-nav';
 import { usePermissions } from '@/lib/permissions-context';
 import { hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 import { useTenantModules } from '@/contexts/TenantModulesContext';
@@ -187,31 +187,13 @@ export function BottomNav({ userRole }: BottomNavProps) {
     ? permissions
     : userRole;
 
-  // Determine which mode to show
+  // Determine which mode to show.
+  // CRM detail pages render their section nav as horizontal ChipTabs inside
+  // EntityDetailLayout (like HubSpot / Salesforce). The bottom nav always
+  // shows module-level navigation so the user can jump between entity lists.
   const activeModule = getActiveModule(pathname);
   const moduleItems = activeModule ? getBottomNavItems(pathname, permsOrRole, enabledModules) : [];
-  const isInModule = !forceMainNav && activeModule && moduleItems.length > 0;
-
-  // Section-based nav (CRM detail pages)
-  const hasSectionItems = !forceMainNav && moduleItems.some((item) => item.isSection);
-
-  // Detect whether the section anchors actually exist in the DOM. Some detail
-  // pages (e.g. CRM installations) use an internal tab layout that renders
-  // only the active tab, so the `section-*` ids from the bottom nav never
-  // mount. In that case we fall back to the module sub-nav below.
-  const sectionAnchorsPresent = useSectionAnchorsPresent(pathname, hasSectionItems, moduleItems);
-
-  // Fallback: sub-nav of the current module, ignoring detail-page detection.
-  const fallbackModuleItems = useMemo(() => {
-    if (!hasSectionItems || sectionAnchorsPresent || !activeModule) return [];
-    return getModuleSubNavItems(pathname, permsOrRole, enabledModules);
-  }, [hasSectionItems, sectionAnchorsPresent, activeModule, pathname, permsOrRole, enabledModules]);
-
-  const showSectionNav = hasSectionItems && sectionAnchorsPresent;
-  const showModuleSubNav = !showSectionNav && !forceMainNav && !!activeModule && (
-    (isInModule && !hasSectionItems) || fallbackModuleItems.length > 0
-  );
-  const subNavItems = fallbackModuleItems.length > 0 ? fallbackModuleItems : moduleItems;
+  const isInModule = !forceMainNav && !!activeModule && moduleItems.length > 0;
 
   return (
     <nav
@@ -222,57 +204,14 @@ export function BottomNav({ userRole }: BottomNavProps) {
       }}
     >
       <div className="flex items-center justify-around min-h-[56px] px-1">
-        {showSectionNav ? (
-          <SectionNav items={moduleItems} />
-        ) : showModuleSubNav ? (
-          <ModuleSubNav items={subNavItems} activeModule={activeModule!} pathname={pathname} onBack={() => setForceMainNav(true)} />
+        {isInModule ? (
+          <ModuleSubNav items={moduleItems} activeModule={activeModule!} pathname={pathname} onBack={() => setForceMainNav(true)} />
         ) : (
           <MainNav pathname={pathname} userRole={userRole} navConfig={navConfig} />
         )}
       </div>
     </nav>
   );
-}
-
-/**
- * Returns `true` if at least one `section-*` anchor referenced by the given
- * section items is present in the DOM. Re-checks a few times after mount to
- * handle pages that hydrate sections asynchronously.
- */
-function useSectionAnchorsPresent(pathname: string, enabled: boolean, items: BottomNavItem[]): boolean {
-  const [present, setPresent] = useState(false);
-
-  useEffect(() => {
-    if (!enabled) {
-      setPresent(false);
-      return;
-    }
-    const ids = items.filter((i) => i.isSection).map((i) => i.href.replace('#', ''));
-    if (ids.length === 0) {
-      setPresent(false);
-      return;
-    }
-
-    let cancelled = false;
-    const check = () => {
-      if (cancelled) return;
-      const exists = ids.some((id) => !!document.getElementById(id));
-      setPresent(exists);
-    };
-
-    check();
-    const t1 = setTimeout(check, 100);
-    const t2 = setTimeout(check, 400);
-    const t3 = setTimeout(check, 1200);
-    return () => {
-      cancelled = true;
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, [pathname, enabled, items]);
-
-  return present;
 }
 
 /* ════════════════════════════════════════════════════
@@ -798,180 +737,6 @@ function ModuleSubNav({ items, activeModule, pathname, onBack }: { items: Bottom
           />
         </SheetContent>
       </Sheet>
-    </>
-  );
-}
-
-/* ════════════════════════════════════════════════════
-   SECTION NAV — CRM detail page scroll navigation (with overflow handling)
-   ════════════════════════════════════════════════════ */
-
-function SectionNav({ items }: { items: BottomNavItem[] }) {
-  const [activeSection, setActiveSection] = useState(items[0]?.key.replace('section-', '') || '');
-  const isClickScrolling = useRef(false);
-  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const [overflowOpen, setOverflowOpen] = useState(false);
-
-  const MAX_VISIBLE = 4;
-
-  // If the active section is in overflow, swap it into visible slots
-  const visibleItems = useMemo(() => {
-    const baseVisible = items.slice(0, MAX_VISIBLE);
-    const overflow = items.slice(MAX_VISIBLE);
-    const activeKey = `section-${activeSection}`;
-    const activeInOverflow = overflow.findIndex((item) => item.key === activeKey);
-
-    if (activeInOverflow >= 0) {
-      // Replace the last visible item with the active overflow item
-      const swapped = [...baseVisible];
-      swapped[MAX_VISIBLE - 1] = overflow[activeInOverflow];
-      return swapped;
-    }
-    return baseVisible;
-  }, [items, activeSection]);
-
-  const overflowItems = useMemo(() => {
-    return items.filter((item) => !visibleItems.includes(item));
-  }, [items, visibleItems]);
-
-  const hasOverflow = items.length > MAX_VISIBLE;
-
-  // IntersectionObserver to track active section
-  useEffect(() => {
-    const sectionIds = items.map((item) => item.href.replace('#', ''));
-    const elements = sectionIds
-      .map((id) => document.getElementById(id))
-      .filter(Boolean) as HTMLElement[];
-
-    if (elements.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (isClickScrolling.current) return;
-
-        let maxRatio = 0;
-        let maxKey = '';
-
-        for (const entry of entries) {
-          if (entry.intersectionRatio > maxRatio) {
-            maxRatio = entry.intersectionRatio;
-            maxKey = entry.target.id.replace('section-', '');
-          }
-        }
-
-        if (maxRatio < 0.1) {
-          for (const entry of entries) {
-            if (entry.isIntersecting) {
-              maxKey = entry.target.id.replace('section-', '');
-              break;
-            }
-          }
-        }
-
-        if (maxKey) setActiveSection(maxKey);
-      },
-      {
-        rootMargin: '-80px 0px -60% 0px',
-        threshold: [0, 0.1, 0.25, 0.5],
-      }
-    );
-
-    elements.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [items]);
-
-  const handleClick = useCallback((sectionId: string) => {
-    const el = document.getElementById(sectionId);
-    if (!el) return;
-
-    isClickScrolling.current = true;
-    setActiveSection(sectionId.replace('section-', ''));
-
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
-    clickTimeoutRef.current = setTimeout(() => {
-      isClickScrolling.current = false;
-    }, 800);
-  }, []);
-
-  return (
-    <>
-      {visibleItems.map((item) => {
-        const sectionKey = item.key.replace('section-', '');
-        const sectionId = item.href.replace('#', '');
-        const isActive = activeSection === sectionKey;
-        const Icon = item.icon;
-        return (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => handleClick(sectionId)}
-            className={cn(
-              "relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] flex-1 px-1 py-1 transition-all active:scale-95",
-              isActive ? "text-emerald-400" : "text-muted-foreground"
-            )}
-          >
-            {isActive && (
-              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-400" />
-            )}
-            <Icon className="h-5 w-5" />
-            <span className="text-[10px] font-medium truncate max-w-full w-full text-center leading-tight">{item.label}</span>
-          </button>
-        );
-      })}
-
-      {hasOverflow && (
-        <>
-          <button
-            type="button"
-            onClick={() => setOverflowOpen(true)}
-            className="relative flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-2 py-1 active:scale-95 transition-all text-muted-foreground"
-          >
-            <MoreHorizontal className="h-5 w-5" />
-            <span className="text-[10px] font-medium leading-tight">Más</span>
-          </button>
-
-          <Sheet open={overflowOpen} onOpenChange={setOverflowOpen}>
-            <SheetContent side="bottom" className="max-h-[60vh] rounded-t-2xl px-4 pt-3 pb-6">
-              <SheetHeader className="sr-only">
-                <SheetTitle>Más secciones</SheetTitle>
-                <SheetDescription>Secciones adicionales del registro</SheetDescription>
-              </SheetHeader>
-              <div className="flex justify-center mb-4">
-                <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-              </div>
-              <div className="space-y-1">
-                {overflowItems.map((item) => {
-                  const sectionKey = item.key.replace('section-', '');
-                  const sectionId = item.href.replace('#', '');
-                  const isActive = activeSection === sectionKey;
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => {
-                        handleClick(sectionId);
-                        setOverflowOpen(false);
-                      }}
-                      className={cn(
-                        "flex items-center gap-3 w-full rounded-lg px-3 py-3 text-sm transition-colors",
-                        isActive
-                          ? "bg-emerald-500/10 text-emerald-400 font-medium"
-                          : "text-foreground/80 hover:bg-muted/50"
-                      )}
-                    >
-                      <Icon className="h-5 w-5 shrink-0" />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </SheetContent>
-          </Sheet>
-        </>
-      )}
     </>
   );
 }
