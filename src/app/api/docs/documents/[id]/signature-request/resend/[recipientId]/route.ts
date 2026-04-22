@@ -5,16 +5,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { hasRoleOrHigher, type Role } from "@/lib/rbac";
+import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
+import { canDelete } from "@/lib/permissions";
 import { sendSignatureReminderEmail } from "@/lib/docs-signature-email";
 
 function forbidden() {
   return NextResponse.json({ success: false, error: "No autorizado para esta acción" }, { status: 403 });
-}
-
-function requireAdminRole(role: string) {
-  return hasRoleOrHigher(role as Role, "admin");
 }
 
 export async function POST(
@@ -24,7 +20,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!requireAdminRole(ctx.userRole)) return forbidden();
+    const perms = await resolveApiPerms(ctx);
+    if (!canDelete(perms, "docs", "gestion")) return forbidden();
 
     const { id, recipientId } = await params;
 

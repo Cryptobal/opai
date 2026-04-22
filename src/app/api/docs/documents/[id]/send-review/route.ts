@@ -15,8 +15,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { hasRoleOrHigher, type Role } from "@/lib/rbac";
+import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
+import { canDelete } from "@/lib/permissions";
 import { sendContractReviewRequestEmail } from "@/lib/docs-signature-email";
 
 function forbidden() {
@@ -46,7 +46,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasRoleOrHigher(ctx.userRole as Role, "admin")) return forbidden();
+    const perms = await resolveApiPerms(ctx);
+    if (!canDelete(perms, "docs", "gestion")) return forbidden();
 
     const { id } = await params;
     const body = (await request.json().catch(() => ({}))) as {

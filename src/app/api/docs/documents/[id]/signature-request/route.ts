@@ -7,17 +7,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
+import { parseBody, requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { createSignatureRequestSchema } from "@/lib/validations/docs";
-import { hasRoleOrHigher, type Role } from "@/lib/rbac";
+import { canDelete } from "@/lib/permissions";
+import type { RolePermissions } from "@/lib/permissions";
 import { sendSignatureRequestEmail } from "@/lib/docs-signature-email";
 
 function forbidden() {
   return NextResponse.json({ success: false, error: "No autorizado para esta acción" }, { status: 403 });
 }
 
-function requireAdminRole(role: string) {
-  return hasRoleOrHigher(role as Role, "admin");
+function canManageSignatureRequest(perms: RolePermissions) {
+  return canDelete(perms, "docs", "gestion");
 }
 
 function buildSignatureSummary(recipients: Array<{ name: string; email: string; rut: string | null }>, requestId: string) {
@@ -42,7 +43,8 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!requireAdminRole(ctx.userRole)) return forbidden();
+    const perms = await resolveApiPerms(ctx);
+    if (!canManageSignatureRequest(perms)) return forbidden();
 
     const { id } = await params;
     const document = await prisma.document.findFirst({
@@ -90,7 +92,8 @@ export async function POST(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!requireAdminRole(ctx.userRole)) return forbidden();
+    const perms = await resolveApiPerms(ctx);
+    if (!canManageSignatureRequest(perms)) return forbidden();
 
     const { id } = await params;
     const parsed = await parseBody(request, createSignatureRequestSchema);

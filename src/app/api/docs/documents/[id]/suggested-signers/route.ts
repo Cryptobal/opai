@@ -13,8 +13,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { hasRoleOrHigher, type Role } from "@/lib/rbac";
+import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
+import { canDelete } from "@/lib/permissions";
 
 function forbidden() {
   return NextResponse.json(
@@ -30,7 +30,8 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasRoleOrHigher(ctx.userRole as Role, "admin")) return forbidden();
+    const perms = await resolveApiPerms(ctx);
+    if (!canDelete(perms, "docs", "gestion")) return forbidden();
 
     const { id } = await params;
 
