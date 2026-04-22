@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power } from "lucide-react";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
@@ -2081,6 +2081,11 @@ export function CrmInstallationDetailClient({
 
   const headerActions: EntityHeaderAction[] = [
     { label: "Editar instalación", icon: Pencil, onClick: openEdit, primary: true },
+    {
+      label: isActive ? "Desactivar instalación" : "Activar instalación",
+      icon: Power,
+      onClick: openToggleInstallationStatus,
+    },
     { label: "Eliminar instalación", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
   ];
 
@@ -2569,16 +2574,6 @@ export function CrmInstallationDetailClient({
           title: installation.name,
           status: installation.status === "active" ? { label: "Activa", variant: "success" } : installation.status === "inactive" ? { label: "Inactiva", variant: "destructive" } : { label: "Prospecto", variant: "warning" },
           actions: headerActions,
-          extra: (
-            <Button
-              size="sm"
-              variant={isActive ? "outline" : "secondary"}
-              onClick={openToggleInstallationStatus}
-              disabled={statusUpdating}
-            >
-              {statusUpdating ? "Guardando..." : isActive ? "Desactivar" : "Activar"}
-            </Button>
-          ),
         }}
         tabs={tabs}
         activeTab={activeTab}

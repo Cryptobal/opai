@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Info, Users, Briefcase, CalendarClock, Phone, Link2, History, Copy } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Info, Users, Briefcase, CalendarClock, Phone, Link2, History, Copy, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -37,7 +37,7 @@ import {
 import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
-import { DetailField, DetailFieldGrid } from "./DetailField";
+import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
@@ -1155,39 +1155,106 @@ export function CrmDealDetailClient({
         : undefined;
 
   // ── Sections ──
+  // Patrón unificado con Account/Installation/Contact:
+  //   hero (identidad + chips) → stats strip (montos/guardias) →
+  //   widget cotización activa → colapsables (seguimiento + detalles técnicos).
   const generalSection = {
     key: "general",
     label: "Resumen del negocio",
     children: (
-      <div className="space-y-4 rounded-lg border border-border bg-card p-4 sm:p-5">
-        <div className="grid gap-2 sm:grid-cols-3">
-          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
-            <p className="text-[11px] uppercase tracking-wider text-emerald-400/70">
-              Monto CLP
+      <div className="space-y-3 sm:space-y-4">
+        {/* ── Hero: identidad (estado + cliente + contacto) ── */}
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            {deal.status === "won" && (
+              <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
+                <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Ganado
+              </Badge>
+            )}
+            {deal.status === "lost" && (
+              <Badge variant="outline" className="border-rose-500/30 text-rose-400">
+                <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-rose-400" />
+                Perdido
+              </Badge>
+            )}
+            {deal.status === "open" && currentStage && (
+              <Badge
+                variant="outline"
+                style={{ borderColor: `${currentStageColor}40`, color: currentStageColor, backgroundColor: `${currentStageColor}15` }}
+              >
+                <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: currentStageColor }} />
+                {currentStage.name}
+              </Badge>
+            )}
+            {deal.account && (
+              <Link
+                href={`/crm/accounts/${deal.account.id}`}
+                className="inline-flex items-center gap-1 truncate rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-primary transition-colors hover:bg-muted/50"
+              >
+                <Building2 className="h-3 w-3 shrink-0" />
+                <span className="truncate max-w-[180px] sm:max-w-xs">{deal.account.name}</span>
+              </Link>
+            )}
+            {deal.primaryContact && deal.primaryContactId && (
+              <Link
+                href={`/crm/contacts/${deal.primaryContactId}`}
+                className="inline-flex items-center gap-1 truncate rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-primary transition-colors hover:bg-muted/50"
+              >
+                <Users className="h-3 w-3 shrink-0" />
+                <span className="truncate max-w-[180px] sm:max-w-xs">
+                  {`${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()}
+                </span>
+              </Link>
+            )}
+            {changingStage && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Cambiando etapa…
+              </span>
+            )}
+          </div>
+          {dealServiceStartDate && (
+            <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-teal-400">
+              <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+              Inicio del servicio:{" "}
+              {new Date(dealServiceStartDate).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" })}
             </p>
-            <p className="mt-1 text-lg font-semibold tabular-nums text-emerald-400">
+          )}
+        </div>
+
+        {/* ── Stats strip: montos y volumen. Se conservan colores por ser métricas clave. ── */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <div className="min-w-0 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 sm:p-4">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-400/80">Monto CLP</div>
+            <div className="truncate text-[13px] font-semibold tabular-nums text-emerald-400">
               {formatCLP(activeQuoteIndicators.amountClp)}
-            </p>
+            </div>
           </div>
-          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2.5">
-            <p className="text-[11px] uppercase tracking-wider text-blue-400/70">
-              Monto UF
-            </p>
-            <p className="mt-1 text-lg font-semibold tabular-nums text-blue-400">
+          <div className="min-w-0 rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 sm:p-4">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-400/80">Monto UF</div>
+            <div className="truncate text-[13px] font-semibold tabular-nums text-blue-400">
               {formatUFSuffix(activeQuoteIndicators.amountUf)}
-            </p>
+            </div>
           </div>
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
-            <p className="text-[11px] uppercase tracking-wider text-amber-400/70">
-              Guardias
-            </p>
-            <p className="mt-1 text-lg font-semibold tabular-nums text-amber-400">
+          <div className="min-w-0 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 sm:p-4">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-amber-400/80">Guardias</div>
+            <div className="truncate text-[13px] font-semibold tabular-nums text-amber-400">
               {activeQuoteIndicators.totalGuards.toLocaleString("es-CL")}
-            </p>
+            </div>
+          </div>
+          <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Monto manual</div>
+            <div className="truncate font-mono text-[13px] font-medium tabular-nums text-foreground">
+              {dealAmount
+                ? `$${Number(dealAmount).toLocaleString("es-CL")}`
+                : <span className="font-sans text-muted-foreground/70">—</span>}
+            </div>
           </div>
         </div>
 
-        <div className="space-y-2">
+        {/* ── Cotización activa (widget dedicado, funcionalidad intacta) ── */}
+        <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-2">
           <Label className="text-xs text-muted-foreground">
             Cotización activa en negociación
           </Label>
@@ -1252,67 +1319,57 @@ export function CrmDealDetailClient({
           )}
         </div>
 
-        <DetailFieldGrid columns={3}>
-          <DetailField
-            label="Cliente"
-            value={deal.account ? (
-              <Link href={`/crm/accounts/${deal.account.id}`} className="text-primary hover:underline flex items-center gap-1">
-                {deal.account.name}<ExternalLink className="h-3 w-3" />
-              </Link>
-            ) : "Sin cliente"}
-          />
-          <DetailField
-            label="Etapa"
-            value={
-              <div className="flex items-center gap-2">
-                <span
-                  className="inline-flex h-2 w-2 rounded-full"
-                  style={{ backgroundColor: currentStageColor }}
-                />
-                <span className="text-sm">{currentStage?.name || "Sin etapa"}</span>
-                {changingStage && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-              </div>
-            }
-          />
-          <DetailField
-            label="Monto negocio (manual)"
-            value={dealAmount ? `$${Number(dealAmount).toLocaleString("es-CL")}` : undefined}
-            mono
-          />
-          <DetailField
-            label="Contacto"
-            value={deal.primaryContact && deal.primaryContactId ? (
-              <Link href={`/crm/contacts/${deal.primaryContactId}`} className="text-primary hover:underline flex items-center gap-1">
-                {`${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim()}<ExternalLink className="h-3 w-3" />
-              </Link>
-            ) : "Sin contacto"}
-          />
-          <DetailField
-            label="Link propuesta"
-            value={dealProposalLink ? (
-              <a href={dealProposalLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
-                Ver propuesta<ExternalLink className="h-3 w-3" />
-              </a>
-            ) : undefined}
-          />
-          <DetailField
-            label="Flujo seguimiento"
-            value={<Badge variant="outline" className={followUpFlowStatus.className}>{followUpFlowStatus.label}</Badge>}
-          />
-          {dealServiceStartDate && (
+        {/* ── Seguimiento y propuesta (colapsable) ── */}
+        <details className="group rounded-xl border border-border bg-card">
+          <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Seguimiento y propuesta
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-3 px-4 pb-4 pt-1 sm:grid-cols-2">
             <DetailField
-              label="Inicio del servicio"
+              label="Flujo seguimiento"
+              value={<Badge variant="outline" className={followUpFlowStatus.className}>{followUpFlowStatus.label}</Badge>}
+            />
+            <DetailField
+              label="Link propuesta"
+              value={dealProposalLink ? (
+                <a href={dealProposalLink} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                  Ver propuesta<ExternalLink className="h-3 w-3" />
+                </a>
+              ) : undefined}
+            />
+          </div>
+        </details>
+
+        {/* ── Detalles técnicos (colapsable) ── */}
+        <details className="group rounded-xl border border-border bg-card">
+          <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Detalles técnicos
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-3 px-4 pb-4 pt-1 sm:grid-cols-2">
+            <DetailField
+              label="Fecha creación"
               value={
-                <span className="inline-flex items-center gap-1.5 font-semibold text-teal-400">
-                  <CalendarClock className="h-3.5 w-3.5" />
-                  {new Date(dealServiceStartDate).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric" })}
-                </span>
+                deal.createdAt
+                  ? new Date(deal.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                  : "—"
               }
             />
-          )}
-          <DetailField label="Fecha creación" value={deal.createdAt ? new Date(deal.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-          <DetailField label="Última modificación" value={deal.updatedAt ? new Date(deal.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-        </DetailFieldGrid>
+            <DetailField
+              label="Última modificación"
+              value={
+                deal.updatedAt
+                  ? new Date(deal.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                  : "—"
+              }
+            />
+          </div>
+        </details>
       </div>
     ),
   };

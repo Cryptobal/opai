@@ -180,9 +180,16 @@ export function EntityDetailLayout({
             })}
           </nav>
 
-          {/* Title row + actions */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
+          {/* Title row + actions
+           *
+           * Mobile: avatar + título a la izquierda, cluster de acciones a la derecha
+           * con flex-wrap y tamaño reducido. El badge de estado se mueve a su propia
+           * fila debajo del título para no pelear con los botones.
+           *
+           * Desktop (≥sm): todo en una fila, badge al lado del título como antes.
+           */}
+          <div className="flex items-start justify-between gap-2 sm:gap-4">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
               {/* Avatar */}
               {header.avatar && (
                 <button
@@ -223,15 +230,16 @@ export function EntityDetailLayout({
               )}
 
               {/* Info */}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h1 className="text-lg font-semibold tracking-tight truncate">
                     {header.title}
                   </h1>
+                  {/* Badge: al lado del título solo en ≥sm. En mobile se renderiza en fila propia debajo. */}
                   {header.status && (
                     <Badge
                       variant={header.status.color ? "outline" : (header.status.variant || "secondary")}
-                      className="shrink-0"
+                      className="shrink-0 hidden sm:inline-flex"
                       style={header.status.color ? {
                         borderColor: `${header.status.color}40`,
                         color: header.status.color,
@@ -251,11 +259,31 @@ export function EntityDetailLayout({
                     {header.subtitle}
                   </p>
                 )}
+                {/* Mobile-only: badge de estado en su propia fila para no comprimir el cluster derecho */}
+                {header.status && (
+                  <div className="mt-1.5 sm:hidden">
+                    <Badge
+                      variant={header.status.color ? "outline" : (header.status.variant || "secondary")}
+                      className="shrink-0"
+                      style={header.status.color ? {
+                        borderColor: `${header.status.color}40`,
+                        color: header.status.color,
+                        backgroundColor: `${header.status.color}15`,
+                      } : undefined}
+                    >
+                      <span
+                        className={cn("inline-flex h-1.5 w-1.5 rounded-full mr-1", !header.status.color && "bg-current")}
+                        style={header.status.color ? { backgroundColor: header.status.color } : undefined}
+                      />
+                      {header.status.label}
+                    </Badge>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Actions: wrap limpio en mobile para que nunca desborden ni empujen el título */}
+            <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 shrink-0 max-w-[60%] sm:max-w-none">
               {header.extra}
               {/* Primary actions as visible buttons (hidden on mobile if >1) */}
               {primaryActions.map((action, i) => {

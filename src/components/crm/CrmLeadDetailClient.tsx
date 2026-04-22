@@ -1745,49 +1745,121 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
   ];
 
   // === TAB: General ===
+  // Patrón unificado con Account/Installation/Contact/Deal:
+  //   hero (identidad + chips) → stats strip → paneles especiales ya existentes →
+  //   colapsable de detalles técnicos. NO toco la lógica de:
+  //   Solicitud, Apollo, Dotación, Registros creados, Correo original, Rechazo
+  //   ni el autosave del formulario de edición.
+  const leadAddressText = [(lead as any).address, (lead as any).commune, (lead as any).city].filter(Boolean).join(", ");
+  const leadWebsiteRaw = (lead as any).website as string | undefined;
+  const leadWebsiteHref = leadWebsiteRaw
+    ? (leadWebsiteRaw.startsWith("http") ? leadWebsiteRaw : `https://${leadWebsiteRaw}`)
+    : undefined;
   const generalContent = (
-      <div className="space-y-4 rounded-lg border border-border bg-card p-4 sm:p-5">
-        <DetailFieldGrid columns={3}>
-          <DetailField label="Empresa" value={lead.companyName} />
-          <DetailField label="Contacto" value={fullName} />
-          <DetailField label="Email" value={lead.email} copyable />
-          <DetailField label="Teléfono" value={lead.phone} mono copyable />
-          <DetailField label="Industria" value={lead.industry} />
-          {((lead as any).address || (lead as any).commune || (lead as any).city) && (() => {
-            const addressText = [(lead as any).address, (lead as any).commune, (lead as any).city].filter(Boolean).join(", ");
-            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText + ", Chile")}`;
-            return (
-              <DetailField
-                label="Dirección"
-                value={
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors">
-                      {addressText}
-                    </a>
-                  </span>
-                }
-              />
-            );
-          })()}
-          {(lead as any).website && (
+      <div className="space-y-3 sm:space-y-4">
+        {/* ── Hero: identidad (fuente + sitio web + dirección) ── */}
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <LeadSourceBadge source={lead.source} />
+            {leadWebsiteHref && (
+              <a
+                href={leadWebsiteHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 truncate rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-primary transition-colors hover:bg-muted/50"
+              >
+                <Globe className="h-3 w-3 shrink-0" />
+                <span className="truncate max-w-[180px] sm:max-w-xs">
+                  {leadWebsiteRaw!.replace(/^https?:\/\//, "")}
+                </span>
+              </a>
+            )}
+            {/* Evitar duplicar el nombre del contacto si ya se usa como título del header (caso sin companyName). */}
+            {fullName && fullName !== (lead.companyName || fullName) && (
+              <span className="inline-flex items-center gap-1 truncate rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                <Users className="h-3 w-3 shrink-0" />
+                <span className="truncate max-w-[180px] sm:max-w-xs">{fullName}</span>
+              </span>
+            )}
+          </div>
+          {leadAddressText && (
+            <div className="mt-3 flex items-start gap-2 border-t border-border/50 pt-3">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(leadAddressText + ", Chile")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="min-w-0 break-words text-[14px] leading-snug text-primary underline underline-offset-2 hover:text-primary/80"
+              >
+                {leadAddressText}
+              </a>
+            </div>
+          )}
+        </div>
+
+        {/* ── Stats strip: datos tabulares clave ── */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Empresa</div>
+            <div className="truncate text-[13px] font-medium text-foreground" title={lead.companyName || undefined}>
+              {lead.companyName || <span className="text-muted-foreground/70">—</span>}
+            </div>
+          </div>
+          <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Industria</div>
+            <div className="truncate text-[13px] font-medium text-foreground" title={lead.industry || undefined}>
+              {lead.industry || <span className="text-muted-foreground/70">—</span>}
+            </div>
+          </div>
+          <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Teléfono</div>
+            <div className="truncate font-mono text-[13px] font-medium tabular-nums text-foreground">
+              {lead.phone ? (
+                <a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a>
+              ) : (
+                <span className="font-sans text-muted-foreground/70">—</span>
+              )}
+            </div>
+          </div>
+          <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Email</div>
+            <div className="truncate text-[13px] font-medium text-foreground" title={lead.email || undefined}>
+              {lead.email ? (
+                <a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a>
+              ) : (
+                <span className="text-muted-foreground/70">—</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Detalles técnicos (colapsable) ── */}
+        <details className="group rounded-xl border border-border bg-card">
+          <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Detalles técnicos
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-3 px-4 pb-4 pt-1 sm:grid-cols-2">
             <DetailField
-              label="Sitio web"
+              label="Fecha creación"
               value={
-                <a href={(lead as any).website.startsWith("http") ? (lead as any).website : `https://${(lead as any).website}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-primary underline underline-offset-2 hover:text-primary/80 transition-colors">
-                  <Globe className="h-3.5 w-3.5 shrink-0" />
-                  {(lead as any).website.replace(/^https?:\/\//, "")}
-                </a>
+                lead.createdAt
+                  ? new Date(lead.createdAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                  : "—"
               }
             />
-          )}
-        </DetailFieldGrid>
-
-        <DetailFieldGrid columns={3}>
-          <DetailField label="Fecha creación" value={lead.createdAt ? new Date(lead.createdAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-          <DetailField label="Última modificación" value={lead.updatedAt ? new Date(lead.updatedAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-          <DetailField label="Fuente" value={<LeadSourceBadge source={lead.source} />} />
-        </DetailFieldGrid>
+            <DetailField
+              label="Última modificación"
+              value={
+                lead.updatedAt
+                  ? new Date(lead.updatedAt).toLocaleDateString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                  : "—"
+              }
+            />
+          </div>
+        </details>
 
         {/* Solicitud del cliente — siempre visible en General */}
         {(lead.serviceType || lead.notes) && (

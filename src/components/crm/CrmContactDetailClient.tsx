@@ -27,7 +27,7 @@ import { EmailHistoryList, type EmailMessage } from "./EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
-import { DetailField, DetailFieldGrid } from "./DetailField";
+import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import {
@@ -46,7 +46,10 @@ import {
   History,
   XCircle,
   KeyRound,
+  MessageCircle,
+  ChevronDown,
 } from "lucide-react";
+import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FileAttachments } from "./FileAttachments";
@@ -54,7 +57,6 @@ import { CreateDealModal } from "./CreateDealModal";
 import { CreateQuoteModal } from "@/components/cpq/CreateQuoteModal";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 import { CrmActivityTimeline } from "./CrmActivityTimeline";
-import { StartChatButton } from "@/components/chat/StartChatButton";
 import { SendPresentationDialog } from "./SendPresentationDialog";
 
 /** Convierte Tiptap JSON a HTML para email */
@@ -188,10 +190,34 @@ export function CrmContactDetailClient({
   companyPresentations?: Array<{ id: string; status: string }>;
 }) {
   const router = useRouter();
+  const chatCtx = useChatSidePanelContext();
   const [contact, setContact] = useState(initialContact);
   const [contactDeals, setContactDeals] = useState(deals);
   const [presentations, setPresentations] = useState(initialPresentations);
+  const [startingChat, setStartingChat] = useState(false);
   const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
+
+  // Handler reutilizado desde headerActions para no duplicar UI entre `extra`
+  // (desktop) y el menú "..." (mobile). Replica la lógica de StartChatButton.
+  const startExternalChat = async () => {
+    if (!contact.portalEnabled || startingChat) return;
+    setStartingChat(true);
+    try {
+      const res = await fetch(`/api/crm/contacts/${contact.id}/chat`, { method: "POST" });
+      const json = await res.json();
+      if (json.success) {
+        await chatCtx.refreshChannels?.();
+        chatCtx.openPanel();
+        chatCtx.selectChannel(json.data.channelId);
+      } else {
+        toast.error(json.error || "No se pudo iniciar el chat");
+      }
+    } catch {
+      toast.error("No se pudo iniciar el chat");
+    } finally {
+      setStartingChat(false);
+    }
+  };
 
   // ── Edit state ──
   const [editOpen, setEditOpen] = useState(false);
@@ -465,6 +491,18 @@ export function CrmContactDetailClient({
 
   const headerActions: EntityHeaderAction[] = [
     { label: "Editar contacto", icon: Pencil, onClick: openEdit, primary: true },
+    {
+      label: "Enviar correo",
+      icon: Mail,
+      onClick: () => setEmailOpen(true),
+      hidden: !gmailConnected || !contact.email,
+    },
+    {
+      label: contact.portalEnabled ? "Iniciar chat externo" : "Chat (portal no activo)",
+      icon: MessageCircle,
+      onClick: startExternalChat,
+      hidden: !contact.accountId || !contact.portalEnabled,
+    },
     { label: "Enviar Presentación", icon: Building2, onClick: () => setPresentationOpen(true), hidden: !contact.email },
     { label: "Desactivar presentación", icon: XCircle, onClick: handleDeactivatePresentation, hidden: !hasActivePresentation },
     { label: "Eliminar contacto", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
@@ -612,50 +650,147 @@ export function CrmContactDetailClient({
   ];
 
   // ── Tab content: General ──
+  // Patrón unificado con Account/Installation: hero + stats strip + colapsables.
   const generalContent = (
-    <DetailFieldGrid columns={3} className="rounded-lg border border-border bg-card p-4 sm:p-5">
-      <DetailField label="Nombre completo" value={fullName} />
-      <DetailField
-        label="Email"
-        value={contact.email ? (
-          <a href={`mailto:${contact.email}`} className="text-primary hover:underline">{contact.email}</a>
-        ) : undefined}
-        icon={contact.email ? <Mail className="h-3 w-3" /> : undefined}
-      />
-      <DetailField
-        label="Teléfono"
-        value={contact.phone ? (
-          <a href={`tel:${contact.phone}`} className="text-primary hover:underline">{contact.phone}</a>
-        ) : undefined}
-        icon={contact.phone ? <Phone className="h-3 w-3" /> : undefined}
-        mono
-      />
-      <DetailField
-        label="Cargo"
-        value={contact.roleTitle}
-        icon={contact.roleTitle ? <Briefcase className="h-3 w-3" /> : undefined}
-      />
-      <DetailField
-        label="Tipo"
-        value={contact.isPrimary ? (
-          <Badge variant="outline" className="border-primary/30 text-primary">Principal</Badge>
-        ) : "Secundario"}
-      />
-      <DetailField
-        label="PIN portal"
-        value={contact.portalPinVisible?.trim() || undefined}
-        icon={<KeyRound className="h-3 w-3" />}
-        mono
-        copyable={!!contact.portalPinVisible?.trim()}
-        placeholder={
-          contact.portalEnabled
-            ? "Sin PIN — genera uno en la ficha de la cuenta (pestaña Portal)"
-            : "Portal no habilitado para este contacto"
-        }
-      />
-      <DetailField label="Fecha creación" value={contact.createdAt ? new Date(contact.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-      <DetailField label="Última modificación" value={contact.updatedAt ? new Date(contact.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-    </DetailFieldGrid>
+    <div className="space-y-3 sm:space-y-4">
+      {/* ── Hero: identidad (badges + cuenta + cargo) ── */}
+      <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant="outline"
+            className={contact.isPrimary ? "border-primary/30 text-primary" : "border-border/60 text-muted-foreground"}
+          >
+            {contact.isPrimary ? "Contacto principal" : "Contacto secundario"}
+          </Badge>
+          {contact.portalEnabled && (
+            <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
+              <span className="mr-1 inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              Portal activo
+            </Badge>
+          )}
+          {contact.account?.name && (
+            <a
+              href={`/crm/accounts/${contact.account.id}`}
+              className="inline-flex items-center gap-1 truncate rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-primary transition-colors hover:bg-muted/50"
+            >
+              <Building2 className="h-3 w-3 shrink-0" />
+              <span className="truncate max-w-[180px] sm:max-w-xs">{contact.account.name}</span>
+            </a>
+          )}
+        </div>
+        {contact.roleTitle && (
+          <p className="mt-2 flex items-center gap-1.5 truncate text-sm text-muted-foreground">
+            <Briefcase className="h-3.5 w-3.5 shrink-0" />
+            {contact.roleTitle}
+          </p>
+        )}
+      </div>
+
+      {/* ── Stats strip: contacto rápido ── */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Email</div>
+          <div className="truncate text-[13px] font-medium text-foreground">
+            {contact.email ? (
+              <a href={`mailto:${contact.email}`} className="text-primary hover:underline" title={contact.email}>
+                {contact.email}
+              </a>
+            ) : (
+              <span className="text-muted-foreground/70">—</span>
+            )}
+          </div>
+        </div>
+        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Teléfono</div>
+          <div className="truncate font-mono text-[13px] font-medium tabular-nums text-foreground">
+            {contact.phone ? (
+              <a href={`tel:${contact.phone}`} className="text-primary hover:underline">{contact.phone}</a>
+            ) : (
+              <span className="font-sans text-muted-foreground/70">—</span>
+            )}
+          </div>
+        </div>
+        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Cargo</div>
+          <div className="truncate text-[13px] font-medium text-foreground">
+            {contact.roleTitle || <span className="text-muted-foreground/70">—</span>}
+          </div>
+        </div>
+        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Cuenta</div>
+          <div className="truncate text-[13px] font-medium text-foreground">
+            {contact.account?.name ? (
+              <a href={`/crm/accounts/${contact.account.id}`} className="text-primary hover:underline">
+                {contact.account.name}
+              </a>
+            ) : (
+              <span className="text-muted-foreground/70">—</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Portal del cliente (colapsable) ── */}
+      <details className="group rounded-xl border border-border bg-card" open={!!contact.portalPinVisible?.trim()}>
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
+          <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            <KeyRound className="h-3.5 w-3.5" />
+            Portal del cliente
+          </span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-3 px-4 pb-4 pt-1 sm:grid-cols-2">
+          <DetailField
+            label="Estado"
+            value={
+              contact.portalEnabled
+                ? <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">Habilitado</Badge>
+                : <Badge variant="outline" className="border-border/60 text-muted-foreground">No habilitado</Badge>
+            }
+          />
+          <DetailField
+            label="PIN portal"
+            value={contact.portalPinVisible?.trim() || undefined}
+            icon={<KeyRound className="h-3 w-3" />}
+            mono
+            copyable={!!contact.portalPinVisible?.trim()}
+            placeholder={
+              contact.portalEnabled
+                ? "Sin PIN — genera uno en la ficha de la cuenta (pestaña Portal)"
+                : "Portal no habilitado para este contacto"
+            }
+          />
+        </div>
+      </details>
+
+      {/* ── Detalles técnicos (colapsable) ── */}
+      <details className="group rounded-xl border border-border bg-card">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            Detalles técnicos
+          </span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-3 px-4 pb-4 pt-1 sm:grid-cols-2">
+          <DetailField
+            label="Fecha creación"
+            value={
+              contact.createdAt
+                ? new Date(contact.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                : "—"
+            }
+          />
+          <DetailField
+            label="Última modificación"
+            value={
+              contact.updatedAt
+                ? new Date(contact.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                : "—"
+            }
+          />
+        </div>
+      </details>
+    </div>
   );
 
   return (
@@ -668,34 +803,18 @@ export function CrmContactDetailClient({
           title: fullName,
           status: contact.isPrimary ? { label: "Principal", variant: "default" } : undefined,
           actions: headerActions,
-          extra: (
+          extra: phoneBase ? (
             <div className="flex items-center gap-1.5">
-              {phoneBase && (
-                <>
-                  <a href={`tel:+${phoneBase}`} title="Llamar"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors">
-                    <Phone className="h-4 w-4" />
-                  </a>
-                  <a href={`https://wa.me/${phoneBase}?text=${encodeURIComponent(`Hola ${contact.firstName}, `)}`} target="_blank" rel="noopener noreferrer" title="WhatsApp"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-green-600/30 bg-green-600/15 text-green-400 hover:bg-green-600/25 transition-colors">
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
-                  </a>
-                </>
-              )}
-              {gmailConnected && contact.email && (
-                <button type="button" onClick={() => setEmailOpen(true)} title="Enviar correo"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors">
-                  <Mail className="h-4 w-4" />
-                </button>
-              )}
-              {contact.accountId && (
-                <StartChatButton
-                  contactId={contact.id}
-                  portalEnabled={contact.portalEnabled ?? false}
-                />
-              )}
+              <a href={`tel:+${phoneBase}`} title="Llamar"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground hover:bg-muted transition-colors">
+                <Phone className="h-4 w-4" />
+              </a>
+              <a href={`https://wa.me/${phoneBase}?text=${encodeURIComponent(`Hola ${contact.firstName}, `)}`} target="_blank" rel="noopener noreferrer" title="WhatsApp"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-green-600/30 bg-green-600/15 text-green-400 hover:bg-green-600/25 transition-colors">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+              </a>
             </div>
-          ),
+          ) : undefined,
         }}
         tabs={tabs}
         activeTab={activeTab}
