@@ -12,7 +12,7 @@ export default async function GamificacionConfigPage() {
   }
 
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops", "gamificacion")) {
+  if (!canView(perms, "config", "gamificacion")) {
     redirect("/opai/configuracion");
   }
 
