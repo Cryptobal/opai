@@ -36,6 +36,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: "#060a13",
+  interactiveWidget: "resizes-content",
 };
 
 export const metadata: Metadata = {
@@ -88,6 +89,7 @@ export default function RootLayout({
   return (
     <html lang="es" className={`dark ${exo2.variable} ${dmSans.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <head>
+        <meta name="mobile-web-app-capable" content="yes" />
         <Script id="theme-init" strategy="beforeInteractive">{`
           try {
             var t = localStorage.getItem('opai-theme');
