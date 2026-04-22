@@ -41,6 +41,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.opai.cl'),
+  manifest: '/manifest.json',
   title: {
     default: 'OPAI — ERP para Empresas de Seguridad Privada | Chile',
     template: '%s | OPAI',
