@@ -60,10 +60,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: [] });
     }
 
+    // IMPORTANTE: forzamos `source: "portal_cliente"` para que el cliente SOLO
+    // vea tickets que él mismo generó desde el portal, nunca tickets internos
+    // (hallazgos de supervisión, guard events, manuales de operaciones, etc.).
     const tickets = await prisma.opsTicket.findMany({
       where: {
         tenantId: session.tenantId,
         installationId: { in: installationIds },
+        source: "portal_cliente",
         ...(statusFilter ? { status: statusFilter } : {}),
       },
       select: {

@@ -68,6 +68,8 @@ export async function GET(request: Request) {
         where: {
           tenantId: session.tenantId,
           installationId: inst.id,
+          // Solo tickets generados desde el portal cliente — nunca internos.
+          source: "portal_cliente",
           ...(hasDateFilter ? { createdAt: dateFilter } : {}),
         },
       });
