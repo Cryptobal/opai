@@ -444,8 +444,35 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   })(),
 
   editor: {
-    modules: { hub: "full", ops: "edit", crm: "edit", docs: "edit", cpq: "edit", payroll: "view", finance: "view", config: "none" },
-    submodules: {},
+    modules: { hub: "full", ops: "edit", crm: "edit", docs: "edit", cpq: "edit", payroll: "view", finance: "view", config: "view" },
+    submodules: {
+      // Admin-only: bloqueados explícitamente
+      "config.empresa": "none",
+      "config.roles": "none",
+      "config.auditoria": "none",
+      "config.cumplimiento": "none",
+      "config.documentos_operacionales": "none",
+      "config.mi_plan": "none",
+      "config.gamificacion": "none",
+      "config.asistente_ia": "none",
+      "config.inteligencia_artificial": "none",
+      // Edita
+      "config.firmas": "edit",
+      "config.integraciones": "edit",
+      "config.notificaciones": "edit",
+      "config.categorias": "edit",
+      "config.crm": "edit",
+      "config.cpq": "edit",
+      "config.ops": "edit",
+      "config.tipos_ticket": "edit",
+      "config.alertas_cobertura": "edit",
+      "config.ats": "edit",
+      // Solo lectura
+      "config.usuarios": "view",
+      "config.grupos": "view",
+      "config.payroll": "view",
+      "config.finanzas": "view",
+    },
     capabilities: {
       te_approve: true,
       rondas_configure: true,
