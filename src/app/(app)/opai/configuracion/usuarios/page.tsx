@@ -18,14 +18,16 @@ export default async function UsuariosConfigPage() {
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/opai/login");
+    redirect("/opai/login?callbackUrl=/opai/configuracion/usuarios");
   }
 
   const perms = await resolvePagePerms(session.user);
 
-  if (!canView(perms, "config", "usuarios") || !hasCapability(perms, "manage_users")) {
-    redirect("/opai/inicio");
+  if (!canView(perms, "config", "usuarios")) {
+    redirect("/opai/configuracion");
   }
+
+  const canManage = hasCapability(perms, "manage_users");
 
   const [usersResult, invitationsResult, templatesResult] = await Promise.all([
     listUsers(),
@@ -48,7 +50,7 @@ export default async function UsuariosConfigPage() {
       actions={
         <div className="flex items-center gap-3">
           <RolesHelpCard />
-          <InviteUserButton roleTemplates={roleTemplates} />
+          {canManage && <InviteUserButton roleTemplates={roleTemplates} />}
         </div>
       }
     >
@@ -67,13 +69,15 @@ export default async function UsuariosConfigPage() {
             currentUserRole={session.user.role}
           />
         </CardContent>
-        <CardContent className="border-t border-border">
-          <p className="text-xs text-muted-foreground">
-            <strong className="text-foreground">Rol:</strong> haz clic en el rol para cambiarlo.{" "}
-            <strong className="text-foreground">Acciones:</strong> menú (&lsaquo;) para activar/desactivar.{" "}
-            <strong className="text-foreground">Permisos:</strong> usa &quot;Ver permisos&quot; arriba.
-          </p>
-        </CardContent>
+        {canManage && (
+          <CardContent className="border-t border-border">
+            <p className="text-xs text-muted-foreground">
+              <strong className="text-foreground">Rol:</strong> haz clic en el rol para cambiarlo.{" "}
+              <strong className="text-foreground">Acciones:</strong> menú (&lsaquo;) para activar/desactivar.{" "}
+              <strong className="text-foreground">Permisos:</strong> usa &quot;Ver permisos&quot; arriba.
+            </p>
+          </CardContent>
+        )}
       </Card>
 
       {invitations.length > 0 && (
@@ -89,11 +93,13 @@ export default async function UsuariosConfigPage() {
           <CardContent className="p-0">
             <InvitationsTable invitations={invitations} />
           </CardContent>
-          <CardContent className="border-t border-border">
-            <p className="text-xs text-muted-foreground">
-              En <strong className="text-foreground">Acciones</strong> puedes revocar una invitación para invalidar el enlace.
-            </p>
-          </CardContent>
+          {canManage && (
+            <CardContent className="border-t border-border">
+              <p className="text-xs text-muted-foreground">
+                En <strong className="text-foreground">Acciones</strong> puedes revocar una invitación para invalidar el enlace.
+              </p>
+            </CardContent>
+          )}
         </Card>
       )}
     </ConfigPageLayout>
