@@ -40,6 +40,8 @@ type ApiCell = {
   digitalStatus: string | null;
   docId: string | null;
   fileName: string | null;
+  fileUrl?: string | null;
+  expiresAt?: string | null;
   fisicaPresente: boolean | null;
   ultimaVerificacion: string | null;
   supervisorName: string | null;
@@ -404,6 +406,18 @@ export function GrillaDocsInstalacion() {
           digitalStatus={drawerProps.cell.digitalStatus ?? "sin_documento"}
           obligatorioEnVisita={drawerProps.tipo.obligatorioEnVisita}
           tipoDocId={drawerProps.tipo.id}
+          codigo={drawerProps.tipo.codigo}
+          cellMeta={{
+            docId: drawerProps.cell.docId,
+            fileName: drawerProps.cell.fileName,
+            fileUrl: drawerProps.cell.fileUrl ?? null,
+            expiresAt: drawerProps.cell.expiresAt ?? null,
+            digitalStatus: drawerProps.cell.digitalStatus,
+            fisicaPresente: drawerProps.cell.fisicaPresente,
+            ultimaVerificacion: drawerProps.cell.ultimaVerificacion,
+            supervisorName: drawerProps.cell.supervisorName,
+            hallazgos: drawerProps.cell.hallazgos,
+          }}
         />
       )}
     </div>

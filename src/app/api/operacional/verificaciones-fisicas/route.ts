@@ -27,6 +27,9 @@ export async function GET(request: NextRequest) {
     const tipoDocId = searchParams.get("tipoDocId") ?? undefined;
     const guardiaId = searchParams.get("guardiaId") ?? undefined;
     const guardiaDocType = searchParams.get("guardiaDocType") ?? undefined;
+    // `codigo` habilita un fallback para capturar registros legacy
+    // guardados con `guardiaDocType = <codigo>` aunque sean capa global/instalacion.
+    const codigo = searchParams.get("codigo") ?? undefined;
     const capaRaw = searchParams.get("capa") ?? undefined;
     const limitRaw = searchParams.get("limit");
     const cursor = searchParams.get("cursor") ?? undefined;
@@ -43,13 +46,24 @@ export async function GET(request: NextRequest) {
     }
     const capa = capaResult.data;
 
+    // Si tenemos tipoDocId + codigo, buscar OR (para capturar legacy por codigo)
+    const tipoFilter =
+      tipoDocId && codigo
+        ? { OR: [{ tipoDocId }, { guardiaDocType: codigo }] }
+        : tipoDocId
+          ? { tipoDocId }
+          : guardiaDocType
+            ? { guardiaDocType }
+            : codigo
+              ? { guardiaDocType: codigo }
+              : {};
+
     const items = await prisma.docVerificacionFisica.findMany({
       where: {
         tenantId: ctx.tenantId,
         ...(installationId ? { installationId } : {}),
-        ...(tipoDocId ? { tipoDocId } : {}),
+        ...tipoFilter,
         ...(guardiaId ? { guardiaId } : {}),
-        ...(guardiaDocType ? { guardiaDocType } : {}),
         ...(capa ? { capa } : {}),
       },
       orderBy: { createdAt: "desc" },
@@ -63,7 +77,14 @@ export async function GET(request: NextRequest) {
           select: { id: true, checkInAt: true },
         },
         hallazgo: {
-          select: { id: true, ticketId: true, severity: true },
+          select: {
+            id: true,
+            ticketId: true,
+            severity: true,
+            status: true,
+            description: true,
+            ticket: { select: { id: true, code: true, status: true } },
+          },
         },
       },
     });

@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
         expiresAt: true,
         status: true,
         fileName: true,
+        fileUrl: true,
       },
     });
 
@@ -314,6 +315,8 @@ export async function GET(request: NextRequest) {
           digitalStatus,
           docId: doc?.id ?? null,
           fileName: doc?.fileName ?? null,
+          fileUrl: doc?.fileUrl ?? null,
+          expiresAt: doc?.expiresAt?.toISOString() ?? null,
           fisicaPresente: verif?.presente ?? null,
           ultimaVerificacion: verif?.createdAt?.toISOString() ?? null,
           supervisorName: verif?.supervisor?.name ?? null,
