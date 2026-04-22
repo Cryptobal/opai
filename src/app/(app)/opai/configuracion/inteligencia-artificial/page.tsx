@@ -9,6 +9,11 @@ export default async function InteligenciaArtificialPage() {
     redirect("/opai/login?callbackUrl=/opai/configuracion");
   }
 
+  const role = session.user.role;
+  if (role !== "owner" && role !== "admin") {
+    redirect("/opai/configuracion");
+  }
+
   return (
     <ConfigPageLayout
       title="Inteligencia Artificial"
