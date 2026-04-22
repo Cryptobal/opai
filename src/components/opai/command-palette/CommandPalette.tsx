@@ -17,6 +17,7 @@ import {
   ArrowUp,
   ArrowDown,
   Loader2,
+  X,
   Users,
   Building2,
   Contact,
@@ -30,6 +31,7 @@ import {
   Package,
   Cpu,
   Phone,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CommandItem, CommandCategory } from './types';
@@ -43,14 +45,11 @@ function fuzzyScore(text: string, query: string): number {
   const lower = text.toLowerCase();
   const q = query.toLowerCase();
 
-  // Exact match
   if (lower === q) return 100;
-  // Starts with
   if (lower.startsWith(q)) return 90;
-  // Contains as substring
   const idx = lower.indexOf(q);
   if (idx !== -1) return 80 - idx * 0.5;
-  // Word-start match (e.g. "pm" matches "pauta mensual")
+
   const words = lower.split(/\s+/);
   const qChars = q.split('');
   let wordIdx = 0;
@@ -62,7 +61,6 @@ function fuzzyScore(text: string, query: string): number {
   }
   if (charIdx === qChars.length) return 60;
 
-  // Fuzzy: all query chars in order
   let qi = 0;
   for (let i = 0; i < lower.length && qi < q.length; i++) {
     if (lower[i] === q[qi]) qi++;
@@ -162,6 +160,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   const [apiResults, setApiResults] = useState<ApiSearchResult[]>([]);
   const [apiLoading, setApiLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Merge default + external commands, filter by role
   const allCommands = useMemo(() => {
@@ -226,7 +225,6 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
     });
   }, [apiResults, onOpenChat]);
 
-  // All items = static commands + API search results
   const allItems = useMemo(() => [...filteredCommands, ...searchItems], [filteredCommands, searchItems]);
 
   // Group by category
@@ -249,9 +247,10 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
       }));
   }, [allItems]);
 
-  // Debounced API search
+  // Debounced API search with AbortController for out-of-order cancellation
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (abortRef.current) abortRef.current.abort();
 
     if (!isOpen || query.trim().length < 2) {
       setApiResults([]);
@@ -261,21 +260,28 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
 
     setApiLoading(true);
     debounceRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
-        const res = await fetch(`/api/search/global?q=${encodeURIComponent(query.trim())}`);
+        const res = await fetch(
+          `/api/search/global?q=${encodeURIComponent(query.trim())}`,
+          { signal: controller.signal },
+        );
         if (!res.ok) throw new Error();
         const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
+        if (!controller.signal.aborted && json.success && Array.isArray(json.data)) {
           setApiResults(json.data);
         }
-      } catch {
-        setApiResults([]);
+      } catch (err) {
+        if ((err as { name?: string })?.name !== 'AbortError') setApiResults([]);
       } finally {
-        setApiLoading(false);
+        if (!controller.signal.aborted) setApiLoading(false);
       }
-    }, 300);
+    }, 250);
 
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [query, isOpen]);
 
   // Execute command
@@ -306,7 +312,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
     [close, router, addRecent],
   );
 
-  // Reset on open
+  // Reset on open + focus input
   useEffect(() => {
     if (isOpen) {
       setQuery('');
@@ -315,6 +321,16 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
         inputRef.current?.focus();
       });
     }
+  }, [isOpen]);
+
+  // Lock body scroll while open (prevents background scroll on iOS)
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, [isOpen]);
 
   // Track page visits for recents
@@ -339,69 +355,139 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
 
   if (!isOpen) return null;
 
+  const handleClose = () => {
+    close();
+    setQuery('');
+  };
+
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-start justify-center pt-[8vh] sm:pt-[15vh] lg:pt-[20vh]"
+      className={cn(
+        'fixed inset-0 z-[70]',
+        // Desktop: centered modal | Mobile: full-screen sheet
+        'flex flex-col sm:items-start sm:justify-center sm:pt-[12vh]',
+      )}
       role="dialog"
-      aria-label="Command palette"
+      aria-label="Buscador global"
       aria-modal="true"
+      style={{
+        // iOS keyboard + safe areas
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+      }}
     >
-      {/* Overlay */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
-        onClick={() => {
-          close();
-          setQuery('');
-        }}
-        aria-hidden="true"
+      {/* Overlay — desktop only (mobile is full-screen sheet) */}
+      <button
+        type="button"
+        aria-label="Cerrar buscador"
+        onClick={handleClose}
+        className="absolute inset-0 hidden sm:block bg-black/70 backdrop-blur-md animate-in fade-in duration-200"
       />
 
-      {/* Modal */}
-      <div className="relative w-full max-w-[640px] mx-4 animate-in fade-in zoom-in-95 duration-200">
+      {/* Sheet / Modal */}
+      <div
+        className={cn(
+          'relative flex flex-col min-h-0',
+          // Mobile: fill screen (slide up from bottom)
+          'flex-1 w-full bg-background animate-in slide-in-from-bottom-4 fade-in duration-200',
+          // Desktop: centered card
+          'sm:flex-none sm:w-full sm:max-w-[640px] sm:mx-auto sm:rounded-2xl sm:border sm:border-border/60 sm:bg-card sm:shadow-2xl sm:shadow-black/40 sm:slide-in-from-top-4 sm:zoom-in-[0.98] sm:overflow-hidden',
+          'sm:ring-1 sm:ring-white/[0.03]',
+        )}
+        style={{
+          // Mobile gets full dvh height; subtract safe area top
+          maxHeight: 'calc(100dvh - env(safe-area-inset-top, 0px))',
+        }}
+      >
         <Command
-          className="rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
-          filter={() => 1} // We handle filtering ourselves
+          className="flex flex-col min-h-0 flex-1 sm:max-h-[min(70dvh,560px)]"
+          filter={() => 1}
           loop
+          shouldFilter={false}
         >
-          {/* ── Search input ── */}
-          <div className="flex items-center border-b border-border px-4">
-            <Search className="mr-3 h-5 w-5 shrink-0 text-muted-foreground" />
+          {/* ── Search input (sticky top) ── */}
+          <div
+            className={cn(
+              'flex items-center gap-2 border-b border-border/60 px-4 sm:px-5 shrink-0',
+              // Mobile input area is taller for comfortable thumb reach
+              'h-16 sm:h-[60px]',
+            )}
+          >
+            <Search className="h-5 w-5 shrink-0 text-muted-foreground/70" aria-hidden />
             <Command.Input
               ref={inputRef}
               value={query}
               onValueChange={setQuery}
-              placeholder={isMobile ? 'Buscar...' : 'Buscar guardias, instalaciones, chats, acciones...'}
-              className="flex h-14 min-w-0 flex-1 bg-transparent pr-2 text-base text-foreground outline-none placeholder:text-muted-foreground"
-              aria-label="Buscar en el command palette"
+              placeholder={isMobile ? 'Buscar…' : 'Buscar guardias, instalaciones, chats, acciones…'}
+              className={cn(
+                'flex min-w-0 flex-1 bg-transparent outline-none',
+                'text-[17px] sm:text-[15px] text-foreground',
+                'placeholder:text-muted-foreground/60',
+                // Prevent iOS auto-cap/auto-correct noise
+              )}
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="search"
+              enterKeyHint="search"
+              aria-label="Buscar"
             />
             {apiLoading && (
-              <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
             )}
             <button
               type="button"
-              onClick={() => {
-                close();
-                setQuery('');
-              }}
-              className="shrink-0 rounded border border-border bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors sm:px-1.5 sm:py-0.5"
+              onClick={handleClose}
+              className={cn(
+                'shrink-0 inline-flex items-center justify-center rounded-md transition-colors',
+                // Mobile: 40px touch target with X icon
+                'sm:hidden h-10 w-10 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95',
+              )}
+              aria-label="Cerrar"
             >
-              {isMobile ? 'Cerrar' : 'ESC'}
+              <X className="h-5 w-5" />
             </button>
+            <kbd
+              className={cn(
+                'hidden sm:inline-flex shrink-0 items-center rounded-md border border-border/60 bg-muted/60 px-1.5 h-6 text-[11px] font-medium text-muted-foreground hover:bg-muted transition-colors cursor-pointer select-none',
+              )}
+              onClick={handleClose}
+              aria-label="Cerrar (Esc)"
+              role="button"
+              tabIndex={-1}
+            >
+              esc
+            </kbd>
           </div>
 
           {/* ── Results ── */}
           <Command.List
-            className="max-h-[min(70vh,480px)] overflow-y-auto overscroll-contain p-2"
+            className={cn(
+              'flex-1 min-h-0 overflow-y-auto overscroll-contain',
+              'p-2 sm:p-2.5',
+              '[-webkit-overflow-scrolling:touch]',
+            )}
             role="listbox"
           >
             {allItems.length === 0 && !apiLoading && (
-              <Command.Empty className="py-12 text-center">
-                <Search className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
-                <p className="text-sm font-medium text-muted-foreground">
-                  No se encontraron resultados para &ldquo;{query}&rdquo;
+              <Command.Empty className="py-16 text-center">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted/60">
+                  {query ? (
+                    <Search className="h-5 w-5 text-muted-foreground/70" />
+                  ) : (
+                    <Sparkles className="h-5 w-5 text-primary/80" />
+                  )}
+                </div>
+                <p className="text-sm font-medium text-foreground">
+                  {query ? (
+                    <>Sin resultados para <span className="text-muted-foreground">&ldquo;{query}&rdquo;</span></>
+                  ) : (
+                    'Empieza a escribir para buscar'
+                  )}
                 </p>
-                <p className="text-xs text-muted-foreground/80 mt-1">
-                  Prueba con otro término o busca por nombre, instalación o acción
+                <p className="text-xs text-muted-foreground/80 mt-1.5 px-6">
+                  {query
+                    ? 'Prueba con otro término: nombre, RUT, instalación, acción…'
+                    : 'Guardias, instalaciones, documentos, chats y más'}
                 </p>
               </Command.Empty>
             )}
@@ -411,13 +497,16 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                 key={group.category}
                 heading={group.label}
                 className={cn(
-                  '[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:sticky [&_[cmdk-group-heading]]:top-0 [&_[cmdk-group-heading]]:bg-card [&_[cmdk-group-heading]]:z-10',
-                  idx > 0 && 'border-t border-border/50',
+                  '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1.5',
+                  '[&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold',
+                  '[&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.08em]',
+                  '[&_[cmdk-group-heading]]:text-muted-foreground/70',
+                  idx === 0 && '[&_[cmdk-group-heading]]:pt-1',
                 )}
               >
                 {group.items.map((cmd) => {
                   const isSearch = cmd.category.startsWith('search_');
-                  const searchType = isSearch ? cmd.id.split('-')[1] as SearchResultType : null;
+                  const searchType = isSearch ? (cmd.id.split('-')[1] as SearchResultType) : null;
                   const searchConfig = searchType ? SEARCH_TYPE_CONFIG[searchType] : null;
 
                   const showImage = isSearch && cmd.imageUrl;
@@ -429,16 +518,24 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                       key={cmd.id}
                       value={cmd.id}
                       onSelect={() => runCommand(cmd)}
-                      className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm cursor-pointer transition-colors duration-150 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground"
+                      className={cn(
+                        'group flex items-center gap-3 rounded-xl px-3 text-sm cursor-pointer',
+                        'transition-colors duration-150 mx-0.5',
+                        // Mobile touch-friendly rows; desktop compact
+                        'py-3 sm:py-2.5',
+                        'data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground',
+                        'active:bg-accent/80',
+                      )}
                       role="option"
                     >
                       <div
                         className={cn(
-                          'relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg',
+                          'relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg',
+                          'h-9 w-9',
                           isSearch && searchConfig && !showImage
                             ? searchConfig.bgColor
                             : cmd.category === 'recent'
-                              ? 'bg-muted'
+                              ? 'bg-muted/70'
                               : cmd.category === 'action'
                                 ? 'bg-primary/10'
                                 : cmd.category === 'config'
@@ -450,7 +547,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={cmd.imageUrl}
-                            alt={cmd.label}
+                            alt=""
                             className="h-9 w-9 rounded-lg object-cover"
                             onError={(e) => {
                               e.currentTarget.style.display = 'none';
@@ -467,7 +564,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                         >
                           <cmd.icon
                             className={cn(
-                              'h-4 w-4',
+                              'h-[18px] w-[18px]',
                               isSearch && searchConfig
                                 ? searchConfig.color
                                 : cmd.category === 'recent'
@@ -484,30 +581,30 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium truncate leading-tight">
+                          <p className="font-medium truncate leading-tight text-[14px] sm:text-[13.5px]">
                             {highlightMatch(cmd.label, query)}
                           </p>
                           {showPin && (
-                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground tabular-nums">
                               {cmd.pinDisplay}
                             </span>
                           )}
                         </div>
                         {cmd.description && (
-                          <p className="text-xs text-muted-foreground/90 truncate mt-0.5">
+                          <p className="text-[12px] text-muted-foreground/80 truncate mt-0.5 leading-snug">
                             {highlightMatch(cmd.description, query)}
                           </p>
                         )}
                       </div>
 
                       {cmd.shortcut && (
-                        <kbd className="hidden sm:inline-flex shrink-0 h-5 items-center gap-0.5 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                        <kbd className="hidden sm:inline-flex shrink-0 h-5 items-center gap-0.5 rounded border border-border/60 bg-muted/60 px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                           {cmd.shortcut}
                         </kbd>
                       )}
 
                       {cmd.category === 'recent' && (
-                        <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                        <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" aria-hidden />
                       )}
 
                       {showStatusBadge && (
@@ -531,28 +628,38 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
             ))}
           </Command.List>
 
-          {/* ── Footer ── */}
-          <div className="flex items-center justify-between border-t border-border px-4 py-2 sm:py-2">
-            <div className={cn('flex items-center gap-3 text-xs text-muted-foreground', isMobile && 'hidden')}>
-              <span className="inline-flex items-center gap-1">
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-border bg-muted">
+          {/* ── Footer (desktop only — keyboard hints) ── */}
+          <div className="hidden sm:flex items-center justify-between border-t border-border/60 bg-muted/20 px-4 py-2 shrink-0">
+            <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border/60 bg-background/80 px-1">
                   <ArrowUp className="h-3 w-3" />
                 </span>
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-border bg-muted">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border/60 bg-background/80 px-1">
                   <ArrowDown className="h-3 w-3" />
                 </span>
-                <span className="ml-0.5">navegar</span>
+                <span>navegar</span>
               </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-border bg-muted">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border/60 bg-background/80 px-1">
                   <CornerDownLeft className="h-3 w-3" />
                 </span>
-                <span className="ml-0.5">seleccionar</span>
+                <span>abrir</span>
               </span>
             </div>
-            <span className={cn('text-[10px] text-muted-foreground/60', isMobile && 'ml-auto')}>
-              {allItems.length} resultado{allItems.length !== 1 ? 's' : ''}
+            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
+              {allItems.length} {allItems.length === 1 ? 'resultado' : 'resultados'}
             </span>
+          </div>
+
+          {/* ── Footer (mobile — compact count + safe area spacer) ── */}
+          <div
+            className="sm:hidden flex items-center justify-center border-t border-border/60 bg-muted/20 px-4 py-2 shrink-0 text-[11px] text-muted-foreground/70 tabular-nums"
+            style={{
+              paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)',
+            }}
+          >
+            {allItems.length} {allItems.length === 1 ? 'resultado' : 'resultados'}
           </div>
         </Command>
       </div>

@@ -21,7 +21,7 @@ export default async function TemplateEditorPage({
   const { id } = await params;
 
   return (
-    <div className="h-[calc(100vh-64px)] flex flex-col min-w-0 overflow-hidden">
+    <div className="h-[calc(100dvh-64px)] flex flex-col min-w-0 overflow-hidden">
       <TemplateEditorClient
         templateId={id === "new" ? undefined : id}
         tenantId={tenantId}

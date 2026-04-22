@@ -87,7 +87,7 @@ function AppShellInner({
   }, [isSidebarOpen]);
   return (
     <>
-      <div className="relative min-h-screen overflow-x-hidden">
+      <div className="relative min-h-[100dvh] overflow-x-hidden">
         {/* ── Mobile topbar (redesigned — no hamburger, no sidebar) ── */}
         {sidebar && (
           <header

@@ -20,7 +20,7 @@ import { getQuoteStatus } from "@/lib/quoteStatus";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { EmailHistoryList } from "./EmailHistoryList";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
-import { DetailField, DetailFieldGrid } from "./DetailField";
+import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import {
@@ -45,6 +45,7 @@ import {
   MessageCircle,
   GitMerge,
   Key,
+  ChevronDown,
 } from "lucide-react";
 import { DuplicateAccountModal } from "./DuplicateAccountModal";
 import { toast } from "sonner";
@@ -1011,84 +1012,155 @@ export function CrmAccountDetailClient({
 
   // ── Tab content: General ──
   const generalContent = (
-    <div className="space-y-6 rounded-lg border border-border bg-card p-4 sm:p-5">
-      <DetailFieldGrid columns={3}>
-        <DetailField
-          label="Tipo"
-          value={
-            <Badge variant="outline" className={lifecycle !== "prospect" ? "border-emerald-500/30 text-emerald-400" : "border-amber-500/30 text-amber-400"}>
-              {lifecycle === "prospect" ? "Prospecto" : "Cliente"}
-            </Badge>
-          }
-        />
-        <DetailField
-          label="Estado"
-          value={
-            <Badge variant="outline" className={lifecycle === "client_active" ? "border-emerald-500/30 text-emerald-400" : "border-rose-500/30 text-rose-400"}>
-              {lifecycle === "client_active" ? "Activa" : lifecycle === "client_inactive" ? "Ex cliente" : "Inactiva"}
-            </Badge>
-          }
-        />
-        <DetailField
-          label="Página web"
-          value={account.website ? (
-            <a href={account.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate flex items-center gap-1">
-              {account.website}<ExternalLink className="h-3 w-3 shrink-0" />
+    <div className="space-y-3 sm:space-y-4">
+      {/* ── Hero: identidad clave (Tipo + Estado + Razón social + dirección) ── */}
+      <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant="outline"
+            className={lifecycle !== "prospect" ? "border-emerald-500/30 text-emerald-400" : "border-amber-500/30 text-amber-400"}
+          >
+            {lifecycle === "prospect" ? "Prospecto" : "Cliente"}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={lifecycle === "client_active" ? "border-emerald-500/30 text-emerald-400" : "border-rose-500/30 text-rose-400"}
+          >
+            <span
+              className={`mr-1 inline-flex h-1.5 w-1.5 rounded-full ${
+                lifecycle === "client_active" ? "bg-emerald-400" : "bg-rose-400"
+              }`}
+            />
+            {lifecycle === "client_active" ? "Activa" : lifecycle === "client_inactive" ? "Ex cliente" : "Inactiva"}
+          </Badge>
+          {account.website && (
+            <a
+              href={account.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 truncate rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-primary transition-colors hover:bg-muted/50"
+            >
+              <span className="truncate max-w-[180px] sm:max-w-xs">{account.website.replace(/^https?:\/\//, "")}</span>
+              <ExternalLink className="h-3 w-3 shrink-0" />
             </a>
-          ) : undefined}
-        />
-        <DetailField label="RUT" value={account.rut} mono copyable />
-        <DetailField label="Razón social" value={account.legalName} />
-        <DetailField label="Industria" value={account.industry} />
-        <DetailField
-          label="Representante legal"
-          value={
-            account.legalRepresentativeName ||
-            account.representantesLegales?.[0]?.nombre ||
-            null
-          }
-        />
-        <DetailField
-          label="RUT representante"
-          value={
-            account.legalRepresentativeRut ||
-            account.representantesLegales?.[0]?.rut ||
-            null
-          }
-          mono
-          copyable
-        />
-        <DetailField
-          label="Notaría"
-          value={account.notaryName || account.personeria?.notaria || null}
-        />
-        <DetailField
-          label="Fecha escritura"
-          value={
-            account.notaryDate ||
-            (account.personeria?.fechaEscritura
-              ? account.personeria.fechaEscritura.slice(0, 10)
-              : null)
-          }
-        />
-        <DetailField label="Segmento" value={account.segment} />
-        <DetailField
-          label="Dirección"
-          value={account.address}
-          icon={account.address ? <MapPin className="h-3 w-3" /> : undefined}
-        />
-        <DetailField label="Comuna" value={account.commune} />
-        <DetailField
-          label="Fecha inicio"
-          value={account.startDate ? new Intl.DateTimeFormat("es-CL").format(new Date(account.startDate)) : undefined}
-        />
-        <DetailField
-          label="Fecha término"
-          value={account.endDate ? new Intl.DateTimeFormat("es-CL").format(new Date(account.endDate)) : undefined}
-        />
-        <DetailField label="Fecha creación" value={account.createdAt ? new Date(account.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-        <DetailField label="Última modificación" value={account.updatedAt ? new Date(account.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-      </DetailFieldGrid>
+          )}
+        </div>
+        {account.legalName && (
+          <p className="mt-2 truncate text-sm text-muted-foreground">{account.legalName}</p>
+        )}
+        {account.address && (
+          <div className="mt-3 flex items-start gap-2 border-t border-border/50 pt-3">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <p className="break-words text-[14px] leading-snug text-foreground">{account.address}</p>
+              {account.commune && <p className="mt-0.5 text-xs text-muted-foreground">{account.commune}</p>}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Stats strip: datos clave (2 col mobile, 4 desktop) ── */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">RUT</div>
+          <div className="truncate font-mono text-[13px] font-medium tabular-nums text-foreground">
+            {account.rut || <span className="font-sans text-muted-foreground/70">—</span>}
+          </div>
+        </div>
+        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Industria</div>
+          <div className="truncate text-[13px] font-medium text-foreground">
+            {account.industry || <span className="text-muted-foreground/70">—</span>}
+          </div>
+        </div>
+        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Segmento</div>
+          <div className="truncate text-[13px] font-medium text-foreground">
+            {account.segment || <span className="text-muted-foreground/70">—</span>}
+          </div>
+        </div>
+        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Vigencia</div>
+          <div className="truncate text-[13px] font-medium text-foreground">
+            {account.startDate
+              ? new Intl.DateTimeFormat("es-CL", { year: "numeric", month: "short" }).format(new Date(account.startDate))
+              : <span className="text-muted-foreground/70">—</span>}
+            {account.endDate && (
+              <> → {new Intl.DateTimeFormat("es-CL", { year: "numeric", month: "short" }).format(new Date(account.endDate))}</>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Representación legal (colapsable) ── */}
+      {(account.legalRepresentativeName ||
+        account.representantesLegales?.[0]?.nombre ||
+        account.legalRepresentativeRut ||
+        account.representantesLegales?.[0]?.rut ||
+        account.notaryName ||
+        account.personeria?.notaria ||
+        account.notaryDate ||
+        account.personeria?.fechaEscritura) && (
+        <details className="group rounded-xl border border-border bg-card">
+          <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Representación legal
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 pb-4 pt-1 sm:grid-cols-2 lg:grid-cols-4">
+            <DetailField
+              label="Representante legal"
+              value={account.legalRepresentativeName || account.representantesLegales?.[0]?.nombre || null}
+            />
+            <DetailField
+              label="RUT representante"
+              value={account.legalRepresentativeRut || account.representantesLegales?.[0]?.rut || null}
+              mono
+              copyable
+            />
+            <DetailField
+              label="Notaría"
+              value={account.notaryName || account.personeria?.notaria || null}
+            />
+            <DetailField
+              label="Fecha escritura"
+              value={
+                account.notaryDate ||
+                (account.personeria?.fechaEscritura ? account.personeria.fechaEscritura.slice(0, 10) : null)
+              }
+            />
+          </div>
+        </details>
+      )}
+
+      {/* ── Metadata (colapsable) ── */}
+      <details className="group rounded-xl border border-border bg-card">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            Detalles técnicos
+          </span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-3 px-4 pb-4 pt-1 sm:grid-cols-2">
+          <DetailField
+            label="Fecha creación"
+            value={
+              account.createdAt
+                ? new Date(account.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                : "—"
+            }
+          />
+          <DetailField
+            label="Última modificación"
+            value={
+              account.updatedAt
+                ? new Date(account.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                : "—"
+            }
+          />
+        </div>
+      </details>
 
       {/* ── Portal del cliente (PIN visible en General) ── */}
       <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">

@@ -156,7 +156,7 @@ export function FiscalizacionDashboard({ userRole, userName }: Props) {
   ];
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-[100dvh]">
       {/* Header */}
       <div className="border-b bg-red-600/5 px-6 py-4">
         <div className="flex items-center gap-3">
