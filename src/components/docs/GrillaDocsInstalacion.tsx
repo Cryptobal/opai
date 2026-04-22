@@ -26,6 +26,15 @@ type TipoDoc = {
   obligatorio: boolean;
 };
 
+type ApiHallazgo = {
+  id: string;
+  severity: string;
+  status: string;
+  ticketCode: string | null;
+  ticketId: string | null;
+  description?: string;
+};
+
 type ApiCell = {
   tipoDocId: string;
   digitalStatus: string | null;
@@ -34,6 +43,8 @@ type ApiCell = {
   fisicaPresente: boolean | null;
   ultimaVerificacion: string | null;
   supervisorName: string | null;
+  hallazgosAbiertos?: number;
+  hallazgos?: ApiHallazgo[];
 };
 
 type ApiRow = {
@@ -350,6 +361,9 @@ export function GrillaDocsInstalacion() {
                           <GrillaCelda
                             status={status}
                             compact
+                            hallazgosAbiertos={cell.hallazgosAbiertos ?? 0}
+                            hallazgosSeverity={cell.hallazgos?.[0]?.severity ?? null}
+                            hallazgoTicketCode={cell.hallazgos?.[0]?.ticketCode ?? null}
                             onClick={() =>
                               handleCellClick(row, tipo, cell)
                             }

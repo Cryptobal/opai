@@ -53,6 +53,29 @@ type TipoRef = {
   order: number;
 };
 
+type VerificacionFisica = {
+  presente: boolean;
+  ultimaVerificacion: string;
+  supervisorName: string | null;
+  hallazgo: {
+    id: string;
+    status: string;
+    severity: string;
+    ticketCode: string | null;
+    ticketId: string | null;
+  } | null;
+};
+
+type TipoConfigItem = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  normativa: string | null;
+  obligatorio: boolean;
+  obligatorioEnVisita: boolean;
+  verificacion: VerificacionFisica | null;
+};
+
 type DocItem = {
   id: string;
   tipoId: string;
@@ -100,7 +123,8 @@ type ConsolidatedData = {
   globales: DocItem[];
   instalacion: DocItem[];
   guardias: GuardiaBlock[];
-  tiposInstalacion: { id: string; codigo: string; nombre: string; normativa: string | null }[];
+  tiposGlobal: TipoConfigItem[];
+  tiposInstalacion: TipoConfigItem[];
 };
 
 function StatusIcon({ status }: { status: string }) {
@@ -217,7 +241,7 @@ export function InstalacionDocsOperacionalesTab({ installationId }: Props) {
     );
   }
 
-  const { cumplimiento, globales, instalacion, guardias, tiposInstalacion } = data;
+  const { cumplimiento, globales, instalacion, guardias, tiposGlobal, tiposInstalacion } = data;
 
   return (
     <div className="space-y-4">
@@ -261,17 +285,26 @@ export function InstalacionDocsOperacionalesTab({ installationId }: Props) {
       {/* Section: Globales */}
       <CollapsibleSection
         title="Documentos Globales (empresa)"
-        count={`${globales.length} cargados`}
+        count={`${globales.length}/${tiposGlobal.length} cargados`}
         expanded={expandedSections.globales}
         onToggle={() => toggleSection("globales")}
       >
-        {globales.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-3 px-1">Sin documentos globales cargados.</p>
+        {tiposGlobal.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-3 px-1">Sin tipos globales configurados.</p>
         ) : (
           <div className="space-y-1">
-            {globales.map((doc) => (
-              <DocRow key={doc.id} doc={doc} readOnly onView={() => window.open(doc.fileUrl, "_blank")} />
-            ))}
+            {tiposGlobal.map((t) => {
+              const doc = globales.find((d) => d.tipoId === t.id);
+              return (
+                <TipoDocRow
+                  key={t.id}
+                  tipo={t}
+                  doc={doc}
+                  readOnly
+                  onView={doc ? () => window.open(doc.fileUrl, "_blank") : undefined}
+                />
+              );
+            })}
           </div>
         )}
       </CollapsibleSection>
@@ -279,67 +312,53 @@ export function InstalacionDocsOperacionalesTab({ installationId }: Props) {
       {/* Section: Instalación */}
       <CollapsibleSection
         title="Documentos de la Instalación"
-        count={`${instalacion.length} cargados`}
+        count={`${instalacion.length}/${tiposInstalacion.length} cargados`}
         expanded={expandedSections.instalacion}
         onToggle={() => toggleSection("instalacion")}
         action={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              // Open modal with first available tipo
-              const loaded = new Set(instalacion.map((d) => d.tipoId));
-              const available = tiposInstalacion.filter((t) => !loaded.has(t.id));
-              if (available.length > 0) {
-                setUploadModal({ tipoId: available[0].id, tipoNombre: available[0].nombre });
-              } else {
-                setUploadModal({ tipoId: tiposInstalacion[0]?.id ?? "", tipoNombre: tiposInstalacion[0]?.nombre ?? "" });
-              }
-              setUploadFile(null);
-              setUploadForm({ issuedAt: "", expiresAt: "", notes: "" });
-            }}
-          >
-            <Upload className="h-3.5 w-3.5 mr-1.5" /> Cargar
-          </Button>
+          tiposInstalacion.length > 0 ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const loaded = new Set(instalacion.map((d) => d.tipoId));
+                const available = tiposInstalacion.filter((t) => !loaded.has(t.id));
+                const target = available[0] ?? tiposInstalacion[0];
+                setUploadModal({ tipoId: target.id, tipoNombre: target.nombre });
+                setUploadFile(null);
+                setUploadForm({ issuedAt: "", expiresAt: "", notes: "" });
+              }}
+            >
+              <Upload className="h-3.5 w-3.5 mr-1.5" /> Cargar
+            </Button>
+          ) : undefined
         }
       >
-        {instalacion.length === 0 && tiposInstalacion.length === 0 ? (
+        {tiposInstalacion.length === 0 ? (
           <p className="text-sm text-muted-foreground py-3 px-1">Sin tipos de documentos configurados.</p>
         ) : (
           <div className="space-y-1">
-            {/* Show loaded docs */}
-            {instalacion.map((doc) => (
-              <DocRow
-                key={doc.id}
-                doc={doc}
-                onView={() => window.open(doc.fileUrl, "_blank")}
-                onDelete={() => setDeleteId(doc.id)}
-              />
-            ))}
-            {/* Show missing tipos */}
-            {tiposInstalacion
-              .filter((t) => !instalacion.some((d) => d.tipoId === t.id))
-              .map((t) => (
-                <div key={t.id} className="flex items-center gap-3 py-2 px-3 rounded-lg">
-                  <Circle className="h-4 w-4 text-zinc-600 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-zinc-400">{t.nombre}</p>
-                    {t.normativa && <p className="text-xs text-zinc-600">{t.normativa}</p>}
-                  </div>
-                  <DocStatusBadge status="sin_documento" />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setUploadModal({ tipoId: t.id, tipoNombre: t.nombre });
-                      setUploadFile(null);
-                      setUploadForm({ issuedAt: "", expiresAt: "", notes: "" });
-                    }}
-                  >
-                    <Upload className="h-3.5 w-3.5 mr-1" /> Cargar
-                  </Button>
-                </div>
-              ))}
+            {tiposInstalacion.map((t) => {
+              const doc = instalacion.find((d) => d.tipoId === t.id);
+              return (
+                <TipoDocRow
+                  key={t.id}
+                  tipo={t}
+                  doc={doc}
+                  onView={doc ? () => window.open(doc.fileUrl, "_blank") : undefined}
+                  onDelete={doc ? () => setDeleteId(doc.id) : undefined}
+                  onUpload={
+                    !doc
+                      ? () => {
+                          setUploadModal({ tipoId: t.id, tipoNombre: t.nombre });
+                          setUploadFile(null);
+                          setUploadForm({ issuedAt: "", expiresAt: "", notes: "" });
+                        }
+                      : undefined
+                  }
+                />
+              );
+            })}
           </div>
         )}
       </CollapsibleSection>
@@ -496,39 +515,103 @@ function CollapsibleSection({
   );
 }
 
-/* ── Document row ── */
+/* ── Tipo + Document row (shows config + doc + física + hallazgo) ── */
 
-function DocRow({
+function TipoDocRow({
+  tipo,
   doc,
   readOnly,
   onView,
   onDelete,
+  onUpload,
 }: {
-  doc: DocItem;
+  tipo: TipoConfigItem;
+  doc?: DocItem;
   readOnly?: boolean;
   onView?: () => void;
   onDelete?: () => void;
+  onUpload?: () => void;
 }) {
+  const digitalStatus = doc ? doc.status : "sin_documento";
+  const verif = tipo.verificacion;
+  const hallazgo = verif?.hallazgo;
+  const hallazgoAbierto = hallazgo && (hallazgo.status === "open" || hallazgo.status === "in_progress");
+
   return (
     <div className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/20 transition-colors">
-      <StatusIcon status={doc.status} />
+      <StatusIcon status={digitalStatus} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{doc.tipo.nombre}</p>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="truncate">{doc.fileName}</span>
-          {doc.expiresAt && (
-            <>
-              <span>·</span>
-              <span>Vence: {new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(doc.expiresAt))}</span>
-            </>
+        <div className="flex items-center gap-2">
+          <p className={cn("text-sm font-medium truncate", !doc && "text-zinc-400")}>{tipo.nombre}</p>
+          {tipo.obligatorio && (
+            <span className="text-[10px] text-amber-400 shrink-0">obligatorio</span>
+          )}
+          {tipo.obligatorioEnVisita && (
+            <span className="text-[10px] rounded-full bg-blue-500/10 text-blue-400 px-1.5 py-0.5 shrink-0">
+              oblig. visita
+            </span>
           )}
         </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {doc ? (
+            <>
+              <span className="truncate">{doc.fileName}</span>
+              {doc.expiresAt && (
+                <>
+                  <span>·</span>
+                  <span>Vence: {new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(doc.expiresAt))}</span>
+                </>
+              )}
+            </>
+          ) : (
+            <span className="text-zinc-500">Sin documento cargado</span>
+          )}
+          {tipo.normativa && !doc && <span className="text-zinc-600">· {tipo.normativa}</span>}
+        </div>
+        {/* Física + hallazgo status */}
+        {(verif || hallazgoAbierto) && (
+          <div className="flex items-center gap-2 mt-1 text-[11px]">
+            {verif && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5",
+                  verif.presente
+                    ? "bg-emerald-500/10 text-emerald-400"
+                    : "bg-red-500/10 text-red-400",
+                )}
+                title={`Última visita: ${new Date(verif.ultimaVerificacion).toLocaleDateString("es-CL")}${verif.supervisorName ? ` — ${verif.supervisorName}` : ""}`}
+              >
+                {verif.presente ? "✓ físico OK" : "✗ no presente"}
+              </span>
+            )}
+            {hallazgoAbierto && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5",
+                  hallazgo.severity === "critical"
+                    ? "bg-red-500/15 text-red-400"
+                    : hallazgo.severity === "major"
+                      ? "bg-amber-500/15 text-amber-400"
+                      : "bg-blue-500/15 text-blue-400",
+                )}
+              >
+                <AlertTriangle className="h-3 w-3" />
+                {hallazgo.ticketCode ? `Ticket #${hallazgo.ticketCode}` : "Hallazgo abierto"}
+              </span>
+            )}
+          </div>
+        )}
       </div>
-      <DocStatusBadge status={doc.status} expiresAt={doc.expiresAt} />
+      <DocStatusBadge status={digitalStatus} expiresAt={doc?.expiresAt ?? null} />
       <div className="flex items-center gap-0.5 shrink-0">
         {onView && (
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onView} title="Ver PDF">
             <ExternalLink className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {onUpload && (
+          <Button variant="ghost" size="sm" onClick={onUpload} className="h-7 px-2 text-xs" title="Cargar">
+            <Upload className="h-3.5 w-3.5 mr-1" /> Cargar
           </Button>
         )}
         {!readOnly && onDelete && (

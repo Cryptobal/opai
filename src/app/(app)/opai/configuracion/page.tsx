@@ -32,7 +32,7 @@ const CONFIG_SECTIONS: ConfigSection[] = [
       { submodule: "notificaciones", href: "/opai/configuracion/notificaciones", title: "Notificaciones", description: "Parámetros globales", icon: "bell" },
       { submodule: "notificaciones", href: "/opai/configuracion/asistente-ia", title: "Asistente IA", description: "Control de roles, acceso y alcance del chat", icon: "bot", adminOnly: true },
       { submodule: "usuarios", href: "/opai/configuracion/auditoria", title: "Auditoría", description: "Registro de acciones y cambios por usuario", icon: "clipboard-check", adminOnly: true },
-      { submodule: "usuarios", href: "/opai/configuracion/documentos-globales", title: "Documentos Globales", description: "OS10, seguros, documentos normativos", icon: "file-text", adminOnly: true },
+      { submodule: "usuarios", href: "/opai/configuracion/documentos-operacionales", title: "Documentos Operacionales", description: "OS10, seguros, documentos por instalación, guardias", icon: "file-text", adminOnly: true },
       { submodule: "usuarios", href: "/opai/configuracion/mi-plan", title: "Mi Plan", description: "Plan actual, módulos, add-ons y solicitar upgrade", icon: "credit-card", adminOnly: true },
     ],
   },

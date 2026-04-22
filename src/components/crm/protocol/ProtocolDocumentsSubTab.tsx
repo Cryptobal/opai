@@ -171,7 +171,7 @@ export function ProtocolDocumentsSubTab({ installationId }: Props) {
             <h3 className="text-sm font-semibold">Documentos Globales</h3>
           </div>
           <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-            <Link href="/opai/configuracion/documentos-globales">
+            <Link href="/opai/configuracion/documentos-operacionales">
               <Settings className="h-3 w-3 mr-1.5" />
               Gestionar documentos globales
             </Link>

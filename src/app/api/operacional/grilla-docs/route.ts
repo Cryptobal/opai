@@ -86,8 +86,8 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // 4. Get latest physical verification per tipo+installation using distinct
-    const verificaciones = await prisma.docVerificacionFisica.findMany({
+    // 4a. Verificaciones físicas por tipoDocId (camino correcto)
+    const verificacionesByTipo = await prisma.docVerificacionFisica.findMany({
       where: {
         tenantId: ctx.tenantId,
         tipoDocId: { in: tipoIds },
@@ -102,6 +102,68 @@ export async function GET(request: NextRequest) {
         presente: true,
         createdAt: true,
         supervisor: { select: { name: true } },
+        hallazgo: {
+          select: {
+            id: true,
+            status: true,
+            severity: true,
+            ticket: { select: { id: true, code: true, status: true } },
+          },
+        },
+      },
+    });
+
+    // 4b. Fallback: verificaciones legacy con guardiaDocType (antes del fix del wizard)
+    //     Se mapean por codigo del tipo para no perder datos históricos.
+    const codigoToTipoId = new Map<string, string>();
+    for (const t of tipos) codigoToTipoId.set(t.codigo, t.id);
+    const codigos = Array.from(codigoToTipoId.keys());
+    const verificacionesByCodigo = codigos.length
+      ? await prisma.docVerificacionFisica.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            tipoDocId: null,
+            guardiaDocType: { in: codigos },
+            installationId: { in: installationIds },
+            capa: { in: ["global", "instalacion"] },
+          },
+          orderBy: { createdAt: "desc" },
+          distinct: ["guardiaDocType", "installationId"],
+          select: {
+            guardiaDocType: true,
+            installationId: true,
+            presente: true,
+            createdAt: true,
+            supervisor: { select: { name: true } },
+            hallazgo: {
+              select: {
+                id: true,
+                status: true,
+                severity: true,
+                ticket: { select: { id: true, code: true, status: true } },
+              },
+            },
+          },
+        })
+      : [];
+
+    // 4c. Hallazgos abiertos asociados a documentación para badge en grilla
+    //     (incluso si el supervisor no vincul\u00f3 la verificaci\u00f3n: match heurístico por nombre)
+    const openFindings = await prisma.opsSupervisionFinding.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        installationId: { in: installationIds },
+        category: "documentation",
+        status: { in: ["open", "in_progress"] },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        installationId: true,
+        description: true,
+        severity: true,
+        status: true,
+        ticket: { select: { id: true, code: true, status: true } },
       },
     });
 
@@ -140,11 +202,52 @@ export async function GET(request: NextRequest) {
     }
 
     // Verificaciones indexed by "tipoDocId|installationId"
-    const verifByKey = new Map<string, (typeof verificaciones)[0]>();
-    for (const v of verificaciones) {
+    // Tipado común para mezclar ambos arrays
+    type VerifCell = {
+      presente: boolean;
+      createdAt: Date;
+      supervisor: { name: string | null } | null;
+      hallazgo: {
+        id: string;
+        status: string;
+        severity: string;
+        ticket: { id: string; code: string | null; status: string } | null;
+      } | null;
+    };
+    const verifByKey = new Map<string, VerifCell>();
+    // Primero las que ya tienen tipoDocId (camino correcto)
+    for (const v of verificacionesByTipo) {
       if (v.tipoDocId) {
-        verifByKey.set(`${v.tipoDocId}|${v.installationId}`, v);
+        verifByKey.set(`${v.tipoDocId}|${v.installationId}`, {
+          presente: v.presente,
+          createdAt: v.createdAt,
+          supervisor: v.supervisor,
+          hallazgo: v.hallazgo,
+        });
       }
+    }
+    // Luego fallback por código (datos legacy) — sólo si no hay ya una entrada por tipoDocId
+    for (const v of verificacionesByCodigo) {
+      if (!v.guardiaDocType) continue;
+      const tipoId = codigoToTipoId.get(v.guardiaDocType);
+      if (!tipoId) continue;
+      const key = `${tipoId}|${v.installationId}`;
+      if (!verifByKey.has(key)) {
+        verifByKey.set(key, {
+          presente: v.presente,
+          createdAt: v.createdAt,
+          supervisor: v.supervisor,
+          hallazgo: v.hallazgo,
+        });
+      }
+    }
+
+    // Hallazgos abiertos indexados por installationId (luego refinamos por coincidencia de nombre de tipo)
+    const findingsByInst = new Map<string, typeof openFindings>();
+    for (const f of openFindings) {
+      const arr = findingsByInst.get(f.installationId) ?? [];
+      arr.push(f);
+      findingsByInst.set(f.installationId, arr);
     }
 
     // Last visits indexed by installationId
@@ -172,6 +275,40 @@ export async function GET(request: NextRequest) {
           ? calcDocStatus(doc.expiresAt, tipo.tieneVencimiento, tipo.diasAlerta)
           : null;
 
+        // Hallazgos abiertos asociados a esta celda
+        // 1) Si la verificación ya vincula un hallazgo, se usa directamente
+        // 2) Si no, se hace match heurístico por mención del nombre del tipo en la descripción
+        let hallazgos: Array<{
+          id: string;
+          severity: string;
+          status: string;
+          ticketCode: string | null;
+          ticketId: string | null;
+          description?: string;
+        }> = [];
+        if (verif?.hallazgo && (verif.hallazgo.status === "open" || verif.hallazgo.status === "in_progress")) {
+          hallazgos.push({
+            id: verif.hallazgo.id,
+            severity: verif.hallazgo.severity,
+            status: verif.hallazgo.status,
+            ticketCode: verif.hallazgo.ticket?.code ?? null,
+            ticketId: verif.hallazgo.ticket?.id ?? null,
+          });
+        } else {
+          const instFindings = findingsByInst.get(inst.id) ?? [];
+          const matches = instFindings.filter((f) =>
+            f.description.toLowerCase().includes(tipo.nombre.toLowerCase()),
+          );
+          hallazgos = matches.map((f) => ({
+            id: f.id,
+            severity: f.severity,
+            status: f.status,
+            ticketCode: f.ticket?.code ?? null,
+            ticketId: f.ticket?.id ?? null,
+            description: f.description,
+          }));
+        }
+
         return {
           tipoDocId: tipo.id,
           digitalStatus,
@@ -180,6 +317,8 @@ export async function GET(request: NextRequest) {
           fisicaPresente: verif?.presente ?? null,
           ultimaVerificacion: verif?.createdAt?.toISOString() ?? null,
           supervisorName: verif?.supervisor?.name ?? null,
+          hallazgosAbiertos: hallazgos.length,
+          hallazgos,
         };
       });
 

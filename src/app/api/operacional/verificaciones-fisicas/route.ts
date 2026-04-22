@@ -99,6 +99,7 @@ const verificacionSchema = z.object({
   photoUrl: z.string().url().optional(),
   photoKey: z.string().optional(),
   notes: z.string().optional(),
+  hallazgoId: z.string().optional(),
 });
 
 const postBodySchema = z.object({
@@ -162,6 +163,7 @@ export async function POST(request: NextRequest) {
             ...(v.photoUrl ? { photoUrl: v.photoUrl } : {}),
             ...(v.photoKey ? { photoKey: v.photoKey } : {}),
             ...(v.notes ? { notes: v.notes } : {}),
+            ...(v.hallazgoId ? { hallazgoId: v.hallazgoId } : {}),
           },
           select: { id: true, capa: true, presente: true, createdAt: true },
         })

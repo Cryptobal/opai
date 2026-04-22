@@ -708,7 +708,7 @@ export function ExamsSubTab({ installationId }: Props) {
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
                       <p className="text-xs text-amber-400">
                         No hay documentos globales. Sube documentos en{" "}
-                        <a href="/opai/configuracion/documentos-globales" className="underline font-medium" target="_blank">
+                        <a href="/opai/configuracion/documentos-operacionales" className="underline font-medium" target="_blank">
                           Configuración → Documentos Globales
                         </a>
                       </p>

@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
         diasAlerta: body.diasAlerta ?? 30,
         normativa: body.normativa?.trim() || null,
         order: (maxOrder?.order ?? 0) + 1,
+        obligatorioEnVisita: body.obligatorioEnVisita ?? true,
       },
     });
 

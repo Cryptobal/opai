@@ -161,10 +161,18 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
       const res = await fetch("/api/ops/supervision/document-types");
       const json = await res.json();
       if (res.ok && json.success && Array.isArray(json.data)) {
-        setDocumentTypes(json.data);
-        // Initialize results
+        const mapped: InstalacionDocumentType[] = json.data.map(
+          (t: { tipoDocId?: string; id?: string; code: string; label: string; required?: boolean }) => ({
+            code: t.code,
+            label: t.label,
+            required: t.required ?? false,
+            tipoDocId: t.tipoDocId ?? t.id ?? null,
+            capa: "instalacion" as const,
+          }),
+        );
+        setDocumentTypes(mapped);
         setDocumentResults(
-          json.data.map((d: InstalacionDocumentType) => ({
+          mapped.map((d) => ({
             code: d.code,
             isChecked: false,
             lastEntryDate: null,
@@ -185,16 +193,18 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
       const res = await fetch("/api/operacional/tipos?capa=global");
       const json = await res.json();
       if (res.ok && json.success && Array.isArray(json.data)) {
-        const visitTypes = json.data
+        const visitTypes: InstalacionDocumentType[] = json.data
           .filter((t: { obligatorioEnVisita?: boolean }) => t.obligatorioEnVisita)
-          .map((t: { codigo: string; nombre: string; obligatorio?: boolean }) => ({
+          .map((t: { id: string; codigo: string; nombre: string; obligatorio?: boolean }) => ({
             code: t.codigo,
             label: t.nombre,
             required: t.obligatorio ?? false,
+            tipoDocId: t.id,
+            capa: "global" as const,
           }));
         setGlobalDocTypes(visitTypes);
         setGlobalDocResults(
-          visitTypes.map((d: InstalacionDocumentType) => ({
+          visitTypes.map((d) => ({
             code: d.code,
             isChecked: false,
             lastEntryDate: null,
@@ -215,21 +225,22 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
       const res = await fetch("/api/operacional/tipos?capa=guardia");
       const json = await res.json();
       if (res.ok && json.success && Array.isArray(json.data)) {
-        const visitTypes = json.data
+        const visitTypes: InstalacionDocumentType[] = json.data
           .filter((t: { obligatorioEnVisita?: boolean }) => t.obligatorioEnVisita)
-          .map((t: { codigo: string; nombre: string; obligatorio?: boolean }) => ({
+          .map((t: { id: string; codigo: string; nombre: string; obligatorio?: boolean }) => ({
             code: t.codigo,
             label: t.nombre,
             required: t.obligatorio ?? false,
+            tipoDocId: t.id,
+            capa: "guardia" as const,
           }));
         setGuardDocTypes(visitTypes);
-        // Initialize one result group per guard
         setGuardDocResults(
           dotacion.map((g) => ({
             guardiaId: g.guardId,
             guardiaName: g.guardName,
             guardiaRut: g.guardRut,
-            docs: visitTypes.map((d: InstalacionDocumentType) => ({
+            docs: visitTypes.map((d) => ({
               code: d.code,
               isChecked: false,
               lastEntryDate: null,
@@ -309,31 +320,36 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
       guardiaId?: string;
       presente: boolean;
       photoUrl?: string;
+      hallazgoId?: string;
     }> = [];
 
-    // Global doc results
+    // Global doc results — use tipoDocId (UUID) so la grilla los pueda indexar
     for (const result of globalDocResults) {
+      const tipo = globalDocTypes.find((t) => t.code === result.code);
       verificaciones.push({
-        guardiaDocType: result.code,
+        ...(tipo?.tipoDocId ? { tipoDocId: tipo.tipoDocId } : { guardiaDocType: result.code }),
         capa: "global",
         installationId: visit.installationId,
         presente: result.isChecked,
         ...(globalPhotoUrls[result.code] ? { photoUrl: globalPhotoUrls[result.code] } : {}),
+        ...(result.autoFindingId ? { hallazgoId: result.autoFindingId } : {}),
       });
     }
 
-    // Installation doc results (from the existing documentResults state)
+    // Installation doc results — use tipoDocId (UUID)
     for (const result of documentResults) {
+      const tipo = documentTypes.find((t) => t.code === result.code);
       verificaciones.push({
-        guardiaDocType: result.code,
+        ...(tipo?.tipoDocId ? { tipoDocId: tipo.tipoDocId } : { guardiaDocType: result.code }),
         capa: "instalacion",
         installationId: visit.installationId,
         presente: result.isChecked,
         ...(instalacionPhotoUrls[result.code] ? { photoUrl: instalacionPhotoUrls[result.code] } : {}),
+        ...(result.autoFindingId ? { hallazgoId: result.autoFindingId } : {}),
       });
     }
 
-    // Guard doc results
+    // Guard doc results — keep guardiaDocType (by design, capa guardia uses codes)
     for (const guardResult of guardDocResults) {
       for (const doc of guardResult.docs) {
         const guardUrls = guardPhotoUrls[guardResult.guardiaId] ?? {};
@@ -344,6 +360,7 @@ export function SupervisionVisitWizard({ onComplete }: { onComplete?: () => void
           guardiaId: guardResult.guardiaId,
           presente: doc.isChecked,
           ...(guardUrls[doc.code] ? { photoUrl: guardUrls[doc.code] } : {}),
+          ...(doc.autoFindingId ? { hallazgoId: doc.autoFindingId } : {}),
         });
       }
     }

@@ -946,12 +946,12 @@ const configCommands: CommandItem[] = [
   },
   {
     id: 'config-docs-operacionales',
-    label: 'Documentos Operacionales (Globales)',
-    description: 'OS10, seguros, centralización DT y documentos normativos',
+    label: 'Documentos Operacionales',
+    description: 'OS10, seguros, tipos por instalación y guardias',
     category: 'config',
     icon: ShieldCheck,
-    href: '/opai/configuracion/documentos-globales',
-    keywords: ['os10', 'seguro', 'dt', 'normativa', 'global', 'operacional', 'documentos globales', 'fiscalizacion'],
+    href: '/opai/configuracion/documentos-operacionales',
+    keywords: ['os10', 'seguro', 'dt', 'normativa', 'global', 'operacional', 'documentos globales', 'documentos operacionales', 'fiscalizacion', 'instalacion', 'guardia'],
     canShow: (role) => hasConfigSubmoduleAccess(role, 'users'),
   },
   {

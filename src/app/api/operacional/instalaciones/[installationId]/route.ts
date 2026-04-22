@@ -113,16 +113,21 @@ export async function GET(
       };
     });
 
-    // Cumplimiento calculation
-    const tiposGlobal = tipos.filter((t) => t.capa === "global" && t.obligatorio);
-    const tiposInst = tipos.filter((t) => t.capa === "instalacion" && t.obligatorio);
+    // Incluimos TODOS los tipos (obligatorios y opcionales) para que aparezcan
+    // en la ficha incluso si no tienen documento subido todavía.
+    const tiposGlobal = tipos.filter((t) => t.capa === "global");
+    const tiposInst = tipos.filter((t) => t.capa === "instalacion");
 
-    const globalVigentes = tiposGlobal.filter((t) => {
+    // Cumplimiento se mide sólo sobre OBLIGATORIOS (como antes)
+    const tiposGlobalOblig = tiposGlobal.filter((t) => t.obligatorio);
+    const tiposInstOblig = tiposInst.filter((t) => t.obligatorio);
+
+    const globalVigentes = tiposGlobalOblig.filter((t) => {
       const doc = globales.find((d) => d.tipoId === t.id);
       return doc && (doc.status === "vigente" || doc.status === "no_aplica");
     }).length;
 
-    const instVigentes = tiposInst.filter((t) => {
+    const instVigentes = tiposInstOblig.filter((t) => {
       const doc = instalacion.find((d) => d.tipoId === t.id);
       return doc && (doc.status === "vigente" || doc.status === "no_aplica");
     }).length;
@@ -130,13 +135,66 @@ export async function GET(
     const guardiaVigentes = guardias.reduce((sum, g) => sum + g.cumplimiento.vigentes, 0);
     const guardiaTotal = guardias.reduce((sum, g) => sum + g.cumplimiento.total, 0);
 
-    const total = tiposGlobal.length + tiposInst.length + guardiaTotal;
+    const total = tiposGlobalOblig.length + tiposInstOblig.length + guardiaTotal;
     const vigentes = globalVigentes + instVigentes + guardiaVigentes;
     const porVencer = [...globales, ...instalacion].filter((d) => d.status === "por_vencer").length;
     const vencidos = [...globales, ...instalacion].filter((d) => d.status === "vencido").length;
-    const sinDocumento = (tiposGlobal.length - globales.filter((d) => tiposGlobal.some((t) => t.id === d.tipoId)).length)
-      + (tiposInst.length - instalacion.filter((d) => tiposInst.some((t) => t.id === d.tipoId)).length)
+    const sinDocumento = (tiposGlobalOblig.length - globales.filter((d) => tiposGlobalOblig.some((t) => t.id === d.tipoId)).length)
+      + (tiposInstOblig.length - instalacion.filter((d) => tiposInstOblig.some((t) => t.id === d.tipoId)).length)
       + guardias.reduce((sum, g) => sum + g.cumplimiento.faltantes, 0);
+
+    // Verificaciones físicas más recientes por tipo (capa global+instalacion) en ESTA instalación
+    const tipoIds = [...tiposGlobal.map((t) => t.id), ...tiposInst.map((t) => t.id)];
+    const verificacionesFisicas = tipoIds.length
+      ? await prisma.docVerificacionFisica.findMany({
+          where: {
+            tenantId: ctx.tenantId,
+            installationId,
+            capa: { in: ["global", "instalacion"] },
+            tipoDocId: { in: tipoIds },
+          },
+          orderBy: { createdAt: "desc" },
+          distinct: ["tipoDocId"],
+          select: {
+            tipoDocId: true,
+            presente: true,
+            createdAt: true,
+            supervisor: { select: { name: true } },
+            hallazgo: {
+              select: {
+                id: true,
+                status: true,
+                severity: true,
+                ticket: { select: { id: true, code: true, status: true } },
+              },
+            },
+          },
+        })
+      : [];
+
+    const verifByTipo = new Map<string, (typeof verificacionesFisicas)[0]>();
+    for (const v of verificacionesFisicas) {
+      if (v.tipoDocId) verifByTipo.set(v.tipoDocId, v);
+    }
+
+    const verificacionPayload = (tipoId: string) => {
+      const v = verifByTipo.get(tipoId);
+      if (!v) return null;
+      return {
+        presente: v.presente,
+        ultimaVerificacion: v.createdAt.toISOString(),
+        supervisorName: v.supervisor?.name ?? null,
+        hallazgo: v.hallazgo
+          ? {
+              id: v.hallazgo.id,
+              status: v.hallazgo.status,
+              severity: v.hallazgo.severity,
+              ticketCode: v.hallazgo.ticket?.code ?? null,
+              ticketId: v.hallazgo.ticket?.id ?? null,
+            }
+          : null,
+      };
+    };
 
     const formatDoc = (d: typeof globales[number]) => ({
       id: d.id,
@@ -166,8 +224,24 @@ export async function GET(
         globales: globales.map(formatDoc),
         instalacion: instalacion.map(formatDoc),
         guardias,
-        tiposGlobal: tiposGlobal.map((t) => ({ id: t.id, codigo: t.codigo, nombre: t.nombre, normativa: t.normativa })),
-        tiposInstalacion: tiposInst.map((t) => ({ id: t.id, codigo: t.codigo, nombre: t.nombre, normativa: t.normativa })),
+        tiposGlobal: tiposGlobal.map((t) => ({
+          id: t.id,
+          codigo: t.codigo,
+          nombre: t.nombre,
+          normativa: t.normativa,
+          obligatorio: t.obligatorio,
+          obligatorioEnVisita: t.obligatorioEnVisita,
+          verificacion: verificacionPayload(t.id),
+        })),
+        tiposInstalacion: tiposInst.map((t) => ({
+          id: t.id,
+          codigo: t.codigo,
+          nombre: t.nombre,
+          normativa: t.normativa,
+          obligatorio: t.obligatorio,
+          obligatorioEnVisita: t.obligatorioEnVisita,
+          verificacion: verificacionPayload(t.id),
+        })),
       },
     });
   } catch (error) {

@@ -4,12 +4,12 @@ import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { GlobalDocumentsClient } from "@/components/opai/GlobalDocumentsClient";
 import { FileText } from "lucide-react";
 
-export const metadata = { title: "Documentos Globales — Configuración" };
+export const metadata = { title: "Documentos Operacionales — Configuración" };
 
-export default async function GlobalDocumentsPage() {
+export default async function OperationalDocumentsPage() {
   const session = await auth();
   if (!session?.user) {
-    redirect("/opai/login?callbackUrl=/opai/configuracion/documentos-globales");
+    redirect("/opai/login?callbackUrl=/opai/configuracion/documentos-operacionales");
   }
 
   const role = session.user.role;
@@ -19,8 +19,8 @@ export default async function GlobalDocumentsPage() {
 
   return (
     <ConfigPageLayout
-      title="Documentos Globales"
-      description="Documentos compartidos en todas las instalaciones (OS10, manuales de seguridad, etc.)"
+      title="Documentos Operacionales"
+      description="Tipos de documentos operativos que se controlan a nivel empresa (Global), por instalación o para guardias."
       icon={<FileText className="h-[18px] w-[18px]" />}
     >
       <GlobalDocumentsClient />

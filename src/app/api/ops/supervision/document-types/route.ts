@@ -34,6 +34,7 @@ export async function GET() {
       },
       orderBy: { order: "asc" },
       select: {
+        id: true,
         codigo: true,
         nombre: true,
         obligatorio: true,
@@ -41,9 +42,11 @@ export async function GET() {
     });
 
     const documents = tipos.map((tipo) => ({
+      tipoDocId: tipo.id,
       code: tipo.codigo,
       label: tipo.nombre,
       required: tipo.obligatorio,
+      capa: "instalacion" as const,
     }));
 
     return NextResponse.json({ success: true, data: documents });

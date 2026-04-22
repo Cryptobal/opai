@@ -16,6 +16,8 @@ import {
   Pencil,
   Plus,
   User,
+  Building2,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,8 +33,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 /* ── Types ── */
+
+type Capa = "global" | "instalacion";
 
 type TipoDoc = {
   id: string;
@@ -73,18 +78,26 @@ function formatFileSize(bytes: number | null): string {
 /* ── Main Component ── */
 
 export function GlobalDocumentsClient() {
-  const [tiposEmpresa, setTiposEmpresa] = useState<TipoDoc[]>([]);
+  const [capa, setCapa] = useState<Capa>("global");
+  const [tiposGlobal, setTiposGlobal] = useState<TipoDoc[]>([]);
+  const [tiposInstalacion, setTiposInstalacion] = useState<TipoDoc[]>([]);
   const [documents, setDocuments] = useState<DocGlobal[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
-      const [tiposRes, docsRes] = await Promise.all([
+      const [tiposGlobalRes, tiposInstRes, docsRes] = await Promise.all([
         fetch("/api/operacional/tipos?capa=global"),
+        fetch("/api/operacional/tipos?capa=instalacion"),
         fetch("/api/operacional/documentos-globales"),
       ]);
-      const [tiposJson, docsJson] = await Promise.all([tiposRes.json(), docsRes.json()]);
-      if (tiposJson.success) setTiposEmpresa(tiposJson.data);
+      const [tiposGlobalJson, tiposInstJson, docsJson] = await Promise.all([
+        tiposGlobalRes.json(),
+        tiposInstRes.json(),
+        docsRes.json(),
+      ]);
+      if (tiposGlobalJson.success) setTiposGlobal(tiposGlobalJson.data);
+      if (tiposInstJson.success) setTiposInstalacion(tiposInstJson.data);
       if (docsJson.success) setDocuments(docsJson.data);
     } catch {
       toast.error("Error al cargar datos");
@@ -105,11 +118,46 @@ export function GlobalDocumentsClient() {
 
   return (
     <div className="space-y-4">
-      <EmpresaTab
-        tipos={tiposEmpresa}
-        documents={documents}
-        onRefresh={fetchData}
-      />
+      {/* Capa selector */}
+      <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/30 border border-border w-fit">
+        <button
+          onClick={() => setCapa("global")}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+            capa === "global"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Globe className="h-3.5 w-3.5" /> Global (empresa)
+          <Badge variant="secondary" className="ml-1 h-5 text-[10px]">{tiposGlobal.length}</Badge>
+        </button>
+        <button
+          onClick={() => setCapa("instalacion")}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+            capa === "instalacion"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Building2 className="h-3.5 w-3.5" /> Por instalación
+          <Badge variant="secondary" className="ml-1 h-5 text-[10px]">{tiposInstalacion.length}</Badge>
+        </button>
+      </div>
+
+      {capa === "global" ? (
+        <EmpresaTab
+          tipos={tiposGlobal}
+          documents={documents}
+          onRefresh={fetchData}
+        />
+      ) : (
+        <InstalacionTab
+          tipos={tiposInstalacion}
+          onRefresh={fetchData}
+        />
+      )}
 
       {/* Link to existing guardia docs config */}
       <Card>
@@ -159,10 +207,10 @@ function EmpresaTab({
 
   // Tipo editing
   const [editTipo, setEditTipo] = useState<TipoDoc | null>(null);
-  const [editForm, setEditForm] = useState({ nombre: "", normativa: "", obligatorio: false });
+  const [editForm, setEditForm] = useState({ nombre: "", normativa: "", obligatorio: false, obligatorioEnVisita: true });
   const [deleteTipoId, setDeleteTipoId] = useState<string | null>(null);
   const [addTipoOpen, setAddTipoOpen] = useState(false);
-  const [addTipoForm, setAddTipoForm] = useState({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true });
+  const [addTipoForm, setAddTipoForm] = useState({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true });
 
   const resetUpload = () => {
     setUploadModal(null);
@@ -220,7 +268,7 @@ function EmpresaTab({
       const res = await fetch(`/api/operacional/tipos/${editTipo.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: editForm.nombre, normativa: editForm.normativa || null, obligatorio: editForm.obligatorio }),
+        body: JSON.stringify({ nombre: editForm.nombre, normativa: editForm.normativa || null, obligatorio: editForm.obligatorio, obligatorioEnVisita: editForm.obligatorioEnVisita }),
       });
       const json = await res.json();
       if (json.success) { toast.success("Tipo actualizado"); setEditTipo(null); await onRefresh(); }
@@ -250,7 +298,7 @@ function EmpresaTab({
       if (json.success) {
         toast.success("Tipo creado");
         setAddTipoOpen(false);
-        setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true });
+        setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true });
         await onRefresh();
       } else toast.error(json.error || "Error");
     } catch { toast.error("Error al crear"); }
@@ -296,7 +344,7 @@ function EmpresaTab({
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">Tipos de documentos de empresa. Haz clic en el lápiz para editar.</p>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setAddTipoOpen(true); setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true }); }}>
+          <Button variant="outline" size="sm" onClick={() => { setAddTipoOpen(true); setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true }); }}>
             <Plus className="h-3.5 w-3.5 mr-1.5" /> Nuevo tipo
           </Button>
           <Button size="sm" onClick={() => {
@@ -346,34 +394,9 @@ function EmpresaTab({
                   )}
                 </div>
                 <div className="shrink-0">{doc ? <DocStatusBadge status={doc.status} expiresAt={doc.expiresAt} /> : <DocStatusBadge status="sin_documento" />}</div>
-                <label className="flex items-center gap-1.5 text-xs whitespace-nowrap shrink-0 cursor-pointer" title="Marcar si supervisores deben verificar físicamente en visita">
-                  <input
-                    type="checkbox"
-                    checked={!!tipo.obligatorioEnVisita}
-                    onChange={async (e) => {
-                      const v = e.target.checked;
-                      try {
-                        const res = await fetch(`/api/operacional/tipos/${tipo.id}`, {
-                          method: "PUT",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ obligatorioEnVisita: v }),
-                        });
-                        const json = await res.json();
-                        if (json.success) {
-                          await onRefresh();
-                        } else {
-                          toast.error(json.error || "Error al actualizar");
-                        }
-                      } catch {
-                        toast.error("Error al actualizar");
-                      }
-                    }}
-                    className="accent-primary"
-                  />
-                  Oblig. visita
-                </label>
+                <VisitaCheckbox tipo={tipo} onRefresh={onRefresh} />
                 <div className="flex items-center gap-0.5 shrink-0">
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditTipo(tipo); setEditForm({ nombre: tipo.nombre, normativa: tipo.normativa || "", obligatorio: tipo.obligatorio }); }} title="Editar tipo">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditTipo(tipo); setEditForm({ nombre: tipo.nombre, normativa: tipo.normativa || "", obligatorio: tipo.obligatorio, obligatorioEnVisita: tipo.obligatorioEnVisita }); }} title="Editar tipo">
                     <Pencil className="h-3 w-3" />
                   </Button>
                   {doc?.fileUrl && (
@@ -408,15 +431,12 @@ function EmpresaTab({
         onClose={resetUpload}
         tipoId={uploadModal?.tipoId ?? ""}
         tipoNombre={uploadModal?.tipoNombre ?? ""}
-        tipos={tipos}
-        documents={documents}
         uploadFile={uploadFile}
         setUploadFile={setUploadFile}
         uploadForm={uploadForm}
         setUploadForm={setUploadForm}
         uploading={uploading}
         onUpload={handleUpload}
-        onSelectTipo={(id, nombre) => setUploadModal({ tipoId: id, tipoNombre: nombre })}
       />
 
       {/* Edit Tipo Modal */}
@@ -436,6 +456,10 @@ function EmpresaTab({
               <input type="checkbox" id="edit-obligatorio" checked={editForm.obligatorio} onChange={(e) => setEditForm((p) => ({ ...p, obligatorio: e.target.checked }))} className="rounded border-border" />
               <Label htmlFor="edit-obligatorio" className="text-xs cursor-pointer">Obligatorio para fiscalización</Label>
             </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="edit-oblig-visita" checked={editForm.obligatorioEnVisita} onChange={(e) => setEditForm((p) => ({ ...p, obligatorioEnVisita: e.target.checked }))} className="rounded border-border" />
+              <Label htmlFor="edit-oblig-visita" className="text-xs cursor-pointer">Supervisor debe verificar físicamente en visita</Label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditTipo(null)}>Cancelar</Button>
@@ -447,7 +471,7 @@ function EmpresaTab({
       {/* Add Tipo Modal */}
       <Dialog open={addTipoOpen} onOpenChange={setAddTipoOpen}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Nuevo tipo de documento</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Nuevo tipo de documento (Global)</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Nombre</Label>
@@ -464,6 +488,10 @@ function EmpresaTab({
             <div className="flex items-center gap-2">
               <input type="checkbox" id="add-vencimiento" checked={addTipoForm.tieneVencimiento} onChange={(e) => setAddTipoForm((p) => ({ ...p, tieneVencimiento: e.target.checked }))} className="rounded border-border" />
               <Label htmlFor="add-vencimiento" className="text-xs cursor-pointer">Tiene fecha de vencimiento</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="add-oblig-visita" checked={addTipoForm.obligatorioEnVisita} onChange={(e) => setAddTipoForm((p) => ({ ...p, obligatorioEnVisita: e.target.checked }))} className="rounded border-border" />
+              <Label htmlFor="add-oblig-visita" className="text-xs cursor-pointer">Supervisor debe verificar físicamente en visita</Label>
             </div>
           </div>
           <DialogFooter>
@@ -483,27 +511,257 @@ function EmpresaTab({
 }
 
 /* ══════════════════════════════════════════════════
-   Upload Modal (shared)
+   TAB: INSTALACIÓN — Solo configuración de tipos
+   (los PDFs se cargan en cada ficha de instalación)
+   ══════════════════════════════════════════════════ */
+
+function InstalacionTab({
+  tipos,
+  onRefresh,
+}: {
+  tipos: TipoDoc[];
+  onRefresh: () => Promise<void>;
+}) {
+  const [editTipo, setEditTipo] = useState<TipoDoc | null>(null);
+  const [editForm, setEditForm] = useState({ nombre: "", normativa: "", obligatorio: false, obligatorioEnVisita: true });
+  const [deleteTipoId, setDeleteTipoId] = useState<string | null>(null);
+  const [addTipoOpen, setAddTipoOpen] = useState(false);
+  const [addTipoForm, setAddTipoForm] = useState({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true });
+
+  const handleEditTipo = async () => {
+    if (!editTipo) return;
+    try {
+      const res = await fetch(`/api/operacional/tipos/${editTipo.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: editForm.nombre, normativa: editForm.normativa || null, obligatorio: editForm.obligatorio, obligatorioEnVisita: editForm.obligatorioEnVisita }),
+      });
+      const json = await res.json();
+      if (json.success) { toast.success("Tipo actualizado"); setEditTipo(null); await onRefresh(); }
+      else toast.error(json.error || "Error");
+    } catch { toast.error("Error al actualizar"); }
+  };
+
+  const handleDeleteTipo = async (id: string) => {
+    try {
+      const res = await fetch(`/api/operacional/tipos/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) { toast.success("Tipo eliminado"); await onRefresh(); }
+      else toast.error(json.error || "Error");
+    } catch { toast.error("Error al eliminar"); }
+    finally { setDeleteTipoId(null); }
+  };
+
+  const handleAddTipo = async () => {
+    if (!addTipoForm.nombre.trim()) { toast.error("Nombre requerido"); return; }
+    try {
+      const res = await fetch("/api/operacional/tipos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...addTipoForm, capa: "instalacion" }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Tipo creado");
+        setAddTipoOpen(false);
+        setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true });
+        await onRefresh();
+      } else toast.error(json.error || "Error");
+    } catch { toast.error("Error al crear"); }
+  };
+
+  return (
+    <>
+      <Card>
+        <CardContent className="py-4 px-5">
+          <p className="text-sm font-semibold flex items-center gap-2">
+            <Building2 className="h-4 w-4" /> Tipos por instalación
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Estos tipos se controlan en cada instalación. El PDF se carga desde la ficha de cada instalación y los supervisores los verifican físicamente en sus visitas.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Actions */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">Configura los tipos que cada instalación debe tener cargados y controlados.</p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => { setAddTipoOpen(true); setAddTipoForm({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true }); }}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" /> Nuevo tipo
+          </Button>
+        </div>
+      </div>
+
+      {/* Checklist */}
+      {tipos.length === 0 ? (
+        <Card>
+          <CardContent className="py-6 px-5 text-center">
+            <p className="text-sm text-muted-foreground">No hay tipos configurados. Crea uno para empezar.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {tipos.map((tipo) => (
+            <Card key={tipo.id}>
+              <CardContent className="flex items-center gap-3 py-3 px-4">
+                <div className="shrink-0">
+                  <Building2 className="h-5 w-5 text-zinc-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">{tipo.nombre}</p>
+                    {!tipo.obligatorio && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Opcional</Badge>}
+                    {tipo.tieneVencimiento && <Badge variant="outline" className="text-[10px] px-1.5 py-0">Con vencimiento</Badge>}
+                  </div>
+                  {tipo.normativa && <p className="text-xs text-muted-foreground truncate">{tipo.normativa}</p>}
+                </div>
+                <VisitaCheckbox tipo={tipo} onRefresh={onRefresh} />
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditTipo(tipo); setEditForm({ nombre: tipo.nombre, normativa: tipo.normativa || "", obligatorio: tipo.obligatorio, obligatorioEnVisita: tipo.obligatorioEnVisita }); }} title="Editar tipo">
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400" onClick={() => setDeleteTipoId(tipo.id)} title="Eliminar tipo">
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Edit Tipo Modal */}
+      <Dialog open={!!editTipo} onOpenChange={(open) => !open && setEditTipo(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Editar tipo (Por instalación)</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nombre</Label>
+              <Input value={editForm.nombre} onChange={(e) => setEditForm((p) => ({ ...p, nombre: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Normativa (opcional)</Label>
+              <Input value={editForm.normativa} onChange={(e) => setEditForm((p) => ({ ...p, normativa: e.target.value }))} placeholder="Ej: D.S. 93 Art.13" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="edit-i-obligatorio" checked={editForm.obligatorio} onChange={(e) => setEditForm((p) => ({ ...p, obligatorio: e.target.checked }))} className="rounded border-border" />
+              <Label htmlFor="edit-i-obligatorio" className="text-xs cursor-pointer">Obligatorio para fiscalización</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="edit-i-oblig-visita" checked={editForm.obligatorioEnVisita} onChange={(e) => setEditForm((p) => ({ ...p, obligatorioEnVisita: e.target.checked }))} className="rounded border-border" />
+              <Label htmlFor="edit-i-oblig-visita" className="text-xs cursor-pointer">Supervisor debe verificar físicamente en visita</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTipo(null)}>Cancelar</Button>
+            <Button onClick={handleEditTipo}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Tipo Modal */}
+      <Dialog open={addTipoOpen} onOpenChange={setAddTipoOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Nuevo tipo de documento (Por instalación)</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nombre</Label>
+              <Input value={addTipoForm.nombre} onChange={(e) => setAddTipoForm((p) => ({ ...p, nombre: e.target.value }))} placeholder="Ej: Contrato con mandante" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Normativa (opcional)</Label>
+              <Input value={addTipoForm.normativa} onChange={(e) => setAddTipoForm((p) => ({ ...p, normativa: e.target.value }))} placeholder="Ej: D.S. 93 Art.13" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="add-i-obligatorio" checked={addTipoForm.obligatorio} onChange={(e) => setAddTipoForm((p) => ({ ...p, obligatorio: e.target.checked }))} className="rounded border-border" />
+              <Label htmlFor="add-i-obligatorio" className="text-xs cursor-pointer">Obligatorio para fiscalización</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="add-i-vencimiento" checked={addTipoForm.tieneVencimiento} onChange={(e) => setAddTipoForm((p) => ({ ...p, tieneVencimiento: e.target.checked }))} className="rounded border-border" />
+              <Label htmlFor="add-i-vencimiento" className="text-xs cursor-pointer">Tiene fecha de vencimiento</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="add-i-oblig-visita" checked={addTipoForm.obligatorioEnVisita} onChange={(e) => setAddTipoForm((p) => ({ ...p, obligatorioEnVisita: e.target.checked }))} className="rounded border-border" />
+              <Label htmlFor="add-i-oblig-visita" className="text-xs cursor-pointer">Supervisor debe verificar físicamente en visita</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddTipoOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddTipo}>Crear tipo</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete tipo confirm */}
+      <ConfirmDialog open={!!deleteTipoId} onOpenChange={(open) => !open && setDeleteTipoId(null)} title="Eliminar tipo de documento" description="Se eliminará este tipo del catálogo. Solo posible si no tiene documentos asociados en ninguna instalación." confirmLabel="Eliminar" onConfirm={() => { if (deleteTipoId) handleDeleteTipo(deleteTipoId); }} />
+    </>
+  );
+}
+
+/* ══════════════════════════════════════════════════
+   Shared: Toggle "Obligatorio en visita"
+   ══════════════════════════════════════════════════ */
+
+function VisitaCheckbox({
+  tipo,
+  onRefresh,
+}: {
+  tipo: TipoDoc;
+  onRefresh: () => Promise<void>;
+}) {
+  return (
+    <label
+      className="flex items-center gap-1.5 text-xs whitespace-nowrap shrink-0 cursor-pointer"
+      title="Marcar si supervisores deben verificar físicamente en visita"
+    >
+      <input
+        type="checkbox"
+        checked={!!tipo.obligatorioEnVisita}
+        onChange={async (e) => {
+          const v = e.target.checked;
+          try {
+            const res = await fetch(`/api/operacional/tipos/${tipo.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ obligatorioEnVisita: v }),
+            });
+            const json = await res.json();
+            if (json.success) {
+              await onRefresh();
+            } else {
+              toast.error(json.error || "Error al actualizar");
+            }
+          } catch {
+            toast.error("Error al actualizar");
+          }
+        }}
+        className="accent-primary"
+      />
+      Oblig. visita
+    </label>
+  );
+}
+
+/* ══════════════════════════════════════════════════
+   Upload Modal (global only)
    ══════════════════════════════════════════════════ */
 
 function UploadDocModal({
-  open, onClose, tipoId, tipoNombre, tipos, documents,
+  open, onClose, tipoId, tipoNombre,
   uploadFile, setUploadFile, uploadForm, setUploadForm,
-  uploading, onUpload, onSelectTipo,
+  uploading, onUpload,
 }: {
   open: boolean;
   onClose: () => void;
   tipoId: string;
   tipoNombre: string;
-  tipos: TipoDoc[];
-  documents: DocGlobal[];
   uploadFile: File | null;
   setUploadFile: (f: File | null) => void;
   uploadForm: { issuedAt: string; expiresAt: string; notes: string; customNombre: string; tieneVencimiento: boolean };
   setUploadForm: React.Dispatch<React.SetStateAction<typeof uploadForm>>;
   uploading: boolean;
   onUpload: () => void;
-  onSelectTipo: (id: string, nombre: string) => void;
 }) {
   const isCustom = tipoId === "__nuevo__";
 
