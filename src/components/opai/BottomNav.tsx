@@ -13,7 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getBottomNavItems, type BottomNavItem } from '@/lib/module-nav';
+import { getBottomNavItems, getModuleSubNavItems, type BottomNavItem } from '@/lib/module-nav';
 import { usePermissions } from '@/lib/permissions-context';
 import { hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 import { useTenantModules } from '@/contexts/TenantModulesContext';
@@ -195,6 +195,24 @@ export function BottomNav({ userRole }: BottomNavProps) {
   // Section-based nav (CRM detail pages)
   const hasSectionItems = !forceMainNav && moduleItems.some((item) => item.isSection);
 
+  // Detect whether the section anchors actually exist in the DOM. Some detail
+  // pages (e.g. CRM installations) use an internal tab layout that renders
+  // only the active tab, so the `section-*` ids from the bottom nav never
+  // mount. In that case we fall back to the module sub-nav below.
+  const sectionAnchorsPresent = useSectionAnchorsPresent(pathname, hasSectionItems, moduleItems);
+
+  // Fallback: sub-nav of the current module, ignoring detail-page detection.
+  const fallbackModuleItems = useMemo(() => {
+    if (!hasSectionItems || sectionAnchorsPresent || !activeModule) return [];
+    return getModuleSubNavItems(pathname, permsOrRole, enabledModules);
+  }, [hasSectionItems, sectionAnchorsPresent, activeModule, pathname, permsOrRole, enabledModules]);
+
+  const showSectionNav = hasSectionItems && sectionAnchorsPresent;
+  const showModuleSubNav = !showSectionNav && !forceMainNav && !!activeModule && (
+    (isInModule && !hasSectionItems) || fallbackModuleItems.length > 0
+  );
+  const subNavItems = fallbackModuleItems.length > 0 ? fallbackModuleItems : moduleItems;
+
   return (
     <nav
       ref={navRef}
@@ -204,16 +222,57 @@ export function BottomNav({ userRole }: BottomNavProps) {
       }}
     >
       <div className="flex items-center justify-around min-h-[56px] px-1">
-        {hasSectionItems ? (
+        {showSectionNav ? (
           <SectionNav items={moduleItems} />
-        ) : isInModule ? (
-          <ModuleSubNav items={moduleItems} activeModule={activeModule!} pathname={pathname} onBack={() => setForceMainNav(true)} />
+        ) : showModuleSubNav ? (
+          <ModuleSubNav items={subNavItems} activeModule={activeModule!} pathname={pathname} onBack={() => setForceMainNav(true)} />
         ) : (
           <MainNav pathname={pathname} userRole={userRole} navConfig={navConfig} />
         )}
       </div>
     </nav>
   );
+}
+
+/**
+ * Returns `true` if at least one `section-*` anchor referenced by the given
+ * section items is present in the DOM. Re-checks a few times after mount to
+ * handle pages that hydrate sections asynchronously.
+ */
+function useSectionAnchorsPresent(pathname: string, enabled: boolean, items: BottomNavItem[]): boolean {
+  const [present, setPresent] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) {
+      setPresent(false);
+      return;
+    }
+    const ids = items.filter((i) => i.isSection).map((i) => i.href.replace('#', ''));
+    if (ids.length === 0) {
+      setPresent(false);
+      return;
+    }
+
+    let cancelled = false;
+    const check = () => {
+      if (cancelled) return;
+      const exists = ids.some((id) => !!document.getElementById(id));
+      setPresent(exists);
+    };
+
+    check();
+    const t1 = setTimeout(check, 100);
+    const t2 = setTimeout(check, 400);
+    const t3 = setTimeout(check, 1200);
+    return () => {
+      cancelled = true;
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [pathname, enabled, items]);
+
+  return present;
 }
 
 /* ════════════════════════════════════════════════════

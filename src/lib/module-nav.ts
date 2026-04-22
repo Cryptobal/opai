@@ -440,6 +440,35 @@ export function getBottomNavItems(
   return [];
 }
 
+/**
+ * Devuelve los items del nav de módulo (sin la detección de detalle CRM).
+ *
+ * Útil como fallback cuando la página de detalle no renderiza las anclas
+ * `section-*` esperadas (p. ej. cuando usa tabs internas). En ese caso
+ * `getBottomNavItems` devolvería section items rotos; con esta función
+ * podemos mostrar las subcategorías del módulo en su lugar.
+ */
+export function getModuleSubNavItems(
+  pathname: string,
+  roleOrPerms: string | RolePermissions,
+  enabledModules?: Set<string>,
+): BottomNavItem[] {
+  const perms: RolePermissions =
+    typeof roleOrPerms === "string"
+      ? getDefaultPermissions(roleOrPerms)
+      : roleOrPerms;
+
+  const isModEnabled = (mod: string) => !enabledModules || enabledModules.has(mod);
+
+  for (const detection of MODULE_DETECTIONS) {
+    if (detection.test(pathname)) {
+      const items = detection.getItems(perms, isModEnabled);
+      if (items.length > 0) return items;
+    }
+  }
+  return [];
+}
+
 /* ── Exports para SubNav components ── */
 
 export const OPS_SUBNAV_ITEMS = OPS_ITEMS;
