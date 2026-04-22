@@ -145,7 +145,6 @@ export function ChatPortalChannelList({
       let key: string;
       if (ch.channelType === "GROUP") key = "grupos";
       else if (ch.channelType === "DIRECT") key = "mensajes-directos";
-      else if (ch.channelType === "INSTALLATION" && ch.subType === "interno") key = "instalaciones-interno";
       else if (ch.channelType === "INSTALLATION") key = "instalaciones-reportes";
       else if (ch.channelType === "EXTERNAL") key = "externos";
       else key = "otros";
@@ -166,7 +165,6 @@ export function ChatPortalChannelList({
     const sectionOrder = [
       { key: "grupos", label: "Grupos" },
       { key: "instalaciones-reportes", label: "Instalaciones - Reportes" },
-      { key: "instalaciones-interno", label: "Instalaciones - Interno" },
       { key: "mensajes-directos", label: "Mensajes Directos" },
       { key: "externos", label: "Externos" },
       { key: "otros", label: "Otros" },

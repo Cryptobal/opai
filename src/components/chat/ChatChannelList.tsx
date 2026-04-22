@@ -258,11 +258,10 @@ export function ChatChannelList({
     return list;
   }, [channels, filter, sort, unreadCounts, getDisplayName]);
 
-  const { directChannels, groupChannels, installationReportesChannels, installationInternoChannels, prospectChannels, clientChannels } = useMemo(() => ({
+  const { directChannels, groupChannels, installationReportesChannels, prospectChannels, clientChannels } = useMemo(() => ({
     directChannels: processedChannels.filter((ch) => ch.channelType === "DIRECT"),
     groupChannels: processedChannels.filter((ch) => ch.channelType === "GROUP"),
     installationReportesChannels: processedChannels.filter((ch) => ch.channelType === "INSTALLATION" && ch.subType !== "interno"),
-    installationInternoChannels: processedChannels.filter((ch) => ch.channelType === "INSTALLATION" && ch.subType === "interno"),
     prospectChannels: processedChannels.filter((ch) => ch.channelType === "EXTERNAL" && ch.account?.status === "prospect"),
     clientChannels: processedChannels.filter((ch) => ch.channelType === "EXTERNAL" && ch.account?.status !== "prospect"),
   }), [processedChannels]);
@@ -295,10 +294,9 @@ export function ChatChannelList({
     direct: directChannels,
     group: groupChannels,
     installation_reportes: installationReportesChannels,
-    installation_interno: installationInternoChannels,
     prospects: prospectChannels,
     clients: clientChannels,
-  }), [directChannels, groupChannels, installationReportesChannels, installationInternoChannels, prospectChannels, clientChannels]);
+  }), [directChannels, groupChannels, installationReportesChannels, prospectChannels, clientChannels]);
 
   const shouldExpand = (key: string) => {
     if (isSearching || filter === "unread") return true;
@@ -484,23 +482,6 @@ export function ChatChannelList({
                 />
                 {shouldExpand("installation_reportes") && (
                   <div>{renderChannelItems(installationReportesChannels, { showArchive: true, showDelete: false })}</div>
-                )}
-              </div>
-            )}
-
-            {/* Instalaciones - Interno */}
-            {installationInternoChannels.length > 0 && (
-              <div>
-                <SectionHeader
-                  label="Instalaciones - Interno"
-                  icon={<Building2 className="h-3.5 w-3.5 text-indigo-400" />}
-                  count={installationInternoChannels.length}
-                  unreadCount={sectionUnread(installationInternoChannels)}
-                  collapsed={!shouldExpand("installation_interno")}
-                  onToggle={() => toggleSection("installation_interno")}
-                />
-                {shouldExpand("installation_interno") && (
-                  <div>{renderChannelItems(installationInternoChannels, { showArchive: true, showDelete: false })}</div>
                 )}
               </div>
             )}

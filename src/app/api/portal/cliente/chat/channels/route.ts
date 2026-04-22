@@ -118,6 +118,8 @@ export async function GET(request: NextRequest) {
         tenantId: session.tenantId,
         isActive: true,
         installationId: { in: installationIds },
+        // Internal installation channels are for guards/admins only — never for clients.
+        NOT: { subType: "interno" },
       },
       orderBy: { lastMessageAt: { sort: "desc", nulls: "last" } },
       include: {
@@ -149,6 +151,8 @@ export async function GET(request: NextRequest) {
     const data = channels.map((ch) => ({
       id: ch.id,
       tenantId: ch.tenantId,
+      channelType: ch.channelType,
+      subType: ch.subType,
       installationId: ch.installationId,
       name: ch.name,
       isActive: ch.isActive,

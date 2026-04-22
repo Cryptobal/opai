@@ -202,7 +202,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   }, []);
 
   // Filter and section channels + users
-  const { directChannels, groupChannels, installationReportesChannels, installationInternoChannels, filteredUsers, filteredTotal } = useMemo(() => {
+  const { directChannels, groupChannels, installationReportesChannels, filteredUsers, filteredTotal } = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     const filtered = q
       ? ctx.channels.filter((ch) => {
@@ -232,7 +232,6 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
       directChannels: applyUnread(filtered.filter((ch) => ch.channelType === "DIRECT")),
       groupChannels: applyUnread(filtered.filter((ch) => ch.channelType === "GROUP")),
       installationReportesChannels: applyUnread(filtered.filter((ch) => ch.channelType === "INSTALLATION" && ch.subType !== "interno")),
-      installationInternoChannels: applyUnread(filtered.filter((ch) => ch.channelType === "INSTALLATION" && ch.subType === "interno")),
       filteredUsers: filter === "unread" ? [] : usersToShow,
       filteredTotal: filtered.length + (q ? usersToShow.length : 0),
     };
@@ -358,7 +357,6 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           directChannels.filter(c => c.unreadCount > 0).length === 0 &&
           groupChannels.filter(c => c.unreadCount > 0).length === 0 &&
           installationReportesChannels.filter(c => c.unreadCount > 0).length === 0 &&
-          installationInternoChannels.filter(c => c.unreadCount > 0).length === 0 &&
           prospectChannels.filter(c => c.unreadCount > 0).length === 0 &&
           clientChannels.filter(c => c.unreadCount > 0).length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center px-4">
@@ -421,25 +419,6 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 channels={installationReportesChannels}
                 collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["installation_reportes"]}
                 onToggle={() => toggleSection("installation_reportes")}
-                onSelectChannel={ctx.selectChannel}
-                getDisplayName={getChannelDisplayName}
-                onArchive={(id) => ctx.archiveChannel(id)}
-                canDelete={canDeleteChannels}
-                onDelete={handleDeleteChannel}
-                onMarkAsRead={ctx.markChannelAsRead}
-                onUpdateNotifPref={ctx.updateChannelNotifPref}
-                onApplySectionNotifPref={applySectionNotifPref}
-              />
-            )}
-
-            {/* Instalaciones - Interno */}
-            {installationInternoChannels.length > 0 && (
-              <ChannelSection
-                label="Instalaciones - Interno"
-                icon={<Building2 className="h-3.5 w-3.5 text-indigo-400" />}
-                channels={installationInternoChannels}
-                collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["installation_interno"]}
-                onToggle={() => toggleSection("installation_interno")}
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={getChannelDisplayName}
                 onArchive={(id) => ctx.archiveChannel(id)}

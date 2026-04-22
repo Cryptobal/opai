@@ -235,36 +235,25 @@ export async function PATCH(
           where: { installationId: id },
         });
         const hasReportes = existingChannels.some((c: any) => c.subType === "reportes");
-        const hasInterno = existingChannels.some((c: any) => c.subType === "interno");
 
-        // Reactivate existing channels
+        // Reactivate existing reportes channel (interno is deprecated and stays deactivated if present)
         if (existingChannels.length > 0) {
           await prisma.chatChannel.updateMany({
-            where: { installationId: id, tenantId: ctx.tenantId },
+            where: { installationId: id, tenantId: ctx.tenantId, subType: "reportes" },
             data: { isActive: true },
           });
         }
 
-        // Create missing channels
-        const toCreate: Array<{ tenantId: string; installationId: string; subType: string; name: string }> = [];
+        // Create missing reportes channel
         if (!hasReportes) {
-          toCreate.push({
-            tenantId: ctx.tenantId,
-            installationId: id,
-            subType: "reportes",
-            name: `${installation.name} - Reportes`,
+          await prisma.chatChannel.create({
+            data: {
+              tenantId: ctx.tenantId,
+              installationId: id,
+              subType: "reportes",
+              name: `${installation.name} - Reportes`,
+            },
           });
-        }
-        if (!hasInterno) {
-          toCreate.push({
-            tenantId: ctx.tenantId,
-            installationId: id,
-            subType: "interno",
-            name: `${installation.name} - Interno`,
-          });
-        }
-        if (toCreate.length > 0) {
-          await prisma.chatChannel.createMany({ data: toCreate });
         }
       } else {
         // Deactivate all channels for this installation

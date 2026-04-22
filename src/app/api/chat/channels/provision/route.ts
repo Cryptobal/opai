@@ -50,21 +50,13 @@ export async function POST(request: NextRequest) {
           name: `${inst.name} - Reportes`,
         });
       }
-      if (!existingSet.has(`${inst.id}:interno`)) {
-        toCreate.push({
-          tenantId: ctx.tenantId,
-          installationId: inst.id,
-          subType: "interno",
-          name: `${inst.name} - Interno`,
-        });
-      }
     }
 
     if (toCreate.length === 0) {
       return NextResponse.json({
         success: true,
         data: { created: 0 },
-        meta: { message: "Todas las instalaciones ya tienen ambos canales" },
+        meta: { message: "Todas las instalaciones ya tienen su canal de reportes" },
       });
     }
 
