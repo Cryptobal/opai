@@ -860,6 +860,16 @@ export function pathToPermission(
   if (pathname.startsWith("/opai/configuracion/tipos-ticket")) return { module: "config", submodule: "tipos_ticket" };
   if (pathname.startsWith("/opai/configuracion/finanzas")) return { module: "config", submodule: "finanzas" };
   if (pathname.startsWith("/opai/configuracion/inteligencia-artificial")) return { module: "config", submodule: "inteligencia_artificial" };
+  if (pathname.startsWith("/opai/configuracion/empresa")) return { module: "config", submodule: "empresa" };
+  if (pathname.startsWith("/opai/configuracion/roles")) return { module: "config", submodule: "roles" };
+  if (pathname.startsWith("/opai/configuracion/auditoria")) return { module: "config", submodule: "auditoria" };
+  if (pathname.startsWith("/opai/configuracion/documentos-operacionales")) return { module: "config", submodule: "documentos_operacionales" };
+  if (pathname.startsWith("/opai/configuracion/mi-plan")) return { module: "config", submodule: "mi_plan" };
+  if (pathname.startsWith("/opai/configuracion/cumplimiento")) return { module: "config", submodule: "cumplimiento" };
+  if (pathname.startsWith("/opai/configuracion/asistente-ia")) return { module: "config", submodule: "asistente_ia" };
+  if (pathname.startsWith("/opai/configuracion/gamificacion")) return { module: "config", submodule: "gamificacion" };
+  if (pathname.startsWith("/opai/configuracion/alertas-cobertura")) return { module: "config", submodule: "alertas_cobertura" };
+  if (pathname.startsWith("/opai/configuracion/ats")) return { module: "config", submodule: "ats" };
   if (pathname.startsWith("/opai/configuracion")) return { module: "config" };
 
   // Finance submodules
