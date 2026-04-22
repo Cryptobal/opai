@@ -86,18 +86,31 @@ export const SUBMODULE_KEYS = {
   payroll: ["simulador", "parametros"] as const,
   cpq: [] as readonly string[],
   config: [
+    // Sección General (antes agrupados bajo "usuarios")
+    "empresa",
     "usuarios",
+    "roles",
+    "auditoria",
+    "documentos_operacionales",
+    "mi_plan",
+    "cumplimiento",
+    // Resto de General
     "grupos",
     "integraciones",
+    "notificaciones",
+    "asistente_ia",
+    "inteligencia_artificial",
+    // Correos y Documentos
     "firmas",
     "categorias",
+    // Módulos
     "crm",
     "cpq",
     "payroll",
-    "notificaciones",
     "ops",
     "tipos_ticket",
     "finanzas",
+    "gamificacion",
     "alertas_cobertura",
     "ats",
   ] as const,
