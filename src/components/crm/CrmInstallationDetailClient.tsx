@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
-import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck } from "lucide-react";
+import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Route, Fingerprint, Clock, FileCheck, ChevronDown } from "lucide-react";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
@@ -26,7 +26,7 @@ import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { MapCoordinatePicker } from "@/components/ui/MapCoordinatePicker";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
-import { DetailField, DetailFieldGrid } from "./DetailField";
+import { DetailField } from "./DetailField";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { getQuoteStatus } from "@/lib/quoteStatus";
@@ -2085,141 +2085,229 @@ export function CrmInstallationDetailClient({
   ];
 
   const generalContent = (
-    <div className="flex flex-col lg:flex-row lg:gap-6 rounded-lg border border-border bg-card p-4 sm:p-5">
-      <DetailFieldGrid columns={3} className="flex-1">
-        <DetailField
-          label="Dirección"
-          value={installation.address}
-          icon={installation.address ? <MapPin className="h-3 w-3" /> : undefined}
-        />
-        <DetailField
-          label="Comuna / Ciudad"
-          value={
-            (installation.commune || installation.city)
-              ? [installation.commune, installation.city].filter(Boolean).join(", ")
-              : undefined
-          }
-        />
-        <DetailField
-          label="Valor turno extra"
-          value={
-            installation.teMontoClp != null && Number(installation.teMontoClp) > 0
-              ? `$ ${Number(installation.teMontoClp).toLocaleString("es-CL")}`
-              : "No definido"
-          }
-        />
-        <DetailField
-          label="Fecha inicio"
-          value={installation.startDate ? new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(installation.startDate)) : undefined}
-        />
-        <DetailField
-          label="Fecha término"
-          value={installation.endDate ? new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(installation.endDate)) : undefined}
-        />
-        {installation.notes && (
-          <DetailField
-            label="Notas"
-            value={installation.notes}
-            fullWidth
-          />
-        )}
-        <DetailField
-          label="Radio validación GPS"
-          value={`${installation.geoRadiusM ?? 1000} m`}
-          icon={<MapPin className="h-3 w-3" />}
-        />
-        <DetailField label="Fecha creación" value={installation.createdAt ? new Date(installation.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-        <DetailField label="Última modificación" value={installation.updatedAt ? new Date(installation.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"} />
-        {/* Control Nocturno toggle — solo editable cuando instalación activa */}
-        <div className="col-span-full">
+    <div className="space-y-3 sm:space-y-4">
+      {/* ── Hero: ubicación + mapa compacto ── */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="flex flex-col sm:flex-row">
+          {/* Mapa — en mobile arriba del texto (visual inmediato), en desktop al lado derecho */}
+          {MAPS_KEY ? (
+            hasCoords ? (
+              <button
+                type="button"
+                onClick={openMapModal}
+                className="relative group block shrink-0 overflow-hidden bg-muted sm:order-2 sm:w-[240px]"
+                aria-label="Ajustar ubicación en el mapa"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://maps.googleapis.com/maps/api/staticmap?center=${installation.lat},${installation.lng}&zoom=16&size=480x280&scale=2&markers=color:red%7C${installation.lat},${installation.lng}&key=${MAPS_KEY}`}
+                  alt=""
+                  className="h-[120px] w-full object-cover transition-opacity group-hover:opacity-90 sm:h-full"
+                />
+                <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-black/70 px-2 py-1 text-[10px] font-medium text-white/95 backdrop-blur">
+                  <MapPin className="h-3 w-3" />
+                  Ajustar
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={openMapModal}
+                className="flex shrink-0 flex-col items-center justify-center gap-1 border-b border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center transition-colors hover:bg-muted/40 sm:order-2 sm:w-[240px] sm:border-b-0 sm:border-l"
+              >
+                <MapPin className="h-6 w-6 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Sin ubicación</span>
+                <span className="text-[11px] text-primary">Clic para definir</span>
+              </button>
+            )
+          ) : null}
+
+          {/* Dirección principal */}
+          <div className="min-w-0 flex-1 p-4 sm:order-1 sm:p-5">
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+              Dirección
+            </div>
+            {installation.address ? (
+              <div className="flex items-start gap-2">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <p className="break-words text-[15px] leading-snug text-foreground">
+                  {installation.address}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground/60">—</p>
+            )}
+            {(installation.commune || installation.city) && (
+              <p className="mt-1 pl-6 text-xs text-muted-foreground">
+                {[installation.commune, installation.city].filter(Boolean).join(", ")}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Stats strip: métricas operacionales clave ── */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+            Valor turno extra
+          </div>
+          <div className="truncate text-[15px] font-semibold tabular-nums text-foreground">
+            {installation.teMontoClp != null && Number(installation.teMontoClp) > 0 ? (
+              `$ ${Number(installation.teMontoClp).toLocaleString("es-CL")}`
+            ) : (
+              <span className="text-sm font-normal text-muted-foreground/70">No definido</span>
+            )}
+          </div>
+        </div>
+        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+            Radio GPS
+          </div>
+          <div className="flex items-center gap-1 text-[15px] font-semibold tabular-nums text-foreground">
+            <MapPin className="h-3.5 w-3.5 text-muted-foreground/70" />
+            {installation.geoRadiusM ?? 1000} m
+          </div>
+        </div>
+        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+            Fecha inicio
+          </div>
+          <div className="truncate text-[13px] font-medium text-foreground">
+            {installation.startDate ? (
+              new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(installation.startDate))
+            ) : (
+              <span className="text-sm font-normal text-muted-foreground/70">—</span>
+            )}
+          </div>
+        </div>
+        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+            Fecha término
+          </div>
+          <div className="truncate text-[13px] font-medium text-foreground">
+            {installation.endDate ? (
+              new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(installation.endDate))
+            ) : (
+              <span className="text-sm font-normal text-muted-foreground/70">—</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Configuración operacional (toggles) ── */}
+      <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
+        <div className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+          Configuración operacional
+        </div>
+        <div className="space-y-2">
           <button
             type="button"
             onClick={() => isActive && openNocturnoToggle(!nocturnoEnabled)}
             disabled={nocturnoSaving || !isActive}
             title={!isActive ? "Activa la instalación para incluirla en control nocturno" : undefined}
-            className={`flex items-center gap-2.5 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors ${!isActive ? "opacity-60 cursor-not-allowed " : ""}${nocturnoEnabled
+            className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${!isActive ? "cursor-not-allowed opacity-60 " : ""}${
+              nocturnoEnabled
                 ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/15"
-                : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
-              }`}
+                : "border-border bg-muted/20 text-muted-foreground hover:bg-muted/40"
+            }`}
           >
             <Moon className={`h-4 w-4 shrink-0 ${nocturnoEnabled ? "text-indigo-400" : "text-muted-foreground"}`} />
-            <div className="flex-1 text-left">
-              <span className="font-medium">Control nocturno</span>
-              <span className="ml-2 text-xs opacity-70">
+            <div className="min-w-0 flex-1 text-left">
+              <div className="font-medium">Control nocturno</div>
+              <div className="truncate text-xs opacity-70">
                 {nocturnoEnabled ? "Incluida en reportes nocturnos" : "Excluida de reportes nocturnos"}
-              </span>
+              </div>
             </div>
-            <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${nocturnoEnabled ? "bg-indigo-500" : "bg-muted-foreground/30"
-              }`}>
-              <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${nocturnoEnabled ? "translate-x-4" : "translate-x-0"
-                }`} />
+            <div
+              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${
+                nocturnoEnabled ? "bg-indigo-500" : "bg-muted-foreground/30"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                  nocturnoEnabled ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
             </div>
           </button>
-        </div>
-        {/* Chat toggle — solo editable cuando instalación activa */}
-        <div className="col-span-full">
           <button
             type="button"
             onClick={() => isActive && openChatToggle(!chatEnabled)}
             disabled={chatSaving || !isActive}
             title={!isActive ? "Activa la instalación para habilitar el chat grupal" : undefined}
-            className={`flex items-center gap-2.5 w-full rounded-lg border px-3 py-2.5 text-sm transition-colors ${!isActive ? "opacity-60 cursor-not-allowed " : ""}${chatEnabled
+            className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${!isActive ? "cursor-not-allowed opacity-60 " : ""}${
+              chatEnabled
                 ? "border-teal-500/30 bg-teal-500/10 text-teal-300 hover:bg-teal-500/15"
-                : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
-              }`}
+                : "border-border bg-muted/20 text-muted-foreground hover:bg-muted/40"
+            }`}
           >
             <MessageCircle className={`h-4 w-4 shrink-0 ${chatEnabled ? "text-teal-400" : "text-muted-foreground"}`} />
-            <div className="flex-1 text-left">
-              <span className="font-medium">Chat de instalación</span>
-              <span className="ml-2 text-xs opacity-70">
+            <div className="min-w-0 flex-1 text-left">
+              <div className="font-medium">Chat de instalación</div>
+              <div className="truncate text-xs opacity-70">
                 {chatEnabled ? "Chat grupal habilitado" : "Chat grupal deshabilitado"}
-              </span>
+              </div>
             </div>
-            <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${chatEnabled ? "bg-teal-500" : "bg-muted-foreground/30"
-              }`}>
-              <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${chatEnabled ? "translate-x-4" : "translate-x-0"
-                }`} />
+            <div
+              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${
+                chatEnabled ? "bg-teal-500" : "bg-muted-foreground/30"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                  chatEnabled ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
             </div>
           </button>
         </div>
-      </DetailFieldGrid>
+      </div>
 
-      {/* Mapa (clic para abrir modal y ajustar pin) */}
-      {MAPS_KEY ? (
-        hasCoords ? (
-          <button
-            type="button"
-            onClick={openMapModal}
-            className="mt-4 lg:mt-0 shrink-0 block rounded-lg overflow-hidden border border-border hover:opacity-95 hover:ring-2 hover:ring-primary/50 transition-all lg:w-[220px] lg:h-[160px] text-left"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`https://maps.googleapis.com/maps/api/staticmap?center=${installation.lat},${installation.lng}&zoom=16&size=440x320&scale=2&markers=color:red%7C${installation.lat},${installation.lng}&key=${MAPS_KEY}`}
-              alt={`Mapa de ${installation.name}`}
-              className="w-full h-[140px] lg:h-[130px] object-cover"
-            />
-            <div className="flex items-center justify-center gap-1 py-1.5 text-xs text-muted-foreground hover:text-foreground">
-              <MapPin className="h-3 w-3" />
-              Clic para ajustar ubicación
-            </div>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={openMapModal}
-            className="mt-4 lg:mt-0 shrink-0 lg:w-[220px] flex flex-col items-center justify-center rounded-lg border border-dashed border-border p-4 hover:border-primary/50 hover:bg-muted/30 transition-colors"
-          >
-            <MapPin className="h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-xs text-muted-foreground text-center">Sin ubicación</p>
-            <p className="text-xs text-primary mt-1">Clic para definir</p>
-          </button>
-        )
-      ) : (
-        <div className="mt-4 lg:mt-0 shrink-0 lg:w-[220px] flex items-center justify-center rounded-lg border border-dashed border-border p-4">
-          <p className="text-xs text-muted-foreground text-center">
-            Configura GOOGLE_MAPS_API_KEY para el mapa
+      {/* ── Notas (si existen) ── */}
+      {installation.notes && (
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+            Notas
+          </div>
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
+            {installation.notes}
           </p>
         </div>
+      )}
+
+      {/* ── Metadata (colapsable) ── */}
+      <details className="group rounded-xl border border-border bg-card">
+        <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            Detalles técnicos
+          </span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-3 px-4 pb-4 pt-1 sm:grid-cols-2">
+          <DetailField
+            label="Fecha creación"
+            value={
+              installation.createdAt
+                ? new Date(installation.createdAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                : "—"
+            }
+          />
+          <DetailField
+            label="Última modificación"
+            value={
+              installation.updatedAt
+                ? new Date(installation.updatedAt).toLocaleString("es-CL", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                : "—"
+            }
+          />
+        </div>
+      </details>
+
+      {!MAPS_KEY && (
+        <p className="text-center text-[11px] text-muted-foreground/70">
+          Configura GOOGLE_MAPS_API_KEY para ver el mapa
+        </p>
       )}
     </div>
   );
