@@ -162,7 +162,7 @@ export async function POST(
               : data.servicio
           }`,
           data: { leadId: lead.id, email: data.email, company: data.empresa },
-          link: "/crm/leads",
+          link: `/crm/leads/${lead.id}`,
         });
       } catch (e) {
         console.warn("Lead: failed to create notification", e);
@@ -217,7 +217,12 @@ export async function POST(
       getWaTemplate(tenantId, "lead_client", { waValues: leadTokenValues }),
     ]);
 
-    const whatsappMsgComercial = tplComercial;
+    // Ensure the tenant website is always appended at the end (blank-line
+    // separator), regardless of what the tenant's custom WhatsApp template
+    // contains. Avoids duplication if the template already resolved it.
+    const whatsappMsgComercial = tenantWebUrl && !tplComercial.includes(tenantWebUrl)
+      ? `${tplComercial.trimEnd()}\n\n${tenantWebUrl}`
+      : tplComercial;
 
     const celularLimpio = data.celular.replace(/\D/g, "").replace(/^0/, "");
     const waNumCliente = celularLimpio.startsWith("56") ? celularLimpio : `56${celularLimpio}`;
@@ -293,7 +298,7 @@ export async function POST(
                   <a href="${waUrlComercial}" style="display: inline-block; background: ${ctaBg}; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">Contactar al cliente por WhatsApp</a>
                 </p>
                 <p style="margin: 0;">
-                  <a href="${baseUrl}/crm/leads" style="color: ${headerBg}; font-size: 14px; text-decoration: none;">Ver en OPAI →</a>
+                  <a href="${baseUrl}/crm/leads${leadId ? `/${leadId}` : ""}" style="color: ${headerBg}; font-size: 14px; text-decoration: none;">Ver en OPAI →</a>
                 </p>
               </div>
             </div>

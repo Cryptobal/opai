@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canDelete } from "@/lib/permissions";
-import { triggerChatEvent, getSenderId } from "@/lib/chat";
+import { triggerChatEvent, getSenderId, truncatePreview } from "@/lib/chat";
 import { requireTenantModule } from '@/lib/require-module';
 
 type RouteParams = { params: Promise<{ id: string; messageId: string }> };
@@ -274,16 +274,50 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Soft delete
-    await prisma.chatMessage.update({
-      where: { id: messageId },
-      data: {
-        deletedAt: new Date(),
-        deletedBy: ctx.userId,
-      },
+    // Soft delete + recompute channel summary in a single transaction so that
+    // lastMessagePreview / lastMessageAt / messageCount stay consistent.
+    const { lastMessagePreview, lastMessageAt } = await prisma.$transaction(async (tx) => {
+      await tx.chatMessage.update({
+        where: { id: messageId },
+        data: {
+          deletedAt: new Date(),
+          deletedBy: ctx.userId,
+        },
+      });
+
+      const latest = await tx.chatMessage.findFirst({
+        where: {
+          channelId,
+          deletedAt: null,
+          threadRootId: null,
+        },
+        orderBy: { createdAt: "desc" },
+        select: { content: true, attachments: true, createdAt: true },
+      });
+
+      const nextPreview = latest
+        ? truncatePreview(latest.content || "[Archivo adjunto]", 100)
+        : null;
+      const nextLastMessageAt = latest?.createdAt ?? null;
+
+      await tx.chatChannel.update({
+        where: { id: channelId },
+        data: {
+          lastMessagePreview: nextPreview,
+          lastMessageAt: nextLastMessageAt,
+          messageCount: { decrement: 1 },
+        },
+      });
+
+      return { lastMessagePreview: nextPreview, lastMessageAt: nextLastMessageAt };
     });
 
-    const eventData = { id: messageId };
+    const eventData = {
+      id: messageId,
+      channelId,
+      lastMessagePreview,
+      lastMessageAt: lastMessageAt?.toISOString() ?? null,
+    };
 
     // Trigger Pusher event (non-blocking)
     triggerChatEvent(channelId, "message-deleted", eventData).catch((err) =>

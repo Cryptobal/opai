@@ -70,11 +70,42 @@ export function ChatPortalChannelList({
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const autoSelectedRef = useRef(false);
+  const prevSelectedChannelIdRef = useRef<string | null | undefined>(selectedChannelId);
 
-  // Fetch channels (skip main channels fetch if initialChannels provided)
+  const refreshChannels = useCallback(
+    async (withLoading = false) => {
+      if (withLoading) setIsLoading(true);
+      const promises: Promise<void>[] = [];
+
+      promises.push(
+        fetch(`${apiBase}/channels`, { headers: apiHeaders })
+          .then((r) => r.json())
+          .then((res) => {
+            if (res.success) setChannels(res.data ?? []);
+          })
+          .catch(() => {}),
+      );
+
+      if (groupsEndpoint) {
+        promises.push(
+          fetch(groupsEndpoint, { headers: apiHeaders })
+            .then((r) => r.json())
+            .then((res) => {
+              if (res.success) setGroupChannels(res.data ?? []);
+            })
+            .catch(() => {}),
+        );
+      }
+
+      await Promise.all(promises);
+      if (withLoading) setIsLoading(false);
+    },
+    [apiBase, apiHeaders, groupsEndpoint],
+  );
+
+  // Initial fetch (skip main channels fetch if initialChannels provided)
   useEffect(() => {
     if (initialChannels && !groupsEndpoint) {
-      // All data was provided upfront, no fetch needed
       setIsLoading(false);
       return;
     }
@@ -82,7 +113,6 @@ export function ChatPortalChannelList({
     setIsLoading(true);
     const promises: Promise<void>[] = [];
 
-    // Main channels (skip if pre-fetched)
     if (!initialChannels) {
       promises.push(
         fetch(`${apiBase}/channels`, { headers: apiHeaders })
@@ -94,7 +124,6 @@ export function ChatPortalChannelList({
       );
     }
 
-    // Optional groups
     if (groupsEndpoint) {
       promises.push(
         fetch(groupsEndpoint, { headers: apiHeaders })
@@ -109,6 +138,15 @@ export function ChatPortalChannelList({
     Promise.all(promises).finally(() => setIsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiBase, groupsEndpoint]);
+
+  // Refetch when the user returns from a conversation (selectedChannelId: value → null)
+  useEffect(() => {
+    const prev = prevSelectedChannelIdRef.current;
+    prevSelectedChannelIdRef.current = selectedChannelId;
+    if (prev && !selectedChannelId) {
+      refreshChannels();
+    }
+  }, [selectedChannelId, refreshChannels]);
 
   // Auto-select single channel
   useEffect(() => {
@@ -297,7 +335,17 @@ export function ChatPortalChannelList({
                     <button
                       key={ch.id}
                       type="button"
-                      onClick={() => onSelectChannel(ch.id, name, ch.channelType)}
+                      onClick={() => {
+                        // Optimistic: clear unread locally so the badge doesn't
+                        // linger until the next refetch.
+                        if (unread > 0) {
+                          const zero = (list: ChatChannelData[]) =>
+                            list.map((c) => (c.id === ch.id ? { ...c, unreadCount: 0 } : c));
+                          setChannels(zero);
+                          setGroupChannels(zero);
+                        }
+                        onSelectChannel(ch.id, name, ch.channelType);
+                      }}
                       className={cn(
                         "flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-left transition-colors",
                         isSelected
