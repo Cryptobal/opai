@@ -2,8 +2,17 @@
 
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { hasPermission, PERMISSIONS, isValidRole, type Role } from '@/lib/rbac';
-import { ROLE_TEMPLATE_SEEDS } from '@/lib/permissions';
+import { resolvePermissions } from '@/lib/permissions-server';
+import {
+  DEFAULT_ROLE_PERMISSIONS,
+  hasCapability,
+  ROLE_TEMPLATE_SEEDS,
+} from '@/lib/permissions';
+
+const KNOWN_ROLE_SLUGS = new Set(Object.keys(DEFAULT_ROLE_PERMISSIONS));
+function isValidRole(slug: string): boolean {
+  return KNOWN_ROLE_SLUGS.has(slug);
+}
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { Resend } from 'resend';
@@ -20,7 +29,11 @@ export async function inviteUser(email: string, roleTemplateSlug: string) {
     return { success: false, error: 'No autenticado' };
   }
 
-  if (!hasPermission(session.user.role as Role, PERMISSIONS.INVITE_USERS)) {
+  const perms = await resolvePermissions({
+    role: session.user.role,
+    roleTemplateId: session.user.roleTemplateId,
+  });
+  if (!hasCapability(perms, 'invite_users')) {
     return { success: false, error: 'Sin permisos para invitar usuarios' };
   }
 
@@ -162,7 +175,7 @@ export async function activateAccount(token: string, name: string, password: str
       email: invitation.email,
       name,
       password: passwordHash,
-      role: invitation.role as Role,
+      role: invitation.role,
       roleTemplateId: roleTemplate?.id ?? null,
       status: 'active',
       tenantId: invitation.tenantId,
@@ -200,7 +213,11 @@ export async function changeUserRole(userId: string, roleTemplateId: string) {
     return { success: false, error: 'No autenticado' };
   }
 
-  if (!hasPermission(session.user.role as Role, PERMISSIONS.MANAGE_USERS)) {
+  const perms = await resolvePermissions({
+    role: session.user.role,
+    roleTemplateId: session.user.roleTemplateId,
+  });
+  if (!hasCapability(perms, 'manage_users')) {
     return { success: false, error: 'Sin permisos para gestionar usuarios' };
   }
 
@@ -255,7 +272,7 @@ export async function changeUserRole(userId: string, roleTemplateId: string) {
   await prisma.admin.update({
     where: { id: userId },
     data: {
-      role: slug as Role,
+      role: slug,
       roleTemplateId: roleTemplateIdToSet,
     },
   });
@@ -284,7 +301,11 @@ export async function toggleUserStatus(userId: string) {
     return { success: false, error: 'No autenticado' };
   }
 
-  if (!hasPermission(session.user.role as Role, PERMISSIONS.MANAGE_USERS)) {
+  const perms = await resolvePermissions({
+    role: session.user.role,
+    roleTemplateId: session.user.roleTemplateId,
+  });
+  if (!hasCapability(perms, 'manage_users')) {
     return { success: false, error: 'Sin permisos para gestionar usuarios' };
   }
 
@@ -344,7 +365,11 @@ export async function revokeInvitation(invitationId: string) {
     return { success: false, error: 'No autenticado' };
   }
 
-  if (!hasPermission(session.user.role as Role, PERMISSIONS.MANAGE_USERS)) {
+  const perms = await resolvePermissions({
+    role: session.user.role,
+    roleTemplateId: session.user.roleTemplateId,
+  });
+  if (!hasCapability(perms, 'manage_users')) {
     return { success: false, error: 'Sin permisos para gestionar invitaciones' };
   }
 
@@ -388,7 +413,11 @@ export async function listUsers() {
   if (!session?.user) {
     return { success: false, error: 'No autenticado' };
   }
-  if (!hasPermission(session.user.role as Role, PERMISSIONS.MANAGE_USERS)) {
+  const perms = await resolvePermissions({
+    role: session.user.role,
+    roleTemplateId: session.user.roleTemplateId,
+  });
+  if (!hasCapability(perms, 'manage_users')) {
     return { success: false, error: 'Sin permisos para gestionar usuarios' };
   }
 
@@ -423,7 +452,11 @@ export async function listPendingInvitations() {
   if (!session?.user) {
     return { success: false, error: 'No autenticado' };
   }
-  if (!hasPermission(session.user.role as Role, PERMISSIONS.MANAGE_USERS)) {
+  const perms = await resolvePermissions({
+    role: session.user.role,
+    roleTemplateId: session.user.roleTemplateId,
+  });
+  if (!hasCapability(perms, 'manage_users')) {
     return { success: false, error: 'Sin permisos para gestionar invitaciones' };
   }
 
@@ -459,7 +492,11 @@ export async function listRoleTemplates() {
   if (!session?.user) {
     return { success: false, error: 'No autenticado', templates: [] };
   }
-  if (!hasPermission(session.user.role as Role, PERMISSIONS.MANAGE_USERS)) {
+  const perms = await resolvePermissions({
+    role: session.user.role,
+    roleTemplateId: session.user.roleTemplateId,
+  });
+  if (!hasCapability(perms, 'manage_users')) {
     return { success: false, error: 'Sin permisos', templates: [] };
   }
 
