@@ -1,16 +1,18 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { resolvePagePerms } from "@/lib/permissions-server";
+import { canView } from "@/lib/permissions";
 import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
-import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
 import GroupsConfigClient from "@/components/config/GroupsConfigClient";
 import { Users } from "lucide-react";
 
 export default async function GruposConfigPage() {
   const session = await auth();
-  if (!session?.user) redirect("/opai/login");
+  if (!session?.user) redirect("/opai/login?callbackUrl=/opai/configuracion/grupos");
 
   const role = session.user.role;
-  if (!hasPermission(role as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "grupos")) {
     redirect("/opai/configuracion");
   }
 
