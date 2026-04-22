@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import {
   resolvePagePerms,
-  hasModuleAccess,
+  canView,
   hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
@@ -16,8 +16,8 @@ export default async function FinanzasConfiguracionPage() {
     redirect("/opai/login?callbackUrl=/opai/configuracion/finanzas");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!hasModuleAccess(perms, "config")) {
-    redirect("/hub");
+  if (!canView(perms, "config", "finanzas")) {
+    redirect("/opai/configuracion");
   }
   if (!hasCapability(perms, "rendicion_configure")) {
     redirect("/opai/configuracion");
