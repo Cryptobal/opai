@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
+import { canEdit } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import {
   getEffectivePostulacionDocuments,
@@ -32,7 +32,8 @@ export async function GET() {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasPermission(ctx.userRole as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    const perms = await resolveApiPerms(ctx);
+    if (!canEdit(perms, "config", "ops")) {
       return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
     }
     const documents = await getPostulacionDocumentTypes(ctx.tenantId);
@@ -59,7 +60,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasPermission(ctx.userRole as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    const perms = await resolveApiPerms(ctx);
+    if (!canEdit(perms, "config", "ops")) {
       return NextResponse.json({ success: false, error: "Sin permiso" }, { status: 403 });
     }
     const raw = await request.json();

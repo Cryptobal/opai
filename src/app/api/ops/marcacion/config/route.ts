@@ -8,8 +8,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
+import { canEdit } from "@/lib/permissions";
 import {
   normalizeMarcacionConfig,
   parseMarcacionConfigValue,
@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
-    if (!hasPermission(ctx.userRole as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    const perms = await resolveApiPerms(ctx);
+    if (!canEdit(perms, "config", "ops")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos para cambiar la configuración" },
         { status: 403 }
