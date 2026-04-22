@@ -161,6 +161,7 @@ export function Step3Checklist({
           severity: "critical",
           description: `${docLabel} no presente — Guardia: ${guardLabel}`,
           guardId,
+          guardiaDocCode: code,
         }),
       })
         .then((res) => res.json())
@@ -312,6 +313,7 @@ export function Step3Checklist({
     if (!present && visit.id && !existingResult?.autoFindingId) {
       const docType = allInstDocs.find((d) => d.code === code);
       const docLabel = docType?.label ?? code;
+      const tipoDocId = docType?.tipoDocId ?? null;
 
       try {
         const res = await fetch(`/api/ops/supervision/${visit.id}/findings`, {
@@ -321,6 +323,7 @@ export function Step3Checklist({
             category: "documentation",
             severity: "critical",
             description: `${docLabel} no presente`,
+            ...(tipoDocId ? { tipoDocId } : {}),
           }),
         });
         const json = await res.json();

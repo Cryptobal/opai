@@ -33,6 +33,10 @@ type ApiHallazgo = {
   ticketCode: string | null;
   ticketId: string | null;
   description?: string;
+  occurrenceCount?: number;
+  firstDetectedAt?: string | null;
+  lastDetectedAt?: string | null;
+  ticketCreatedAt?: string | null;
 };
 
 type ApiCell = {

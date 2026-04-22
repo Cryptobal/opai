@@ -3462,6 +3462,7 @@ model OpsVisitaSupervision {
   guardEvaluations   OpsSupervisionGuardEvaluation[]
   findings           OpsSupervisionFinding[]        @relation("supervision_finding_visit")
   verifiedFindings   OpsSupervisionFinding[]        @relation("supervision_finding_verified_visit")
+  lastDetectedFindings OpsSupervisionFinding[]      @relation("supervision_finding_last_detected_visit")
   checklistResults      OpsSupervisionChecklistResult[]
   photos                OpsSupervisionPhoto[]
   encuestaCliente       OpsEncuestaCliente?
@@ -3535,6 +3536,15 @@ model OpsSupervisionFinding {
   status           String    @default("open")
   resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(6)
   verifiedInVisitId String?  @map("verified_in_visit_id") @db.Uuid
+
+  // Agrupación por documento (dedup): un hallazgo persistente por (installation + tipoDoc|guardiaDocCode)
+  tipoDocId           String?   @map("tipo_doc_id") @db.Uuid
+  guardiaDocCode      String?   @map("guardia_doc_code")
+  occurrenceCount     Int       @default(1) @map("occurrence_count")
+  firstDetectedAt     DateTime  @default(now()) @map("first_detected_at") @db.Timestamptz(6)
+  lastDetectedAt      DateTime  @default(now()) @map("last_detected_at") @db.Timestamptz(6)
+  lastDetectedVisitId String?   @map("last_detected_visit_id") @db.Uuid
+
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -3544,6 +3554,8 @@ model OpsSupervisionFinding {
   guard           OpsGuardia?          @relation("supervision_finding_guard", fields: [guardId], references: [id], onDelete: SetNull)
   ticket          OpsTicket?           @relation("supervision_finding_ticket", fields: [ticketId], references: [id], onDelete: SetNull)
   verifiedInVisit       OpsVisitaSupervision?   @relation("supervision_finding_verified_visit", fields: [verifiedInVisitId], references: [id], onDelete: SetNull)
+  lastDetectedVisit     OpsVisitaSupervision?   @relation("supervision_finding_last_detected_visit", fields: [lastDetectedVisitId], references: [id], onDelete: SetNull)
+  tipoDoc               TipoDocOperacional?     @relation("supervision_finding_tipo_doc", fields: [tipoDocId], references: [id], onDelete: SetNull)
   checklistResults      OpsSupervisionChecklistResult[]
   verificacionFisica    DocVerificacionFisica?
 
@@ -3552,6 +3564,8 @@ model OpsSupervisionFinding {
   @@index([installationId], map: "idx_supervision_findings_installation")
   @@index([status], map: "idx_supervision_findings_status")
   @@index([guardId], map: "idx_supervision_findings_guard")
+  @@index([tenantId, installationId, tipoDocId, status], map: "idx_supervision_findings_dedup_tipo")
+  @@index([tenantId, installationId, guardiaDocCode, guardId, status], map: "idx_supervision_findings_dedup_guardia")
   @@map("supervision_findings")
   @@schema("ops")
 }
@@ -7748,6 +7762,7 @@ model TipoDocOperacional {
   tenant                Tenant                  @relation(fields: [tenantId], references: [id])
   documentos            DocOperacional[]
   verificacionesFisicas DocVerificacionFisica[]
+  supervisionFindings   OpsSupervisionFinding[] @relation("supervision_finding_tipo_doc")
 
   @@unique([tenantId, codigo], map: "uq_tipo_doc_operacional_tenant_codigo")
   @@index([tenantId, capa], map: "idx_tipo_doc_operacional_tenant_capa")

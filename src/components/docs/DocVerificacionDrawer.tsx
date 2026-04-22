@@ -31,6 +31,10 @@ export type DrawerHallazgo = {
   ticketCode: string | null;
   ticketId: string | null;
   description?: string;
+  occurrenceCount?: number;
+  firstDetectedAt?: string | null;
+  lastDetectedAt?: string | null;
+  ticketCreatedAt?: string | null;
 };
 
 export type DrawerCellMeta = {
@@ -267,13 +271,25 @@ export function DocVerificacionDrawer({
                 Obligatorio en visita
               </span>
             )}
-            {hallazgosAbiertos.length > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/15 text-red-400 border border-red-500/25">
-                <AlertTriangle className="h-3 w-3" />
-                {hallazgosAbiertos.length} hallazgo{hallazgosAbiertos.length > 1 ? "s" : ""} abierto
-                {hallazgosAbiertos.length > 1 ? "s" : ""}
-              </span>
-            )}
+            {hallazgosAbiertos.length > 0 && (() => {
+              // Si hay un único hallazgo canónico con múltiples ocurrencias, mostrar "N visitas"
+              const single = hallazgosAbiertos.length === 1 ? hallazgosAbiertos[0] : null;
+              const totalOcc = hallazgosAbiertos.reduce(
+                (acc, h) => acc + (h.occurrenceCount ?? 1),
+                0,
+              );
+              const label = single && (single.occurrenceCount ?? 1) > 1
+                ? `Hallazgo abierto — ${single.occurrenceCount} visitas`
+                : hallazgosAbiertos.length === 1
+                  ? `1 hallazgo abierto`
+                  : `${hallazgosAbiertos.length} hallazgos abiertos (${totalOcc} visitas)`;
+              return (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-500/15 text-red-400 border border-red-500/25">
+                  <AlertTriangle className="h-3 w-3" />
+                  {label}
+                </span>
+              );
+            })()}
           </div>
         </SheetHeader>
 
@@ -341,39 +357,91 @@ export function DocVerificacionDrawer({
               Hallazgos abiertos
             </p>
             <div className="space-y-2">
-              {hallazgosAbiertos.map((h) => (
-                <div
-                  key={h.id}
-                  className={`rounded-lg border px-3 py-2 ${
-                    SEVERITY_COLORS[h.severity] ??
-                    "bg-zinc-800/50 text-zinc-300 border-zinc-700"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-semibold uppercase">
-                      {SEVERITY_LABELS[h.severity] ?? h.severity}
-                    </span>
-                    {h.ticketCode && (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-zinc-300">
-                        <Ticket className="h-3 w-3" />
-                        #{h.ticketCode}
+              {hallazgosAbiertos.map((h) => {
+                const openedAt = h.ticketCreatedAt ?? h.firstDetectedAt ?? null;
+                const daysOpen = openedAt
+                  ? Math.max(
+                      0,
+                      Math.floor(
+                        (Date.now() - new Date(openedAt).getTime()) /
+                          (1000 * 60 * 60 * 24),
+                      ),
+                    )
+                  : null;
+                const occurrences = h.occurrenceCount ?? 1;
+                const fmt = (iso?: string | null) =>
+                  iso
+                    ? new Date(iso).toLocaleDateString("es-CL", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "—";
+                return (
+                  <div
+                    key={h.id}
+                    className={`rounded-lg border px-3 py-2 ${
+                      SEVERITY_COLORS[h.severity] ??
+                      "bg-zinc-800/50 text-zinc-300 border-zinc-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold uppercase">
+                        {SEVERITY_LABELS[h.severity] ?? h.severity}
                       </span>
+                      {h.ticketCode && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-zinc-300">
+                          <Ticket className="h-3 w-3" />
+                          #{h.ticketCode}
+                        </span>
+                      )}
+                    </div>
+                    {h.description && (
+                      <p className="mt-1 text-[11px] opacity-90 leading-snug">{h.description}</p>
+                    )}
+
+                    {/* Meta: días abierto, ocurrencias, fechas */}
+                    <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10.5px] opacity-90">
+                      {daysOpen !== null && (
+                        <div>
+                          <span className="uppercase tracking-wider opacity-70">Abierto hace</span>
+                          <div className="font-semibold">
+                            {daysOpen} {daysOpen === 1 ? "día" : "días"}
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <span className="uppercase tracking-wider opacity-70">Ocurrencias</span>
+                        <div className="font-semibold">
+                          {occurrences} {occurrences === 1 ? "visita" : "visitas"}
+                        </div>
+                      </div>
+                      {h.firstDetectedAt && (
+                        <div>
+                          <span className="uppercase tracking-wider opacity-70">1ª detección</span>
+                          <div>{fmt(h.firstDetectedAt)}</div>
+                        </div>
+                      )}
+                      {h.lastDetectedAt && (
+                        <div>
+                          <span className="uppercase tracking-wider opacity-70">Última detección</span>
+                          <div>{fmt(h.lastDetectedAt)}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {h.ticketId && (
+                      <a
+                        href={`/ops/tickets/${h.ticketId}`}
+                        className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-sky-400 hover:text-sky-300 underline underline-offset-2"
+                      >
+                        Ver ticket
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
                     )}
                   </div>
-                  {h.description && (
-                    <p className="mt-1 text-[11px] opacity-90 leading-snug">{h.description}</p>
-                  )}
-                  {h.ticketId && (
-                    <a
-                      href={`/ops/tickets/${h.ticketId}`}
-                      className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-sky-400 hover:text-sky-300 underline underline-offset-2"
-                    >
-                      Ver ticket
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

@@ -14,7 +14,11 @@ const findingSchema = z.object({
   severity: z.enum(["critical", "major", "minor"]),
   description: z.string().min(1).max(2000),
   photoUrl: z.string().url().nullable().optional(),
+  tipoDocId: z.string().uuid().nullable().optional(),
+  guardiaDocCode: z.string().max(200).nullable().optional(),
 });
+
+const ESCALATION_THRESHOLD = 3;
 
 export async function GET(
   _request: NextRequest,
@@ -131,9 +135,151 @@ export async function POST(
       if (inst) installationName = inst.name;
     } catch { /* ignore */ }
 
-    const { severity, category, description } = parsed.data;
+    const { severity, category, description, tipoDocId, guardiaDocCode, guardId } = parsed.data;
 
-    // Auto-create ticket for critical and major findings
+    // Supervisor name para los comentarios del ticket
+    let supervisorName = "Supervisor";
+    try {
+      const sup = await prisma.admin.findUnique({
+        where: { id: ctx.userId },
+        select: { name: true },
+      });
+      if (sup?.name) supervisorName = sup.name;
+    } catch { /* ignore */ }
+
+    // 1) Dedup: ¿ya existe un hallazgo abierto para este (installation + tipoDoc|guardiaDocCode)?
+    let existingFinding: {
+      id: string;
+      ticketId: string | null;
+      occurrenceCount: number;
+      firstDetectedAt: Date;
+      severity: string;
+    } | null = null;
+
+    if (tipoDocId || guardiaDocCode) {
+      try {
+        existingFinding = await prisma.opsSupervisionFinding.findFirst({
+          where: {
+            tenantId: ctx.tenantId,
+            installationId: visit.installationId,
+            status: { in: ["open", "in_progress"] },
+            ...(tipoDocId
+              ? { tipoDocId }
+              : {
+                  guardiaDocCode: guardiaDocCode!,
+                  guardId: guardId ?? null,
+                }),
+          },
+          select: {
+            id: true,
+            ticketId: true,
+            occurrenceCount: true,
+            firstDetectedAt: true,
+            severity: true,
+          },
+          orderBy: { firstDetectedAt: "asc" },
+        });
+      } catch {
+        existingFinding = null;
+      }
+    }
+
+    // --- CAMINO A: ya existe → incrementar contador, actualizar timestamps, comentar ticket, escalar si aplica ---
+    if (existingFinding) {
+      const newCount = existingFinding.occurrenceCount + 1;
+      const now = new Date();
+
+      const updated = await prisma.opsSupervisionFinding.update({
+        where: { id: existingFinding.id },
+        data: {
+          occurrenceCount: newCount,
+          lastDetectedAt: now,
+          lastDetectedVisitId: id,
+          // Mantener la severidad original a menos que escalemos más abajo.
+        },
+      });
+
+      // Comentar el ticket (si lo tiene)
+      let ticketCode: string | null = null;
+      if (existingFinding.ticketId) {
+        try {
+          await prisma.opsTicketComment.create({
+            data: {
+              ticketId: existingFinding.ticketId,
+              userId: ctx.userId,
+              body: `Hallazgo detectado nuevamente en supervisión del ${now.toLocaleDateString("es-CL")} por ${supervisorName}. Ocurrencia #${newCount}.`,
+              isInternal: false,
+            },
+          });
+        } catch (commentErr) {
+          console.warn("[OPS][SUPERVISION] No se pudo comentar el ticket:", commentErr);
+        }
+
+        const tkt = await prisma.opsTicket.findUnique({
+          where: { id: existingFinding.ticketId },
+          select: { code: true, priority: true, status: true },
+        });
+        ticketCode = tkt?.code ?? null;
+
+        // Escalar prioridad a p1 cuando se alcanza/supera el umbral y aún no está en p1
+        if (
+          tkt &&
+          newCount >= ESCALATION_THRESHOLD &&
+          tkt.priority !== "p1" &&
+          tkt.status !== "closed" &&
+          tkt.status !== "cancelled"
+        ) {
+          try {
+            await prisma.opsTicket.update({
+              where: { id: existingFinding.ticketId },
+              data: {
+                priority: "p1",
+                tags: { push: "escalated_recurring" },
+              },
+            });
+
+            await prisma.opsTicketComment.create({
+              data: {
+                ticketId: existingFinding.ticketId,
+                userId: ctx.userId,
+                body: `Escalado automáticamente a P1 por recurrencia (${newCount} visitas consecutivas con el mismo hallazgo).`,
+                isInternal: true,
+              },
+            });
+
+            import("@/lib/notification-service").then(({ sendNotificationToUsers }) => {
+              sendNotificationToUsers({
+                tenantId: ctx.tenantId,
+                type: "ticket_created",
+                title: `Ticket escalado a P1 por recurrencia`,
+                message: `${installationName}: ${description.slice(0, 100)} — ${newCount} visitas.`,
+                data: { ticketId: existingFinding!.ticketId, code: ticketCode },
+                link: `/ops/tickets/${existingFinding!.ticketId}`,
+                targetUserIds: [ctx.userId],
+              }).catch(() => { /* non-blocking */ });
+            }).catch(() => { /* non-blocking */ });
+          } catch (escErr) {
+            console.warn("[OPS][SUPERVISION] Fallo al escalar ticket:", escErr);
+          }
+        }
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            ...updated,
+            ticketId: existingFinding.ticketId,
+            ticketCode,
+            deduplicated: true,
+            occurrenceCount: newCount,
+          },
+        },
+        { status: 200 },
+      );
+    }
+
+    // --- CAMINO B: no existe → crear finding + ticket nuevo ---
     let ticketId: string | null = null;
     let ticketCode: string | null = null;
     if (severity === "critical" || severity === "major") {
@@ -189,7 +335,6 @@ export async function POST(
           ticketId = ticket.id;
           ticketCode = ticket.code;
 
-          // Send notification (non-blocking)
           import("@/lib/notification-service").then(({ sendNotificationToUsers }) => {
             sendNotificationToUsers({
               tenantId: ctx.tenantId,
@@ -203,46 +348,58 @@ export async function POST(
           }).catch(() => { /* non-blocking */ });
         }
       } catch (ticketErr) {
-        // Ticket creation failure should not block finding creation
         console.warn("[OPS][SUPERVISION] Failed to auto-create ticket for finding:", ticketErr);
       }
     }
 
     try {
+      const nowCreate = new Date();
       const finding = await prisma.opsSupervisionFinding.create({
         data: {
           tenantId: ctx.tenantId,
           visitId: id,
           installationId: visit.installationId,
-          guardId: parsed.data.guardId ?? null,
+          guardId: guardId ?? null,
           category,
           severity,
           description,
           photoUrl: parsed.data.photoUrl ?? null,
           status: "open",
+          tipoDocId: tipoDocId ?? null,
+          guardiaDocCode: guardiaDocCode ?? null,
+          occurrenceCount: 1,
+          firstDetectedAt: nowCreate,
+          lastDetectedAt: nowCreate,
+          lastDetectedVisitId: id,
           ...(ticketId ? { ticketId } : {}),
         },
       });
 
-      return NextResponse.json({ success: true, data: { ...finding, ticketId, ticketCode } }, { status: 201 });
+      return NextResponse.json(
+        { success: true, data: { ...finding, ticketId, ticketCode, deduplicated: false, occurrenceCount: 1 } },
+        { status: 201 },
+      );
     } catch (tableErr: unknown) {
-      // P2021: table does not exist — migration not applied yet
       const errCode = tableErr && typeof tableErr === "object" && "code" in tableErr ? (tableErr as { code: string }).code : "";
       if (errCode !== "P2021") throw tableErr;
-      // Return a mock finding so the wizard can continue
-      return NextResponse.json({
-        success: true,
-        data: {
-          id: crypto.randomUUID(),
-          ...parsed.data,
-          visitId: id,
-          installationId: visit.installationId,
-          status: "open",
-          ticketId,
-          ticketCode,
-          createdAt: new Date().toISOString(),
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            id: crypto.randomUUID(),
+            ...parsed.data,
+            visitId: id,
+            installationId: visit.installationId,
+            status: "open",
+            ticketId,
+            ticketCode,
+            deduplicated: false,
+            occurrenceCount: 1,
+            createdAt: new Date().toISOString(),
+          },
         },
-      }, { status: 201 });
+        { status: 201 },
+      );
     }
   } catch (error) {
     console.error("[OPS][SUPERVISION] Error creating finding:", error);

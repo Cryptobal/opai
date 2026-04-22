@@ -191,8 +191,88 @@ export async function POST(request: NextRequest) {
       )
     );
 
+    // Auto-resolución: si alguna verificación marcó "presente", cerrar el hallazgo
+    // abierto correspondiente (y su ticket) para esa (instalación, tipoDoc|guardiaDocCode).
+    const supervisorName = await (async () => {
+      try {
+        const sup = await prisma.admin.findUnique({
+          where: { id: ctx.userId },
+          select: { name: true },
+        });
+        return sup?.name ?? "Supervisor";
+      } catch {
+        return "Supervisor";
+      }
+    })();
+
+    const autoResolved: Array<{ findingId: string; ticketId: string | null }> = [];
+    for (const v of verificaciones) {
+      if (!v.presente) continue;
+
+      try {
+        const finding = await prisma.opsSupervisionFinding.findFirst({
+          where: {
+            tenantId: ctx.tenantId,
+            installationId: v.installationId,
+            status: { in: ["open", "in_progress"] },
+            ...(v.tipoDocId
+              ? { tipoDocId: v.tipoDocId }
+              : v.guardiaDocType
+                ? {
+                    guardiaDocCode: v.guardiaDocType,
+                    guardId: v.guardiaId ?? null,
+                  }
+                : {}),
+          },
+          select: { id: true, ticketId: true, occurrenceCount: true, firstDetectedAt: true },
+        });
+
+        if (!finding) continue;
+
+        const now = new Date();
+        await prisma.opsSupervisionFinding.update({
+          where: { id: finding.id },
+          data: {
+            status: "resolved",
+            resolvedAt: now,
+            verifiedInVisitId: supervisionId,
+          },
+        });
+
+        if (finding.ticketId) {
+          const daysOpen = Math.max(
+            0,
+            Math.floor((now.getTime() - new Date(finding.firstDetectedAt).getTime()) / (1000 * 60 * 60 * 24)),
+          );
+          await prisma.opsTicket.update({
+            where: { id: finding.ticketId },
+            data: {
+              status: "resolved",
+              resolvedAt: now,
+              resolutionNotes: `Verificado presente en supervisión del ${now.toLocaleDateString("es-CL")} por ${supervisorName}. Detectado durante ${finding.occurrenceCount} visitas a lo largo de ${daysOpen} días.`,
+            },
+          });
+
+          try {
+            await prisma.opsTicketComment.create({
+              data: {
+                ticketId: finding.ticketId,
+                userId: ctx.userId,
+                body: `Hallazgo resuelto: documento verificado presente por ${supervisorName}.`,
+                isInternal: false,
+              },
+            });
+          } catch { /* non-blocking */ }
+        }
+
+        autoResolved.push({ findingId: finding.id, ticketId: finding.ticketId });
+      } catch (resolveErr) {
+        console.warn("[VERIFICACIONES-FISICAS] Auto-resolve error:", resolveErr);
+      }
+    }
+
     return NextResponse.json(
-      { success: true, data: created, meta: { count: created.length } },
+      { success: true, data: created, meta: { count: created.length, autoResolved } },
       { status: 201 }
     );
   } catch (error) {

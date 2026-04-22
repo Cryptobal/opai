@@ -149,7 +149,8 @@ export async function GET(request: NextRequest) {
       : [];
 
     // 4c. Hallazgos abiertos asociados a documentación para badge en grilla
-    //     (incluso si el supervisor no vincul\u00f3 la verificaci\u00f3n: match heurístico por nombre)
+    //     Con el nuevo modelo (dedup) hay como máximo UN finding abierto por (installation, tipoDoc).
+    //     Como fallback aún soportamos match heurístico por `description` para findings legacy sin tipoDocId.
     const openFindings = await prisma.opsSupervisionFinding.findMany({
       where: {
         tenantId: ctx.tenantId,
@@ -157,14 +158,18 @@ export async function GET(request: NextRequest) {
         category: "documentation",
         status: { in: ["open", "in_progress"] },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { firstDetectedAt: "asc" },
       select: {
         id: true,
         installationId: true,
         description: true,
         severity: true,
         status: true,
-        ticket: { select: { id: true, code: true, status: true } },
+        tipoDocId: true,
+        occurrenceCount: true,
+        firstDetectedAt: true,
+        lastDetectedAt: true,
+        ticket: { select: { id: true, code: true, status: true, createdAt: true } },
       },
     });
 
@@ -243,12 +248,24 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Hallazgos abiertos indexados por installationId (luego refinamos por coincidencia de nombre de tipo)
-    const findingsByInst = new Map<string, typeof openFindings>();
+    // Indexación de hallazgos abiertos:
+    // 1) findingsByTipo: match exacto por (installationId + tipoDocId) — camino nuevo
+    // 2) findingsByInstLegacy: match heurístico por description para findings legacy sin tipoDocId
+    const findingsByTipo = new Map<string, typeof openFindings[number]>();
+    const findingsByInstLegacy = new Map<string, typeof openFindings>();
     for (const f of openFindings) {
-      const arr = findingsByInst.get(f.installationId) ?? [];
-      arr.push(f);
-      findingsByInst.set(f.installationId, arr);
+      if (f.tipoDocId) {
+        const key = `${f.tipoDocId}|${f.installationId}`;
+        const existing = findingsByTipo.get(key);
+        // Si hay varios (no debería con la dedup), mantenemos el más antiguo (canónico)
+        if (!existing || new Date(f.firstDetectedAt) < new Date(existing.firstDetectedAt)) {
+          findingsByTipo.set(key, f);
+        }
+      } else {
+        const arr = findingsByInstLegacy.get(f.installationId) ?? [];
+        arr.push(f);
+        findingsByInstLegacy.set(f.installationId, arr);
+      }
     }
 
     // Last visits indexed by installationId
@@ -276,18 +293,39 @@ export async function GET(request: NextRequest) {
           ? calcDocStatus(doc.expiresAt, tipo.tieneVencimiento, tipo.diasAlerta)
           : null;
 
-        // Hallazgos abiertos asociados a esta celda
-        // 1) Si la verificación ya vincula un hallazgo, se usa directamente
-        // 2) Si no, se hace match heurístico por mención del nombre del tipo en la descripción
-        let hallazgos: Array<{
+        // Hallazgos abiertos asociados a esta celda.
+        // Nuevo modelo: un único finding canónico por (installation, tipoDoc) con occurrenceCount.
+        // Fallback legacy: match heurístico por nombre del tipo en description.
+        type HallazgoCell = {
           id: string;
           severity: string;
           status: string;
           ticketCode: string | null;
           ticketId: string | null;
           description?: string;
-        }> = [];
-        if (verif?.hallazgo && (verif.hallazgo.status === "open" || verif.hallazgo.status === "in_progress")) {
+          occurrenceCount?: number;
+          firstDetectedAt?: string | null;
+          lastDetectedAt?: string | null;
+          ticketCreatedAt?: string | null;
+        };
+        let hallazgos: HallazgoCell[] = [];
+        const canonical = findingsByTipo.get(`${tipo.id}|${inst.id}`);
+        if (canonical) {
+          hallazgos = [
+            {
+              id: canonical.id,
+              severity: canonical.severity,
+              status: canonical.status,
+              ticketCode: canonical.ticket?.code ?? null,
+              ticketId: canonical.ticket?.id ?? null,
+              description: canonical.description,
+              occurrenceCount: canonical.occurrenceCount,
+              firstDetectedAt: canonical.firstDetectedAt?.toISOString() ?? null,
+              lastDetectedAt: canonical.lastDetectedAt?.toISOString() ?? null,
+              ticketCreatedAt: canonical.ticket?.createdAt?.toISOString() ?? null,
+            },
+          ];
+        } else if (verif?.hallazgo && (verif.hallazgo.status === "open" || verif.hallazgo.status === "in_progress")) {
           hallazgos.push({
             id: verif.hallazgo.id,
             severity: verif.hallazgo.severity,
@@ -296,8 +334,8 @@ export async function GET(request: NextRequest) {
             ticketId: verif.hallazgo.ticket?.id ?? null,
           });
         } else {
-          const instFindings = findingsByInst.get(inst.id) ?? [];
-          const matches = instFindings.filter((f) =>
+          const legacyFindings = findingsByInstLegacy.get(inst.id) ?? [];
+          const matches = legacyFindings.filter((f) =>
             f.description.toLowerCase().includes(tipo.nombre.toLowerCase()),
           );
           hallazgos = matches.map((f) => ({
@@ -307,6 +345,10 @@ export async function GET(request: NextRequest) {
             ticketCode: f.ticket?.code ?? null,
             ticketId: f.ticket?.id ?? null,
             description: f.description,
+            occurrenceCount: f.occurrenceCount,
+            firstDetectedAt: f.firstDetectedAt?.toISOString() ?? null,
+            lastDetectedAt: f.lastDetectedAt?.toISOString() ?? null,
+            ticketCreatedAt: f.ticket?.createdAt?.toISOString() ?? null,
           }));
         }
 
