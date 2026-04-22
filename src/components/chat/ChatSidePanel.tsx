@@ -557,14 +557,16 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           />
           <div
             className={cn(
-              "fixed inset-0 z-50 lg:hidden flex flex-col bg-[#0a0e17] transition-transform duration-300 ease-out",
+              "fixed z-50 lg:hidden flex flex-col bg-[#0a0e17] transition-transform duration-300 ease-out",
               panelEntered && !panelClosing ? "translate-x-0" : "translate-x-full"
             )}
             style={{
               top: 0,
               left: 0,
               right: 0,
-              bottom: "var(--bottom-nav-height, 0px)",
+              // Use 100dvh so iOS resizes correctly when the soft keyboard
+              // opens / the address bar collapses.
+              height: "calc(100dvh - var(--bottom-nav-height, 0px))",
               paddingTop: "env(safe-area-inset-top)",
             }}
             role="dialog"

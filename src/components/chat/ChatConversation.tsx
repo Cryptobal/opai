@@ -53,6 +53,8 @@ export function ChatConversation({
     hasMore,
     loadMore,
     sendMessage,
+    retryMessage,
+    discardMessage,
     editMessage,
     deleteMessage,
     setMessages: setApiMessages,
@@ -313,6 +315,8 @@ export function ChatConversation({
           onOpenThread={setActiveThreadId}
           onEdit={editMessage}
           onDelete={deleteMessage}
+          onRetry={retryMessage}
+          onDiscard={discardMessage}
           channelId={channelId}
           currentUserId={currentUserId ?? undefined}
           getReadByCount={getReadByCount}

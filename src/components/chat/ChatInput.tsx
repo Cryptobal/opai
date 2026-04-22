@@ -628,12 +628,28 @@ export function ChatInput({
         }
       }
 
+      // Esc clears reply banner (or blurs input if no reply)
+      if (e.key === "Escape") {
+        if (replyTo && onCancelReply) {
+          e.preventDefault();
+          onCancelReply();
+          return;
+        }
+      }
+
+      // Cmd/Ctrl+Enter → always send (useful when shift+enter is configured as newline)
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        handleSend();
+        return;
+      }
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend, mentionQuery, mentionOptions, mentionIndex, insertMention, hashtagQuery, hashtagResults, hashtagIndex, insertHashtagEntity]
+    [handleSend, mentionQuery, mentionOptions, mentionIndex, insertMention, hashtagQuery, hashtagResults, hashtagIndex, insertHashtagEntity, replyTo, onCancelReply]
   );
 
   const isEmpty = content.trim().length === 0 && files.length === 0;

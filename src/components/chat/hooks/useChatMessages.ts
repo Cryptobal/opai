@@ -28,6 +28,10 @@ type UseChatMessagesReturn = {
   hasMore: boolean;
   loadMore: () => Promise<void>;
   sendMessage: (payload: SendMessagePayload) => Promise<ChatMessageData | null>;
+  /** Retry a previously-failed optimistic message by its temp id */
+  retryMessage: (tempId: string) => Promise<ChatMessageData | null>;
+  /** Drop a failed optimistic message without retrying */
+  discardMessage: (tempId: string) => void;
   editMessage: (messageId: string, content: string) => Promise<boolean>;
   deleteMessage: (messageId: string) => Promise<boolean>;
   setMessages: React.Dispatch<React.SetStateAction<ChatMessageData[]>>;
@@ -212,12 +216,50 @@ export function useChatMessages(
     await fetchMessages(cursorRef.current);
   }, [hasMore, isLoading, fetchMessages]);
 
-  // Send a new message with optimistic update
+  // Stash the original payload for each in-flight/failed message so we can
+  // retry cleanly (server-side mentions/attachments/replyToId etc.).
+  const pendingPayloadsRef = useRef<Map<string, SendMessagePayload>>(new Map());
+
+  // Internal: POST the message and reconcile optimistic state by tempId
+  const postMessage = useCallback(
+    async (tempId: string, payload: SendMessagePayload): Promise<ChatMessageData | null> => {
+      if (!channelId) return null;
+      try {
+        const res = await fetch(`${apiBase}/channels/${channelId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...extraHeaders },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("Failed to send message");
+        const json = await res.json();
+        if (json.success && json.data) {
+          setMessages((prev) => prev.map((m) => (m.id === tempId ? json.data : m)));
+          pendingPayloadsRef.current.delete(tempId);
+          return json.data as ChatMessageData;
+        }
+        // API returned non-success → mark as failed (keep in list)
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? { ...m, sendStatus: "failed" as const } : m))
+        );
+        return null;
+      } catch (err) {
+        console.error("[useChatMessages] sendMessage error:", err);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? { ...m, sendStatus: "failed" as const } : m))
+        );
+        return null;
+      }
+    },
+    [channelId, apiBase, extraHeaders]
+  );
+
+  // Send a new message with optimistic update.
+  // Failed sends are kept in the list with sendStatus="failed" so the user
+  // can retry or discard them.
   const sendMessage = useCallback(
     async (payload: SendMessagePayload): Promise<ChatMessageData | null> => {
       if (!channelId) return null;
 
-      // Create optimistic message
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const optimisticMsg: ChatMessageData = {
         id: tempId,
@@ -238,39 +280,36 @@ export function useChatMessages(
         systemEventData: null,
         isEdited: false,
         createdAt: new Date().toISOString(),
+        sendStatus: "sending",
       };
 
+      pendingPayloadsRef.current.set(tempId, payload);
       setMessages((prev) => [...prev, optimisticMsg]);
 
-      try {
-        const res = await fetch(`${apiBase}/channels/${channelId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...extraHeaders },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) throw new Error("Failed to send message");
-
-        const json = await res.json();
-        if (json.success && json.data) {
-          // Replace optimistic message with the real one
-          setMessages((prev) =>
-            prev.map((m) => (m.id === tempId ? json.data : m))
-          );
-          return json.data as ChatMessageData;
-        }
-        // If the API didn't return success, remove optimistic message
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
-        return null;
-      } catch (err) {
-        console.error("[useChatMessages] sendMessage error:", err);
-        // Remove optimistic message on error
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
-        return null;
-      }
+      return postMessage(tempId, payload);
     },
-    [channelId, apiBase, extraHeaders, senderType, senderName]
+    [channelId, senderType, senderName, postMessage]
   );
+
+  // Retry a failed optimistic message by its temp id.
+  const retryMessage = useCallback(
+    async (tempId: string): Promise<ChatMessageData | null> => {
+      const payload = pendingPayloadsRef.current.get(tempId);
+      if (!payload || !channelId) return null;
+      // Flip back to "sending" and reuse the same temp id to keep ordering.
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, sendStatus: "sending" as const } : m))
+      );
+      return postMessage(tempId, payload);
+    },
+    [channelId, postMessage]
+  );
+
+  // Discard a failed optimistic message.
+  const discardMessage = useCallback((tempId: string) => {
+    pendingPayloadsRef.current.delete(tempId);
+    setMessages((prev) => prev.filter((m) => m.id !== tempId));
+  }, []);
 
   // Edit an existing message
   const editMessage = useCallback(
@@ -341,6 +380,8 @@ export function useChatMessages(
     hasMore,
     loadMore,
     sendMessage,
+    retryMessage,
+    discardMessage,
     editMessage,
     deleteMessage,
     setMessages,

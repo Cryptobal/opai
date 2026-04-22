@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
-import { Reply, MoreHorizontal, MessageSquare, Pencil, Trash2, Copy, SmilePlus } from "lucide-react";
+import { Reply, MoreHorizontal, MessageSquare, Pencil, Trash2, Copy, SmilePlus, RotateCcw, AlertCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatMessageData, ChatSenderType } from "@/lib/chat-types";
 import { ChatAttachmentPreview } from "./ChatAttachmentPreview";
@@ -25,6 +25,10 @@ interface ChatMessageProps {
   onOpenThread?: (messageId: string) => void;
   onEdit?: (messageId: string, content: string) => void;
   onDelete?: (messageId: string) => void;
+  /** Retry a failed optimistic message (receives the temp id) */
+  onRetry?: (messageId: string) => void;
+  /** Discard a failed optimistic message without retrying */
+  onDiscard?: (messageId: string) => void;
   channelId?: string;
   currentUserId?: string;
   readByCount?: number;
@@ -161,7 +165,7 @@ function renderContent(
   });
 }
 
-export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup, onReply, onOpenThread, onEdit, onDelete, channelId, currentUserId, readByCount, onReaction, canDeleteAny }: ChatMessageProps) {
+export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup, onReply, onOpenThread, onEdit, onDelete, onRetry, onDiscard, channelId, currentUserId, readByCount, onReaction, canDeleteAny }: ChatMessageProps) {
   const [showTrigger, setShowTrigger] = useState(false);
   const [showReactionBar, setShowReactionBar] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -198,7 +202,9 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
       ref={messageRowRef}
       className={cn(
         "group relative flex items-start hover:bg-[rgba(255,255,255,0.04)] px-4 transition-colors duration-100",
-        showHeader ? "pt-2 pb-0.5" : "py-0.5"
+        showHeader ? "pt-2 pb-0.5" : "py-0.5",
+        message.sendStatus === "sending" && "opacity-70",
+        message.sendStatus === "failed" && "bg-red-500/5"
       )}
       onMouseEnter={() => { if (!message.systemEventType) setShowTrigger(true); }}
       onMouseLeave={() => { if (!dropdownOpen) { setShowTrigger(false); setShowReactionBar(false); } }}
@@ -310,8 +316,41 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
           <span className="text-[10px] text-zinc-500 italic">(editado)</span>
         )}
 
-        {/* Read receipt (own messages only) */}
-        {isOwn && typeof readByCount === "number" && readByCount > 0 && (
+        {/* Send status: sending / failed */}
+        {isOwn && message.sendStatus === "sending" && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-zinc-500 ml-1" title="Enviando…">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Enviando
+          </span>
+        )}
+        {isOwn && message.sendStatus === "failed" && (
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-red-400 ml-1">
+            <AlertCircle className="h-3 w-3" />
+            <span className="font-medium">No se envió</span>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={() => onRetry(message.id)}
+                className="inline-flex items-center gap-1 rounded-md border border-red-400/30 bg-red-400/10 px-1.5 py-0.5 text-[10px] font-medium text-red-300 transition-colors hover:bg-red-400/20 active:scale-95"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Reintentar
+              </button>
+            )}
+            {onDiscard && (
+              <button
+                type="button"
+                onClick={() => onDiscard(message.id)}
+                className="rounded-md px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 transition-colors hover:text-zinc-300"
+              >
+                Descartar
+              </button>
+            )}
+          </span>
+        )}
+
+        {/* Read receipt (own messages only, never for pending/failed) */}
+        {isOwn && !message.sendStatus && typeof readByCount === "number" && readByCount > 0 && (
           <span className="text-[10px] text-blue-400 ml-1" title={`Visto por ${readByCount}`}>
             ✓✓
           </span>
