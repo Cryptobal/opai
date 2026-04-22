@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Ticket,
   CalendarClock,
+  CheckCheck,
 } from "lucide-react";
 import {
   Sheet,
@@ -184,6 +185,8 @@ export function DocVerificacionDrawer({
   const [verificaciones, setVerificaciones] = useState<Verificacion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!open) return;
@@ -191,6 +194,7 @@ export function DocVerificacionDrawer({
     setLoading(true);
     setError(null);
     setVerificaciones([]);
+    setResolvedIds(new Set());
 
     const params = new URLSearchParams({ installationId, capa, limit: "20" });
     if (tipoDocId) params.set("tipoDocId", tipoDocId);
@@ -210,6 +214,38 @@ export function DocVerificacionDrawer({
       .catch(() => setError("Error de conexión"))
       .finally(() => setLoading(false));
   }, [open, installationId, capa, tipoDocId, codigo, guardiaDocType, guardiaId]);
+
+  async function handleResolve(h: DrawerHallazgo) {
+    if (resolvingId) return;
+    const confirmed = window.confirm(
+      "¿Marcar este hallazgo como resuelto manualmente? El ticket asociado también se cerrará.",
+    );
+    if (!confirmed) return;
+
+    setResolvingId(h.id);
+    try {
+      const res = await fetch(`/api/ops/supervision/findings/${h.id}/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: "Resuelto manualmente desde la grilla operativa." }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? `HTTP ${res.status}`);
+      }
+      setResolvedIds((prev) => {
+        const next = new Set(prev);
+        next.add(h.id);
+        return next;
+      });
+    } catch (err) {
+      alert(
+        `No se pudo resolver el hallazgo: ${err instanceof Error ? err.message : "error desconocido"}`,
+      );
+    } finally {
+      setResolvingId(null);
+    }
+  }
 
   const digitalMeta = DIGITAL_STATUS_LABELS[digitalStatus] ?? {
     label: digitalStatus,
@@ -233,10 +269,15 @@ export function DocVerificacionDrawer({
   const ultimaVerifIso = lastVerif?.createdAt ?? cellMeta?.ultimaVerificacion ?? null;
   const supervisorName = lastVerif?.supervisor?.name ?? cellMeta?.supervisorName ?? null;
 
-  // Hallazgos abiertos (pasados por la celda si existen)
+  // Hallazgos abiertos (pasados por la celda si existen).
+  // Filtramos los que el usuario resolvió manualmente en esta sesión.
   const hallazgosAbiertos = (cellMeta?.hallazgos ?? []).filter(
-    (h) => h.status === "open" || h.status === "in_progress",
+    (h) =>
+      (h.status === "open" || h.status === "in_progress") && !resolvedIds.has(h.id),
   );
+
+  // Inconsistencia detectable: hay hallazgo abierto pero la última verificación física es "Presente".
+  const hasInconsistency = hallazgosAbiertos.length > 0 && fisicaPresente === true;
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -349,6 +390,23 @@ export function DocVerificacionDrawer({
           </div>
         )}
 
+        {/* Aviso de inconsistencia */}
+        {hasInconsistency && (
+          <div className="px-5 py-3 border-b border-zinc-800 bg-amber-500/5">
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+              <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="text-[11px] text-amber-200 leading-snug">
+                <p className="font-semibold">Posible inconsistencia detectada</p>
+                <p className="opacity-90 mt-0.5">
+                  La última verificación física marca <span className="font-semibold">Presente</span>,
+                  pero existe un hallazgo abierto. Probablemente ya se resolvió en terreno:
+                  usa <span className="font-semibold">&ldquo;Marcar resuelto&rdquo;</span> debajo para cerrar el ticket.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Hallazgos abiertos */}
         {hallazgosAbiertos.length > 0 && (
           <div className="px-5 py-4 border-b border-zinc-800">
@@ -430,15 +488,35 @@ export function DocVerificacionDrawer({
                       )}
                     </div>
 
-                    {h.ticketId && (
-                      <a
-                        href={`/ops/tickets/${h.ticketId}`}
-                        className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-sky-400 hover:text-sky-300 underline underline-offset-2"
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      {h.ticketId && (
+                        <a
+                          href={`/ops/tickets/${h.ticketId}`}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-sky-400 hover:text-sky-300 underline underline-offset-2"
+                        >
+                          Ver ticket
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleResolve(h)}
+                        disabled={resolvingId === h.id}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium rounded-md px-2 py-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                       >
-                        Ver ticket
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
+                        {resolvingId === h.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Resolviendo…
+                          </>
+                        ) : (
+                          <>
+                            <CheckCheck className="h-3 w-3" />
+                            Marcar resuelto
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -558,12 +636,12 @@ export function DocVerificacionDrawer({
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={v.photoUrl}
-                            alt="Foto de verificación"
+                            alt={`Foto de verificación — ${docName} (${v.presente ? "Presente" : "Ausente"})`}
                             className="h-16 w-24 object-cover rounded-lg border border-zinc-700 group-hover:border-zinc-500 transition-colors"
                           />
                           <span className="flex items-center gap-1 mt-1 text-[10px] text-zinc-500 group-hover:text-zinc-400 transition-colors">
                             <Camera className="h-3 w-3" />
-                            Ver foto
+                            {docName} · {v.presente ? "Presente" : "Ausente"}
                           </span>
                         </a>
                       </div>

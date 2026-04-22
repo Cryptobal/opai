@@ -27,6 +27,8 @@ import {
   Loader2,
   Ticket,
   MoreVertical,
+  Repeat2,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -43,10 +45,14 @@ type FindingItem = {
   ticketId: string | null;
   createdAt: string;
   resolvedAt: string | null;
-  installation: { name: string };
+  occurrenceCount?: number;
+  firstDetectedAt?: string | null;
+  lastDetectedAt?: string | null;
+  installation: { id?: string; name: string };
   visit: { checkInAt: string; supervisor: { name: string } };
-  ticket: { id: string; code: string; status: string } | null;
+  ticket: { id: string; code: string; status: string; createdAt?: string | null } | null;
   guard: { persona: { firstName: string; lastName: string } } | null;
+  tipoDoc?: { id: string; codigo: string; nombre: string; capa: string } | null;
 };
 
 type HallazgosData = {
@@ -270,6 +276,20 @@ export function SupervisionHallazgos() {
             const sevCfg = SEVERITY_CONFIG[f.severity];
             const stCfg = STATUS_CONFIG[f.status];
 
+            const occurrences = f.occurrenceCount ?? 1;
+            const firstAt = f.firstDetectedAt ?? f.createdAt;
+            const lastAt = f.lastDetectedAt ?? f.createdAt;
+            const openedAt = f.ticket?.createdAt ?? firstAt;
+            const daysOpen = openedAt
+              ? Math.max(
+                  0,
+                  Math.floor(
+                    (Date.now() - new Date(openedAt).getTime()) / (1000 * 60 * 60 * 24),
+                  ),
+                )
+              : null;
+            const instId = f.installation.id ?? f.installationId;
+
             return (
               <Card key={f.id} className="p-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -302,17 +322,41 @@ export function SupervisionHallazgos() {
                           </Badge>
                         </Link>
                       )}
+                      {occurrences > 1 && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] gap-1 border-amber-500/40 text-amber-400 bg-amber-500/10"
+                        >
+                          <Repeat2 className="h-3 w-3" />
+                          {occurrences} visitas
+                        </Badge>
+                      )}
+                      {f.tipoDoc && (
+                        <Badge variant="outline" className="text-[10px] text-sky-400 border-sky-500/30 bg-sky-500/10">
+                          {f.tipoDoc.nombre}
+                        </Badge>
+                      )}
                     </div>
 
                     {/* Row 2: description */}
                     <p className="text-sm">{f.description}</p>
 
                     {/* Row 3: metadata */}
-                    <div className="flex flex-wrap gap-x-3 text-[11px] text-muted-foreground">
-                      <span className="font-medium">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                      <Link
+                        href={`/crm/installations/${instId}?tab=docs`}
+                        className="font-medium text-primary hover:underline inline-flex items-center gap-1"
+                      >
                         {f.installation.name}
-                      </span>
-                      <span>{formatDate(f.createdAt)}</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                      {daysOpen !== null && (
+                        <span>
+                          Abierto hace <strong>{daysOpen}</strong> {daysOpen === 1 ? "día" : "días"}
+                        </span>
+                      )}
+                      <span>1ª: {formatDate(firstAt)}</span>
+                      {occurrences > 1 && <span>Última: {formatDate(lastAt)}</span>}
                       {f.guard && <span>{f.guard.persona.firstName} {f.guard.persona.lastName}</span>}
                       <span>{f.visit.supervisor.name}</span>
                     </div>

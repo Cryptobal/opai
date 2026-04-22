@@ -72,17 +72,21 @@ export async function GET(request: NextRequest) {
       prisma.opsSupervisionFinding.findMany({
         where,
         include: {
-          installation: { select: { name: true } },
+          installation: { select: { id: true, name: true } },
           visit: {
             select: {
               checkInAt: true,
               supervisor: { select: { name: true } },
             },
           },
-          ticket: { select: { id: true, code: true, status: true } },
+          ticket: { select: { id: true, code: true, status: true, createdAt: true } },
           guard: { select: { persona: { select: { firstName: true, lastName: true } } } },
+          tipoDoc: { select: { id: true, codigo: true, nombre: true, capa: true } },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [
+          { occurrenceCount: "desc" },
+          { firstDetectedAt: "desc" },
+        ],
         skip: (page - 1) * limit,
         take: limit,
       }),
