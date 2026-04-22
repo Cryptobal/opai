@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { FiscalizacionDTButton } from "./FiscalizacionDTButton";
+import { useHasModuleAccess } from "@/lib/permissions-context";
 
 interface TopbarActionsProps {
   userName?: string;
@@ -39,6 +40,7 @@ export function TopbarActions({
   const chatCtx = useChatSidePanelContext();
   const notifCtx = useNotificationSidePanelContext();
   const { unreadCount: notifUnreadCount } = useNotifications();
+  const hasConfigAccess = useHasModuleAccess("config");
   useEffect(() => setMounted(true), []);
 
   const handleToggleChat = () => {
@@ -90,13 +92,15 @@ export function TopbarActions({
           </Badge>
         )}
       </button>
-      <Link
-        href="/opai/configuracion"
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        aria-label="Configuración"
-      >
-        <Settings className="h-4 w-4" />
-      </Link>
+      {hasConfigAccess && (
+        <Link
+          href="/opai/configuracion"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          aria-label="Configuración"
+        >
+          <Settings className="h-4 w-4" />
+        </Link>
+      )}
 
       {/* Avatar + User Menu */}
       {!mounted ? (
