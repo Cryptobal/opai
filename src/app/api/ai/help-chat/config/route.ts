@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
+import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
+import { canEdit } from "@/lib/permissions";
 import {
   AI_HELP_CHAT_DEFAULT_ROLES,
   canUseAiHelpChat,
   getAiHelpChatConfig,
   saveAiHelpChatConfig,
 } from "@/lib/ai/help-chat-config";
-import { isValidRole } from "@/lib/rbac";
 
 export async function GET() {
   try {
@@ -15,7 +14,8 @@ export async function GET() {
     if (!ctx) return unauthorized();
 
     const config = await getAiHelpChatConfig(ctx.tenantId);
-    const canManage = isValidRole(ctx.userRole) && hasPermission(ctx.userRole as Role, PERMISSIONS.MANAGE_SETTINGS);
+    const perms = await resolveApiPerms(ctx);
+    const canManage = canEdit(perms, "config", "asistente_ia");
 
     return NextResponse.json({
       success: true,
@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
-    if (!isValidRole(ctx.userRole) || !hasPermission(ctx.userRole as Role, PERMISSIONS.MANAGE_SETTINGS)) {
+    const perms = await resolveApiPerms(ctx);
+    if (!canEdit(perms, "config", "asistente_ia")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos para cambiar esta configuración" },
         { status: 403 },
