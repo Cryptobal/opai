@@ -184,6 +184,14 @@ export async function POST(
           ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.direccion)}`
           : "";
 
+    // URL pública del tenant, normalizada con esquema para que WhatsApp genere preview.
+    const tenantWebsiteRaw = (tenantCfg.website || "").trim();
+    const tenantWebUrl = tenantWebsiteRaw
+      ? /^https?:\/\//i.test(tenantWebsiteRaw)
+        ? tenantWebsiteRaw
+        : `https://${tenantWebsiteRaw.replace(/^\/+/, "")}`
+      : "";
+
     // Token values for lead WhatsApp templates
     const leadTokenValues: Record<string, string> = {
       nombre: data.nombre,
@@ -197,6 +205,7 @@ export async function POST(
       email: data.email,
       celular: data.celular,
       pagina_web: data.pagina_web || "",
+      tenant_web: tenantWebUrl,
       industria: data.industria || "",
       detalle: data.detalle || "",
       maps_link: mapsLink,

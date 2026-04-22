@@ -17,7 +17,7 @@ Estamos preparando una propuesta personalizada para ti. Si tienes alguna duda en
 
 Servicio: {servicio} | Dotación: {dotacion}
 
-{pagina_web}`,
+{tenant_web}`,
     tokens: [
       "{nombre}",
       "{apellido}",
@@ -30,6 +30,7 @@ Servicio: {servicio} | Dotación: {dotacion}
       "{email}",
       "{celular}",
       "{pagina_web}",
+      "{tenant_web}",
       "{industria}",
       "{detalle}",
     ],
