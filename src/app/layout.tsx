@@ -97,6 +97,43 @@ export default function RootLayout({
             else document.documentElement.classList.add('dark');
           } catch(e) { document.documentElement.classList.add('dark'); }
         `}</Script>
+        {/*
+          Keep iOS PWA in standalone mode — intercept any plain <a href> that
+          Next.js Link didn't already handle, so iOS never sees a raw internal
+          navigation event that would pop the Safari View Controller sheet.
+        */}
+        <Script id="pwa-standalone-guard" strategy="beforeInteractive">{`
+          try {
+            var isStandalone = (typeof window !== 'undefined') && (
+              window.navigator.standalone === true ||
+              (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+              (window.matchMedia && window.matchMedia('(display-mode: fullscreen)').matches) ||
+              (window.matchMedia && window.matchMedia('(display-mode: minimal-ui)').matches)
+            );
+            if (isStandalone) {
+              document.addEventListener('click', function(e) {
+                if (e.defaultPrevented) return;
+                if (e.button !== 0) return;
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                var el = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+                if (!el) return;
+                if (el.target && el.target !== '' && el.target !== '_self') return;
+                if (el.hasAttribute('download')) return;
+                var href = el.getAttribute('href');
+                if (!href) return;
+                if (/^(mailto:|tel:|sms:|javascript:)/i.test(href)) return;
+                try {
+                  var u = new URL(href, window.location.href);
+                  if (u.origin !== window.location.origin) return;
+                  // Same-origin internal link: keep in PWA
+                  e.preventDefault();
+                  window.history.pushState({}, '', u.pathname + u.search + u.hash);
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                } catch (_) { /* ignore */ }
+              }, true);
+            }
+          } catch(e) { /* ignore */ }
+        `}</Script>
       </head>
       <body>
         <ConditionalAnalytics />

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback } from 'react'
 
 interface Message {
@@ -560,7 +561,7 @@ export function MarketingChatWidget() {
             {limitReached ? (
               <p style={{ color: 'var(--mk-muted)', fontSize: '0.82rem', textAlign: 'center', lineHeight: 1.5, margin: 0 }}>
                 Para seguir conversando,{' '}
-                <a href="/registrarse" style={{ color: 'var(--mk-teal)', textDecoration: 'underline' }}>crea tu cuenta gratis</a>
+                <Link href="/registrarse" style={{ color: 'var(--mk-teal)', textDecoration: 'underline' }}>crea tu cuenta gratis</Link>
                 {' '}o escríbenos por{' '}
                 <a href="https://wa.me/56982307771" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mk-teal)', textDecoration: 'underline' }}>WhatsApp</a>.
               </p>
