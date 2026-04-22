@@ -241,7 +241,7 @@ export async function POST(
     // Verify channel belongs to tenant
     const channel = await prisma.chatChannel.findFirst({
       where: { id: channelId, tenantId: ctx.tenantId },
-      select: { id: true, channelType: true, groupId: true, name: true },
+      select: { id: true, channelType: true, groupId: true, subType: true, name: true },
     });
 
     if (!channel) {
@@ -251,8 +251,10 @@ export async function POST(
       );
     }
 
-    // For GROUP channels, verify admin is a member
-    if (channel.channelType === "GROUP" && channel.groupId) {
+    // For GROUP channels, verify admin is a member — except for client-facing
+    // system groups (e.g. "Equipo Comercial") which are open to all admins of
+    // the tenant.
+    if (channel.channelType === "GROUP" && channel.groupId && channel.subType !== "client_facing") {
       const membership = await prisma.adminGroupMembership.findFirst({
         where: { groupId: channel.groupId, adminId: ctx.userId },
       });

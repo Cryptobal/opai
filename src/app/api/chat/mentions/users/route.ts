@@ -24,14 +24,16 @@ export async function GET(request: NextRequest) {
 
     let adminIds: string[] | null = null;
 
-    // If channelId provided and it's a GROUP channel, filter by group members
+    // If channelId provided and it's a GROUP channel, filter by group members.
+    // Client-facing system groups (e.g. "Equipo Comercial") skip the filter —
+    // all tenant admins can be mentioned there.
     if (channelId) {
       const channel = await prisma.chatChannel.findFirst({
         where: { id: channelId, tenantId: ctx.tenantId },
-        select: { channelType: true, groupId: true },
+        select: { channelType: true, groupId: true, subType: true },
       });
 
-      if (channel?.channelType === "GROUP" && channel.groupId) {
+      if (channel?.channelType === "GROUP" && channel.groupId && channel.subType !== "client_facing") {
         const members = await prisma.adminGroupMembership.findMany({
           where: { groupId: channel.groupId },
           select: { adminId: true },

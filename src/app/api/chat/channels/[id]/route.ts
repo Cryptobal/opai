@@ -88,7 +88,9 @@ export async function GET(
       );
     }
 
-    if (channel.channelType === "GROUP" && channel.groupId) {
+    // GROUP channels require membership, except for client-facing system groups
+    // which are visible to all admins of the tenant.
+    if (channel.channelType === "GROUP" && channel.groupId && channel.subType !== "client_facing") {
       const membership = await prisma.adminGroupMembership.findFirst({
         where: { groupId: channel.groupId, adminId: ctx.userId },
       });

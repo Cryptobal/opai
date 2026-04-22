@@ -41,7 +41,11 @@ export async function GET(request: NextRequest) {
 
     if (typeFilter === "GROUP") {
       where.channelType = "GROUP";
-      where.groupId = { in: memberGroupIds };
+      // Visible if admin is a member OR the group is a client-facing system group.
+      where.OR = [
+        { groupId: { in: memberGroupIds } },
+        { subType: "client_facing" },
+      ];
     } else if (typeFilter === "INSTALLATION") {
       where.channelType = "INSTALLATION";
       where.installation = { chatEnabled: true };
@@ -54,10 +58,11 @@ export async function GET(request: NextRequest) {
       where.channelType = "EXTERNAL";
       where.participants = { some: { participantType: "ADMIN", participantId: ctx.userId } };
     } else {
-      // Show installation channels + group channels the user belongs to + DM channels + EXTERNAL channels
+      // Show installation channels + group channels the user belongs to + client-facing groups + DM channels + EXTERNAL channels
       where.OR = [
         { channelType: "INSTALLATION", installation: { chatEnabled: true } },
         { channelType: "GROUP", groupId: { in: memberGroupIds } },
+        { channelType: "GROUP", subType: "client_facing" },
         { channelType: "DIRECT", dmParticipants: { some: { adminId: ctx.userId } } },
         { channelType: "EXTERNAL", participants: { some: { participantType: "ADMIN", participantId: ctx.userId } } },
       ];

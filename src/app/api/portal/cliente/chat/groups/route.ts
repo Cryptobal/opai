@@ -26,7 +26,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Ensure all predefined group channels exist for this tenant
+    // Ensure all predefined group channels exist for this tenant.
+    // Marked with subType="client_facing" so the ERP surfaces them to all
+    // admins of the tenant without requiring AdminGroupMembership.
     const channels = await Promise.all(
       PREDEFINED_GROUPS.map(async (group) => {
         const existing = await prisma.chatChannel.findFirst({
@@ -37,13 +39,22 @@ export async function GET(request: NextRequest) {
           },
         });
 
-        if (existing) return existing;
+        if (existing) {
+          if (existing.subType !== "client_facing" || !existing.isActive) {
+            return prisma.chatChannel.update({
+              where: { id: existing.id },
+              data: { subType: "client_facing", isActive: true },
+            });
+          }
+          return existing;
+        }
 
         return prisma.chatChannel.create({
           data: {
             tenantId: session.tenantId,
             channelType: "GROUP",
             groupId: group.groupId,
+            subType: "client_facing",
             name: group.name,
             isActive: true,
           },

@@ -31,6 +31,7 @@ export async function POST() {
         OR: [
           { channelType: "INSTALLATION", installation: { chatEnabled: true } },
           { channelType: "GROUP", groupId: { in: memberGroupIds } },
+          { channelType: "GROUP", subType: "client_facing" },
           { channelType: "DIRECT", dmParticipants: { some: { adminId: ctx.userId } } },
           { channelType: "EXTERNAL", participants: { some: { participantType: "ADMIN", participantId: ctx.userId } } },
         ],

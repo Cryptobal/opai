@@ -412,6 +412,8 @@ export async function getChatChannelRecipients(
       channelType: true,
       installationId: true,
       groupId: true,
+      subType: true,
+      accountId: true,
     },
   });
   if (!channel) return [];
@@ -461,13 +463,34 @@ export async function getChatChannelRecipients(
     for (const c of adminCursors) {
       recipients.push({ subscriberType: 'ADMIN', subscriberId: c.readerId });
     }
-  } else if (channel.channelType === 'GROUP' && channel.groupId) {
-    const members = await prisma.adminGroupMembership.findMany({
-      where: { groupId: channel.groupId },
-      select: { adminId: true },
-    });
-    for (const m of members) {
-      recipients.push({ subscriberType: 'ADMIN', subscriberId: m.adminId });
+  } else if (channel.channelType === 'GROUP') {
+    if (channel.subType === 'client_facing') {
+      // Client-facing system groups: notify all tenant admins + any contacts
+      // that have already read the channel (so the client sees replies).
+      const admins = await prisma.admin.findMany({
+        where: { tenantId, status: 'active' },
+        select: { id: true },
+      });
+      for (const a of admins) {
+        recipients.push({ subscriberType: 'ADMIN', subscriberId: a.id });
+      }
+
+      const contactCursors = await prisma.chatReadCursor.findMany({
+        where: { channelId, readerType: 'CLIENT' },
+        select: { readerId: true },
+        distinct: ['readerId'],
+      });
+      for (const c of contactCursors) {
+        recipients.push({ subscriberType: 'CLIENT', subscriberId: c.readerId });
+      }
+    } else if (channel.groupId) {
+      const members = await prisma.adminGroupMembership.findMany({
+        where: { groupId: channel.groupId },
+        select: { adminId: true },
+      });
+      for (const m of members) {
+        recipients.push({ subscriberType: 'ADMIN', subscriberId: m.adminId });
+      }
     }
   } else if (channel.channelType === 'DIRECT') {
     const participants = await prisma.chatDmParticipant.findMany({
