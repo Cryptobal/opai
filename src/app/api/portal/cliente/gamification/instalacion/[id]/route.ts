@@ -3,11 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeGuardName, requirePortalClienteAuth } from "@/lib/portal-cliente";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await requirePortalClienteAuth();
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
     }

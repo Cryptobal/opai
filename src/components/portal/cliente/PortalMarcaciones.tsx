@@ -10,11 +10,18 @@ import {
   Clock,
   UserCheck,
   AlertTriangle,
+  Search,
+  CheckCircle2,
+  HelpCircle,
+  CameraOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ClienteSession } from "@/lib/portal-cliente-types";
+import { portalFetch } from "@/lib/portal-cliente-fetch";
 
 /* ── Types ── */
+
+type Estado = "ok" | "fuera_rango" | "sin_gps" | "sin_foto";
 
 interface MarcacionPortal {
   id: string;
@@ -28,12 +35,69 @@ interface MarcacionPortal {
   lng: number | null;
   metodoId: string | null;
   fotoEvidenciaUrl: string | null;
+  estado: Estado;
+}
+
+interface Resumen {
+  total: number;
+  entradas: number;
+  salidas: number;
+  ok: number;
+  fueraRango: number;
+  sinGps: number;
+  sinFoto: number;
 }
 
 interface Props {
   session: ClienteSession;
   selectedInstallation: string;
 }
+
+const DAY_OPTIONS = [
+  { value: 1, label: "Hoy" },
+  { value: 7, label: "7 días" },
+  { value: 30, label: "30 días" },
+] as const;
+
+const TIPO_OPTIONS = [
+  { value: "", label: "Todos" },
+  { value: "entrada", label: "Entradas" },
+  { value: "salida", label: "Salidas" },
+] as const;
+
+const ESTADO_OPTIONS = [
+  { value: "", label: "Cualquier estado" },
+  { value: "ok", label: "OK" },
+  { value: "fuera_rango", label: "Fuera GPS" },
+  { value: "sin_gps", label: "Sin GPS" },
+  { value: "sin_foto", label: "Sin foto" },
+] as const;
+
+const ESTADO_CFG: Record<
+  Estado,
+  { label: string; color: string; Icon: typeof CheckCircle2 }
+> = {
+  ok: {
+    label: "OK",
+    color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    Icon: CheckCircle2,
+  },
+  fuera_rango: {
+    label: "Fuera GPS",
+    color: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    Icon: AlertTriangle,
+  },
+  sin_gps: {
+    label: "Sin GPS",
+    color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
+    Icon: HelpCircle,
+  },
+  sin_foto: {
+    label: "Sin foto",
+    color: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+    Icon: CameraOff,
+  },
+};
 
 /* ── Helpers ── */
 
@@ -64,14 +128,392 @@ function MetodoBadge({ metodoId }: { metodoId: string | null }) {
   };
   const m = map[metodoId] ?? { label: metodoId, cls: "bg-slate-500/20 text-slate-300" };
   return (
-    <span className={cn("inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", m.cls)}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
+        m.cls
+      )}
+    >
       <Shield className="h-2.5 w-2.5" />
       {m.label}
     </span>
   );
 }
 
-function GpsBadge({ gpsStatus, distancia }: { gpsStatus: string | null; distancia: number | null }) {
+function EstadoChip({ estado }: { estado: Estado }) {
+  const cfg = ESTADO_CFG[estado];
+  const { Icon } = cfg;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border",
+        cfg.color
+      )}
+    >
+      <Icon className="h-2.5 w-2.5" />
+      {cfg.label}
+    </span>
+  );
+}
+
+function KpiTile({
+  label,
+  value,
+  tone,
+  active,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  tone: "neutral" | "emerald" | "amber" | "red";
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  const toneCls = {
+    neutral: "text-zinc-300",
+    emerald: "text-emerald-400",
+    amber: "text-amber-400",
+    red: "text-red-400",
+  }[tone];
+  return (
+    <button
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        "rounded-xl border px-3 py-2 text-left transition-colors",
+        active
+          ? "border-teal-500/40 bg-teal-500/10"
+          : "border-white/10 bg-white/[0.02] hover:border-white/20"
+      )}
+    >
+      <p className={cn("text-base font-bold tabular-nums leading-tight", toneCls)}>
+        {value}
+      </p>
+      <p className="text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5">
+        {label}
+      </p>
+    </button>
+  );
+}
+
+/* ── Photo viewer overlay ── */
+
+function PhotoViewer({ url, onClose }: { url: string; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <button onClick={onClose} className="absolute top-4 right-4 text-white/80 hover:text-white">
+        <X className="h-6 w-6" />
+      </button>
+      <img
+        src={url}
+        alt="Foto de evidencia"
+        className="max-h-[80vh] max-w-[90vw] rounded-lg object-contain"
+      />
+    </div>
+  );
+}
+
+/* ── Main Component ── */
+
+export function PortalMarcaciones({ session, selectedInstallation }: Props) {
+  const [marcaciones, setMarcaciones] = useState<MarcacionPortal[]>([]);
+  const [resumen, setResumen] = useState<Resumen | null>(null);
+  const [installationName, setInstallationName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
+
+  // Filters
+  const [days, setDays] = useState<number>(7);
+  const [tipo, setTipo] = useState<string>("");
+  const [estado, setEstado] = useState<string>("");
+  const [q, setQ] = useState<string>("");
+
+  const installationId = selectedInstallation || session.installations[0]?.id;
+
+  useEffect(() => {
+    if (!installationId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+
+    const params = new URLSearchParams({ limit: "150" });
+    const from = new Date();
+    from.setDate(from.getDate() - days + 1);
+    from.setHours(0, 0, 0, 0);
+    params.set("from", from.toISOString());
+    if (tipo) params.set("tipo", tipo);
+    if (estado) params.set("estado", estado);
+    if (q.trim()) params.set("q", q.trim());
+
+    portalFetch(
+      `/api/portal/cliente/instalaciones/${installationId}/marcaciones?${params.toString()}`
+    )
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((json) => {
+        if (json.success) {
+          setMarcaciones(json.data.marcaciones);
+          setResumen(json.data.resumen);
+          setInstallationName(json.data.installationName);
+        } else {
+          setError(json.error ?? "Error al cargar marcaciones");
+        }
+      })
+      .catch(() => setError("Error de conexión"))
+      .finally(() => setLoading(false));
+  }, [installationId, days, tipo, estado, q]);
+
+  const grouped = useMemo(() => groupByDate(marcaciones), [marcaciones]);
+
+  if (!installationId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-2 text-slate-500">
+        <AlertTriangle className="h-8 w-8 opacity-40" />
+        <p className="text-sm">No hay instalaciones asignadas</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 pb-24 space-y-4">
+      {expandedPhoto && (
+        <PhotoViewer url={expandedPhoto} onClose={() => setExpandedPhoto(null)} />
+      )}
+
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-2">
+          <UserCheck className="h-5 w-5 text-teal-400" />
+          <h2 className="text-base font-semibold text-white">Marcaciones</h2>
+        </div>
+        <p className="text-xs text-slate-500 mt-1">{installationName}</p>
+      </div>
+
+      {/* Filtros: rango de días */}
+      <div className="flex items-center gap-1 bg-zinc-800/50 p-1 rounded-lg">
+        {DAY_OPTIONS.map((o) => (
+          <button
+            key={o.value}
+            onClick={() => setDays(o.value)}
+            className={cn(
+              "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+              days === o.value
+                ? "bg-zinc-700 text-white"
+                : "text-zinc-400 hover:text-zinc-200"
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      {/* KPIs clickeables (toggle estado) */}
+      {resumen && (
+        <div className="grid grid-cols-4 gap-2">
+          <KpiTile label="Total" value={resumen.total} tone="neutral" />
+          <KpiTile
+            label="OK"
+            value={resumen.ok}
+            tone="emerald"
+            active={estado === "ok"}
+            onClick={() => setEstado((v) => (v === "ok" ? "" : "ok"))}
+          />
+          <KpiTile
+            label="Fuera"
+            value={resumen.fueraRango}
+            tone="amber"
+            active={estado === "fuera_rango"}
+            onClick={() =>
+              setEstado((v) => (v === "fuera_rango" ? "" : "fuera_rango"))
+            }
+          />
+          <KpiTile
+            label="Sin foto"
+            value={resumen.sinFoto}
+            tone="red"
+            active={estado === "sin_foto"}
+            onClick={() => setEstado((v) => (v === "sin_foto" ? "" : "sin_foto"))}
+          />
+        </div>
+      )}
+
+      {/* Filtros: tipo + estado + búsqueda */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <select
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value)}
+          className="h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-2 text-xs text-white focus:outline-none"
+        >
+          {TIPO_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={estado}
+          onChange={(e) => setEstado(e.target.value)}
+          className="h-9 rounded-lg border border-zinc-700 bg-zinc-800 px-2 text-xs text-white focus:outline-none"
+        >
+          {ESTADO_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <div className="flex-1 relative min-w-[140px]">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+          <input
+            type="text"
+            placeholder="Buscar guardia..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="w-full h-9 rounded-lg border border-zinc-700 bg-zinc-800 pl-7 pr-2 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-teal-500/50"
+          />
+        </div>
+      </div>
+
+      {/* Lista */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20 gap-2 text-slate-400">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm">Cargando marcaciones...</span>
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-2 text-red-400">
+          <AlertTriangle className="h-6 w-6" />
+          <p className="text-sm">{error}</p>
+        </div>
+      ) : marcaciones.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-500">
+          <Clock className="h-10 w-10 opacity-40" />
+          <p className="text-sm">Sin marcaciones en este periodo</p>
+          {(tipo || estado || q) && (
+            <button
+              onClick={() => {
+                setTipo("");
+                setEstado("");
+                setQ("");
+              }}
+              className="text-xs text-teal-400 underline"
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      ) : (
+        Array.from(grouped.entries()).map(([date, items]) => (
+          <div key={date} className="space-y-2">
+            <p className="text-xs font-medium text-slate-500 capitalize sticky top-0 bg-[#0f1419] py-1 z-10">
+              {date}
+            </p>
+
+            {items.map((m) => {
+              const isEntrada = m.tipo === "entrada";
+              const time = new Date(m.timestamp).toLocaleTimeString("es-CL", {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+
+              return (
+                <div
+                  key={m.id}
+                  className={cn(
+                    "rounded-xl border p-3 space-y-2",
+                    isEntrada
+                      ? "border-emerald-500/20 bg-emerald-500/5"
+                      : "border-red-500/20 bg-red-500/5"
+                  )}
+                >
+                  {/* Row 1: badge + guard name + time */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={cn(
+                          "shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold",
+                          isEntrada
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : "bg-red-500/20 text-red-400"
+                        )}
+                      >
+                        {isEntrada ? "Entrada" : "Salida"}
+                      </span>
+                      <span className="text-sm text-white truncate">
+                        {m.guardiaName}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <EstadoChip estado={m.estado} />
+                      <span className="text-xs text-slate-400 font-mono">{time}</span>
+                    </div>
+                  </div>
+
+                  {/* Row 2: photo + metadata */}
+                  <div className="flex gap-3">
+                    {m.fotoEvidenciaUrl ? (
+                      <button
+                        onClick={() => setExpandedPhoto(m.fotoEvidenciaUrl!)}
+                        className="group relative rounded-lg overflow-hidden border border-white/10 shrink-0"
+                      >
+                        <img
+                          src={m.fotoEvidenciaUrl}
+                          alt="Evidencia"
+                          className="h-16 w-16 object-cover group-hover:opacity-80 transition-opacity"
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
+                          <Camera className="h-4 w-4 text-white" />
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="h-16 w-16 rounded-lg border border-dashed border-white/10 bg-white/[0.02] flex items-center justify-center shrink-0">
+                        <CameraOff className="h-4 w-4 text-zinc-600" />
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <GpsLabel
+                        gpsStatus={m.gpsStatus}
+                        distancia={m.geoDistanciaM}
+                      />
+                      <MetodoBadge metodoId={m.metodoId} />
+                      {m.lat != null && m.lng != null && (
+                        <a
+                          href={`https://www.google.com/maps?q=${m.lat},${m.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:underline"
+                        >
+                          <MapPin className="h-2.5 w-2.5" />
+                          Ver mapa
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function GpsLabel({
+  gpsStatus,
+  distancia,
+}: {
+  gpsStatus: string | null;
+  distancia: number | null;
+}) {
   if (gpsStatus === "dentro_rango") {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400">
@@ -93,198 +535,5 @@ function GpsBadge({ gpsStatus, distancia }: { gpsStatus: string | null; distanci
       <MapPin className="h-2.5 w-2.5" />
       Sin GPS
     </span>
-  );
-}
-
-/* ── Photo viewer overlay ── */
-
-function PhotoViewer({ url, onClose }: { url: string; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
-      <button onClick={onClose} className="absolute top-4 right-4 text-white/80 hover:text-white">
-        <X className="h-6 w-6" />
-      </button>
-      <img src={url} alt="Foto de evidencia" className="max-h-[80vh] max-w-[90vw] rounded-lg object-contain" />
-    </div>
-  );
-}
-
-/* ── Main Component ── */
-
-export function PortalMarcaciones({ session, selectedInstallation }: Props) {
-  const [marcaciones, setMarcaciones] = useState<MarcacionPortal[]>([]);
-  const [installationName, setInstallationName] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
-
-  const installationId = selectedInstallation || session.installations[0]?.id;
-
-  useEffect(() => {
-    if (!installationId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    fetch(`/api/portal/cliente/instalaciones/${installationId}/marcaciones?limit=50`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((json) => {
-        if (json.success) {
-          setMarcaciones(json.data.marcaciones);
-          setInstallationName(json.data.installationName);
-        } else {
-          setError(json.error ?? "Error al cargar marcaciones");
-        }
-      })
-      .catch(() => setError("Error de conexión"))
-      .finally(() => setLoading(false));
-  }, [installationId]);
-
-  const grouped = useMemo(() => groupByDate(marcaciones), [marcaciones]);
-
-  if (!installationId) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-2 text-slate-500">
-        <AlertTriangle className="h-8 w-8 opacity-40" />
-        <p className="text-sm">No hay instalaciones asignadas</p>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20 gap-2 text-slate-400">
-        <Loader2 className="h-5 w-5 animate-spin" />
-        <span className="text-sm">Cargando marcaciones...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-2 text-red-400">
-        <AlertTriangle className="h-6 w-6" />
-        <p className="text-sm">{error}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-4 pb-24 space-y-4">
-      {expandedPhoto && (
-        <PhotoViewer url={expandedPhoto} onClose={() => setExpandedPhoto(null)} />
-      )}
-
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2">
-          <UserCheck className="h-5 w-5 text-teal-400" />
-          <h2 className="text-base font-semibold text-white">Marcaciones</h2>
-        </div>
-        <p className="text-xs text-slate-500 mt-1">
-          {installationName} · Últimas {marcaciones.length} marcaciones
-        </p>
-      </div>
-
-      {/* Empty state */}
-      {marcaciones.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-500">
-          <Clock className="h-10 w-10 opacity-40" />
-          <p className="text-sm">Sin marcaciones recientes</p>
-        </div>
-      )}
-
-      {/* Grouped by date */}
-      {Array.from(grouped.entries()).map(([date, items]) => (
-        <div key={date} className="space-y-2">
-          <p className="text-xs font-medium text-slate-500 capitalize sticky top-0 bg-[#0f1419] py-1 z-10">
-            {date}
-          </p>
-
-          {items.map((m) => {
-            const isEntrada = m.tipo === "entrada";
-            const time = new Date(m.timestamp).toLocaleTimeString("es-CL", {
-              hour: "2-digit",
-              minute: "2-digit",
-            });
-
-            return (
-              <div
-                key={m.id}
-                className={cn(
-                  "rounded-xl border p-3 space-y-2",
-                  isEntrada
-                    ? "border-emerald-500/20 bg-emerald-500/5"
-                    : "border-red-500/20 bg-red-500/5"
-                )}
-              >
-                {/* Row 1: badge + guard name + time */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className={cn(
-                        "shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold",
-                        isEntrada
-                          ? "bg-emerald-500/20 text-emerald-400"
-                          : "bg-red-500/20 text-red-400"
-                      )}
-                    >
-                      {isEntrada ? "Entrada" : "Salida"}
-                    </span>
-                    <span className="text-sm text-white truncate">
-                      {m.guardiaName}
-                    </span>
-                  </div>
-                  <span className="text-xs text-slate-400 font-mono shrink-0">
-                    {time}
-                  </span>
-                </div>
-
-                {/* Row 2: photo + metadata */}
-                <div className="flex gap-3">
-                  {/* Photo thumbnail */}
-                  {m.fotoEvidenciaUrl && (
-                    <button
-                      onClick={() => setExpandedPhoto(m.fotoEvidenciaUrl!)}
-                      className="group relative rounded-lg overflow-hidden border border-white/10 shrink-0"
-                    >
-                      <img
-                        src={m.fotoEvidenciaUrl}
-                        alt="Evidencia"
-                        className="h-16 w-16 object-cover group-hover:opacity-80 transition-opacity"
-                      />
-                      <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
-                        <Camera className="h-4 w-4 text-white" />
-                      </span>
-                    </button>
-                  )}
-
-                  {/* Metadata */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <GpsBadge gpsStatus={m.gpsStatus} distancia={m.geoDistanciaM} />
-                    <MetodoBadge metodoId={m.metodoId} />
-                    {m.lat != null && m.lng != null && (
-                      <a
-                        href={`https://www.google.com/maps?q=${m.lat},${m.lng}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:underline"
-                      >
-                        <MapPin className="h-2.5 w-2.5" />
-                        Ver mapa
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
   );
 }

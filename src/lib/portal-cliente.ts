@@ -143,6 +143,29 @@ export function sanitizeGuardName(firstName: string, lastName: string): string {
   return lastInitial ? `${lastInitial}. ${first}` : first;
 }
 
+/**
+ * Verifica en BD que la instalación pertenezca a la cuenta+tenant del cliente autenticado.
+ * SIEMPRE usar este helper en endpoints que reciben `installationId` en URL/body,
+ * NUNCA confiar solo en la lista `session.installations` de la cookie.
+ *
+ * @returns true si la instalación existe y pertenece a la cuenta del cliente.
+ */
+export async function ensureInstallationAccess(
+  session: Pick<PortalClienteAuthResult, "accountId" | "tenantId">,
+  installationId: string | null | undefined,
+): Promise<boolean> {
+  if (!installationId) return false;
+  const inst = await prisma.crmInstallation.findFirst({
+    where: {
+      id: installationId,
+      accountId: session.accountId,
+      tenantId: session.tenantId,
+    },
+    select: { id: true },
+  });
+  return !!inst;
+}
+
 /** Valida sesión por email + PIN. Busca contactos con portal habilitado por email (case-insensitive). */
 export async function validateClienteSession(email: string, pin: string, ip?: string): Promise<{
   success: boolean;

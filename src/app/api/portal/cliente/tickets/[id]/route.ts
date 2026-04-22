@@ -22,10 +22,18 @@ export async function GET(
 
     const { id } = await params;
 
-    const ticket = await prisma.opsTicket.findUnique({
-      where: { id },
+    // SEGURIDAD: filtramos por tenantId+source desde el findFirst para evitar
+    // que un cliente acceda a tickets de otro tenant o a tickets internos (soporte
+    // interno, supervisión, etc.) que no fueron creados desde el portal cliente.
+    const ticket = await prisma.opsTicket.findFirst({
+      where: {
+        id,
+        tenantId: session.tenantId,
+        source: "portal_cliente",
+      },
       select: {
         id: true,
+        tenantId: true,
         code: true,
         status: true,
         priority: true,
@@ -49,6 +57,7 @@ export async function GET(
             userId: true,
             body: true,
             isInternal: true,
+            attachments: true,
             createdAt: true,
           },
           orderBy: { createdAt: "asc" },
@@ -63,7 +72,9 @@ export async function GET(
       );
     }
 
-    // Verify the ticket's installation belongs to this account
+    // Para tickets con instalación, confirmamos en BD que pertenezca a la cuenta.
+    // Para tickets sin instalación (raro, pero posible) basta con tenant+source ya
+    // validados arriba.
     if (ticket.installationId) {
       const inst = await prisma.crmInstallation.findFirst({
         where: {
@@ -79,17 +90,10 @@ export async function GET(
           { status: 403 }
         );
       }
-    } else {
-      // Ticket has no installation, check tenantId at minimum
-      if (ticket && (ticket as { tenantId?: string }).tenantId !== session.tenantId) {
-        return NextResponse.json(
-          { success: false, error: "Acceso no autorizado" },
-          { status: 403 }
-        );
-      }
     }
 
-    return NextResponse.json({ success: true, data: ticket });
+    const { tenantId: _tenantId, ...safeTicket } = ticket;
+    return NextResponse.json({ success: true, data: safeTicket });
   } catch (error) {
     console.error("[Portal Cliente] ticket GET [id] error:", error);
     return NextResponse.json(

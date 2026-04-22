@@ -100,14 +100,24 @@ export function PortalDocsOperacionales({ selectedInstallation, isProspect }: Pr
       .then((data) => {
         if (data.success) {
           setInstalaciones(data.data.instalaciones);
-          if (!activeInstId && data.data.instalaciones.length > 0) {
-            setActiveInstId(data.data.instalaciones[0].id);
-          }
         }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sincroniza la pestaña activa cuando el selector global cambia la instalación
+  // o cuando terminó de cargar la data. Antes usaba `[]` + eslint-disable y se
+  // quedaba desincronizado al cambiar de instalación en el header.
+  useEffect(() => {
+    if (selectedInstallation && selectedInstallation !== activeInstId) {
+      setActiveInstId(selectedInstallation);
+      return;
+    }
+    if (!activeInstId && instalaciones.length > 0) {
+      setActiveInstId(instalaciones[0].id);
+    }
+  }, [selectedInstallation, instalaciones, activeInstId]);
 
   if (isProspect) {
     return (

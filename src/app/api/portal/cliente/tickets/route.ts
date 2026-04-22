@@ -5,10 +5,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePortalClienteAuth } from "@/lib/portal-cliente";
-import { sendNotification, sendNotificationToUser } from "@/lib/notification-service";
+import { sendNotification } from "@/lib/notification-service";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
+import { normalizeTicketAttachments } from "@/lib/portal-cliente-ticket-attachments";
 
 export async function GET(request: NextRequest) {
   try {
@@ -109,6 +111,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { installationId, title, description, priority, ticketTypeId } = body;
+    const attachments = normalizeTicketAttachments(body.attachments);
 
     if (!installationId || !title) {
       return NextResponse.json(
@@ -193,6 +196,30 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // Si el cliente envió adjuntos, creamos un comentario inicial público con
+    // los archivos en el campo `attachments` (JSON). Así se muestran en el
+    // historial del ticket y se notifican al equipo junto con el resto.
+    if (attachments.length > 0) {
+      try {
+        await prisma.opsTicketComment.create({
+          data: {
+            ticketId: ticket.id,
+            userId: session.contactId,
+            body: `Adjuntos iniciales (${attachments.length}):\n${attachments
+              .map((a) => `• ${a.fileName}`)
+              .join("\n")}`,
+            isInternal: false,
+            attachments: attachments as unknown as Prisma.InputJsonValue,
+          },
+        });
+      } catch (attachErr) {
+        console.error(
+          "[Portal Cliente] tickets initial attachments error:",
+          attachErr
+        );
+      }
+    }
 
     // Resolve contact name for notification
     let contactName = "Cliente";

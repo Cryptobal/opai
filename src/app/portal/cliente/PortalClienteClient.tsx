@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
-import { ChevronDown } from "lucide-react";
 import { SplashScreen } from "@/components/pwa/SplashScreen";
 import { UnifiedLoginCard } from "@/components/auth/UnifiedLoginCard";
 import { ChatClientePortal } from "@/components/portal/cliente/ChatClientePortal";
@@ -30,6 +29,7 @@ import { PortalEquipamiento } from "@/components/portal/cliente/PortalEquipamien
 import { CompanyPresentationView } from "@/components/portal/cliente/CompanyPresentationView";
 import { PortalUserMenu } from "@/components/portal/cliente/PortalUserMenu";
 import { PortalNotificacionesSheet } from "@/components/portal/cliente/PortalNotificacionesSheet";
+import { InstallationSwitcher } from "@/components/portal/cliente/InstallationSwitcher";
 import { ClienteSession, DEFAULT_PORTAL_CONFIG } from "@/lib/portal-cliente-types";
 import { TourOverlay } from "@/components/portal/cliente/tour/TourOverlay";
 import { useBranding } from "@/lib/branding/useBranding";
@@ -37,19 +37,39 @@ import {
   PortalSessionProvider,
   usePortalSession,
 } from "@/contexts/portal-cliente-session-context";
+import {
+  SelectedInstallationProvider,
+  useSelectedInstallation,
+} from "@/contexts/selected-installation-context";
 
 const HEADER_LOGO_FALLBACK = "/tenants/gard/logo-blanco.svg";
 
 export function PortalClienteClient() {
   return (
     <PortalSessionProvider>
-      <PortalClienteShell />
+      <PortalClienteShellWrapper />
     </PortalSessionProvider>
+  );
+}
+
+/**
+ * Monta el `SelectedInstallationProvider` una vez resuelta la sesión, de modo
+ * que el provider siempre tenga la lista real de instalaciones autorizadas.
+ */
+function PortalClienteShellWrapper() {
+  const { session } = usePortalSession();
+  const installations = session?.installations ?? [];
+  return (
+    <SelectedInstallationProvider installations={installations}>
+      <PortalClienteShell />
+    </SelectedInstallationProvider>
   );
 }
 
 function PortalClienteShell() {
   const { session, loading, applySession, clearSession } = usePortalSession();
+  const { installationId: selectedInstallation, setInstallationId } =
+    useSelectedInstallation();
   const searchParams = useSearchParams();
   const { branding } = useBranding();
 
@@ -57,19 +77,11 @@ function PortalClienteShell() {
   const initialEmail = searchParams.get("email") ?? "";
 
   const [activeSection, setActiveSection] = useState<PortalSection>(initialSection || "dashboard");
-  const [selectedInstallation, setSelectedInstallation] = useState("");
   const [notifSheetOpen, setNotifSheetOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [headerLogoBroken, setHeaderLogoBroken] = useState(false);
 
   const headerGardLogo = branding.logoDark || branding.logoIcon || branding.logoWhite || HEADER_LOGO_FALLBACK;
-
-  // Pick first installation when session resolves
-  useEffect(() => {
-    if (session && !selectedInstallation) {
-      setSelectedInstallation(session.installations[0]?.id ?? "");
-    }
-  }, [session, selectedInstallation]);
 
   // Reset broken logo state when account changes
   useEffect(() => {
@@ -106,7 +118,7 @@ function PortalClienteShell() {
             return;
           }
           applySession(clienteSession);
-          setSelectedInstallation(clienteSession.installations?.[0]?.id ?? "");
+          // El provider recalculará la instalación inicial desde la nueva sesión.
         }}
       />
     );
@@ -130,7 +142,7 @@ function PortalClienteShell() {
             session={session}
             isProspect={session.isProspect}
             onSelectInstallation={(id) => {
-              setSelectedInstallation(id);
+              setInstallationId(id);
               setActiveSection("instalacion-detalle");
             }}
           />
@@ -269,22 +281,7 @@ function PortalClienteShell() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {session.installations.length > 1 && activeSection === "dashboard" && (
-              <div className="relative">
-                <select
-                  value={selectedInstallation}
-                  onChange={(e) => setSelectedInstallation(e.target.value)}
-                  className="h-10 sm:h-8 rounded border border-white/10 bg-white/5 px-2 pr-8 text-xs appearance-none max-w-[160px] truncate"
-                >
-                  {session.installations.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2 top-2 h-3.5 w-3.5 pointer-events-none text-zinc-400" />
-              </div>
-            )}
+            <InstallationSwitcher />
             {session.isProspect && (
               <button
                 onClick={() => setShowTour(true)}

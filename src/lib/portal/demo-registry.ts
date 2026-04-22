@@ -131,8 +131,10 @@ const registry: Partial<Record<DemoKey, DemoGen<unknown>>> = {
     { type: "ticket_respondido", title: "Ticket #1234 respondido", description: "Tu consulta fue respondida", time: "Hace 5h", isRead: false },
   ],
   alertas_config: () => [
-    { id: null, alertType: "guard_absent", channels: { push: true, email: true }, isActive: true },
-    { id: null, alertType: "ronda_incomplete", channels: { push: true, email: false }, isActive: true },
+    { id: null, alertType: "ronda_no_realizada", channels: { push: true, email: true }, isActive: true },
+    { id: null, alertType: "ronda_incompleta", channels: { push: true, email: false }, isActive: true },
+    { id: null, alertType: "ticket_replied", channels: { push: true, email: true }, isActive: true },
+    { id: null, alertType: "new_document", channels: { push: false, email: true }, isActive: true },
   ],
   encuestas_list: () => [
     { id: "demo-enc-1", installationId: "demo", contactName: "Evaluación mensual", serviceQuality: 4.5, scheduleCompliance: 5, personalPresentation: 4, professionalism: 4.5, supervisionPresence: 4, incidentResponse: 5, npsScore: 9, additionalComments: "Excelente servicio.", averageScore: 4.5, createdAt: new Date(Date.now() - 15 * 86400000).toISOString() },

@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Bell, Loader2, Mail, Smartphone, Inbox, Settings2, MessageSquare, Receipt, Award, ShieldCheck } from "lucide-react";
+import { Bell, Loader2, Mail, Smartphone, Inbox, Settings2, MessageSquare, Receipt, ShieldCheck, AlertTriangle, XCircle, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PreviewBadge } from "./PreviewBadge";
-import { OpaiBadge } from "./OpaiBadge";
 
 /* ─── Notification Types ─── */
 
 interface Notification {
+  id?: string;
   type: string;
   title: string;
   description: string;
@@ -19,16 +19,27 @@ interface Notification {
 
 const NOTIF_ICONS: Record<string, typeof Bell> = {
   ronda_completada: ShieldCheck,
+  ronda_incompleta: AlertTriangle,
+  ronda_no_realizada: XCircle,
   ticket_respondido: MessageSquare,
   cotizacion_nueva: Receipt,
-  guardia_destacado: Award,
+  documento_nuevo: FileText,
+};
+
+const NOTIF_ICON_COLOR: Record<string, string> = {
+  ronda_completada: "text-emerald-400 bg-emerald-500/10",
+  ronda_incompleta: "text-amber-400 bg-amber-500/10",
+  ronda_no_realizada: "text-red-400 bg-red-500/10",
+  ticket_respondido: "text-blue-400 bg-blue-500/10",
+  cotizacion_nueva: "text-teal-400 bg-teal-500/10",
+  documento_nuevo: "text-violet-400 bg-violet-500/10",
 };
 
 const DEMO_NOTIFICACIONES: Notification[] = [
-  { type: "ronda_completada", title: "Ronda nocturna completada", description: "100% checkpoints verificados", time: "Hace 2h", isRead: false },
-  { type: "ticket_respondido", title: "Ticket #1234 respondido", description: "Tu consulta sobre dotación fue respondida", time: "Hace 5h", isRead: false },
-  { type: "cotizacion_nueva", title: "Nueva cotización disponible", description: "CPQ-2026-022 lista para revisión", time: "Hace 1d", isRead: true },
-  { type: "guardia_destacado", title: "Guardia del mes: Roberto Muñoz", description: "Trust Score 9.2 — Mejor rendimiento", time: "Hace 3d", isRead: true },
+  { type: "ronda_completada", title: "Ronda nocturna completada", description: "100% checkpoints verificados", time: "Hace 2h", isRead: true },
+  { type: "ronda_incompleta", title: "Ronda con avance parcial", description: "8/10 checkpoints (80%)", time: "Hace 6h", isRead: false },
+  { type: "ticket_respondido", title: "Ticket #1234 respondido", description: "Tu consulta sobre dotación fue respondida", time: "Hace 8h", isRead: false },
+  { type: "documento_nuevo", title: "Nuevo documento disponible", description: "Contrato firmado subido a tu portal", time: "Hace 1d", isRead: true },
 ];
 
 /* ─── Alert Config Types ─── */
@@ -41,21 +52,13 @@ interface AlertConfig {
 }
 
 const ALERT_LABELS: Record<string, { label: string; desc: string }> = {
-  guard_absent: {
-    label: "Guardia ausente",
-    desc: "Cuando un guardia no se presenta a su turno",
+  ronda_no_realizada: {
+    label: "Ronda no realizada",
+    desc: "Cuando una ronda programada no fue ejecutada",
   },
-  ronda_incomplete: {
+  ronda_incompleta: {
     label: "Ronda incompleta",
-    desc: "Cuando una ronda no alcanza el 100%",
-  },
-  checkpoint_missed: {
-    label: "Checkpoint sin marcar",
-    desc: "Cuando un checkpoint no fue marcado",
-  },
-  incident: {
-    label: "Incidente reportado",
-    desc: "Cuando un guardia reporta un incidente",
+    desc: "Cuando una ronda no alcanza el 100% de checkpoints",
   },
   new_document: {
     label: "Nuevo documento",
@@ -89,16 +92,15 @@ export function PortalAlertas({ session, isProspect }: Props) {
     return (
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24">
         <div className="flex items-center gap-3 mb-5">
-          <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-            <Bell className="h-5 w-5 text-amber-400" />
+          <div className="h-10 w-10 rounded-xl bg-teal-500/10 flex items-center justify-center">
+            <Bell className="h-5 w-5 text-teal-400" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-zinc-100">Centro de alertas</h2>
+              <h2 className="text-base font-semibold text-zinc-100">Centro de actividad</h2>
               <PreviewBadge />
-              <OpaiBadge text="Alertas inteligentes OPAI" variant="ai" />
             </div>
-            <p className="text-xs text-zinc-500">Alertas automáticas en tiempo real — Nunca te pierdas nada</p>
+            <p className="text-xs text-zinc-500">Eventos y novedades de tus instalaciones</p>
           </div>
         </div>
 
@@ -106,6 +108,7 @@ export function PortalAlertas({ session, isProspect }: Props) {
         <div className="space-y-2 mb-6">
           {DEMO_NOTIFICACIONES.map((n, i) => {
             const Icon = NOTIF_ICONS[n.type] ?? Bell;
+            const colorCls = NOTIF_ICON_COLOR[n.type] ?? "text-zinc-400 bg-zinc-500/10";
             return (
               <div
                 key={i}
@@ -116,8 +119,8 @@ export function PortalAlertas({ session, isProspect }: Props) {
                     : "border-white/10 bg-white/[0.02]"
                 )}
               >
-                <div className="h-8 w-8 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <Icon className="h-4 w-4 text-teal-400" />
+                <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5", colorCls)}>
+                  <Icon className="h-4 w-4" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-zinc-100">{n.title}</p>
@@ -130,12 +133,12 @@ export function PortalAlertas({ session, isProspect }: Props) {
         </div>
 
         <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl p-5 space-y-3">
-          <p className="text-sm text-zinc-300 font-medium">Alertas en tiempo real</p>
+          <p className="text-sm text-zinc-300 font-medium">Qué verás aquí</p>
           <ul className="space-y-2 text-xs text-zinc-400">
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Guardia ausente o ronda incompleta</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Incidentes reportados en tiempo real</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Notificaciones por email y push</li>
-            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Configuración personalizada por tipo</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Rondas completadas en tus instalaciones</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Rondas incompletas o no realizadas</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Respuestas a tus tickets y nuevos documentos</li>
+            <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-teal-400" />Notificaciones por email y push configurables</li>
           </ul>
         </div>
       </div>
@@ -146,12 +149,12 @@ export function PortalAlertas({ session, isProspect }: Props) {
     <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-          <Bell className="h-5 w-5 text-amber-400" />
+        <div className="h-10 w-10 rounded-xl bg-teal-500/10 flex items-center justify-center">
+          <Bell className="h-5 w-5 text-teal-400" />
         </div>
         <div>
-          <h2 className="text-base font-semibold text-zinc-100">Centro de alertas</h2>
-          <p className="text-xs text-zinc-500">Alertas automáticas en tiempo real — Nunca te pierdas nada</p>
+          <h2 className="text-base font-semibold text-zinc-100">Centro de actividad</h2>
+          <p className="text-xs text-zinc-500">Eventos y novedades de tus instalaciones</p>
         </div>
       </div>
 
@@ -165,7 +168,7 @@ export function PortalAlertas({ session, isProspect }: Props) {
           )}
         >
           <Inbox className="h-4 w-4" />
-          Notificaciones
+          Actividad
         </button>
         <button
           onClick={() => setActiveTab("config")}
@@ -175,7 +178,7 @@ export function PortalAlertas({ session, isProspect }: Props) {
           )}
         >
           <Settings2 className="h-4 w-4" />
-          Configuración
+          Preferencias
         </button>
       </div>
 
@@ -191,20 +194,21 @@ export function PortalAlertas({ session, isProspect }: Props) {
 
 /* ─── Notificaciones Lista Sub-Component ─── */
 
-function NotificacionesLista({ session }: { session: ClienteSession }) {
+function NotificacionesLista({ session: _session }: { session: ClienteSession }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/portal/cliente/notificaciones?accountId=${encodeURIComponent(session.accountId)}&tenantId=${encodeURIComponent(session.tenantId)}`)
+    // La auth se resuelve vía cookie firmada; no enviamos accountId/tenantId por query.
+    fetch("/api/portal/cliente/notificaciones", { credentials: "include" })
       .then((r) => r.json())
       .then((res) => {
         if (res.success) setNotifications(res.data ?? []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [session.accountId, session.tenantId]);
+  }, []);
 
   if (loading) {
     return (
@@ -218,8 +222,8 @@ function NotificacionesLista({ session }: { session: ClienteSession }) {
     return (
       <div className="text-center py-16">
         <Inbox className="h-10 w-10 text-zinc-600 mx-auto mb-3" />
-        <p className="text-sm text-zinc-400">No hay notificaciones</p>
-        <p className="text-xs text-zinc-600 mt-1">Las notificaciones aparecerán aquí cuando haya actividad</p>
+        <p className="text-sm text-zinc-400">Sin actividad reciente</p>
+        <p className="text-xs text-zinc-600 mt-1">Verás aquí cuando se completen rondas, respondan tickets o suban documentos</p>
       </div>
     );
   }
@@ -228,9 +232,10 @@ function NotificacionesLista({ session }: { session: ClienteSession }) {
     <div className="space-y-2">
       {notifications.map((n, i) => {
         const Icon = NOTIF_ICONS[n.type] ?? Bell;
+        const colorCls = NOTIF_ICON_COLOR[n.type] ?? "text-zinc-400 bg-zinc-500/10";
         return (
           <div
-            key={i}
+            key={n.id ?? i}
             className={cn(
               "flex items-start gap-3 px-4 py-3 rounded-xl border transition-colors",
               n.isRead
@@ -238,8 +243,8 @@ function NotificacionesLista({ session }: { session: ClienteSession }) {
                 : "border-white/10 bg-white/[0.02]"
             )}
           >
-            <div className="h-8 w-8 rounded-lg bg-teal-500/10 flex items-center justify-center shrink-0 mt-0.5">
-              <Icon className="h-4 w-4 text-teal-400" />
+            <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5", colorCls)}>
+              <Icon className="h-4 w-4" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-zinc-100">{n.title}</p>

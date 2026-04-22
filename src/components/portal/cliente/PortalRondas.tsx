@@ -16,6 +16,7 @@ import { OpaiBadge } from "./OpaiBadge";
 import { usePortalData } from "@/hooks/usePortalData";
 import { portalFetch } from "@/lib/portal-cliente-fetch";
 import { usePortalSession } from "@/contexts/portal-cliente-session-context";
+import { RondaMapView } from "./RondaMapView";
 
 interface Ejecucion {
   id: string;
@@ -219,6 +220,14 @@ export function PortalRondas({ selectedInstallation }: Props) {
               {selected.notes}
             </p>
           )}
+        </div>
+
+        {/* Mapa del recorrido */}
+        <div className="mb-4">
+          <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+            Recorrido y puntos
+          </h3>
+          <RondaMapView ejecucionId={selected.id} height={320} />
         </div>
 
         {/* Incidentes */}

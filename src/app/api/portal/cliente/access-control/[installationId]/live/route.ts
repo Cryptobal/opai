@@ -1,24 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import { ensureInstallationAccess, requirePortalClienteAuth } from "@/lib/portal-cliente";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ installationId: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const session = parsePortalClienteSessionCookie(
-      cookieStore.get("portal_cliente_session")?.value
-    );
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { installationId } = await params;
 
-    if (!session.installations.some((i) => i.id === installationId)) {
+    if (!(await ensureInstallationAccess(session, installationId))) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
@@ -27,6 +23,7 @@ export async function GET(
     const type = searchParams.get("type");
 
     const where: Record<string, unknown> = {
+      tenantId: session.tenantId,
       installationId,
       exitAt: null,
     };

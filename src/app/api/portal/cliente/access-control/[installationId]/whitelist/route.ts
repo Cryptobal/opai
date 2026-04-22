@@ -1,30 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import { ensureInstallationAccess, requirePortalClienteAuth } from "@/lib/portal-cliente";
 import { validateRut, cleanRut } from "@/lib/access-control/utils";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ installationId: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const session = parsePortalClienteSessionCookie(
-      cookieStore.get("portal_cliente_session")?.value
-    );
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { installationId } = await params;
 
-    if (!session.installations.some((i) => i.id === installationId)) {
+    if (!(await ensureInstallationAccess(session, installationId))) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
     const entries = await prisma.accessControlList.findMany({
       where: {
+        tenantId: session.tenantId,
         installationId,
         listType: "whitelist",
       },
@@ -46,17 +43,14 @@ export async function POST(
   { params }: { params: Promise<{ installationId: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const session = parsePortalClienteSessionCookie(
-      cookieStore.get("portal_cliente_session")?.value
-    );
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { installationId } = await params;
 
-    if (!session.installations.some((i) => i.id === installationId)) {
+    if (!(await ensureInstallationAccess(session, installationId))) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
@@ -69,21 +63,9 @@ export async function POST(
       );
     }
 
-    const installation = await prisma.crmInstallation.findUnique({
-      where: { id: installationId },
-      select: { tenantId: true },
-    });
-
-    if (!installation) {
-      return NextResponse.json(
-        { success: false, error: "Instalación no encontrada" },
-        { status: 404 }
-      );
-    }
-
     const entry = await prisma.accessControlList.create({
       data: {
-        tenantId: installation.tenantId,
+        tenantId: session.tenantId,
         installationId,
         listType: "whitelist",
         rut: cleanRut(body.rut),
@@ -96,7 +78,7 @@ export async function POST(
         allowedTimeFrom: body.allowedTimeFrom || null,
         allowedTimeTo: body.allowedTimeTo || null,
         isActive: true,
-        createdBy: body.createdBy || null,
+        createdBy: session.contactId,
       },
     });
 

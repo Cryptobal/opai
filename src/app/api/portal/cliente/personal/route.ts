@@ -1,16 +1,12 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import { requirePortalClienteAuth } from "@/lib/portal-cliente";
 import { DEMO_PERSONAL } from "@/lib/portal/demo-data";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const cookieStore = await cookies();
-  const session = parsePortalClienteSessionCookie(
-    cookieStore.get("portal_cliente_session")?.value
-  );
+export async function GET(request: NextRequest) {
+  const session = await requirePortalClienteAuth(request);
   if (!session) return NextResponse.json({ error: "No session" }, { status: 401 });
 
   // Prospect mode: return hardcoded demo data

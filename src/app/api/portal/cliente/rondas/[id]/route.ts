@@ -1,6 +1,11 @@
 /**
  * API Route: /api/portal/cliente/rondas/[id]
  * GET — Get ronda execution detail including checkpoints and incidentes.
+ *
+ * Seguridad (PR2): usamos `findFirst` con filtros compuestos de
+ * `tenantId` + `installation.accountId` para que una ronda de otro tenant
+ * devuelva 404 sin revelar su existencia (antes hacía findUnique y
+ * diferenciaba entre 404 y 403, lo que permitía enumerar IDs).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -22,8 +27,18 @@ export async function GET(
 
     const { id } = await params;
 
-    const ejecucion = await prisma.opsRondaEjecucion.findUnique({
-      where: { id },
+    const ejecucion = await prisma.opsRondaEjecucion.findFirst({
+      where: {
+        id,
+        tenantId: session.tenantId,
+        installationId: { not: null },
+        installation: {
+          is: {
+            accountId: session.accountId,
+            tenantId: session.tenantId,
+          },
+        },
+      },
       include: {
         marcaciones: {
           select: {
@@ -62,29 +77,6 @@ export async function GET(
       return NextResponse.json(
         { success: false, error: "No encontrado" },
         { status: 404 }
-      );
-    }
-
-    // Verify the installation belongs to this account
-    if (!ejecucion.installationId) {
-      return NextResponse.json(
-        { success: false, error: "No autorizado" },
-        { status: 403 }
-      );
-    }
-
-    const inst = await prisma.crmInstallation.findFirst({
-      where: {
-        id: ejecucion.installationId,
-        accountId: session.accountId,
-        tenantId: session.tenantId,
-      },
-      select: { id: true },
-    });
-    if (!inst) {
-      return NextResponse.json(
-        { success: false, error: "No autorizado" },
-        { status: 403 }
       );
     }
 

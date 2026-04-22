@@ -1,32 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import { ensureInstallationAccess, requirePortalClienteAuth } from "@/lib/portal-cliente";
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ installationId: string; id: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const session = parsePortalClienteSessionCookie(
-      cookieStore.get("portal_cliente_session")?.value
-    );
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { installationId, id } = await params;
 
-    if (!session.installations.some((i) => i.id === installationId)) {
+    if (!(await ensureInstallationAccess(session, installationId))) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
     const body = await request.json();
 
-    // Verify it's a whitelist entry (clients can only manage whitelist)
-    const existing = await prisma.accessControlList.findUnique({ where: { id } });
-    if (!existing || existing.listType !== "whitelist") {
+    // CRÍTICO: verificar que la entrada pertenezca a la misma instalación + tenant
+    // y sea whitelist (los clientes solo gestionan whitelist, nunca blacklist).
+    const existing = await prisma.accessControlList.findFirst({
+      where: {
+        id,
+        installationId,
+        tenantId: session.tenantId,
+        listType: "whitelist",
+      },
+      select: { id: true },
+    });
+    if (!existing) {
       return NextResponse.json(
         { success: false, error: "Entrada no encontrada" },
         { status: 404 }

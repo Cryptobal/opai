@@ -4,7 +4,7 @@ import { sanitizeGuardName, requirePortalClienteAuth } from "@/lib/portal-client
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requirePortalClienteAuth();
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
     }
@@ -14,6 +14,11 @@ export async function GET(request: NextRequest) {
     if (!installationId || !session.installationIds.includes(installationId)) {
       return NextResponse.json({ success: false, error: "Sin acceso a esta instalación" }, { status: 403 });
     }
+
+    // `includeAlerts` (default false) — por diseño, el cliente ve rondas
+    // completadas/incompletas, NO alertas operativas internas (velocidad anómala, etc.).
+    // Mantengo el flag para futuras vistas administrativas dentro del portal.
+    const includeAlerts = request.nextUrl.searchParams.get("includeAlerts") === "true";
 
     const [rondas, alertas] = await Promise.all([
       prisma.opsRondaEjecucion.findMany({
@@ -31,19 +36,28 @@ export async function GET(request: NextRequest) {
         orderBy: { completedAt: "desc" },
         take: 15,
       }),
-      prisma.opsAlertaRonda.findMany({
-        where: { tenantId, installationId },
-        select: {
-          id: true,
-          tipo: true,
-          severidad: true,
-          mensaje: true,
-          // isResolved: true, // TODO: add field to schema
-          createdAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      }),
+      includeAlerts
+        ? prisma.opsAlertaRonda.findMany({
+            where: { tenantId, installationId },
+            select: {
+              id: true,
+              tipo: true,
+              severidad: true,
+              mensaje: true,
+              resuelta: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+          })
+        : Promise.resolve([] as Array<{
+            id: string;
+            tipo: string;
+            severidad: string;
+            mensaje: string | null;
+            resuelta: boolean;
+            createdAt: Date;
+          }>),
     ]);
 
     type Activity = { id: string; type: string; timestamp: string; icon: string; text: string; detail?: string };
@@ -76,7 +90,7 @@ export async function GET(request: NextRequest) {
     }
 
     for (const a of alertas) {
-      const label = (a as Record<string, unknown>).isResolved ? "Resuelta" : "Pendiente";
+      const label = a.resuelta ? "Resuelta" : "Pendiente";
       activities.push({
         id: a.id,
         type: "alert",

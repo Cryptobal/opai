@@ -4,7 +4,7 @@ import { sanitizeGuardName, requirePortalClienteAuth } from "@/lib/portal-client
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await requirePortalClienteAuth();
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
     }

@@ -58,7 +58,7 @@ const NAV_ITEMS: Record<PortalSection, NavItem> = {
   'desempeno': { label: 'Desempeño', icon: TrendingUp, configKey: 'gamificacion' },
   'chat': { label: 'Chat', icon: MessageSquare, configKey: 'chat_instalacion' },
   'tickets': { label: 'Tickets', icon: Ticket, configKey: 'tickets' },
-  'alertas': { label: 'Alertas', icon: Bell, configKey: 'alertas' },
+  'alertas': { label: 'Actividad', icon: Bell, configKey: 'alertas' },
   'encuestas': { label: 'Encuestas', icon: ClipboardList, configKey: 'encuestas' },
   'reportes': { label: 'Reportes', icon: BarChart3, configKey: 'reportes' },
   'comparativa': { label: 'Comparativa', icon: GitCompare, configKey: 'comparativa' },

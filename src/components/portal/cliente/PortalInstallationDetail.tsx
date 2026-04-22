@@ -8,6 +8,8 @@ import {
 import { ClienteSession } from '@/lib/portal-cliente-types'
 import { PreviewBadge } from './PreviewBadge'
 import { DEMO_INSTALACIONES, DEMO_SUMMARY } from '@/lib/portal/demo-data'
+import { PortalDocsFisicosChecklist } from './PortalDocsFisicosChecklist'
+import { PortalGuardiasInstalacion } from './PortalGuardiasInstalacion'
 
 interface InstallationInfo {
   id: string
@@ -176,18 +178,38 @@ export function PortalInstallationDetail({
         </div>
       </div>
 
-      {/* Security team indicator */}
-      <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Shield className="w-4 h-4 text-teal-400" />
-          <h3 className="text-sm font-medium text-white">Equipo de seguridad</h3>
+      {/* Checklist de documentación física */}
+      {!isDemo && (
+        <div>
+          <h3 className="text-sm font-medium text-zinc-400 mb-3">
+            Documentación en terreno
+          </h3>
+          <PortalDocsFisicosChecklist installationId={installationId} />
         </div>
-        <p className="text-xs text-zinc-500">
-          {isDemo
-            ? 'Esta instalación cuenta con 4 guardias asignados en turnos rotativos.'
-            : 'Información del equipo disponible en el dashboard principal.'}
-        </p>
-      </div>
+      )}
+
+      {/* Equipo de seguridad asignado */}
+      {isDemo ? (
+        <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="w-4 h-4 text-teal-400" />
+            <h3 className="text-sm font-medium text-white">Equipo de seguridad</h3>
+          </div>
+          <p className="text-xs text-zinc-500">
+            Esta instalación cuenta con 4 guardias asignados en turnos rotativos.
+          </p>
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Shield className="w-4 h-4 text-teal-400" />
+            <h3 className="text-sm font-medium text-zinc-400">
+              Equipo de seguridad asignado
+            </h3>
+          </div>
+          <PortalGuardiasInstalacion installationId={installationId} />
+        </div>
+      )}
     </div>
   )
 }

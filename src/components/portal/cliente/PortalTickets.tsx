@@ -1,10 +1,24 @@
 'use client'
 
-import { useMemo, useState, useEffect, useCallback } from 'react'
-import { Loader2, Ticket, ChevronLeft, Send, Plus, MessageSquare, Clock } from 'lucide-react'
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
+import { Loader2, Ticket, ChevronLeft, Send, Plus, MessageSquare, Clock, Paperclip, FileText, X } from 'lucide-react'
 import { ClienteSession } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
 import { PortalCreateTicket } from './PortalCreateTicket'
+
+interface TicketAttachment {
+  id: string
+  fileName: string
+  fileUrl: string
+  fileType: string
+  fileSize: number
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
 function slaCountdown(
   dueAt: string | null | undefined,
@@ -26,6 +40,7 @@ interface TicketComment {
   userId: string
   body: string
   isInternal: boolean
+  attachments?: TicketAttachment[] | null
   createdAt: string
 }
 
@@ -107,8 +122,11 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
   const [selectedTicket, setSelectedTicket] = useState<TicketItem | null>(null)
   const [ticketLoading, setTicketLoading] = useState(false)
   const [newComment, setNewComment] = useState('')
+  const [commentAttachments, setCommentAttachments] = useState<TicketAttachment[]>([])
+  const [uploadingComment, setUploadingComment] = useState(false)
   const [submittingComment, setSubmittingComment] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
+  const commentFileInputRef = useRef<HTMLInputElement>(null)
 
   const loadTickets = useCallback(() => {
     setLoading(true)
@@ -138,20 +156,52 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
     }
   }
 
+  async function uploadCommentFiles(files: FileList | null) {
+    if (!files || files.length === 0) return
+    const remaining = 5 - commentAttachments.length
+    if (remaining <= 0) return
+    const toUpload = Array.from(files).slice(0, remaining)
+    setUploadingComment(true)
+    try {
+      const fd = new FormData()
+      for (const f of toUpload) fd.append('files', f)
+      const res = await fetch('/api/portal/cliente/tickets/upload', {
+        method: 'POST',
+        credentials: 'include',
+        body: fd,
+      })
+      const json = await res.json()
+      if (res.ok && json.success) {
+        setCommentAttachments((prev) => [...prev, ...(json.data as TicketAttachment[])])
+      }
+    } finally {
+      setUploadingComment(false)
+      if (commentFileInputRef.current) commentFileInputRef.current.value = ''
+    }
+  }
+
   async function submitComment() {
-    if (!selectedTicket || !newComment.trim() || submittingComment) return
+    if (!selectedTicket) return
+    if (submittingComment || uploadingComment) return
+    const hasText = newComment.trim().length > 0
+    const hasAttach = commentAttachments.length > 0
+    if (!hasText && !hasAttach) return
+
     setSubmittingComment(true)
     try {
       const res = await fetch(`/api/portal/cliente/tickets/${selectedTicket.id}/comments`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: newComment.trim() }),
+        body: JSON.stringify({
+          body: newComment.trim(),
+          ...(hasAttach ? { attachments: commentAttachments } : {}),
+        }),
       })
       const json = await res.json()
       if (json.success) {
         setNewComment('')
-        // Refresh ticket detail
+        setCommentAttachments([])
         const refreshRes = await fetch(`/api/portal/cliente/tickets/${selectedTicket.id}`, { credentials: 'include' })
         const refreshJson = await refreshRes.json()
         if (refreshJson.success) setSelectedTicket(refreshJson.data)
@@ -212,6 +262,34 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
             (selectedTicket.comments ?? []).map((comment) => (
               <div key={comment.id} className="bg-zinc-800/40 border border-zinc-700/30 rounded-xl p-3">
                 <p className="text-zinc-300 text-sm whitespace-pre-wrap">{comment.body}</p>
+                {comment.attachments && comment.attachments.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {comment.attachments.map((a) => {
+                      const isImage = a.fileType.startsWith('image/')
+                      return (
+                        <a
+                          key={a.id}
+                          href={a.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 bg-zinc-900/60 border border-zinc-700/40 rounded-lg px-2.5 py-1.5 hover:bg-zinc-900 transition-colors"
+                        >
+                          <div className="shrink-0 h-9 w-9 rounded bg-zinc-700/70 flex items-center justify-center overflow-hidden">
+                            {isImage ? (
+                              <img src={a.fileUrl} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-zinc-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-zinc-200 truncate">{a.fileName}</p>
+                            <p className="text-[10px] text-zinc-500">{formatBytes(a.fileSize)}</p>
+                          </div>
+                        </a>
+                      )
+                    })}
+                  </div>
+                )}
                 <p className="text-zinc-600 text-xs mt-1.5">{formatDateTime(comment.createdAt)}</p>
               </div>
             ))
@@ -220,26 +298,78 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
 
         {/* Add comment */}
         {selectedTicket.status !== 'closed' && (
-          <div className="flex gap-2">
+          <div className="space-y-2">
+            {commentAttachments.length > 0 && (
+              <div className="space-y-1.5">
+                {commentAttachments.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded-lg px-2.5 py-1.5"
+                  >
+                    <Paperclip className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-zinc-200 truncate">{a.fileName}</p>
+                      <p className="text-[10px] text-zinc-500">{formatBytes(a.fileSize)}</p>
+                    </div>
+                    <button
+                      onClick={() => setCommentAttachments((p) => p.filter((x) => x.id !== a.id))}
+                      className="p-1 rounded hover:bg-white/10 text-zinc-400"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <input
-              type="text"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Escribe un comentario..."
-              className="flex-1 h-10 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-              onKeyDown={(e) => e.key === 'Enter' && submitComment()}
+              ref={commentFileInputRef}
+              type="file"
+              multiple
+              accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,audio/*,video/*"
+              onChange={(e) => uploadCommentFiles(e.target.files)}
+              className="hidden"
             />
-            <button
-              onClick={submitComment}
-              disabled={submittingComment || !newComment.trim()}
-              className="h-10 w-10 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 flex items-center justify-center transition-colors"
-            >
-              {submittingComment ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </button>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => commentFileInputRef.current?.click()}
+                disabled={uploadingComment || commentAttachments.length >= 5}
+                className="h-10 w-10 shrink-0 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 flex items-center justify-center text-zinc-400"
+                title="Adjuntar archivo"
+                aria-label="Adjuntar archivo"
+              >
+                {uploadingComment ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Paperclip className="h-4 w-4" />
+                )}
+              </button>
+              <input
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Escribe un comentario..."
+                className="flex-1 h-10 rounded-lg border border-zinc-700 bg-zinc-800 px-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                onKeyDown={(e) => e.key === 'Enter' && submitComment()}
+              />
+              <button
+                onClick={submitComment}
+                disabled={
+                  submittingComment ||
+                  uploadingComment ||
+                  (!newComment.trim() && commentAttachments.length === 0)
+                }
+                className="h-10 w-10 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 flex items-center justify-center transition-colors"
+              >
+                {submittingComment ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
         )}
       </div>

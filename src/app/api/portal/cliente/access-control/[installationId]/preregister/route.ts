@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { parsePortalClienteSessionCookie } from "@/lib/portal-cliente";
+import { ensureInstallationAccess, requirePortalClienteAuth } from "@/lib/portal-cliente";
 import { validateRut, cleanRut } from "@/lib/access-control/utils";
 
 export async function GET(
@@ -9,24 +8,25 @@ export async function GET(
   { params }: { params: Promise<{ installationId: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const session = parsePortalClienteSessionCookie(
-      cookieStore.get("portal_cliente_session")?.value
-    );
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { installationId } = await params;
 
-    if (!session.installations.some((i) => i.id === installationId)) {
+    if (!(await ensureInstallationAccess(session, installationId))) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
 
-    const where: Record<string, unknown> = { installationId, createdByClient: true };
+    const where: Record<string, unknown> = {
+      tenantId: session.tenantId,
+      installationId,
+      createdByClient: true,
+    };
     if (status) where.status = status;
 
     const preregistrations = await prisma.accessControlPreregistration.findMany({
@@ -49,17 +49,14 @@ export async function POST(
   { params }: { params: Promise<{ installationId: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const session = parsePortalClienteSessionCookie(
-      cookieStore.get("portal_cliente_session")?.value
-    );
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { installationId } = await params;
 
-    if (!session.installations.some((i) => i.id === installationId)) {
+    if (!(await ensureInstallationAccess(session, installationId))) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
@@ -72,21 +69,9 @@ export async function POST(
       );
     }
 
-    const installation = await prisma.crmInstallation.findUnique({
-      where: { id: installationId },
-      select: { tenantId: true },
-    });
-
-    if (!installation) {
-      return NextResponse.json(
-        { success: false, error: "Instalación no encontrada" },
-        { status: 404 }
-      );
-    }
-
     const prereg = await prisma.accessControlPreregistration.create({
       data: {
-        tenantId: installation.tenantId,
+        tenantId: session.tenantId,
         installationId,
         visitorRut: cleanRut(body.visitorRut),
         visitorName: body.visitorName,
@@ -99,7 +84,7 @@ export async function POST(
         purpose: body.purpose || null,
         recordType: body.recordType || "visit",
         status: "pending",
-        createdBy: body.createdBy || null,
+        createdBy: session.contactId,
         createdByClient: true,
       },
     });

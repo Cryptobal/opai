@@ -15,9 +15,9 @@ const CONTRACT_CATEGORIES = [
  * GET /api/portal/cliente/contracts
  * Returns portal-visible contracts for an account.
  */
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const session = await requirePortalClienteAuth();
+    const session = await requirePortalClienteAuth(request);
     if (!session) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
