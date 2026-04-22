@@ -37,7 +37,8 @@ export async function verifyGuardChannelAccess(guardiaId: string, channelId: str
 export async function verifyClientChannelAccess(
   accountId: string,
   channelId: string,
-  contactId?: string
+  contactId?: string,
+  tenantId?: string
 ): Promise<boolean> {
   const channel = await prisma.chatChannel.findUnique({
     where: { id: channelId },
@@ -45,6 +46,7 @@ export async function verifyClientChannelAccess(
       channelType: true,
       installationId: true,
       accountId: true,
+      tenantId: true,
     },
   });
   if (!channel) return false;
@@ -63,6 +65,14 @@ export async function verifyClientChannelAccess(
       return !!participant;
     }
     return true;
+  }
+
+  // GROUP: canal predefinido por tenant (p. ej. "Equipo Comercial") — todos los
+  // clientes del mismo tenant tienen acceso. Requiere tenantId para evitar
+  // filtración cross-tenant.
+  if (channel.channelType === "GROUP") {
+    if (!tenantId) return false;
+    return channel.tenantId === tenantId;
   }
 
   // INSTALLATION: canal de instalación — verificar que la instalación pertenezca a la cuenta
