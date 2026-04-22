@@ -15,8 +15,8 @@ export default async function AtsConfigPage() {
     redirect("/opai/login?callbackUrl=/opai/configuracion/ats");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops", "ats")) {
-    redirect("/hub");
+  if (!canView(perms, "config", "ats")) {
+    redirect("/opai/configuracion");
   }
 
   const tenantId = session.user.tenantId;
