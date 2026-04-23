@@ -51,6 +51,8 @@ export const ALL_MODULES = [
   "control_nocturno",
   "white_label",
   "app_nativa",
+  // RRHH — Evaluación Psicolaboral
+  "psych",
 ] as const;
 
 export type TenantModuleKey = (typeof ALL_MODULES)[number];
