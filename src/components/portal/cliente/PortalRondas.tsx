@@ -57,15 +57,14 @@ interface EjecucionDetail extends Ejecucion {
   }>;
 }
 
+// En el portal del cliente solo se muestran rondas con impacto real para el
+// cliente (ejecutadas o en curso). Los estados `pendiente`, `no_realizada` y
+// `fallida` quedan fuera del listado por decisión de producto: el cliente no
+// debe ver programación futura ni "faltas" operativas internas.
 const STATUS_CONFIG: Record<
   string,
   { label: string; color: string; icon: typeof Clock }
 > = {
-  pendiente: {
-    label: "Pendiente",
-    color: "bg-zinc-800 text-zinc-400",
-    icon: Clock,
-  },
   en_curso: {
     label: "En curso",
     color: "bg-yellow-500/20 text-yellow-400",
@@ -81,17 +80,13 @@ const STATUS_CONFIG: Record<
     color: "bg-amber-500/20 text-amber-400",
     icon: AlertTriangle,
   },
-  fallida: {
-    label: "Fallida",
-    color: "bg-red-500/20 text-red-400",
-    icon: XCircle,
-  },
-  no_realizada: {
-    label: "No realizada",
-    color: "bg-red-500/20 text-red-400",
-    icon: XCircle,
-  },
 };
+
+const FALLBACK_STATUS = {
+  label: "Ronda",
+  color: "bg-zinc-800 text-zinc-400",
+  icon: Clock,
+} as const;
 
 interface Props {
   selectedInstallation: string;
@@ -132,10 +127,15 @@ export function PortalRondas({ selectedInstallation }: Props) {
         setLoadingMore(true);
       }
 
+      // Segunda red de seguridad: aunque el backend ya excluye estos status,
+      // nos blindamos en cliente para consistencia (incluye el modo demo).
+      const isClientVisibleStatus = (s: string) =>
+        s === "completada" || s === "incompleta" || s === "en_curso";
+
       try {
         if (isDemo) {
           const demo = getDemoData<Ejecucion[]>("rondas_list", session) ?? [];
-          setRondas(demo);
+          setRondas(demo.filter((r) => isClientVisibleStatus(r.status)));
           setNextCursor(null);
           setHasMore(false);
           return;
@@ -152,7 +152,9 @@ export function PortalRondas({ selectedInstallation }: Props) {
         const json = await res.json();
         if (json.success === false) throw new Error(json.error || "Error");
 
-        const pageData: Ejecucion[] = json.data ?? [];
+        const pageData: Ejecucion[] = (json.data ?? []).filter((r: Ejecucion) =>
+          isClientVisibleStatus(r.status),
+        );
         setRondas((prev) => (mode === "append" ? [...prev, ...pageData] : pageData));
         setNextCursor(json.pagination?.nextCursor ?? null);
         setHasMore(!!json.pagination?.hasMore);
@@ -242,7 +244,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
 
   /* ── Detail view ── */
   if (selected) {
-    const cfg = STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.pendiente;
+    const cfg = STATUS_CONFIG[selected.status] ?? FALLBACK_STATUS;
     const Icon = cfg.icon;
     return (
       <div className="max-w-lg mx-auto px-4 py-4 pb-24">
@@ -470,7 +472,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
       ) : (
         <div className="space-y-2">
           {rondas.map((r) => {
-            const cfg = STATUS_CONFIG[r.status] ?? STATUS_CONFIG.pendiente;
+            const cfg = STATUS_CONFIG[r.status] ?? FALLBACK_STATUS;
             const Icon = cfg.icon;
             return (
               <button

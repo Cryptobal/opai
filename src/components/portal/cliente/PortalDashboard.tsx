@@ -365,7 +365,6 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
       ) : !isProspect && s?.lastRound ? (
         <ServiceStatusHero
           lastRound={s.lastRound}
-          attentionCount={attentionCount}
           onNavigate={onNavigate}
         />
       ) : null}
@@ -405,7 +404,10 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
                     {(s.incompleteRounds ?? 0)} incompletas · {(s.missedRounds ?? 0)} no realizadas
                   </span>
                 }
-                color={attentionCount === 0 ? "emerald" : attentionCount <= 2 ? "amber" : "red"}
+                // Mantenemos visibilidad del conteo pero sin usar rojo: el
+                // cliente no puede accionar sobre esto y el "rojo" genera una
+                // señal negativa desproporcionada respecto al servicio real.
+                color={attentionCount === 0 ? "emerald" : "amber"}
               />
             </div>
           ) : (
@@ -736,54 +738,47 @@ function RondaEnCursoHero({
 
 function ServiceStatusHero({
   lastRound,
-  attentionCount,
   onNavigate,
 }: {
   lastRound: NonNullable<Summary["lastRound"]>;
-  attentionCount: number;
   onNavigate: (s: string) => void;
 }) {
-  // Copy pensado para el cliente (no para el equipo de monitoreo).
-  // El cliente no puede "resolver" nada, así que evitamos lenguaje de
-  // alerta operativa ("Requiere atención") y usamos frases descriptivas.
-  const positive =
-    lastRound.status === "completada" && attentionCount === 0;
-  const warning =
-    lastRound.status === "incompleta" ||
-    (attentionCount > 0 && attentionCount <= 2);
-  const bad = lastRound.status === "no_realizada" || attentionCount > 2;
+  // El tono del hero refleja SOLO la última ronda — no mezclamos con conteos
+  // agregados como `attentionCount`, que mostraban el hero en rojo incluso
+  // cuando la última ronda estaba en verde (inconsistente con el listado).
+  // Además, "no_realizada" no llega al portal del cliente (lo filtramos en
+  // `/api/portal/cliente/rondas`), así que por defecto la experiencia es
+  // neutral / positiva.
+  const isCompleted = lastRound.status === "completada";
+  const isIncomplete = lastRound.status === "incompleta";
 
-  const tone = bad
+  const tone = isCompleted
     ? {
-        border: "border-red-500/25",
-        bg: "bg-red-500/5",
-        icon: XCircle,
-        color: "text-red-400",
-        label: "Rondas con pendientes",
+        border: "border-emerald-500/25",
+        bg: "bg-emerald-500/5",
+        icon: CheckCircle2,
+        color: "text-emerald-400",
       }
-    : warning
+    : isIncomplete
       ? {
           border: "border-amber-500/25",
           bg: "bg-amber-500/5",
           icon: AlertTriangle,
           color: "text-amber-400",
-          label: "Con observaciones",
         }
       : {
-          border: "border-emerald-500/25",
-          bg: "bg-emerald-500/5",
-          icon: CheckCircle2,
-          color: "text-emerald-400",
-          label: "Servicio operando",
+          border: "border-white/10",
+          bg: "bg-white/[0.02]",
+          icon: MapPin,
+          color: "text-zinc-300",
         };
 
   const Icon = tone.icon;
-  const statusText =
-    lastRound.status === "completada"
-      ? "Última ronda completada"
-      : lastRound.status === "incompleta"
-        ? `Última ronda parcial (${lastRound.porcentaje}%)`
-        : "Última ronda no realizada";
+  const statusText = isCompleted
+    ? "Completada correctamente"
+    : isIncomplete
+      ? `Completada parcialmente (${lastRound.porcentaje}%)`
+      : "Ver detalle";
 
   return (
     <button
@@ -793,8 +788,7 @@ function ServiceStatusHero({
         tone.border,
         tone.bg,
       )}
-      aria-label={tone.label}
-      data-positive={positive}
+      aria-label="Última ronda"
     >
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-white/[0.04]">
@@ -802,7 +796,7 @@ function ServiceStatusHero({
         </div>
         <div className="flex-1 min-w-0">
           <p className={cn("text-[11px] font-semibold uppercase tracking-wider", tone.color)}>
-            {tone.label}
+            Última ronda
           </p>
           <p className="text-sm font-medium text-white leading-tight">{statusText}</p>
           <p className="text-[11px] text-zinc-400 mt-0.5">

@@ -94,12 +94,27 @@ export async function GET(request: NextRequest) {
       ],
     };
 
+    // El portal del cliente solo muestra rondas "reales": las ya ejecutadas
+    // (completada / incompleta) y la que está en curso ahora. Se excluyen
+    // las `pendiente` (programadas aún no iniciadas), `no_realizada` (se pasó
+    // la ventana y no se ejecutó) y `fallida`, porque no aportan contexto al
+    // cliente y generan una sensación negativa sobre el servicio.
+    // Si el caller explícitamente pide un status distinto (`status=all`),
+    // respetamos su intención para no romper usos internos/QA.
+    const statusParam = request.nextUrl.searchParams.get("status");
+    const allowedClientStatuses = ["en_curso", "completada", "incompleta"] as const;
+    const statusFilter =
+      statusParam === "all"
+        ? undefined
+        : { in: [...allowedClientStatuses] };
+
     // Pedimos pageSize + 1 para saber si hay más páginas sin un count adicional.
     const ejecuciones = await prisma.opsRondaEjecucion.findMany({
       where: {
         tenantId: session.tenantId,
         ...installationScope,
         scheduledAt: scheduledAtFilter,
+        ...(statusFilter ? { status: statusFilter } : {}),
       },
       select: {
         id: true,
