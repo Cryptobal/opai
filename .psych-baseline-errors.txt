@@ -1,0 +1,13 @@
+src/app/(templates)/preview/[sessionId]/page.tsx(13,43): error TS2307: Cannot find module '@/lib/zoho-mapper' or its corresponding type declarations.
+src/app/(templates)/preview/[sessionId]/page.tsx(14,32): error TS2307: Cannot find module '@/components/preview/PreviewActions' or its corresponding type declarations.
+src/app/(templates)/preview/[sessionId]/page.tsx(15,32): error TS2307: Cannot find module '@/components/preview/PreviewSidebar' or its corresponding type declarations.
+src/app/(templates)/preview/[sessionId]/page.tsx(31,39): error TS2339: Property 'webhookSession' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/app/api/email-preview/[sessionId]/route.ts(26,41): error TS2339: Property 'webhookSession' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/app/api/ops/instalacion-documentos/route.ts(14,8): error TS2307: Cannot find module '@/lib/instalacion-documentos' or its corresponding type declarations.
+src/app/api/presentations/send-email/route.ts(39,41): error TS2339: Property 'webhookSession' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/app/api/presentations/send-email/route.ts(200,18): error TS2339: Property 'webhookSession' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/app/api/webhook/zoho/route.ts(162,41): error TS2339: Property 'webhookSession' does not exist on type 'PrismaClient<PrismaClientOptions, never, DefaultArgs>'.
+src/components/presentation/shared/ComparisonTable.tsx(83,34): error TS2339: Property 'gard' does not exist on type 'ComparisonRow'.
+src/components/presentation/shared/ComparisonTable.tsx(131,29): error TS2339: Property 'gard' does not exist on type 'ComparisonRow'.
+src/components/presentation/shared/ComparisonTable.tsx(132,23): error TS2339: Property 'gard' does not exist on type 'ComparisonRow'.
+src/components/presentation/shared/ComparisonTable.tsx(134,23): error TS2339: Property 'gard' does not exist on type 'ComparisonRow'.
