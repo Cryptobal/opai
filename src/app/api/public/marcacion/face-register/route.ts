@@ -70,7 +70,9 @@ export async function POST(req: NextRequest) {
       where: {
         rut: normalizedRut,
         tenantId: installation.tenantId,
+        guardia: { isNot: null },
       },
+      orderBy: { createdAt: "asc" },
       select: {
         id: true,
         guardia: {

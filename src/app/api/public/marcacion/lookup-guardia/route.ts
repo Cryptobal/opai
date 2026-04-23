@@ -51,12 +51,16 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Find persona by RUT, including their guardia relation
+    // Find persona by RUT, including their guardia relation.
+    // `guardia: { isNot: null }` evita que personas huérfanas (duplicados sin guardia)
+    // oculten a la persona real con guardia vinculada.
     const persona = await prisma.opsPersona.findFirst({
       where: {
         tenantId: installation.tenantId,
         rut: { equals: rut, mode: "insensitive" },
+        guardia: { isNot: null },
       },
+      orderBy: { createdAt: "asc" },
       select: {
         id: true,
         firstName: true,
