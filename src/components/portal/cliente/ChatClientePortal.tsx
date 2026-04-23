@@ -15,6 +15,15 @@ interface ChatClientePortalProps {
  * Cliente portal chat — multi-channel with locked channels support.
  * Uses cliente API endpoints with contact auth headers.
  * En móvil: transición fluida lista ↔ conversación, swipe right para volver.
+ *
+ * Auto-select policy:
+ *   - PROSPECTS: se autoselecciona el único canal (chat con el ejecutivo
+ *     comercial), ya que no hay otros canales y queremos que la conversación
+ *     abra de inmediato.
+ *   - CUENTAS ACTIVAS: NO se autoselecciona aunque haya un solo canal. El
+ *     cliente debe ver la lista de canales (aunque hoy traiga solo "Reportes")
+ *     porque pronto aparecerán canales adicionales por instalación/tipo, y
+ *     saltarse a un canal directo confunde al usuario.
  */
 export function ChatClientePortal({ session }: ChatClientePortalProps) {
   const [selectedChannel, setSelectedChannel] = useState<{
@@ -25,6 +34,7 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
   const [prefetchedChannels, setPrefetchedChannels] = useState<any[] | null>(null);
   const [autoSelectDone, setAutoSelectDone] = useState(false);
 
+  const isProspect = !!session.isProspect;
   const senderName = session.lastName
     ? `${session.firstName} ${session.lastName}`
     : session.firstName;
@@ -49,8 +59,12 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
         // Save fetched channels to avoid re-fetching in ChatPortalChannelList
         const channels = res.success ? res.data ?? [] : [];
         setPrefetchedChannels(channels);
-        // Auto-select single channel
-        if (channels.length === 1 && !res.lockedChannels?.length) {
+        // Auto-select solo para prospects con un único canal (ejecutivo).
+        if (
+          isProspect &&
+          channels.length === 1 &&
+          !res.lockedChannels?.length
+        ) {
           setSelectedChannel({ id: channels[0].id, name: channels[0].name });
         }
         setAutoSelectDone(true);
@@ -88,7 +102,7 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
           onSelectChannel={(id, name) => setSelectedChannel({ id, name })}
           selectedChannelId={selectedChannel?.id ?? null}
           lockedChannels={lockedChannels}
-          autoSelectSingle
+          autoSelectSingle={isProspect}
           initialChannels={prefetchedChannels ?? undefined}
         />
       </div>
