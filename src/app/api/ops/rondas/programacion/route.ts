@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
                 programacionId: row.id,
                 scheduledAt,
                 checkpointsTotal: tpl.checkpoints.length,
+                installationId: tpl.installationId ?? null,
               }),
             );
             await prisma.opsRondaEjecucion.createMany({ data: rows, skipDuplicates: true });

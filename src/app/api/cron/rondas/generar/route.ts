@@ -86,6 +86,7 @@ export async function GET(request: NextRequest) {
           programacionId: p.id,
           scheduledAt,
           checkpointsTotal: p.rondaTemplate!.checkpoints.length,
+          installationId: p.rondaTemplate!.installationId ?? null,
         }),
       );
 
