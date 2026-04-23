@@ -14,6 +14,7 @@ import { notifyCriticalAlert } from "@/lib/rondas/alert-notifications";
 import { getFullAlertConfig } from "@/lib/rondas/alert-config-service";
 import { DEFAULT_SPEED_THRESHOLD_KMH } from "@/lib/rondas/ia-config";
 import { getPusherServer } from "@/lib/chat";
+import { broadcastToPortalCliente } from "@/lib/rondas/realtime-portal-cliente";
 
 // ── Input / Output types ──
 
@@ -423,7 +424,7 @@ export async function marcarCheckpoint(
     }).catch((err) => console.error("[RONDAS] evaluatePostMarkAlerts error:", err));
   }
 
-  // 12. Fire-and-forget: Pusher event
+  // 12. Fire-and-forget: Pusher event (monitoreo interno + portal cliente)
   try {
     const pusher = getPusherServer();
     const cpName = checkpoint?.name ?? "Punto GPS";
@@ -436,6 +437,14 @@ export async function marcarCheckpoint(
   } catch (pusherErr) {
     console.error("[MARCAR] Pusher trigger failed:", pusherErr);
   }
+  await broadcastToPortalCliente({
+    event: "ronda-progress",
+    ejecucionId: execution.id,
+    payload: {
+      checkpointId: checkpoint?.id ?? null,
+      trustScore,
+    },
+  });
 
   return {
     id: created.id,

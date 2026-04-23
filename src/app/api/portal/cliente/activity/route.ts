@@ -20,9 +20,18 @@ export async function GET(request: NextRequest) {
     // Mantengo el flag para futuras vistas administrativas dentro del portal.
     const includeAlerts = request.nextUrl.searchParams.get("includeAlerts") === "true";
 
+    // Incluir ejecuciones programadas cuyo installationId quedó en null
+    // (se resuelven vía rondaTemplate).
+    const installationScope = {
+      OR: [
+        { installationId },
+        { rondaTemplate: { installationId } },
+      ],
+    };
+
     const [rondas, alertas] = await Promise.all([
       prisma.opsRondaEjecucion.findMany({
-        where: { tenantId, installationId, status: { in: ["completada", "incompleta"] } },
+        where: { tenantId, ...installationScope, status: { in: ["completada", "incompleta"] } },
         select: {
           id: true,
           status: true,

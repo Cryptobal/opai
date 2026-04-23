@@ -17,8 +17,17 @@ export async function GET(request: NextRequest) {
     }
 
     const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    // Incluir ejecuciones programadas cuyo installationId quedó en null
+    // (se resuelven vía rondaTemplate).
     const rows = await prisma.opsRondaEjecucion.findMany({
-      where: { tenantId, installationId, scheduledAt: { gte: from } },
+      where: {
+        tenantId,
+        scheduledAt: { gte: from },
+        OR: [
+          { installationId },
+          { rondaTemplate: { installationId } },
+        ],
+      },
       select: { scheduledAt: true, status: true },
     });
 

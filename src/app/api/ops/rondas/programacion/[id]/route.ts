@@ -114,6 +114,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
               programacionId: updated.id,
               scheduledAt,
               checkpointsTotal: updated.rondaTemplate!.checkpoints.length,
+              installationId: updated.rondaTemplate!.installationId ?? null,
             }),
           );
           await prisma.opsRondaEjecucion.createMany({ data: rows, skipDuplicates: true });

@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { useBranding } from "@/lib/branding/useBranding";
 import { usePortalSession } from "@/contexts/portal-cliente-session-context";
 import { usePortalData } from "@/hooks/usePortalData";
+import { usePortalClienteRealtime } from "@/hooks/usePortalClienteRealtime";
 import { PreviewBadge } from "./PreviewBadge";
 import { OpaiBadge } from "./OpaiBadge";
 import { DashboardCotizacionesPendientes } from "./cotizaciones/DashboardCotizacionesPendientes";
@@ -237,6 +238,36 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
 
   const isProspect = !!session?.isProspect;
   const isLoading = summary.loading || compliance.loading || activity.loading;
+
+  // Realtime: refrescar KPIs y actividad cuando lleguen eventos de la cuenta.
+  // Filtramos por instalación seleccionada cuando el evento la trae.
+  usePortalClienteRealtime({
+    onRondaStarted: (payload) => {
+      if (isProspect) return;
+      if (
+        selectedInstallation &&
+        payload.installationId &&
+        payload.installationId !== selectedInstallation
+      ) {
+        return;
+      }
+      void summary.refetch();
+      void activity.refetch();
+    },
+    onRondaCompleted: (payload) => {
+      if (isProspect) return;
+      if (
+        selectedInstallation &&
+        payload.installationId &&
+        payload.installationId !== selectedInstallation
+      ) {
+        return;
+      }
+      void summary.refetch();
+      void compliance.refetch();
+      void activity.refetch();
+    },
+  });
 
   const instName = useMemo(
     () => session?.installations.find((i) => i.id === selectedInstallation)?.name ?? "",

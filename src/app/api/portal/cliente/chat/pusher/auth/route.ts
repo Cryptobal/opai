@@ -59,6 +59,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Handle portal-cliente realtime account channels: broadcast de rondas y
+    // alertas filtrado por accountId para que el cliente reciba solo eventos
+    // de su propia cuenta (multi-tenant safe).
+    const portalAccountMatch = channelName.match(
+      /^private-portal-cliente-account-(.+)$/
+    );
+    if (portalAccountMatch) {
+      const [, channelAccountId] = portalAccountMatch;
+      if (channelAccountId === session.accountId) {
+        const authResponse = authorizePrivateChannel(socketId, channelName);
+        return NextResponse.json(authResponse);
+      }
+      return NextResponse.json(
+        { success: false, error: "No autorizado para este canal" },
+        { status: 403 }
+      );
+    }
+
     // Parse channelId from channel name (format: "presence-chat-{channelId}")
     const match = channelName.match(/^presence-chat-(.+)$/);
     if (!match) {

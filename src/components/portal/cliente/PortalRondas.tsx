@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   MapPin,
   ChevronRight,
@@ -13,9 +13,10 @@ import {
 import { cn } from "@/lib/utils";
 import { PreviewBadge } from "./PreviewBadge";
 import { OpaiBadge } from "./OpaiBadge";
-import { usePortalData } from "@/hooks/usePortalData";
 import { portalFetch } from "@/lib/portal-cliente-fetch";
 import { usePortalSession } from "@/contexts/portal-cliente-session-context";
+import { usePortalClienteRealtime } from "@/hooks/usePortalClienteRealtime";
+import { getDemoData, hasDemoData } from "@/lib/portal/demo-registry";
 import { RondaMapView } from "./RondaMapView";
 
 interface Ejecucion {
@@ -96,24 +97,127 @@ interface Props {
   selectedInstallation: string;
 }
 
+type RangeKey = "7d" | "30d" | "90d";
+const RANGE_OPTIONS: Array<{ key: RangeKey; label: string; days: number }> = [
+  { key: "7d", label: "7 días", days: 7 },
+  { key: "30d", label: "30 días", days: 30 },
+  { key: "90d", label: "90 días", days: 90 },
+];
+
 export function PortalRondas({ selectedInstallation }: Props) {
   const { session } = usePortalSession();
   const isProspect = !!session?.isProspect;
+  const isDemo = isProspect && hasDemoData("rondas_list");
 
-  const { data: rondasData, loading, isDemo } = usePortalData<Ejecucion[]>({
-    endpoint: "/api/portal/cliente/rondas",
-    demoKey: "rondas_list",
-    params: selectedInstallation ? { installationId: selectedInstallation } : undefined,
+  const [range, setRange] = useState<RangeKey>("30d");
+  const [rondas, setRondas] = useState<Ejecucion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const days = useMemo(
+    () => RANGE_OPTIONS.find((r) => r.key === range)?.days ?? 30,
+    [range],
+  );
+
+  const load = useCallback(
+    async (mode: "reset" | "append") => {
+      if (!session) return;
+      if (mode === "reset") {
+        setLoading(true);
+        setError(null);
+      } else {
+        setLoadingMore(true);
+      }
+
+      try {
+        if (isDemo) {
+          const demo = getDemoData<Ejecucion[]>("rondas_list", session) ?? [];
+          setRondas(demo);
+          setNextCursor(null);
+          setHasMore(false);
+          return;
+        }
+
+        const qs = new URLSearchParams();
+        if (selectedInstallation) qs.set("installationId", selectedInstallation);
+        qs.set("days", String(days));
+        qs.set("pageSize", "30");
+        if (mode === "append" && nextCursor) qs.set("cursor", nextCursor);
+
+        const res = await portalFetch(`/api/portal/cliente/rondas?${qs.toString()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (json.success === false) throw new Error(json.error || "Error");
+
+        const pageData: Ejecucion[] = json.data ?? [];
+        setRondas((prev) => (mode === "append" ? [...prev, ...pageData] : pageData));
+        setNextCursor(json.pagination?.nextCursor ?? null);
+        setHasMore(!!json.pagination?.hasMore);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error de conexión");
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    // nextCursor se pasa vía closure; no lo añadimos a deps para evitar
+    // recargas infinitas al paginar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session, isDemo, selectedInstallation, days],
+  );
+
+  useEffect(() => {
+    void load("reset");
+  }, [load]);
+
+  // Realtime: cuando llega un evento de ronda para la cuenta del cliente,
+  // refrescamos la lista. Si hay instalación seleccionada, filtramos para
+  // ignorar eventos de otras instalaciones de la misma cuenta.
+  usePortalClienteRealtime({
+    onRondaStarted: (payload) => {
+      if (isDemo) return;
+      if (
+        selectedInstallation &&
+        payload.installationId &&
+        payload.installationId !== selectedInstallation
+      ) {
+        return;
+      }
+      void load("reset");
+    },
+    onRondaProgress: (payload) => {
+      if (isDemo) return;
+      if (
+        selectedInstallation &&
+        payload.installationId &&
+        payload.installationId !== selectedInstallation
+      ) {
+        return;
+      }
+      void load("reset");
+    },
+    onRondaCompleted: (payload) => {
+      if (isDemo) return;
+      if (
+        selectedInstallation &&
+        payload.installationId &&
+        payload.installationId !== selectedInstallation
+      ) {
+        return;
+      }
+      void load("reset");
+    },
   });
-  const rondas: Ejecucion[] = rondasData ?? [];
 
   const [selected, setSelected] = useState<EjecucionDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  // Clear detail when filter changes
   useEffect(() => {
     setSelected(null);
-  }, [selectedInstallation]);
+  }, [selectedInstallation, range]);
 
   async function loadDetail(id: string) {
     setLoadingDetail(true);
@@ -312,7 +416,10 @@ export function PortalRondas({ selectedInstallation }: Props) {
           <h2 className="text-base font-semibold">Rondas en tiempo real</h2>
           {isDemo && <PreviewBadge />}
           <OpaiBadge variant="live" />
-          <span className="text-xs text-zinc-500 ml-auto">{rondas.length} registros</span>
+          <span className="text-xs text-zinc-500 ml-auto">
+            {rondas.length}
+            {hasMore ? "+" : ""} registros
+          </span>
         </div>
         {isProspect ? (
           <p className="text-xs text-zinc-500 mt-1 ml-6">Monitoreo GPS con geofencing automático</p>
@@ -321,11 +428,41 @@ export function PortalRondas({ selectedInstallation }: Props) {
         )}
       </div>
 
+      {/* Chips de rango de fechas */}
+      <div className="flex items-center gap-1.5 mb-3">
+        {RANGE_OPTIONS.map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => setRange(opt.key)}
+            disabled={loading && range === opt.key}
+            className={cn(
+              "text-[11px] font-medium px-2.5 py-1 rounded-full border transition-colors",
+              range === opt.key
+                ? "bg-teal-500/15 border-teal-400/40 text-teal-300"
+                : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200",
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+        <span className="text-[10px] text-zinc-600 ml-auto">
+          Últimos {days} días
+        </span>
+      </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-xs rounded-lg px-3 py-2 mb-3">
+          {error}
+        </div>
+      )}
+
       {rondas.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <MapPin className="h-8 w-8 text-zinc-700 mb-3" />
-          <p className="text-sm font-medium text-zinc-400">No hay rondas registradas aún</p>
-          <p className="text-xs text-zinc-600 mt-1">Las rondas se actualizan en tiempo real con verificación GPS.</p>
+          <p className="text-sm font-medium text-zinc-400">No hay rondas en este rango</p>
+          <p className="text-xs text-zinc-600 mt-1">
+            Prueba extender el rango a {range === "7d" ? "30" : "90"} días.
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -395,6 +532,22 @@ export function PortalRondas({ selectedInstallation }: Props) {
               </button>
             );
           })}
+
+          {hasMore && (
+            <button
+              onClick={() => load("append")}
+              disabled={loadingMore}
+              className="w-full text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded-xl py-3 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando...
+                </>
+              ) : (
+                "Cargar más rondas"
+              )}
+            </button>
+          )}
         </div>
       )}
     </div>

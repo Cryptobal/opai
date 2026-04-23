@@ -50,6 +50,16 @@ export async function GET(request: NextRequest) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
+    // Incluir ejecuciones programadas (cron) que linkean la instalación solo
+    // a través del `rondaTemplate` (installationId directo en la ejecución
+    // puede ser null hasta que la ronda se inicia).
+    const installationScope = {
+      OR: [
+        { installationId },
+        { rondaTemplate: { installationId } },
+      ],
+    };
+
     const [
       currentRows,
       prevRows,
@@ -58,13 +68,13 @@ export async function GET(request: NextRequest) {
       teamGuardias,
     ] = await Promise.all([
       prisma.opsRondaEjecucion.findMany({
-        where: { tenantId, installationId, scheduledAt: { gte: monthStart } },
+        where: { tenantId, ...installationScope, scheduledAt: { gte: monthStart } },
         select: { status: true, trustScore: true },
       }),
       prisma.opsRondaEjecucion.findMany({
         where: {
           tenantId,
-          installationId,
+          ...installationScope,
           scheduledAt: { gte: prevMonthStart, lt: monthStart },
         },
         select: { status: true, trustScore: true },
@@ -72,7 +82,7 @@ export async function GET(request: NextRequest) {
       prisma.opsRondaEjecucion.findFirst({
         where: {
           tenantId,
-          installationId,
+          ...installationScope,
           status: { in: ["completada", "incompleta", "no_realizada"] },
         },
         orderBy: { completedAt: "desc" },

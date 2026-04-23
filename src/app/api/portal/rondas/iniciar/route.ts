@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getPusherServer } from "@/lib/chat";
+import { broadcastToPortalCliente } from "@/lib/rondas/realtime-portal-cliente";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Fire-and-forget Pusher event
+    // Fire-and-forget Pusher event (monitoreo interno + portal cliente)
     try {
       const pusher = getPusherServer();
       await pusher.trigger(`monitoreo-${execution.tenantId}`, "ronda-started", {
@@ -117,6 +118,11 @@ export async function POST(request: NextRequest) {
     } catch (pusherErr) {
       console.error("[INICIAR] Pusher trigger failed:", pusherErr);
     }
+    await broadcastToPortalCliente({
+      event: "ronda-started",
+      ejecucionId: updated.id,
+      payload: { startedAt: updated.startedAt },
+    });
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
