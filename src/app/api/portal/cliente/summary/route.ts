@@ -11,6 +11,9 @@
  *   - missedRounds / incompleteRounds — desglose del total anterior.
  *   - lastRound — última ronda ejecutada (status + fecha + nombre de guardia),
  *     con nombre saneado (`sanitizeGuardName`).
+ *   - rondaEnCurso — ronda actualmente en ejecución (status=en_curso) si
+ *     existe. Se usa como hero dinámico en el dashboard del portal cliente
+ *     (tiempo real). null si no hay ninguna activa.
  *   - openTickets — cantidad de tickets del portal cliente abiertos o en curso.
  *   - team — tamaño del equipo activo + conteos de OS-10 (vigente/por_vencer/vencido).
  *
@@ -64,6 +67,7 @@ export async function GET(request: NextRequest) {
       currentRows,
       prevRows,
       lastRound,
+      rondaEnCurso,
       openTickets,
       teamGuardias,
     ] = await Promise.all([
@@ -92,6 +96,28 @@ export async function GET(request: NextRequest) {
           completedAt: true,
           scheduledAt: true,
           porcentajeCompletado: true,
+          guardia: {
+            select: {
+              persona: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
+      }),
+      // Ronda activa (si existe): la mostramos como hero dinámico en el portal cliente.
+      prisma.opsRondaEjecucion.findFirst({
+        where: {
+          tenantId,
+          ...installationScope,
+          status: "en_curso",
+        },
+        orderBy: { startedAt: "desc" },
+        select: {
+          id: true,
+          startedAt: true,
+          checkpointsTotal: true,
+          checkpointsCompletados: true,
+          porcentajeCompletado: true,
+          trustScore: true,
           guardia: {
             select: {
               persona: { select: { firstName: true, lastName: true } },
@@ -171,6 +197,35 @@ export async function GET(request: NextRequest) {
       guardiaName: string | null;
       porcentaje: number;
     } = null;
+
+    // Payload ronda en curso (hero dinámico del dashboard).
+    let rondaEnCursoPayload: null | {
+      id: string;
+      startedAt: string | null;
+      checkpointsTotal: number;
+      checkpointsCompletados: number;
+      porcentaje: number;
+      trustScore: number;
+      guardiaName: string | null;
+    } = null;
+    if (rondaEnCurso) {
+      const guardiaName = rondaEnCurso.guardia?.persona
+        ? sanitizeGuardName(
+            rondaEnCurso.guardia.persona.firstName,
+            rondaEnCurso.guardia.persona.lastName,
+          )
+        : null;
+      rondaEnCursoPayload = {
+        id: rondaEnCurso.id,
+        startedAt: rondaEnCurso.startedAt?.toISOString() ?? null,
+        checkpointsTotal: rondaEnCurso.checkpointsTotal,
+        checkpointsCompletados: rondaEnCurso.checkpointsCompletados,
+        porcentaje: Math.round(rondaEnCurso.porcentajeCompletado ?? 0),
+        trustScore: rondaEnCurso.trustScore ?? 0,
+        guardiaName,
+      };
+    }
+
     if (lastRound) {
       const ts =
         (lastRound.completedAt ?? lastRound.scheduledAt)?.toISOString() ??
@@ -207,6 +262,7 @@ export async function GET(request: NextRequest) {
         missedRounds: curMissed,
         incompleteRounds: curIncomplete,
         lastRound: lastRoundPayload,
+        rondaEnCurso: rondaEnCursoPayload,
         openTickets,
         team,
       },

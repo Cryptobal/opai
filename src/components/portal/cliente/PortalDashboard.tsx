@@ -64,6 +64,15 @@ interface Summary {
     guardiaName: string | null;
     porcentaje: number;
   } | null;
+  rondaEnCurso?: {
+    id: string;
+    startedAt: string | null;
+    checkpointsTotal: number;
+    checkpointsCompletados: number;
+    porcentaje: number;
+    trustScore: number;
+    guardiaName: string | null;
+  } | null;
   openTickets?: number;
   team?: {
     size: number;
@@ -347,14 +356,19 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
         onNavigateToDetail={(section) => onNavigate(section)}
       />
 
-      {/* Hero de estado del servicio (cliente activo) */}
-      {!isProspect && s?.lastRound && (
+      {/* Hero dinámico: prioriza ronda en curso, fallback a última ronda */}
+      {!isProspect && s?.rondaEnCurso ? (
+        <RondaEnCursoHero
+          rondaEnCurso={s.rondaEnCurso}
+          onNavigate={onNavigate}
+        />
+      ) : !isProspect && s?.lastRound ? (
         <ServiceStatusHero
           lastRound={s.lastRound}
           attentionCount={attentionCount}
           onNavigate={onNavigate}
         />
-      )}
+      ) : null}
 
       {/* KPIs de servicio */}
       {s && (
@@ -670,6 +684,56 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
 
 /* ── Sub-widgets ──────────────────────────────────────────────────── */
 
+function RondaEnCursoHero({
+  rondaEnCurso,
+  onNavigate,
+}: {
+  rondaEnCurso: NonNullable<Summary["rondaEnCurso"]>;
+  onNavigate: (s: string) => void;
+}) {
+  const pct = Math.max(0, Math.min(100, rondaEnCurso.porcentaje));
+  return (
+    <button
+      onClick={() => onNavigate("rondas")}
+      className={cn(
+        "w-full rounded-2xl border p-4 text-left transition-colors active:scale-[0.99]",
+        "border-amber-500/30 bg-amber-500/5",
+      )}
+      aria-label="Ronda en curso"
+    >
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-amber-500/10 relative">
+          <span className="absolute inset-0 rounded-xl bg-amber-400/30 animate-ping" aria-hidden />
+          <MapPin className="h-5 w-5 text-amber-300 relative" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-300">
+            EN CURSO AHORA
+          </p>
+          <p className="text-sm font-medium text-white leading-tight">
+            Ronda en ejecución · {rondaEnCurso.checkpointsCompletados}/{rondaEnCurso.checkpointsTotal} checkpoints
+          </p>
+          <p className="text-[11px] text-zinc-400 mt-0.5">
+            {rondaEnCurso.guardiaName ?? "Guardia"}
+            {rondaEnCurso.startedAt
+              ? ` · inició ${timeAgo(rondaEnCurso.startedAt)}`
+              : ""}
+          </p>
+        </div>
+        <ArrowRight className="h-4 w-4 text-zinc-400 shrink-0" />
+      </div>
+      <div className="mt-3">
+        <div className="h-1 bg-black/30 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-amber-400 rounded-full transition-all"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+    </button>
+  );
+}
+
 function ServiceStatusHero({
   lastRound,
   attentionCount,
@@ -679,25 +743,47 @@ function ServiceStatusHero({
   attentionCount: number;
   onNavigate: (s: string) => void;
 }) {
+  // Copy pensado para el cliente (no para el equipo de monitoreo).
+  // El cliente no puede "resolver" nada, así que evitamos lenguaje de
+  // alerta operativa ("Requiere atención") y usamos frases descriptivas.
   const positive =
     lastRound.status === "completada" && attentionCount === 0;
   const warning =
-    lastRound.status === "incompleta" || (attentionCount > 0 && attentionCount <= 2);
+    lastRound.status === "incompleta" ||
+    (attentionCount > 0 && attentionCount <= 2);
   const bad = lastRound.status === "no_realizada" || attentionCount > 2;
 
   const tone = bad
-    ? { border: "border-red-500/25", bg: "bg-red-500/5", icon: XCircle, color: "text-red-400", label: "Requiere atención" }
+    ? {
+        border: "border-red-500/25",
+        bg: "bg-red-500/5",
+        icon: XCircle,
+        color: "text-red-400",
+        label: "Rondas con pendientes",
+      }
     : warning
-    ? { border: "border-amber-500/25", bg: "bg-amber-500/5", icon: AlertTriangle, color: "text-amber-400", label: "Con observaciones" }
-    : { border: "border-emerald-500/25", bg: "bg-emerald-500/5", icon: CheckCircle2, color: "text-emerald-400", label: "Servicio operando" };
+      ? {
+          border: "border-amber-500/25",
+          bg: "bg-amber-500/5",
+          icon: AlertTriangle,
+          color: "text-amber-400",
+          label: "Con observaciones",
+        }
+      : {
+          border: "border-emerald-500/25",
+          bg: "bg-emerald-500/5",
+          icon: CheckCircle2,
+          color: "text-emerald-400",
+          label: "Servicio operando",
+        };
 
   const Icon = tone.icon;
   const statusText =
     lastRound.status === "completada"
       ? "Última ronda completada"
       : lastRound.status === "incompleta"
-      ? `Última ronda incompleta (${lastRound.porcentaje}%)`
-      : "Última ronda no realizada";
+        ? `Última ronda parcial (${lastRound.porcentaje}%)`
+        : "Última ronda no realizada";
 
   return (
     <button
@@ -705,18 +791,19 @@ function ServiceStatusHero({
       className={cn(
         "w-full rounded-2xl border p-4 text-left transition-colors active:scale-[0.99]",
         tone.border,
-        tone.bg
+        tone.bg,
       )}
-      // `positive` solo se usa implícitamente por el tono por defecto.
       aria-label={tone.label}
       data-positive={positive}
     >
       <div className="flex items-center gap-3">
-        <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center bg-white/[0.04]")}>
+        <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-white/[0.04]">
           <Icon className={cn("h-5 w-5", tone.color)} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className={cn("text-[11px] font-semibold uppercase tracking-wider", tone.color)}>{tone.label}</p>
+          <p className={cn("text-[11px] font-semibold uppercase tracking-wider", tone.color)}>
+            {tone.label}
+          </p>
           <p className="text-sm font-medium text-white leading-tight">{statusText}</p>
           <p className="text-[11px] text-zinc-400 mt-0.5">
             {timeAgo(lastRound.timestamp)}

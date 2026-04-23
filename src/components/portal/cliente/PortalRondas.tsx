@@ -264,11 +264,14 @@ export function PortalRondas({ selectedInstallation }: Props) {
             >
               <Icon className="h-3.5 w-3.5" /> {cfg.label}
             </span>
-            <span className="text-xs text-zinc-500">
-              {new Date(selected.scheduledAt).toLocaleDateString("es-CL", {
+            <span className="text-xs text-zinc-400 tabular-nums">
+              {new Date(selected.scheduledAt).toLocaleString("es-CL", {
                 day: "2-digit",
                 month: "short",
                 year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
               })}
             </span>
           </div>
@@ -286,7 +289,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
               <p className="text-lg font-bold text-white">
-                {selected.porcentajeCompletado}%
+                {Math.round(selected.porcentajeCompletado)}%
               </p>
               <p className="text-[10px] text-zinc-500">Completado</p>
             </div>
@@ -480,16 +483,20 @@ export function PortalRondas({ selectedInstallation }: Props) {
                   <span
                     className={cn(
                       "inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full",
-                      cfg.color
+                      cfg.color,
+                      r.status === "en_curso" && "ring-1 ring-amber-400/50 animate-pulse",
                     )}
                   >
                     <Icon className="h-3 w-3" /> {cfg.label}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-zinc-500">
-                      {new Date(r.scheduledAt).toLocaleDateString("es-CL", {
+                    <span className="text-[11px] text-zinc-400 tabular-nums">
+                      {new Date(r.scheduledAt).toLocaleString("es-CL", {
                         day: "2-digit",
                         month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
                       })}
                     </span>
                     {loadingDetail ? (
@@ -513,7 +520,7 @@ export function PortalRondas({ selectedInstallation }: Props) {
                         {r.checkpointsCompletados}/{r.checkpointsTotal}{" "}
                         checkpoints
                       </span>
-                      <span>{r.porcentajeCompletado}%</span>
+                      <span>{Math.round(r.porcentajeCompletado)}%</span>
                     </div>
                     <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
                       <div

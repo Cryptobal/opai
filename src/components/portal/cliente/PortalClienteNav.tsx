@@ -27,13 +27,21 @@ const GROUP_LABELS: Record<NavGroup, string> = {
   proveedor: 'Mi Proveedor',
 }
 
-// Fixed bottom-nav tabs — same for prospect and client.
-const MAIN_TABS: PortalSection[] = ['dashboard', 'instalaciones', 'rondas', 'chat']
+// Fixed bottom-nav tabs — priorizamos lo operativo (lo que el cliente
+// realmente abre a diario): rondas, accesos y tickets. `instalaciones`
+// pasa a vivir dentro del menú "Más" junto con el resto del detalle.
+const MAIN_TABS: PortalSection[] = [
+  'dashboard',
+  'rondas',
+  'control-acceso',
+  'tickets',
+  'chat',
+]
 
 // Grouped items shown inside the "Más" menu.
 const GROUPED_ITEMS: Record<NavGroup, PortalSection[]> = {
-  operaciones: ['marcaciones', 'posta', 'equipamiento', 'control-acceso', 'desempeno'],
-  mensajes: ['tickets', 'alertas', 'encuestas'],
+  operaciones: ['instalaciones', 'marcaciones', 'posta', 'equipamiento', 'desempeno'],
+  mensajes: ['alertas', 'encuestas'],
   analisis: ['reportes', 'comparativa'],
   documentos: ['documentacion', 'cotizaciones'],
   proveedor: ['empresa', 'nosotros', 'presentacion'],
