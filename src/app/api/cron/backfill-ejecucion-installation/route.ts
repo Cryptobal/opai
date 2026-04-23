@@ -9,9 +9,14 @@
  *
  * Uso:
  *   curl -H "Authorization: Bearer $CRON_SECRET" \
- *        "https://app.opai.cl/api/admin/backfill-ejecucion-installation?dryRun=1"
+ *        "https://app.opai.cl/api/cron/backfill-ejecucion-installation?dryRun=1"
  *   curl -H "Authorization: Bearer $CRON_SECRET" \
- *        "https://app.opai.cl/api/admin/backfill-ejecucion-installation"
+ *        "https://app.opai.cl/api/cron/backfill-ejecucion-installation"
+ *
+ * Nota: vive bajo /api/cron/* porque esa prefijo está exento de auth de
+ * usuario vía middleware. La auth real la hace el propio endpoint con
+ * Bearer CRON_SECRET. No está en vercel.json#crons porque es one-shot
+ * (no debe correr en schedule).
  *
  * Idempotente: solo toca filas donde installation_id IS NULL.
  * Se puede eliminar el archivo una vez aplicado (queda en git history).
