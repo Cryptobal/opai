@@ -53,6 +53,22 @@ describe("calcCellStatus", () => {
       fisico: "ok",
     });
   });
+
+  it("treats no_aplica as digital ok (doc sin vencimiento)", () => {
+    const result = calcCellStatus("no_aplica", null);
+    expect(result).toEqual<CellStatus>({
+      digital: "ok",
+      fisico: "pendiente",
+    });
+  });
+
+  it("no_aplica + fisica verificada cuenta como celda completa", () => {
+    const result = calcCellStatus("no_aplica", true);
+    expect(result).toEqual<CellStatus>({
+      digital: "ok",
+      fisico: "ok",
+    });
+  });
 });
 
 describe("calcCompliancePercent", () => {

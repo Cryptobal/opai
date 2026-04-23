@@ -10,13 +10,17 @@ export type CellStatus = {
  * Derive cell display status from digital doc status + last physical verification.
  * @param digitalStatus - "vigente" | "por_vencer" | "vencido" | "sin_documento" | "no_aplica"
  * @param fisicaPresente - true=found, false=not found, null=never checked
+ *
+ * Nota: "no_aplica" significa que el documento existe y no tiene vencimiento aplicable
+ * (ej. Reglamento Interno). Se cuenta como OK, coherente con el resto del sistema
+ * (config global, portal cliente, ficha instalación, DocStatusBadge).
  */
 export function calcCellStatus(
   digitalStatus: string,
   fisicaPresente: boolean | null,
 ): CellStatus {
   let digital: DigitalStatus;
-  if (digitalStatus === "vigente") {
+  if (digitalStatus === "vigente" || digitalStatus === "no_aplica") {
     digital = "ok";
   } else if (digitalStatus === "por_vencer") {
     digital = "alerta";

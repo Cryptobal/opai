@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
+import { calcDocStatus } from "@/lib/docs-operacionales";
 
 export async function PUT(
   request: NextRequest,
@@ -27,7 +28,13 @@ export async function PUT(
     if (body.normativa !== undefined) data.normativa = body.normativa?.trim() || null;
     if (body.obligatorio !== undefined) data.obligatorio = body.obligatorio;
     if (body.tieneVencimiento !== undefined) data.tieneVencimiento = body.tieneVencimiento;
-    if (body.diasAlerta !== undefined) data.diasAlerta = body.diasAlerta;
+    if (body.diasAlerta !== undefined) {
+      const n = Number(body.diasAlerta);
+      if (!Number.isFinite(n) || n < 0 || n > 365) {
+        return NextResponse.json({ success: false, error: "diasAlerta debe estar entre 0 y 365" }, { status: 400 });
+      }
+      data.diasAlerta = Math.round(n);
+    }
     if (body.order !== undefined) data.order = body.order;
     if (body.obligatorioEnVisita !== undefined) data.obligatorioEnVisita = body.obligatorioEnVisita;
 
@@ -35,6 +42,28 @@ export async function PUT(
       where: { id },
       data,
     });
+
+    // Si cambia el esquema de vencimiento, recalcular el status de los documentos asociados
+    // para que la UI refleje el cambio sin esperar al cron.
+    const vencimientoChanged =
+      (body.tieneVencimiento !== undefined && body.tieneVencimiento !== tipo.tieneVencimiento) ||
+      (body.diasAlerta !== undefined && Number(body.diasAlerta) !== tipo.diasAlerta);
+
+    if (vencimientoChanged) {
+      const docs = await prisma.docOperacional.findMany({
+        where: { tenantId: ctx.tenantId, tipoId: id },
+        select: { id: true, expiresAt: true, status: true },
+      });
+      for (const doc of docs) {
+        const newStatus = calcDocStatus(doc.expiresAt, updated.tieneVencimiento, updated.diasAlerta);
+        if (newStatus !== doc.status) {
+          await prisma.docOperacional.update({
+            where: { id: doc.id },
+            data: { status: newStatus },
+          });
+        }
+      }
+    }
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {

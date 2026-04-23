@@ -238,6 +238,26 @@ export const NOTIFICATION_TYPES: NotificationTypeDef[] = [
     defaultEmail: true,
   },
 
+  // ── Operaciones - Documentos operacionales (requiere ops) ──
+  {
+    key: "doc_operacional_expiring",
+    label: "Doc. operacional por vencer",
+    description: "Cuando un documento operacional (OS10, Seguro, RIOHS, etc.) está próximo a vencer",
+    module: "ops",
+    category: "Operaciones - Documentos",
+    defaultBell: true,
+    defaultEmail: true,
+  },
+  {
+    key: "doc_operacional_expired",
+    label: "Doc. operacional vencido",
+    description: "Cuando un documento operacional (OS10, Seguro, RIOHS, etc.) ha vencido",
+    module: "ops",
+    category: "Operaciones - Documentos",
+    defaultBell: true,
+    defaultEmail: true,
+  },
+
   // ── Operaciones - Guardias (requiere ops.guardias) ──
   {
     key: "guardia_doc_expiring",

@@ -207,7 +207,18 @@ function EmpresaTab({
 
   // Tipo editing
   const [editTipo, setEditTipo] = useState<TipoDoc | null>(null);
-  const [editForm, setEditForm] = useState({ nombre: "", normativa: "", obligatorio: false, obligatorioEnVisita: true });
+  const [editDoc, setEditDoc] = useState<DocGlobal | null>(null);
+  const [editForm, setEditForm] = useState({
+    nombre: "",
+    normativa: "",
+    obligatorio: false,
+    obligatorioEnVisita: true,
+    tieneVencimiento: true,
+    diasAlerta: 30,
+    issuedAt: "",
+    expiresAt: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
   const [deleteTipoId, setDeleteTipoId] = useState<string | null>(null);
   const [addTipoOpen, setAddTipoOpen] = useState(false);
   const [addTipoForm, setAddTipoForm] = useState({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true });
@@ -264,16 +275,50 @@ function EmpresaTab({
 
   const handleEditTipo = async () => {
     if (!editTipo) return;
+    setSavingEdit(true);
     try {
+      const tipoBody: Record<string, unknown> = {
+        nombre: editForm.nombre,
+        normativa: editForm.normativa || null,
+        obligatorio: editForm.obligatorio,
+        obligatorioEnVisita: editForm.obligatorioEnVisita,
+        tieneVencimiento: editForm.tieneVencimiento,
+      };
+      if (editForm.tieneVencimiento) {
+        tipoBody.diasAlerta = Math.max(0, Math.round(Number(editForm.diasAlerta) || 0));
+      }
       const res = await fetch(`/api/operacional/tipos/${editTipo.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: editForm.nombre, normativa: editForm.normativa || null, obligatorio: editForm.obligatorio, obligatorioEnVisita: editForm.obligatorioEnVisita }),
+        body: JSON.stringify(tipoBody),
       });
       const json = await res.json();
-      if (json.success) { toast.success("Tipo actualizado"); setEditTipo(null); await onRefresh(); }
-      else toast.error(json.error || "Error");
+      if (!json.success) { toast.error(json.error || "Error"); return; }
+
+      // Si hay un documento asociado y cambiaron las fechas, actualizar el doc también.
+      if (editDoc) {
+        const docBody: Record<string, unknown> = {};
+        const issuedAtChanged = (editForm.issuedAt || "") !== (editDoc.issuedAt || "");
+        const expiresAtChanged = (editForm.expiresAt || "") !== (editDoc.expiresAt || "");
+        if (issuedAtChanged) docBody.issuedAt = editForm.issuedAt || null;
+        if (expiresAtChanged) docBody.expiresAt = editForm.expiresAt || null;
+        if (Object.keys(docBody).length > 0) {
+          const docRes = await fetch(`/api/operacional/documentos-globales/${editDoc.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(docBody),
+          });
+          const docJson = await docRes.json();
+          if (!docJson.success) { toast.error(docJson.error || "Tipo guardado, pero falló actualizar fechas"); return; }
+        }
+      }
+
+      toast.success("Tipo actualizado");
+      setEditTipo(null);
+      setEditDoc(null);
+      await onRefresh();
     } catch { toast.error("Error al actualizar"); }
+    finally { setSavingEdit(false); }
   };
 
   const handleDeleteTipo = async (id: string) => {
@@ -396,7 +441,20 @@ function EmpresaTab({
                 <div className="shrink-0">{doc ? <DocStatusBadge status={doc.status} expiresAt={doc.expiresAt} /> : <DocStatusBadge status="sin_documento" />}</div>
                 <VisitaCheckbox tipo={tipo} onRefresh={onRefresh} />
                 <div className="flex items-center gap-0.5 shrink-0">
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditTipo(tipo); setEditForm({ nombre: tipo.nombre, normativa: tipo.normativa || "", obligatorio: tipo.obligatorio, obligatorioEnVisita: tipo.obligatorioEnVisita }); }} title="Editar tipo">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
+                    setEditTipo(tipo);
+                    setEditDoc(doc ?? null);
+                    setEditForm({
+                      nombre: tipo.nombre,
+                      normativa: tipo.normativa || "",
+                      obligatorio: tipo.obligatorio,
+                      obligatorioEnVisita: tipo.obligatorioEnVisita,
+                      tieneVencimiento: tipo.tieneVencimiento,
+                      diasAlerta: tipo.diasAlerta ?? 30,
+                      issuedAt: doc?.issuedAt ?? "",
+                      expiresAt: doc?.expiresAt ?? "",
+                    });
+                  }} title="Editar tipo">
                     <Pencil className="h-3 w-3" />
                   </Button>
                   {doc?.fileUrl && (
@@ -440,8 +498,8 @@ function EmpresaTab({
       />
 
       {/* Edit Tipo Modal */}
-      <Dialog open={!!editTipo} onOpenChange={(open) => !open && setEditTipo(null)}>
-        <DialogContent className="sm:max-w-sm">
+      <Dialog open={!!editTipo} onOpenChange={(open) => { if (!open) { setEditTipo(null); setEditDoc(null); } }}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Editar tipo</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -460,10 +518,63 @@ function EmpresaTab({
               <input type="checkbox" id="edit-oblig-visita" checked={editForm.obligatorioEnVisita} onChange={(e) => setEditForm((p) => ({ ...p, obligatorioEnVisita: e.target.checked }))} className="rounded border-border" />
               <Label htmlFor="edit-oblig-visita" className="text-xs cursor-pointer">Supervisor debe verificar físicamente en visita</Label>
             </div>
+
+            <div className="pt-2 border-t border-border">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="edit-tiene-venc"
+                  checked={editForm.tieneVencimiento}
+                  onChange={(e) => setEditForm((p) => ({ ...p, tieneVencimiento: e.target.checked }))}
+                  className="rounded border-border"
+                />
+                <Label htmlFor="edit-tiene-venc" className="text-xs cursor-pointer">Tiene fecha de vencimiento</Label>
+              </div>
+              {editForm.tieneVencimiento && (
+                <div className="mt-2 space-y-1.5">
+                  <Label className="text-xs">Avisar X días antes del vencimiento</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={365}
+                    value={editForm.diasAlerta}
+                    onChange={(e) => setEditForm((p) => ({ ...p, diasAlerta: Number(e.target.value) }))}
+                  />
+                  <p className="text-[10px] text-muted-foreground">Default: 30 días. Cuando el documento entra en esta ventana pasa a estado &quot;Por vencer&quot;.</p>
+                </div>
+              )}
+            </div>
+
+            {editDoc && editForm.tieneVencimiento && (
+              <div className="pt-2 border-t border-border space-y-1.5">
+                <Label className="text-xs font-medium">Documento cargado: {editDoc.fileName}</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Fecha emisión</Label>
+                    <Input
+                      type="date"
+                      value={editForm.issuedAt}
+                      onChange={(e) => setEditForm((p) => ({ ...p, issuedAt: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Fecha vencimiento</Label>
+                    <Input
+                      type="date"
+                      value={editForm.expiresAt}
+                      onChange={(e) => setEditForm((p) => ({ ...p, expiresAt: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditTipo(null)}>Cancelar</Button>
-            <Button onClick={handleEditTipo}>Guardar</Button>
+            <Button variant="outline" onClick={() => { setEditTipo(null); setEditDoc(null); }} disabled={savingEdit}>Cancelar</Button>
+            <Button onClick={handleEditTipo} disabled={savingEdit}>
+              {savingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Guardar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -523,23 +634,43 @@ function InstalacionTab({
   onRefresh: () => Promise<void>;
 }) {
   const [editTipo, setEditTipo] = useState<TipoDoc | null>(null);
-  const [editForm, setEditForm] = useState({ nombre: "", normativa: "", obligatorio: false, obligatorioEnVisita: true });
+  const [editForm, setEditForm] = useState({
+    nombre: "",
+    normativa: "",
+    obligatorio: false,
+    obligatorioEnVisita: true,
+    tieneVencimiento: true,
+    diasAlerta: 30,
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
   const [deleteTipoId, setDeleteTipoId] = useState<string | null>(null);
   const [addTipoOpen, setAddTipoOpen] = useState(false);
   const [addTipoForm, setAddTipoForm] = useState({ nombre: "", normativa: "", obligatorio: false, tieneVencimiento: true, obligatorioEnVisita: true });
 
   const handleEditTipo = async () => {
     if (!editTipo) return;
+    setSavingEdit(true);
     try {
+      const body: Record<string, unknown> = {
+        nombre: editForm.nombre,
+        normativa: editForm.normativa || null,
+        obligatorio: editForm.obligatorio,
+        obligatorioEnVisita: editForm.obligatorioEnVisita,
+        tieneVencimiento: editForm.tieneVencimiento,
+      };
+      if (editForm.tieneVencimiento) {
+        body.diasAlerta = Math.max(0, Math.round(Number(editForm.diasAlerta) || 0));
+      }
       const res = await fetch(`/api/operacional/tipos/${editTipo.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: editForm.nombre, normativa: editForm.normativa || null, obligatorio: editForm.obligatorio, obligatorioEnVisita: editForm.obligatorioEnVisita }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (json.success) { toast.success("Tipo actualizado"); setEditTipo(null); await onRefresh(); }
       else toast.error(json.error || "Error");
     } catch { toast.error("Error al actualizar"); }
+    finally { setSavingEdit(false); }
   };
 
   const handleDeleteTipo = async (id: string) => {
@@ -618,7 +749,17 @@ function InstalacionTab({
                 </div>
                 <VisitaCheckbox tipo={tipo} onRefresh={onRefresh} />
                 <div className="flex items-center gap-0.5 shrink-0">
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setEditTipo(tipo); setEditForm({ nombre: tipo.nombre, normativa: tipo.normativa || "", obligatorio: tipo.obligatorio, obligatorioEnVisita: tipo.obligatorioEnVisita }); }} title="Editar tipo">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
+                    setEditTipo(tipo);
+                    setEditForm({
+                      nombre: tipo.nombre,
+                      normativa: tipo.normativa || "",
+                      obligatorio: tipo.obligatorio,
+                      obligatorioEnVisita: tipo.obligatorioEnVisita,
+                      tieneVencimiento: tipo.tieneVencimiento,
+                      diasAlerta: tipo.diasAlerta ?? 30,
+                    });
+                  }} title="Editar tipo">
                     <Pencil className="h-3 w-3" />
                   </Button>
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400" onClick={() => setDeleteTipoId(tipo.id)} title="Eliminar tipo">
@@ -652,10 +793,39 @@ function InstalacionTab({
               <input type="checkbox" id="edit-i-oblig-visita" checked={editForm.obligatorioEnVisita} onChange={(e) => setEditForm((p) => ({ ...p, obligatorioEnVisita: e.target.checked }))} className="rounded border-border" />
               <Label htmlFor="edit-i-oblig-visita" className="text-xs cursor-pointer">Supervisor debe verificar físicamente en visita</Label>
             </div>
+
+            <div className="pt-2 border-t border-border">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="edit-i-tiene-venc"
+                  checked={editForm.tieneVencimiento}
+                  onChange={(e) => setEditForm((p) => ({ ...p, tieneVencimiento: e.target.checked }))}
+                  className="rounded border-border"
+                />
+                <Label htmlFor="edit-i-tiene-venc" className="text-xs cursor-pointer">Tiene fecha de vencimiento</Label>
+              </div>
+              {editForm.tieneVencimiento && (
+                <div className="mt-2 space-y-1.5">
+                  <Label className="text-xs">Avisar X días antes del vencimiento</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={365}
+                    value={editForm.diasAlerta}
+                    onChange={(e) => setEditForm((p) => ({ ...p, diasAlerta: Number(e.target.value) }))}
+                  />
+                  <p className="text-[10px] text-muted-foreground">Default: 30 días. Aplica a todas las instalaciones.</p>
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditTipo(null)}>Cancelar</Button>
-            <Button onClick={handleEditTipo}>Guardar</Button>
+            <Button variant="outline" onClick={() => setEditTipo(null)} disabled={savingEdit}>Cancelar</Button>
+            <Button onClick={handleEditTipo} disabled={savingEdit}>
+              {savingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Guardar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
