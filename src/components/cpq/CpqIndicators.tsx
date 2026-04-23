@@ -52,6 +52,35 @@ export function CpqIndicators({ className }: { className?: string }) {
     }
   }, []);
 
+  // El botón "Actualizar" no solo re-lee BD: fuerza un re-fetch desde la
+  // fuente externa (CMF con fallback a mindicador.cl). Esto resuelve el
+  // caso en que el cron queda desincronizado y el usuario necesita forzar.
+  const refreshIndicators = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/fx/indicators/refresh", {
+        method: "POST",
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        // Fallback: leer lo que haya en BD para no dejar el widget vacío.
+        await fetchIndicators();
+        return;
+      }
+      const json = await res.json();
+      if (json.success && json.data) {
+        setData(json.data);
+      } else {
+        await fetchIndicators();
+      }
+    } catch (error) {
+      console.error("Error refreshing FX indicators:", error);
+      await fetchIndicators();
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchIndicators]);
+
   useEffect(() => {
     fetchIndicators();
     const interval = setInterval(fetchIndicators, 5 * 60 * 1000); // cada 5 min
@@ -102,10 +131,10 @@ export function CpqIndicators({ className }: { className?: string }) {
         </div>
       )}
 
-      {/* Refresh button */}
+      {/* Refresh button: fuerza re-sync desde CMF/mindicador.cl */}
       <button
         type="button"
-        onClick={fetchIndicators}
+        onClick={refreshIndicators}
         disabled={loading}
         className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
         aria-label="Actualizar indicadores"
