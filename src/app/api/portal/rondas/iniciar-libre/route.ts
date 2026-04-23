@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getPusherServer } from "@/lib/chat";
+import { broadcastToPortalCliente } from "@/lib/rondas/realtime-portal-cliente";
 import { getChileDayOfWeek, parseChileHour } from "@/lib/rondas/timezone";
 
 const schema = z.object({
@@ -210,7 +211,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Notify monitoreo desktop in real-time
+    // Notify monitoreo desktop in real-time (+ portal cliente del accountId)
     try {
       const pusher = getPusherServer();
       await pusher.trigger(`monitoreo-${tenantId}`, "ronda-started", {
@@ -218,6 +219,12 @@ export async function POST(request: NextRequest) {
         guardiaId,
         installationId,
         isAdHoc: true,
+      });
+      await broadcastToPortalCliente({
+        event: "ronda-started",
+        ejecucionId: ejecucion.id,
+        installationId,
+        payload: { isAdHoc: true },
       });
     } catch (pusherErr) {
       console.error("[INICIAR_LIBRE] Pusher trigger failed:", pusherErr);

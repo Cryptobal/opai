@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { calculateRondaTrustScore } from "@/lib/rondas/trust-score-v2";
 import { autoPopulateCNFromRonda } from "@/lib/rondas/auto-populate-grid";
 import { getPusherServer } from "@/lib/chat";
+import { broadcastToPortalCliente } from "@/lib/rondas/realtime-portal-cliente";
 
 export async function POST(request: NextRequest) {
   try {
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Fire-and-forget Pusher event
+    // Fire-and-forget Pusher event (monitoreo interno + portal cliente)
     try {
       const pusher = getPusherServer();
       await pusher.trigger(`monitoreo-${execution.tenantId}`, "ronda-completed", {
@@ -184,6 +185,16 @@ export async function POST(request: NextRequest) {
     } catch (pusherErr) {
       console.error("[COMPLETAR] Pusher trigger failed:", pusherErr);
     }
+    await broadcastToPortalCliente({
+      event: "ronda-completed",
+      ejecucionId: updated.id,
+      installationId: execution.rondaTemplate?.installationId ?? execution.installationId ?? null,
+      payload: {
+        status: updated.status,
+        trustScore: trustResult.score,
+        porcentajeCompletado: pct,
+      },
+    });
 
     // Auto-populate CN grid in background — don't block the response
     const instId = execution.rondaTemplate?.installationId ?? execution.installationId;
