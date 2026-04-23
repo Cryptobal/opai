@@ -185,10 +185,16 @@ describe("GET /api/portal/cliente/summary", () => {
       >[0],
     );
 
+    // El portal cliente resuelve la instalación tanto por `installationId`
+    // directo como vía `rondaTemplate.installationId` (las rondas programadas
+    // por cron guardan installationId = null y sólo se linkean por template).
     for (const call of rondaFindMany.mock.calls) {
       expect(call[0].where).toMatchObject({
         tenantId: "tenant-A",
-        installationId: "inst-1",
+        OR: [
+          { installationId: "inst-1" },
+          { rondaTemplate: { installationId: "inst-1" } },
+        ],
       });
     }
     expect(ticketCount).toHaveBeenCalledWith(
