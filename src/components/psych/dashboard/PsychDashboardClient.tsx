@@ -50,7 +50,7 @@ export default function PsychDashboardClient() {
   }, []);
 
   if (!data || !list) {
-    return <div className="text-slate-500">Cargando…</div>;
+    return <div className="text-muted-foreground">Cargando…</div>;
   }
 
   const totalEvaluated = Object.values(data.metrics.statusCounts).reduce(
@@ -63,18 +63,18 @@ export default function PsychDashboardClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2">
         <Link
           href="/personas/psicolaboral/configuracion"
-          className="text-sm rounded-lg border border-slate-300 px-3 py-2 text-slate-700"
+          className="text-sm rounded-lg border border-border px-3 py-2 text-foreground/90 text-center min-h-[44px] flex items-center justify-center"
         >
           Configuración
         </Link>
         <Link
           href="/personas/psicolaboral/nuevo"
-          className="text-sm rounded-lg bg-slate-900 text-white px-3 py-2"
+          className="text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-2 text-center min-h-[44px] flex items-center justify-center"
         >
-          Nueva evaluación
+          + Nueva evaluación
         </Link>
       </div>
       <PsychMetricsCards
@@ -85,7 +85,7 @@ export default function PsychDashboardClient() {
         average={data.metrics.averageScore}
       />
       <div>
-        <h2 className="text-lg font-semibold text-slate-900 mb-3">
+        <h2 className="text-lg font-semibold text-foreground mb-3">
           Evaluaciones ({list.total})
         </h2>
         <PsychAssessmentsTable rows={list.rows} />

@@ -52,7 +52,7 @@ export default function PsychConfigForm() {
       });
   }, []);
 
-  if (!cfg) return <p className="text-slate-500">Cargando…</p>;
+  if (!cfg) return <p className="text-muted-foreground">Cargando…</p>;
 
   async function handleSave() {
     setSaving(true);
@@ -80,15 +80,15 @@ export default function PsychConfigForm() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <section className="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 className="font-semibold text-slate-900 mb-4">Pesos por dimensión</h3>
+      <section className="bg-card rounded-xl border border-border p-5">
+        <h3 className="font-semibold text-foreground mb-4">Pesos por dimensión</h3>
         <div className="space-y-3">
           {PSYCH_DIMENSIONS.map((dim) => {
             const field = DIMENSION_WEIGHT_FIELD[dim];
             const value = cfg[field] as number;
             return (
               <div key={dim} className="grid grid-cols-[1fr_120px_60px] gap-3 items-center">
-                <label className="text-sm text-slate-700">{PSYCH_DIMENSION_LABELS[dim]}</label>
+                <label className="text-sm text-foreground/90">{PSYCH_DIMENSION_LABELS[dim]}</label>
                 <input
                   type="range"
                   min={0.5}
@@ -97,29 +97,29 @@ export default function PsychConfigForm() {
                   value={value}
                   onChange={(e) => setWeight(dim, Number(e.target.value))}
                 />
-                <span className="text-sm text-slate-700 text-right">{value.toFixed(1)}</span>
+                <span className="text-sm text-foreground/90 text-right">{value.toFixed(1)}</span>
               </div>
             );
           })}
         </div>
       </section>
 
-      <section className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
-        <h3 className="font-semibold text-slate-900">Umbrales y políticas</h3>
+      <section className="bg-card rounded-xl border border-border p-5 space-y-3">
+        <h3 className="font-semibold text-foreground">Umbrales y políticas</h3>
         <NumRow label="Umbral apto (score ≥)" value={cfg.thresholdFit} min={40} max={100} onChange={(v) => setCfg({ ...cfg, thresholdFit: v })} />
         <NumRow label="Umbral con observación (score ≥)" value={cfg.thresholdCaution} min={20} max={99} onChange={(v) => setCfg({ ...cfg, thresholdCaution: v })} />
         <NumRow label="Expiración del enlace (horas)" value={cfg.invitationTTLHours} min={1} max={720} onChange={(v) => setCfg({ ...cfg, invitationTTLHours: v })} />
-        <label className="flex items-center gap-2 text-sm text-slate-700">
+        <label className="flex items-center gap-2 text-sm text-foreground/90">
           <input type="checkbox" checked={cfg.requirePsychReview} onChange={(e) => setCfg({ ...cfg, requirePsychReview: e.target.checked })} />
           Requerir revisión de psicólogo antes de publicar banda final.
         </label>
       </section>
 
       <div className="flex items-center gap-3">
-        <button onClick={handleSave} disabled={saving} className="rounded-lg bg-slate-900 text-white px-4 py-2 disabled:opacity-50">
+        <button onClick={handleSave} disabled={saving} className="rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 disabled:opacity-50">
           {saving ? "Guardando…" : "Guardar"}
         </button>
-        {msg ? <span className="text-sm text-slate-600">{msg}</span> : null}
+        {msg ? <span className="text-sm text-muted-foreground">{msg}</span> : null}
       </div>
     </div>
   );
@@ -127,9 +127,9 @@ export default function PsychConfigForm() {
 
 function NumRow({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (v: number) => void }) {
   return (
-    <label className="grid grid-cols-[1fr_120px] items-center gap-3 text-sm text-slate-700">
+    <label className="grid grid-cols-[1fr_120px] items-center gap-3 text-sm text-foreground/90">
       <span>{label}</span>
-      <input type="number" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="rounded-lg border border-slate-300 px-2 py-1" />
+      <input type="number" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="rounded-lg border border-border px-2 py-1" />
     </label>
   );
 }

@@ -75,18 +75,18 @@ export default function AtsPsychPanel({ personaId, candidateName }: Props) {
   if (err) {
     return <p className="text-sm text-rose-700">No se pudo cargar: {err}</p>;
   }
-  if (!rows) return <p className="text-sm text-slate-500">Cargando…</p>;
+  if (!rows) return <p className="text-sm text-muted-foreground">Cargando…</p>;
 
   const last = rows[0];
 
   if (!last) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm">
-        <p className="text-slate-600 mb-3">Sin evaluación psicolaboral.</p>
+      <div className="rounded-xl border border-dashed border-border p-4 text-sm">
+        <p className="text-muted-foreground mb-3">Sin evaluación psicolaboral.</p>
         <button
           onClick={handleInvite}
           disabled={busy}
-          className="rounded-lg bg-slate-900 text-white px-3 py-2 text-sm disabled:opacity-50"
+          className="rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-2 text-sm disabled:opacity-50"
         >
           {busy ? "Creando…" : "Invitar a evaluación"}
         </button>
@@ -97,34 +97,34 @@ export default function AtsPsychPanel({ personaId, candidateName }: Props) {
   const notRec = last.result?.band === "NOT_RECOMMENDED";
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             {STATUS_LABEL[last.status] ?? last.status}
           </p>
           {last.result ? (
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-xl font-semibold text-slate-900">
+              <span className="text-xl font-semibold text-foreground">
                 {last.result.globalScore.toFixed(1)}
               </span>
               <PsychBandBadge band={last.result.band} />
             </div>
           ) : (
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Enviada el {new Date(last.createdAt).toLocaleDateString("es-CL")}
             </p>
           )}
         </div>
         <Link
           href={`/personas/psicolaboral/${last.id}`}
-          className="text-xs text-slate-700 underline"
+          className="text-xs text-foreground/90 underline"
         >
           Ver detalle
         </Link>
       </div>
       {last.result?.alerts && last.result.alerts.length > 0 ? (
-        <ul className="text-xs text-slate-600 space-y-1">
+        <ul className="text-xs text-muted-foreground space-y-1">
           {last.result.alerts.slice(0, 3).map((a, i) => (
             <li key={i}>• {a.message}</li>
           ))}

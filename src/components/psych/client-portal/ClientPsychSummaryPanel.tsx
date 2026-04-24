@@ -34,11 +34,11 @@ export default function ClientPsychSummaryPanel({ distribution }: Props) {
   ];
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
-      <h3 className="text-base font-semibold text-slate-900">
+    <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+      <h3 className="text-base font-semibold text-foreground">
         Distribución agregada
       </h3>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         Sin información individual. Los porcentajes se calculan sobre el total
         de guardias asignados a este contrato.
       </p>
@@ -47,13 +47,13 @@ export default function ClientPsychSummaryPanel({ distribution }: Props) {
           const pct = total > 0 ? Math.round((r.count / total) * 100) : 0;
           return (
             <div key={r.label}>
-              <div className="flex justify-between text-xs text-slate-700 mb-1">
+              <div className="flex justify-between text-xs text-foreground/90 mb-1">
                 <span>{r.label}</span>
                 <span>
                   {r.count} · {pct}%
                 </span>
               </div>
-              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div className={`h-full ${r.cls}`} style={{ width: `${pct}%` }} />
               </div>
             </div>

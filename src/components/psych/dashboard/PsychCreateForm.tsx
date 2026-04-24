@@ -3,44 +3,67 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import PsychShareLinkModal from "./PsychShareLinkModal";
+import PersonSelector, { type SelectedPerson } from "./PersonSelector";
+import {
+  SelectedPersonCard,
+  ManualInputs,
+  type ManualForm,
+} from "./PsychCreateFormParts";
+
+const EMPTY_MANUAL: ManualForm = {
+  targetName: "",
+  targetRut: "",
+  targetEmail: "",
+  targetPhone: "",
+};
 
 export default function PsychCreateForm() {
   const router = useRouter();
-  const [form, setForm] = useState({
-    targetName: "",
-    targetRut: "",
-    targetEmail: "",
-    targetPhone: "",
-  });
+  const [selected, setSelected] = useState<SelectedPerson | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [manual, setManual] = useState<ManualForm>(EMPTY_MANUAL);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [result, setResult] = useState<{ assessmentId: string; url: string; expiresAt: string } | null>(null);
+  const [result, setResult] = useState<{
+    assessmentId: string;
+    url: string;
+    expiresAt: string;
+  } | null>(null);
 
-  function handleChange(field: keyof typeof form, value: string) {
-    setForm((f) => ({ ...f, [field]: value }));
-  }
+  const displayName = selected?.displayName ?? manual.targetName;
+  const displayPhone = selected?.phone ?? manual.targetPhone;
+  const displayEmail = selected?.email ?? manual.targetEmail;
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit() {
     setBusy(true);
     setErr(null);
     try {
-      const body = {
-        targetName: form.targetName.trim(),
-        targetRut: form.targetRut.trim() || null,
-        targetEmail: form.targetEmail.trim() || null,
-        targetPhone: form.targetPhone.trim() || null,
-      };
+      const body = selected
+        ? {
+            targetName: selected.displayName,
+            personaId: selected.id,
+            targetRut: selected.rut,
+            targetEmail: selected.email,
+            targetPhone: selected.phone,
+          }
+        : {
+            targetName: manual.targetName.trim(),
+            targetRut: manual.targetRut.trim() || null,
+            targetEmail: manual.targetEmail.trim() || null,
+            targetPhone: manual.targetPhone.trim() || null,
+          };
       const res = await fetch("/api/psych/assessments", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error ?? "No se pudo crear");
-      }
-      setResult({ assessmentId: json.assessmentId, url: json.url, expiresAt: json.expiresAt });
+      if (!res.ok || !json.success) throw new Error(json.error ?? "Error");
+      setResult({
+        assessmentId: json.assessmentId,
+        url: json.url,
+        expiresAt: json.expiresAt,
+      });
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -48,38 +71,63 @@ export default function PsychCreateForm() {
     }
   }
 
+  const canSubmit = selected
+    ? true
+    : manual.targetName.trim().length >= 2;
+
   return (
     <>
-      <form onSubmit={handleSubmit} className="max-w-xl space-y-4 bg-white p-6 rounded-xl border border-slate-200">
-        <Field label="Nombre del candidato *" required>
-          <input required value={form.targetName} onChange={(e) => handleChange("targetName", e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-        </Field>
-        <Field label="RUT">
-          <input value={form.targetRut} onChange={(e) => handleChange("targetRut", e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="12.345.678-9" />
-        </Field>
-        <Field label="Email">
-          <input type="email" value={form.targetEmail} onChange={(e) => handleChange("targetEmail", e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
-        </Field>
-        <Field label="Teléfono (WhatsApp)">
-          <input value={form.targetPhone} onChange={(e) => handleChange("targetPhone", e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="+56 9 1234 5678" />
-        </Field>
-        {err ? <p className="text-sm text-rose-700">{err}</p> : null}
-        <div className="flex gap-2 pt-2">
-          <button type="button" onClick={() => router.back()} className="rounded-lg border border-slate-300 px-4 py-2 text-slate-700">
+      <div className="max-w-2xl space-y-4 bg-card p-5 md:p-6 rounded-xl border border-border">
+        {!selected && !manualMode ? (
+          <>
+            <label className="block text-sm font-medium text-foreground/90 mb-1">
+              Postulante o guardia
+            </label>
+            <PersonSelector onSelect={setSelected} />
+            <button
+              type="button"
+              onClick={() => setManualMode(true)}
+              className="text-xs text-muted-foreground underline"
+            >
+              ¿No está en el sistema? Ingresar datos manualmente
+            </button>
+          </>
+        ) : selected ? (
+          <SelectedPersonCard person={selected} onClear={() => setSelected(null)} />
+        ) : (
+          <ManualInputs
+            form={manual}
+            onChange={(k, v) => setManual((f) => ({ ...f, [k]: v }))}
+            onCancel={() => setManualMode(false)}
+          />
+        )}
+        {err ? <p className="text-sm text-red-600 dark:text-red-400">{err}</p> : null}
+        <div className="flex flex-col sm:flex-row gap-2 pt-2">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="rounded-lg border border-border px-4 py-2 text-foreground/90 min-h-[44px]"
+          >
             Cancelar
           </button>
-          <button type="submit" disabled={busy || !form.targetName.trim()} className="rounded-lg bg-slate-900 text-white px-4 py-2 disabled:opacity-50">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={busy || !canSubmit}
+            className="rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 disabled:opacity-50 min-h-[44px] flex-1"
+          >
             {busy ? "Creando..." : "Generar enlace"}
           </button>
         </div>
-      </form>
+      </div>
       {result ? (
         <PsychShareLinkModal
           assessmentId={result.assessmentId}
           url={result.url}
           expiresAt={result.expiresAt}
-          candidateName={form.targetName}
-          phone={form.targetPhone || null}
+          candidateName={displayName}
+          phone={displayPhone || null}
+          email={displayEmail || null}
           onClose={() => {
             setResult(null);
             router.push("/personas/psicolaboral");
@@ -90,22 +138,3 @@ export default function PsychCreateForm() {
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="text-sm font-medium text-slate-700 mb-1 block">
-        {label}
-        {required ? " " : null}
-      </span>
-      {children}
-    </label>
-  );
-}

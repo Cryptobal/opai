@@ -22,6 +22,7 @@ import { decideBand } from "./band";
 import { buildAlerts } from "./alerts";
 import { analyzeOpenResponse } from "../ai/analyzeOpen";
 import { prepareBuckets, type LoadedAssessmentItem } from "./prepare";
+import { notifyCreatorOfScored } from "./notify";
 
 export async function scoreAssessment(
   assessmentId: string,
@@ -105,8 +106,8 @@ export async function scoreAssessment(
     dimensionScores[d.dimension] = { score: d.score, itemCount: d.itemCount };
   }
 
-  return await prisma.$transaction(async (tx) => {
-    const persisted = await tx.psychResult.upsert({
+  const persisted = await prisma.$transaction(async (tx) => {
+    const r = await tx.psychResult.upsert({
       where: { assessmentId },
       create: {
         assessmentId,
@@ -134,6 +135,14 @@ export async function scoreAssessment(
       where: { id: assessmentId },
       data: { status: "SCORED", scoredAt: new Date() },
     });
-    return persisted;
+    return r;
   });
+
+  // Notificación al creador (email vía Resend) — tolerante a fallo para
+  // nunca bloquear el flujo principal.
+  notifyCreatorOfScored(assessmentId).catch((e) => {
+    console.error("[psych/score] notify failed:", e);
+  });
+
+  return persisted;
 }

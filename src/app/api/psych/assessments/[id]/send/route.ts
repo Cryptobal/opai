@@ -98,6 +98,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     );
   }
 
+  // Evento diferenciado: wa.me solo genera link (no envía nada todavía);
+  // email vía Resend sí es "sent". Resto ("copy-link") no se loguea.
+  const channelsAsked = parsed.data.channels;
+  const event = channelsAsked.includes("whatsapp")
+    ? "psych.invitation.wa_link_generated"
+    : "psych.invitation.sent";
   await logAudit({
     userId: ctx.userId,
     userEmail: ctx.userEmail,
@@ -105,7 +111,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     action: "UPDATE",
     entity: "psych_invitation",
     entityId: id,
-    details: { event: "psych.invitation.sent", results },
+    details: { event, results, channels: channelsAsked },
     request: req,
   });
 

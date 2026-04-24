@@ -66,7 +66,15 @@ export function resolveForChannel(
 }
 
 export const DEFAULT_WHATSAPP_TEMPLATE =
-  "Hola {{nombre}}, te enviamos el test psicolaboral de {{tenant}}. Ábrelo desde tu celular: {{link}} (expira el {{expira}}).";
+  `Hola {{nombre}} 👋, te invitamos a completar una breve evaluación psicolaboral de {{tenant}}.
+
+📱 Toma 20-25 minutos desde tu celular.
+🔒 Tus respuestas son confidenciales.
+📅 Vence el {{expira}}.
+
+{{link}}
+
+Cualquier duda, respondenos por aquí.`;
 
 export const DEFAULT_EMAIL_SUBJECT = "Test psicolaboral — {{tenant}}";
 
