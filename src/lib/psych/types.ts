@@ -105,6 +105,9 @@ export interface ResolvedTenantPsychConfig {
   brandPrimaryColor: string | null;
   defaultVersionCode: string;
   defaultVersionTag: string;
+  // Fase 1.5
+  reevaluationIntervalMonths: number;
+  defaultClientReportLevel: "SEAL" | "SUMMARY" | "FULL";
 }
 
 // ── Scoring intermedio (no se persiste) ──
