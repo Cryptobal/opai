@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { Trash2 } from "lucide-react";
 import PsychBandBadge from "./PsychBandBadge";
+import PsychDeleteDialog from "./PsychDeleteDialog";
 
 interface Row {
   id: string;
@@ -21,7 +24,20 @@ const STATUS_LABEL: Record<string, string> = {
   EXPIRED: "Expirado",
 };
 
-export default function PsychAssessmentsTable({ rows }: { rows: Row[] }) {
+interface Props {
+  rows: Row[];
+  canDelete?: boolean;
+  onDeleted?: () => void;
+}
+
+export default function PsychAssessmentsTable({
+  rows,
+  canDelete = false,
+  onDeleted,
+}: Props) {
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const deletingRow = rows.find((r) => r.id === deletingId);
+
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">
@@ -34,12 +50,14 @@ export default function PsychAssessmentsTable({ rows }: { rows: Row[] }) {
       {/* Mobile: cards stackeadas */}
       <div className="md:hidden grid grid-cols-1 gap-2">
         {rows.map((r) => (
-          <Link
+          <div
             key={r.id}
-            href={`/personas/psicolaboral/${r.id}`}
-            className="rounded-xl border border-border bg-card p-4 flex items-start justify-between gap-3 active:bg-muted/60"
+            className="rounded-xl border border-border bg-card p-4 flex items-start gap-3"
           >
-            <div className="min-w-0 flex-1">
+            <Link
+              href={`/personas/psicolaboral/${r.id}`}
+              className="flex-1 min-w-0 active:opacity-70"
+            >
               <p className="font-medium text-foreground truncate">{r.targetName}</p>
               {r.targetRut ? (
                 <p className="text-xs text-muted-foreground">{r.targetRut}</p>
@@ -48,16 +66,28 @@ export default function PsychAssessmentsTable({ rows }: { rows: Row[] }) {
                 {STATUS_LABEL[r.status] ?? r.status} ·{" "}
                 {new Date(r.createdAt).toLocaleDateString("es-CL")}
               </p>
-            </div>
-            <div className="flex flex-col items-end gap-2">
+            </Link>
+            <div className="flex flex-col items-end gap-2 shrink-0">
               {r.result ? (
                 <span className="text-lg font-semibold text-foreground">
                   {r.result.globalScore.toFixed(1)}
                 </span>
               ) : null}
               <PsychBandBadge band={r.result?.band ?? null} />
+              {canDelete ? (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setDeletingId(r.id);
+                  }}
+                  className="text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded p-1"
+                  aria-label="Eliminar"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              ) : null}
             </div>
-          </Link>
+          </div>
         ))}
       </div>
 
@@ -99,18 +129,39 @@ export default function PsychAssessmentsTable({ rows }: { rows: Row[] }) {
                   {new Date(r.createdAt).toLocaleDateString("es-CL")}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <Link
-                    href={`/personas/psicolaboral/${r.id}`}
-                    className="text-foreground/90 underline"
-                  >
-                    Ver
-                  </Link>
+                  <div className="flex items-center justify-end gap-2">
+                    <Link
+                      href={`/personas/psicolaboral/${r.id}`}
+                      className="text-foreground/90 underline text-xs"
+                    >
+                      Ver
+                    </Link>
+                    {canDelete ? (
+                      <button
+                        onClick={() => setDeletingId(r.id)}
+                        className="text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded p-1"
+                        aria-label="Eliminar"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {deletingId && deletingRow ? (
+        <PsychDeleteDialog
+          assessmentId={deletingId}
+          targetName={deletingRow.targetName}
+          onClose={(deleted) => {
+            setDeletingId(null);
+            if (deleted && onDeleted) onDeleted();
+          }}
+        />
+      ) : null}
     </>
   );
 }

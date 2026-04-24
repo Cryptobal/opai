@@ -36,17 +36,24 @@ interface ListPayload {
 export default function PsychDashboardClient() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [list, setList] = useState<ListPayload | null>(null);
+  const [canDelete, setCanDelete] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
     Promise.all([
       fetch("/api/psych/dashboard").then((r) => r.json()),
       fetch("/api/psych/assessments").then((r) => r.json()),
+      fetch("/api/psych/me").then((r) => r.json()),
     ])
-      .then(([d, l]) => {
+      .then(([d, l, m]) => {
         if (d.success) setData(d);
         if (l.success) setList(l);
+        if (m.success) setCanDelete(!!m.canAdmin);
       })
       .catch(console.error);
+  };
+
+  useEffect(() => {
+    load();
   }, []);
 
   if (!data || !list) {
@@ -64,12 +71,14 @@ export default function PsychDashboardClient() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2">
-        <Link
-          href="/personas/psicolaboral/configuracion"
-          className="text-sm rounded-lg border border-border px-3 py-2 text-foreground/90 text-center min-h-[44px] flex items-center justify-center"
-        >
-          Configuración
-        </Link>
+        {canDelete ? (
+          <Link
+            href="/opai/configuracion/psicolaboral"
+            className="text-sm rounded-lg border border-border px-3 py-2 text-foreground/90 text-center min-h-[44px] flex items-center justify-center"
+          >
+            Configuración
+          </Link>
+        ) : null}
         <Link
           href="/personas/psicolaboral/nuevo"
           className="text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-2 text-center min-h-[44px] flex items-center justify-center"
@@ -88,7 +97,11 @@ export default function PsychDashboardClient() {
         <h2 className="text-lg font-semibold text-foreground mb-3">
           Evaluaciones ({list.total})
         </h2>
-        <PsychAssessmentsTable rows={list.rows} />
+        <PsychAssessmentsTable
+          rows={list.rows}
+          canDelete={canDelete}
+          onDeleted={load}
+        />
       </div>
     </div>
   );
