@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { isTenantModuleEnabled } from "@/lib/tenant-modules";
 import { PageHeader, Breadcrumb } from "@/components/opai";
 import PsychConfigForm from "@/components/psych/dashboard/PsychConfigForm";
+import PsychTemplatesForm from "@/components/psych/dashboard/PsychTemplatesForm";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Configuración psicolaboral" };
@@ -28,6 +29,16 @@ export default async function PsychConfigPage() {
         description="Ajusta pesos por dimensión, umbrales de banda y reglas del tenant."
       />
       <PsychConfigForm />
+      <section className="pt-4 border-t border-slate-200">
+        <h2 className="text-lg font-semibold text-slate-900 mb-1">
+          Plantillas de invitación
+        </h2>
+        <p className="text-sm text-slate-600 mb-4">
+          Personaliza los mensajes que se envían al postulante por WhatsApp,
+          email o SMS cuando generas una evaluación.
+        </p>
+        <PsychTemplatesForm />
+      </section>
     </div>
   );
 }

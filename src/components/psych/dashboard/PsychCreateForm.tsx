@@ -14,7 +14,7 @@ export default function PsychCreateForm() {
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [result, setResult] = useState<{ url: string; expiresAt: string } | null>(null);
+  const [result, setResult] = useState<{ assessmentId: string; url: string; expiresAt: string } | null>(null);
 
   function handleChange(field: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -40,7 +40,7 @@ export default function PsychCreateForm() {
       if (!res.ok || !json.success) {
         throw new Error(json.error ?? "No se pudo crear");
       }
-      setResult({ url: json.url, expiresAt: json.expiresAt });
+      setResult({ assessmentId: json.assessmentId, url: json.url, expiresAt: json.expiresAt });
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -75,6 +75,7 @@ export default function PsychCreateForm() {
       </form>
       {result ? (
         <PsychShareLinkModal
+          assessmentId={result.assessmentId}
           url={result.url}
           expiresAt={result.expiresAt}
           candidateName={form.targetName}
