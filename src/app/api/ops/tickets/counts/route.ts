@@ -69,12 +69,20 @@ export async function GET(request: NextRequest) {
       ...originWhere(type),
     };
 
+    const activeBase: Prisma.OpsTicketWhereInput = {
+      ...filteredWhere,
+      status: { in: [...ACTIVE_STATUSES] },
+    };
+
     const [
       total,
       statusGroup,
       priorityGroup,
       active,
       slaBreached,
+      activeP1,
+      unassigned,
+      mine,
       originAll,
       originInternal,
       originGuard,
@@ -91,16 +99,11 @@ export async function GET(request: NextRequest) {
         where: filteredWhere,
         _count: true,
       }),
-      prisma.opsTicket.count({
-        where: { ...filteredWhere, status: { in: [...ACTIVE_STATUSES] } },
-      }),
-      prisma.opsTicket.count({
-        where: {
-          ...filteredWhere,
-          status: { in: [...ACTIVE_STATUSES] },
-          slaBreached: true,
-        },
-      }),
+      prisma.opsTicket.count({ where: activeBase }),
+      prisma.opsTicket.count({ where: { ...activeBase, slaBreached: true } }),
+      prisma.opsTicket.count({ where: { ...activeBase, priority: "p1" } }),
+      prisma.opsTicket.count({ where: { ...activeBase, assignedTo: null } }),
+      prisma.opsTicket.count({ where: { ...activeBase, assignedTo: ctx.userId } }),
       prisma.opsTicket.count({ where: scopedTenantWhere }),
       prisma.opsTicket.count({
         where: { ...scopedTenantWhere, ...originWhere("internal") },
@@ -143,6 +146,9 @@ export async function GET(request: NextRequest) {
         total,
         active,
         slaBreached,
+        activeP1,
+        unassigned,
+        mine,
         byStatus,
         byPriority,
         byOrigin: {

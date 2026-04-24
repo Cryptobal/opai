@@ -160,6 +160,8 @@ export async function GET(request: NextRequest) {
       originParam === "internal" || originParam === "guard" || originParam === "client"
         ? originParam
         : null;
+    // assignedTo: "me" → ctx.userId, "unassigned" → null, "<uuid>" → that admin id
+    const assignedToParam = searchParams.get("assignedTo");
     const search = searchParams.get("search");
     const slaBreachedOnly = searchParams.get("slaBreached") === "true";
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
@@ -189,6 +191,13 @@ export async function GET(request: NextRequest) {
     if (guardiaId) where.guardiaId = guardiaId;
     if (installationId) where.installationId = installationId;
     if (slaBreachedOnly) where.slaBreached = true;
+    if (assignedToParam === "me") {
+      where.assignedTo = ctx.userId;
+    } else if (assignedToParam === "unassigned") {
+      where.assignedTo = null;
+    } else if (assignedToParam) {
+      where.assignedTo = assignedToParam;
+    }
 
     const andClauses: Prisma.OpsTicketWhereInput[] = [];
     if (origin) andClauses.push(originWhere(origin));

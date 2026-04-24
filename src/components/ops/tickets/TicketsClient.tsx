@@ -14,6 +14,7 @@ import {
   Search,
   Shield,
   ShieldCheck,
+  SlidersHorizontal,
   Ticket as TicketIcon,
   User,
   UserCircle,
@@ -30,6 +31,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   type Ticket,
   type TicketType,
@@ -70,10 +76,16 @@ type TicketCounts = {
   total: number;
   active: number;
   slaBreached: number;
+  activeP1: number;
+  unassigned: number;
+  mine: number;
   byStatus: Record<string, number>;
   byPriority: Record<"p1" | "p2" | "p3" | "p4", number>;
   byOrigin: { all: number; internal: number; guard: number; client: number };
 };
+
+type QuickViewKey = "active" | "p1" | "breached" | "unassigned" | "mine" | "all";
+type AssignedFilter = "any" | "me" | "unassigned";
 
 // ═══════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
@@ -116,6 +128,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [filterTypeId, setFilterTypeId] = useState<string>("all");
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
   const [counts, setCounts] = useState<TicketCounts | null>(null);
+  const [assignedFilter, setAssignedFilter] = useState<AssignedFilter>("any");
+  const [slaOnly, setSlaOnly] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const initialLoadDone = useRef(false);
   const PAGE_SIZE = 50;
@@ -144,9 +159,11 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       params.set("priorities", Array.from(filterPriorities).join(","));
     }
     if (filterTypeId !== "all") params.set("ticketTypeId", filterTypeId);
+    if (assignedFilter !== "any") params.set("assignedTo", assignedFilter);
+    if (slaOnly) params.set("slaBreached", "true");
     if (debouncedSearch) params.set("search", debouncedSearch);
     return params;
-  }, [installationFilterId, originTab, filterStatus, filterPriorities, filterTypeId, debouncedSearch]);
+  }, [installationFilterId, originTab, filterStatus, filterPriorities, filterTypeId, assignedFilter, slaOnly, debouncedSearch]);
 
   // Filter signature: when it changes, results must be replaced from page 1.
   // NOTE: listMode is part of the key because kanban uses a larger page size.
@@ -156,9 +173,11 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     filterStatus,
     priorities: Array.from(filterPriorities).sort(),
     filterTypeId,
+    assignedFilter,
+    slaOnly,
     debouncedSearch,
     listMode,
-  }), [installationFilterId, originTab, filterStatus, filterPriorities, filterTypeId, debouncedSearch, listMode]);
+  }), [installationFilterId, originTab, filterStatus, filterPriorities, filterTypeId, assignedFilter, slaOnly, debouncedSearch, listMode]);
 
   const fetchTickets = useCallback(async (pageNum: number, replace: boolean) => {
     if (replace) setLoading(true);
@@ -279,6 +298,126 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     });
   }
 
+  // Apply a quick-view preset (one-click filter combo).
+  function applyQuickView(key: QuickViewKey) {
+    // Baseline: active only, no priorities, any assignee, no sla flag, no origin/type filter.
+    setOriginTab("all");
+    setFilterTypeId("all");
+    setFilterPriorities(new Set());
+    setAssignedFilter("any");
+    setSlaOnly(false);
+    switch (key) {
+      case "active":
+        setFilterStatus("active");
+        break;
+      case "p1":
+        setFilterStatus("active");
+        setFilterPriorities(new Set(["p1"]));
+        break;
+      case "breached":
+        setFilterStatus("active");
+        setSlaOnly(true);
+        break;
+      case "unassigned":
+        setFilterStatus("active");
+        setAssignedFilter("unassigned");
+        break;
+      case "mine":
+        setFilterStatus("active");
+        setAssignedFilter("me");
+        break;
+      case "all":
+        setFilterStatus("all");
+        break;
+    }
+  }
+
+  // Derive the active quick view from current state (null if custom combo).
+  const activeQuickView: QuickViewKey | null = (() => {
+    const base =
+      originTab === "all" &&
+      filterTypeId === "all" &&
+      !debouncedSearch;
+    if (!base) return null;
+    if (filterStatus === "active" && filterPriorities.size === 0 && assignedFilter === "any" && !slaOnly) {
+      return "active";
+    }
+    if (
+      filterStatus === "active" &&
+      filterPriorities.size === 1 &&
+      filterPriorities.has("p1") &&
+      assignedFilter === "any" &&
+      !slaOnly
+    ) {
+      return "p1";
+    }
+    if (filterStatus === "active" && filterPriorities.size === 0 && assignedFilter === "any" && slaOnly) {
+      return "breached";
+    }
+    if (filterStatus === "active" && filterPriorities.size === 0 && assignedFilter === "unassigned" && !slaOnly) {
+      return "unassigned";
+    }
+    if (filterStatus === "active" && filterPriorities.size === 0 && assignedFilter === "me" && !slaOnly) {
+      return "mine";
+    }
+    if (filterStatus === "all" && filterPriorities.size === 0 && assignedFilter === "any" && !slaOnly) {
+      return "all";
+    }
+    return null;
+  })();
+
+  // Active-filter chips (beyond the quick view baseline).
+  const activeChips: Array<{ key: string; label: string; onClear: () => void }> = [];
+  if (activeQuickView === null) {
+    if (filterStatus === "active") {
+      activeChips.push({ key: "status", label: "Activos", onClear: () => setFilterStatus("all") });
+    } else if (filterStatus !== "all") {
+      const cfg = TICKET_STATUS_CONFIG[filterStatus];
+      activeChips.push({
+        key: "status",
+        label: `Estado: ${cfg?.label ?? filterStatus}`,
+        onClear: () => setFilterStatus("all"),
+      });
+    }
+    if (filterPriorities.size > 0) {
+      const list = Array.from(filterPriorities).map((p) => p.toUpperCase()).join(", ");
+      activeChips.push({
+        key: "priority",
+        label: `Prioridad: ${list}`,
+        onClear: () => setFilterPriorities(new Set()),
+      });
+    }
+    if (slaOnly) {
+      activeChips.push({ key: "sla", label: "SLA vencidos", onClear: () => setSlaOnly(false) });
+    }
+    if (assignedFilter === "me") {
+      activeChips.push({ key: "assigned", label: "Asignados a mí", onClear: () => setAssignedFilter("any") });
+    } else if (assignedFilter === "unassigned") {
+      activeChips.push({ key: "assigned", label: "Sin asignar", onClear: () => setAssignedFilter("any") });
+    }
+  }
+  if (originTab !== "all") {
+    const originLabels = { internal: "Internos", guard: "Guardias", client: "Clientes" } as const;
+    activeChips.push({
+      key: "origin",
+      label: `Origen: ${originLabels[originTab]}`,
+      onClear: () => setOriginTab("all"),
+    });
+  }
+  if (filterTypeId !== "all") {
+    const tt = ticketTypes.find((t) => t.id === filterTypeId);
+    activeChips.push({
+      key: "type",
+      label: `Tipo: ${tt?.name ?? "…"}`,
+      onClear: () => setFilterTypeId("all"),
+    });
+  }
+
+  function resetAllFilters() {
+    applyQuickView("active");
+    setSearchQuery("");
+  }
+
   // Tickets already come filtered from the server; this alias keeps call sites
   // stable during the refactor and is a no-op transformation.
   const filteredTickets = tickets;
@@ -362,64 +501,206 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         />
       </div>
 
-      {/* Totales: banner de conteos globales */}
-      {counts && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-white/10 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          <span>
-            Total: <span className="font-semibold text-foreground">{counts.total}</span>
-          </span>
-          <span className="text-white/20">·</span>
-          <span>
-            Activos: <span className="font-semibold text-foreground">{counts.active}</span>
-          </span>
-          <span className="text-white/20">·</span>
-          <span>
-            Cerrados: <span className="font-semibold text-foreground">{counts.byStatus.closed ?? 0}</span>
-          </span>
-          <span className="text-white/20">·</span>
-          <span>
-            Resueltos: <span className="font-semibold text-foreground">{counts.byStatus.resolved ?? 0}</span>
-          </span>
-          <span className="text-white/20">·</span>
-          <span>
-            P1: <span className="font-semibold text-red-400">{counts.byPriority.p1}</span>
-          </span>
-          <span className="text-white/20">·</span>
-          <span>
-            SLA vencidos: <span className="font-semibold text-red-400">{counts.slaBreached}</span>
-          </span>
-        </div>
-      )}
-
-      {/* Origin tabs + View mode toggle */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      {/* Quick views — one-click filter presets */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
         {([
-          { value: "all" as const, label: "Todos", countKey: "all" as const },
-          { value: "internal" as const, label: "Internos", countKey: "internal" as const },
-          { value: "guard" as const, label: "Guardias", countKey: "guard" as const },
-          { value: "client" as const, label: "Clientes", countKey: "client" as const },
-        ]).map((tab) => {
-          const n = counts?.byOrigin[tab.countKey];
+          { key: "active" as const, label: "Activos", count: counts?.active, tone: "primary" as const },
+          { key: "p1" as const, label: "P1", count: counts?.activeP1, tone: "danger" as const },
+          { key: "breached" as const, label: "SLA vencidos", count: counts?.slaBreached, tone: "danger" as const },
+          { key: "unassigned" as const, label: "Sin asignar", count: counts?.unassigned, tone: "warning" as const },
+          { key: "mine" as const, label: "Míos", count: counts?.mine, tone: "default" as const },
+          { key: "all" as const, label: "Todos", count: counts?.total, tone: "default" as const },
+        ]).map((q) => {
+          const on = activeQuickView === q.key;
+          const toneOn =
+            q.tone === "primary"
+              ? "bg-primary text-primary-foreground"
+              : q.tone === "danger"
+                ? "bg-red-500/15 text-red-300 border-red-500/30"
+                : q.tone === "warning"
+                  ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                  : "bg-background text-foreground border-border";
           return (
             <button
-              key={tab.value}
+              key={q.key}
               type="button"
-              onClick={() => setOriginTab(tab.value)}
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                originTab === tab.value
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
+              onClick={() => applyQuickView(q.key)}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                on ? toneOn : "border-transparent bg-muted/60 text-muted-foreground hover:text-foreground"
               }`}
             >
-              {tab.label}
-              {typeof n === "number" && (
-                <span className="ml-1 opacity-70">({n})</span>
+              {q.label}
+              {typeof q.count === "number" && (
+                <span className="ml-1 opacity-80">({q.count})</span>
               )}
             </button>
           );
         })}
+      </div>
 
-        {/* View mode toggle: Lista / Cards / Kanban / Por instalación */}
+      {/* Toolbar: Filtros popover + view mode */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Filtros
+              {activeChips.length > 0 && (
+                <span className="ml-0.5 rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">
+                  {activeChips.length}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="w-[320px] max-w-[92vw] p-4 space-y-3"
+            onInteractOutside={(e) => {
+              // Nested Radix Selects are portaled OUTSIDE this popover. Without
+              // this guard, opening a Select closes the whole Filtros popover.
+              const target = e.target as HTMLElement | null;
+              if (!target) return;
+              if (
+                target.closest?.("[data-radix-select-content]") ||
+                target.closest?.("[data-radix-select-trigger]") ||
+                target.closest?.("[data-radix-select-viewport]") ||
+                target.closest?.("[role='option']")
+              ) {
+                e.preventDefault();
+              }
+            }}
+          >
+            {/* Estado */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Estado</Label>
+              <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[200]">
+                  <SelectItem value="active">Activos {typeof counts?.active === "number" ? `(${counts.active})` : ""}</SelectItem>
+                  <SelectItem value="all">Todos {typeof counts?.total === "number" ? `(${counts.total})` : ""}</SelectItem>
+                  <SelectItem value="pending_approval">Pend. aprobación {typeof counts?.byStatus.pending_approval === "number" ? `(${counts.byStatus.pending_approval})` : ""}</SelectItem>
+                  <SelectItem value="open">Abierto {typeof counts?.byStatus.open === "number" ? `(${counts.byStatus.open})` : ""}</SelectItem>
+                  <SelectItem value="in_progress">En progreso {typeof counts?.byStatus.in_progress === "number" ? `(${counts.byStatus.in_progress})` : ""}</SelectItem>
+                  <SelectItem value="waiting">En espera {typeof counts?.byStatus.waiting === "number" ? `(${counts.byStatus.waiting})` : ""}</SelectItem>
+                  <SelectItem value="resolved">Resuelto {typeof counts?.byStatus.resolved === "number" ? `(${counts.byStatus.resolved})` : ""}</SelectItem>
+                  <SelectItem value="cancelled">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Prioridad (multi) — sin contadores crudos para no confundir contexto */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Prioridad</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {(Object.entries(TICKET_PRIORITY_CONFIG) as [TicketPriority, (typeof TICKET_PRIORITY_CONFIG)["p1"]][]).map(
+                  ([key, cfg]) => {
+                    const on = filterPriorities.has(key);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => togglePriority(key)}
+                        className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          on ? `${cfg.bg} ${cfg.border} ${cfg.color}` : "border-border bg-muted/50 text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <span className={`h-2 w-2 rounded-full ${
+                          key === "p1" ? "bg-red-500" : key === "p2" ? "bg-orange-500" : key === "p3" ? "bg-yellow-500" : "bg-muted-foreground/50"
+                        }`} />
+                        {cfg.shortLabel}
+                      </button>
+                    );
+                  },
+                )}
+              </div>
+            </div>
+
+            {/* Origen */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Origen</Label>
+              <Select value={originTab} onValueChange={(v) => setOriginTab(v as typeof originTab)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[200]">
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="internal">Internos</SelectItem>
+                  <SelectItem value="guard">Guardias</SelectItem>
+                  <SelectItem value="client">Clientes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Asignación */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Asignación</Label>
+              <Select value={assignedFilter} onValueChange={(v) => setAssignedFilter(v as AssignedFilter)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[200]">
+                  <SelectItem value="any">Cualquiera</SelectItem>
+                  <SelectItem value="me">Asignados a mí</SelectItem>
+                  <SelectItem value="unassigned">Sin asignar</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Tipo */}
+            {ticketTypes.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Tipo</Label>
+                <Select value={filterTypeId} onValueChange={setFilterTypeId}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-[200]">
+                    <SelectItem value="all">Todos los tipos</SelectItem>
+                    {ticketTypes.map((tt) => (
+                      <SelectItem key={tt.id} value={tt.id}>{tt.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* SLA */}
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <input
+                type="checkbox"
+                checked={slaOnly}
+                onChange={(e) => setSlaOnly(e.target.checked)}
+                className="h-3.5 w-3.5"
+              />
+              Solo con SLA vencido
+              {typeof counts?.slaBreached === "number" && (
+                <span className="text-muted-foreground">({counts.slaBreached})</span>
+              )}
+            </label>
+
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                Restablecer
+              </button>
+              <Button size="sm" onClick={() => setFiltersOpen(false)} className="h-7 text-xs">
+                Listo
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* View mode toggle */}
         <div className="ml-auto flex gap-1 rounded-md bg-muted p-0.5">
           {([
             { value: "list" as const, label: "Lista" },
@@ -450,91 +731,34 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         </div>
       </div>
 
-      {/* Filters: Priority pills + Status + Ticket type */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-        {(Object.entries(TICKET_PRIORITY_CONFIG) as [TicketPriority, (typeof TICKET_PRIORITY_CONFIG)["p1"]][]).map(
-          ([key, cfg]) => {
-            const active = filterPriorities.has(key);
-            const n = counts?.byPriority[key];
-            return (
+      {/* Active filter chips (only when filters don't match a quick view) */}
+      {activeChips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {activeChips.map((chip) => (
+            <span
+              key={chip.key}
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[11px]"
+            >
+              {chip.label}
               <button
-                key={key}
                 type="button"
-                onClick={() => togglePriority(key)}
-                className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors ${
-                  active
-                    ? `${cfg.bg} ${cfg.border} ${cfg.color}`
-                    : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted"
-                }`}
+                onClick={chip.onClear}
+                className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+                aria-label={`Quitar filtro ${chip.label}`}
               >
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    key === "p1" ? "bg-red-500" : key === "p2" ? "bg-orange-500" : key === "p3" ? "bg-yellow-500" : "bg-muted-foreground/50"
-                  }`}
-                />
-                {cfg.shortLabel}
-                {typeof n === "number" && (
-                  <span className="opacity-70">({n})</span>
-                )}
+                <X className="h-3 w-3" />
               </button>
-            );
-          },
-        )}
-
-        {/* Status filter */}
-        <Select
-          value={filterStatus}
-          onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}
-        >
-          <SelectTrigger className="h-7 w-[130px] text-[11px] border-0 bg-muted/50 shrink-0">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">
-              Todos{typeof counts?.total === "number" ? ` (${counts.total})` : ""}
-            </SelectItem>
-            <SelectItem value="active">
-              Activos{typeof counts?.active === "number" ? ` (${counts.active})` : ""}
-            </SelectItem>
-            <SelectItem value="pending_approval">
-              Pend. aprobación{typeof counts?.byStatus.pending_approval === "number" ? ` (${counts.byStatus.pending_approval})` : ""}
-            </SelectItem>
-            <SelectItem value="open">
-              Abierto{typeof counts?.byStatus.open === "number" ? ` (${counts.byStatus.open})` : ""}
-            </SelectItem>
-            <SelectItem value="in_progress">
-              En progreso{typeof counts?.byStatus.in_progress === "number" ? ` (${counts.byStatus.in_progress})` : ""}
-            </SelectItem>
-            <SelectItem value="waiting">
-              En espera{typeof counts?.byStatus.waiting === "number" ? ` (${counts.byStatus.waiting})` : ""}
-            </SelectItem>
-            <SelectItem value="resolved">
-              Resuelto{typeof counts?.byStatus.resolved === "number" ? ` (${counts.byStatus.resolved})` : ""}
-            </SelectItem>
-            <SelectItem value="cancelled">Cancelado</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Ticket type filter */}
-        {ticketTypes.length > 0 && (
-          <Select
-            value={filterTypeId}
-            onValueChange={setFilterTypeId}
+            </span>
+          ))}
+          <button
+            type="button"
+            onClick={resetAllFilters}
+            className="text-[11px] text-muted-foreground hover:text-foreground"
           >
-            <SelectTrigger className="h-7 w-[140px] text-[11px] border-0 bg-muted/50 shrink-0">
-              <SelectValue placeholder="Tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los tipos</SelectItem>
-              {ticketTypes.map((tt) => (
-                <SelectItem key={tt.id} value={tt.id}>
-                  {tt.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
+            Limpiar todo
+          </button>
+        </div>
+      )}
 
       {/* Drill-down breadcrumb (when filtering by a single installation) */}
       {installationFilterId && installationCtx && listMode !== "by-installation" && (
