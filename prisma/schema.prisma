@@ -3553,6 +3553,7 @@ model OpsSupervisionFinding {
   // Agrupación por documento (dedup): un hallazgo persistente por (installation + tipoDoc|guardiaDocCode)
   tipoDocId           String?   @map("tipo_doc_id") @db.Uuid
   guardiaDocCode      String?   @map("guardia_doc_code")
+  dedupKey            String?   @map("dedup_key")
   occurrenceCount     Int       @default(1) @map("occurrence_count")
   firstDetectedAt     DateTime  @default(now()) @map("first_detected_at") @db.Timestamptz(6)
   lastDetectedAt      DateTime  @default(now()) @map("last_detected_at") @db.Timestamptz(6)
@@ -3579,6 +3580,7 @@ model OpsSupervisionFinding {
   @@index([guardId], map: "idx_supervision_findings_guard")
   @@index([tenantId, installationId, tipoDocId, status], map: "idx_supervision_findings_dedup_tipo")
   @@index([tenantId, installationId, guardiaDocCode, guardId, status], map: "idx_supervision_findings_dedup_guardia")
+  @@index([tenantId, installationId, dedupKey, status], map: "idx_supervision_findings_dedup_key")
   @@map("supervision_findings")
   @@schema("ops")
 }

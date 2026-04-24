@@ -5,6 +5,11 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { requireTenantModule } from '@/lib/require-module';
 import { canEdit, canView, hasCapability } from "@/lib/permissions";
 import { generateTicketCode } from "@/lib/tickets";
+import {
+  computeFindingDedupKey,
+  ACTIVE_FINDING_STATUSES,
+  TERMINAL_TICKET_STATUSES,
+} from "@/lib/supervision-dedup";
 
 type Params = { id: string };
 
@@ -147,7 +152,17 @@ export async function POST(
       if (sup?.name) supervisorName = sup.name;
     } catch { /* ignore */ }
 
-    // 1) Dedup: ¿ya existe un hallazgo abierto para este (installation + tipoDoc|guardiaDocCode)?
+    // 1) Dedup: calcular dedupKey SIEMPRE (incluye fallback por descripción normalizada)
+    //    y buscar un finding activo en la misma instalación con la misma key.
+    //    Si el ticket asociado al candidato ya está en estado terminal, lo marcamos
+    //    como "superseded" y caemos al CAMINO B (creación nueva con SLA fresco).
+    const dedupKey = computeFindingDedupKey({
+      tipoDocId: tipoDocId ?? null,
+      guardId: guardId ?? null,
+      guardiaDocCode: guardiaDocCode ?? null,
+      description,
+    });
+
     let existingFinding: {
       id: string;
       ticketId: string | null;
@@ -156,32 +171,43 @@ export async function POST(
       severity: string;
     } | null = null;
 
-    if (tipoDocId || guardiaDocCode) {
-      try {
-        existingFinding = await prisma.opsSupervisionFinding.findFirst({
-          where: {
-            tenantId: ctx.tenantId,
-            installationId: visit.installationId,
-            status: { in: ["open", "in_progress"] },
-            ...(tipoDocId
-              ? { tipoDocId }
-              : {
-                  guardiaDocCode: guardiaDocCode!,
-                  guardId: guardId ?? null,
-                }),
-          },
-          select: {
-            id: true,
-            ticketId: true,
-            occurrenceCount: true,
-            firstDetectedAt: true,
-            severity: true,
-          },
-          orderBy: { firstDetectedAt: "asc" },
+    try {
+      const candidate = await prisma.opsSupervisionFinding.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          installationId: visit.installationId,
+          dedupKey,
+          status: { in: [...ACTIVE_FINDING_STATUSES] },
+        },
+        select: {
+          id: true,
+          ticketId: true,
+          occurrenceCount: true,
+          firstDetectedAt: true,
+          severity: true,
+          ticket: { select: { id: true, status: true } },
+        },
+        orderBy: { firstDetectedAt: "asc" },
+      });
+
+      if (candidate?.ticket && (TERMINAL_TICKET_STATUSES as readonly string[]).includes(candidate.ticket.status)) {
+        // Ticket canónico ya cerrado: supersede el finding viejo y creamos uno nuevo.
+        await prisma.opsSupervisionFinding.update({
+          where: { id: candidate.id },
+          data: { status: "superseded", updatedAt: new Date() },
         });
-      } catch {
         existingFinding = null;
+      } else if (candidate) {
+        existingFinding = {
+          id: candidate.id,
+          ticketId: candidate.ticketId,
+          occurrenceCount: candidate.occurrenceCount,
+          firstDetectedAt: candidate.firstDetectedAt,
+          severity: candidate.severity,
+        };
       }
+    } catch {
+      existingFinding = null;
     }
 
     // --- CAMINO A: ya existe → incrementar contador, actualizar timestamps, comentar ticket, escalar si aplica ---
@@ -398,6 +424,7 @@ export async function POST(
           status: "open",
           tipoDocId: tipoDocId ?? null,
           guardiaDocCode: guardiaDocCode ?? null,
+          dedupKey,
           occurrenceCount: 1,
           firstDetectedAt: nowCreate,
           lastDetectedAt: nowCreate,

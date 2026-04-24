@@ -92,6 +92,29 @@ export async function POST(
       },
     });
 
+    // Sync bidireccional: si el ticket pasa a un estado terminal, cerrar los
+    // findings asociados que sigan abiertos para que no se usen como candidatos
+    // de dedup en visitas futuras (se creará ticket nuevo con SLA fresco).
+    const TERMINAL = ["resolved", "closed", "cancelled", "rejected"] as const;
+    if ((TERMINAL as readonly string[]).includes(targetStatus)) {
+      try {
+        await prisma.opsSupervisionFinding.updateMany({
+          where: {
+            ticketId: id,
+            tenantId: ctx.tenantId,
+            status: { in: ["open", "in_progress"] },
+          },
+          data: {
+            status: targetStatus === "resolved" ? "resolved" : "superseded",
+            resolvedAt: targetStatus === "resolved" ? new Date() : null,
+            updatedAt: new Date(),
+          },
+        });
+      } catch (syncErr) {
+        console.warn("[OPS][TICKETS] No se pudieron sincronizar los findings:", syncErr);
+      }
+    }
+
     // Build response
     const guardiaName =
       updated.guardia?.persona
