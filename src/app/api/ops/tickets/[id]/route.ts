@@ -4,6 +4,10 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { isAdminRole } from "@/lib/access";
 import type { Ticket, TicketApproval, SlaExtensionEntry } from "@/lib/tickets";
+import {
+  ticketSupervisionFindingInclude,
+  pickTicketFinding,
+} from "@/lib/tickets-finding";
 
 type Params = { id: string };
 
@@ -20,6 +24,7 @@ const ticketDetailIncludes = {
   },
   approvals: { orderBy: { stepOrder: "asc" as const } },
   comments: { orderBy: { createdAt: "desc" as const } },
+  ...ticketSupervisionFindingInclude,
   _count: { select: { comments: true, approvals: true } },
 };
 
@@ -92,6 +97,7 @@ function mapTicketDetail(t: any): Ticket {
     updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
     commentsCount: t._count?.comments ?? 0,
     attachmentsCount: 0,
+    finding: pickTicketFinding(t),
   };
 }
 
