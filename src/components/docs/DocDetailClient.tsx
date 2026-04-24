@@ -255,6 +255,34 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
     }
   };
 
+  const handleDownloadDocx = async () => {
+    setDownloading("docx");
+    try {
+      const res = await fetch(`/api/docs/documents/${documentId}/export-docx`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Error al generar Word");
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="?(.+)"?/);
+      const fileName = match?.[1]?.replace(/^"?|"?$/g, "") || `documento-${documentId}.docx`;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Word descargado");
+    } catch (e: any) {
+      toast.error(e?.message || "Error al descargar Word");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   const handleResolveSuggestion = async (suggestionId: string, action: "approve" | "reject", adminComment?: string) => {
     setResolvingSuggestion(suggestionId);
     try {
