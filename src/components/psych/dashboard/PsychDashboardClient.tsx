@@ -63,18 +63,18 @@ export default function PsychDashboardClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2">
         <Link
           href="/personas/psicolaboral/configuracion"
-          className="text-sm rounded-lg border border-border px-3 py-2 text-foreground/90"
+          className="text-sm rounded-lg border border-border px-3 py-2 text-foreground/90 text-center min-h-[44px] flex items-center justify-center"
         >
           Configuración
         </Link>
         <Link
           href="/personas/psicolaboral/nuevo"
-          className="text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-2"
+          className="text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-2 text-center min-h-[44px] flex items-center justify-center"
         >
-          Nueva evaluación
+          + Nueva evaluación
         </Link>
       </div>
       <PsychMetricsCards

@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import PsychBandBadge from "./PsychBandBadge";
 import PsychRadarChart from "./PsychRadarChart";
-import PsychAlertsList from "./PsychAlertsList";
 import PsychOpenAnalysisCard from "./PsychOpenAnalysisCard";
+import PsychAssessmentScoreCard from "./PsychAssessmentScoreCard";
 import type { OpenAnalysisResult, PsychAlert } from "@/lib/psych/types";
 
 interface DetailPayload {
@@ -71,7 +70,18 @@ export default function PsychAssessmentDetail({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 space-y-4">
+      {/* En mobile: sidebar (score + alertas) arriba del radar. */}
+      <div className="lg:order-2 space-y-4">
+        <PsychAssessmentScoreCard
+          assessmentId={assessmentId}
+          globalScore={result.globalScore}
+          band={result.band}
+          lieScaleScore={result.lieScaleScore}
+          straightLining={result.straightLining}
+          alerts={result.alerts ?? []}
+        />
+      </div>
+      <div className="lg:order-1 lg:col-span-2 space-y-4">
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-foreground">
@@ -100,44 +110,6 @@ export default function PsychAssessmentDetail({
             ))}
           </div>
         ) : null}
-      </div>
-      <div className="space-y-4">
-        <div className="rounded-xl border border-border bg-card p-5">
-          <p className="text-xs text-muted-foreground uppercase mb-1">Puntaje global</p>
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold text-foreground">
-              {result.globalScore.toFixed(1)}
-            </span>
-            <span className="text-muted-foreground">/ 100</span>
-          </div>
-          <div className="mt-3">
-            <PsychBandBadge band={result.band} />
-          </div>
-          <dl className="mt-4 text-xs text-muted-foreground space-y-1">
-            {result.lieScaleScore !== null ? (
-              <div className="flex justify-between">
-                <dt>Escala de validez</dt>
-                <dd>{Math.round((result.lieScaleScore ?? 0) * 100)}%</dd>
-              </div>
-            ) : null}
-            {result.straightLining ? (
-              <div className="flex justify-between">
-                <dt>Patrón uniforme</dt>
-                <dd>Sí</dd>
-              </div>
-            ) : null}
-          </dl>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="text-base font-semibold text-foreground mb-3">Alertas</h3>
-          <PsychAlertsList alerts={result.alerts ?? []} />
-        </div>
-        <a
-          href={`/api/psych/assessments/${assessmentId}/report.pdf`}
-          className="block w-full text-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-3 text-sm"
-        >
-          Descargar informe PDF
-        </a>
       </div>
     </div>
   );
