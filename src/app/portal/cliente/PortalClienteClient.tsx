@@ -13,6 +13,7 @@ import { PortalInstallations } from "@/components/portal/cliente/PortalInstallat
 import { PortalRondas } from "@/components/portal/cliente/PortalRondas";
 import { PortalPosta } from "@/components/portal/cliente/PortalPosta";
 import { PortalBitacora } from "@/components/portal/cliente/PortalBitacora";
+import { PortalCommandPalette } from "@/components/portal/cliente/PortalCommandPalette";
 import { PortalTickets } from "@/components/portal/cliente/PortalTickets";
 import { PortalAlertas } from "@/components/portal/cliente/PortalAlertas";
 import { PortalCotizaciones } from "@/components/portal/cliente/PortalCotizaciones";
@@ -81,6 +82,18 @@ function PortalClienteShell() {
   const [notifSheetOpen, setNotifSheetOpen] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [headerLogoBroken, setHeaderLogoBroken] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCommandOpen((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   const headerGardLogo = branding.logoDark || branding.logoIcon || branding.logoWhite || HEADER_LOGO_FALLBACK;
 
@@ -287,6 +300,35 @@ function PortalClienteShell() {
           </div>
           <div className="flex items-center gap-2">
             <InstallationSwitcher />
+            <button
+              type="button"
+              onClick={() => setCommandOpen(true)}
+              title="Buscar (⌘K)"
+              className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-zinc-400 border border-zinc-700 rounded px-2 py-1 hover:bg-white/5"
+            >
+              <span>Buscar</span>
+              <kbd className="text-[9px] bg-zinc-800 rounded px-1">⌘K</kbd>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCommandOpen(true)}
+              aria-label="Buscar"
+              className="sm:hidden text-zinc-400 hover:text-white p-1"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-3.5-3.5" />
+              </svg>
+            </button>
             {session.isProspect && (
               <button
                 onClick={() => setShowTour(true)}
@@ -341,6 +383,13 @@ function PortalClienteShell() {
         session={session}
         open={notifSheetOpen}
         onClose={() => setNotifSheetOpen(false)}
+      />
+
+      <PortalCommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        onNavigateSection={(s) => setActiveSection(s as PortalSection)}
+        onSelectInstallation={(id) => setInstallationId(id)}
       />
 
       {showTour && <TourOverlay onComplete={handleTourComplete} session={session} />}
