@@ -2740,9 +2740,16 @@ model PortalClienteReporte {
   id             String    @id @default(cuid())
   tenantId       String    @map("tenant_id")
   accountId      String    @map("account_id")
-  installationId String    @map("installation_id")
+  installationId String?   @map("installation_id")
   period         String
+  type           String    @default("cumplimiento_mensual")
+  status         String    @default("ready")
+  params         Json?
   pdfUrl         String?   @map("pdf_url")
+  xlsxUrl        String?   @map("xlsx_url")
+  errorMessage   String?   @map("error_message") @db.Text
+  requestedById  String?   @map("requested_by_id")
+  requestedAt    DateTime? @map("requested_at") @db.Timestamptz(6)
   generatedAt    DateTime? @map("generated_at") @db.Timestamptz(6)
   sentAt         DateTime? @map("sent_at") @db.Timestamptz(6)
   data           Json
@@ -2750,6 +2757,8 @@ model PortalClienteReporte {
 
   @@index([tenantId], map: "idx_portal_reporte_tenant")
   @@index([accountId], map: "idx_portal_reporte_account")
+  @@index([tenantId, accountId, type], map: "idx_portal_reporte_type")
+  @@index([status], map: "idx_portal_reporte_status")
   @@map("portal_cliente_reportes")
   @@schema("crm")
 }
