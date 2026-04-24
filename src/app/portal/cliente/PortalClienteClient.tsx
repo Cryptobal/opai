@@ -12,6 +12,7 @@ import { PortalDashboard } from "@/components/portal/cliente/PortalDashboard";
 import { PortalInstallations } from "@/components/portal/cliente/PortalInstallations";
 import { PortalRondas } from "@/components/portal/cliente/PortalRondas";
 import { PortalPosta } from "@/components/portal/cliente/PortalPosta";
+import { PortalBitacora } from "@/components/portal/cliente/PortalBitacora";
 import { PortalTickets } from "@/components/portal/cliente/PortalTickets";
 import { PortalAlertas } from "@/components/portal/cliente/PortalAlertas";
 import { PortalCotizaciones } from "@/components/portal/cliente/PortalCotizaciones";
@@ -175,6 +176,10 @@ function PortalClienteShell() {
           <PortalPosta
             selectedInstallation={selectedInstallation}
           />
+        );
+      case "bitacora":
+        return (
+          <PortalBitacora selectedInstallation={selectedInstallation} />
         );
       case "tickets":
         return (

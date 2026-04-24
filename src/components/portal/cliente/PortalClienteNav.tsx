@@ -15,6 +15,7 @@ export type PortalSection =
   | 'reportes' | 'comparativa' | 'alertas' | 'encuestas'
   | 'desempeno' | 'personal' | 'nosotros' | 'empresa'
   | 'control-acceso' | 'presentacion' | 'marcaciones' | 'equipamiento'
+  | 'bitacora' | 'supervision'
   | 'propuesta'
 
 type NavGroup = 'operaciones' | 'mensajes' | 'analisis' | 'documentos' | 'proveedor'
@@ -40,7 +41,7 @@ const MAIN_TABS: PortalSection[] = [
 
 // Grouped items shown inside the "Más" menu.
 const GROUPED_ITEMS: Record<NavGroup, PortalSection[]> = {
-  operaciones: ['personal', 'instalaciones', 'marcaciones', 'posta', 'equipamiento', 'desempeno'],
+  operaciones: ['personal', 'instalaciones', 'marcaciones', 'posta', 'bitacora', 'supervision', 'equipamiento', 'desempeno'],
   mensajes: ['alertas', 'encuestas'],
   analisis: ['reportes', 'comparativa'],
   documentos: ['documentacion', 'cotizaciones'],
@@ -77,6 +78,8 @@ const NAV_ITEMS: Record<PortalSection, NavItem> = {
   'nosotros': { label: 'Sobre nosotros', icon: Building },
   'presentacion': { label: 'Presentación', icon: Eye, requiresPresentation: true },
   'personal': { label: 'Equipo', icon: UserCheck },
+  'bitacora': { label: 'Bitácora ejecutiva', icon: BookOpen, configKey: 'posta' },
+  'supervision': { label: 'Supervisión', icon: Eye },
   'propuesta': { label: 'Propuesta', icon: FileCheck2 },
 }
 
