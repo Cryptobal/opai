@@ -23,6 +23,8 @@ interface DetailPayload {
       openAnalysis: OpenAnalysisResult[] | null;
       lieScaleScore: number | null;
       straightLining: boolean;
+      reviewedAt: string | null;
+      reviewedBy: string | null;
     } | null;
   };
 }
@@ -34,16 +36,19 @@ export default function PsychAssessmentDetail({
 }) {
   const [data, setData] = useState<DetailPayload | null>(null);
   const [thresholdFit, setThresholdFit] = useState(80);
+  const [canWrite, setCanWrite] = useState(false);
   const [rescoring, setRescoring] = useState(false);
 
   useEffect(() => {
     Promise.all([
       fetch(`/api/psych/assessments/${assessmentId}`).then((r) => r.json()),
       fetch("/api/psych/config").then((r) => r.json()),
+      fetch("/api/psych/me").then((r) => r.json()),
     ])
-      .then(([d, c]) => {
+      .then(([d, c, m]) => {
         if (d.success) setData(d);
         if (c.success) setThresholdFit(c.config.thresholdFit);
+        if (m.success) setCanWrite(!!m.canWrite);
       })
       .catch(console.error);
   }, [assessmentId]);
@@ -98,6 +103,9 @@ export default function PsychAssessmentDetail({
           lieScaleScore={result.lieScaleScore}
           straightLining={result.straightLining}
           alerts={result.alerts ?? []}
+          canWrite={canWrite}
+          reviewedAt={result.reviewedAt}
+          reviewedBy={result.reviewedBy}
         />
       </div>
       <div className="lg:order-1 lg:col-span-2 space-y-4">
