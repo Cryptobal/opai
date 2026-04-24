@@ -8274,6 +8274,14 @@ enum PsychBand {
   @@schema("psych")
 }
 
+enum PsychClientReportLevel {
+  SEAL
+  SUMMARY
+  FULL
+
+  @@schema("psych")
+}
+
 model PsychTestVersion {
   id          String            @id @default(cuid())
   code        String
@@ -8330,9 +8338,38 @@ model TenantPsychConfig {
   brandPrimaryColor    String?  @map("brand_primary_color")
   defaultVersionCode   String   @default("security-guard-v1") @map("default_version_code")
   defaultVersionTag    String   @default("1.0.0") @map("default_version_tag")
+  // ── Fase 1.5 ──
+  reevaluationIntervalMonths Int @default(6) @map("reevaluation_interval_months")
+  whatsappTemplate           String? @map("whatsapp_template") @db.Text
+  emailSubject               String? @map("email_subject")
+  emailBody                  String? @map("email_body") @db.Text
+  smsTemplate                String? @map("sms_template") @db.Text
+  defaultClientReportLevel   PsychClientReportLevel @default(SEAL) @map("default_client_report_level")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("tenant_config")
+  @@schema("psych")
+}
+
+// contractId mapea lógicamente a CrmInstallation.id (el contrato/instalación
+// entre el tenant y el cliente). Sin FK para no acoplar schemas cross-db.
+model ClientContractPsychConfig {
+  id                 String                 @id @default(cuid())
+  tenantId           String                 @map("tenant_id")
+  contractId         String                 @unique @map("contract_id")
+  reportLevel        PsychClientReportLevel @default(SEAL) @map("report_level")
+  showEvaluationDate Boolean                @default(true) @map("show_evaluation_date")
+  showCoverage       Boolean                @default(true) @map("show_coverage")
+  showIndividualSeal Boolean                @default(true) @map("show_individual_seal")
+  // Solo aplicable si reportLevel = FULL.
+  dpaSignedAt        DateTime?              @map("dpa_signed_at")
+  dpaDocId           String?                @map("dpa_doc_id")
+  dpaNote            String?                @map("dpa_note") @db.Text
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+  createdAt          DateTime               @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@map("client_contract_config")
   @@schema("psych")
 }
 

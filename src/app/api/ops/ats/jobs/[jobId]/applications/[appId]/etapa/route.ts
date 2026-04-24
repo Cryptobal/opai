@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { requireTenantModule } from '@/lib/require-module';
+import { logAudit } from "@/lib/audit";
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   POSTULADO: ["EN_REVISION", "DESCARTADO"],
@@ -16,6 +17,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 const updateEtapaSchema = z.object({
   etapa: z.enum(["POSTULADO", "EN_REVISION", "ENTREVISTA", "OFERTA", "CONTRATADO", "DESCARTADO"]),
   notasInternas: z.string().optional(),
+  psychOverrideJustification: z.string().optional(),
 });
 
 export async function PATCH(
@@ -35,7 +37,7 @@ export async function PATCH(
 
     const parsed = await parseBody(request, updateEtapaSchema);
     if (parsed.error) return parsed.error;
-    const { etapa, notasInternas } = parsed.data;
+    const { etapa, notasInternas, psychOverrideJustification } = parsed.data;
 
     const app = await prisma.atsApplication.findFirst({
       where: { id: appId, jobPostingId: jobId, tenantId: ctx.tenantId },
@@ -50,6 +52,56 @@ export async function PATCH(
         { success: false, error: `Transición inválida: ${app.etapa} → ${etapa}` },
         { status: 400 },
       );
+    }
+
+    // Psych override: si el guardia tiene assessment con banda NOT_RECOMMENDED,
+    // exigir justificación ≥30 chars antes de pasar a CONTRATADO.
+    if (etapa === "CONTRATADO") {
+      const guardia = await prisma.opsGuardia.findUnique({
+        where: { id: app.guardiaId },
+        select: { personaId: true },
+      });
+      if (guardia?.personaId) {
+        const blocking = await prisma.psychAssessment.findFirst({
+          where: {
+            tenantId: ctx.tenantId,
+            personaId: guardia.personaId,
+            result: { band: "NOT_RECOMMENDED" },
+          },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, result: { select: { band: true } } },
+        });
+        if (blocking) {
+          const justif = psychOverrideJustification?.trim() ?? "";
+          if (justif.length < 30) {
+            return NextResponse.json(
+              {
+                success: false,
+                error:
+                  "Esta evaluación psicolaboral sugiere no recomendar. Requiere justificación (mínimo 30 caracteres) en el campo 'psychOverrideJustification' para avanzar a CONTRATADO.",
+                requiresPsychOverride: true,
+                blockingAssessmentId: blocking.id,
+              },
+              { status: 400 },
+            );
+          }
+          await logAudit({
+            userId: ctx.userId,
+            userEmail: ctx.userEmail,
+            tenantId: ctx.tenantId,
+            action: "UPDATE",
+            entity: "psych_override",
+            entityId: blocking.id,
+            details: {
+              event: "psych.not_recommended.overridden",
+              applicationId: appId,
+              guardiaId: app.guardiaId,
+              justification: justif,
+            },
+            request,
+          });
+        }
+      }
     }
 
     const updated = await prisma.atsApplication.update({

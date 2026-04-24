@@ -17,7 +17,7 @@ export const ITEMS_SJT_A: SeedItem[] = [
       { value: "A", label: "Le respondo con firmeza y le digo que no me hable así.", score: 0.3 },
       { value: "B", label: "Me mantengo tranquilo, lo saludo por su nombre y le pido un segundo para verificar en el sistema.", score: 1.0 },
       { value: "C", label: "Lo empujo de vuelta para que aprenda.", score: 0.0 },
-      { value: "D", label: "No respondo y lo dejo pasar sin verificar.", score: 0.6 },
+      { value: "D", label: "No respondo y lo dejo pasar sin verificar.", score: 0.2 },
     ],
   }),
   sjt({
@@ -42,7 +42,7 @@ export const ITEMS_SJT_A: SeedItem[] = [
     alternatives: [
       { value: "A", label: "Le pego un combo para que no me falte el respeto.", score: 0.0 },
       { value: "B", label: "Lo dejo pasar para no generar conflicto.", score: 0.3 },
-      { value: "C", label: "Le respondo con garabatos y anoto el hecho.", score: 0.6 },
+      { value: "C", label: "Le respondo con garabatos y anoto el hecho.", score: 0.3 },
       { value: "D", label: "Mantengo la calma, documento el hallazgo y lo reporto al supervisor según protocolo.", score: 1.0 },
     ],
   }),
@@ -105,7 +105,7 @@ export const ITEMS_SJT_A: SeedItem[] = [
       "Suena la alarma de incendio del edificio. Ves humo en el pasillo del segundo piso.",
     best: "D",
     alternatives: [
-      { value: "A", label: "Subo a apagar el fuego con el extintor de mi puesto.", score: 0.6 },
+      { value: "A", label: "Subo a apagar el fuego con el extintor de mi puesto.", score: 0.3 },
       { value: "B", label: "Grito que es falsa alarma para no asustar.", score: 0.0 },
       { value: "C", label: "Apago la alarma y reviso solo el piso afectado.", score: 0.3 },
       { value: "D", label: "Activo el plan de evacuación, llamo a bomberos y dirijo a los residentes a la zona segura.", score: 1.0 },

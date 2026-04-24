@@ -26,6 +26,13 @@ const PatchSchema = z.object({
   invitationTTLHours: z.number().int().min(1).max(720).optional(),
   brandLogoUrl: z.string().url().nullable().optional(),
   brandPrimaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+  // Fase 1.5
+  reevaluationIntervalMonths: z.number().int().min(1).max(60).optional(),
+  whatsappTemplate: z.string().max(1000).nullable().optional(),
+  emailSubject: z.string().max(200).nullable().optional(),
+  emailBody: z.string().max(5000).nullable().optional(),
+  smsTemplate: z.string().max(320).nullable().optional(),
+  defaultClientReportLevel: z.enum(["SEAL", "SUMMARY", "FULL"]).optional(),
 });
 
 export async function GET() {

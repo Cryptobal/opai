@@ -15,8 +15,8 @@ export const ITEMS_SJT_B: SeedItem[] = [
     best: "D",
     alternatives: [
       { value: "A", label: "Acepto, total es algo chico.", score: 0.0 },
-      { value: "B", label: "Le digo que no, pero no lo reporto para no generar problemas.", score: 0.6 },
-      { value: "C", label: "Lo dejo pasar sin aceptar el dinero.", score: 0.3 },
+      { value: "B", label: "Le digo que no, pero no lo reporto para no generar problemas.", score: 0.3 },
+      { value: "C", label: "Lo dejo pasar sin aceptar el dinero.", score: 0.1 },
       { value: "D", label: "Rechazo el dinero, lo registro normalmente y reporto el intento de soborno al supervisor.", score: 1.0 },
     ],
   }),

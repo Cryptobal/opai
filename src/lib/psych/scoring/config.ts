@@ -41,5 +41,7 @@ export async function resolveTenantPsychConfig(
     brandPrimaryColor: cfg?.brandPrimaryColor ?? null,
     defaultVersionCode: cfg?.defaultVersionCode ?? PSYCH_TEST_CODE,
     defaultVersionTag: cfg?.defaultVersionTag ?? PSYCH_TEST_VERSION,
+    reevaluationIntervalMonths: cfg?.reevaluationIntervalMonths ?? 6,
+    defaultClientReportLevel: cfg?.defaultClientReportLevel ?? "SEAL",
   };
 }
