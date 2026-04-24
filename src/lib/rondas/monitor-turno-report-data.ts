@@ -21,7 +21,8 @@ interface RoundRow {
   scheduledAt: Date;
   completedAt: Date | null;
   guardiaId: string | null;
-  rondaTemplate: { name: true; installation: { name: string } | null } | null;
+  installation?: { name: string } | null;
+  rondaTemplate: { name: string; installation: { name: string } | null } | null;
 }
 
 interface AlertRow {
@@ -35,6 +36,15 @@ interface AlertRow {
   createdAt: Date;
   installation: { name: string } | null;
   guardia: { persona: { firstName: string | null; lastName: string | null } | null } | null;
+}
+
+type RoundInstallationSource = {
+  installation?: { name: string } | null;
+  rondaTemplate?: { installation: { name: string } | null } | null;
+};
+
+export function resolveRoundInstallationName(round: RoundInstallationSource): string {
+  return round.installation?.name ?? round.rondaTemplate?.installation?.name ?? "Sin instalación";
 }
 
 // ─── Main builder ──────────────────────────────────────────────────────
@@ -80,6 +90,7 @@ export async function buildTurnoReportData(opts: {
       where: { tenantId, scheduledAt: { gte: sevenDaysAgo, lte: turnoEndedAt } },
       select: {
         id: true, status: true, trustScore: true, scheduledAt: true, completedAt: true, guardiaId: true,
+        installation: { select: { name: true } },
         rondaTemplate: { select: { name: true, installation: { select: { id: true, name: true } } } },
         guardia: { select: { id: true, persona: { select: { firstName: true, lastName: true } } } },
       },
@@ -172,7 +183,7 @@ export async function buildTurnoReportData(opts: {
   }>();
 
   for (const r of histRounds) {
-    const instName = r.rondaTemplate?.installation?.name ?? "Sin instalación";
+    const instName = resolveRoundInstallationName(r);
     if (!instDataMap.has(instName)) {
       instDataMap.set(instName, { name: instName, roundsByDay: new Map(), alertsByDay: new Map(), guardias: new Map() });
     }
