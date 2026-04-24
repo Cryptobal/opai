@@ -293,12 +293,43 @@ export async function POST(
         if (ticketType) {
           const slaDueAt = new Date(Date.now() + ticketType.slaHours * 60 * 60 * 1000);
           const severityLabel = severity === "critical" ? "CRÍTICO" : "MAYOR";
-          const categoryLabels: Record<string, string> = {
-            personal: "Personal",
-            infrastructure: "Infraestructura",
-            documentation: "Documentación",
-            operational: "Operativo",
-          };
+
+          // Resolver label legible del hallazgo para el título del ticket.
+          // Jerarquía: tipoDoc.nombre > guardiaDocCode (mapeado) > descripción truncada.
+          let findingLabel: string | null = null;
+
+          if (tipoDocId) {
+            try {
+              const tipoDoc = await prisma.tipoDocOperacional.findUnique({
+                where: { id: tipoDocId },
+                select: { nombre: true },
+              });
+              if (tipoDoc?.nombre) findingLabel = tipoDoc.nombre;
+            } catch { /* noop */ }
+          }
+
+          if (!findingLabel && guardiaDocCode) {
+            const GUARDIA_DOC_LABELS: Record<string, string> = {
+              os10: "OS10",
+              cedula: "Cédula de identidad",
+              contrato: "Contrato de trabajo",
+              afp: "AFP",
+              isapre: "ISAPRE / Fonasa",
+              licencia: "Licencia de conducir",
+              antecedentes: "Certificado de antecedentes",
+              examen_preocupacional: "Examen preocupacional",
+              curso_os10: "Curso OS10",
+              libro_novedades: "Libro de novedades",
+            };
+            findingLabel = GUARDIA_DOC_LABELS[guardiaDocCode] ?? guardiaDocCode;
+          }
+
+          if (!findingLabel) {
+            const desc = description.trim().replace(/\s+/g, " ");
+            findingLabel = desc.length > 60 ? `${desc.slice(0, 57)}…` : desc;
+          }
+
+          const titleNew = `[${severityLabel}] ${findingLabel} — ${installationName}`;
 
           const ticket = await prisma.$transaction(async (tx) => {
             const lastTicket = await tx.opsTicket.findFirst({
@@ -318,7 +349,7 @@ export async function POST(
                 ticketTypeId: ticketType.id,
                 status: "open",
                 priority: ticketType.defaultPriority,
-                title: `[${severityLabel}] ${categoryLabels[category] ?? category} — ${installationName}`,
+                title: titleNew,
                 description: `Hallazgo detectado durante supervisión:\n\n${description}`,
                 assignedTeam: ticketType.assignedTeam,
                 installationId: visit.installationId,
