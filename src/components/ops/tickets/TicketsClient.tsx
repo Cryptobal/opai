@@ -48,6 +48,8 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { SearchableOption } from "@/components/ui/SearchableSelect";
 import { TicketsDashboard } from "./TicketsDashboard";
 import { TicketsKanban } from "./TicketsKanban";
+import { TicketsByInstallationView } from "./TicketsByInstallationView";
+import { ArrowLeft } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════
 //  TYPES
@@ -59,9 +61,18 @@ interface TicketsClientProps {
 
 type ViewState = { view: "list" } | { view: "create" };
 
-type ListMode = "list" | "cards" | "kanban";
+type ListMode = "list" | "cards" | "kanban" | "by-installation";
 
 type ModuleView = "dashboard" | "tickets";
+
+type TicketCounts = {
+  total: number;
+  active: number;
+  slaBreached: number;
+  byStatus: Record<string, number>;
+  byPriority: Record<"p1" | "p2" | "p3" | "p4", number>;
+  byOrigin: { all: number; internal: number; guard: number; client: number };
+};
 
 // ═══════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
@@ -76,6 +87,13 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const prefillTitle = searchParams.get("title");
   const prefillGuardiaId = searchParams.get("guardiaId");
 
+  const urlView = searchParams.get("view");
+  const initialListMode: ListMode =
+    urlView === "by-installation" || urlView === "cards" || urlView === "kanban" || urlView === "list"
+      ? urlView
+      : "list";
+  const urlInstallationId = searchParams.get("installationId");
+
   const [viewState, setViewState] = useState<ViewState>(
     prefillSource ? { view: "create" } : { view: "list" },
   );
@@ -85,17 +103,22 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | TicketStatus>("active");
   const [filterPriorities, setFilterPriorities] = useState<Set<TicketPriority>>(new Set());
   const [originTab, setOriginTab] = useState<"all" | "internal" | "guard" | "client">("all");
-  const [listMode, setListMode] = useState<ListMode>("list");
+  const [listMode, setListMode] = useState<ListMode>(initialListMode);
+  const [installationFilterId, setInstallationFilterId] = useState<string | null>(urlInstallationId);
+  const [installationCtx, setInstallationCtx] = useState<{ name: string; total: number } | null>(null);
   const [moduleView, setModuleView] = useState<ModuleView>("tickets");
   const [filterTypeId, setFilterTypeId] = useState<string>("all");
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
+  const [counts, setCounts] = useState<TicketCounts | null>(null);
 
   const initialLoadDone = useRef(false);
 
   const fetchTickets = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
     try {
-      const res = await fetch("/api/ops/tickets");
+      const params = new URLSearchParams({ limit: "100" });
+      if (installationFilterId) params.set("installationId", installationFilterId);
+      const res = await fetch(`/api/ops/tickets?${params}`);
       const data = await res.json();
       if (data.success) setTickets(data.data.items);
     } catch {
@@ -104,15 +127,39 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       setLoading(false);
       initialLoadDone.current = true;
     }
+  }, [installationFilterId]);
+
+  const fetchCounts = useCallback(async (tab: typeof originTab) => {
+    try {
+      const typeParam =
+        tab === "internal" ? "internal"
+        : tab === "guard" ? "guard"
+        : tab === "client" ? "client"
+        : null;
+      const url = typeParam
+        ? `/api/ops/tickets/counts?type=${typeParam}`
+        : "/api/ops/tickets/counts";
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) setCounts(data.data);
+    } catch {
+      // Counts are non-critical — silently fail
+    }
   }, []);
 
   useEffect(() => {
     fetchTickets(true); // initial load shows spinner
     function handleVisibility() {
-      if (document.visibilityState === "visible" && initialLoadDone.current) fetchTickets();
+      if (document.visibilityState === "visible" && initialLoadDone.current) {
+        fetchTickets();
+        fetchCounts(originTab);
+      }
     }
     function handleFocus() {
-      if (initialLoadDone.current) fetchTickets();
+      if (initialLoadDone.current) {
+        fetchTickets();
+        fetchCounts(originTab);
+      }
     }
     document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("focus", handleFocus);
@@ -120,7 +167,35 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [fetchTickets]);
+  }, [fetchTickets, fetchCounts, originTab]);
+
+  useEffect(() => {
+    fetchCounts(originTab);
+  }, [fetchCounts, originTab]);
+
+  // Sync view + installationId with URL
+  useEffect(() => {
+    const current = new URLSearchParams(window.location.search);
+    if (listMode === "by-installation") current.set("view", "by-installation");
+    else if (listMode !== "list") current.set("view", listMode);
+    else current.delete("view");
+    if (installationFilterId) current.set("installationId", installationFilterId);
+    else current.delete("installationId");
+    const qs = current.toString();
+    router.replace(`/ops/tickets${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [listMode, installationFilterId, router]);
+
+  function handleSelectInstallation(id: string, name: string, total: number) {
+    setInstallationFilterId(id);
+    setInstallationCtx({ name, total });
+    setListMode("list");
+  }
+
+  function handleBackToInstallations() {
+    setInstallationFilterId(null);
+    setInstallationCtx(null);
+    setListMode("by-installation");
+  }
 
   // Load ticket types for filter
   useEffect(() => {
@@ -262,34 +337,70 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         />
       </div>
 
+      {/* Totales: banner de conteos globales */}
+      {counts && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-white/10 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <span>
+            Total: <span className="font-semibold text-foreground">{counts.total}</span>
+          </span>
+          <span className="text-white/20">·</span>
+          <span>
+            Activos: <span className="font-semibold text-foreground">{counts.active}</span>
+          </span>
+          <span className="text-white/20">·</span>
+          <span>
+            Cerrados: <span className="font-semibold text-foreground">{counts.byStatus.closed ?? 0}</span>
+          </span>
+          <span className="text-white/20">·</span>
+          <span>
+            Resueltos: <span className="font-semibold text-foreground">{counts.byStatus.resolved ?? 0}</span>
+          </span>
+          <span className="text-white/20">·</span>
+          <span>
+            P1: <span className="font-semibold text-red-400">{counts.byPriority.p1}</span>
+          </span>
+          <span className="text-white/20">·</span>
+          <span>
+            SLA vencidos: <span className="font-semibold text-red-400">{counts.slaBreached}</span>
+          </span>
+        </div>
+      )}
+
       {/* Origin tabs + View mode toggle */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {([
-          { value: "all" as const, label: "Todos" },
-          { value: "internal" as const, label: "Internos" },
-          { value: "guard" as const, label: "Guardias" },
-          { value: "client" as const, label: "Clientes" },
-        ]).map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            onClick={() => setOriginTab(tab.value)}
-            className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              originTab === tab.value
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+          { value: "all" as const, label: "Todos", countKey: "all" as const },
+          { value: "internal" as const, label: "Internos", countKey: "internal" as const },
+          { value: "guard" as const, label: "Guardias", countKey: "guard" as const },
+          { value: "client" as const, label: "Clientes", countKey: "client" as const },
+        ]).map((tab) => {
+          const n = counts?.byOrigin[tab.countKey];
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setOriginTab(tab.value)}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                originTab === tab.value
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+              {typeof n === "number" && (
+                <span className="ml-1 opacity-70">({n})</span>
+              )}
+            </button>
+          );
+        })}
 
-        {/* View mode toggle: Lista / Cards / Kanban */}
+        {/* View mode toggle: Lista / Cards / Kanban / Por instalación */}
         <div className="ml-auto flex gap-1 rounded-md bg-muted p-0.5">
           {([
             { value: "list" as const, label: "Lista" },
             { value: "cards" as const, label: "Cards" },
             { value: "kanban" as const, label: "Kanban" },
+            { value: "by-installation" as const, label: "Por instalación" },
           ]).map((mode) => (
             <button
               key={mode.value}
@@ -298,6 +409,10 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
                 setListMode(mode.value);
                 if (mode.value === "kanban" && filterStatus === "active") {
                   setFilterStatus("all");
+                }
+                if (mode.value === "by-installation") {
+                  setInstallationFilterId(null);
+                  setInstallationCtx(null);
                 }
               }}
               className={`rounded-sm px-2 py-1 text-[10px] font-medium ${
@@ -315,6 +430,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         {(Object.entries(TICKET_PRIORITY_CONFIG) as [TicketPriority, (typeof TICKET_PRIORITY_CONFIG)["p1"]][]).map(
           ([key, cfg]) => {
             const active = filterPriorities.has(key);
+            const n = counts?.byPriority[key];
             return (
               <button
                 key={key}
@@ -332,6 +448,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
                   }`}
                 />
                 {cfg.shortLabel}
+                {typeof n === "number" && (
+                  <span className="opacity-70">({n})</span>
+                )}
               </button>
             );
           },
@@ -346,13 +465,27 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="active">Activos</SelectItem>
-            <SelectItem value="pending_approval">Pend. aprobación</SelectItem>
-            <SelectItem value="open">Abierto</SelectItem>
-            <SelectItem value="in_progress">En progreso</SelectItem>
-            <SelectItem value="waiting">En espera</SelectItem>
-            <SelectItem value="resolved">Resuelto</SelectItem>
+            <SelectItem value="all">
+              Todos{typeof counts?.total === "number" ? ` (${counts.total})` : ""}
+            </SelectItem>
+            <SelectItem value="active">
+              Activos{typeof counts?.active === "number" ? ` (${counts.active})` : ""}
+            </SelectItem>
+            <SelectItem value="pending_approval">
+              Pend. aprobación{typeof counts?.byStatus.pending_approval === "number" ? ` (${counts.byStatus.pending_approval})` : ""}
+            </SelectItem>
+            <SelectItem value="open">
+              Abierto{typeof counts?.byStatus.open === "number" ? ` (${counts.byStatus.open})` : ""}
+            </SelectItem>
+            <SelectItem value="in_progress">
+              En progreso{typeof counts?.byStatus.in_progress === "number" ? ` (${counts.byStatus.in_progress})` : ""}
+            </SelectItem>
+            <SelectItem value="waiting">
+              En espera{typeof counts?.byStatus.waiting === "number" ? ` (${counts.byStatus.waiting})` : ""}
+            </SelectItem>
+            <SelectItem value="resolved">
+              Resuelto{typeof counts?.byStatus.resolved === "number" ? ` (${counts.byStatus.resolved})` : ""}
+            </SelectItem>
             <SelectItem value="cancelled">Cancelado</SelectItem>
           </SelectContent>
         </Select>
@@ -378,8 +511,34 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         )}
       </div>
 
-      {/* Kanban sub-view */}
-      {listMode === "kanban" ? (
+      {/* Drill-down breadcrumb (when filtering by a single installation) */}
+      {installationFilterId && installationCtx && listMode !== "by-installation" && (
+        <div className="flex items-center justify-between rounded-md border border-white/10 bg-muted/30 px-3 py-2 text-xs">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <button
+              type="button"
+              onClick={handleBackToInstallations}
+              className="flex items-center gap-1 text-foreground hover:underline"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Volver al mapa
+            </button>
+            <span>›</span>
+            <span className="font-medium text-foreground">{installationCtx.name}</span>
+            <span className="text-muted-foreground">
+              ({installationCtx.total} {installationCtx.total === 1 ? "ticket activo" : "tickets activos"})
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* By-installation view */}
+      {listMode === "by-installation" ? (
+        <TicketsByInstallationView
+          originTab={originTab}
+          onSelectInstallation={handleSelectInstallation}
+        />
+      ) : listMode === "kanban" ? (
         <TicketsKanban
           tickets={filteredTickets}
           loading={loading}
