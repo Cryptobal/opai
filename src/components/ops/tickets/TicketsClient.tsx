@@ -63,6 +63,15 @@ type ListMode = "list" | "cards" | "kanban";
 
 type ModuleView = "dashboard" | "tickets";
 
+type TicketCounts = {
+  total: number;
+  active: number;
+  slaBreached: number;
+  byStatus: Record<string, number>;
+  byPriority: Record<"p1" | "p2" | "p3" | "p4", number>;
+  byOrigin: { all: number; internal: number; guard: number; client: number };
+};
+
 // ═══════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════
@@ -89,6 +98,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [moduleView, setModuleView] = useState<ModuleView>("tickets");
   const [filterTypeId, setFilterTypeId] = useState<string>("all");
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
+  const [counts, setCounts] = useState<TicketCounts | null>(null);
 
   const initialLoadDone = useRef(false);
 
@@ -106,13 +116,37 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     }
   }, []);
 
+  const fetchCounts = useCallback(async (tab: typeof originTab) => {
+    try {
+      const typeParam =
+        tab === "internal" ? "internal"
+        : tab === "guard" ? "guard"
+        : tab === "client" ? "client"
+        : null;
+      const url = typeParam
+        ? `/api/ops/tickets/counts?type=${typeParam}`
+        : "/api/ops/tickets/counts";
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) setCounts(data.data);
+    } catch {
+      // Counts are non-critical — silently fail
+    }
+  }, []);
+
   useEffect(() => {
     fetchTickets(true); // initial load shows spinner
     function handleVisibility() {
-      if (document.visibilityState === "visible" && initialLoadDone.current) fetchTickets();
+      if (document.visibilityState === "visible" && initialLoadDone.current) {
+        fetchTickets();
+        fetchCounts(originTab);
+      }
     }
     function handleFocus() {
-      if (initialLoadDone.current) fetchTickets();
+      if (initialLoadDone.current) {
+        fetchTickets();
+        fetchCounts(originTab);
+      }
     }
     document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("focus", handleFocus);
@@ -120,7 +154,11 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [fetchTickets]);
+  }, [fetchTickets, fetchCounts, originTab]);
+
+  useEffect(() => {
+    fetchCounts(originTab);
+  }, [fetchCounts, originTab]);
 
   // Load ticket types for filter
   useEffect(() => {
@@ -262,27 +300,62 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         />
       </div>
 
+      {/* Totales: banner de conteos globales */}
+      {counts && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-white/10 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <span>
+            Total: <span className="font-semibold text-foreground">{counts.total}</span>
+          </span>
+          <span className="text-white/20">·</span>
+          <span>
+            Activos: <span className="font-semibold text-foreground">{counts.active}</span>
+          </span>
+          <span className="text-white/20">·</span>
+          <span>
+            Cerrados: <span className="font-semibold text-foreground">{counts.byStatus.closed ?? 0}</span>
+          </span>
+          <span className="text-white/20">·</span>
+          <span>
+            Resueltos: <span className="font-semibold text-foreground">{counts.byStatus.resolved ?? 0}</span>
+          </span>
+          <span className="text-white/20">·</span>
+          <span>
+            P1: <span className="font-semibold text-red-400">{counts.byPriority.p1}</span>
+          </span>
+          <span className="text-white/20">·</span>
+          <span>
+            SLA vencidos: <span className="font-semibold text-red-400">{counts.slaBreached}</span>
+          </span>
+        </div>
+      )}
+
       {/* Origin tabs + View mode toggle */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {([
-          { value: "all" as const, label: "Todos" },
-          { value: "internal" as const, label: "Internos" },
-          { value: "guard" as const, label: "Guardias" },
-          { value: "client" as const, label: "Clientes" },
-        ]).map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            onClick={() => setOriginTab(tab.value)}
-            className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              originTab === tab.value
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+          { value: "all" as const, label: "Todos", countKey: "all" as const },
+          { value: "internal" as const, label: "Internos", countKey: "internal" as const },
+          { value: "guard" as const, label: "Guardias", countKey: "guard" as const },
+          { value: "client" as const, label: "Clientes", countKey: "client" as const },
+        ]).map((tab) => {
+          const n = counts?.byOrigin[tab.countKey];
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setOriginTab(tab.value)}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                originTab === tab.value
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+              {typeof n === "number" && (
+                <span className="ml-1 opacity-70">({n})</span>
+              )}
+            </button>
+          );
+        })}
 
         {/* View mode toggle: Lista / Cards / Kanban */}
         <div className="ml-auto flex gap-1 rounded-md bg-muted p-0.5">
@@ -315,6 +388,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         {(Object.entries(TICKET_PRIORITY_CONFIG) as [TicketPriority, (typeof TICKET_PRIORITY_CONFIG)["p1"]][]).map(
           ([key, cfg]) => {
             const active = filterPriorities.has(key);
+            const n = counts?.byPriority[key];
             return (
               <button
                 key={key}
@@ -332,6 +406,9 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
                   }`}
                 />
                 {cfg.shortLabel}
+                {typeof n === "number" && (
+                  <span className="opacity-70">({n})</span>
+                )}
               </button>
             );
           },
@@ -346,13 +423,27 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="active">Activos</SelectItem>
-            <SelectItem value="pending_approval">Pend. aprobación</SelectItem>
-            <SelectItem value="open">Abierto</SelectItem>
-            <SelectItem value="in_progress">En progreso</SelectItem>
-            <SelectItem value="waiting">En espera</SelectItem>
-            <SelectItem value="resolved">Resuelto</SelectItem>
+            <SelectItem value="all">
+              Todos{typeof counts?.total === "number" ? ` (${counts.total})` : ""}
+            </SelectItem>
+            <SelectItem value="active">
+              Activos{typeof counts?.active === "number" ? ` (${counts.active})` : ""}
+            </SelectItem>
+            <SelectItem value="pending_approval">
+              Pend. aprobación{typeof counts?.byStatus.pending_approval === "number" ? ` (${counts.byStatus.pending_approval})` : ""}
+            </SelectItem>
+            <SelectItem value="open">
+              Abierto{typeof counts?.byStatus.open === "number" ? ` (${counts.byStatus.open})` : ""}
+            </SelectItem>
+            <SelectItem value="in_progress">
+              En progreso{typeof counts?.byStatus.in_progress === "number" ? ` (${counts.byStatus.in_progress})` : ""}
+            </SelectItem>
+            <SelectItem value="waiting">
+              En espera{typeof counts?.byStatus.waiting === "number" ? ` (${counts.byStatus.waiting})` : ""}
+            </SelectItem>
+            <SelectItem value="resolved">
+              Resuelto{typeof counts?.byStatus.resolved === "number" ? ` (${counts.byStatus.resolved})` : ""}
+            </SelectItem>
             <SelectItem value="cancelled">Cancelado</SelectItem>
           </SelectContent>
         </Select>
