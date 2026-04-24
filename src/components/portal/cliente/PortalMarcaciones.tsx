@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { portalFetch } from "@/lib/portal-cliente-fetch";
+import { ExportButton } from "./shared/ExportButton";
 
 /* ── Types ── */
 
@@ -289,12 +290,42 @@ export function PortalMarcaciones({ session, selectedInstallation }: Props) {
       )}
 
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2">
-          <UserCheck className="h-5 w-5 text-teal-400" />
-          <h2 className="text-base font-semibold text-white">Marcaciones</h2>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <UserCheck className="h-5 w-5 text-teal-400" />
+            <h2 className="text-base font-semibold text-white">Marcaciones</h2>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">{installationName}</p>
         </div>
-        <p className="text-xs text-slate-500 mt-1">{installationName}</p>
+        <ExportButton
+          baseName={`marcaciones_${installationName}_${days}d`}
+          sheetName="Marcaciones"
+          rows={marcaciones.map((m) => ({
+            fecha: new Date(m.timestamp).toLocaleString("es-CL"),
+            guardia: m.guardiaName,
+            tipo: m.tipo,
+            estado: m.estado,
+            geoValidada: m.geoValidada ? "Sí" : "No",
+            distanciaMetros: m.geoDistanciaM ?? "",
+            metodo: m.metodoId ?? "",
+            faceIdFoto: m.fotoEvidenciaUrl ? "Sí" : "No",
+            lat: m.lat ?? "",
+            lng: m.lng ?? "",
+          }))}
+          columns={[
+            { key: "fecha", label: "Fecha y hora", width: 22 },
+            { key: "guardia", label: "Guardia", width: 24 },
+            { key: "tipo", label: "Tipo", width: 10 },
+            { key: "estado", label: "Estado", width: 14 },
+            { key: "geoValidada", label: "Geo validada", width: 12 },
+            { key: "distanciaMetros", label: "Distancia (m)", width: 12 },
+            { key: "metodo", label: "Método", width: 12 },
+            { key: "faceIdFoto", label: "Face ID foto", width: 12 },
+            { key: "lat", label: "Lat", width: 12 },
+            { key: "lng", label: "Lng", width: 12 },
+          ]}
+        />
       </div>
 
       {/* Filtros: rango de días */}

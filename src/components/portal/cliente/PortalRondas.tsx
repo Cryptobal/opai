@@ -18,6 +18,7 @@ import { usePortalSession } from "@/contexts/portal-cliente-session-context";
 import { usePortalClienteRealtime } from "@/hooks/usePortalClienteRealtime";
 import { getDemoData, hasDemoData } from "@/lib/portal/demo-registry";
 import { RondaMapView } from "./RondaMapView";
+import { ExportButton } from "./shared/ExportButton";
 
 interface Ejecucion {
   id: string;
@@ -425,6 +426,36 @@ export function PortalRondas({ selectedInstallation }: Props) {
             {rondas.length}
             {hasMore ? "+" : ""} registros
           </span>
+          <ExportButton
+            baseName={`rondas_${range}`}
+            sheetName="Rondas"
+            rows={rondas.map((r) => ({
+              fecha: r.completedAt
+                ? new Date(r.completedAt).toLocaleString("es-CL")
+                : r.startedAt
+                  ? new Date(r.startedAt).toLocaleString("es-CL")
+                  : new Date(r.scheduledAt).toLocaleString("es-CL"),
+              estado: r.status,
+              guardia: r.guardia
+                ? `${r.guardia.persona.firstName} ${r.guardia.persona.lastName}`.trim()
+                : "",
+              duracionMin: r.durationMinutes ?? "",
+              checkpointsCompletados: r.checkpointsCompletados,
+              checkpointsTotal: r.checkpointsTotal,
+              porcentaje: r.porcentajeCompletado,
+              trustScore: r.trustScore,
+            }))}
+            columns={[
+              { key: "fecha", label: "Fecha", width: 22 },
+              { key: "estado", label: "Estado", width: 14 },
+              { key: "guardia", label: "Guardia", width: 24 },
+              { key: "duracionMin", label: "Duración (min)", width: 14 },
+              { key: "checkpointsCompletados", label: "Checkpoints OK", width: 14 },
+              { key: "checkpointsTotal", label: "Checkpoints total", width: 14 },
+              { key: "porcentaje", label: "% completado", width: 12 },
+              { key: "trustScore", label: "Trust score", width: 12 },
+            ]}
+          />
         </div>
         {isProspect ? (
           <p className="text-xs text-zinc-500 mt-1 ml-6">Monitoreo GPS con geofencing automático</p>

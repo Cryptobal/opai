@@ -41,6 +41,8 @@ import { usePortalClienteRealtime } from "@/hooks/usePortalClienteRealtime";
 import { PreviewBadge } from "./PreviewBadge";
 import { OpaiBadge } from "./OpaiBadge";
 import { DashboardCotizacionesPendientes } from "./cotizaciones/DashboardCotizacionesPendientes";
+import { EquipoGlobalCard } from "./dashboard/EquipoGlobalCard";
+import { DocComplianceAlertCard } from "./dashboard/DocComplianceAlertCard";
 import { WhatsAppButton } from "./cotizaciones/WhatsAppButton";
 
 interface Summary {
@@ -355,6 +357,14 @@ export function PortalDashboard({ selectedInstallation, onNavigate }: Props) {
         isProspect={isProspect}
         onNavigateToDetail={(section) => onNavigate(section)}
       />
+
+      {/* Alerta de cumplimiento documental global */}
+      {!isProspect && <DocComplianceAlertCard onNavigate={onNavigate} />}
+
+      {/* Equipo global del cliente */}
+      {!isProspect && (
+        <EquipoGlobalCard onNavigate={onNavigate} isProspect={isProspect} />
+      )}
 
       {/* Hero dinámico: prioriza ronda en curso, fallback a última ronda */}
       {!isProspect && s?.rondaEnCurso ? (
