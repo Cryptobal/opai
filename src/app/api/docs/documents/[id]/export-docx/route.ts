@@ -14,6 +14,7 @@ import { resolveDocumentContentForDisplay } from "@/lib/docs/resolve-document-co
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+export const runtime = "nodejs";
 
 function esc(text: string) {
   return text
