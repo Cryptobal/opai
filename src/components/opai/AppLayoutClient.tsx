@@ -35,6 +35,7 @@ import {
   Sparkles,
   Siren,
   Briefcase,
+  Brain,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess, canView, canViewInstallations, hasCapability } from '@/lib/permissions';
@@ -187,6 +188,7 @@ function AppLayoutClientInner({
         { href: '/personas/comunicaciones', label: 'Comunicaciones', icon: Bell },
         { href: '/personas/guardias/sueldos-rut', label: 'Sueldos por RUT', icon: DollarSign },
         canView(permissions, 'ops', 'gamificacion') && isModuleEnabled('gamificacion') && { href: '/personas/gamificacion', label: 'Gamificación', icon: Trophy },
+        isModuleEnabled('psych') && { href: '/personas/psicolaboral', label: 'Psicolaboral', icon: Brain },
       ].filter(Boolean) as NavItem['children'],
     },
     {
