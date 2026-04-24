@@ -110,7 +110,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
   const [signatureLoading, setSignatureLoading] = useState(false);
   const [activeSignatureRequest, setActiveSignatureRequest] = useState<any | null>(null);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [downloading, setDownloading] = useState<"pdf" | "docx" | null>(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [contentHtml, setContentHtml] = useState<string | null>(null);
   const [contentHtmlLoading, setContentHtmlLoading] = useState(false);
@@ -228,7 +228,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   };
 
   const handleDownloadPdf = async () => {
-    setDownloadingPdf(true);
+    setDownloading("pdf");
     try {
       const res = await fetch(`/api/docs/documents/${documentId}/export-pdf`);
       if (!res.ok) {
@@ -251,7 +251,7 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
     } catch {
       toast.error("Error al descargar PDF");
     } finally {
-      setDownloadingPdf(false);
+      setDownloading(null);
     }
   };
 
@@ -365,10 +365,10 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
               variant="outline"
               className="gap-1.5"
               onClick={() => void handleDownloadPdf()}
-              disabled={downloadingPdf}
+              disabled={downloading !== null}
               aria-label="Descargar PDF"
             >
-              {downloadingPdf ? (
+              {downloading === "pdf" ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <Download className="h-3.5 w-3.5" />
