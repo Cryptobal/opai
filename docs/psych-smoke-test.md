@@ -105,6 +105,86 @@ Tiempo estimado: **15-20 min**.
 
 ---
 
+# Smoke Test Fase 1.6 — UX fixes + operativa
+
+## 19. Dark mode
+
+1. Toggle modo oscuro en Opai.
+2. Abrir `/personas/psicolaboral` — fondos oscuros, texto legible.
+3. Tarjetas de métricas: semitones dark con borders visibles.
+4. Tabla → scroll, hover fondos correctos.
+5. Repetir con `/personas/psicolaboral/[id]` (radar chart readable).
+
+## 20. Mobile 375px
+
+1. DevTools viewport 375px.
+2. Dashboard: métricas en 2x2, tabla como cards stackeadas, botones columna.
+3. Detalle: score + alertas + botón PDF ARRIBA del radar.
+4. Formulario "Nueva evaluación": selector ocupa todo el ancho.
+5. Modal share: QR + botones apilados full-width con min-h 44px.
+
+## 21. Sidebar
+
+1. Abrir sidebar → sección "Personas" expandida.
+2. Verificar ítem "Psicolaboral" con ícono Brain.
+3. Click → navega a `/personas/psicolaboral`.
+4. En tenant sin módulo: ítem no aparece (gate por `isModuleEnabled`).
+
+## 22. Selector de persona
+
+1. `/personas/psicolaboral/nuevo` → buscador.
+2. Escribir "Juan" (>=2 chars) → ver postulantes + guardias agrupados.
+3. Seleccionar un guardia activo → card con datos pre-llenados + X para cambiar.
+4. Alternativa: "¿No está en el sistema?" → form manual.
+5. Generar enlace → verificar en DB que `targetName`, `targetPhone`, `personaId`
+   coinciden con la persona (no con lo que el usuario tipeó).
+
+## 23. WhatsApp wa.me
+
+1. Crear assessment con teléfono válido.
+2. Modal share → botón WhatsApp verde.
+3. Click → abre pestaña `https://wa.me/56XXXX?text=...` con mensaje pre-escrito.
+4. Verificar audit log: evento `psych.invitation.wa_link_generated`.
+5. Si falta teléfono: botón disabled con texto "(sin teléfono)".
+
+## 24. Tab Psicolaboral en ficha guardia
+
+1. `/personas/guardias/[id]` → click tab "Psicolaboral".
+2. Si sin assessments: CTA "+ Nueva evaluación".
+3. Click → crea + abre modal share.
+4. Refrescar → historial muestra el assessment creado.
+
+## 25. Historial + ver respuestas + eliminar
+
+1. En ficha guardia tab Psicolaboral: historial con 3+ assessments.
+2. Click "Respuestas" en uno SCORED → modal con 45 ítems + respuesta + score.
+3. Login como admin/owner → click "Eliminar" (ícono papelera roja).
+4. Dialog pide razón ≥10 chars → confirmar.
+5. Assessment desaparece + audit log registra `psych.assessment.deleted`.
+6. Login como rol "editor" → no ve el botón eliminar.
+
+## 26. Cron expire
+
+1. Crear assessment, forzar `expiresAt` al pasado vía SQL.
+2. Hit manual: `curl -H "Authorization: Bearer $CRON_SECRET" https://opai.cl/api/cron/psych-expire-assessments`.
+3. Respuesta `{ success: true, expired: 1 }`.
+4. Verificar en DB que status pasó a EXPIRED.
+
+## 27. Notificación al scoring
+
+1. Crear assessment y completar test.
+2. Esperar ~5 segundos después de SUBMITTED.
+3. Verificar inbox del usuario creador — email con subject
+   "Evaluación psicolaboral lista: {nombre}" + link al detalle.
+
+## 28. Re-envío inteligente (banner PENDING >24h)
+
+1. Crear assessment con `createdAt` de hace 25h (forzar SQL).
+2. Abrir detalle → banner ámbar visible.
+3. Click "Reenviar por WhatsApp" → regenera token, abre wa.me.
+
+---
+
 # Smoke Test Extra — Fase 1.5 (integraciones y portales)
 
 ## 10. Panel ATS
