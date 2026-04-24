@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { Avatar, EmptyState } from "@/components/opai";
-import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw, Share2, MessageCircle, FileCheck, FileX, Download } from "lucide-react";
+import { ShieldUser, Plus, ExternalLink, Phone, MapPin, Building2, UserPlus, ChevronDown, ChevronRight, Loader2, RefreshCw, MessageCircle, FileCheck, FileX, Download, MoreHorizontal, Key } from "lucide-react";
 import { ListToolbar } from "@/components/shared/ListToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import {
@@ -24,6 +24,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatPersonName } from "@/lib/personas";
@@ -569,32 +570,6 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
   return (
     <div className="space-y-4 min-w-0 overflow-x-hidden">
       <div className="flex items-center justify-end gap-2 flex-wrap">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-8 px-2 text-xs"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          title="Recargar lista"
-        >
-          {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
-          Recargar
-        </Button>
-        {canManageGuardias && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 px-2 text-xs"
-            onClick={() => void handleBulkPinVisible()}
-            disabled={bulkPinLoading}
-            title="Generar PINs visibles para todos los guardias activos que no lo tienen"
-          >
-            {bulkPinLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
-            Generar PINs visibles
-          </Button>
-        )}
         {canIngresoTe && (
           <Button
             type="button"
@@ -608,78 +583,6 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             </Link>
           </Button>
         )}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-8 px-2 text-xs"
-          onClick={() => void handleExportExcel("activos")}
-        >
-          Descargar base guardias activos
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-8 px-2 text-xs"
-          onClick={() => void handleExportExcel("historico")}
-        >
-          Descargar activos + inactivos
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-8 px-2 text-xs"
-          disabled={loadingPublicForm || !canManageGuardias}
-          onClick={() => void handleOpenPublicPostulacion()}
-        >
-          <ExternalLink className="h-3.5 w-3.5 mr-1" />
-          Acceder al formulario de postulación
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8 px-2 text-xs"
-            >
-              <Share2 className="h-3.5 w-3.5 mr-1" />
-              Compartir enlace
-              <ChevronDown className="h-3 w-3 ml-1" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => {
-                const url = `${window.location.origin}/ingreso-te`;
-                const msg = `Hola, te invitamos a completar tu registro como guardia de Turno Extra. Ingresa aquí: ${url}`;
-                window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
-              }}
-            >
-              <MessageCircle className="h-3.5 w-3.5 mr-2 text-emerald-500" />
-              Enviar formulario Turno Extra
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={async () => {
-                try {
-                  const response = await fetch("/api/personas/postulacion-link");
-                  const payload = await response.json();
-                  if (!response.ok || !payload.success) throw new Error(payload.error);
-                  const url = payload.data?.url || `${window.location.origin}${payload.data?.path}`;
-                  const msg = `Hola, te invitamos a postularte como guardia. Completa el formulario aquí: ${url}`;
-                  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
-                } catch {
-                  toast.error("No se pudo generar el link de postulación");
-                }
-              }}
-            >
-              <MessageCircle className="h-3.5 w-3.5 mr-2 text-emerald-500" />
-              Enviar formulario Postulación
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
         <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
           <DialogTrigger asChild>
             <Button
@@ -927,6 +830,96 @@ export function GuardiasClient({ initialGuardias, userRole }: GuardiasClientProp
             </div>
           </DialogContent>
         </Dialog>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              title="Más acciones"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="hidden sm:inline">Más acciones</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuItem
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5 mr-2" />
+              )}
+              Recargar lista
+            </DropdownMenuItem>
+            {canManageGuardias && (
+              <DropdownMenuItem
+                onClick={() => void handleBulkPinVisible()}
+                disabled={bulkPinLoading}
+              >
+                {bulkPinLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                ) : (
+                  <Key className="h-3.5 w-3.5 mr-2" />
+                )}
+                Generar PINs visibles
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={() => void handleExportExcel("activos")}>
+              <Download className="h-3.5 w-3.5 mr-2" />
+              Descargar base activos
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void handleExportExcel("historico")}>
+              <Download className="h-3.5 w-3.5 mr-2" />
+              Descargar activos + inactivos
+            </DropdownMenuItem>
+            {canManageGuardias && (
+              <DropdownMenuItem
+                onClick={() => void handleOpenPublicPostulacion()}
+                disabled={loadingPublicForm}
+              >
+                {loadingPublicForm ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                )}
+                Abrir formulario de postulación
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => {
+                const url = `${window.location.origin}/ingreso-te`;
+                const msg = `Hola, te invitamos a completar tu registro como guardia de Turno Extra. Ingresa aquí: ${url}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+              }}
+            >
+              <MessageCircle className="h-3.5 w-3.5 mr-2 text-emerald-500" />
+              Enviar formulario Turno Extra (WhatsApp)
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={async () => {
+                try {
+                  const response = await fetch("/api/personas/postulacion-link");
+                  const payload = await response.json();
+                  if (!response.ok || !payload.success) throw new Error(payload.error);
+                  const url = payload.data?.url || `${window.location.origin}${payload.data?.path}`;
+                  const msg = `Hola, te invitamos a postularte como guardia. Completa el formulario aquí: ${url}`;
+                  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+                } catch {
+                  toast.error("No se pudo generar el link de postulación");
+                }
+              }}
+            >
+              <MessageCircle className="h-3.5 w-3.5 mr-2 text-emerald-500" />
+              Enviar formulario Postulación (WhatsApp)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Dialog open={!!contractDateModal} onOpenChange={(open) => !open && setContractDateModal(null)}>
           <DialogContent className="sm:max-w-md">

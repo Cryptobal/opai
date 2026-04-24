@@ -183,6 +183,7 @@ const PERSONAS_ITEMS: BottomNavItem[] = [
   { key: "personas-comunicaciones", href: "/personas/comunicaciones", label: "Comunicaciones", icon: Bell },
   { key: "personas-sueldos-rut", href: "/personas/guardias/sueldos-rut", label: "Sueldos RUT", icon: DollarSign },
   { key: "personas-gamificacion", href: "/personas/gamificacion", label: "Gamificación", icon: Trophy },
+  { key: "personas-psicolaboral", href: "/personas/psicolaboral", label: "Psicolab.", icon: Brain },
 ];
 
 /* ── Payroll sub-items ── */
@@ -259,6 +260,7 @@ const OPS_MODULE_MAP: Record<string, string> = {
 const PERSONAS_MODULE_MAP: Record<string, string> = {
   "personas-gamificacion": "gamificacion",
   "personas-onboarding": "ops_onboarding",
+  "personas-psicolaboral": "psych",
 };
 
 const MODULE_DETECTIONS: ModuleDetection[] = [
