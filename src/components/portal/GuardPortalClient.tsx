@@ -48,6 +48,7 @@ import { AccessControlGuardHome } from "@/components/access-control/AccessContro
 import { AlertasCoberturaGuardiaSection } from "@/components/portal/AlertasCoberturaGuardiaSection";
 import { MisDatosSection } from "@/components/portal/MisDatosSection";
 import { SwitchPortalButton } from "@/components/portal/SwitchPortalButton";
+import { GuardiaBottomNav } from "@/components/portal/guardia/GuardiaBottomNav";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { PushPermissionPrompt } from "@/components/pwa/PushPermissionPrompt";
 import { FaceCameraCapture } from "@/app/portal/marcacion/_components/FaceCameraCapture";
@@ -68,8 +69,6 @@ import {
   type GuardExtraShift,
   type GuardDocument,
   type PortalSection,
-  PORTAL_BOTTOM_NAV,
-  PORTAL_NAV_ITEMS,
   SHIFT_CODE_LABELS,
   EXTRA_SHIFT_STATUS_LABELS,
   getGreeting,
@@ -81,21 +80,6 @@ import {
   TICKET_STATUS_CONFIG,
   type TicketStatus,
 } from "@/lib/tickets";
-
-// ═══════════════════════════════════════════════════════════════
-//  ICON MAP for bottom nav
-// ═══════════════════════════════════════════════════════════════
-
-const NAV_ICONS: Record<string, React.ReactNode> = {
-  Home: <Home className="h-5 w-5" />,
-  Ticket: <Ticket className="h-5 w-5" />,
-  CalendarDays: <CalendarDays className="h-5 w-5" />,
-  User: <User className="h-5 w-5" />,
-  MessageCircle: <MessageCircle className="h-5 w-5" />,
-  ShieldCheck: <ShieldCheck className="h-5 w-5" />,
-  TrendingUp: <TrendingUp className="h-5 w-5" />,
-  Siren: <Siren className="h-5 w-5" />,
-};
 
 // ═══════════════════════════════════════════════════════════════
 //  GUARD PORTAL CLIENT
@@ -300,29 +284,7 @@ export function GuardPortalClient() {
       )}
 
       {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur border-t w-full">
-        <div className="flex items-center justify-around py-2">
-          {PORTAL_BOTTOM_NAV.map((sectionKey) => {
-            const navItem = PORTAL_NAV_ITEMS.find((n) => n.key === sectionKey);
-            if (!navItem) return null;
-            const isActive = activeSection === sectionKey;
-            return (
-              <button
-                key={sectionKey}
-                onClick={() => setActiveSection(sectionKey)}
-                className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {NAV_ICONS[navItem.icon] ?? <Home className="h-5 w-5" />}
-                <span className="text-[10px] font-medium">{navItem.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      <GuardiaBottomNav activeSection={activeSection} onSelect={setActiveSection} />
     </div>
   );
 }
