@@ -57,6 +57,7 @@ import {
   isPendingMyApproval,
 } from "@/lib/tickets";
 import { TicketApprovalTimeline } from "./TicketApprovalTimeline";
+import { TicketFindingCard } from "./TicketFindingCard";
 import { SlaBar } from "./TicketsClient";
 
 interface TicketDetailClientProps {
@@ -864,6 +865,9 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
           )}
         </div>
       )}
+
+      {/* ── CARD: Supervision finding (documento + guardia + visita) ── */}
+      {ticket.finding && <TicketFindingCard finding={ticket.finding} />}
 
       {/* ── CARD: Description ── */}
       {ticket.description && (
