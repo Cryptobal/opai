@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import PersonalPsychHistory, { type HistoryRow } from "./PersonalPsychHistory";
+import PsychHistoryTable, {
+  type HistoryAssessment,
+} from "@/components/psych/dashboard/PsychHistoryTable";
 
 interface Config {
   reevaluationIntervalMonths: number;
@@ -17,26 +19,34 @@ const addMonths = (d: Date, months: number): Date =>
   new Date(d.getTime() + months * MS_PER_MONTH);
 
 export default function PersonalPsychPanel({ personaId, guardName }: Props) {
-  const [rows, setRows] = useState<HistoryRow[] | null>(null);
+  const [rows, setRows] = useState<HistoryAssessment[] | null>(null);
   const [config, setConfig] = useState<Config>({ reevaluationIntervalMonths: 6 });
+  const [canDelete, setCanDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   async function load() {
     try {
-      const [a, c] = await Promise.all([
+      const [a, c, m] = await Promise.all([
         fetch(
           `/api/psych/assessments?personaId=${encodeURIComponent(personaId)}`,
         ).then((r) => r.json()),
         fetch("/api/psych/config").then((r) => r.json()),
+        fetch("/api/psych/me").then((r) => r.json()),
       ]);
-      if (a.success) setRows(a.rows);
+      if (a.success) {
+        const mapped: HistoryAssessment[] = (a.rows as HistoryAssessment[]).map(
+          (r) => ({ ...r, targetName: guardName }),
+        );
+        setRows(mapped);
+      }
       if (c.success) {
         setConfig({
           reevaluationIntervalMonths:
             (c.config.reevaluationIntervalMonths as number | undefined) ?? 6,
         });
       }
+      if (m.success) setCanDelete(!!m.canAdmin);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     }
@@ -100,7 +110,11 @@ export default function PersonalPsychPanel({ personaId, guardName }: Props) {
           Última evaluación: <b>No recomendado</b>. Considera activar plan de acción.
         </div>
       ) : null}
-      <PersonalPsychHistory rows={rows} onInviteNew={handleRequestNew} busy={busy} />
+      <PsychHistoryTable
+        rows={rows}
+        canDelete={canDelete}
+        onDeleted={load}
+      />
       {lastSubmitted ? (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
