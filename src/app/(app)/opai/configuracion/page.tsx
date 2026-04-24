@@ -64,6 +64,7 @@ const CONFIG_SECTIONS: ConfigSection[] = [
       { submodule: "gamificacion", href: "/opai/configuracion/gamificacion", title: "Gamificación", description: "Pesos, niveles, puntos y badges", icon: "trophy", adminOnly: true },
       { submodule: "alertas_cobertura", href: "/opai/configuracion/alertas-cobertura", title: "Alertas de Cobertura", description: "Oleadas, tiempos y canales", icon: "siren" },
       { submodule: "ats", href: "/opai/configuracion/ats", title: "ATS — Reclutamiento", description: "Match score, canales y distribución", icon: "briefcase" },
+      { submodule: "psicolaboral", href: "/opai/configuracion/psicolaboral", title: "Psicolaboral", description: "Pesos, umbrales y plantillas de invitación", icon: "brain", adminOnly: true },
     ],
   },
 ];
