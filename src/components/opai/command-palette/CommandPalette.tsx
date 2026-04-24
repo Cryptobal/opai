@@ -34,6 +34,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsIOS } from '@/hooks/usePlatform';
 import type { CommandItem, CommandCategory } from './types';
 import { useCommandPalette } from './use-command-palette';
 import { defaultCommands, ICON_MAP, CATEGORY_LABELS } from './commands';
@@ -154,6 +155,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   const router = useRouter();
   const pathname = usePathname();
   const isMobile = useIsMobile();
+  const isIOS = useIsIOS();
   const { isOpen, close, addRecent, getRecents, externalCommands } = useCommandPalette();
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -392,6 +394,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
           // Desktop: centered card
           'sm:flex-none sm:w-full sm:max-w-[640px] sm:mx-auto sm:rounded-2xl sm:border sm:border-border/60 sm:bg-card sm:shadow-2xl sm:shadow-black/40 sm:slide-in-from-top-4 sm:zoom-in-[0.98] sm:overflow-hidden',
           'sm:ring-1 sm:ring-white/[0.03]',
+          isIOS && 'opai-ios-command-palette',
         )}
         style={{
           // Mobile gets full dvh height; subtract safe area top
@@ -410,6 +413,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
               'flex items-center gap-2 border-b border-border/60 px-4 sm:px-5 shrink-0',
               // Mobile input area is taller for comfortable thumb reach
               'h-16 sm:h-[60px]',
+              isIOS && 'opai-ios-command-palette-chrome',
             )}
           >
             <Search className="h-5 w-5 shrink-0 text-muted-foreground/70" aria-hidden />
@@ -654,7 +658,10 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
 
           {/* ── Footer (mobile — compact count + safe area spacer) ── */}
           <div
-            className="sm:hidden flex items-center justify-center border-t border-border/60 bg-muted/20 px-4 py-2 shrink-0 text-[11px] text-muted-foreground/70 tabular-nums"
+            className={cn(
+              'sm:hidden flex items-center justify-center border-t border-border/60 bg-muted/20 px-4 py-2 shrink-0 text-[11px] text-muted-foreground/70 tabular-nums',
+              isIOS && 'opai-ios-command-palette-chrome',
+            )}
             style={{
               paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)',
             }}

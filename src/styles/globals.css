@@ -821,12 +821,37 @@ html {
       0 10px 30px rgba(0, 0, 0, 0.4) !important;
   }
 
+  /* Command Palette móvil: buscador full-screen con Liquid Glass sólo en iOS */
+  @media (max-width: 639px) {
+    html[data-platform="ios"] .opai-ios-command-palette {
+      background:
+        linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.1) 0%,
+          rgba(255, 255, 255, 0.04) 100%
+        ),
+        rgba(14, 17, 22, 0.62) !important;
+      backdrop-filter: blur(32px) saturate(200%) !important;
+      -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 -12px 32px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    html[data-platform="ios"] .opai-ios-command-palette-chrome {
+      background: transparent !important;
+      border-color: rgba(255, 255, 255, 0.1) !important;
+    }
+  }
+
   /* Tema claro en iOS: surface translúcido blanco (no dark) */
   :root:not(.dark)[data-platform="ios"] .opai-ios-surface-sheet-bottom,
   :root:not(.dark)[data-platform="ios"] .opai-ios-surface-sheet-top,
   :root:not(.dark)[data-platform="ios"] .opai-ios-surface-sheet-side,
   :root:not(.dark)[data-platform="ios"] .opai-ios-surface-dialog,
-  :root:not(.dark)[data-platform="ios"] .opai-ios-surface-popover {
+  :root:not(.dark)[data-platform="ios"] .opai-ios-surface-popover,
+  :root:not(.dark)[data-platform="ios"] .opai-ios-command-palette {
     background:
       linear-gradient(
         180deg,
@@ -847,6 +872,7 @@ html {
     html[data-platform="ios"] .opai-ios-surface-sheet-side,
     html[data-platform="ios"] .opai-ios-surface-dialog,
     html[data-platform="ios"] .opai-ios-surface-popover,
+    html[data-platform="ios"] .opai-ios-command-palette,
     html[data-platform="ios"] .opai-liquid-glass-bar,
     html[data-platform="ios"] .opai-liquid-glass-bar-top {
       background: hsl(var(--card)) !important;
