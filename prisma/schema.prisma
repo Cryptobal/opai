@@ -8434,6 +8434,12 @@ model PsychResult {
   reviewedBy      String?         @map("reviewed_by")
   reviewedAt      DateTime?       @map("reviewed_at")
   reviewNote      String?         @map("review_note") @db.Text
+  // ── v1.6: revisión por psicólogo externo ──
+  reviewerEmail        String?    @map("reviewer_email")
+  reviewerLicense      String?    @map("reviewer_license")
+  reviewRequestToken   String?    @unique @map("review_request_token")
+  reviewRequestedAt    DateTime?  @map("review_requested_at")
+  reviewRequestExpires DateTime?  @map("review_request_expires")
   createdAt       DateTime        @default(now()) @map("created_at")
 
   @@map("results")

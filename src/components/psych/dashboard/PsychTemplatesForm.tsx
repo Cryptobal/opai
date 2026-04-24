@@ -77,7 +77,7 @@ export default function PsychTemplatesForm() {
           rows={3}
           value={s.whatsappTemplate}
           onChange={(e) => upd("whatsappTemplate", e.target.value)}
-          className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-sm"
         />
         <Preview value={s.whatsappTemplate} />
       </Field>
@@ -85,7 +85,7 @@ export default function PsychTemplatesForm() {
         <input
           value={s.emailSubject}
           onChange={(e) => upd("emailSubject", e.target.value)}
-          className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-sm"
         />
       </Field>
       <Field label="Email — Cuerpo">
@@ -93,7 +93,7 @@ export default function PsychTemplatesForm() {
           rows={6}
           value={s.emailBody}
           onChange={(e) => upd("emailBody", e.target.value)}
-          className="w-full rounded-lg border border-border px-3 py-2 text-sm font-mono"
+          className="w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-sm font-mono"
         />
         <Preview value={s.emailBody} />
       </Field>
@@ -102,7 +102,7 @@ export default function PsychTemplatesForm() {
           rows={2}
           value={s.smsTemplate}
           onChange={(e) => upd("smsTemplate", e.target.value)}
-          className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-sm"
         />
         <Preview value={s.smsTemplate} />
       </Field>

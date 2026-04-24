@@ -129,7 +129,7 @@ function NumRow({ label, value, min, max, onChange }: { label: string; value: nu
   return (
     <label className="grid grid-cols-[1fr_120px] items-center gap-3 text-sm text-foreground/90">
       <span>{label}</span>
-      <input type="number" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="rounded-lg border border-border px-2 py-1" />
+      <input type="number" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="rounded-lg border border-border bg-background text-foreground px-2 py-1" />
     </label>
   );
 }
