@@ -4,10 +4,12 @@ import {
   LayoutDashboard, Building2, MapPin, BookOpen, MessageSquare, Ticket,
   FileText, Receipt, BarChart3, GitCompare, Bell, MoreHorizontal, ClipboardList,
   UserCheck, Building, Briefcase, ShieldCheck, TrendingUp, Package, FileCheck2, Eye,
+  type LucideIcon,
 } from 'lucide-react'
 import { PortalConfig } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
 import { useEffect, useRef, useState } from 'react'
+import { PlatformAwareBottomNav, type NavItem as PlatformNavItem } from '@/components/opai/portal-shell'
 
 export type PortalSection =
   | 'dashboard' | 'instalaciones' | 'instalacion-detalle' | 'rondas' | 'posta' | 'chat'
@@ -28,9 +30,6 @@ const GROUP_LABELS: Record<NavGroup, string> = {
   proveedor: 'Mi Proveedor',
 }
 
-// Fixed bottom-nav tabs — priorizamos lo operativo (lo que el cliente
-// realmente abre a diario): rondas, accesos y tickets. `instalaciones`
-// pasa a vivir dentro del menú "Más" junto con el resto del detalle.
 const MAIN_TABS: PortalSection[] = [
   'dashboard',
   'rondas',
@@ -39,7 +38,6 @@ const MAIN_TABS: PortalSection[] = [
   'chat',
 ]
 
-// Grouped items shown inside the "Más" menu.
 const GROUPED_ITEMS: Record<NavGroup, PortalSection[]> = {
   operaciones: ['personal', 'instalaciones', 'marcaciones', 'posta', 'bitacora', 'supervision', 'equipamiento', 'desempeno'],
   mensajes: ['alertas', 'encuestas'],
@@ -50,7 +48,7 @@ const GROUPED_ITEMS: Record<NavGroup, PortalSection[]> = {
 
 type NavItem = {
   label: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   configKey?: keyof PortalConfig
   requiresPresentation?: boolean
 }
@@ -91,6 +89,8 @@ interface Props {
   hasActivePresentation?: boolean
 }
 
+type NavId = PortalSection | 'more'
+
 export function PortalClienteNav({
   portalConfig,
   activeSection,
@@ -127,75 +127,74 @@ export function PortalClienteNav({
     return NAV_ITEMS[s].label
   }
 
-  return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 z-50 safe-area-pb">
-      <div className="flex items-center justify-around h-16 px-1 max-w-lg mx-auto">
-        {visibleMain.map(id => {
-          const item = NAV_ITEMS[id]
-          const Icon = item.icon
-          const active = activeSection === id
-          return (
-            <button
-              key={id}
-              onClick={() => { onSection(id); setMoreOpen(false) }}
-              className={cn(
-                'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-[56px]',
-                active ? 'text-teal-400 bg-teal-500/10' : 'text-zinc-500 hover:text-zinc-300 active:bg-zinc-800',
-              )}
-            >
-              <Icon className="h-5 w-5" />
-              <span className="text-[10px] leading-tight font-medium">{labelFor(id)}</span>
-            </button>
-          )
-        })}
+  const items: PlatformNavItem<NavId>[] = [
+    ...visibleMain.map((id) => ({
+      id: id as NavId,
+      label: labelFor(id),
+      icon: NAV_ITEMS[id].icon,
+    })),
+    { id: 'more', label: 'Más', icon: MoreHorizontal },
+  ]
 
-        <div ref={moreRef} className="relative">
-          <button
-            onClick={() => setMoreOpen(!moreOpen)}
-            className={cn(
-              'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-[56px]',
-              moreOpen ? 'text-teal-400 bg-teal-500/10' : 'text-zinc-500 hover:text-zinc-300 active:bg-zinc-800',
-            )}
-          >
-            <MoreHorizontal className="h-5 w-5" />
-            <span className="text-[10px] leading-tight font-medium">Más</span>
-          </button>
-          {moreOpen && (
-            <div className="absolute bottom-14 right-0 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-2 min-w-[200px] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto z-10">
-              {(Object.keys(GROUPED_ITEMS) as NavGroup[]).map((group, gIdx) => {
-                const items = GROUPED_ITEMS[group].filter(isItemVisible)
-                if (items.length === 0) return null
-                return (
-                  <div key={group}>
-                    {gIdx > 0 && <div className="border-t border-zinc-700 my-2" />}
-                    <p className="px-4 py-1 text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
-                      {GROUP_LABELS[group]}
-                    </p>
-                    {items.map(id => {
-                      const item = NAV_ITEMS[id]
-                      const Icon = item.icon
-                      const active = activeSection === id
-                      return (
-                        <button
-                          key={id}
-                          onClick={() => { onSection(id); setMoreOpen(false) }}
-                          className={cn(
-                            'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors',
-                            active ? 'text-teal-400 bg-teal-500/10' : 'text-zinc-300 hover:bg-zinc-700',
-                          )}
-                        >
-                          <Icon className="h-4 w-4 flex-shrink-0" />
-                          {labelFor(id)}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )
-              })}
-            </div>
-          )}
+  const activeId: NavId = moreOpen
+    ? 'more'
+    : (visibleMain.includes(activeSection) ? activeSection : 'more')
+
+  return (
+    <>
+      <PlatformAwareBottomNav
+        items={items}
+        activeId={activeId}
+        onSelect={(id) => {
+          if (id === 'more') {
+            setMoreOpen((prev) => !prev)
+          } else {
+            onSection(id)
+            setMoreOpen(false)
+          }
+        }}
+      />
+      {moreOpen && (
+        <div
+          ref={moreRef}
+          className="fixed right-3 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-2 min-w-[200px] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto z-[60]"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
+        >
+          {(Object.keys(GROUPED_ITEMS) as NavGroup[]).map((group, gIdx) => {
+            const groupItems = GROUPED_ITEMS[group].filter(isItemVisible)
+            if (groupItems.length === 0) return null
+            return (
+              <div key={group}>
+                {gIdx > 0 && <div className="border-t border-zinc-700 my-2" />}
+                <p className="px-4 py-1 text-[10px] text-zinc-500 uppercase tracking-wider font-medium">
+                  {GROUP_LABELS[group]}
+                </p>
+                {groupItems.map((id) => {
+                  const item = NAV_ITEMS[id]
+                  const Icon = item.icon
+                  const active = activeSection === id
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => {
+                        onSection(id)
+                        setMoreOpen(false)
+                      }}
+                      className={cn(
+                        'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors',
+                        active ? 'text-teal-400 bg-teal-500/10' : 'text-zinc-300 hover:bg-zinc-700',
+                      )}
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      {labelFor(id)}
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })}
         </div>
-      </div>
-    </nav>
+      )}
+    </>
   )
 }
