@@ -4,6 +4,10 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { generateTicketCode, TICKET_TEAM_CONFIG } from "@/lib/tickets";
 import type { Ticket } from "@/lib/tickets";
+import {
+  ticketSupervisionFindingInclude,
+  pickTicketFinding,
+} from "@/lib/tickets-finding";
 import { formatPersonName } from "@/lib/personas";
 
 /* ── Prisma includes for list view ──────────────────────────── */
@@ -17,6 +21,7 @@ const ticketListIncludes = {
       persona: { select: { firstName: true, lastName: true, rut: true } },
     },
   },
+  ...ticketSupervisionFindingInclude,
   _count: { select: { comments: true, approvals: true } },
 };
 
@@ -73,6 +78,7 @@ function mapTicket(t: any, assigneeMap?: Map<string, string>): Ticket {
     updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
     commentsCount: t._count?.comments ?? 0,
     attachmentsCount: 0,
+    finding: pickTicketFinding(t),
   };
 }
 
