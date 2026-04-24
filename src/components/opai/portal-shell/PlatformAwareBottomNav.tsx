@@ -10,6 +10,8 @@ export interface NavItem<TId extends string = string> {
   icon: LucideIcon;
   /** Estilo especial opcional (ej. botón de pánico en rojo) */
   variant?: "default" | "danger" | "warning";
+  /** Número opcional que se muestra como badge sobre el icono (0 oculta). */
+  badge?: number;
 }
 
 interface PlatformAwareBottomNavProps<TId extends string = string> {
@@ -50,6 +52,7 @@ export function PlatformAwareBottomNav<TId extends string = string>({
         {items.map((tab) => {
           const Icon = tab.icon;
           const isActive = tab.id === activeId;
+          const showBadge = typeof tab.badge === "number" && tab.badge > 0;
           return (
             <button
               key={tab.id}
@@ -63,15 +66,22 @@ export function PlatformAwareBottomNav<TId extends string = string>({
               aria-label={tab.label}
               aria-current={isActive ? "page" : undefined}
             >
-              <Icon
-                size={20}
-                strokeWidth={isActive ? 2.5 : 2}
-                className={cn(
-                  isActive ? "text-white opai-icon-bounce" : "text-white/60",
-                  tab.variant === "danger" && !isActive && "text-red-400",
-                  tab.variant === "warning" && !isActive && "text-amber-400",
+              <div className="relative">
+                <Icon
+                  size={20}
+                  strokeWidth={isActive ? 2.5 : 2}
+                  className={cn(
+                    isActive ? "text-white opai-icon-bounce" : "text-white/60",
+                    tab.variant === "danger" && !isActive && "text-red-400",
+                    tab.variant === "warning" && !isActive && "text-amber-400",
+                  )}
+                />
+                {showBadge && (
+                  <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-orange-500 text-white text-[9px] font-bold px-1 leading-none">
+                    {tab.badge! > 9 ? "9+" : tab.badge}
+                  </span>
                 )}
-              />
+              </div>
               <span
                 className={cn(
                   "font-display text-[10px] mt-0.5 font-semibold",
@@ -99,6 +109,7 @@ export function PlatformAwareBottomNav<TId extends string = string>({
       {items.map((tab) => {
         const Icon = tab.icon;
         const isActive = tab.id === activeId;
+        const showBadge = typeof tab.badge === "number" && tab.badge > 0;
         return (
           <button
             key={tab.id}
@@ -109,7 +120,7 @@ export function PlatformAwareBottomNav<TId extends string = string>({
           >
             <div
               className={cn(
-                "px-5 py-1 rounded-full flex items-center justify-center transition-all",
+                "relative px-5 py-1 rounded-full flex items-center justify-center transition-all",
                 isActive && "opai-m3e-pill opai-pill-indicator",
                 tab.variant === "danger" && isActive && "!bg-red-500",
                 tab.variant === "warning" && isActive && "!bg-amber-500",
@@ -124,6 +135,11 @@ export function PlatformAwareBottomNav<TId extends string = string>({
                   tab.variant === "warning" && !isActive && "text-amber-400",
                 )}
               />
+              {showBadge && (
+                <span className="absolute -top-1 right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-orange-500 text-white text-[9px] font-bold px-1 leading-none">
+                  {tab.badge! > 9 ? "9+" : tab.badge}
+                </span>
+              )}
             </div>
             <span
               className={cn(
