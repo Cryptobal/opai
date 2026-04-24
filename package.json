@@ -104,6 +104,7 @@
     "framer-motion": "^12.31.0",
     "googleapis": "^171.4.0",
     "gray-matter": "^4.0.3",
+    "html-to-docx": "^1.8.0",
     "html5-qrcode": "^2.3.8",
     "jose": "6.0.6",
     "leaflet": "^1.9.4",
