@@ -5,6 +5,11 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { requireTenantModule } from '@/lib/require-module';
 import { canEdit, canView, hasCapability } from "@/lib/permissions";
 import { generateTicketCode } from "@/lib/tickets";
+import {
+  computeFindingDedupKey,
+  ACTIVE_FINDING_STATUSES,
+  TERMINAL_TICKET_STATUSES,
+} from "@/lib/supervision-dedup";
 
 type Params = { id: string };
 
@@ -147,7 +152,17 @@ export async function POST(
       if (sup?.name) supervisorName = sup.name;
     } catch { /* ignore */ }
 
-    // 1) Dedup: ¿ya existe un hallazgo abierto para este (installation + tipoDoc|guardiaDocCode)?
+    // 1) Dedup: calcular dedupKey SIEMPRE (incluye fallback por descripción normalizada)
+    //    y buscar un finding activo en la misma instalación con la misma key.
+    //    Si el ticket asociado al candidato ya está en estado terminal, lo marcamos
+    //    como "superseded" y caemos al CAMINO B (creación nueva con SLA fresco).
+    const dedupKey = computeFindingDedupKey({
+      tipoDocId: tipoDocId ?? null,
+      guardId: guardId ?? null,
+      guardiaDocCode: guardiaDocCode ?? null,
+      description,
+    });
+
     let existingFinding: {
       id: string;
       ticketId: string | null;
@@ -156,32 +171,43 @@ export async function POST(
       severity: string;
     } | null = null;
 
-    if (tipoDocId || guardiaDocCode) {
-      try {
-        existingFinding = await prisma.opsSupervisionFinding.findFirst({
-          where: {
-            tenantId: ctx.tenantId,
-            installationId: visit.installationId,
-            status: { in: ["open", "in_progress"] },
-            ...(tipoDocId
-              ? { tipoDocId }
-              : {
-                  guardiaDocCode: guardiaDocCode!,
-                  guardId: guardId ?? null,
-                }),
-          },
-          select: {
-            id: true,
-            ticketId: true,
-            occurrenceCount: true,
-            firstDetectedAt: true,
-            severity: true,
-          },
-          orderBy: { firstDetectedAt: "asc" },
+    try {
+      const candidate = await prisma.opsSupervisionFinding.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          installationId: visit.installationId,
+          dedupKey,
+          status: { in: [...ACTIVE_FINDING_STATUSES] },
+        },
+        select: {
+          id: true,
+          ticketId: true,
+          occurrenceCount: true,
+          firstDetectedAt: true,
+          severity: true,
+          ticket: { select: { id: true, status: true } },
+        },
+        orderBy: { firstDetectedAt: "asc" },
+      });
+
+      if (candidate?.ticket && (TERMINAL_TICKET_STATUSES as readonly string[]).includes(candidate.ticket.status)) {
+        // Ticket canónico ya cerrado: supersede el finding viejo y creamos uno nuevo.
+        await prisma.opsSupervisionFinding.update({
+          where: { id: candidate.id },
+          data: { status: "superseded", updatedAt: new Date() },
         });
-      } catch {
         existingFinding = null;
+      } else if (candidate) {
+        existingFinding = {
+          id: candidate.id,
+          ticketId: candidate.ticketId,
+          occurrenceCount: candidate.occurrenceCount,
+          firstDetectedAt: candidate.firstDetectedAt,
+          severity: candidate.severity,
+        };
       }
+    } catch {
+      existingFinding = null;
     }
 
     // --- CAMINO A: ya existe → incrementar contador, actualizar timestamps, comentar ticket, escalar si aplica ---
@@ -293,12 +319,43 @@ export async function POST(
         if (ticketType) {
           const slaDueAt = new Date(Date.now() + ticketType.slaHours * 60 * 60 * 1000);
           const severityLabel = severity === "critical" ? "CRÍTICO" : "MAYOR";
-          const categoryLabels: Record<string, string> = {
-            personal: "Personal",
-            infrastructure: "Infraestructura",
-            documentation: "Documentación",
-            operational: "Operativo",
-          };
+
+          // Resolver label legible del hallazgo para el título del ticket.
+          // Jerarquía: tipoDoc.nombre > guardiaDocCode (mapeado) > descripción truncada.
+          let findingLabel: string | null = null;
+
+          if (tipoDocId) {
+            try {
+              const tipoDoc = await prisma.tipoDocOperacional.findUnique({
+                where: { id: tipoDocId },
+                select: { nombre: true },
+              });
+              if (tipoDoc?.nombre) findingLabel = tipoDoc.nombre;
+            } catch { /* noop */ }
+          }
+
+          if (!findingLabel && guardiaDocCode) {
+            const GUARDIA_DOC_LABELS: Record<string, string> = {
+              os10: "OS10",
+              cedula: "Cédula de identidad",
+              contrato: "Contrato de trabajo",
+              afp: "AFP",
+              isapre: "ISAPRE / Fonasa",
+              licencia: "Licencia de conducir",
+              antecedentes: "Certificado de antecedentes",
+              examen_preocupacional: "Examen preocupacional",
+              curso_os10: "Curso OS10",
+              libro_novedades: "Libro de novedades",
+            };
+            findingLabel = GUARDIA_DOC_LABELS[guardiaDocCode] ?? guardiaDocCode;
+          }
+
+          if (!findingLabel) {
+            const desc = description.trim().replace(/\s+/g, " ");
+            findingLabel = desc.length > 60 ? `${desc.slice(0, 57)}…` : desc;
+          }
+
+          const titleNew = `[${severityLabel}] ${findingLabel} — ${installationName}`;
 
           const ticket = await prisma.$transaction(async (tx) => {
             const lastTicket = await tx.opsTicket.findFirst({
@@ -318,7 +375,7 @@ export async function POST(
                 ticketTypeId: ticketType.id,
                 status: "open",
                 priority: ticketType.defaultPriority,
-                title: `[${severityLabel}] ${categoryLabels[category] ?? category} — ${installationName}`,
+                title: titleNew,
                 description: `Hallazgo detectado durante supervisión:\n\n${description}`,
                 assignedTeam: ticketType.assignedTeam,
                 installationId: visit.installationId,
@@ -367,6 +424,7 @@ export async function POST(
           status: "open",
           tipoDocId: tipoDocId ?? null,
           guardiaDocCode: guardiaDocCode ?? null,
+          dedupKey,
           occurrenceCount: 1,
           firstDetectedAt: nowCreate,
           lastDetectedAt: nowCreate,

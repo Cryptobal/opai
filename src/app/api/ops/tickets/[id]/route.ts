@@ -322,6 +322,30 @@ export async function PATCH(
       );
     }
 
+    // Sync bidireccional: si el status pasa a terminal, cerrar findings asociados
+    // para que dedup futuras NO los tomen como canónicos.
+    if (body.status !== undefined) {
+      const TERMINAL = ["resolved", "closed", "cancelled", "rejected"] as const;
+      if ((TERMINAL as readonly string[]).includes(body.status)) {
+        try {
+          await prisma.opsSupervisionFinding.updateMany({
+            where: {
+              ticketId: id,
+              tenantId: ctx.tenantId,
+              status: { in: ["open", "in_progress"] },
+            },
+            data: {
+              status: body.status === "resolved" ? "resolved" : "superseded",
+              resolvedAt: body.status === "resolved" ? now : null,
+              updatedAt: now,
+            },
+          });
+        } catch (syncErr) {
+          console.warn("[OPS][TICKETS] No se pudieron sincronizar los findings:", syncErr);
+        }
+      }
+    }
+
     // Create audit comments for SLA changes
     if (auditComments.length > 0) {
       await prisma.opsTicketComment.createMany({

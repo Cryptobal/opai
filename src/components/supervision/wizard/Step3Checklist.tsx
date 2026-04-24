@@ -323,7 +323,7 @@ export function Step3Checklist({
             category: "documentation",
             severity: "critical",
             description: `${docLabel} no presente`,
-            ...(tipoDocId ? { tipoDocId } : {}),
+            ...(tipoDocId ? { tipoDocId } : { guardiaDocCode: code }),
           }),
         });
         const json = await res.json();
@@ -378,6 +378,7 @@ export function Step3Checklist({
             category: "documentation",
             severity: "critical",
             description: "Libro de novedades no presente",
+            guardiaDocCode: "libro_novedades",
           }),
         });
         const json = await res.json();
