@@ -90,6 +90,7 @@ export async function seedPricingCatalog(prisma: PrismaClient) {
         "portal_cliente", "payroll", "finanzas",
         "ats", "face_id", "ia_operacional", "control_acceso",
         "fiscalizacion", "control_nocturno", "white_label", "app_nativa",
+        "psych",
       ],
       trialDays: 30,
       sortOrder: 3,
@@ -131,6 +132,7 @@ export async function seedPricingCatalog(prisma: PrismaClient) {
     { slug: "white_label", name: "White-label", pricingModel: "flat", priceAmount: 15, priceUnit: "mes", moduleKey: "white_label", tag: "Premium", sortOrder: 12 },
     { slug: "app_nativa", name: "App iOS/Android", pricingModel: "flat", priceAmount: 10, priceUnit: "mes", moduleKey: "app_nativa", tag: "Premium", sortOrder: 13 },
     { slug: "ats", name: "ATS / Reclutamiento", pricingModel: "flat", priceAmount: 5, priceUnit: "mes", moduleKey: "ats", tag: "Comercial", sortOrder: 14, description: "Publicación automática en Google Empleos, Indeed, base OPAI" },
+    { slug: "psych", name: "Evaluación Psicolaboral", pricingModel: "flat", priceAmount: 0, priceUnit: "mes", moduleKey: "psych", tag: "RRHH", sortOrder: 15, description: "Tests psicolaborales para guardias con link firmado, scoring automático, análisis IA de preguntas abiertas e informe PDF. Complemento al OS-10." },
   ];
 
   for (const a of addons) {

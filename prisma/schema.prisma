@@ -6,7 +6,7 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_DATABASE_URL")
-  schemas   = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance", "inventory", "notes", "chat", "access_control", "dt"]
+  schemas   = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance", "inventory", "notes", "chat", "access_control", "dt", "psych"]
 }
 
 model Tenant {
@@ -8238,4 +8238,167 @@ model DocVerificacionFisica {
   @@index([tenantId, supervisionId])
   @@map("doc_verificacion_fisica")
   @@schema("ops")
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PSYCH MODULE — Evaluación psicolaboral (MVP v1)
+//  Multi-tenant por tenantId. Ver src/lib/psych/*
+// ═══════════════════════════════════════════════════════════════
+
+enum PsychItemType {
+  LIKERT
+  SJT
+  COGNITIVE
+  OPEN
+  LIE
+
+  @@schema("psych")
+}
+
+enum PsychAssessmentStatus {
+  PENDING
+  STARTED
+  SUBMITTED
+  SCORED
+  REVIEWED
+  EXPIRED
+
+  @@schema("psych")
+}
+
+enum PsychBand {
+  FIT
+  FIT_CAUTION
+  NOT_RECOMMENDED
+
+  @@schema("psych")
+}
+
+model PsychTestVersion {
+  id          String            @id @default(cuid())
+  code        String
+  version     String
+  name        String
+  description String?
+  isActive    Boolean           @default(true) @map("is_active")
+  publishedAt DateTime          @default(now()) @map("published_at")
+  items       PsychItem[]
+  assessments PsychAssessment[]
+
+  @@unique([code, version])
+  @@map("test_versions")
+  @@schema("psych")
+}
+
+model PsychItem {
+  id           String           @id @default(cuid())
+  versionId    String           @map("version_id")
+  version      PsychTestVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  order        Int
+  type         PsychItemType
+  dimension    String
+  prompt       String           @db.Text
+  options      Json?
+  scoringKey   Json             @map("scoring_key")
+  reverseScore Boolean          @default(false) @map("reverse_score")
+  weight       Float            @default(1.0)
+  minLatencyMs Int              @default(800) @map("min_latency_ms")
+  maxLatencyMs Int              @default(120000) @map("max_latency_ms")
+  createdAt    DateTime         @default(now()) @map("created_at")
+
+  @@index([versionId, order])
+  @@map("items")
+  @@schema("psych")
+}
+
+model TenantPsychConfig {
+  id                   String   @id @default(cuid())
+  tenantId             String   @unique @map("tenant_id")
+  weightImpulse        Float    @default(1.0) @map("weight_impulse")
+  weightFrustration    Float    @default(1.0) @map("weight_frustration")
+  weightStability      Float    @default(1.0) @map("weight_stability")
+  weightStress         Float    @default(1.0) @map("weight_stress")
+  weightAttention      Float    @default(1.0) @map("weight_attention")
+  weightReasoning      Float    @default(1.0) @map("weight_reasoning")
+  weightIntegrity      Float    @default(1.0) @map("weight_integrity")
+  weightResponsibility Float    @default(1.0) @map("weight_responsibility")
+  thresholdFit         Int      @default(80) @map("threshold_fit")
+  thresholdCaution     Int      @default(60) @map("threshold_caution")
+  requirePsychReview   Boolean  @default(false) @map("require_psych_review")
+  invitationTTLHours   Int      @default(168) @map("invitation_ttl_hours")
+  brandLogoUrl         String?  @map("brand_logo_url")
+  brandPrimaryColor    String?  @map("brand_primary_color")
+  defaultVersionCode   String   @default("security-guard-v1") @map("default_version_code")
+  defaultVersionTag    String   @default("1.0.0") @map("default_version_tag")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("tenant_config")
+  @@schema("psych")
+}
+
+model PsychAssessment {
+  id                String                @id @default(cuid())
+  tenantId          String                @map("tenant_id")
+  versionId         String                @map("version_id")
+  version           PsychTestVersion      @relation(fields: [versionId], references: [id])
+  personaId         String?               @map("persona_id")
+  targetName        String                @map("target_name")
+  targetRut         String?               @map("target_rut")
+  targetEmail       String?               @map("target_email")
+  targetPhone       String?               @map("target_phone")
+  invitationToken   String                @unique @map("invitation_token")
+  status            PsychAssessmentStatus @default(PENDING)
+  startedAt         DateTime?             @map("started_at")
+  submittedAt       DateTime?             @map("submitted_at")
+  scoredAt          DateTime?             @map("scored_at")
+  expiresAt         DateTime              @map("expires_at")
+  clientMetadata    Json?                 @map("client_metadata")
+  consentAcceptedAt DateTime?             @map("consent_accepted_at")
+  createdById       String?               @map("created_by_id")
+  createdAt         DateTime              @default(now()) @map("created_at")
+  responses         PsychResponse[]
+  result            PsychResult?
+
+  @@index([tenantId, status])
+  @@index([tenantId, personaId])
+  @@index([invitationToken])
+  @@map("assessments")
+  @@schema("psych")
+}
+
+model PsychResponse {
+  id           String          @id @default(cuid())
+  assessmentId String          @map("assessment_id")
+  assessment   PsychAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  itemId       String          @map("item_id")
+  itemOrder    Int             @map("item_order")
+  value        Json
+  latencyMs    Int?            @map("latency_ms")
+  answeredAt   DateTime        @default(now()) @map("answered_at")
+
+  @@unique([assessmentId, itemId])
+  @@index([assessmentId])
+  @@map("responses")
+  @@schema("psych")
+}
+
+model PsychResult {
+  id              String          @id @default(cuid())
+  assessmentId    String          @unique @map("assessment_id")
+  assessment      PsychAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  globalScore     Float           @map("global_score")
+  band            PsychBand
+  dimensionScores Json            @map("dimension_scores")
+  alerts          Json
+  lieScaleScore   Float?          @map("lie_scale_score")
+  straightLining  Boolean         @default(false) @map("straight_lining")
+  openAnalysis    Json?           @map("open_analysis")
+  scoringVersion  String          @map("scoring_version")
+  reviewedBy      String?         @map("reviewed_by")
+  reviewedAt      DateTime?       @map("reviewed_at")
+  reviewNote      String?         @map("review_note") @db.Text
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  @@map("results")
+  @@schema("psych")
 }
