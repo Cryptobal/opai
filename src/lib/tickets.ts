@@ -169,6 +169,43 @@ export interface Ticket {
   // Computed
   commentsCount?: number;
   attachmentsCount?: number;
+  // Supervision finding (only when the ticket originated from a supervisor visit)
+  finding?: TicketFinding | null;
+}
+
+export type TicketFindingLayer = "global" | "instalacion" | "guardia";
+export type TicketFindingCategory =
+  | "documentation"
+  | "infrastructure"
+  | "equipment"
+  | "personnel"
+  | "other";
+export type TicketFindingSeverity = "minor" | "major" | "critical";
+
+export interface TicketFinding {
+  id: string;
+  category: TicketFindingCategory | string;
+  severity: TicketFindingSeverity | string;
+  description: string;
+  occurrenceCount: number;
+  firstDetectedAt: string;
+  lastDetectedAt: string;
+  photoUrl: string | null;
+  // Documento tipado (capa global/instalación)
+  tipoDocId: string | null;
+  tipoDocCodigo: string | null;
+  tipoDocNombre: string | null;
+  tipoDocCapa: TicketFindingLayer | string | null;
+  // Documento de guardia (capa guardia)
+  guardiaDocCode: string | null;
+  guardId: string | null;
+  guardName: string | null;
+  guardCode: string | null;
+  // Última visita donde se detectó
+  lastVisitId: string | null;
+  lastVisitCheckInAt: string | null;
+  lastSupervisorId: string | null;
+  lastSupervisorName: string | null;
 }
 
 export type CommentDirection = "internal" | "email_out" | "email_in";
