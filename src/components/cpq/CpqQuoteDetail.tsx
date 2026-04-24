@@ -319,6 +319,7 @@ export function CpqQuoteDetail({
   const [secAiContent, setSecAiContent] = useState(true);
   const [secDesglose, setSecDesglose] = useState(true);
   const [secAuditoria, setSecAuditoria] = useState(false);
+  const [guardsBreakdownOpen, setGuardsBreakdownOpen] = useState(false);
   const [pdfPreviewMode, setPdfPreviewMode] = useState<"cotizacion" | "presentacion">("presentacion");
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
@@ -1157,6 +1158,24 @@ export function CpqQuoteDetail({
     return { totalGuards, monthly };
   }, [positions, quote]);
 
+  const roleSummary = useMemo(() => {
+    const byKey = new Map<string, { qty: number; label: string }>();
+    for (const p of positions) {
+      const cargoName = p.cargo?.name?.trim() ?? "";
+      const rolName = p.rol?.name?.trim() ?? "";
+      const label = [cargoName, rolName].filter(Boolean).join(" ") || "Sin asignar";
+      const key = `${cargoName}::${rolName}`;
+      const qty = (p.numGuards || 0) * (p.numPuestos || 1);
+      if (qty <= 0) continue;
+      const prev = byKey.get(key);
+      if (prev) prev.qty += qty;
+      else byKey.set(key, { qty, label });
+    }
+    return Array.from(byKey.values()).sort(
+      (a, b) => b.qty - a.qty || a.label.localeCompare(b.label),
+    );
+  }, [positions]);
+
   const additionalCostsTotal = costSummary?.monthlyExtras ?? 0;
   const financialRatePct = costSummary?.financialRatePct ?? 2.5;
   const policyRatePct = costSummary?.policyRatePct ?? 0;
@@ -1545,22 +1564,81 @@ export function CpqQuoteDetail({
           </div>
         </div>
       </div>
-      <div className="mt-1.5 pt-1.5 border-t border-border/40 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-1.5 pt-1.5 border-t border-border/40 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
         <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 min-w-0">
           {!isLocked && (savingQuote || savingFinancials) && (
             <Loader2 className="h-3 w-3 animate-spin shrink-0 text-muted-foreground" aria-hidden />
           )}
           <span className="leading-tight">{headerPersistLabel}</span>
         </div>
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 text-sm tabular-nums">
-          <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-            Total / mes
-          </span>
-          <span className="font-semibold text-foreground">{formatCurrency(billingMonthlyTotal)}</span>
-          {ufValue != null && ufValue > 0 && (
-            <span className="font-medium text-emerald-600 dark:text-emerald-400">
-              {(billingMonthlyTotal / ufValue).toFixed(2)} UF
+        <div className="flex flex-col items-start sm:items-end gap-0.5 min-w-0 max-w-full">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 text-sm tabular-nums">
+            <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+              Total / mes
             </span>
+            <span className="font-semibold text-foreground">{formatCurrency(billingMonthlyTotal)}</span>
+            {ufValue != null && ufValue > 0 && (
+              <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                {(billingMonthlyTotal / ufValue).toFixed(2)} UF
+              </span>
+            )}
+            {stats.totalGuards > 0 && (
+              <button
+                type="button"
+                onClick={() => setGuardsBreakdownOpen((v) => !v)}
+                disabled={roleSummary.length === 0}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap shrink-0 transition-all",
+                  "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  roleSummary.length > 0
+                    ? "border-blue-500/25 bg-blue-500/[0.06] text-blue-700 dark:text-blue-300 cursor-pointer hover:bg-blue-500/[0.12] hover:border-blue-500/40"
+                    : "border-border/60 bg-muted/30 text-muted-foreground cursor-default",
+                )}
+                aria-expanded={guardsBreakdownOpen}
+                aria-controls="guards-breakdown-row"
+                title={
+                  roleSummary.length > 0
+                    ? guardsBreakdownOpen
+                      ? "Ocultar desglose por rol"
+                      : "Ver desglose por rol"
+                    : undefined
+                }
+              >
+                <Users className="h-3 w-3 shrink-0" aria-hidden />
+                <span className="tabular-nums font-semibold">{stats.totalGuards}</span>
+                <span>guardias</span>
+                {roleSummary.length > 0 && (
+                  <ChevronDown
+                    className={cn(
+                      "h-3 w-3 shrink-0 transition-transform",
+                      guardsBreakdownOpen && "rotate-180",
+                    )}
+                    aria-hidden
+                  />
+                )}
+              </button>
+            )}
+          </div>
+          {guardsBreakdownOpen && roleSummary.length > 0 && (
+            <div
+              id="guards-breakdown-row"
+              className="flex w-full items-center gap-1.5 overflow-x-auto pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              role="list"
+              aria-label="Desglose de guardias por rol"
+            >
+              {roleSummary.map((item, idx) => (
+                <span
+                  key={`${item.label}-${idx}`}
+                  role="listitem"
+                  className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-muted/30 px-1.5 py-0.5 text-xs whitespace-nowrap shrink-0"
+                >
+                  <span className="font-mono font-semibold text-foreground tabular-nums">
+                    {item.qty}×
+                  </span>
+                  <span className="text-muted-foreground">{item.label}</span>
+                </span>
+              ))}
+            </div>
           )}
         </div>
       </div>
