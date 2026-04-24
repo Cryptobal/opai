@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,7 +16,13 @@ import {
   type InstallationRow,
 } from "./InstallationTicketCard";
 
+const TicketsByInstallationMap = dynamic(
+  () => import("./TicketsByInstallationMap").then((m) => m.TicketsByInstallationMap),
+  { ssr: false, loading: () => <div className="flex h-[560px] items-center justify-center rounded-lg border border-white/10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div> },
+);
+
 type SortBy = "criticality" | "total" | "p1" | "breached" | "name";
+type DisplayMode = "grid" | "map";
 
 interface Props {
   originTab: "all" | "internal" | "guard" | "client";
@@ -40,6 +47,7 @@ export function TicketsByInstallationView({
   const [onlyWithActive, setOnlyWithActive] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("grid");
 
   useEffect(() => {
     const h = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 300);
@@ -109,6 +117,24 @@ export function TicketsByInstallationView({
             className="h-8 pl-8 text-xs"
           />
         </div>
+
+        <div className="flex gap-1 rounded-md bg-muted p-0.5">
+          {([
+            { value: "grid" as const, label: "Grid" },
+            { value: "map" as const, label: "Mapa" },
+          ]).map((m) => (
+            <button
+              key={m.value}
+              type="button"
+              onClick={() => setDisplayMode(m.value)}
+              className={`rounded-sm px-2 py-1 text-[10px] font-medium ${
+                displayMode === m.value ? "bg-background shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
@@ -119,6 +145,11 @@ export function TicketsByInstallationView({
         <div className="rounded-lg border border-dashed border-white/10 py-12 text-center text-sm text-muted-foreground">
           No hay instalaciones que coincidan.
         </div>
+      ) : displayMode === "map" ? (
+        <TicketsByInstallationMap
+          rows={visibleRows}
+          onSelect={onSelectInstallation}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visibleRows.map((row) => (
