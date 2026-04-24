@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
 import { BadgeClear } from "@/components/pwa/BadgeClear";
+import { PlatformDataAttribute } from "@/components/opai/portal-shell";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -38,6 +39,7 @@ export default async function PortalSupervisorLayout({
   return (
     <div className="min-h-dvh text-white" style={{ paddingTop: 'var(--safe-area-top)' }}>
       <ServiceWorkerRegistrar scope="/portal/supervisor" />
+      <PlatformDataAttribute />
       <BadgeClear />
       {children}
     </div>

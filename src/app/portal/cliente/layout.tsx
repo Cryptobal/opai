@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
 import { BadgeClear } from "@/components/pwa/BadgeClear";
+import { PlatformDataAttribute } from "@/components/opai/portal-shell";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -28,6 +29,7 @@ export default function PortalClienteLayout({ children }: { children: React.Reac
   return (
     <div className="min-h-dvh text-white" style={{ paddingTop: 'var(--safe-area-top)' }}>
       <ServiceWorkerRegistrar scope="/portal/cliente" />
+      <PlatformDataAttribute />
       <BadgeClear />
       {children}
     </div>
