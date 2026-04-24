@@ -6,7 +6,7 @@ import {
   Users, Plug, PenLine, FolderTree, TrendingUp, Calculator, DollarSign,
   ChevronRight, Bell, Building, ClipboardList, ShieldCheck, Bot,
   ClipboardCheck, Receipt, Ticket, Sparkles, Trophy, Siren, Briefcase,
-  Settings, FileText, Shield,
+  Settings, FileText, Shield, Brain,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   "trending-up": TrendingUp, "dollar-sign": DollarSign, calculator: Calculator,
   "clipboard-list": ClipboardList, ticket: Ticket, receipt: Receipt,
   trophy: Trophy, siren: Siren, briefcase: Briefcase, shield: Shield,
+  brain: Brain,
 };
 
 type ConfigItem = {
