@@ -50,25 +50,25 @@ export default function PsychCreateForm() {
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="max-w-xl space-y-4 bg-white p-6 rounded-xl border border-slate-200">
+      <form onSubmit={handleSubmit} className="max-w-xl space-y-4 bg-card p-6 rounded-xl border border-border">
         <Field label="Nombre del candidato *" required>
-          <input required value={form.targetName} onChange={(e) => handleChange("targetName", e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
+          <input required value={form.targetName} onChange={(e) => handleChange("targetName", e.target.value)} className="w-full rounded-lg border border-border px-3 py-2" />
         </Field>
         <Field label="RUT">
-          <input value={form.targetRut} onChange={(e) => handleChange("targetRut", e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="12.345.678-9" />
+          <input value={form.targetRut} onChange={(e) => handleChange("targetRut", e.target.value)} className="w-full rounded-lg border border-border px-3 py-2" placeholder="12.345.678-9" />
         </Field>
         <Field label="Email">
-          <input type="email" value={form.targetEmail} onChange={(e) => handleChange("targetEmail", e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2" />
+          <input type="email" value={form.targetEmail} onChange={(e) => handleChange("targetEmail", e.target.value)} className="w-full rounded-lg border border-border px-3 py-2" />
         </Field>
         <Field label="Teléfono (WhatsApp)">
-          <input value={form.targetPhone} onChange={(e) => handleChange("targetPhone", e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="+56 9 1234 5678" />
+          <input value={form.targetPhone} onChange={(e) => handleChange("targetPhone", e.target.value)} className="w-full rounded-lg border border-border px-3 py-2" placeholder="+56 9 1234 5678" />
         </Field>
         {err ? <p className="text-sm text-rose-700">{err}</p> : null}
         <div className="flex gap-2 pt-2">
-          <button type="button" onClick={() => router.back()} className="rounded-lg border border-slate-300 px-4 py-2 text-slate-700">
+          <button type="button" onClick={() => router.back()} className="rounded-lg border border-border px-4 py-2 text-foreground/90">
             Cancelar
           </button>
-          <button type="submit" disabled={busy || !form.targetName.trim()} className="rounded-lg bg-slate-900 text-white px-4 py-2 disabled:opacity-50">
+          <button type="submit" disabled={busy || !form.targetName.trim()} className="rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 disabled:opacity-50">
             {busy ? "Creando..." : "Generar enlace"}
           </button>
         </div>
@@ -101,7 +101,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-slate-700 mb-1 block">
+      <span className="text-sm font-medium text-foreground/90 mb-1 block">
         {label}
         {required ? " " : null}
       </span>

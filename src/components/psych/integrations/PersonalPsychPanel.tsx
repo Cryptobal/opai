@@ -65,7 +65,7 @@ export default function PersonalPsychPanel({ personaId, guardName }: Props) {
   }
 
   if (err) return <p className="text-sm text-rose-700">{err}</p>;
-  if (!rows) return <p className="text-sm text-slate-500">Cargando…</p>;
+  if (!rows) return <p className="text-sm text-muted-foreground">Cargando…</p>;
 
   const lastSubmitted = rows.find((r) => r.submittedAt);
   const nextReevaluationDate = lastSubmitted?.submittedAt
@@ -102,7 +102,7 @@ export default function PersonalPsychPanel({ personaId, guardName }: Props) {
       ) : null}
       <PersonalPsychHistory rows={rows} onInviteNew={handleRequestNew} busy={busy} />
       {lastSubmitted ? (
-        <div className="flex items-center justify-between text-xs text-slate-600">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
             Próxima reevaluación:{" "}
             <b>{nextReevaluationDate?.toLocaleDateString("es-CL")}</b>
@@ -110,7 +110,7 @@ export default function PersonalPsychPanel({ personaId, guardName }: Props) {
           <button
             onClick={handleRequestNew}
             disabled={busy}
-            className="rounded-md border border-slate-300 px-2 py-1"
+            className="rounded-md border border-border px-2 py-1"
           >
             Solicitar reevaluación
           </button>

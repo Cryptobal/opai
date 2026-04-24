@@ -29,11 +29,11 @@ export default async function PsychConfigPage() {
         description="Ajusta pesos por dimensión, umbrales de banda y reglas del tenant."
       />
       <PsychConfigForm />
-      <section className="pt-4 border-t border-slate-200">
-        <h2 className="text-lg font-semibold text-slate-900 mb-1">
+      <section className="pt-4 border-t border-border">
+        <h2 className="text-lg font-semibold text-foreground mb-1">
           Plantillas de invitación
         </h2>
-        <p className="text-sm text-slate-600 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Personaliza los mensajes que se envían al postulante por WhatsApp,
           email o SMS cuando generas una evaluación.
         </p>

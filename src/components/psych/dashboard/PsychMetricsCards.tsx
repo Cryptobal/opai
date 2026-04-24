@@ -7,10 +7,10 @@ interface Metric {
 }
 
 const TONE_CLASSES: Record<NonNullable<Metric["tone"]>, string> = {
-  default: "bg-white text-slate-900",
-  ok: "bg-emerald-50 text-emerald-900",
-  warn: "bg-amber-50 text-amber-900",
-  bad: "bg-rose-50 text-rose-900",
+  default: "bg-card text-foreground",
+  ok: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  warn: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  bad: "bg-red-500/10 text-red-700 dark:text-red-400",
 };
 
 export default function PsychMetricsCards({
@@ -38,7 +38,7 @@ export default function PsychMetricsCards({
       {cards.map((c) => (
         <div
           key={c.label}
-          className={`rounded-xl border border-slate-200 p-4 ${TONE_CLASSES[c.tone ?? "default"]}`}
+          className={`rounded-xl border border-border p-4 ${TONE_CLASSES[c.tone ?? "default"]}`}
         >
           <p className="text-xs uppercase tracking-wider opacity-70 mb-1">
             {c.label}

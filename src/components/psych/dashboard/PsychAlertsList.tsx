@@ -3,9 +3,11 @@
 import type { PsychAlert } from "@/lib/psych/types";
 
 const SEVERITY_CLS: Record<string, string> = {
-  info: "bg-slate-50 text-slate-800 border-slate-200",
-  warning: "bg-amber-50 text-amber-900 border-amber-200",
-  critical: "bg-rose-50 text-rose-900 border-rose-200",
+  info: "bg-muted/50 text-foreground/90 border-border",
+  warning:
+    "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",
+  critical:
+    "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
 };
 
 const SEVERITY_ICON: Record<string, string> = {
@@ -17,7 +19,7 @@ const SEVERITY_ICON: Record<string, string> = {
 export default function PsychAlertsList({ alerts }: { alerts: PsychAlert[] }) {
   if (!alerts || alerts.length === 0) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted-foreground">
         Sin alertas detectadas.
       </p>
     );

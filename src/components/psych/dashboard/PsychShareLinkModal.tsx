@@ -90,17 +90,17 @@ export default function PsychShareLinkModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl space-y-4 max-h-[90vh] overflow-auto">
-        <h3 className="text-lg font-semibold text-slate-900">Evaluación creada</h3>
-        <p className="text-sm text-slate-600">
+      <div className="bg-card rounded-2xl p-6 max-w-md w-full shadow-xl space-y-4 max-h-[90vh] overflow-auto">
+        <h3 className="text-lg font-semibold text-foreground">Evaluación creada</h3>
+        <p className="text-sm text-muted-foreground">
           Comparte con {candidateName}. Expira el{" "}
           {new Date(expiresAt).toLocaleDateString("es-CL")}.
         </p>
         <QrAndLink qrRef={qrRef} url={url} copied={copied} onCopy={copy} />
         <fieldset className="space-y-1.5">
-          <legend className="text-xs uppercase tracking-wider text-slate-500">Canales de envío</legend>
+          <legend className="text-xs uppercase tracking-wider text-muted-foreground">Canales de envío</legend>
           {CHANNEL_OPTS.map(([ch, label]) => (
-            <label key={ch} className="flex items-center gap-2 text-sm text-slate-700">
+            <label key={ch} className="flex items-center gap-2 text-sm text-foreground/90">
               <input type="checkbox" checked={channels.has(ch)} onChange={() => toggle(ch)} />
               {label}
             </label>
@@ -109,7 +109,7 @@ export default function PsychShareLinkModal({
         <button
           onClick={send}
           disabled={sending || channels.size === 0}
-          className="w-full rounded-lg bg-slate-900 text-white px-3 py-2 text-sm disabled:opacity-50"
+          className="w-full rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-2 text-sm disabled:opacity-50"
         >
           {sending ? "Enviando…" : "Enviar"}
         </button>
@@ -118,7 +118,7 @@ export default function PsychShareLinkModal({
           <a href={waFallback} target="_blank" rel="noopener noreferrer" className="flex-1 text-center text-xs rounded-lg bg-emerald-600 text-white px-3 py-2">
             WhatsApp Web
           </a>
-          <button onClick={onClose} className="flex-1 rounded-lg bg-slate-100 text-slate-700 px-3 py-2 text-xs">
+          <button onClick={onClose} className="flex-1 rounded-lg bg-muted text-foreground/90 px-3 py-2 text-xs">
             Cerrar
           </button>
         </div>

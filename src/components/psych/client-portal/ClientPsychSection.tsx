@@ -46,11 +46,11 @@ export default function ClientPsychSection() {
   if (err) {
     return <p className="text-sm text-rose-700">No se pudo cargar: {err}</p>;
   }
-  if (!contracts) return <p className="text-sm text-slate-500">Cargando…</p>;
+  if (!contracts) return <p className="text-sm text-muted-foreground">Cargando…</p>;
 
   if (contracts.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-600">
+      <div className="rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">
         No hay contratos con módulo psicolaboral habilitado.
       </div>
     );

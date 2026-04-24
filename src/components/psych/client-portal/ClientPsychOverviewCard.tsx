@@ -25,15 +25,15 @@ export default function ClientPsychOverviewCard({
 }: Props) {
   const pct = totalGuards > 0 ? Math.round((validAssessments / totalGuards) * 100) : 0;
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
+    <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs text-slate-500 uppercase">{contractName}</p>
-          <h3 className="text-lg font-semibold text-slate-900">
+          <p className="text-xs text-muted-foreground uppercase">{contractName}</p>
+          <h3 className="text-lg font-semibold text-foreground">
             Evaluación psicolaboral del personal
           </h3>
         </div>
-        <span className="text-xs px-2 py-1 rounded-md bg-slate-100 text-slate-700">
+        <span className="text-xs px-2 py-1 rounded-md bg-muted text-foreground/90">
           {LEVEL_LABEL[reportLevel]}
         </span>
       </div>
@@ -48,14 +48,14 @@ export default function ClientPsychOverviewCard({
         <Metric label="Con vigencia" value={validAssessments} tone="ok" />
       </div>
       <div className="pt-2">
-        <p className="text-xs text-slate-500 mb-1">Cobertura vigente</p>
-        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+        <p className="text-xs text-muted-foreground mb-1">Cobertura vigente</p>
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
           <div
             className="h-full bg-emerald-500 transition-all"
             style={{ width: `${pct}%` }}
           />
         </div>
-        <p className="text-xs text-slate-500 mt-1">{pct}%</p>
+        <p className="text-xs text-muted-foreground mt-1">{pct}%</p>
       </div>
     </div>
   );
@@ -74,12 +74,12 @@ function Metric({
     <div>
       <p
         className={`text-2xl font-semibold ${
-          tone === "ok" ? "text-emerald-700" : "text-slate-900"
+          tone === "ok" ? "text-emerald-700" : "text-foreground"
         }`}
       >
         {value}
       </p>
-      <p className="text-xs text-slate-500">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }

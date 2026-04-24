@@ -31,12 +31,12 @@ export default function PersonalPsychHistory({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 flex items-center justify-between gap-3">
+      <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground flex items-center justify-between gap-3">
         <span>Sin evaluaciones previas.</span>
         <button
           onClick={onInviteNew}
           disabled={busy}
-          className="rounded-md bg-slate-900 text-white px-3 py-1.5 text-xs disabled:opacity-50"
+          className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 text-xs disabled:opacity-50"
         >
           {busy ? "Enviando…" : "Enviar evaluación"}
         </button>
@@ -44,16 +44,16 @@ export default function PersonalPsychHistory({
     );
   }
   return (
-    <div className="rounded-xl border border-slate-200 bg-white divide-y">
+    <div className="rounded-xl border border-border bg-card divide-y">
       {rows.map((r) => (
         <div key={r.id} className="p-3 flex items-center justify-between text-sm">
           <div>
-            <p className="text-slate-900">
+            <p className="text-foreground">
               {r.result
                 ? `${r.result.globalScore.toFixed(1)} / 100`
                 : STATUS_LABEL[r.status] ?? r.status}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               {new Date(r.submittedAt ?? r.createdAt).toLocaleDateString("es-CL")}
             </p>
           </div>
@@ -61,7 +61,7 @@ export default function PersonalPsychHistory({
             <PsychBandBadge band={r.result?.band ?? null} />
             <Link
               href={`/personas/psicolaboral/${r.id}`}
-              className="text-xs underline text-slate-700"
+              className="text-xs underline text-foreground/90"
             >
               Ver
             </Link>

@@ -33,7 +33,7 @@ function statusOf(g: GuardEntry): { label: string; cls: string } {
   }
   return {
     label: "Sin evaluación vigente",
-    cls: "bg-slate-100 text-slate-700",
+    cls: "bg-muted text-foreground/90",
   };
 }
 
@@ -43,14 +43,14 @@ export default function ClientPsychGuardsList({
 }: Props) {
   if (guards.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+      <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
         No hay guardias asignados a este contrato.
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white divide-y">
+    <div className="rounded-xl border border-border bg-card divide-y">
       {guards.map((g, i) => {
         const st = statusOf(g);
         const label = showEvaluationDate
@@ -63,7 +63,7 @@ export default function ClientPsychGuardsList({
             key={g.personaId ?? i}
             className="p-3 flex items-center justify-between text-sm"
           >
-            <p className="text-slate-900">{g.name}</p>
+            <p className="text-foreground">{g.name}</p>
             <span className={`text-xs px-2 py-1 rounded-md ${st.cls}`}>
               {label}
             </span>

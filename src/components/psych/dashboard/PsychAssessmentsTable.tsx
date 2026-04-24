@@ -24,15 +24,15 @@ const STATUS_LABEL: Record<string, string> = {
 export default function PsychAssessmentsTable({ rows }: { rows: Row[] }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
+      <div className="rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">
         Aún no hay evaluaciones. Usa el botón &ldquo;Nueva evaluación&rdquo;.
       </div>
     );
   }
   return (
-    <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+    <div className="rounded-xl border border-border overflow-hidden bg-card">
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-slate-600">
+        <thead className="bg-muted/50 text-muted-foreground">
           <tr>
             <th className="text-left px-4 py-3">Evaluado</th>
             <th className="text-left px-4 py-3">Estado</th>
@@ -44,29 +44,29 @@ export default function PsychAssessmentsTable({ rows }: { rows: Row[] }) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
+            <tr key={r.id} className="border-t border-slate-100 hover:bg-muted/50">
               <td className="px-4 py-3">
-                <div className="font-medium text-slate-900">{r.targetName}</div>
+                <div className="font-medium text-foreground">{r.targetName}</div>
                 {r.targetRut ? (
-                  <div className="text-xs text-slate-500">{r.targetRut}</div>
+                  <div className="text-xs text-muted-foreground">{r.targetRut}</div>
                 ) : null}
               </td>
-              <td className="px-4 py-3 text-slate-700">
+              <td className="px-4 py-3 text-foreground/90">
                 {STATUS_LABEL[r.status] ?? r.status}
               </td>
-              <td className="px-4 py-3 text-slate-900 font-medium">
+              <td className="px-4 py-3 text-foreground font-medium">
                 {r.result ? r.result.globalScore.toFixed(1) : "—"}
               </td>
               <td className="px-4 py-3">
                 <PsychBandBadge band={r.result?.band ?? null} />
               </td>
-              <td className="px-4 py-3 text-slate-500">
+              <td className="px-4 py-3 text-muted-foreground">
                 {new Date(r.createdAt).toLocaleDateString("es-CL")}
               </td>
               <td className="px-4 py-3 text-right">
                 <Link
                   href={`/personas/psicolaboral/${r.id}`}
-                  className="text-slate-700 underline"
+                  className="text-foreground/90 underline"
                 >
                   Ver
                 </Link>

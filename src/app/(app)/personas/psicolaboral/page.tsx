@@ -17,13 +17,13 @@ export default async function PsychHomePage() {
     return (
       <div className="max-w-xl mx-auto py-16 text-center space-y-4">
         <h1 className="text-2xl font-semibold">Módulo Psicolaboral</h1>
-        <p className="text-slate-600">
+        <p className="text-muted-foreground">
           Este módulo no está habilitado en tu plan. Actívalo desde la
           configuración de módulos.
         </p>
         <a
           href="/opai/modulos"
-          className="inline-block rounded-xl bg-slate-900 text-white px-4 py-3"
+          className="inline-block rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-3"
         >
           Activar módulo
         </a>

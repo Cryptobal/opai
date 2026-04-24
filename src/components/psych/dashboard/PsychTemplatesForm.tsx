@@ -40,7 +40,7 @@ export default function PsychTemplatesForm() {
       });
   }, []);
 
-  if (!s) return <p className="text-slate-500 text-sm">Cargando plantillas…</p>;
+  if (!s) return <p className="text-muted-foreground text-sm">Cargando plantillas…</p>;
 
   async function save() {
     setSaving(true);
@@ -67,7 +67,7 @@ export default function PsychTemplatesForm() {
 
   return (
     <div className="max-w-2xl space-y-5">
-      <div className="text-xs text-slate-500 bg-slate-50 rounded-md p-3">
+      <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-3">
         Tokens disponibles:{" "}
         <code>{"{{nombre}}"}</code> · <code>{"{{link}}"}</code> ·{" "}
         <code>{"{{expira}}"}</code> · <code>{"{{tenant}}"}</code>
@@ -77,7 +77,7 @@ export default function PsychTemplatesForm() {
           rows={3}
           value={s.whatsappTemplate}
           onChange={(e) => upd("whatsappTemplate", e.target.value)}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-border px-3 py-2 text-sm"
         />
         <Preview value={s.whatsappTemplate} />
       </Field>
@@ -85,7 +85,7 @@ export default function PsychTemplatesForm() {
         <input
           value={s.emailSubject}
           onChange={(e) => upd("emailSubject", e.target.value)}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-border px-3 py-2 text-sm"
         />
       </Field>
       <Field label="Email — Cuerpo">
@@ -93,7 +93,7 @@ export default function PsychTemplatesForm() {
           rows={6}
           value={s.emailBody}
           onChange={(e) => upd("emailBody", e.target.value)}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono"
+          className="w-full rounded-lg border border-border px-3 py-2 text-sm font-mono"
         />
         <Preview value={s.emailBody} />
       </Field>
@@ -102,7 +102,7 @@ export default function PsychTemplatesForm() {
           rows={2}
           value={s.smsTemplate}
           onChange={(e) => upd("smsTemplate", e.target.value)}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-border px-3 py-2 text-sm"
         />
         <Preview value={s.smsTemplate} />
       </Field>
@@ -110,11 +110,11 @@ export default function PsychTemplatesForm() {
         <button
           onClick={save}
           disabled={saving}
-          className="rounded-lg bg-slate-900 text-white px-4 py-2 disabled:opacity-50"
+          className="rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 disabled:opacity-50"
         >
           {saving ? "Guardando…" : "Guardar plantillas"}
         </button>
-        {msg ? <span className="text-sm text-slate-600">{msg}</span> : null}
+        {msg ? <span className="text-sm text-muted-foreground">{msg}</span> : null}
       </div>
     </div>
   );

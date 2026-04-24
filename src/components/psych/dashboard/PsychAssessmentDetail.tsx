@@ -56,12 +56,12 @@ export default function PsychAssessmentDetail({
     }
   }
 
-  if (!data) return <p className="text-slate-500">Cargando…</p>;
+  if (!data) return <p className="text-muted-foreground">Cargando…</p>;
   const result = data.assessment.result;
   if (!result) {
     return (
-      <div className="rounded-xl border border-slate-200 p-6 bg-white">
-        <p className="text-slate-700">
+      <div className="rounded-xl border border-border p-6 bg-card">
+        <p className="text-foreground/90">
           La evaluación aún no tiene resultado. Estado actual:{" "}
           <b>{data.assessment.status}</b>.
         </p>
@@ -72,15 +72,15 @@ export default function PsychAssessmentDetail({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-lg font-semibold text-foreground">
               Perfil por dimensión
             </h2>
             <button
               onClick={handleRescore}
               disabled={rescoring}
-              className="text-xs rounded-md border border-slate-300 px-2.5 py-1.5 text-slate-700"
+              className="text-xs rounded-md border border-border px-2.5 py-1.5 text-foreground/90"
             >
               {rescoring ? "Recalculando…" : "Recalcular"}
             </button>
@@ -92,7 +92,7 @@ export default function PsychAssessmentDetail({
         </div>
         {result.openAnalysis && result.openAnalysis.length > 0 ? (
           <div className="space-y-3">
-            <h3 className="text-base font-semibold text-slate-900">
+            <h3 className="text-base font-semibold text-foreground">
               Análisis cualitativo (preguntas abiertas)
             </h3>
             {result.openAnalysis.map((o) => (
@@ -102,18 +102,18 @@ export default function PsychAssessmentDetail({
         ) : null}
       </div>
       <div className="space-y-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="text-xs text-slate-500 uppercase mb-1">Puntaje global</p>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <p className="text-xs text-muted-foreground uppercase mb-1">Puntaje global</p>
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold text-slate-900">
+            <span className="text-4xl font-bold text-foreground">
               {result.globalScore.toFixed(1)}
             </span>
-            <span className="text-slate-500">/ 100</span>
+            <span className="text-muted-foreground">/ 100</span>
           </div>
           <div className="mt-3">
             <PsychBandBadge band={result.band} />
           </div>
-          <dl className="mt-4 text-xs text-slate-600 space-y-1">
+          <dl className="mt-4 text-xs text-muted-foreground space-y-1">
             {result.lieScaleScore !== null ? (
               <div className="flex justify-between">
                 <dt>Escala de validez</dt>
@@ -128,13 +128,13 @@ export default function PsychAssessmentDetail({
             ) : null}
           </dl>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="text-base font-semibold text-slate-900 mb-3">Alertas</h3>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h3 className="text-base font-semibold text-foreground mb-3">Alertas</h3>
           <PsychAlertsList alerts={result.alerts ?? []} />
         </div>
         <a
           href={`/api/psych/assessments/${assessmentId}/report.pdf`}
-          className="block w-full text-center rounded-lg bg-slate-900 text-white px-3 py-3 text-sm"
+          className="block w-full text-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-3 text-sm"
         >
           Descargar informe PDF
         </a>

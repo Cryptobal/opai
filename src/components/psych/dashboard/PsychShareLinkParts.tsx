@@ -15,14 +15,14 @@ export function QrAndLink({
 }) {
   return (
     <div className="flex gap-3 items-center">
-      <canvas ref={qrRef} className="rounded border border-slate-200" />
+      <canvas ref={qrRef} className="rounded border border-border" />
       <div className="flex-1 min-w-0">
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-[10px] break-all">
+        <div className="rounded-lg border border-border bg-muted/50 p-2 text-[10px] break-all">
           {url}
         </div>
         <button
           onClick={onCopy}
-          className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-700"
+          className="mt-2 w-full rounded-lg border border-border px-3 py-2 text-xs text-foreground/90"
         >
           {copied ? "✓ Copiado" : "Copiar link"}
         </button>
