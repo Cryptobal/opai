@@ -5,6 +5,7 @@ import { Loader2, Ticket, ChevronLeft, Send, Plus, MessageSquare, Clock, Papercl
 import { ClienteSession } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
 import { PortalCreateTicket } from './PortalCreateTicket'
+import { ExportButton } from './shared/ExportButton'
 
 interface TicketAttachment {
   id: string
@@ -380,10 +381,61 @@ export function PortalTickets({ session, selectedInstallation, isProspect }: Pro
   return (
     <div className="px-4 py-4 pb-28 max-w-lg mx-auto relative">
       {/* Header */}
-      <h2 className="text-white font-semibold text-lg mb-4 flex items-center gap-2">
-        <Ticket className="h-5 w-5 text-blue-400" />
-        Tickets de Soporte
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-white font-semibold text-lg flex items-center gap-2">
+          <Ticket className="h-5 w-5 text-blue-400" />
+          Tickets de Soporte
+        </h2>
+        <ExportButton
+          baseName="tickets"
+          sheetName="Tickets"
+          rows={tickets.map((t) => ({
+            codigo: t.code,
+            titulo: t.title,
+            estado: t.status,
+            prioridad: t.priority,
+            equipo: t.assignedTeam,
+            fuente: t.source,
+            tipo: t.ticketType?.name ?? "",
+            instalacion: t.installationId
+              ? (installationNameMap[t.installationId] ?? "")
+              : "",
+            creado: new Date(t.createdAt).toLocaleString("es-CL"),
+            resuelto: t.resolvedAt
+              ? new Date(t.resolvedAt).toLocaleString("es-CL")
+              : "",
+            cerrado: t.closedAt
+              ? new Date(t.closedAt).toLocaleString("es-CL")
+              : "",
+            tiempoResolucionHoras:
+              t.resolvedAt && t.createdAt
+                ? Math.round(
+                    (new Date(t.resolvedAt).getTime() -
+                      new Date(t.createdAt).getTime()) /
+                      (1000 * 60 * 60),
+                  )
+                : "",
+          }))}
+          columns={[
+            { key: "codigo", label: "Código", width: 12 },
+            { key: "titulo", label: "Título", width: 32 },
+            { key: "estado", label: "Estado", width: 12 },
+            { key: "prioridad", label: "Prioridad", width: 12 },
+            { key: "equipo", label: "Equipo", width: 16 },
+            { key: "tipo", label: "Tipo", width: 18 },
+            { key: "instalacion", label: "Instalación", width: 22 },
+            { key: "fuente", label: "Fuente", width: 12 },
+            { key: "creado", label: "Creado", width: 22 },
+            { key: "resuelto", label: "Resuelto", width: 22 },
+            { key: "cerrado", label: "Cerrado", width: 22 },
+            {
+              key: "tiempoResolucionHoras",
+              label: "T. resolución (hrs)",
+              width: 14,
+            },
+          ]}
+        />
+      </div>
 
       {/* Status filter tabs */}
       <div className="flex gap-1 mb-4 bg-zinc-800/50 p-1 rounded-xl overflow-x-auto">

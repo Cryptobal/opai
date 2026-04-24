@@ -3,6 +3,7 @@ import { BookOpen, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PreviewBadge } from './PreviewBadge'
 import { usePortalData } from '@/hooks/usePortalData'
+import { ExportButton } from './shared/ExportButton'
 
 const STATUS_CONFIG = {
   normal: { label: 'Normal', color: 'text-emerald-400 bg-emerald-500/10' },
@@ -31,12 +32,38 @@ export function PortalPosta({ selectedInstallation }: Props) {
 
   return (
     <div className="px-4 py-4 pb-24 max-w-lg mx-auto">
-      <div className="mb-4">
-        <h2 className="text-white font-semibold text-lg flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-blue-400" /> Bitácora digital
-          {isDemo && <PreviewBadge />}
-        </h2>
-        <p className="text-xs text-zinc-500 mt-1 ml-7">Registro digital de novedades — Adiós al cuaderno</p>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <div>
+          <h2 className="text-white font-semibold text-lg flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-blue-400" /> Bitácora digital
+            {isDemo && <PreviewBadge />}
+          </h2>
+          <p className="text-xs text-zinc-500 mt-1 ml-7">Registro digital de novedades — Adiós al cuaderno</p>
+        </div>
+        <ExportButton
+          baseName="bitacora"
+          sheetName="Bitácora"
+          rows={records.map((r) => ({
+            fecha: r.controlNocturno?.date
+              ? new Date(r.controlNocturno.date).toLocaleDateString("es-CL")
+              : "",
+            estado: r.statusInstalacion ?? "normal",
+            guardiasPresentes: r.guardiasPresentes ?? 0,
+            guardiasRequeridos: r.guardiasRequeridos ?? 0,
+            operadorCentral: r.controlNocturno?.centralOperatorName ?? "",
+            notas: r.notes ?? "",
+            notasGenerales: r.controlNocturno?.generalNotes ?? "",
+          }))}
+          columns={[
+            { key: "fecha", label: "Fecha", width: 14 },
+            { key: "estado", label: "Estado", width: 14 },
+            { key: "guardiasPresentes", label: "Guardias presentes", width: 12 },
+            { key: "guardiasRequeridos", label: "Guardias requeridos", width: 12 },
+            { key: "operadorCentral", label: "Operador central", width: 20 },
+            { key: "notas", label: "Notas", width: 40 },
+            { key: "notasGenerales", label: "Notas generales", width: 40 },
+          ]}
+        />
       </div>
       {records.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
