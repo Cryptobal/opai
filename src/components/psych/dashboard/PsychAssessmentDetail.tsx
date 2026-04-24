@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import PsychRadarChart from "./PsychRadarChart";
 import PsychOpenAnalysisCard from "./PsychOpenAnalysisCard";
 import PsychAssessmentScoreCard from "./PsychAssessmentScoreCard";
+import ReminderBanner from "./PsychReminderBanner";
 import type { OpenAnalysisResult, PsychAlert } from "@/lib/psych/types";
 
 interface DetailPayload {
@@ -11,6 +12,9 @@ interface DetailPayload {
     id: string;
     status: string;
     targetName: string;
+    targetPhone: string | null;
+    targetEmail: string | null;
+    createdAt: string;
     result: {
       globalScore: number;
       band: string;
@@ -57,13 +61,28 @@ export default function PsychAssessmentDetail({
 
   if (!data) return <p className="text-muted-foreground">Cargando…</p>;
   const result = data.assessment.result;
+  const ageHours =
+    (Date.now() - new Date(data.assessment.createdAt).getTime()) / 3_600_000;
+  const showReminder =
+    data.assessment.status === "PENDING" &&
+    ageHours > 24 &&
+    !!data.assessment.targetPhone;
   if (!result) {
     return (
-      <div className="rounded-xl border border-border p-6 bg-card">
-        <p className="text-foreground/90">
-          La evaluación aún no tiene resultado. Estado actual:{" "}
-          <b>{data.assessment.status}</b>.
-        </p>
+      <div className="space-y-4">
+        {showReminder ? (
+          <ReminderBanner
+            assessmentId={assessmentId}
+            targetName={data.assessment.targetName}
+            phone={data.assessment.targetPhone!}
+          />
+        ) : null}
+        <div className="rounded-xl border border-border p-6 bg-card">
+          <p className="text-foreground/90">
+            La evaluación aún no tiene resultado. Estado actual:{" "}
+            <b>{data.assessment.status}</b>.
+          </p>
+        </div>
       </div>
     );
   }
