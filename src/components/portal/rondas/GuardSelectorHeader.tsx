@@ -96,7 +96,7 @@ export function GuardSelectorHeader({
   const noGuard = !currentGuardId;
 
   return (
-    <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-white/5 px-4 py-2.5">
+    <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-white/5 px-4 py-2.5 opai-ios-surface-sheet-top">
       <div className="flex items-center gap-2 mb-1">
         <MapPin className="h-3.5 w-3.5 text-teal-400 shrink-0" />
         <span className="text-xs text-teal-400 truncate font-medium">

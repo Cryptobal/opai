@@ -6,6 +6,7 @@ import { useNotifications } from "@/contexts/NotificationContext";
 import { useNotificationSidePanelContext } from "./NotificationSidePanelContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useIsIOS } from "@/hooks/usePlatform";
 import {
   Bell,
   CheckCheck,
@@ -58,6 +59,7 @@ type ThreadContext = {
 export function NotificationSidePanel() {
   const router = useRouter();
   const ctx = useNotificationSidePanelContext();
+  const isIOS = useIsIOS();
   const {
     notifications,
     unreadCount,
@@ -649,7 +651,8 @@ export function NotificationSidePanel() {
           />
           <div
             className={cn(
-              "fixed inset-0 z-50 lg:hidden flex flex-col bg-background transition-transform duration-300 ease-out",
+              "fixed inset-0 z-50 lg:hidden flex flex-col transition-transform duration-300 ease-out",
+              isIOS ? "opai-ios-surface-sheet-side" : "bg-background",
               panelEntered && !panelClosing ? "translate-x-0" : "translate-x-full"
             )}
             style={{
@@ -697,10 +700,11 @@ export function NotificationSidePanel() {
       {/* DESKTOP: Right side panel */}
       <div
         className={cn(
-          "hidden lg:flex fixed top-0 right-0 h-full w-[400px] z-40",
-          "flex-col bg-background border-l border-border/50",
+          "hidden lg:flex fixed top-0 right-0 h-full w-[400px] z-40 flex-col",
+          isIOS
+            ? "opai-ios-surface-sheet-side"
+            : "bg-background border-l border-border/50 shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]",
           "transition-transform duration-300 ease-out",
-          "shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]",
           ctx.isPanelOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
         )}
         role="dialog"

@@ -154,13 +154,14 @@ export function HubQuickActions({ perms }: HubQuickActionsProps) {
                   key={action.href}
                   href={action.href}
                   onClick={() => setOpen(false)}
+                  className="min-w-0"
                 >
                   <Button
                     variant={action.primary ? 'default' : 'outline'}
-                    className="w-full justify-start gap-2.5 h-12 text-sm"
+                    className="w-full justify-start gap-2 h-12 px-3 text-sm min-w-0"
                   >
-                    {action.icon}
-                    {action.label}
+                    <span className="shrink-0">{action.icon}</span>
+                    <span className="flex-1 min-w-0 truncate text-left">{action.label}</span>
                   </Button>
                 </Link>
               ))}

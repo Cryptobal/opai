@@ -1,5 +1,7 @@
 "use client";
 
+import { useIsIOS } from "@/hooks/usePlatform";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -116,13 +118,17 @@ export function RondaCompletada({
   // Punctuality
   const punctuality = getPunctuality(scheduledAt, startedAt);
   const isLate = punctuality !== "A tiempo" && punctuality !== "—";
+  const isIOS = useIsIOS();
 
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-y-auto pb-24" style={{ backgroundColor: "#0a0a0f" }}>
       {/* ============ Header ============ */}
       <header
-        className="sticky top-0 z-10 border-b border-gray-800 px-4 py-3"
-        style={{ backgroundColor: "#0a0a0f" }}
+        className={
+          "sticky top-0 z-10 border-b border-gray-800 px-4 py-3 " +
+          (isIOS ? "opai-ios-surface-sheet-top" : "")
+        }
+        style={isIOS ? undefined : { backgroundColor: "#0a0a0f" }}
       >
         <h1 className="text-center text-lg font-semibold text-white">Ronda Completada</h1>
       </header>

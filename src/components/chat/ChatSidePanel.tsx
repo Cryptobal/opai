@@ -554,7 +554,10 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             {/* Mobile header (channel list only — conversation has its own via ChatPresenceBar) */}
             {!selectedChannel && (
               <div
-                className="shrink-0 flex flex-col border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]"
+                className={cn(
+                  "shrink-0 flex flex-col border-b border-[rgba(255,255,255,0.06)]",
+                  isIOS ? "bg-transparent" : "bg-[#0d1220]",
+                )}
                 {...swipeClose}
               >
                 <div className="flex justify-center pt-2 pb-1">
@@ -576,7 +579,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             <div className="relative flex-1 min-h-0 overflow-hidden">
               {/* Channel list layer */}
               <div className={cn(
-                "absolute inset-0 bg-[#0a0e17] flex flex-col",
+                "absolute inset-0 flex flex-col",
+                isIOS ? "bg-transparent" : "bg-[#0a0e17]",
                 selectedChannel ? "hidden" : "flex"
               )}>
                 {channelListContent}
@@ -585,7 +589,8 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               {/* Conversation layer (slides in from right) — swipe right para volver */}
               <div
                 className={cn(
-                  "absolute inset-0 bg-[#0a0e17] flex flex-col",
+                  "absolute inset-0 flex flex-col",
+                  isIOS ? "bg-transparent" : "bg-[#0a0e17]",
                   selectedChannel ? "translate-x-0" : "translate-x-full",
                   swipeBack.translateX != null ? "" : "transition-transform duration-[250ms] ease-out"
                 )}
@@ -620,10 +625,11 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
          ══════════════════════════════════════════════ */}
       <div
         className={cn(
-          "hidden lg:flex fixed top-0 right-0 h-full w-[400px] z-40",
-          "flex-col bg-[#0a0e17] border-l border-[rgba(255,255,255,0.08)]",
+          "hidden lg:flex fixed top-0 right-0 h-full w-[400px] z-40 flex-col",
+          isIOS
+            ? "opai-ios-surface-sheet-side"
+            : "bg-[#0a0e17] border-l border-[rgba(255,255,255,0.08)] shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]",
           "transition-transform duration-300 ease-out",
-          "shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]",
           ctx.isPanelOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
         )}
         role="dialog"
@@ -646,7 +652,12 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           /* ── Desktop channel list view ── */
           <>
             {/* Desktop header */}
-            <div className="flex items-center gap-2 px-4 h-12 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220] shrink-0">
+            <div
+              className={cn(
+                "flex items-center gap-2 px-4 h-12 border-b border-[rgba(255,255,255,0.06)] shrink-0",
+                isIOS ? "bg-transparent" : "bg-[#0d1220]",
+              )}
+            >
               <MessageCircle className="h-4 w-4 text-teal-600 shrink-0" />
               <div className="flex-1 min-w-0">
                 <h2 className="text-sm font-semibold truncate">Chat</h2>

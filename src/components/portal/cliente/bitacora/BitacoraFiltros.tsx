@@ -28,7 +28,7 @@ interface Props {
 
 export function BitacoraFiltros({ filtro, onFiltro, days, onDays }: Props) {
   return (
-    <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur -mx-4 px-4 py-2 border-b border-white/[0.06] mb-3">
+    <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur -mx-4 px-4 py-2 border-b border-white/[0.06] mb-3 opai-ios-surface-sheet-top">
       <div className="flex gap-1 overflow-x-auto scrollbar-none mb-2">
         {CHIPS.map((c) => {
           const active = filtro === c.value;

@@ -178,7 +178,7 @@ export function GuardPortalClient() {
       {/* Top bar — hidden during chat for max space */}
       {/* Header hidden during chat */}
       {!(activeSection === "chat" && session.currentInstallationId) && (
-        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b px-4 py-3 flex items-center justify-between">
+        <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b px-4 py-3 flex items-center justify-between opai-ios-surface-sheet-top">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold truncate">
               {session.firstName} {session.lastName}
