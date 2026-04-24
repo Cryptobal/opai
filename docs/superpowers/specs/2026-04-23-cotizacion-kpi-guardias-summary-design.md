@@ -1,7 +1,9 @@
-# Resumen de guardias en KPI bar de cotización
+# Resumen de guardias en header de cotización
 
 **Fecha:** 2026-04-23
-**Componente afectado:** `src/components/cpq/QuoteKpiBar.tsx` (+ `CpqQuoteDetail.tsx` para pasar props)
+**Componente afectado:** `src/components/cpq/CpqQuoteDetail.tsx` (sticky header con "Total / mes").
+
+> **Nota de implementación:** en el spec inicial se asumió que la barra visible era `QuoteKpiBar`. Al implementar se verificó que ese componente está definido pero no se renderiza en ningún lado; el "Total / mes" visible en la captura es JSX inline en el sticky header de `CpqQuoteDetail.tsx`. El diseño (Opción A aprobada) se aplicó directamente ahí, preservando el comportamiento acordado.
 
 ## Problema
 
@@ -84,8 +86,8 @@ interface QuoteKpiBarProps {
 
 ## Archivos tocados
 
-- `src/components/cpq/QuoteKpiBar.tsx` — añadir chip colapsado + fila de roles expandida.
-- `src/components/cpq/CpqQuoteDetail.tsx` — computar `roleSummary` con `useMemo` usando `useCpqCatalogs()` y pasarlo al `<QuoteKpiBar>`.
+- `src/components/cpq/CpqQuoteDetail.tsx` — (1) computar `roleSummary` con `useMemo` usando `positions[].cargo?.name` / `positions[].rol?.name` (el API ya los incluye como relaciones embebidas); (2) añadir estado `guardsBreakdownOpen`; (3) en el sticky header, agregar chip tappeable `· N guardias ⌄` y fila de desglose visible al expandir.
+- No se necesita `useCpqCatalogs()` porque las posiciones vienen hidratadas con `cargo` y `rol` desde `/api/cpq/quotes/[id]`.
 
 ## Fuera de alcance
 
