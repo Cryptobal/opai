@@ -412,17 +412,22 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => void handleDownloadPdf()}>
+                <DropdownMenuItem onClick={() => void handleDownloadPdf()}>
                   PDF
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onSelect={() => void handleDownloadDocx()}
+                  onClick={() => void handleDownloadDocx()}
                   disabled={isSigned}
-                  className="flex flex-col items-start gap-0.5"
+                  aria-label={
+                    isSigned
+                      ? "Word (.docx) — solo disponible en borradores"
+                      : "Word (.docx)"
+                  }
+                  className={isSigned ? "flex flex-col items-start gap-0.5" : undefined}
                 >
                   <span>Word (.docx)</span>
                   {isSigned ? (
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       Solo en borradores
                     </span>
                   ) : null}
