@@ -22,6 +22,7 @@ import {
   TrendingUp,
   User,
   UserPlus,
+  Brain,
   Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,7 @@ import { FileAttachments } from "@/components/crm/FileAttachments";
 import { GuardiaDesempenoTab } from "@/components/gamification";
 import { GuardiaMarcacionesTab } from "./GuardiaMarcacionesTab";
 import OnboardingSection from "@/components/ops/guardia-sections/OnboardingSection";
+import GuardiaPsicolaboralSection from "@/components/ops/guardia-sections/GuardiaPsicolaboralSection";
 import { SeleccionadoDestinoFields } from "@/components/ops/SeleccionadoDestinoFields";
 import CommunicationSection from "@/components/ops/guardia-sections/CommunicationSection";
 import DiasTrabajadesSection from "@/components/ops/guardia-sections/DiasTrabajadesSection";
@@ -108,6 +110,7 @@ type GuardiaDetail = {
   contractBecameIndefinidoAt?: string | null;
   contractAlertDaysBefore?: number | null;
   persona: {
+    id?: string;
     firstName: string;
     lastName: string;
     rut?: string | null;
@@ -255,7 +258,7 @@ const LIFECYCLE_COLORS: Record<string, string> = {
   inactivo: "bg-red-500/20 text-red-400 border-red-500/30",
 };
 
-type TabKey = "perfil" | "operaciones" | "contractual" | "eventos_laborales" | "documentos" | "actividad" | "desempeno" | "marcaciones" | "onboarding";
+type TabKey = "perfil" | "operaciones" | "contractual" | "eventos_laborales" | "documentos" | "actividad" | "desempeno" | "marcaciones" | "psicolaboral" | "onboarding";
 
 const TABS: { key: TabKey; label: string; icon: typeof User }[] = [
   { key: "perfil", label: "Perfil", icon: User },
@@ -266,6 +269,7 @@ const TABS: { key: TabKey; label: string; icon: typeof User }[] = [
   { key: "actividad", label: "Actividad", icon: History },
   { key: "desempeno", label: "Desempe\u00f1o", icon: TrendingUp },
   { key: "marcaciones", label: "Marcaciones", icon: Clock },
+  { key: "psicolaboral", label: "Psicolaboral", icon: Brain },
   { key: "onboarding", label: "Onboarding", icon: UserPlus },
 ];
 
@@ -748,6 +752,16 @@ export function GuardiaDetailClient({
         return <GuardiaDesempenoTab guardiaId={guardia.id} />;
       case "marcaciones":
         return <GuardiaMarcacionesTab guardiaId={guardia.id} />;
+      case "psicolaboral":
+        return guardia.persona.id ? (
+          <GuardiaPsicolaboralSection
+            guardiaId={guardia.id}
+            personaId={guardia.persona.id}
+            guardName={`${guardia.persona.firstName} ${guardia.persona.lastName}`.trim()}
+            email={guardia.persona.email ?? null}
+            phone={guardia.persona.phoneMobile ?? null}
+          />
+        ) : null;
       case "onboarding":
         return <OnboardingSection guardiaId={guardia.id} />;
     }
