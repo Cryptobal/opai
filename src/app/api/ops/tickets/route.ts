@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
@@ -9,6 +10,59 @@ import {
   pickTicketFinding,
 } from "@/lib/tickets-finding";
 import { formatPersonName } from "@/lib/personas";
+
+const ACTIVE_STATUSES = [
+  "open",
+  "in_progress",
+  "waiting",
+  "pending_approval",
+] as const;
+
+const VALID_STATUSES = [
+  ...ACTIVE_STATUSES,
+  "resolved",
+  "closed",
+  "rejected",
+  "cancelled",
+] as const;
+
+const VALID_PRIORITIES = ["p1", "p2", "p3", "p4"] as const;
+
+function parseCsv<T extends string>(raw: string | null, allow: readonly T[]): T[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s): s is T => (allow as readonly string[]).includes(s));
+}
+
+function originWhere(type: "internal" | "guard" | "client" | null): Prisma.OpsTicketWhereInput {
+  if (type === "internal") {
+    return {
+      OR: [
+        { ticketType: { origin: { in: ["internal", "both"] } } },
+        { ticketTypeId: null },
+      ],
+    };
+  }
+  if (type === "guard") {
+    return {
+      OR: [
+        { ticketType: { origin: { in: ["guard", "both"] } } },
+        { ticketTypeId: null },
+      ],
+    };
+  }
+  if (type === "client") {
+    return {
+      OR: [
+        { ticketType: { origin: "client" } },
+        { source: "portal_cliente" },
+      ],
+    };
+  }
+  return {};
+}
 
 /* ── Prisma includes for list view ──────────────────────────── */
 
@@ -93,29 +147,62 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const statuses = parseCsv(searchParams.get("statuses"), VALID_STATUSES);
+    const activeOnly = searchParams.get("activeOnly") === "true";
     const priority = searchParams.get("priority");
+    const priorities = parseCsv(searchParams.get("priorities"), VALID_PRIORITIES);
     const assignedTeam = searchParams.get("assignedTeam");
     const ticketTypeId = searchParams.get("ticketTypeId");
     const guardiaId = searchParams.get("guardiaId");
     const installationId = searchParams.get("installationId");
+    const originParam = searchParams.get("origin");
+    const origin =
+      originParam === "internal" || originParam === "guard" || originParam === "client"
+        ? originParam
+        : null;
     const search = searchParams.get("search");
+    const slaBreachedOnly = searchParams.get("slaBreached") === "true";
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10)));
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10)));
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: any = { tenantId: ctx.tenantId };
-    if (status) where.status = status;
-    if (priority) where.priority = priority;
+    const where: Prisma.OpsTicketWhereInput = { tenantId: ctx.tenantId };
+
+    // Status: prefer activeOnly > statuses (csv) > status (legacy single)
+    if (activeOnly) {
+      where.status = { in: [...ACTIVE_STATUSES] };
+    } else if (statuses.length > 0) {
+      where.status = { in: statuses };
+    } else if (status) {
+      where.status = status;
+    }
+
+    if (priorities.length > 0) {
+      where.priority = { in: priorities };
+    } else if (priority) {
+      where.priority = priority;
+    }
+
     if (assignedTeam) where.assignedTeam = assignedTeam;
     if (ticketTypeId) where.ticketTypeId = ticketTypeId;
     if (guardiaId) where.guardiaId = guardiaId;
     if (installationId) where.installationId = installationId;
+    if (slaBreachedOnly) where.slaBreached = true;
+
+    const andClauses: Prisma.OpsTicketWhereInput[] = [];
+    if (origin) andClauses.push(originWhere(origin));
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { code: { contains: search, mode: "insensitive" } },
-      ];
+      andClauses.push({
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { code: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ],
+      });
+    }
+    if (andClauses.length > 0) {
+      where.AND = andClauses;
     }
 
     const [rows, total] = await Promise.all([
@@ -144,7 +231,13 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { items, total, page, limit },
+      data: {
+        items,
+        total,
+        page,
+        limit,
+        hasMore: skip + items.length < total,
+      },
     });
   } catch (error) {
     console.error("[OPS] Error listing tickets:", error);

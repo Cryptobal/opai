@@ -100,7 +100,12 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   );
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | TicketStatus>("active");
   const [filterPriorities, setFilterPriorities] = useState<Set<TicketPriority>>(new Set());
   const [originTab, setOriginTab] = useState<"all" | "internal" | "guard" | "client">("all");
@@ -113,34 +118,81 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
   const [counts, setCounts] = useState<TicketCounts | null>(null);
 
   const initialLoadDone = useRef(false);
+  const PAGE_SIZE = 50;
+  const KANBAN_PAGE_SIZE = 150;
 
-  const fetchTickets = useCallback(async (showSpinner = false) => {
-    if (showSpinner) setLoading(true);
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Build server filter params (everything except page)
+  const buildQueryParams = useCallback((pageNum: number, size: number) => {
+    const params = new URLSearchParams({
+      page: String(pageNum),
+      limit: String(size),
+    });
+    if (installationFilterId) params.set("installationId", installationFilterId);
+    if (originTab !== "all") params.set("origin", originTab);
+    if (filterStatus === "active") {
+      params.set("activeOnly", "true");
+    } else if (filterStatus !== "all") {
+      params.set("status", filterStatus);
+    }
+    if (filterPriorities.size > 0) {
+      params.set("priorities", Array.from(filterPriorities).join(","));
+    }
+    if (filterTypeId !== "all") params.set("ticketTypeId", filterTypeId);
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    return params;
+  }, [installationFilterId, originTab, filterStatus, filterPriorities, filterTypeId, debouncedSearch]);
+
+  // Filter signature: when it changes, results must be replaced from page 1.
+  // NOTE: listMode is part of the key because kanban uses a larger page size.
+  const filterKey = useMemo(() => JSON.stringify({
+    installationFilterId,
+    originTab,
+    filterStatus,
+    priorities: Array.from(filterPriorities).sort(),
+    filterTypeId,
+    debouncedSearch,
+    listMode,
+  }), [installationFilterId, originTab, filterStatus, filterPriorities, filterTypeId, debouncedSearch, listMode]);
+
+  const fetchTickets = useCallback(async (pageNum: number, replace: boolean) => {
+    if (replace) setLoading(true);
+    else setLoadingMore(true);
     try {
-      const params = new URLSearchParams({ limit: "100" });
-      if (installationFilterId) params.set("installationId", installationFilterId);
+      const size = listMode === "kanban" ? KANBAN_PAGE_SIZE : PAGE_SIZE;
+      const params = buildQueryParams(pageNum, size);
       const res = await fetch(`/api/ops/tickets?${params}`);
       const data = await res.json();
-      if (data.success) setTickets(data.data.items);
+      if (data.success) {
+        const incoming: Ticket[] = data.data.items;
+        setTickets((prev) => (replace ? incoming : [...prev, ...incoming]));
+        setTotal(data.data.total ?? 0);
+        setHasMore(Boolean(data.data.hasMore));
+        setPage(pageNum);
+      }
     } catch {
       toast.error("Error al cargar tickets");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
       initialLoadDone.current = true;
     }
-  }, [installationFilterId]);
+  }, [buildQueryParams, listMode]);
 
-  const fetchCounts = useCallback(async (tab: typeof originTab) => {
+  const fetchCounts = useCallback(async (tab: typeof originTab, installId: string | null) => {
     try {
-      const typeParam =
-        tab === "internal" ? "internal"
-        : tab === "guard" ? "guard"
-        : tab === "client" ? "client"
-        : null;
-      const url = typeParam
-        ? `/api/ops/tickets/counts?type=${typeParam}`
-        : "/api/ops/tickets/counts";
-      const res = await fetch(url);
+      const params = new URLSearchParams();
+      if (tab === "internal" || tab === "guard" || tab === "client") {
+        params.set("type", tab);
+      }
+      if (installId) params.set("installationId", installId);
+      const qs = params.toString();
+      const res = await fetch(`/api/ops/tickets/counts${qs ? `?${qs}` : ""}`);
       const data = await res.json();
       if (data.success) setCounts(data.data);
     } catch {
@@ -148,18 +200,24 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     }
   }, []);
 
+  // Initial + filter-driven load (resets to page 1)
   useEffect(() => {
-    fetchTickets(true); // initial load shows spinner
+    fetchTickets(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey]);
+
+  // Refresh on focus / visibility change
+  useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState === "visible" && initialLoadDone.current) {
-        fetchTickets();
-        fetchCounts(originTab);
+        fetchTickets(1, true);
+        fetchCounts(originTab, installationFilterId);
       }
     }
     function handleFocus() {
       if (initialLoadDone.current) {
-        fetchTickets();
-        fetchCounts(originTab);
+        fetchTickets(1, true);
+        fetchCounts(originTab, installationFilterId);
       }
     }
     document.addEventListener("visibilitychange", handleVisibility);
@@ -168,11 +226,17 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [fetchTickets, fetchCounts, originTab]);
+  }, [fetchTickets, fetchCounts, originTab, installationFilterId]);
 
+  // Counts follow origin tab + installation drill-down
   useEffect(() => {
-    fetchCounts(originTab);
-  }, [fetchCounts, originTab]);
+    fetchCounts(originTab, installationFilterId);
+  }, [fetchCounts, originTab, installationFilterId]);
+
+  const handleLoadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    fetchTickets(page + 1, false);
+  }, [fetchTickets, page, loadingMore, hasMore]);
 
   // Sync view + installationId with URL
   useEffect(() => {
@@ -215,53 +279,13 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
     });
   }
 
-  const filteredTickets = useMemo(() => {
-    let result = tickets;
-
-    if (originTab !== "all") {
-      result = result.filter((t) => {
-        // Client-origin tickets: match both type.origin="client" and source="portal_cliente"
-        if (originTab === "client") {
-          return t.ticketType?.origin === "client" || t.source === "portal_cliente";
-        }
-        const typeOrigin = t.ticketType?.origin;
-        if (!typeOrigin || typeOrigin === "both") return true;
-        return typeOrigin === originTab;
-      });
-    }
-
-    if (filterStatus === "active") {
-      result = result.filter((t) =>
-        ["pending_approval", "open", "in_progress", "waiting"].includes(t.status),
-      );
-    } else if (filterStatus !== "all") {
-      result = result.filter((t) => t.status === filterStatus);
-    }
-
-    if (filterPriorities.size > 0) {
-      result = result.filter((t) => filterPriorities.has(t.priority));
-    }
-
-    if (filterTypeId !== "all") {
-      result = result.filter((t) => t.ticketTypeId === filterTypeId);
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          t.code.toLowerCase().includes(q) ||
-          (t.description ?? "").toLowerCase().includes(q) ||
-          (t.guardiaName ?? "").toLowerCase().includes(q) ||
-          (t.guardiaRut ?? "").toLowerCase().includes(q),
-      );
-    }
-    return result;
-  }, [tickets, filterStatus, filterPriorities, searchQuery, originTab, filterTypeId]);
+  // Tickets already come filtered from the server; this alias keeps call sites
+  // stable during the refactor and is a no-op transformation.
+  const filteredTickets = tickets;
 
   function handleTicketCreated(ticket: Ticket) {
     setTickets((prev) => [ticket, ...prev]);
+    setTotal((t) => t + 1);
     setViewState({ view: "list" });
     toast.success(`Ticket ${ticket.code} creado`);
     router.push(`/ops/tickets/${ticket.id}`);
@@ -540,29 +564,54 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
           onSelectInstallation={handleSelectInstallation}
         />
       ) : listMode === "kanban" ? (
-        <TicketsKanban
-          tickets={filteredTickets}
-          loading={loading}
-          onTicketClick={(id) => router.push(`/ops/tickets/${id}`)}
-          onStatusChange={async (ticketId, newStatus) => {
-            setTickets((prev) =>
-              prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t)),
-            );
-            try {
-              const res = await fetch(`/api/ops/tickets/${ticketId}/transition`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: newStatus }),
-              });
-              const data = await res.json();
-              if (!data.success) throw new Error(data.error);
-              toast.success(`Estado actualizado`);
-            } catch {
-              fetchTickets();
-              toast.error("Error al cambiar estado");
-            }
-          }}
-        />
+        <>
+          <TicketsKanban
+            tickets={filteredTickets}
+            loading={loading}
+            onTicketClick={(id) => router.push(`/ops/tickets/${id}`)}
+            onStatusChange={async (ticketId, newStatus) => {
+              setTickets((prev) =>
+                prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t)),
+              );
+              try {
+                const res = await fetch(`/api/ops/tickets/${ticketId}/transition`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ status: newStatus }),
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+                toast.success(`Estado actualizado`);
+              } catch {
+                fetchTickets(1, true);
+                toast.error("Error al cambiar estado");
+              }
+            }}
+          />
+          {hasMore && (
+            <div className="flex flex-col items-center gap-2 pt-2">
+              <p className="text-[11px] text-muted-foreground">
+                Mostrando {filteredTickets.length} de {total}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="gap-1.5"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Cargando...
+                  </>
+                ) : (
+                  <>Cargar más</>
+                )}
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
       /* List/Cards content */
       loading ? (
@@ -573,7 +622,7 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
         <div className="rounded-xl border border-dashed border-border p-8 text-center">
           <TicketIcon className="mx-auto h-10 w-10 text-muted-foreground/30" />
           <p className="mt-2 text-sm text-muted-foreground">
-            {tickets.length === 0
+            {(counts?.total ?? 0) === 0
               ? "No hay tickets creados todavía."
               : "No hay tickets con los filtros seleccionados."}
           </p>
@@ -587,26 +636,55 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
             Crear primer ticket
           </Button>
         </div>
-      ) : listMode === "cards" ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredTickets.map((ticket) => (
-            <TicketCard
-              key={ticket.id}
-              ticket={ticket}
-              onClick={() => router.push(`/ops/tickets/${ticket.id}`)}
-            />
-          ))}
-        </div>
       ) : (
-        <div className="space-y-2">
-          {filteredTickets.map((ticket) => (
-            <TicketCard
-              key={ticket.id}
-              ticket={ticket}
-              onClick={() => router.push(`/ops/tickets/${ticket.id}`)}
-            />
-          ))}
-        </div>
+        <>
+          {listMode === "cards" ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredTickets.map((ticket) => (
+                <TicketCard
+                  key={ticket.id}
+                  ticket={ticket}
+                  onClick={() => router.push(`/ops/tickets/${ticket.id}`)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredTickets.map((ticket) => (
+                <TicketCard
+                  key={ticket.id}
+                  ticket={ticket}
+                  onClick={() => router.push(`/ops/tickets/${ticket.id}`)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Pagination: load more + counter */}
+          <div className="flex flex-col items-center gap-2 pt-2">
+            <p className="text-[11px] text-muted-foreground">
+              Mostrando {filteredTickets.length} de {total}
+            </p>
+            {hasMore && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="gap-1.5"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Cargando...
+                  </>
+                ) : (
+                  <>Cargar más</>
+                )}
+              </Button>
+            )}
+          </div>
+        </>
       ))}
         </>
       )}
@@ -626,6 +704,19 @@ export function TicketsClient({ userRole }: TicketsClientProps) {
 // ═══════════════════════════════════════════════════════════════
 //  TICKET CARD (unified list/card item)
 // ═══════════════════════════════════════════════════════════════
+
+const FINDING_CATEGORY_LABELS: Record<string, string> = {
+  documentation: "Hallazgo de documentación",
+  infrastructure: "Hallazgo de infraestructura",
+  equipment: "Hallazgo de equipamiento",
+  personnel: "Hallazgo de personal",
+  other: "Hallazgo de supervisión",
+};
+
+function findingCategoryLabel(category: string | null | undefined): string {
+  if (!category) return "Hallazgo de supervisión";
+  return FINDING_CATEGORY_LABELS[category] ?? "Hallazgo de supervisión";
+}
 
 function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }) {
   const statusCfg = TICKET_STATUS_CONFIG[ticket.status];
@@ -698,22 +789,30 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
       {/* Row 2: Title */}
       <p className="text-sm font-medium leading-snug line-clamp-2">{ticket.title}</p>
 
-      {/* Row 2.5: Supervision finding context (documento específico) */}
-      {ticket.finding && (ticket.finding.tipoDocNombre || ticket.finding.guardiaDocCode) && (
+      {/* Row 2.5: Supervision finding context (documento específico o fallback) */}
+      {ticket.finding && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
           <FileText className="h-3 w-3 text-amber-400/80" />
           <span className="font-medium text-amber-200/90">
-            {ticket.finding.tipoDocNombre ?? ticket.finding.guardiaDocCode}
+            {ticket.finding.tipoDocNombre
+              ?? ticket.finding.guardiaDocCode
+              ?? findingCategoryLabel(ticket.finding.category)}
           </span>
           {ticket.finding.occurrenceCount > 1 && (
             <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
               ×{ticket.finding.occurrenceCount}
             </span>
           )}
-          {ticket.finding.tipoDocCapa && (
+          {ticket.finding.tipoDocCapa ? (
             <span className="text-[10px] text-muted-foreground capitalize">
               {ticket.finding.tipoDocCapa}
             </span>
+          ) : (
+            !ticket.finding.tipoDocNombre && !ticket.finding.guardiaDocCode && (
+              <span className="text-[10px] text-muted-foreground italic">
+                Sin documento específico
+              </span>
+            )
           )}
           {ticket.finding.guardName && (
             <span className="text-[10px] text-muted-foreground">

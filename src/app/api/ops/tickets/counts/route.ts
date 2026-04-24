@@ -55,10 +55,17 @@ export async function GET(request: NextRequest) {
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
-    const type = parseOrigin(new URL(request.url).searchParams.get("type"));
+    const sp = new URL(request.url).searchParams;
+    const type = parseOrigin(sp.get("type"));
+    const installationId = sp.get("installationId");
     const tenantWhere: Prisma.OpsTicketWhereInput = { tenantId: ctx.tenantId };
+    // Scope "byOrigin" counts to installation as well when drilling down, so the
+    // "Todos / Internos / Guardias / Clientes" tabs match the visible list.
+    const scopedTenantWhere: Prisma.OpsTicketWhereInput = installationId
+      ? { ...tenantWhere, installationId }
+      : tenantWhere;
     const filteredWhere: Prisma.OpsTicketWhereInput = {
-      ...tenantWhere,
+      ...scopedTenantWhere,
       ...originWhere(type),
     };
 
@@ -94,15 +101,15 @@ export async function GET(request: NextRequest) {
           slaBreached: true,
         },
       }),
-      prisma.opsTicket.count({ where: tenantWhere }),
+      prisma.opsTicket.count({ where: scopedTenantWhere }),
       prisma.opsTicket.count({
-        where: { ...tenantWhere, ...originWhere("internal") },
+        where: { ...scopedTenantWhere, ...originWhere("internal") },
       }),
       prisma.opsTicket.count({
-        where: { ...tenantWhere, ...originWhere("guard") },
+        where: { ...scopedTenantWhere, ...originWhere("guard") },
       }),
       prisma.opsTicket.count({
-        where: { ...tenantWhere, ...originWhere("client") },
+        where: { ...scopedTenantWhere, ...originWhere("client") },
       }),
     ]);
 
