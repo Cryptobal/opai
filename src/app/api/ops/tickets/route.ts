@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
     const assignedTeam = searchParams.get("assignedTeam");
     const ticketTypeId = searchParams.get("ticketTypeId");
     const guardiaId = searchParams.get("guardiaId");
+    const installationId = searchParams.get("installationId");
     const search = searchParams.get("search");
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10)));
@@ -103,6 +104,7 @@ export async function GET(request: NextRequest) {
     if (assignedTeam) where.assignedTeam = assignedTeam;
     if (ticketTypeId) where.ticketTypeId = ticketTypeId;
     if (guardiaId) where.guardiaId = guardiaId;
+    if (installationId) where.installationId = installationId;
     if (search) {
       where.OR = [
         { title: { contains: search, mode: "insensitive" } },
