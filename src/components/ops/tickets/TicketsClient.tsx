@@ -8,6 +8,7 @@ import {
   Check,
   ChevronRight,
   Clock,
+  FileText,
   Loader2,
   Plus,
   Search,
@@ -696,6 +697,31 @@ function TicketCard({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
 
       {/* Row 2: Title */}
       <p className="text-sm font-medium leading-snug line-clamp-2">{ticket.title}</p>
+
+      {/* Row 2.5: Supervision finding context (documento específico) */}
+      {ticket.finding && (ticket.finding.tipoDocNombre || ticket.finding.guardiaDocCode) && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+          <FileText className="h-3 w-3 text-amber-400/80" />
+          <span className="font-medium text-amber-200/90">
+            {ticket.finding.tipoDocNombre ?? ticket.finding.guardiaDocCode}
+          </span>
+          {ticket.finding.occurrenceCount > 1 && (
+            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+              ×{ticket.finding.occurrenceCount}
+            </span>
+          )}
+          {ticket.finding.tipoDocCapa && (
+            <span className="text-[10px] text-muted-foreground capitalize">
+              {ticket.finding.tipoDocCapa}
+            </span>
+          )}
+          {ticket.finding.guardName && (
+            <span className="text-[10px] text-muted-foreground">
+              · {ticket.finding.guardName}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Row 3: Type + Team */}
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
