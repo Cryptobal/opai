@@ -96,7 +96,9 @@ module.exports = {
       },
       fontFamily: {
         sans: ['"Inter Variable"', '"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['"JetBrains Mono"', '"Fira Code"', 'ui-monospace', 'monospace'],
+        mono: ['"Geist Mono Variable"', '"JetBrains Mono"', '"Fira Code"', 'ui-monospace', 'monospace'],
+        display: ['"Outfit Variable"', '"Outfit"', 'system-ui', 'sans-serif'],
+        body: ['"Instrument Sans"', '"Inter Variable"', 'system-ui', 'sans-serif'],
       },
       animation: {
         // ── OPAI Motion System ──
