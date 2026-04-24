@@ -94,6 +94,8 @@ const DialogContent = React.forwardRef<
           "sm:inset-auto sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-lg sm:rounded-lg sm:border sm:max-h-[85vh]",
           "sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]",
           "sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
+          // Liquid Glass en iOS: la clase sólo se activa con html[data-platform="ios"].
+          "opai-ios-surface-dialog",
           className
         )}
         {...props}

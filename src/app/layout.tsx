@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/opai/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { CookieConsentBanner } from "@/components/CookieConsent";
 import { ConditionalAnalytics } from "@/components/ConditionalAnalytics";
+import { PlatformDataAttribute } from "@/components/opai/portal-shell";
 import "../styles/globals.css";
 
 const exo2 = Exo_2({
@@ -100,6 +101,7 @@ export default function RootLayout({
         `}</Script>
       </head>
       <body>
+        <PlatformDataAttribute />
         <ConditionalAnalytics />
         <ThemeProvider>
           <PWAProvider>

@@ -19,6 +19,7 @@ import { hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 import { useTenantModules } from '@/contexts/TenantModulesContext';
 import { ChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
+import { useIsIOS } from '@/hooks/usePlatform';
 import { useTheme } from './ThemeProvider';
 import {
   Sheet,
@@ -164,6 +165,7 @@ export function BottomNav({ userRole }: BottomNavProps) {
   const { enabledModules } = useTenantModules();
   const navRef = useRef<HTMLElement>(null);
   const navConfig = useNavConfig();
+  const isIOS = useIsIOS();
   useBottomNavHeight(navRef);
 
   // State override: when user taps back in ModuleSubNav, show MainNav without navigating
@@ -198,7 +200,14 @@ export function BottomNav({ userRole }: BottomNavProps) {
   return (
     <nav
       ref={navRef}
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/30 bg-background/95 backdrop-blur-xl lg:hidden"
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-40 lg:hidden",
+        // iOS PWA / Safari: Liquid Glass real (backdrop-filter fuerte + fondo muy translúcido).
+        // Android / otros: chapa opaca clásica (no tocamos el aspecto previo).
+        isIOS
+          ? "opai-liquid-glass-bar"
+          : "border-t border-border/30 bg-background/95 backdrop-blur-xl",
+      )}
       style={{
         paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)",
       }}

@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { GuardSession } from "@/lib/guard-portal";
+import { useIsIOS } from "@/hooks/usePlatform";
 
 type PostulanteTab = "ofertas" | "mis-postulaciones" | "perfil";
 
@@ -74,11 +75,17 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export function VistaPostulante({ session, onLogout }: VistaPostulanteProps) {
   const [tab, setTab] = useState<PostulanteTab>("ofertas");
+  const isIOS = useIsIOS();
 
   return (
     <div className="min-h-screen bg-background flex flex-col w-full">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b px-4 py-3 flex items-center justify-between">
+      <header
+        className={
+          "sticky top-0 z-30 px-4 py-3 flex items-center justify-between " +
+          (isIOS ? "opai-liquid-glass-bar-top" : "bg-background/95 backdrop-blur border-b")
+        }
+      >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold truncate">
@@ -103,7 +110,12 @@ export function VistaPostulante({ session, onLogout }: VistaPostulanteProps) {
       </main>
 
       {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur border-t flex items-center justify-around px-2 py-2 safe-area-bottom">
+      <nav
+        className={
+          "fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-2 py-2 safe-area-bottom " +
+          (isIOS ? "opai-liquid-glass-bar" : "bg-background/95 backdrop-blur border-t")
+        }
+      >
         <TabButton icon={<Briefcase className="h-5 w-5" />} label="Ofertas" active={tab === "ofertas"} onClick={() => setTab("ofertas")} />
         <TabButton icon={<ClipboardList className="h-5 w-5" />} label="Postulaciones" active={tab === "mis-postulaciones"} onClick={() => setTab("mis-postulaciones")} />
         <TabButton icon={<User className="h-5 w-5" />} label="Perfil" active={tab === "perfil"} onClick={() => setTab("perfil")} />

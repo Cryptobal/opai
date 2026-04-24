@@ -18,6 +18,8 @@ import { ChatSidePanel } from '@/components/chat/ChatSidePanel';
 import { useNotificationSidePanelContext } from '@/components/notifications/NotificationSidePanelContext';
 import { NotificationSidePanel } from '@/components/notifications/NotificationSidePanel';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { PlatformDataAttribute } from '@/components/opai/portal-shell';
+import { useIsIOS } from '@/hooks/usePlatform';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -62,6 +64,7 @@ function AppShellInner({
   const notifCtx = useNotificationSidePanelContext();
   const { unreadCount: notifUnreadCount } = useNotifications();
   const { open: openCommandPalette } = useCommandPalette();
+  const isIOS = useIsIOS();
 
   // Close notification panel when chat opens and vice versa
   const handleToggleChat = useCallback(() => {
@@ -87,11 +90,17 @@ function AppShellInner({
   }, [isSidebarOpen]);
   return (
     <>
+      <PlatformDataAttribute />
       <div className="relative min-h-[100dvh] overflow-x-hidden">
         {/* ── Mobile topbar (redesigned — no hamburger, no sidebar) ── */}
         {sidebar && (
           <header
-            className="fixed top-0 left-0 right-0 z-30 flex min-h-12 items-center justify-between border-b border-border/50 bg-background/95 backdrop-blur-md lg:hidden"
+            className={cn(
+              "fixed top-0 left-0 right-0 z-30 flex min-h-12 items-center justify-between lg:hidden",
+              isIOS
+                ? "opai-liquid-glass-bar-top"
+                : "border-b border-border/50 bg-background/95 backdrop-blur-md",
+            )}
             style={{
               paddingLeft: 'max(env(safe-area-inset-left), 0.75rem)',
               paddingRight: 'max(env(safe-area-inset-right), 0.75rem)',
@@ -170,7 +179,10 @@ function AppShellInner({
         >
           {/* Topbar actions desktop — fija al viewport */}
           <div className={cn(
-            "hidden lg:flex fixed top-0 right-0 z-20 h-12 items-center gap-3 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 shrink-0 transition-[left,right] duration-300 ease-out",
+            "hidden lg:flex fixed top-0 right-0 z-20 h-12 items-center gap-3 px-4 shrink-0 transition-[left,right] duration-300 ease-out",
+            isIOS
+              ? "opai-liquid-glass-bar-top"
+              : "border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
             isSidebarOpen ? 'left-64' : 'left-[72px]',
             anyPanelOpen && 'right-[400px]',
           )}>

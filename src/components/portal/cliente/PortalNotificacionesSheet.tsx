@@ -84,8 +84,8 @@ export function PortalNotificacionesSheet({ session, open, onClose }: Props) {
         onClick={onClose}
       />
 
-      {/* Sheet */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-900 border-t border-zinc-700 rounded-t-2xl max-h-[85dvh] overflow-y-auto">
+      {/* Sheet — en iOS usa Liquid Glass; en otras plataformas queda igual */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-900 border-t border-zinc-700 rounded-t-2xl max-h-[85dvh] overflow-y-auto opai-ios-surface-sheet-bottom">
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="h-1 w-10 rounded-full bg-zinc-700" />
