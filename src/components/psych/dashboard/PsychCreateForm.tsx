@@ -32,6 +32,7 @@ export default function PsychCreateForm() {
 
   const displayName = selected?.displayName ?? manual.targetName;
   const displayPhone = selected?.phone ?? manual.targetPhone;
+  const displayEmail = selected?.email ?? manual.targetEmail;
 
   async function handleSubmit() {
     setBusy(true);
@@ -126,6 +127,7 @@ export default function PsychCreateForm() {
           expiresAt={result.expiresAt}
           candidateName={displayName}
           phone={displayPhone || null}
+          email={displayEmail || null}
           onClose={() => {
             setResult(null);
             router.push("/personas/psicolaboral");

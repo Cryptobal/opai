@@ -18,6 +18,7 @@ import {
   type MessageChannel,
   type MessageTokenContext,
 } from "./resolveMessageTokens";
+import { normalizePhone, buildWaUrl } from "./normalizePhone";
 
 export interface ChannelResult {
   channel: MessageChannel;
@@ -25,6 +26,7 @@ export interface ChannelResult {
   skipped?: boolean;
   reason?: string;
   preview?: string;
+  waUrl?: string;
 }
 
 export interface SendConfig {
@@ -61,12 +63,20 @@ export async function dispatchChannel(
       "whatsapp",
       tokenCtx,
     );
+    const phoneRes = normalizePhone(target.phone);
+    if (!phoneRes.ok) {
+      return {
+        channel,
+        ok: false,
+        reason: `Teléfono inválido: ${phoneRes.error}`,
+        preview,
+      };
+    }
     return {
       channel,
       ok: true,
-      skipped: true,
-      reason: "WhatsApp no configurado — usa 'copy-link' o WhatsApp Web",
       preview,
+      waUrl: buildWaUrl(phoneRes.digits, preview),
     };
   }
   // sms

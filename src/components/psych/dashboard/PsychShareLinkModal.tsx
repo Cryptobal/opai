@@ -2,11 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import {
-  QrAndLink,
-  SendResultList,
-  type SendResultRow,
-} from "./PsychShareLinkParts";
+import { X } from "lucide-react";
+import { ChannelButtons } from "./PsychShareLinkButtons";
 
 interface Props {
   assessmentId: string;
@@ -14,19 +11,11 @@ interface Props {
   expiresAt: string;
   candidateName: string;
   phone: string | null;
+  email?: string | null;
   onClose: () => void;
 }
 
-type Channel = "whatsapp" | "email" | "sms" | "copy-link";
-
-const CHANNEL_OPTS: Array<[Channel, string]> = [
-  ["whatsapp", "WhatsApp"],
-  ["email", "Email"],
-  ["sms", "SMS"],
-  ["copy-link", "Copiar link"],
-];
-
-type SendResult = SendResultRow;
+type Channel = "whatsapp" | "email" | "copy-link";
 
 export default function PsychShareLinkModal({
   assessmentId,
@@ -34,98 +23,107 @@ export default function PsychShareLinkModal({
   expiresAt,
   candidateName,
   phone,
+  email,
   onClose,
 }: Props) {
   const [copied, setCopied] = useState(false);
-  const [channels, setChannels] = useState<Set<Channel>>(
-    new Set(["copy-link"] as Channel[]),
-  );
-  const [sending, setSending] = useState(false);
-  const [results, setResults] = useState<SendResult[] | null>(null);
+  const [sending, setSending] = useState<Channel | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const qrRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (qrRef.current) {
-      QRCode.toCanvas(qrRef.current, url, { width: 140, margin: 1 }).catch(() => void 0);
+      QRCode.toCanvas(qrRef.current, url, { width: 140, margin: 1 }).catch(
+        () => void 0,
+      );
     }
   }, [url]);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
+      showToast("Link copiado al portapapeles");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      /* no clipboard */
+      showToast("No se pudo copiar");
     }
   };
 
-  const toggle = (ch: Channel) =>
-    setChannels((s) => {
-      const n = new Set(s);
-      n.has(ch) ? n.delete(ch) : n.add(ch);
-      return n;
-    });
-
-  const send = async () => {
-    if (channels.size === 0) return;
-    setSending(true);
+  const send = async (channel: "whatsapp" | "email") => {
+    setSending(channel);
     try {
       const res = await fetch(`/api/psych/assessments/${assessmentId}/send`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ channels: [...channels] }),
+        body: JSON.stringify({ channels: [channel] }),
       });
       const j = await res.json();
-      setResults(j.results ?? [{ channel: "copy-link", ok: false, reason: j.error ?? "Error" }]);
+      const r = j.results?.[0];
+      if (!res.ok || !r?.ok) {
+        showToast(r?.reason ?? j.error ?? "Error al enviar");
+        return;
+      }
+      if (channel === "whatsapp" && r.waUrl) {
+        showToast("Abriendo WhatsApp…");
+        window.open(r.waUrl, "_blank", "noopener,noreferrer");
+      } else if (channel === "email") showToast("Email enviado");
     } finally {
-      setSending(false);
+      setSending(null);
     }
   };
 
-  const waText = encodeURIComponent(`Test psicolaboral para ${candidateName}: ${url}`);
-  const waFallback = phone
-    ? `https://wa.me/${phone.replace(/\D/g, "")}?text=${waText}`
-    : `https://wa.me/?text=${waText}`;
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-2xl p-6 max-w-md w-full shadow-xl space-y-4 max-h-[90vh] overflow-auto">
-        <h3 className="text-lg font-semibold text-foreground">Evaluación creada</h3>
-        <p className="text-sm text-muted-foreground">
-          Comparte con {candidateName}. Expira el{" "}
-          {new Date(expiresAt).toLocaleDateString("es-CL")}.
-        </p>
-        <QrAndLink qrRef={qrRef} url={url} copied={copied} onCopy={copy} />
-        <fieldset className="space-y-1.5">
-          <legend className="text-xs uppercase tracking-wider text-muted-foreground">Canales de envío</legend>
-          {CHANNEL_OPTS.map(([ch, label]) => (
-            <label key={ch} className="flex items-center gap-2 text-sm text-foreground/90">
-              <input type="checkbox" checked={channels.has(ch)} onChange={() => toggle(ch)} />
-              {label}
-            </label>
-          ))}
-        </fieldset>
-        <button
-          onClick={send}
-          disabled={sending || channels.size === 0}
-          className="w-full rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-2 text-sm disabled:opacity-50"
-        >
-          {sending ? "Enviando…" : "Enviar"}
-        </button>
-        {results ? <SendResultList rows={results} /> : null}
-        <div className="flex gap-2 pt-2">
-          <a href={waFallback} target="_blank" rel="noopener noreferrer" className="flex-1 text-center text-xs rounded-lg bg-emerald-600 text-white px-3 py-2">
-            WhatsApp Web
-          </a>
-          <button onClick={onClose} className="flex-1 rounded-lg bg-muted text-foreground/90 px-3 py-2 text-xs">
-            Cerrar
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-border rounded-2xl p-5 md:p-6 max-w-md w-full shadow-xl space-y-4 max-h-[90vh] overflow-auto">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">
+              Enlace de evaluación
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {candidateName} · Vence el{" "}
+              {new Date(expiresAt).toLocaleDateString("es-CL")}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Cerrar"
+          >
+            <X className="size-4" />
           </button>
         </div>
+
+        <div className="flex gap-3 items-center">
+          <canvas ref={qrRef} className="rounded border border-border shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="rounded-lg border border-border bg-muted/40 p-2 text-[10px] break-all font-mono">
+              {url}
+            </div>
+          </div>
+        </div>
+
+        <ChannelButtons
+          sending={sending}
+          phone={phone}
+          email={email ?? null}
+          copied={copied}
+          onSend={send}
+          onCopy={copy}
+        />
+
+        {toast ? (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-foreground text-background text-sm px-4 py-2 rounded-full shadow-lg">
+            {toast}
+          </div>
+        ) : null}
       </div>
     </div>
   );
 }
-
-
-
