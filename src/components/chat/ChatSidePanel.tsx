@@ -25,6 +25,7 @@ import {
 import { useSwipeGesture } from "./hooks/useSwipeGesture";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useIsIOS } from "@/hooks/usePlatform";
 import { useChatSidePanelContext, type ChatSidePanelChannel, type NotifPreference } from "./ChatFloatingProvider";
 import { ChatConversation } from "./ChatConversation";
 import { NewExternalChatModal } from "./NewExternalChatModal";
@@ -45,6 +46,7 @@ type AdminUser = { id: string; name: string; email: string };
 export function ChatSidePanel({ userRole }: { userRole?: string }) {
   const ctx = useChatSidePanelContext();
   const pusher = usePusher("/api/chat/pusher/auth");
+  const isIOS = useIsIOS();
 
   // Track whether auto-context was injected for this panel session
   const [contextInjected, setContextInjected] = useState(false);
