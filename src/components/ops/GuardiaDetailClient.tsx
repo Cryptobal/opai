@@ -5,19 +5,22 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import {
-  ArrowLeft,
   ArrowUpRight,
   Briefcase,
   CalendarDays,
-  ChevronDown,
   Clock,
+  DollarSign,
   FileText,
+  Fingerprint,
   History,
   Loader2,
-  MoreHorizontal,
+  MapPin,
+  MessageCircle,
   Pencil,
   Phone,
+  Receipt,
   RefreshCw,
+  Shirt,
   Trash2,
   TrendingUp,
   User,
@@ -37,17 +40,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { CollapsibleSection } from "@/components/crm/CollapsibleSection";
+import { EntityDetailLayout, type EntityHeaderAction, type EntityTab } from "@/components/crm/EntityDetailLayout";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Avatar } from "@/components/opai";
 import { cn } from "@/lib/utils";
-import { ChipTabs } from "@/components/ui/chip-tabs";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { formatPersonName } from "@/lib/personas";
 import { SHOW_PIN_IN_PROFILE } from "@/lib/guard-portal";
@@ -77,7 +73,6 @@ import { InventarioGuardiaAssignmentsSection } from "@/components/inventario/Inv
 import DatosPersonalesSection from "@/components/ops/guardia-sections/DatosPersonalesSection";
 import AsignacionSection from "@/components/ops/guardia-sections/AsignacionSection";
 import MarcacionSection from "@/components/ops/guardia-sections/MarcacionSection";
-import RondasSection from "@/components/ops/guardia-sections/RondasSection";
 import DocumentosSection from "@/components/ops/guardia-sections/DocumentosSection";
 import { FileAttachments } from "@/components/crm/FileAttachments";
 import { GuardiaDesempenoTab } from "@/components/gamification";
@@ -89,7 +84,7 @@ import CommunicationSection from "@/components/ops/guardia-sections/Communicatio
 import DiasTrabajadesSection from "@/components/ops/guardia-sections/DiasTrabajadesSection";
 import TurnosExtraSection from "@/components/ops/guardia-sections/TurnosExtraSection";
 import HistorialSection from "@/components/ops/guardia-sections/HistorialSection";
-import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
+import { AssociatedRecordsPanel } from "@/components/ui/AssociatedRecordsPanel";
 import Link from "next/link";
 import type { GuardiaDocumentoConfigItem } from "@/lib/guardia-documentos-config";
 import type { OperationalGuardDocSlot } from "@/lib/operational-guard-doc-slots-shared";
@@ -250,27 +245,21 @@ const LIFECYCLE_LABELS: Record<string, string> = {
   inactivo: "Inactivo",
 };
 
-const LIFECYCLE_COLORS: Record<string, string> = {
-  postulante: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  seleccionado: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  contratado: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  te: "bg-violet-500/20 text-violet-400 border-violet-500/30",
-  inactivo: "bg-red-500/20 text-red-400 border-red-500/30",
+const LIFECYCLE_STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
+  postulante: "default",
+  seleccionado: "warning",
+  contratado: "success",
+  te: "default",
+  inactivo: "secondary",
 };
 
-type TabKey = "perfil" | "operaciones" | "contractual" | "eventos_laborales" | "documentos" | "actividad" | "desempeno" | "marcaciones" | "psicolaboral" | "onboarding";
+type TabKey = "perfil" | "operaciones" | "contractual" | "financiero";
 
-const TABS: { key: TabKey; label: string; icon: typeof User }[] = [
-  { key: "perfil", label: "Perfil", icon: User },
-  { key: "operaciones", label: "Operaciones", icon: Wrench },
-  { key: "contractual", label: "Contractual", icon: Briefcase },
-  { key: "eventos_laborales", label: "Eventos laborales", icon: CalendarDays },
-  { key: "documentos", label: "Documentos", icon: FileText },
-  { key: "actividad", label: "Actividad", icon: History },
-  { key: "desempeno", label: "Desempe\u00f1o", icon: TrendingUp },
-  { key: "marcaciones", label: "Marcaciones", icon: Clock },
-  { key: "psicolaboral", label: "Psicolaboral", icon: Brain },
-  { key: "onboarding", label: "Onboarding", icon: UserPlus },
+const TABS: EntityTab[] = [
+  { id: "perfil", label: "Perfil", icon: User },
+  { id: "operaciones", label: "Operaciones", icon: Wrench },
+  { id: "contractual", label: "Contractual", icon: Briefcase },
+  { id: "financiero", label: "Financiero", icon: DollarSign },
 ];
 
 function toDateInput(val: string | Date | undefined | null): string {
@@ -302,16 +291,6 @@ export function GuardiaDetailClient({
     entityName: `${guardia.persona?.firstName ?? ""} ${guardia.persona?.lastName ?? ""}`.trim() || "Guardia",
     entityUrl: `/personas/guardias/${guardia.id}`,
   });
-
-  // ── Document count for badge ──
-  const [fileAttachCount, setFileAttachCount] = useState(0);
-  useEffect(() => {
-    fetch(`/api/crm/files?entityType=guardia&entityId=${encodeURIComponent(guardia.id)}`)
-      .then((r) => r.json())
-      .then((d) => { if (d.success) setFileAttachCount(d.data.length); })
-      .catch(() => {});
-  }, [guardia.id]);
-  const docCount = guardia.documents.length + fileAttachCount;
 
   // ── Edit personal modal state ──
   const [editPersonalOpen, setEditPersonalOpen] = useState(false);
@@ -550,13 +529,49 @@ export function GuardiaDetailClient({
   const puedeRecontratar = canManageGuardias && guardia.lifecycleStatus === "inactivo" && guardia.terminatedAt;
 
   // ── Tab content ──
+  const showPlanSeleccion =
+    guardia.lifecycleStatus === "seleccionado" ||
+    !!guardia.intendedInstallationId ||
+    !!guardia.intendedContractDate;
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "perfil":
         return (
           <div className="space-y-3">
-            <CollapsibleSection title="Identificación y contacto" defaultOpen>
-              {/* PIN de marcación — primera cosa visible, badge verde + Recargar */}
+            {showPlanSeleccion && (
+              <CollapsibleSection
+                icon={<MapPin className="h-4 w-4 text-amber-500" />}
+                title="Plan de selección"
+                defaultOpen
+              >
+                <SeleccionadoDestinoFields
+                  guardiaId={guardia.id}
+                  lifecycleStatus={guardia.lifecycleStatus}
+                  intendedInstallationId={guardia.intendedInstallationId}
+                  intendedContractDate={guardia.intendedContractDate}
+                  intendedInstallation={guardia.intendedInstallation}
+                  intendedPlanUpdatedAt={guardia.intendedPlanUpdatedAt}
+                  intendedPlanUpdatedBy={guardia.intendedPlanUpdatedBy}
+                  canEdit={canEditPlanSeleccion}
+                  onUpdated={(patch) => {
+                    setGuardia((prev) => ({
+                      ...prev,
+                      ...patch,
+                      intendedInstallation:
+                        patch.intendedInstallation !== undefined
+                          ? patch.intendedInstallation ?? null
+                          : prev.intendedInstallation,
+                    }));
+                  }}
+                />
+              </CollapsibleSection>
+            )}
+            <CollapsibleSection
+              icon={<User className="h-4 w-4 text-indigo-500" />}
+              title="Identificación y contacto"
+              defaultOpen
+            >
               <div className="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-border/40">
                 <span className="text-[10px] text-muted-foreground uppercase tracking-wider shrink-0">PIN de marcación</span>
                 <span className={cn(
@@ -623,6 +638,28 @@ export function GuardiaDetailClient({
                 </div>
               </div>
             </CollapsibleSection>
+            {guardia.persona.id && (
+              <CollapsibleSection
+                icon={<Brain className="h-4 w-4 text-purple-500" />}
+                title="Evaluación psicolaboral"
+                defaultOpen={false}
+              >
+                <GuardiaPsicolaboralSection
+                  guardiaId={guardia.id}
+                  personaId={guardia.persona.id}
+                  guardName={fullName}
+                  email={guardia.persona.email ?? null}
+                  phone={guardia.persona.phoneMobile ?? null}
+                />
+              </CollapsibleSection>
+            )}
+            <CollapsibleSection
+              icon={<UserPlus className="h-4 w-4 text-emerald-500" />}
+              title="Onboarding"
+              defaultOpen={false}
+            >
+              <OnboardingSection guardiaId={guardia.id} />
+            </CollapsibleSection>
           </div>
         );
       case "operaciones":
@@ -639,7 +676,18 @@ export function GuardiaDetailClient({
                 </span>
               </div>
             )}
-            <CollapsibleSection title="Marcación de asistencia" defaultOpen>
+            <CollapsibleSection
+              icon={<MapPin className="h-4 w-4 text-teal-500" />}
+              title="Asignación"
+              defaultOpen
+            >
+              <AsignacionSection asignaciones={asignaciones} />
+            </CollapsibleSection>
+            <CollapsibleSection
+              icon={<Fingerprint className="h-4 w-4 text-blue-500" />}
+              title="Marcación asistencia"
+              defaultOpen
+            >
               <MarcacionSection
                 guardiaId={guardia.id}
                 marcacionPin={guardia.marcacionPin}
@@ -653,67 +701,15 @@ export function GuardiaDetailClient({
                 onFaceIdReset={() => setGuardia((prev) => ({ ...prev, faceIdRegistered: false, faceIdPhotoUrl: null, faceIdAwsId: null }))}
               />
             </CollapsibleSection>
-          </div>
-        );
-      case "contractual":
-        return (
-          <div className="space-y-3">
-            <CollapsibleSection title="Contratos" defaultOpen>
-              <GuardContractsTab guardiaId={guardia.id} guardiaName={fullName}
-                guardiaEmail={guardia.persona.email} guardiaRut={guardia.persona.rut}
-                hiredAt={guardia.hiredAt ?? null}
-                contract={guardia.contractType ? {
-                  contractType: guardia.contractType as "plazo_fijo" | "indefinido",
-                  contractStartDate: guardia.contractStartDate ?? null, contractPeriod1End: guardia.contractPeriod1End ?? null,
-                  contractPeriod2End: guardia.contractPeriod2End ?? null, contractPeriod3End: guardia.contractPeriod3End ?? null,
-                  contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1, contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
-                } : null}
-                linkedDocuments={linkedDocs
-                  .filter((item) => item.document.category === "contrato_laboral" || item.document.category === "anexo_contrato")
-                  .map((item) => ({ id: item.document.id, title: item.document.title, category: item.document.category, signatureStatus: item.document.signatureStatus, expirationDate: item.document.expirationDate ?? null }))}
-                onDocumentsGenerated={loadDocLinks} canManageDocs={canManageDocs}
-              />
-            </CollapsibleSection>
-          </div>
-        );
-      case "eventos_laborales":
-        return (
-          <div className="space-y-3">
-            <CollapsibleSection title="Eventos laborales" defaultOpen>
-              <GuardEventsTab guardiaId={guardia.id} guardiaName={fullName} userRole={userRole}
-                guardContract={guardia.contractType ? {
-                  contractType: guardia.contractType as "plazo_fijo" | "indefinido",
-                  contractStartDate: guardia.contractStartDate ?? null, contractPeriod1End: guardia.contractPeriod1End ?? null,
-                  contractPeriod2End: guardia.contractPeriod2End ?? null, contractPeriod3End: guardia.contractPeriod3End ?? null,
-                  contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1, contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
-                } : null}
-              />
-            </CollapsibleSection>
-          </div>
-        );
-      case "documentos":
-        return (
-          <div className="space-y-3">
-            <CollapsibleSection title="Ficha de documentos" defaultOpen>
-              <DocumentosSection
-                guardiaId={guardia.id}
-                documents={guardia.documents}
-                canManageDocs={canManageDocs}
-                guardiaDocConfig={guardiaDocConfig}
-                operationalSlots={operationalGuardDocSlots}
-                docLabels={docLabels}
-                onDocumentsChange={(documents) => setGuardia((prev) => ({ ...prev, documents }))}
-              />
-            </CollapsibleSection>
-            <CollapsibleSection title="Documentos adicionales" defaultOpen>
-              <FileAttachments entityType="guardia" entityId={guardia.id} title="Documentos adicionales" />
-            </CollapsibleSection>
-          </div>
-        );
-      case "actividad":
-        return (
-          <div className="space-y-3">
             <CollapsibleSection
+              icon={<Clock className="h-4 w-4 text-sky-500" />}
+              title="Marcaciones históricas"
+              defaultOpen={false}
+            >
+              <GuardiaMarcacionesTab guardiaId={guardia.id} />
+            </CollapsibleSection>
+            <CollapsibleSection
+              icon={<CalendarDays className="h-4 w-4 text-cyan-500" />}
               title="Días trabajados"
               defaultOpen={false}
               action={
@@ -729,213 +725,252 @@ export function GuardiaDetailClient({
               <DiasTrabajadesSection guardiaId={guardia.id} />
             </CollapsibleSection>
             <CollapsibleSection
+              icon={<CalendarDays className="h-4 w-4 text-amber-500" />}
               title="Turnos extra"
               defaultOpen={false}
-              action={
-                <Link
-                  href={`/ops/pauta-diaria?guardiaId=${guardia.id}`}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-muted/50 transition-colors"
-                  title="Ver en pauta diaria"
-                >
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
-              }
             >
               <TurnosExtraSection guardiaId={guardia.id} />
             </CollapsibleSection>
-            <CollapsibleSection title="Historial del guardia" defaultOpen>
+            <CollapsibleSection
+              icon={<TrendingUp className="h-4 w-4 text-emerald-500" />}
+              title="Desempeño"
+              defaultOpen={false}
+            >
+              <GuardiaDesempenoTab guardiaId={guardia.id} />
+            </CollapsibleSection>
+            <CollapsibleSection
+              icon={<History className="h-4 w-4 text-muted-foreground" />}
+              title="Historial del guardia"
+              defaultOpen={false}
+            >
               <HistorialSection historyEvents={guardia.historyEvents} />
             </CollapsibleSection>
           </div>
         );
-      case "desempeno":
-        return <GuardiaDesempenoTab guardiaId={guardia.id} />;
-      case "marcaciones":
-        return <GuardiaMarcacionesTab guardiaId={guardia.id} />;
-      case "psicolaboral":
-        return guardia.persona.id ? (
-          <GuardiaPsicolaboralSection
-            guardiaId={guardia.id}
-            personaId={guardia.persona.id}
-            guardName={`${guardia.persona.firstName} ${guardia.persona.lastName}`.trim()}
-            email={guardia.persona.email ?? null}
-            phone={guardia.persona.phoneMobile ?? null}
-          />
-        ) : null;
-      case "onboarding":
-        return <OnboardingSection guardiaId={guardia.id} />;
+      case "contractual":
+        return (
+          <div className="space-y-3">
+            <CollapsibleSection
+              icon={<Briefcase className="h-4 w-4 text-blue-500" />}
+              title="Contratos"
+              defaultOpen
+            >
+              <GuardContractsTab
+                guardiaId={guardia.id} guardiaName={fullName}
+                guardiaEmail={guardia.persona.email} guardiaRut={guardia.persona.rut}
+                hiredAt={guardia.hiredAt ?? null}
+                contract={guardia.contractType ? {
+                  contractType: guardia.contractType as "plazo_fijo" | "indefinido",
+                  contractStartDate: guardia.contractStartDate ?? null, contractPeriod1End: guardia.contractPeriod1End ?? null,
+                  contractPeriod2End: guardia.contractPeriod2End ?? null, contractPeriod3End: guardia.contractPeriod3End ?? null,
+                  contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1, contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
+                } : null}
+                linkedDocuments={linkedDocs
+                  .filter((item) => item.document.category === "contrato_laboral" || item.document.category === "anexo_contrato")
+                  .map((item) => ({ id: item.document.id, title: item.document.title, category: item.document.category, signatureStatus: item.document.signatureStatus, expirationDate: item.document.expirationDate ?? null }))}
+                onDocumentsGenerated={loadDocLinks} canManageDocs={canManageDocs}
+              />
+            </CollapsibleSection>
+            <CollapsibleSection
+              icon={<FileText className="h-4 w-4 text-violet-500" />}
+              title="Eventos laborales"
+              defaultOpen={false}
+            >
+              <GuardEventsTab
+                guardiaId={guardia.id} guardiaName={fullName} userRole={userRole}
+                guardContract={guardia.contractType ? {
+                  contractType: guardia.contractType as "plazo_fijo" | "indefinido",
+                  contractStartDate: guardia.contractStartDate ?? null, contractPeriod1End: guardia.contractPeriod1End ?? null,
+                  contractPeriod2End: guardia.contractPeriod2End ?? null, contractPeriod3End: guardia.contractPeriod3End ?? null,
+                  contractCurrentPeriod: guardia.contractCurrentPeriod ?? 1, contractBecameIndefinidoAt: guardia.contractBecameIndefinidoAt ?? null,
+                } : null}
+              />
+            </CollapsibleSection>
+            <CollapsibleSection
+              icon={<FileText className="h-4 w-4 text-emerald-500" />}
+              title="Ficha de documentos"
+              defaultOpen
+            >
+              <DocumentosSection
+                guardiaId={guardia.id}
+                documents={guardia.documents}
+                canManageDocs={canManageDocs}
+                guardiaDocConfig={guardiaDocConfig}
+                operationalSlots={operationalGuardDocSlots}
+                docLabels={docLabels}
+                onDocumentsChange={(documents) => setGuardia((prev) => ({ ...prev, documents }))}
+              />
+            </CollapsibleSection>
+            <CollapsibleSection
+              icon={<FileText className="h-4 w-4 text-sky-500" />}
+              title="Documentos adicionales"
+              defaultOpen={false}
+            >
+              <FileAttachments entityType="guardia" entityId={guardia.id} title="Documentos adicionales" />
+            </CollapsibleSection>
+            {hasInventarioAccess && (
+              <CollapsibleSection
+                icon={<Shirt className="h-4 w-4 text-orange-500" />}
+                title="Uniformes"
+                defaultOpen={false}
+              >
+                <InventarioGuardiaAssignmentsSection guardiaId={guardia.id} />
+              </CollapsibleSection>
+            )}
+          </div>
+        );
+      case "financiero":
+        return (
+          <div className="space-y-3">
+            <CollapsibleSection
+              icon={<DollarSign className="h-4 w-4 text-emerald-500" />}
+              title="Estructura de sueldo"
+              defaultOpen
+            >
+              <GuardiaSalaryTab guardiaId={guardia.id} />
+            </CollapsibleSection>
+            <CollapsibleSection
+              icon={<Receipt className="h-4 w-4 text-amber-500" />}
+              title="Liquidaciones"
+              defaultOpen={false}
+            >
+              <GuardiaLiquidacionesTab guardiaId={guardia.id} />
+            </CollapsibleSection>
+            {personaAdminId && (
+              <CollapsibleSection
+                icon={<Receipt className="h-4 w-4 text-blue-500" />}
+                title="Rendiciones de gastos"
+                defaultOpen={false}
+              >
+                <PersonaRendicionesTab adminId={personaAdminId} />
+              </CollapsibleSection>
+            )}
+          </div>
+        );
     }
   };
 
-  const associatedSections: AssociatedSection[] = [
-    {
-      id: "asignacion",
-      label: "Asignación",
-      content: <AsignacionSection asignaciones={asignaciones} />,
-      defaultOpen: true,
-    },
-    ...(hasInventarioAccess
-      ? [{
-        id: "uniformes",
-        label: "Uniformes",
-        content: <InventarioGuardiaAssignmentsSection guardiaId={guardia.id} />,
-      }]
+  const headerActions: EntityHeaderAction[] = [
+    ...(guardia.persona.phoneMobile
+      ? [
+          {
+            label: "Llamar",
+            icon: Phone,
+            onClick: () => {
+              window.location.href = `tel:+56${guardia.persona.phoneMobile}`;
+            },
+            primary: true,
+          } as EntityHeaderAction,
+          {
+            label: "WhatsApp",
+            icon: MessageCircle,
+            onClick: () => {
+              window.open(
+                `https://wa.me/56${guardia.persona.phoneMobile}`,
+                "_blank",
+                "noopener,noreferrer",
+              );
+            },
+            primary: true,
+          } as EntityHeaderAction,
+        ]
       : []),
-    {
-      id: "sueldo",
-      label: "Estructura de sueldo",
-      content: <GuardiaSalaryTab guardiaId={guardia.id} />,
-    },
-    {
-      id: "liquidaciones",
-      label: "Liquidaciones",
-      content: <GuardiaLiquidacionesTab guardiaId={guardia.id} />,
-    },
-    ...(personaAdminId
-      ? [{
-        id: "rendiciones",
-        label: "Rendiciones",
-        content: <PersonaRendicionesTab adminId={personaAdminId} />,
-      }]
+    ...(canManageGuardias
+      ? [
+          {
+            label: "Editar datos personales",
+            icon: Pencil,
+            onClick: openEditPersonal,
+            primary: true,
+          } as EntityHeaderAction,
+        ]
       : []),
-    {
-      id: "comunicacion",
-      label: "Comunicación",
-      content: (
-        <CommunicationSection guardiaId={guardia.id} email={guardia.persona.email}
-          phoneMobile={guardia.persona.phoneMobile} historyEvents={guardia.historyEvents}
-          onHistoryEventAdded={(event) => setGuardia((prev) => ({ ...prev, historyEvents: [event, ...prev.historyEvents] }))}
-        />
-      ),
-    },
+    ...(puedeRecontratar
+      ? [
+          {
+            label: "Recontratar guardia",
+            icon: UserPlus,
+            onClick: () => {
+              setRecontratarDate(new Date().toISOString().slice(0, 10));
+              setRecontratarModalOpen(true);
+            },
+          } as EntityHeaderAction,
+        ]
+      : []),
+    ...(canChangeLifecycle && guardia.lifecycleStatus !== "inactivo"
+      ? getLifecycleTransitions(guardia.lifecycleStatus).map((status) => ({
+          label: `Cambiar a ${LIFECYCLE_LABELS[status] || status}`,
+          icon: RefreshCw,
+          onClick: () => void handleLifecycleChange(status),
+        }) as EntityHeaderAction)
+      : []),
+    ...(canManageGuardias
+      ? [
+          {
+            label: "Eliminar guardia",
+            icon: Trash2,
+            onClick: () => void handleEliminar(),
+            variant: "destructive" as const,
+          } as EntityHeaderAction,
+        ]
+      : []),
   ];
+
+  const initials =
+    `${guardia.persona.firstName?.[0] || ""}${guardia.persona.lastName?.[0] || ""}`
+      .toUpperCase() || "?";
 
   return (
     <>
-      {/* ── Sticky header ── */}
-      <div className="sticky top-0 z-20 bg-[#0a0e14]/95 backdrop-blur -mx-3 px-3 sm:-mx-4 sm:px-4 lg:-mx-6 lg:px-6 max-lg:pt-2">
-        <button type="button" onClick={() => router.push("/personas/guardias")}
-          className="lg:hidden flex items-center gap-1 text-xs text-[#7a8a9e] hover:text-[#e8edf4] transition-colors mb-1.5">
-          <ArrowLeft className="h-3.5 w-3.5" /> Volver a personas
-        </button>
-
-        <div className="flex items-center justify-between gap-3 min-w-0 py-1.5 lg:py-2">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            {guardia.faceIdPhotoUrl ? (
-              <button
-                type="button"
-                onClick={() => setPhotoModalOpen(true)}
-                className="shrink-0 rounded-full ring-2 ring-transparent hover:ring-[#2d3a4d] focus:ring-[#3b82f6] focus:outline-none transition-shadow"
-                title="Ver foto"
-              >
-                <Avatar name={fullName} photoUrl={guardia.faceIdPhotoUrl} size="lg" />
-              </button>
-            ) : (
-              <Avatar name={fullName} photoUrl={guardia.faceIdPhotoUrl} size="lg" />
-            )}
-            <h1 className="text-base sm:text-lg font-semibold text-[#e8edf4] truncate">{fullName}</h1>
-            <span className={cn("inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium border",
-              LIFECYCLE_COLORS[guardia.lifecycleStatus] || "bg-muted text-muted-foreground border-border")}>
-              {LIFECYCLE_LABELS[guardia.lifecycleStatus] || guardia.lifecycleStatus}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {guardia.persona.phoneMobile && (
-              <>
-                <a href={`tel:+56${guardia.persona.phoneMobile}`} title="Llamar"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#1a2332] bg-[#111822] text-[#e8edf4] hover:bg-[#1a2332] transition-colors">
-                  <Phone className="h-4 w-4" />
-                </a>
-                <a href={`https://wa.me/56${guardia.persona.phoneMobile}`} target="_blank" rel="noopener noreferrer" title="WhatsApp"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-green-600/30 bg-green-600/15 text-green-400 hover:bg-green-600/25 transition-colors">
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
-                </a>
-              </>
-            )}
-            {puedeRecontratar && (
-              <button
-                type="button"
-                onClick={() => { setRecontratarDate(new Date().toISOString().slice(0, 10)); setRecontratarModalOpen(true); }}
-                className="relative group/rc inline-flex h-8 w-8 items-center justify-center rounded-md border border-emerald-600/30 bg-emerald-600/15 text-emerald-400 hover:bg-emerald-600/25 transition-colors"
-              >
-                <UserPlus className="h-4 w-4" />
-                <span className="absolute hidden group-hover/rc:block top-full left-1/2 -translate-x-1/2 mt-1.5 whitespace-nowrap rounded-md border border-border bg-zinc-900 px-2 py-1 text-[10px] text-zinc-300 shadow-lg z-50 pointer-events-none">
-                  Recontratar guardia
-                </span>
-              </button>
-            )}
-            {canManageGuardias && (
-              <Button variant="outline" size="sm" className="h-8 w-8 px-0 border-[#1a2332] bg-[#111822]" onClick={openEditPersonal} title="Editar datos">
-                <Pencil className="h-4 w-4" />
-              </Button>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 w-8 px-0 border-[#1a2332] bg-[#111822]">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {canChangeLifecycle && guardia.lifecycleStatus !== "inactivo" && getLifecycleTransitions(guardia.lifecycleStatus).map((status) => (
-                  <DropdownMenuItem key={status} onClick={() => void handleLifecycleChange(status)} disabled={lifecycleChanging}>
-                    {lifecycleChanging ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : null}
-                    Cambiar a {LIFECYCLE_LABELS[status] || status}
-                  </DropdownMenuItem>
-                ))}
-                {canManageGuardias && (
-                  <DropdownMenuItem className="text-red-400 focus:text-red-400" onClick={() => void handleEliminar()}>
-                    <Trash2 className="h-3.5 w-3.5 mr-2" />Eliminar guardia
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        {/* ── ChipTabs ── */}
-        <ChipTabs
-          tabs={TABS.map((tab) => ({ id: tab.key, label: tab.label, icon: tab.icon, badge: tab.key === "documentos" ? docCount : undefined }))}
-          activeTab={activeTab}
-          onTabChange={(id) => setActiveTab(id as TabKey)}
-          centered={false}
-          compact
-        />
-      </div>
-
-      {(guardia.lifecycleStatus === "seleccionado" ||
-        guardia.intendedInstallationId ||
-        guardia.intendedContractDate) && (
-        <div className="mt-3 max-w-2xl px-0">
-          <SeleccionadoDestinoFields
-            guardiaId={guardia.id}
-            lifecycleStatus={guardia.lifecycleStatus}
-            intendedInstallationId={guardia.intendedInstallationId}
-            intendedContractDate={guardia.intendedContractDate}
-            intendedInstallation={guardia.intendedInstallation}
-            intendedPlanUpdatedAt={guardia.intendedPlanUpdatedAt}
-            intendedPlanUpdatedBy={guardia.intendedPlanUpdatedBy}
-            canEdit={canEditPlanSeleccion}
-            onUpdated={(patch) => {
-              setGuardia((prev) => ({
-                ...prev,
-                ...patch,
-                intendedInstallation:
-                  patch.intendedInstallation !== undefined
-                    ? patch.intendedInstallation ?? null
-                    : prev.intendedInstallation,
-              }));
-            }}
+      <EntityDetailLayout
+        breadcrumb={["Personas", "Guardias", fullName]}
+        breadcrumbHrefs={["/personas/guardias", "/personas/guardias"]}
+        header={{
+          avatar: {
+            photoUrl: guardia.faceIdPhotoUrl,
+            initials,
+            color: "bg-indigo-500/10 text-indigo-500",
+          },
+          title: fullName,
+          subtitle: guardia.persona.rut ? `RUT ${guardia.persona.rut}` : undefined,
+          status: {
+            label: LIFECYCLE_LABELS[guardia.lifecycleStatus] || guardia.lifecycleStatus,
+            variant: LIFECYCLE_STATUS_VARIANT[guardia.lifecycleStatus] || "secondary",
+          },
+          actions: headerActions,
+        }}
+        tabs={TABS}
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id as TabKey)}
+        onAvatarClick={guardia.faceIdPhotoUrl ? () => setPhotoModalOpen(true) : undefined}
+        rightPanel={
+          <AssociatedRecordsPanel
+            sections={[
+              {
+                id: "comunicacion",
+                label: "Comunicación",
+                content: (
+                  <CommunicationSection
+                    guardiaId={guardia.id}
+                    email={guardia.persona.email}
+                    phoneMobile={guardia.persona.phoneMobile}
+                    historyEvents={guardia.historyEvents}
+                    onHistoryEventAdded={(event) =>
+                      setGuardia((prev) => ({
+                        ...prev,
+                        historyEvents: [event, ...prev.historyEvents],
+                      }))
+                    }
+                  />
+                ),
+                defaultOpen: true,
+              },
+            ]}
           />
-        </div>
-      )}
-
-      {/* ── Content + Panel layout ── */}
-      <div className="lg:flex gap-5">
-        <div className="flex-1 min-w-0">
-          <div className="mt-5 min-w-0">{renderTabContent()}</div>
-        </div>
-        <AssociatedRecordsPanel sections={associatedSections} />
-      </div>
+        }
+      >
+        {renderTabContent()}
+      </EntityDetailLayout>
 
       {/* ── Modal fecha de contrato ── */}
       <Dialog open={contractDateModalOpen} onOpenChange={setContractDateModalOpen}>
@@ -1113,9 +1148,9 @@ export function GuardiaDetailClient({
       </Dialog>
 
       <Dialog open={photoModalOpen} onOpenChange={setPhotoModalOpen}>
-        <DialogContent className="max-w-md p-0 overflow-hidden bg-[#0a0e14] border-[#1a2332]">
+        <DialogContent className="max-w-md p-0 overflow-hidden">
           <DialogHeader className="p-4 pb-0">
-            <DialogTitle className="text-[#e8edf4]">Foto de perfil</DialogTitle>
+            <DialogTitle>Foto de perfil</DialogTitle>
             <DialogDescription className="sr-only">Foto del guardia {fullName}</DialogDescription>
           </DialogHeader>
           <div className="p-4 pt-2 flex justify-center">
