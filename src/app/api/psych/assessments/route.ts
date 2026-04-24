@@ -15,6 +15,7 @@ import {
 import { signPsychInvitation } from "@/lib/psych/invitation-token";
 import { guardPsych } from "@/lib/psych/api-guard";
 import { resolveTenantPsychConfig } from "@/lib/psych/scoring/config";
+import { resolveAssessmentTarget } from "@/lib/psych/resolve-target";
 
 const CreateSchema = z.object({
   targetName: z.string().min(2).max(200),
@@ -57,16 +58,15 @@ export async function POST(req: NextRequest) {
     cfg.invitationTTLHours,
   );
 
+  const target = await resolveAssessmentTarget(ctx.tenantId, body);
+
   const assessment = await prisma.psychAssessment.create({
     data: {
       id: assessmentId,
       tenantId: ctx.tenantId,
       versionId: version.id,
       personaId: body.personaId ?? null,
-      targetName: body.targetName,
-      targetRut: body.targetRut ?? null,
-      targetEmail: body.targetEmail ?? null,
-      targetPhone: body.targetPhone ?? null,
+      ...target,
       invitationToken: token,
       expiresAt,
       createdById: ctx.userId,
