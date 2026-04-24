@@ -22,6 +22,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -388,21 +394,41 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
                 <span className="hidden sm:inline">Guardar</span>
               </Button>
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => void handleDownloadPdf()}
-              disabled={downloading !== null}
-              aria-label="Descargar PDF"
-            >
-              {downloading === "pdf" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              <span className="hidden sm:inline">PDF</span>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  disabled={downloading !== null}
+                  aria-label="Descargar"
+                >
+                  {downloading !== null ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5" />
+                  )}
+                  <span className="hidden sm:inline">Descargar</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => void handleDownloadPdf()}>
+                  PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => void handleDownloadDocx()}
+                  disabled={isSigned}
+                  className="flex flex-col items-start gap-0.5"
+                >
+                  <span>Word (.docx)</span>
+                  {isSigned ? (
+                    <span className="text-[11px] text-muted-foreground">
+                      Solo en borradores
+                    </span>
+                  ) : null}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {!isSigned && (
               <>
                 <Button
