@@ -1360,8 +1360,8 @@ export function CpqQuoteDetail({
   return (
     <div className="space-y-3 pb-4 lg:pb-4 overflow-x-hidden min-w-0">
       {/* -- Compact header -- */}
-      <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-5 px-5 py-1.5 mb-1 xl:hidden">
-      <div className="flex items-start gap-2 min-h-[40px]">
+      <div className="sticky top-[53px] z-10 bg-background/95 backdrop-blur-xl border-b border-border/40 -mx-4 px-4 py-1.5 mb-1 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 xl:hidden">
+      <div className="flex items-start gap-2 min-h-[40px] min-w-0">
         <Link href="/crm/cotizaciones" className="shrink-0 pt-0.5">
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
             <ArrowLeft className="h-4 w-4" />
@@ -1516,7 +1516,7 @@ export function CpqQuoteDetail({
           </div>
         </div>
       </div>
-      <div className="mt-1.5 pt-1.5 border-t border-border/40 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mt-1.5 pt-1.5 border-t border-border/40 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between min-w-0">
         <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 min-w-0">
           {!isLocked && (savingQuote || savingFinancials) && (
             <Loader2 className="h-3 w-3 animate-spin shrink-0 text-muted-foreground" aria-hidden />
@@ -1524,7 +1524,7 @@ export function CpqQuoteDetail({
           <span className="leading-tight">{headerPersistLabel}</span>
         </div>
         <div className="flex flex-col items-start sm:items-end gap-0.5 min-w-0 max-w-full xl:hidden">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 text-sm tabular-nums">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 text-sm tabular-nums min-w-0 max-w-full">
             <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
               Total / mes
             </span>
@@ -1697,7 +1697,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secDatos && "rotate-180")} />
         </button>
         {secDatos && (
-          <div className="px-4 pb-4 pt-4 bg-card/60">
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
             <DatosSection
               crmAccounts={crmAccounts}
               crmInstallations={crmInstallations}
@@ -1736,8 +1736,8 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secCondiciones && "rotate-180")} />
         </button>
         {secCondiciones && (
-          <div className="px-4 pb-4 pt-4 bg-card/60">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">
                 <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Forma de pago</Label>
                 <select
@@ -1819,7 +1819,7 @@ export function CpqQuoteDetail({
             {/* Contract service fields */}
             <div className="border-t border-border pt-3 mt-3">
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Contrato de Servicio</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-1">
                   <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tipo de reajuste</Label>
                   <select
@@ -1985,7 +1985,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secDesglose && "rotate-180")} />
         </button>
         {secDesglose && costSummary && (
-          <div className="px-4 pb-4 pt-4 bg-card/60">
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
             <QuoteBreakdownPanel
               data={buildBreakdownData(
                 costSummary,
@@ -2035,7 +2035,7 @@ export function CpqQuoteDetail({
           </div>
         </div>
         {secPuestos && (
-          <div className="px-4 pb-4 pt-4 bg-card/60">
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
             {!isLocked && (
               <div className="mb-3">
                 <ServiceTemplateButtons
@@ -2129,7 +2129,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secCostos && "rotate-180")} />
         </button>
         {secCostos && (
-          <div className="px-4 pb-4 pt-4 bg-card/60">
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
             <CpqQuoteCosts
               quoteId={quoteId}
               variant="inline"
@@ -2168,7 +2168,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secLineas && "rotate-180")} />
         </button>
         {secLineas && (
-          <div className="px-4 pb-4 pt-4 space-y-2 bg-card/60">
+          <div className="space-y-2 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4">
             {additionalLines.map((line, idx) => {
               const precioBase = Number(line.precio || 0) * Number(line.cantidad || 1);
               const mPct = Number(line.marginPct || 0);
@@ -2178,7 +2178,7 @@ export function CpqQuoteDetail({
 
               return (
                 <div key={idx} className="rounded-lg border border-border/50 bg-muted/5 p-2.5">
-                  <div className={cn(CPQ_BREAKDOWN_SHELL, "grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start")}>
+                  <div className={cn(CPQ_BREAKDOWN_SHELL, "grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-4 sm:items-start")}>
                     <div className="min-w-0">
                       <Input
                         placeholder="Nombre del servicio/producto"
@@ -2252,7 +2252,7 @@ export function CpqQuoteDetail({
                         ))}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="flex flex-col items-start gap-1 sm:items-end shrink-0">
                       <div className="flex items-center gap-1.5">
                         <Input
                           type="text"
@@ -2297,7 +2297,7 @@ export function CpqQuoteDetail({
                           <span className="text-xs text-muted-foreground">%</span>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-left sm:text-right">
                         <span className="text-[13px] font-bold tabular-nums">
                           {formatCurrency(precioMensual)}
                           <span className="text-xs text-muted-foreground font-normal">/mes</span>
@@ -2377,7 +2377,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secFinancieros && "rotate-180")} />
         </button>
         {secFinancieros && (
-          <div className="px-4 pb-4 pt-4 space-y-2 bg-card/60">
+          <div className="space-y-2 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4">
 
           <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
             {/* Costo financiero */}
@@ -2399,7 +2399,7 @@ export function CpqQuoteDetail({
                   {costParams?.financialEnabled ? "On" : "Off"}
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                 <div>
                   <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Base venta</Label>
                   <Input
@@ -2548,7 +2548,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secMargen && "rotate-180")} />
         </button>
         {secMargen && (
-          <div className="px-4 pb-4 pt-4 bg-card/60">
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
             <MarginSection
               marginPct={marginPct}
               onMarginChange={handleMarginChange}
@@ -2576,7 +2576,7 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secAiContent && "rotate-180")} />
         </button>
         {secAiContent && (
-          <div className="px-4 pb-4 pt-4 grid gap-4 lg:grid-cols-2 bg-card/60">
+          <div className="grid gap-4 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4 lg:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Descripción AI
@@ -2709,7 +2709,7 @@ export function CpqQuoteDetail({
           </div>
         </div>
         {secAuditoria && (
-          <div className="px-4 pb-4 pt-4 bg-card/60">
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
             <p className="text-sm text-muted-foreground mb-3">
               Registro de todos los cambios: quién, cuándo y qué se modificó.
             </p>
@@ -2763,7 +2763,7 @@ export function CpqQuoteDetail({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="rounded-lg border border-border/60 bg-background/45 p-3">
                   <p className="text-xs font-medium text-muted-foreground">Margen</p>
                   <p className={cn("mt-1 text-lg font-bold", marginPct >= 15 ? "text-emerald-500" : marginPct >= 10 ? "text-amber-500" : "text-red-500")}>
@@ -2810,7 +2810,7 @@ export function CpqQuoteDetail({
                       {portalReadinessItems.filter((item) => item.ready).length}/{portalReadinessItems.length}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                     {portalReadinessItems.map((item) => (
                       <div key={item.label} className="flex items-center gap-1.5 text-xs">
                         <span

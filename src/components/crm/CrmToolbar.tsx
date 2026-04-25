@@ -58,9 +58,9 @@ export function CrmToolbar({
   actionSlot,
 }: CrmToolbarProps) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
       {/* Search */}
-      <div className="relative flex-1 min-w-0 sm:min-w-[280px]">
+      <div className="relative w-full min-w-0 sm:min-w-[280px] sm:flex-1">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <Input
           value={search}
@@ -70,8 +70,8 @@ export function CrmToolbar({
         />
       </div>
 
-      {/* Controls group: en móvil permite wrap para mejor distribución */}
-      <div className="flex flex-wrap items-center gap-2 min-w-0">
+      {/* Controls group: mobile-first, sin apretar filtros ni perder el CTA. */}
+      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-2 min-w-0 sm:flex sm:w-auto sm:flex-wrap">
         {/* Select all */}
         {selectAll?.show && (
           <Button

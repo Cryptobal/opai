@@ -306,6 +306,25 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
           <span>· {quote.totalGuards} guardias · {quote.totalPositions} puestos</span>
         </p>
         <CrmDates createdAt={quote.createdAt} updatedAt={quote.updatedAt} className="mt-0.5" />
+        <div className="mt-2 grid grid-cols-3 gap-2 rounded-md border border-border/50 bg-muted/15 p-2 text-center sm:hidden">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">P. venta</p>
+            <p className="truncate text-xs font-medium font-mono">{formatCLP(salePriceClp)}</p>
+            {salePriceUf ? <p className="truncate text-[10px] font-semibold text-muted-foreground">{salePriceUf}</p> : null}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Costo</p>
+            <p className="truncate text-xs font-mono">{formatCLP(Number(quote.monthlyCost))}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Margen</p>
+            <p className="truncate text-xs font-medium font-mono text-emerald-600 dark:text-emerald-400">
+              {quote.marginPct != null
+                ? `${formatNumber(quote.marginPct, { minDecimals: 1, maxDecimals: 1 })}%`
+                : "—"}
+            </p>
+          </div>
+        </div>
       </div>
       <div className="flex items-center gap-4 shrink-0 ml-3 text-right">
         <div className="text-xs hidden sm:block">

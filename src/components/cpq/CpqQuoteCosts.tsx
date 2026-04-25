@@ -1553,7 +1553,7 @@ export function CpqQuoteCosts({
             />
           </span>
         </div>
-        <div className="px-4 pb-3 grid gap-2 grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 px-3 pb-3 sm:grid-cols-2 sm:px-4 lg:grid-cols-3">
           {financialCostItems.filter((item) => item.isEnabled).map((item) => {
             const ci = item.catalogItemId ? catalogById.get(item.catalogItemId) : undefined;
             const itemName = item.customName ?? ci?.name ?? "Sin nombre";
@@ -1574,7 +1574,7 @@ export function CpqQuoteCosts({
                     </button>
                   </div>
                 </div>
-                <div className={cn("grid gap-2", isPolicy ? "grid-cols-3" : "grid-cols-1")}>
+                <div className={cn("grid gap-2", isPolicy ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1")}>
                   <div className="space-y-1">
                     <Label className="text-xs">Tasa (%)</Label>
                     <Input

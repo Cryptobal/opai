@@ -470,8 +470,8 @@ export function DatosSection({
         </Dialog>
 
         {/* ── Quote name + Date + Currency + save indicator — compact row ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto] gap-x-2 gap-y-1.5 items-end">
-          <div>
+        <div className="grid grid-cols-1 gap-x-2 gap-y-2 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end">
+          <div className="min-w-0">
             <Label className={labelClassName}>Nombre cotización</Label>
             <Input
               value={quoteForm.name}
@@ -484,7 +484,7 @@ export function DatosSection({
               disabled={isLocked}
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <Label className={labelClassName}>Válida hasta</Label>
             <Input
               type="date"
@@ -518,7 +518,7 @@ export function DatosSection({
               ))}
             </div>
           </div>
-          <span className="text-sm text-muted-foreground shrink-0 pb-2">
+          <span className="text-sm text-muted-foreground shrink-0 pb-1 sm:self-end lg:pb-2">
             {savingQuote ? "Guardando..." : quoteDirty ? "" : "Guardado ✓"}
           </span>
         </div>

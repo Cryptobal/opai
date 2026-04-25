@@ -2364,7 +2364,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
               )}
               {/* Collapsible content */}
               {isExpanded && (
-              <div className="px-4 pb-4 pt-1 space-y-3 border-t border-border/30">
+              <div className="space-y-3 border-t border-border/30 px-3 pb-3 pt-2 sm:px-4 sm:pb-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <Label className="text-[11px]">Nombre *</Label>
@@ -2390,7 +2390,7 @@ export function CrmLeadDetailClient({ lead: initialLead }: { lead: CrmLead }) {
                     <MapsUrlPasteInput onResolve={(result) => handleAddressChange(inst._key, result)} className="mt-1.5" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label className="text-[11px]">Comuna</Label>
                     <Input value={inst.commune} onChange={(e) => updateInstallation(inst._key, "commune", e.target.value)} placeholder="Las Condes" className={`h-9 text-sm ${inputClassName}`} />
