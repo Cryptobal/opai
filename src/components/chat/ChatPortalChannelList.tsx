@@ -298,7 +298,7 @@ export function ChatPortalChannelList({
       </div>
 
       {/* Channel sections */}
-      <div className="flex-1 overflow-y-auto min-h-0 px-3 pb-4 space-y-2">
+      <div className="flex-1 overflow-y-auto min-h-0 px-3 pb-4 space-y-2 opai-chat-mobile-scroll">
         {sections.length === 0 && !lockedChannels?.length && (
           <div className="flex items-center justify-center py-12 text-sm text-zinc-500">
             {searchQuery ? "Sin resultados" : "No hay canales disponibles"}
@@ -334,8 +334,9 @@ export function ChatPortalChannelList({
               </button>
 
               {/* Channel items */}
-              {!isCollapsed &&
-                section.channels.map((ch) => {
+              {!isCollapsed && (
+                <div className="opai-chat-mobile-channel-stack">
+                {section.channels.map((ch) => {
                   const name = getDisplayName(ch);
                   const Icon = getChannelIcon(ch);
                   const isSelected = ch.id === selectedChannelId;
@@ -357,7 +358,7 @@ export function ChatPortalChannelList({
                         onSelectChannel(ch.id, name, ch.channelType);
                       }}
                       className={cn(
-                        "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-left transition-all duration-150 opai-chat-mobile-channel-row",
+                        "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-left transition-colors duration-150 opai-chat-mobile-channel-row",
                         isSelected
                           ? "bg-[rgba(45,212,191,0.1)] text-zinc-100"
                           : "text-zinc-300 hover:bg-[rgba(255,255,255,0.04)]",
@@ -394,6 +395,8 @@ export function ChatPortalChannelList({
                     </button>
                   );
                 })}
+                </div>
+              )}
             </div>
           );
         })}

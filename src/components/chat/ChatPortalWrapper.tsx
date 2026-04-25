@@ -283,7 +283,7 @@ export function ChatPortalWrapper({
   return (
     <div
       className={cn(
-        "flex flex-col h-full overflow-hidden opai-chat-mobile-shell opai-ios-surface-sheet-side",
+        "flex flex-col h-full overflow-hidden opai-chat-mobile-shell",
         swipeRight.translateX != null ? "" : "transition-transform duration-[250ms] ease-out"
       )}
       style={

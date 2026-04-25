@@ -93,7 +93,7 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
       {/* Lista de canales — slide a la izquierda cuando hay conversación */}
       <div
         className={cn(
-          "absolute inset-0 flex flex-col bg-[#0a0e17] opai-ios-surface-sheet-side transition-transform duration-[250ms] ease-out z-0",
+          "absolute inset-0 flex flex-col bg-[#0a0e17] opai-chat-mobile-shell transition-transform duration-[250ms] ease-out z-0",
           selectedChannel ? "-translate-x-full" : "translate-x-0"
         )}
       >
@@ -118,7 +118,7 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
       {/* Conversación — slide desde la derecha */}
       <div
         className={cn(
-          "absolute inset-0 flex flex-col bg-[#0a0e17] opai-ios-surface-sheet-side transition-transform duration-[250ms] ease-out z-10",
+          "absolute inset-0 flex flex-col bg-[#0a0e17] opai-chat-mobile-shell transition-transform duration-[250ms] ease-out z-10",
           selectedChannel ? "translate-x-0" : "translate-x-full"
         )}
       >

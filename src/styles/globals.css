@@ -844,6 +844,13 @@ html {
       padding: 0.75rem 0.75rem 1rem;
     }
 
+    .opai-chat-mobile-scroll {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+      touch-action: pan-y;
+      scrollbar-gutter: stable;
+    }
+
     .opai-chat-mobile-search {
       min-height: 2.75rem;
       border-radius: 1.25rem !important;
@@ -864,11 +871,22 @@ html {
       padding: 0.8rem 0.9rem !important;
       background: rgba(255, 255, 255, 0.045);
       border: 1px solid rgba(255, 255, 255, 0.055);
+      transition-property: background-color, border-color;
     }
 
     .opai-chat-mobile-channel-row:active {
-      transform: scale(0.985);
       background: rgba(255, 255, 255, 0.075);
+    }
+
+    .opai-chat-mobile-channel-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .opai-chat-mobile-channel-stack > :not([hidden]) ~ :not([hidden]) {
+      border-top-width: 0 !important;
+      border-top-color: transparent !important;
     }
 
     .opai-chat-mobile-avatar {
@@ -885,8 +903,6 @@ html {
 
     .opai-chat-mobile-date {
       background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
       border-color: rgba(255, 255, 255, 0.08) !important;
     }
 

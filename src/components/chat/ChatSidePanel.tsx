@@ -349,7 +349,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
       </div>
 
       {/* Channel list */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-y-auto min-h-0 opai-chat-mobile-scroll">
         {ctx.loading ? (
           <div className="flex flex-col items-center gap-2 py-10">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -538,7 +538,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           />
           <div
             className={cn(
-              "fixed z-50 xl:hidden flex flex-col bg-[#0a0e17] opai-chat-mobile-shell opai-ios-surface-sheet-side transition-transform duration-300 ease-out",
+              "fixed z-50 xl:hidden flex flex-col bg-[#0a0e17] opai-chat-mobile-shell transition-transform duration-300 ease-out",
               panelEntered && !panelClosing ? "translate-x-0" : "translate-x-full"
             )}
             style={{
@@ -851,7 +851,7 @@ function GroupChannelsSection({
         </div>
       </div>
       {!collapsed && (
-        <div className="divide-y divide-border/20">
+        <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack">
           {groups.map((grp) => (
             <div key={grp.key}>
               <div className="flex items-center group/sub">
@@ -894,7 +894,7 @@ function GroupChannelsSection({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              <div className="divide-y divide-border/20">
+              <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack">
                 {grp.channels.map((ch) => (
                   <div key={ch.id} className="relative group flex items-center">
                     <div className="flex-1 min-w-0">
@@ -1102,7 +1102,7 @@ function ChannelSection({
         </div>
       </div>
       {!collapsed && (
-        <div className="divide-y divide-border/20">
+        <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack">
           {channels.map((ch) => {
             const hasMenu = onArchive || onUnarchive || (canDelete && onDelete) || onMarkAsRead || onUpdateNotifPref;
             return (
@@ -1236,7 +1236,7 @@ function UserSection({
         </div>
       </div>
       {!collapsed && (
-        <div className="divide-y divide-border/20">
+        <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack">
           {users.map((user) => (
             <button
               key={user.id}
@@ -1303,7 +1303,7 @@ function ChannelListItem({
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-all duration-150 text-left opai-chat-mobile-channel-row"
+      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors duration-150 text-left opai-chat-mobile-channel-row"
     >
       {/* Avatar */}
       <div
