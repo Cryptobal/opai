@@ -889,6 +889,30 @@ html {
       border-top-color: transparent !important;
     }
 
+    .opai-chat-mobile-section {
+      margin: 0.45rem 0.75rem;
+    }
+
+    .opai-chat-mobile-section-header {
+      min-height: 3.15rem;
+      border-radius: 1.15rem !important;
+      background: rgba(255, 255, 255, 0.042);
+      border: 1px solid rgba(255, 255, 255, 0.052);
+      padding: 0.75rem 0.85rem !important;
+      text-transform: none !important;
+      letter-spacing: 0 !important;
+    }
+
+    .opai-chat-mobile-section-header:active {
+      background: rgba(255, 255, 255, 0.072);
+    }
+
+    .opai-chat-mobile-section-body {
+      margin-top: 0.5rem;
+      padding-left: 0.35rem;
+      padding-right: 0.35rem;
+    }
+
     .opai-chat-mobile-avatar {
       height: 2.55rem !important;
       width: 2.55rem !important;

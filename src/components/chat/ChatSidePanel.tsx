@@ -88,13 +88,13 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    direct: false,
+    direct: true,
     group: true,
     installation_reportes: true,
     installation_interno: true,
     users: true,
-    prospects: false,
-    clients: false,
+    prospects: true,
+    clients: true,
     archived: true,
   });
   const [channelToDelete, setChannelToDelete] = useState<string | null>(null);
@@ -388,7 +388,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 label="Mensajes directos"
                 icon={<MessageCircle className="h-3.5 w-3.5 text-teal-500" />}
                 channels={directChannels}
-                collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["direct"]}
+                collapsed={isSearching ? false : !!collapsedSections["direct"]}
                 onToggle={() => toggleSection("direct")}
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={getChannelDisplayName}
@@ -402,7 +402,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             {groupChannels.length > 0 && (
               <GroupChannelsSection
                 groupChannels={groupChannels}
-                collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["group"]}
+                collapsed={isSearching ? false : !!collapsedSections["group"]}
                 onToggle={() => toggleSection("group")}
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={getChannelDisplayName}
@@ -419,7 +419,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 label="Instalaciones - Reportes"
                 icon={<Building2 className="h-3.5 w-3.5 text-indigo-500" />}
                 channels={installationReportesChannels}
-                collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["installation_reportes"]}
+                collapsed={isSearching ? false : !!collapsedSections["installation_reportes"]}
                 onToggle={() => toggleSection("installation_reportes")}
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={getChannelDisplayName}
@@ -438,7 +438,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 label="Prospectos"
                 icon={<Sprout className="h-3.5 w-3.5 text-green-500" />}
                 channels={filter === "unread" ? prospectChannels.filter(c => c.unreadCount > 0) : prospectChannels}
-                collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["prospects"]}
+                collapsed={isSearching ? false : !!collapsedSections["prospects"]}
                 onToggle={() => toggleSection("prospects")}
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={(ch) => ch.account?.name ?? ch.name}
@@ -458,7 +458,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 label="Clientes"
                 icon={<Handshake className="h-3.5 w-3.5 text-blue-500" />}
                 channels={filter === "unread" ? clientChannels.filter(c => c.unreadCount > 0) : clientChannels}
-                collapsed={isSearching || filter === "unread" ? false : !!collapsedSections["clients"]}
+                collapsed={isSearching ? false : !!collapsedSections["clients"]}
                 onToggle={() => toggleSection("clients")}
                 onSelectChannel={ctx.selectChannel}
                 getDisplayName={(ch) => ch.account?.name ?? ch.name}
@@ -778,12 +778,12 @@ function GroupChannelsSection({
   );
 
   return (
-    <div>
-      <div className="flex items-center w-full group/section gap-1">
+    <div className="opai-chat-mobile-section">
+      <div className="flex items-center w-full group/section gap-1 opai-chat-mobile-section-header">
         <button
           type="button"
           onClick={onToggle}
-          className="flex-1 min-w-0 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors text-left"
+          className="flex-1 min-w-0 flex items-center gap-2 px-0 py-0 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-colors text-left"
         >
           {collapsed ? (
             <ChevronRight className="h-3 w-3 shrink-0" />
@@ -791,7 +791,7 @@ function GroupChannelsSection({
             <ChevronDown className="h-3 w-3 shrink-0" />
           )}
           <Users className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-          <span className="truncate">Grupos</span>
+          <span className="truncate text-[13px] font-semibold text-zinc-300">Grupos</span>
         </button>
         <div className="flex shrink-0 items-center gap-1 pr-2">
           {showSectionNotifMenu && (
@@ -851,7 +851,7 @@ function GroupChannelsSection({
         </div>
       </div>
       {!collapsed && (
-        <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack">
+        <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
           {groups.map((grp) => (
             <div key={grp.key}>
               <div className="flex items-center group/sub">
@@ -894,7 +894,7 @@ function GroupChannelsSection({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack">
+              <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
                 {grp.channels.map((ch) => (
                   <div key={ch.id} className="relative group flex items-center">
                     <div className="flex-1 min-w-0">
@@ -1016,12 +1016,12 @@ function ChannelSection({
   const showSectionNotifMenu = onApplySectionNotifPref && !isArchivedSection && channels.length > 0;
 
   return (
-    <div>
-      <div className="flex items-center w-full group/section gap-1">
+    <div className="opai-chat-mobile-section">
+      <div className="flex items-center w-full group/section gap-1 opai-chat-mobile-section-header">
         <button
           type="button"
           onClick={onToggle}
-          className="flex-1 min-w-0 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors text-left"
+          className="flex-1 min-w-0 flex items-center gap-2 px-0 py-0 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-colors text-left"
         >
           {collapsed ? (
             <ChevronRight className="h-3 w-3 shrink-0" />
@@ -1029,7 +1029,7 @@ function ChannelSection({
             <ChevronDown className="h-3 w-3 shrink-0" />
           )}
           {icon}
-          <span className="truncate">{label}</span>
+          <span className="truncate text-[13px] font-semibold text-zinc-300">{label}</span>
         </button>
         {/* Columna derecha alineada: notif | count | badge | menu | plus */}
         <div className="flex shrink-0 items-center gap-1 pr-2">
@@ -1102,7 +1102,7 @@ function ChannelSection({
         </div>
       </div>
       {!collapsed && (
-        <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack">
+        <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
           {channels.map((ch) => {
             const hasMenu = onArchive || onUnarchive || (canDelete && onDelete) || onMarkAsRead || onUpdateNotifPref;
             return (
@@ -1212,12 +1212,12 @@ function UserSection({
   creatingDmFor: string | null;
 }) {
   return (
-    <div>
-      <div className="flex items-center w-full gap-1">
+    <div className="opai-chat-mobile-section">
+      <div className="flex items-center w-full gap-1 opai-chat-mobile-section-header">
         <button
           type="button"
           onClick={onToggle}
-          className="flex-1 min-w-0 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-accent/30 transition-colors text-left"
+          className="flex-1 min-w-0 flex items-center gap-2 px-0 py-0 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-colors text-left"
         >
           {collapsed ? (
             <ChevronRight className="h-3 w-3 shrink-0" />
@@ -1225,7 +1225,7 @@ function UserSection({
             <ChevronDown className="h-3 w-3 shrink-0" />
           )}
           <Users className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">Usuarios</span>
+          <span className="truncate text-[13px] font-semibold text-zinc-300">Usuarios</span>
         </button>
         <div className="flex shrink-0 items-center gap-1 pr-2">
           <span className="w-4" />
@@ -1236,7 +1236,7 @@ function UserSection({
         </div>
       </div>
       {!collapsed && (
-        <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack">
+        <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
           {users.map((user) => (
             <button
               key={user.id}
