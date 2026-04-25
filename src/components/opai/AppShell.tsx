@@ -173,7 +173,7 @@ function AppShellInner({
             'transition-[padding,margin] duration-300 ease-out min-w-0',
             'pt-[calc(3rem+env(safe-area-inset-top,0px))] lg:pt-12', // espacio para topbar fija (min-h-12 = 3rem) en mobile y desktop
             isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
-            anyPanelOpen && 'lg:mr-[400px]',
+            anyPanelOpen && 'xl:mr-[400px]',
             className
           )}
         >

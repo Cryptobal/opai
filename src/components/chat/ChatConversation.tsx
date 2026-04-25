@@ -10,8 +10,13 @@ import { ChatTypingIndicator } from "./ChatTypingIndicator";
 import { ChatThreadPanel } from "./ChatThreadPanel";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Trash2, X } from "lucide-react";
-import { useChatMessages } from "./hooks/useChatMessages";
+import { clearChatMessageCache, useChatMessages } from "./hooks/useChatMessages";
 import { useChatChannel } from "./hooks/useChatChannel";
+import {
+  applyDeletedMessages,
+  reconcileRealtimeMessages,
+  type ChatChannelSummaryPatch,
+} from "./lib/chat-state";
 
 interface ChatConversationProps {
   channelId: string;
@@ -28,6 +33,8 @@ interface ChatConversationProps {
   onSwipeDownToClose?: () => void;
   /** Called after messages are marked as read — use to update sidebar unread counts */
   onMarkAsRead?: (channelId: string) => void;
+  /** Called when a mutation changes last message preview/count in channel lists */
+  onChannelSummaryChanged?: (patch: ChatChannelSummaryPatch) => void;
 }
 
 /**
@@ -45,6 +52,7 @@ export function ChatConversation({
   onClose,
   onSwipeDownToClose,
   onMarkAsRead,
+  onChannelSummaryChanged,
 }: ChatConversationProps) {
   const {
     messages: apiMessages,
@@ -64,8 +72,12 @@ export function ChatConversation({
     messages: rtMessages,
     members,
     typingUsers,
-    appendMessage: rtAppendMessage,
+    deleteMessage: rtDeleteMessage,
     clearMessages: rtClearMessages,
+    deletedMessageIds,
+    editedMessages,
+    clearRevision,
+    channelSummaryPatch,
   } = useChatChannel(channelId, pusher);
 
   const [currentUserIdState, setCurrentUserIdState] = useState<string | null>(currentUserIdProp ?? null);
@@ -127,12 +139,40 @@ export function ChatConversation({
     if (rtMessages.length === 0) return;
 
     setApiMessages((prev) => {
-      const existingIds = new Set(prev.map((m) => m.id));
-      const newMessages = rtMessages.filter((m) => !existingIds.has(m.id));
-      if (newMessages.length === 0) return prev;
-      return [...prev, ...newMessages];
+      const next = reconcileRealtimeMessages(prev, rtMessages, deletedMessageIds);
+      return next.length === prev.length && next.every((message, index) => message.id === prev[index]?.id)
+        ? prev
+        : next;
     });
-  }, [rtMessages, setApiMessages]);
+  }, [rtMessages, deletedMessageIds, setApiMessages]);
+
+  useEffect(() => {
+    if (deletedMessageIds.size === 0) return;
+    clearChatMessageCache(channelId);
+    setApiMessages((prev) => applyDeletedMessages(prev, deletedMessageIds));
+  }, [channelId, deletedMessageIds, setApiMessages]);
+
+  useEffect(() => {
+    const entries = Object.entries(editedMessages);
+    if (entries.length === 0) return;
+    setApiMessages((prev) =>
+      prev.map((message) => {
+        const edit = editedMessages[message.id];
+        return edit ? { ...message, content: edit.content, isEdited: true } : message;
+      }),
+    );
+  }, [editedMessages, setApiMessages]);
+
+  useEffect(() => {
+    if (clearRevision === 0) return;
+    clearChatMessageCache(channelId);
+    setApiMessages([]);
+  }, [channelId, clearRevision, setApiMessages]);
+
+  useEffect(() => {
+    if (!channelSummaryPatch) return;
+    onChannelSummaryChanged?.(channelSummaryPatch);
+  }, [channelSummaryPatch, onChannelSummaryChanged]);
 
   // Fetch read cursors
   useEffect(() => {
@@ -218,6 +258,14 @@ export function ChatConversation({
     });
   }, []);
 
+  const handleDelete = useCallback(
+    async (messageId: string) => {
+      const deleted = await deleteMessage(messageId);
+      if (deleted) rtDeleteMessage(messageId);
+    },
+    [deleteMessage, rtDeleteMessage],
+  );
+
   const handleSearch = useCallback(
     (query: string) => {
       setSearchQuery(query);
@@ -259,13 +307,23 @@ export function ChatConversation({
     try {
       const res = await fetch(`/api/chat/channels/${channelId}/messages`, { method: "DELETE" });
       if (res.ok) {
+        const json = await res.json().catch(() => null);
+        clearChatMessageCache(channelId);
         setApiMessages([]);
         rtClearMessages();
+        if (json?.data) {
+          onChannelSummaryChanged?.({
+            channelId,
+            lastMessagePreview: json.data.lastMessagePreview ?? null,
+            lastMessageAt: json.data.lastMessageAt ?? null,
+            messageCount: json.data.messageCount,
+          });
+        }
       }
     } catch (err) {
       console.error("Error clearing messages:", err);
     }
-  }, [channelId, setApiMessages, rtClearMessages]);
+  }, [channelId, setApiMessages, rtClearMessages, onChannelSummaryChanged]);
 
   const onlineCount = members.length;
 
@@ -282,6 +340,8 @@ export function ChatConversation({
           isSearching={isSearching}
           channelId={channelId}
           onSwipeDownToClose={onSwipeDownToClose}
+          onClearMessages={canDeleteAny ? () => setClearConfirmOpen(true) : undefined}
+          onCloseChat={onClose}
         >
           {canDeleteAny && (
             <button
@@ -314,7 +374,7 @@ export function ChatConversation({
           onReply={handleReply}
           onOpenThread={setActiveThreadId}
           onEdit={editMessage}
-          onDelete={deleteMessage}
+          onDelete={handleDelete}
           onRetry={retryMessage}
           onDiscard={discardMessage}
           channelId={channelId}

@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { applyChannelSummaryPatch, type ChatChannelSummaryPatch } from "./lib/chat-state";
 
 /* ─── Types ─── */
 
@@ -68,6 +69,7 @@ interface ChatSidePanelContextValue {
   markAllChannelsAsRead: () => Promise<void>;
   markAllChannelsAsReadLoading: boolean;
   updateChannelNotifPref: (channelId: string, preference: NotifPreference) => Promise<void>;
+  updateChannelSummary: (patch: ChatChannelSummaryPatch) => void;
 }
 
 export const ChatSidePanelContext = createContext<ChatSidePanelContextValue | null>(null);
@@ -94,6 +96,7 @@ const NOOP_CHAT_CONTEXT: ChatSidePanelContextValue = {
   markAllChannelsAsRead: async () => {},
   markAllChannelsAsReadLoading: false,
   updateChannelNotifPref: async () => {},
+  updateChannelSummary: () => {},
 };
 
 export function useChatSidePanelContext() {
@@ -239,6 +242,11 @@ export function ChatSidePanelProvider({
     } catch {}
   }, []);
 
+  const updateChannelSummary = useCallback((patch: ChatChannelSummaryPatch) => {
+    setChannels((prev) => applyChannelSummaryPatch(prev, patch));
+    setArchivedChannels((prev) => applyChannelSummaryPatch(prev, patch));
+  }, []);
+
   // Fetch channels on first panel open
   const openPanel = useCallback(() => {
     setIsPanelOpen(true);
@@ -321,6 +329,7 @@ export function ChatSidePanelProvider({
     markAllChannelsAsRead,
     markAllChannelsAsReadLoading: markAllLoading,
     updateChannelNotifPref,
+    updateChannelSummary,
   };
 
   return (

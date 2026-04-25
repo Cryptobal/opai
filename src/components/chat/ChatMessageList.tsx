@@ -208,7 +208,7 @@ export function ChatMessageList({
     <div
       ref={scrollContainerRef}
       onScroll={handleScroll}
-      className="absolute inset-0 overflow-y-auto px-4 py-3"
+      className="absolute inset-0 overflow-y-auto px-4 py-3 opai-chat-mobile-messages"
     >
       {/* Loading spinner for older messages */}
       {isLoading && hasMore && messages.length > 0 && (

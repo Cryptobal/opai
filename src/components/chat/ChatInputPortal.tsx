@@ -244,7 +244,7 @@ export function ChatInputPortal({
   );
 
   return (
-    <div className="shrink-0 px-3 py-2 border-t border-[rgba(255,255,255,0.06)] bg-[#0d1220] pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+    <div className="shrink-0 px-3 py-2 border-t border-[rgba(255,255,255,0.06)] bg-[#0d1220] opai-chat-mobile-input opai-ios-surface-sheet-bottom pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       {/* Reply banner */}
       {replyTo && (
         <div className="flex items-center gap-2 mb-2">
@@ -309,7 +309,7 @@ export function ChatInputPortal({
       )}
 
       {/* Input row */}
-      <div className="flex items-end gap-1.5 bg-[#141a2a] rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] transition-colors px-3 py-1">
+      <div className="flex items-end gap-1.5 bg-[#141a2a] rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] transition-colors px-3 py-1 opai-chat-mobile-input-inner">
         {/* File upload button */}
         {enableFileUpload && (
           <>

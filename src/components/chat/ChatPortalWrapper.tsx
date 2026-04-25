@@ -7,11 +7,16 @@ import { useIsMobile } from "@/lib/pwa/use-is-mobile";
 import { useSwipeGesture } from "./hooks/useSwipeGesture";
 import type { ChatMessageData, SendMessagePayload, ChatSenderType } from "@/lib/chat-types";
 import { usePusher } from "./hooks/usePusher";
-import { useChatMessages } from "./hooks/useChatMessages";
+import { clearChatMessageCache, useChatMessages } from "./hooks/useChatMessages";
 import { useChatChannel } from "./hooks/useChatChannel";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatTypingIndicator } from "./ChatTypingIndicator";
 import { ChatInputPortal } from "./ChatInputPortal";
+import {
+  applyDeletedMessages,
+  reconcileRealtimeMessages,
+  type ChatChannelSummaryPatch,
+} from "./lib/chat-state";
 
 interface ChatPortalWrapperProps {
   /** API base path, e.g. "/api/chat" or "/api/portal/guardia/chat" */
@@ -40,6 +45,8 @@ interface ChatPortalWrapperProps {
   enableEmoji?: boolean;
   /** Enable file upload (default: true) */
   enableFileUpload?: boolean;
+  /** Called when a mutation changes last message preview/count in channel lists */
+  onChannelSummaryChanged?: (patch: ChatChannelSummaryPatch) => void;
 }
 
 /**
@@ -63,6 +70,7 @@ export function ChatPortalWrapper({
   onBack,
   enableEmoji = true,
   enableFileUpload = true,
+  onChannelSummaryChanged,
 }: ChatPortalWrapperProps) {
   const pusher = usePusher(pusherAuthEndpoint, pusherAuthHeaders);
 
@@ -87,7 +95,11 @@ export function ChatPortalWrapper({
     messages: rtMessages,
     members,
     typingUsers,
-    clearMessages: rtClearMessages,
+    deleteMessage: rtDeleteMessage,
+    deletedMessageIds,
+    editedMessages,
+    clearRevision,
+    channelSummaryPatch,
   } = useChatChannel(channelId, pusher);
 
   const [replyTo, setReplyTo] = useState<{
@@ -102,12 +114,40 @@ export function ChatPortalWrapper({
   useEffect(() => {
     if (rtMessages.length === 0) return;
     setApiMessages((prev) => {
-      const existingIds = new Set(prev.map((m) => m.id));
-      const newMessages = rtMessages.filter((m) => !existingIds.has(m.id));
-      if (newMessages.length === 0) return prev;
-      return [...prev, ...newMessages];
+      const next = reconcileRealtimeMessages(prev, rtMessages, deletedMessageIds);
+      return next.length === prev.length && next.every((message, index) => message.id === prev[index]?.id)
+        ? prev
+        : next;
     });
-  }, [rtMessages, setApiMessages]);
+  }, [rtMessages, deletedMessageIds, setApiMessages]);
+
+  useEffect(() => {
+    if (deletedMessageIds.size === 0) return;
+    clearChatMessageCache(channelId);
+    setApiMessages((prev) => applyDeletedMessages(prev, deletedMessageIds));
+  }, [channelId, deletedMessageIds, setApiMessages]);
+
+  useEffect(() => {
+    const entries = Object.entries(editedMessages);
+    if (entries.length === 0) return;
+    setApiMessages((prev) =>
+      prev.map((message) => {
+        const edit = editedMessages[message.id];
+        return edit ? { ...message, content: edit.content, isEdited: true } : message;
+      }),
+    );
+  }, [editedMessages, setApiMessages]);
+
+  useEffect(() => {
+    if (clearRevision === 0) return;
+    clearChatMessageCache(channelId);
+    setApiMessages([]);
+  }, [channelId, clearRevision, setApiMessages]);
+
+  useEffect(() => {
+    if (!channelSummaryPatch) return;
+    onChannelSummaryChanged?.(channelSummaryPatch);
+  }, [channelSummaryPatch, onChannelSummaryChanged]);
 
   // Mark messages as read
   useEffect(() => {
@@ -143,6 +183,14 @@ export function ChatPortalWrapper({
       content: message.content,
     });
   }, []);
+
+  const handleDelete = useCallback(
+    async (messageId: string) => {
+      const deleted = await deleteMessage(messageId);
+      if (deleted) rtDeleteMessage(messageId);
+    },
+    [deleteMessage, rtDeleteMessage],
+  );
 
   const handleReaction = useCallback(
     (messageId: string, emoji: string) => {
@@ -235,7 +283,7 @@ export function ChatPortalWrapper({
   return (
     <div
       className={cn(
-        "flex flex-col h-full overflow-hidden",
+        "flex flex-col h-full overflow-hidden opai-chat-mobile-shell opai-ios-surface-sheet-side",
         swipeRight.translateX != null ? "" : "transition-transform duration-[250ms] ease-out"
       )}
       style={
@@ -247,7 +295,7 @@ export function ChatPortalWrapper({
     >
       {/* Header — en móvil: barra para arrastrar hacia abajo + botón X */}
       <div
-        className="shrink-0 flex flex-col border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]"
+        className="shrink-0 flex flex-col border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220] opai-chat-mobile-topbar opai-ios-surface-sheet-top"
         {...(isMobile && onBack ? swipeDown : {})}
       >
         {isMobile && onBack && (
@@ -311,7 +359,7 @@ export function ChatPortalWrapper({
         onLoadMore={loadMore}
         onReply={handleReply}
         onEdit={editMessage}
-        onDelete={deleteMessage}
+        onDelete={handleDelete}
         channelId={channelId}
         onReaction={handleReaction}
       />

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatPortalChannelList, type LockedChannel } from "@/components/chat/ChatPortalChannelList";
 import { ChatPortalWrapper } from "@/components/chat/ChatPortalWrapper";
+import { applyChannelSummaryPatch, type ChatChannelSummaryPatch } from "@/components/chat/lib/chat-state";
 import type { ClienteSession } from "@/lib/portal-cliente-types";
 
 interface ChatClientePortalProps {
@@ -33,6 +34,7 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
   const [lockedChannels, setLockedChannels] = useState<LockedChannel[]>([]);
   const [prefetchedChannels, setPrefetchedChannels] = useState<any[] | null>(null);
   const [autoSelectDone, setAutoSelectDone] = useState(false);
+  const [channelSummaryPatch, setChannelSummaryPatch] = useState<ChatChannelSummaryPatch | null>(null);
 
   const isProspect = !!session.isProspect;
   const senderName = session.lastName
@@ -45,6 +47,11 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
     "x-account-id": session.accountId,
     "x-contact-name": encodeURIComponent(senderName),
   };
+
+  const handleChannelSummaryChanged = useCallback((patch: ChatChannelSummaryPatch) => {
+    setChannelSummaryPatch(patch);
+    setPrefetchedChannels((prev) => (prev ? applyChannelSummaryPatch(prev, patch) : prev));
+  }, []);
 
   // Fetch locked channels from the channels endpoint
   useEffect(() => {
@@ -86,11 +93,11 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
       {/* Lista de canales — slide a la izquierda cuando hay conversación */}
       <div
         className={cn(
-          "absolute inset-0 flex flex-col bg-[#0a0e17] transition-transform duration-[250ms] ease-out z-0",
+          "absolute inset-0 flex flex-col bg-[#0a0e17] opai-ios-surface-sheet-side transition-transform duration-[250ms] ease-out z-0",
           selectedChannel ? "-translate-x-full" : "translate-x-0"
         )}
       >
-        <div className="shrink-0 flex items-center gap-3 h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
+        <div className="shrink-0 flex items-center gap-3 h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220] opai-ios-surface-sheet-top">
           <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">
             Chat con tu equipo
           </h3>
@@ -104,13 +111,14 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
           lockedChannels={lockedChannels}
           autoSelectSingle={isProspect}
           initialChannels={prefetchedChannels ?? undefined}
+          channelSummaryPatch={channelSummaryPatch}
         />
       </div>
 
       {/* Conversación — slide desde la derecha */}
       <div
         className={cn(
-          "absolute inset-0 flex flex-col bg-[#0a0e17] transition-transform duration-[250ms] ease-out z-10",
+          "absolute inset-0 flex flex-col bg-[#0a0e17] opai-ios-surface-sheet-side transition-transform duration-[250ms] ease-out z-10",
           selectedChannel ? "translate-x-0" : "translate-x-full"
         )}
       >
@@ -126,6 +134,7 @@ export function ChatClientePortal({ session }: ChatClientePortalProps) {
             channelId={selectedChannel.id}
             channelName={selectedChannel.name}
             onBack={() => setSelectedChannel(null)}
+            onChannelSummaryChanged={handleChannelSummaryChanged}
             enableEmoji
             enableFileUpload
           />

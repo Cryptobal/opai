@@ -632,7 +632,7 @@ export function NotificationSidePanel() {
       {/* DESKTOP: Backdrop */}
       {ctx.isPanelOpen && (
         <div
-          className="hidden lg:block fixed inset-0 z-30"
+          className="hidden xl:block fixed inset-0 z-30"
           onClick={ctx.closePanel}
           aria-hidden="true"
         />
@@ -643,7 +643,7 @@ export function NotificationSidePanel() {
         <>
           <div
             className={cn(
-              "fixed inset-0 z-50 bg-black/40 lg:hidden transition-opacity duration-300",
+              "fixed inset-0 z-50 bg-black/40 xl:hidden transition-opacity duration-300",
               panelEntered && !panelClosing ? "opacity-100" : "opacity-0"
             )}
             onClick={handleClosePanel}
@@ -651,7 +651,7 @@ export function NotificationSidePanel() {
           />
           <div
             className={cn(
-              "fixed inset-0 z-50 lg:hidden flex flex-col transition-transform duration-300 ease-out",
+              "fixed inset-0 z-50 xl:hidden flex flex-col transition-transform duration-300 ease-out",
               isIOS ? "opai-ios-surface-sheet-side" : "bg-background",
               panelEntered && !panelClosing ? "translate-x-0" : "translate-x-full"
             )}
@@ -700,7 +700,7 @@ export function NotificationSidePanel() {
       {/* DESKTOP: Right side panel */}
       <div
         className={cn(
-          "hidden lg:flex fixed top-0 right-0 h-full w-[400px] z-40 flex-col",
+          "hidden xl:flex fixed top-0 right-0 h-full w-[400px] z-40 flex-col",
           isIOS
             ? "opai-ios-surface-sheet-side"
             : "bg-background border-l border-border/50 shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]",

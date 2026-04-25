@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ChatChannelData, ChannelsResponse } from "@/lib/chat-types";
 import { ChatChannelListItem } from "./ChatChannelListItem";
+import { applyChannelSummaryPatch, type ChatChannelSummaryPatch } from "./lib/chat-state";
 import { ChatNewDmModal } from "./ChatNewDmModal";
 import { NewExternalChatModal } from "./NewExternalChatModal";
 import {
@@ -43,6 +44,8 @@ interface ChatChannelListProps {
   unreadCounts: Record<string, number>;
   onSelectChannel: (channelId: string, channelName: string) => void;
   userRole?: string;
+  refreshSignal?: number;
+  channelSummaryPatch?: ChatChannelSummaryPatch | null;
 }
 
 function SectionHeader({
@@ -99,6 +102,8 @@ export function ChatChannelList({
   unreadCounts,
   onSelectChannel,
   userRole,
+  refreshSignal,
+  channelSummaryPatch,
 }: ChatChannelListProps) {
   const [channels, setChannels] = useState<ChatChannelData[]>([]);
   const [archivedChannels, setArchivedChannels] = useState<ChatChannelData[]>([]);
@@ -152,7 +157,13 @@ export function ChatChannelList({
 
   useEffect(() => {
     fetchChannels();
-  }, [fetchChannels]);
+  }, [fetchChannels, refreshSignal]);
+
+  useEffect(() => {
+    if (!channelSummaryPatch) return;
+    setChannels((prev) => applyChannelSummaryPatch(prev, channelSummaryPatch));
+    setArchivedChannels((prev) => applyChannelSummaryPatch(prev, channelSummaryPatch));
+  }, [channelSummaryPatch]);
 
   const handleSearchChange = useCallback(
     (value: string) => {

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { useCallback, useState } from "react";
 import { ChatPortalChannelList } from "@/components/chat/ChatPortalChannelList";
 import { ChatPortalWrapper } from "@/components/chat/ChatPortalWrapper";
+import type { ChatChannelSummaryPatch } from "@/components/chat/lib/chat-state";
 import type { SupervisorSession } from "@/lib/portal-supervisor";
 
 interface ChatSupervisorPortalProps {
@@ -19,10 +19,15 @@ export function ChatSupervisorPortal({ session }: ChatSupervisorPortalProps) {
     id: string;
     name: string;
   } | null>(null);
+  const [channelSummaryPatch, setChannelSummaryPatch] = useState<ChatChannelSummaryPatch | null>(null);
 
   const apiHeaders: Record<string, string> = {
     "x-sender-type": "ADMIN",
   };
+
+  const handleChannelSummaryChanged = useCallback((patch: ChatChannelSummaryPatch) => {
+    setChannelSummaryPatch(patch);
+  }, []);
 
   if (selectedChannel) {
     return (
@@ -38,6 +43,7 @@ export function ChatSupervisorPortal({ session }: ChatSupervisorPortalProps) {
           channelId={selectedChannel.id}
           channelName={selectedChannel.name}
           onBack={() => setSelectedChannel(null)}
+          onChannelSummaryChanged={handleChannelSummaryChanged}
           enableEmoji
           enableFileUpload
         />
@@ -48,7 +54,7 @@ export function ChatSupervisorPortal({ session }: ChatSupervisorPortalProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 flex items-center gap-3 h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
+      <div className="shrink-0 flex items-center gap-3 h-14 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220] opai-ios-surface-sheet-top">
         <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">
           Chat
         </h3>
@@ -60,6 +66,7 @@ export function ChatSupervisorPortal({ session }: ChatSupervisorPortalProps) {
         apiHeaders={apiHeaders}
         onSelectChannel={(id, name) => setSelectedChannel({ id, name })}
         selectedChannelId={null}
+        channelSummaryPatch={channelSummaryPatch}
       />
     </div>
   );

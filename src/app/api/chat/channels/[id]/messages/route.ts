@@ -543,28 +543,51 @@ export async function DELETE(
       );
     }
 
-    const result = await prisma.chatMessage.updateMany({
-      where: {
-        channelId,
-        deletedAt: null,
-      },
-      data: {
-        deletedAt: new Date(),
-        deletedBy: ctx.userId,
-      },
+    const deletedAt = new Date();
+    const result = await prisma.$transaction(async (tx) => {
+      const deleted = await tx.chatMessage.updateMany({
+        where: {
+          channelId,
+          deletedAt: null,
+        },
+        data: {
+          deletedAt,
+          deletedBy: ctx.userId,
+        },
+      });
+
+      await tx.chatChannel.update({
+        where: { id: channelId },
+        data: {
+          lastMessagePreview: null,
+          lastMessageAt: null,
+          messageCount: 0,
+        },
+      });
+
+      return deleted;
     });
 
     // Trigger Pusher event for connected clients
     triggerChatEvent(channelId, "messages-cleared", {
+      channelId,
       clearedBy: ctx.userId,
       count: result.count,
+      lastMessagePreview: null,
+      lastMessageAt: null,
+      messageCount: 0,
     }).catch((err) =>
       console.error("Error triggering messages-cleared event:", err)
     );
 
     return NextResponse.json({
       success: true,
-      data: { deletedCount: result.count },
+      data: {
+        deletedCount: result.count,
+        lastMessagePreview: null,
+        lastMessageAt: null,
+        messageCount: 0,
+      },
     });
   } catch (err: any) {
     console.error("Error clearing channel messages:", err);

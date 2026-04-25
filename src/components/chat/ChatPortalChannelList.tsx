@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Search, ChevronDown, ChevronRight, Lock, MessageCircle, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatChannelData } from "@/lib/chat-types";
+import { applyChannelSummaryPatch, type ChatChannelSummaryPatch } from "./lib/chat-state";
 
 export interface LockedChannel {
   icon: string;
@@ -29,6 +30,8 @@ interface ChatPortalChannelListProps {
   autoSelectSingle?: boolean;
   /** Pre-fetched channels to avoid a duplicate fetch */
   initialChannels?: ChatChannelData[];
+  /** Patch last-message metadata after realtime mutations */
+  channelSummaryPatch?: ChatChannelSummaryPatch | null;
 }
 
 type ChannelSection = {
@@ -62,6 +65,7 @@ export function ChatPortalChannelList({
   lockedChannels,
   autoSelectSingle = false,
   initialChannels,
+  channelSummaryPatch,
 }: ChatPortalChannelListProps) {
   const [channels, setChannels] = useState<ChatChannelData[]>(initialChannels ?? []);
   const [groupChannels, setGroupChannels] = useState<ChatChannelData[]>([]);
@@ -138,6 +142,12 @@ export function ChatPortalChannelList({
     Promise.all(promises).finally(() => setIsLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiBase, groupsEndpoint]);
+
+  useEffect(() => {
+    if (!channelSummaryPatch) return;
+    setChannels((prev) => applyChannelSummaryPatch(prev, channelSummaryPatch));
+    setGroupChannels((prev) => applyChannelSummaryPatch(prev, channelSummaryPatch));
+  }, [channelSummaryPatch]);
 
   // Refetch when the user returns from a conversation (selectedChannelId: value → null)
   useEffect(() => {
@@ -244,10 +254,10 @@ export function ChatPortalChannelList({
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden opai-chat-mobile-shell">
       {/* Search */}
-      <div className="shrink-0 px-3 pt-3 pb-2">
-        <div className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#141a2a] px-3 py-1.5">
+      <div className="shrink-0 px-3 pt-3 pb-2 opai-chat-mobile-list-chrome">
+        <div className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#141a2a] px-3 py-1.5 opai-chat-mobile-search">
           <Search className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
           <input
             type="text"
@@ -260,12 +270,12 @@ export function ChatPortalChannelList({
       </div>
 
       {/* Filter tabs */}
-      <div className="shrink-0 flex gap-1 px-3 pb-2">
+      <div className="shrink-0 flex gap-1 px-3 pb-3">
         <button
           type="button"
           onClick={() => setFilter("all")}
           className={cn(
-            "px-3 py-1 rounded-full text-xs font-medium transition-colors",
+            "px-3 py-1 rounded-full text-xs font-medium transition-colors opai-chat-mobile-pill",
             filter === "all"
               ? "bg-[rgba(45,212,191,0.15)] text-teal-400"
               : "text-zinc-400 hover:text-zinc-200",
@@ -277,7 +287,7 @@ export function ChatPortalChannelList({
           type="button"
           onClick={() => setFilter("unread")}
           className={cn(
-            "px-3 py-1 rounded-full text-xs font-medium transition-colors",
+            "px-3 py-1 rounded-full text-xs font-medium transition-colors opai-chat-mobile-pill",
             filter === "unread"
               ? "bg-[rgba(45,212,191,0.15)] text-teal-400"
               : "text-zinc-400 hover:text-zinc-200",
@@ -288,7 +298,7 @@ export function ChatPortalChannelList({
       </div>
 
       {/* Channel sections */}
-      <div className="flex-1 overflow-y-auto min-h-0 px-2">
+      <div className="flex-1 overflow-y-auto min-h-0 px-3 pb-4 space-y-2">
         {sections.length === 0 && !lockedChannels?.length && (
           <div className="flex items-center justify-center py-12 text-sm text-zinc-500">
             {searchQuery ? "Sin resultados" : "No hay canales disponibles"}
@@ -303,12 +313,12 @@ export function ChatPortalChannelList({
           );
 
           return (
-            <div key={section.key} className="mb-1">
+            <div key={section.key} className="mb-3">
               {/* Section header */}
               <button
                 type="button"
                 onClick={() => toggleSection(section.key)}
-                className="flex items-center gap-1.5 w-full px-2 py-1.5 text-[11px] font-semibold uppercase text-[rgba(255,255,255,0.45)] hover:text-[rgba(255,255,255,0.65)] transition-colors"
+                className="flex items-center gap-1.5 w-full px-1 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[rgba(255,255,255,0.42)] hover:text-[rgba(255,255,255,0.65)] transition-colors"
               >
                 {isCollapsed ? (
                   <ChevronRight className="h-3 w-3" />
@@ -347,24 +357,26 @@ export function ChatPortalChannelList({
                         onSelectChannel(ch.id, name, ch.channelType);
                       }}
                       className={cn(
-                        "flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-left transition-colors",
+                        "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-left transition-all duration-150 opai-chat-mobile-channel-row",
                         isSelected
                           ? "bg-[rgba(45,212,191,0.1)] text-zinc-100"
                           : "text-zinc-300 hover:bg-[rgba(255,255,255,0.04)]",
                       )}
                     >
-                      <Icon className="h-4 w-4 shrink-0 text-zinc-500" />
+                      <span className="opai-chat-mobile-avatar flex shrink-0 items-center justify-center bg-teal-500/80 text-sm font-black text-zinc-950">
+                        {ch.channelType === "DIRECT" ? name.charAt(0).toUpperCase() : <Icon className="h-4 w-4" />}
+                      </span>
                       <div className="flex-1 min-w-0">
                         <p
                           className={cn(
-                            "text-sm truncate",
+                            "text-[15px] truncate",
                             unread > 0 && "font-semibold",
                           )}
                         >
                           {name}
                         </p>
                         {ch.lastMessagePreview && (
-                          <p className="text-xs text-zinc-500 truncate">
+                          <p className="mt-0.5 text-[12px] leading-5 text-zinc-500 truncate">
                             {ch.lastMessagePreview}
                           </p>
                         )}

@@ -122,11 +122,19 @@ export type PusherMessageEditedEvent = {
 
 export type PusherMessageDeletedEvent = {
   id: string;
+  channelId?: string;
+  lastMessagePreview?: string | null;
+  lastMessageAt?: string | null;
+  messageCount?: number;
 };
 
 export type PusherMessagesClearedEvent = {
+  channelId?: string;
   clearedBy: string;
   count: number;
+  lastMessagePreview?: string | null;
+  lastMessageAt?: string | null;
+  messageCount?: number;
 };
 
 export type PusherReactionEvent = {

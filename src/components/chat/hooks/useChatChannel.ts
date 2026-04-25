@@ -8,10 +8,12 @@ import type {
   PusherNewMessageEvent,
   PusherMessageEditedEvent,
   PusherMessageDeletedEvent,
+  PusherMessagesClearedEvent,
   PusherReactionEvent,
   PusherTypingEvent,
   ChatSenderType,
 } from "@/lib/chat-types";
+import type { ChatChannelSummaryPatch } from "../lib/chat-state";
 
 export type PresenceMember = {
   id: string;
@@ -29,6 +31,10 @@ type UseChatChannelReturn = {
   addReaction: (messageId: string, emoji: string, sender: { id: string; name: string; type: ChatSenderType }) => void;
   removeReaction: (messageId: string, emoji: string, senderId: string) => void;
   clearMessages: () => void;
+  deletedMessageIds: Set<string>;
+  editedMessages: Record<string, { content: string }>;
+  clearRevision: number;
+  channelSummaryPatch: ChatChannelSummaryPatch | null;
 };
 
 /**
@@ -42,6 +48,10 @@ export function useChatChannel(
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [members, setMembers] = useState<PresenceMember[]>([]);
   const [typingUsers, setTypingUsers] = useState<{ userId: string; userName: string }[]>([]);
+  const [deletedMessageIds, setDeletedMessageIds] = useState<Set<string>>(new Set());
+  const [editedMessages, setEditedMessages] = useState<Record<string, { content: string }>>({});
+  const [clearRevision, setClearRevision] = useState(0);
+  const [channelSummaryPatch, setChannelSummaryPatch] = useState<ChatChannelSummaryPatch | null>(null);
   const typingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const channelRef = useRef<Channel | null>(null);
 
@@ -59,10 +69,17 @@ export function useChatChannel(
     setMessages((prev) =>
       prev.map((m) => (m.id === id ? { ...m, content, isEdited: true } : m))
     );
+    setEditedMessages((prev) => ({ ...prev, [id]: { content } }));
   }, []);
 
   const deleteMessage = useCallback((id: string) => {
     setMessages((prev) => prev.filter((m) => m.id !== id));
+    setDeletedMessageIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
   }, []);
 
   const addReaction = useCallback(
@@ -99,6 +116,7 @@ export function useChatChannel(
 
   const clearMessages = useCallback(() => {
     setMessages([]);
+    setClearRevision((revision) => revision + 1);
   }, []);
 
   const removeReaction = useCallback((messageId: string, emoji: string, senderId: string) => {
@@ -178,6 +196,14 @@ export function useChatChannel(
 
     channel.bind("message-deleted", (data: PusherMessageDeletedEvent) => {
       deleteMessage(data.id);
+      if (data.channelId) {
+        setChannelSummaryPatch({
+          channelId: data.channelId,
+          lastMessagePreview: data.lastMessagePreview ?? null,
+          lastMessageAt: data.lastMessageAt ?? null,
+          messageCount: data.messageCount,
+        });
+      }
     });
 
     channel.bind("reaction-added", (data: PusherReactionEvent) => {
@@ -188,8 +214,17 @@ export function useChatChannel(
       });
     });
 
-    channel.bind("messages-cleared", () => {
+    channel.bind("messages-cleared", (data: PusherMessagesClearedEvent) => {
       clearMessages();
+      setDeletedMessageIds(new Set());
+      if (data?.channelId) {
+        setChannelSummaryPatch({
+          channelId: data.channelId,
+          lastMessagePreview: data.lastMessagePreview ?? null,
+          lastMessageAt: data.lastMessageAt ?? null,
+          messageCount: data.messageCount,
+        });
+      }
     });
 
     channel.bind("reaction-removed", (data: PusherReactionEvent) => {
@@ -216,6 +251,10 @@ export function useChatChannel(
       setMessages([]);
       setMembers([]);
       setTypingUsers([]);
+      setDeletedMessageIds(new Set());
+      setEditedMessages({});
+      setClearRevision(0);
+      setChannelSummaryPatch(null);
       // Clear all typing timers
       typingTimersRef.current.forEach((timer) => clearTimeout(timer));
       typingTimersRef.current.clear();
@@ -232,5 +271,9 @@ export function useChatChannel(
     addReaction,
     removeReaction,
     clearMessages,
+    deletedMessageIds,
+    editedMessages,
+    clearRevision,
+    channelSummaryPatch,
   };
 }

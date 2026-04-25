@@ -69,6 +69,22 @@ function cacheSet(channelId: string, entry: CacheEntry) {
   }
 }
 
+function cacheUpdateMessages(
+  channelId: string,
+  updater: (messages: ChatMessageData[]) => ChatMessageData[],
+) {
+  const entry = messageCache.get(channelId);
+  if (!entry) return;
+  cacheSet(channelId, {
+    ...entry,
+    messages: updater(entry.messages),
+  });
+}
+
+export function clearChatMessageCache(channelId: string) {
+  messageCache.delete(channelId);
+}
+
 /**
  * Hook that fetches messages from the API with cursor-based pagination,
  * and provides methods to send, edit, and delete messages.
@@ -176,23 +192,24 @@ export function useChatMessages(
           mentionDisplayMapRef.current = newMap;
           setMessages((prev) => {
             // When loading older messages (cursor), prepend. Otherwise, replace.
+            let nextMessages: ChatMessageData[];
             if (cursor) {
               const existingIds = new Set(prev.map((m) => m.id));
               const newMessages = sorted.filter((m) => !existingIds.has(m.id));
-              return [...newMessages, ...prev];
+              nextMessages = [...newMessages, ...prev];
+            } else {
+              nextMessages = sorted;
             }
-            return sorted;
+            cacheSet(channelId, {
+              messages: nextMessages,
+              cursor: json.meta.nextCursor,
+              hasMore: json.meta.hasMore,
+              mentionDisplayMap: newMap,
+            });
+            return nextMessages;
           });
           setHasMore(json.meta.hasMore);
           cursorRef.current = json.meta.nextCursor;
-
-          // Update cache with fresh data
-          cacheSet(channelId, {
-            messages: sorted,
-            cursor: json.meta.nextCursor,
-            hasMore: json.meta.hasMore,
-            mentionDisplayMap: newMap,
-          });
         }
       } catch (err) {
         console.error("[useChatMessages] fetchMessages error:", err);
@@ -320,6 +337,9 @@ export function useChatMessages(
       setMessages((prev) =>
         prev.map((m) => (m.id === messageId ? { ...m, content, isEdited: true } : m))
       );
+      cacheUpdateMessages(channelId, (cached) =>
+        cached.map((m) => (m.id === messageId ? { ...m, content, isEdited: true } : m))
+      );
 
       try {
         const res = await fetch(
@@ -347,6 +367,7 @@ export function useChatMessages(
       // Optimistic removal
       const removed = messages.find((m) => m.id === messageId);
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      cacheUpdateMessages(channelId, (cached) => cached.filter((m) => m.id !== messageId));
 
       try {
         const res = await fetch(
@@ -358,12 +379,18 @@ export function useChatMessages(
           setMessages((prev) => [...prev, removed].sort(
             (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
           ));
+          cacheUpdateMessages(channelId, (cached) => [...cached, removed].sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          ));
         }
         return res.ok;
       } catch (err) {
         console.error("[useChatMessages] deleteMessage error:", err);
         if (removed) {
           setMessages((prev) => [...prev, removed].sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          ));
+          cacheUpdateMessages(channelId, (cached) => [...cached, removed].sort(
             (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
           ));
         }

@@ -282,7 +282,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   const channelListContent = (
     <>
       {/* Search bar */}
-      <div className="px-3 pt-2 border-b border-[rgba(255,255,255,0.04)] shrink-0">
+      <div className="px-3 pt-2 border-b border-[rgba(255,255,255,0.04)] shrink-0 opai-chat-mobile-list-chrome">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
           <input
@@ -290,7 +290,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             placeholder="Buscar conversación..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-[rgba(255,255,255,0.06)] bg-muted/40 placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-teal-600/50 focus:border-teal-600/50"
+            className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-[rgba(255,255,255,0.06)] bg-muted/40 placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-teal-600/50 focus:border-teal-600/50 opai-chat-mobile-search"
           />
         </div>
         {/* Filtros + Marcar todos leídos */}
@@ -300,7 +300,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               type="button"
               onClick={() => setFilter("all")}
               className={cn(
-                "rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors",
+                "rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors opai-chat-mobile-pill",
                 filter === "all"
                   ? "bg-teal-600 text-white"
                   : "bg-muted/50 text-muted-foreground hover:bg-muted"
@@ -312,7 +312,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               type="button"
               onClick={() => setFilter("unread")}
               className={cn(
-                "rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors",
+                "rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors opai-chat-mobile-pill",
                 filter === "unread"
                   ? "bg-teal-600 text-white"
                   : "bg-muted/50 text-muted-foreground hover:bg-muted"
@@ -516,7 +516,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
          ══════════════════════════════════════════════ */}
       {ctx.isPanelOpen && (
         <div
-          className="hidden lg:block fixed inset-0 z-30"
+          className="hidden xl:block fixed inset-0 z-30"
           onClick={ctx.closePanel}
           aria-hidden="true"
         />
@@ -530,7 +530,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           {/* Mobile backdrop */}
           <div
             className={cn(
-              "fixed inset-0 z-50 bg-black/40 lg:hidden transition-opacity duration-300",
+              "fixed inset-0 z-50 bg-black/40 xl:hidden transition-opacity duration-300",
               panelEntered && !panelClosing ? "opacity-100" : "opacity-0"
             )}
             onClick={handleClosePanel}
@@ -538,7 +538,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           />
           <div
             className={cn(
-              "fixed z-50 lg:hidden flex flex-col bg-[#0a0e17] transition-transform duration-300 ease-out",
+              "fixed z-50 xl:hidden flex flex-col bg-[#0a0e17] opai-chat-mobile-shell opai-ios-surface-sheet-side transition-transform duration-300 ease-out",
               panelEntered && !panelClosing ? "translate-x-0" : "translate-x-full"
             )}
             style={{
@@ -553,11 +553,11 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             role="dialog"
             aria-label="Panel de chat"
           >
-            {/* Mobile header (channel list only — conversation has its own via ChatPresenceBar) */}
+            {/* Mobile/tablet header (channel list only — conversation has its own via ChatPresenceBar) */}
             {!selectedChannel && (
               <div
                 className={cn(
-                  "shrink-0 flex flex-col border-b border-[rgba(255,255,255,0.06)]",
+                  "shrink-0 flex flex-col border-b border-[rgba(255,255,255,0.06)] opai-chat-mobile-topbar",
                   isIOS ? "bg-transparent" : "bg-[#0d1220]",
                 )}
                 {...swipeClose}
@@ -581,7 +581,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             <div className="relative flex-1 min-h-0 overflow-hidden">
               {/* Channel list layer */}
               <div className={cn(
-                "absolute inset-0 flex flex-col",
+                "absolute inset-0 flex flex-col opai-chat-mobile-shell",
                 isIOS ? "bg-transparent" : "bg-[#0a0e17]",
                 selectedChannel ? "hidden" : "flex"
               )}>
@@ -591,7 +591,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               {/* Conversation layer (slides in from right) — swipe right para volver */}
               <div
                 className={cn(
-                  "absolute inset-0 flex flex-col",
+                  "absolute inset-0 flex flex-col opai-chat-mobile-shell",
                   isIOS ? "bg-transparent" : "bg-[#0a0e17]",
                   selectedChannel ? "translate-x-0" : "translate-x-full",
                   swipeBack.translateX != null ? "" : "transition-transform duration-[250ms] ease-out"
@@ -614,6 +614,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                     userRole={userRole}
                     onClose={handleClosePanel}
                     onSwipeDownToClose={handleClosePanel}
+                    onChannelSummaryChanged={ctx.updateChannelSummary}
                   />
                 )}
               </div>
@@ -627,7 +628,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
          ══════════════════════════════════════════════ */}
       <div
         className={cn(
-          "hidden lg:flex fixed top-0 right-0 h-full w-[400px] z-40 flex-col",
+          "hidden xl:flex fixed top-0 right-0 h-full w-[400px] z-40 flex-col",
           isIOS
             ? "opai-ios-surface-sheet-side"
             : "bg-[#0a0e17] border-l border-[rgba(255,255,255,0.08)] shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]",
@@ -648,6 +649,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               autoContextPrefix={getAutoContextPrefix}
               currentUserId={ctx.currentUserId}
               userRole={userRole}
+              onChannelSummaryChanged={ctx.updateChannelSummary}
             />
           </div>
         ) : (
@@ -1301,11 +1303,11 @@ function ChannelListItem({
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left"
+      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-all duration-150 text-left opai-chat-mobile-channel-row"
     >
       {/* Avatar */}
       <div
-        className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
+        className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold opai-chat-mobile-avatar"
         style={avatarStyle}
       >
         {initial}
@@ -1313,7 +1315,7 @@ function ChannelListItem({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm font-medium truncate">{displayName}</span>
+          <span className="text-sm font-medium truncate md:text-[15px]">{displayName}</span>
           {channel.notificationPreference === "MENTIONS_ONLY" && (
             <AtSign className="h-3 w-3 shrink-0 text-muted-foreground/50" />
           )}

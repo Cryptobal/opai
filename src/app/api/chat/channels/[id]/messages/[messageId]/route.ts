@@ -276,7 +276,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // Soft delete + recompute channel summary in a single transaction so that
     // lastMessagePreview / lastMessageAt / messageCount stay consistent.
-    const { lastMessagePreview, lastMessageAt } = await prisma.$transaction(async (tx) => {
+    const { lastMessagePreview, lastMessageAt, messageCount } = await prisma.$transaction(async (tx) => {
       await tx.chatMessage.update({
         where: { id: messageId },
         data: {
@@ -300,16 +300,21 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         : null;
       const nextLastMessageAt = latest?.createdAt ?? null;
 
-      await tx.chatChannel.update({
+      const updatedChannel = await tx.chatChannel.update({
         where: { id: channelId },
         data: {
           lastMessagePreview: nextPreview,
           lastMessageAt: nextLastMessageAt,
           messageCount: { decrement: 1 },
         },
+        select: { messageCount: true },
       });
 
-      return { lastMessagePreview: nextPreview, lastMessageAt: nextLastMessageAt };
+      return {
+        lastMessagePreview: nextPreview,
+        lastMessageAt: nextLastMessageAt,
+        messageCount: updatedChannel.messageCount,
+      };
     });
 
     const eventData = {
@@ -317,6 +322,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       channelId,
       lastMessagePreview,
       lastMessageAt: lastMessageAt?.toISOString() ?? null,
+      messageCount,
     };
 
     // Trigger Pusher event (non-blocking)

@@ -8,6 +8,7 @@ import { ChatConversation } from "./ChatConversation";
 import { usePusher } from "./hooks/usePusher";
 import { useChatUnreadCounts } from "./hooks/useChatUnreadCounts";
 import { useSwipeGesture } from "./hooks/useSwipeGesture";
+import type { ChatChannelSummaryPatch } from "./lib/chat-state";
 
 interface ChatPageProps {
   currentUserId?: string;
@@ -27,6 +28,8 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
   const initialChannel = searchParams.get("channel");
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(initialChannel);
   const [selectedChannelName, setSelectedChannelName] = useState<string>("");
+  const [channelListRefreshSignal, setChannelListRefreshSignal] = useState(0);
+  const [channelSummaryPatch, setChannelSummaryPatch] = useState<ChatChannelSummaryPatch | null>(null);
   const pusher = usePusher("/api/chat/pusher/auth");
   const { channels: unreadChannels, refresh: refreshUnread, markChannelAsRead } = useChatUnreadCounts();
 
@@ -42,6 +45,7 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
     setSelectedChannelId(null);
     setSelectedChannelName("");
     refreshUnread();
+    setChannelListRefreshSignal((signal) => signal + 1);
   }, [refreshUnread]);
 
   const swipeBack = useSwipeGesture({
@@ -64,6 +68,8 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
           unreadCounts={unreadChannels}
           onSelectChannel={handleSelectChannel}
           userRole={userRole}
+          refreshSignal={channelListRefreshSignal}
+          channelSummaryPatch={channelSummaryPatch}
         />
       </div>
 
@@ -85,6 +91,7 @@ export function ChatPage({ currentUserId, userRole }: ChatPageProps) {
             currentUserId={currentUserId}
             userRole={userRole}
             onMarkAsRead={markChannelAsRead}
+            onChannelSummaryChanged={setChannelSummaryPatch}
           />
         ) : (
           <div className="flex flex-1 items-center justify-center text-[rgba(255,255,255,0.45)]">

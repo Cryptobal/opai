@@ -201,7 +201,8 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
     <div
       ref={messageRowRef}
       className={cn(
-        "group relative flex items-start hover:bg-[rgba(255,255,255,0.04)] px-4 transition-colors duration-100",
+        "group relative flex items-start hover:bg-[rgba(255,255,255,0.04)] px-4 transition-colors duration-100 opai-chat-mobile-message-row",
+        isOwn && "max-xl:justify-end",
         showHeader ? "pt-2 pb-0.5" : "py-0.5",
         message.sendStatus === "sending" && "opacity-70",
         message.sendStatus === "failed" && "bg-red-500/5"
@@ -228,7 +229,10 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
     >
       {/* Avatar or hover timestamp */}
       {showHeader ? (
-        <div className="w-9 h-9 shrink-0 mr-3 rounded-lg bg-zinc-700 flex items-center justify-center overflow-hidden">
+        <div className={cn(
+          "w-9 h-9 shrink-0 mr-3 rounded-lg bg-zinc-700 flex items-center justify-center overflow-hidden opai-chat-mobile-avatar",
+          isOwn && "max-xl:hidden"
+        )}>
           {message.senderAvatar ? (
             <img src={message.senderAvatar} alt={message.senderName} className="w-full h-full object-cover" />
           ) : (
@@ -236,21 +240,28 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
           )}
         </div>
       ) : (
-        <span className="w-9 shrink-0 mr-3 text-[11px] text-[rgba(255,255,255,0.28)] opacity-0 group-hover:opacity-100 transition-opacity text-right pt-0.5 select-none">
+        <span className={cn(
+          "w-9 shrink-0 mr-3 text-[11px] text-[rgba(255,255,255,0.28)] opacity-0 group-hover:opacity-100 transition-opacity text-right pt-0.5 select-none",
+          isOwn && "max-xl:hidden"
+        )}>
           {formatTime(message.createdAt)}
         </span>
       )}
 
       {/* Message body */}
-      <div className="flex-1 min-w-0">
+      <div className={cn("flex-1 min-w-0", isOwn && "max-xl:flex max-xl:flex-col max-xl:items-end")}>
         {/* Sender name + timestamp (only for first in group) */}
         {showHeader && (
-          <div className="flex items-baseline gap-2">
+          <div className={cn("flex items-baseline gap-2", isOwn && "max-xl:justify-end")}>
             <span className={cn("text-sm font-bold", senderColorClass)}>{message.senderName}</span>
             <span className="text-[11px] text-[rgba(255,255,255,0.28)]">{formatTime(message.createdAt)}</span>
           </div>
         )}
 
+        <div className={cn(
+          "opai-chat-mobile-bubble xl:max-w-none xl:rounded-none xl:border-0 xl:bg-transparent xl:p-0",
+          isOwn && "opai-chat-mobile-bubble-own"
+        )}>
         {/* Reply quote */}
         {message.replyTo && (
           <div className="border-l-2 border-zinc-600 pl-2 mb-1.5 py-0.5">
@@ -355,6 +366,7 @@ export function ChatMessage({ message, mentionDisplayMap, isOwn, isFirstInGroup,
             ✓✓
           </span>
         )}
+        </div>
 
         {/* Reactions */}
         {message.reactions.length > 0 && (

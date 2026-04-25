@@ -657,7 +657,7 @@ export function ChatInput({
   return (
     <div
       className={cn(
-        "px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-[#0d1220] pb-[env(safe-area-inset-bottom)] relative",
+        "px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-[#0d1220] opai-chat-mobile-input opai-ios-surface-sheet-bottom pb-[env(safe-area-inset-bottom)] relative",
         isDragging && "ring-2 ring-[#2dd4bf]/50 ring-inset"
       )}
       onDragEnter={handleDragEnter}
@@ -667,7 +667,7 @@ export function ChatInput({
     >
       {/* Reply banner */}
       {replyTo && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220]">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-[rgba(255,255,255,0.06)] bg-[#0d1220] opai-ios-surface-sheet-top">
           <div className="flex-1 min-w-0 border-l-2 border-blue-500 pl-2">
             <p className="text-xs font-medium text-blue-400">
               Respondiendo a {replyTo.senderName}
@@ -732,7 +732,7 @@ export function ChatInput({
       )}
 
       {/* Input area: [paperclip] [textarea] [emoji] [send] */}
-      <div className="flex items-end gap-1.5 bg-[#141a2a] rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] transition-colors px-3 py-1">
+      <div className="flex items-end gap-1.5 bg-[#141a2a] rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] transition-colors px-3 py-1 opai-chat-mobile-input-inner">
         {/* File upload */}
         <button
           type="button"
